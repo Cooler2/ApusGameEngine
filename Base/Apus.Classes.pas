@@ -48,6 +48,11 @@ var
 
 { TNamedObject }
 
+class function TNamedObject.UniqueName(name:string8):boolean;
+begin
+  result:=(name<>'') and not (name[1]='_');
+end;
+
 class function TNamedObject.FindByName(name:String8):TNamedObject;
 var
   hash:PObjectHash;
@@ -99,11 +104,6 @@ begin
     if newUn then hash.Put(self);
   end else
     fName:=name;
-end;
-
-class function TNamedObject.UniqueName(name:string8):boolean;
-begin
-  result:=(name<>'') and not (name[1]='_');
 end;
 
 class function TNamedObject.ClassHash:pointer;

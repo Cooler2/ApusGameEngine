@@ -445,25 +445,6 @@ begin
   result:=true;
 end;
 
-function TFrustum.IntersectsBox(const box:TBBox3):boolean;
-var
-  i: integer;
-  p: TVec3;
-begin
-  if box.IsEmpty then begin
-    exit(false);
-  end;
-
-  for i:=0 to planeCount - 1 do
-  begin
-    p:=SelectPositiveVertex(box, planes[i].a, planes[i].b, planes[i].c);
-    if planes[i].DistanceTo(p) < 0 then begin
-      exit(false);
-    end;
-  end;
-  result:=true;
-end;
-
 class function TFrustum.SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3;
 begin
   if nx>=0 then begin
@@ -481,6 +462,25 @@ begin
   end else begin
     result.z:=box.minZ;
   end;
+end;
+
+function TFrustum.IntersectsBox(const box:TBBox3):boolean;
+var
+  i: integer;
+  p: TVec3;
+begin
+  if box.IsEmpty then begin
+    exit(false);
+  end;
+
+  for i:=0 to planeCount - 1 do
+  begin
+    p:=SelectPositiveVertex(box, planes[i].a, planes[i].b, planes[i].c);
+    if planes[i].DistanceTo(p) < 0 then begin
+      exit(false);
+    end;
+  end;
+  result:=true;
 end;
 
 end.

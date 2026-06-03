@@ -522,6 +522,15 @@ begin
   end;
 end;
 
+function TLock.GetOwningThread:TThreadID;
+begin
+  {$IFDEF MSWINDOWS}
+  result:=crs.OwningThread;
+  {$ELSE}
+  result:=owningThread;
+  {$ENDIF}
+end;
+
 procedure TLock.Enter(callerAddr:pointer=nil);
 var
   threadID:TThreadID;
@@ -640,15 +649,6 @@ begin
 end;
 
 function TLock.GetSysOwner:TThreadID;
-begin
-  {$IFDEF MSWINDOWS}
-  result:=crs.OwningThread;
-  {$ELSE}
-  result:=owningThread;
-  {$ENDIF}
-end;
-
-function TLock.GetOwningThread:TThreadID;
 begin
   {$IFDEF MSWINDOWS}
   result:=crs.OwningThread;

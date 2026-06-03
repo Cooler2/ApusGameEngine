@@ -611,6 +611,81 @@ function Vec3d(v:TQuatd):TVec3d; overload; inline;
    result.w:=w;
   end;
 
+// moved forward so TMat callers can inline them (FPC requires body before call site)
+function TVec3.Length:single;
+ begin
+  result:=sqrt(x*x+y*y+z*z);
+ end;
+
+function TVec3.Length2:single;
+ begin
+  result:=x*x+y*y+z*z;
+ end;
+
+function TVec3.Dot(const p:TVec3):single;
+ begin
+  result:=x*p.x+y*p.y+z*p.z;
+ end;
+
+function TVec3.Cross(const p:TVec3):TVec3;
+ begin
+  result.x:=y*p.z-z*p.y;
+  result.y:=z*p.x-x*p.z;
+  result.z:=x*p.y-y*p.x;
+ end;
+
+function TVec3d.Length:double;
+ begin
+  result:=sqrt(x*x+y*y+z*z);
+ end;
+
+function TVec3d.Length2:double;
+ begin
+  result:=x*x+y*y+z*z;
+ end;
+
+function TVec3d.Dot(const p:TVec3d):double;
+ begin
+  result:=x*p.x+y*p.y+z*p.z;
+ end;
+
+function TVec3d.Cross(const p:TVec3d):TVec3d;
+ begin
+  result.x:=y*p.z-z*p.y;
+  result.y:=-(x*p.z-z*p.x);
+  result.z:=x*p.y-y*p.x;
+ end;
+
+function TVec4d.Dot(const p:TVec4d):double;
+begin
+  result:=x*p.x+y*p.y+z*p.z+w*p.w;
+end;
+
+function TVec4d.Length:double;
+begin
+  result:=Sqrt(Dot(self));
+end;
+
+function TVec4d.Length2:double;
+begin
+  result:=Dot(self);
+end;
+
+function TVec4.Dot(const p:TVec4):single;
+begin
+  result:=x*p.x+y*p.y+z*p.z+w*p.w;
+end;
+
+function TVec4.Length:single;
+begin
+  result:=Sqrt(Dot(self));
+end;
+
+function TVec4.Length2:single;
+begin
+  result:=Dot(self);
+end;
+
 function TMat4d.ToMat3:TMat3d;
 begin
   move(v[0],result.v[0],sizeof(result.v[0]));
@@ -2481,28 +2556,6 @@ procedure TVec3d.Normalize;
   z:=z*l;
  end;
 
-function TVec3d.Length:double;
- begin
-  result:=sqrt(x*x+y*y+z*z);
- end;
-
-function TVec3d.Length2:double;
- begin
-  result:=x*x+y*y+z*z;
- end;
-
-function TVec3d.Dot(const p:TVec3d):double;
- begin
-  result:=x*p.x+y*p.y+z*p.z;
- end;
-
-function TVec3d.Cross(const p:TVec3d):TVec3d;
- begin
-  result.x:=y*p.z-z*p.y;
-  result.y:=-(x*p.z-z*p.x);
-  result.z:=x*p.y-y*p.x;
- end;
-
 function TVec3d.Sub(const p:TVec3d):TVec3d;
  begin
   result.x:=x-p.x;
@@ -2614,28 +2667,6 @@ constructor TVec3.Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single);
 function TVec3.IsValid: boolean;
  begin
   result:=x=x;
- end;
-
-function TVec3.Length:single;
- begin
-  result:=sqrt(x*x+y*y+z*z);
- end;
-
-function TVec3.Length2:single;
- begin
-  result:=x*x+y*y+z*z;
- end;
-
-function TVec3.Dot(const p:TVec3):single;
- begin
-  result:=x*p.x+y*p.y+z*p.z;
- end;
-
-function TVec3.Cross(const p:TVec3):TVec3;
- begin
-  result.x:=y*p.z-z*p.y;
-  result.y:=z*p.x-x*p.z;
-  result.z:=x*p.y-y*p.x;
  end;
 
 function TVec3.Sub(const p:TVec3):TVec3;
@@ -2755,21 +2786,6 @@ begin
   end;
 end;
 
-function TVec4d.Dot(const p:TVec4d):double;
-begin
-  result:=x*p.x+y*p.y+z*p.z+w*p.w;
-end;
-
-function TVec4d.Length:double;
-begin
-  result:=Sqrt(Dot(self));
-end;
-
-function TVec4d.Length2:double;
-begin
-  result:=Dot(self);
-end;
-
 function TVec4d.IsValid:boolean;
 begin
   result:=(x=x) and (y=y) and (z=z) and (w=w);
@@ -2837,21 +2853,6 @@ begin
   if len<>0 then begin
     Mul(1/len);
   end;
-end;
-
-function TVec4.Dot(const p:TVec4):single;
-begin
-  result:=x*p.x+y*p.y+z*p.z+w*p.w;
-end;
-
-function TVec4.Length:single;
-begin
-  result:=Sqrt(Dot(self));
-end;
-
-function TVec4.Length2:single;
-begin
-  result:=Dot(self);
 end;
 
 function TVec4.IsValid:boolean;

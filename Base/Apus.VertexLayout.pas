@@ -359,15 +359,15 @@ procedure TVertex3D.SetPos(pos:TVec3);
   z:=pos.z;
  end;
 
-procedure TVertex3D.SetUV(uv:TVec2);
- begin
-  SetUV(uv.x,uv.y);
- end;
-
 procedure TVertex3D.SetUV(u,v:single);
  begin
   self.u:=u;
   self.v:=v;
+ end;
+
+procedure TVertex3D.SetUV(uv:TVec2);
+ begin
+  SetUV(uv.x,uv.y);
  end;
 
 class function TVertex3D.Layout(hasUV:boolean=true):TVertexLayout;

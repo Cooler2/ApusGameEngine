@@ -907,6 +907,11 @@ begin
   end;
 end;
 { TSimpleHash }
+function TSimpleHash.HashValue(const k:int64):integer;
+begin
+  result:=(k+(k shr 11)+(k shr 23)) and hMask;
+end;
+
 procedure TSimpleHash.Init(estimatedCount:integer);
 var
   i:integer;
@@ -1068,10 +1073,6 @@ begin
   lock:=0;
   for i:=0 to n-1 do
     Remove(toRemove[i]);
-end;
-function TSimpleHash.HashValue(const k:int64):integer;
-begin
-  result:=(k+(k shr 11)+(k shr 23)) and hMask;
 end;
 { TSimpleHashS }
 procedure TSimpleHashS.Init(estimatedCount:integer=256);

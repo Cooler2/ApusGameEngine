@@ -157,6 +157,13 @@ type
     procedure SetSize(f:TFileHandle; newSize:int64);
   end;
 
+{ TFileHandle }
+
+class function TFileHandle.Init(raw:pointer):TFileHandle;
+begin
+  result.value:=raw;
+end;
+
 { Helpers }
 
 function HandleToFile(h:THandle):TFileHandle; inline;
@@ -167,13 +174,6 @@ end;
 function FileToHandle(f:TFileHandle):THandle; inline;
 begin
   result:=THandle(f.value);
-end;
-
-{ TFileHandle }
-
-class function TFileHandle.Init(raw:pointer):TFileHandle;
-begin
-  result.value:=raw;
 end;
 
 function TFileHandle.Read(var buf; size:integer):integer;
