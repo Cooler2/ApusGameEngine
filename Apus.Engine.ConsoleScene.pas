@@ -24,14 +24,93 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses Classes, Types, Apus.EventMan, Apus.Lib,
+ uses Classes, Types, Apus.Core, Apus.EventMan, Apus.Lib, Apus.Log,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
-  Apus.Engine.CmdProc, Apus.Engine.Console;
+  Apus.Engine.CmdProc;
+
+ const
+  CON_BUFFER_SIZE=2048; // max console lines kept in memory
+  // Line colors: color = f(kind, level).
+  CON_COLOR_NORMAL:cardinal=$FFD0D0D0; // diagnostics, Normal/Info
+  CON_COLOR_WARN:cardinal  =$FFA0FFF0; // diagnostics, Warn
+  CON_COLOR_ERROR:cardinal =$FFFF6060; // diagnostics, Error/Fatal
+  CON_COLOR_CMD:cardinal   =$FFA0FFF0; // command result
+  CON_COLOR_CMDERR:cardinal=$FFFFD040; // command failed / eval error
+  CON_COLOR_ECHO:cardinal  =$FF80FF80; // user input echo
+
+ type
+  TConsoleLine=record
+   text:String8;
+   level:TSeverity;     // for diagnostics; command I/O uses kind for coloring
+   kind:TConsoleKind;   // Diag / Command / CmdError / Echo
+   stamp:TDateTime;     // capture time, for the timestamp toggle (F1)
+  end;
 
  var
-  LastMsgNum:cardinal;
   cmdList:TStringList;
   cmdPos:integer;
+  // Console line ring buffer. Written by any thread via the log mirror or command
+  // sink, read by the render thread in DrawContent — guarded by conLock.
+  conLock:TLock;
+  conBuf:array[0..CON_BUFFER_SIZE-1] of TConsoleLine;
+  conCount:integer;     // lines currently stored (<=CON_BUFFER_SIZE)
+  conHead:integer;      // index where the next line will be written
+  conTotal:int64;       // monotonic count of all lines ever added (auto-scroll trigger)
+  conCaptureLevel:TSeverity=TSeverity.Info; // tier-1: min severity captured from the log
+  lastShownTotal:int64; // last conTotal observed by DrawContent
+
+ // Append a line to the ring buffer (thread-safe).
+ procedure ConsoleAddLine(const text:String8;level:TSeverity;kind:TConsoleKind);
+  begin
+   conLock.Enter;
+   try
+    conBuf[conHead].text:=text;
+    conBuf[conHead].level:=level;
+    conBuf[conHead].kind:=kind;
+    conBuf[conHead].stamp:=CoreTime.Now;
+    conHead:=(conHead+1) mod CON_BUFFER_SIZE;
+    if conCount<CON_BUFFER_SIZE then inc(conCount);
+    inc(conTotal);
+   finally
+    conLock.Leave;
+   end;
+  end;
+
+ // Resolve a line color from its kind and severity.
+ function ConsoleColor(const line:TConsoleLine):cardinal;
+  begin
+   case line.kind of
+    TConsoleKind.Command:result:=CON_COLOR_CMD;
+    TConsoleKind.CmdError:result:=CON_COLOR_CMDERR;
+    TConsoleKind.Echo:result:=CON_COLOR_ECHO;
+    else begin // Diag
+     if line.level>=TSeverity.Error then result:=CON_COLOR_ERROR
+     else if line.level>=TSeverity.Warn then result:=CON_COLOR_WARN
+     else result:=CON_COLOR_NORMAL;
+    end;
+   end;
+  end;
+
+ // Log mirror: feeds engine diagnostics into the console buffer. Any thread.
+ procedure ConsoleLogHandler(msg:String8;category:byte;level:TSeverity);
+  begin
+   if level<conCaptureLevel then exit;    // tier-1 capture threshold (non-retrospective)
+   if category=CAT_CONSOLE_CMD then exit; // command I/O arrives via the command sink
+   ConsoleAddLine(msg,level,TConsoleKind.Diag);
+  end;
+
+ // Command output sink (assigned to CmdProc.OnOutput).
+ procedure ConsoleCmdOutput(const line:String8;kind:TConsoleKind);
+  var
+   level:TSeverity;
+  begin
+   case kind of
+    TConsoleKind.CmdError:level:=TSeverity.Error;
+    TConsoleKind.Echo:level:=TSeverity.Info;
+    else level:=TSeverity.Normal;
+   end;
+   ConsoleAddLine(line,level,kind);
+  end;
 
 procedure KbdHandler(event:TEventStr;tag:TTag);
 var
@@ -107,13 +186,15 @@ procedure AddConsoleScene;
  var
   i:integer;
  begin
-  SetupConsole(true,false,false,true,true,'game.log');
+  conLock.Init('Console');
   i:=wcTitleHeight;
   wcTitleHeight:=20;
   consoleScene:=TConsoleScene.Create;
   wcTitleHeight:=i;
   SetEventHandler('KBD\KeyDown',KbdHandler);
   cmdList:=TStringList.Create;
+  Logger.SetCustomHandler(@ConsoleLogHandler,false); // mirror the log into the console buffer
+  OnOutput:=@ConsoleCmdOutput;                       // receive command I/O directly
  end;
 
 procedure ConsoleOnEnter(event:TEventStr;tag:TTag);
@@ -130,7 +211,7 @@ begin
  end;
  cmdList.Add(e.text);
  cmdPos:=cmdList.Count;
- PutMsg(e.text,false,55000);
+ CmdOutput(e.text,TConsoleKind.Echo); // echo input: logs it and shows it in the console
  ExecCmd(e.text);
  e.text:='';
  e.cursorpos:=0;
@@ -139,15 +220,20 @@ end;
 procedure DrawContent(item:TUIImage);
 var
  r:TRect;
- i,n,cnt,ypos,msgClass,lineHeight,ll:integer;
- st:UTF8String;
+ i,cnt,ypos,lineHeight,ll,idx:integer;
+ total:int64;
  col,font:cardinal;
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
  lineHeight:=round(16*item.globalScale);
- // Write all text
- cnt:=GetMsgCount;
+ conLock.Enter;
+ try
+  cnt:=conCount;
+  total:=conTotal;
+ finally
+  conLock.Leave;
+ end;
  consoleScene.scroll.max:=cnt*lineHeight+lineHeight*0.6;
  consolescene.scroll.pagesize:=r.height;
  ll:=round(lineHeight*0.75);
@@ -159,26 +245,26 @@ begin
   consolescene.scroll.value:=scroll.Y;
  end;
 
- n:=GetLastMsgNum;
- if n<>LastMsgNum then begin
+ if total<>lastShownTotal then begin
   consoleScene.ScrollToEnd;
-  LastMsgNum:=n;
+  lastShownTotal:=total;
  end;
  ypos:=cnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
  font:=txt.GetFont('Default',7);
  txt.BeginBlock;
- for i:=1 to cnt do begin
-  dec(n); dec(ypos,lineHeight);
-  if (ypos<-lineHeight) or (ypos>=r.height+8) then continue;
-  st:=GetSavedMsg(n+1,msgClass);
-  case msgClass of
-   -1:col:=$FFFF6060;
-   55000:col:=$FF80FF80;
-   41001:col:=$FFFFD040;
-   41000:col:=$FFA0FFF0;
-   else col:=$FFD0D0D0;
+ conLock.Enter;
+ try
+  // Iterate newest-to-oldest; newest line sits at the bottom of the view.
+  for i:=0 to cnt-1 do begin
+   dec(ypos,lineHeight);
+   if (ypos<-lineHeight) or (ypos>=r.height+8) then continue;
+   idx:=conHead-1-i;
+   while idx<0 do inc(idx,CON_BUFFER_SIZE);
+   col:=ConsoleColor(conBuf[idx]);
+   txt.Write(font,r.left+2,r.top+yPos,col,conBuf[idx].text);
   end;
-  txt.Write(font,r.left+2,r.top+yPos,col,st);
+ finally
+  conLock.Leave;
  end;
  txt.EndBlock;
  gfx.clip.Restore;
@@ -245,10 +331,12 @@ end;
 
 procedure TConsoleScene.ScrollToEnd;
 var
- lineHeight:integer;
+ lineHeight,cnt:integer;
 begin
  lineHeight:=round(16*img.globalScale);
- img.scroll.Y:=GetMsgCount*lineHeight-round(img.size.y-12);
+ conLock.Enter;
+ try cnt:=conCount; finally conLock.Leave; end;
+ img.scroll.Y:=cnt*lineHeight-round(img.size.y-12);
 end;
 
 procedure TConsoleScene.SetStatus(status: TSceneStatus);
