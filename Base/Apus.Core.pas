@@ -559,6 +559,24 @@ begin
   result:=result+'] ';
 end;
 
+class function Atomic.Exchange(var target:longint; value:longint):longint;
+begin
+ {$IF Declared(AtomicExchange)}
+ result:=AtomicExchange(target,value);
+ {$ELSE}
+ result:=InterlockedExchange(target,value);
+ {$ENDIF}
+end;
+
+class function Atomic.CmpExchange(var target:longint; newValue,comparand:longint):longint;
+begin
+ {$IF Declared(AtomicCmpExchange)}
+ result:=AtomicCmpExchange(target,newValue,comparand);
+ {$ELSE}
+ result:=InterlockedCompareExchange(target,newValue,comparand);
+ {$ENDIF}
+end;
+
 procedure SpinLock(var lock:integer);
 begin
   while Atomic.CmpExchange(lock,1,0)<>0 do Time.Sleep(0);
@@ -630,24 +648,6 @@ begin
   old:=target;
  until CmpExchange(target,old-value,old)=old;
  result:=old-value;
-end;
-
-class function Atomic.Exchange(var target:longint; value:longint):longint;
-begin
- {$IF Declared(AtomicExchange)}
- result:=AtomicExchange(target,value);
- {$ELSE}
- result:=InterlockedExchange(target,value);
- {$ENDIF}
-end;
-
-class function Atomic.CmpExchange(var target:longint; newValue,comparand:longint):longint;
-begin
- {$IF Declared(AtomicCmpExchange)}
- result:=AtomicCmpExchange(target,newValue,comparand);
- {$ELSE}
- result:=InterlockedCompareExchange(target,newValue,comparand);
- {$ENDIF}
 end;
 
 {$IFDEF UNIX}
@@ -925,6 +925,13 @@ begin
   if c>result then result:=c;
 end;
 
+procedure Swap(var a,b:single);
+var
+  c:single;
+begin
+  c:=a; a:=b; b:=c;
+end;
+
 function Ratio(a,b:single):single;
 begin
   if a<0 then a:=-a;
@@ -1042,13 +1049,6 @@ end;
 procedure Swap(var a,b:integer);
 var
   c:integer;
-begin
-  c:=a; a:=b; b:=c;
-end;
-
-procedure Swap(var a,b:single);
-var
-  c:single;
 begin
   c:=a; a:=b; b:=c;
 end;

@@ -220,6 +220,110 @@ interface
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
 
+function TVec2d.Length:double;
+ begin
+  result:=sqrt(x*x+y*y);
+ end;
+
+function TVec2d.Length2:double;
+ begin
+  result:=x*x+y*y;
+ end;
+
+function TVec2d.Dot(const p:TVec2d):double;
+ begin
+  result:=x*p.x+y*p.y;
+ end;
+
+function TVec2d.Cross(const p:TVec2d):double;
+ begin
+  result:=x*p.y-y*p.x;
+ end;
+
+function TVec2d.Sub(const p:TVec2d):TVec2d;
+ begin
+  result.x:=x-p.x;
+  result.y:=y-p.y;
+ end;
+
+function TVec2d.Turn90R:TVec2d;
+ begin
+  result.x:=y;
+  result.y:=-x;
+ end;
+
+function TVec2d.Turn90L:TVec2d;
+ begin
+  result.x:=-y;
+  result.y:=x;
+ end;
+
+procedure TVec2d.Normalize;
+ var
+  l:double;
+ begin
+  l:=Length;
+  if l=0 then begin
+   x:=NaN;
+   y:=NaN;
+   exit;
+  end;
+  x:=x/l;
+  y:=y/l;
+ end;
+
+function TVec2.Length:single;
+ begin
+  result:=sqrt(x*x+y*y);
+ end;
+
+function TVec2.Length2:single;
+ begin
+  result:=x*x+y*y;
+ end;
+
+function TVec2.Dot(const p:TVec2):single;
+ begin
+  result:=x*p.x+y*p.y;
+ end;
+
+function TVec2.Cross(const p:TVec2):single;
+ begin
+  result:=x*p.y-y*p.x;
+ end;
+
+function TVec2.Sub(const p:TVec2):TVec2;
+ begin
+  result.x:=x-p.x;
+  result.y:=y-p.y;
+ end;
+
+function TVec2.Turn90R:TVec2;
+ begin
+  result.x:=y;
+  result.y:=-x;
+ end;
+
+function TVec2.Turn90L:TVec2;
+ begin
+  result.x:=-y;
+  result.y:=x;
+ end;
+
+procedure TVec2.Normalize;
+ var
+  l:single;
+ begin
+  l:=Length;
+  if l=0 then begin
+   x:=NaN;
+   y:=NaN;
+   exit;
+  end;
+  x:=x/l;
+  y:=y/l;
+ end;
+
 function TVec2d.Direction:double;
 begin
   result:=ArcTan2(y,x);
@@ -832,14 +936,14 @@ function TRect2.Width:single;
    result:=x2-x1;
   end;
 
-function TRect2.Contains(const p:TPoint):boolean;
- begin
-  result:=Contains(p.x,p.y);
- end;
-
 function TRect2.Contains(x,y:single):boolean;
  begin
   result:=(x>=x1) and (y>=y1) and (x<x2) and (y<y2);
+ end;
+
+function TRect2.Contains(const p:TPoint):boolean;
+ begin
+  result:=Contains(p.x,p.y);
  end;
 
  procedure TRect2.Init;
@@ -910,50 +1014,10 @@ procedure TVec2d.Wrap(max:double);
   y:=Apus.Core.Wrap(y,max);
  end;
 
-procedure TVec2d.Normalize;
- var
-  l:double;
- begin
-  l:=Length;
-  if l=0 then begin
-   x:=NaN;
-   y:=NaN;
-   exit;
-  end;
-  x:=x/l;
-  y:=y/l;
- end;
-
 function TVec2d.GetRound:TPoint;
  begin
   result.x:=round(x);
   result.y:=round(y);
- end;
-
-function TVec2d.Dot(const p:TVec2d):double;
- begin
-  result:=x*p.x+y*p.y;
- end;
-
-function TVec2d.Cross(const p:TVec2d):double;
- begin
-  result:=x*p.y-y*p.x;
- end;
-
-function TVec2d.Length:double;
- begin
-  result:=sqrt(x*x+y*y);
- end;
-
-function TVec2d.Length2:double;
- begin
-  result:=x*x+y*y;
- end;
-
-function TVec2d.Sub(const p:TVec2d):TVec2d;
- begin
-  result.x:=x-p.x;
-  result.y:=y-p.y;
  end;
 
 function TVec2d.Distance2(const p:TVec2d):double;
@@ -969,18 +1033,6 @@ procedure TVec2d.Turn(angle:double);
   ny:=x*sin(angle)+y*cos(angle);
   x:=nx;
   y:=ny;
- end;
-
-function TVec2d.Turn90R:TVec2d;
- begin
-  result.x:=y;
-  result.y:=-x;
- end;
-
-function TVec2d.Turn90L:TVec2d;
- begin
-  result.x:=-y;
-  result.y:=x;
  end;
 
 procedure TVec2d.Add(const p:TVec2d);
@@ -1063,46 +1115,6 @@ function TVec2.IsValid:boolean;
   result:=not IsNan(x);
  end;
 
-procedure TVec2.Normalize;
- var
-  l:single;
- begin
-  l:=Length;
-  if l=0 then begin
-   x:=NaN;
-   y:=NaN;
-   exit;
-  end;
-  x:=x/l;
-  y:=y/l;
- end;
-
-function TVec2.Dot(const p:TVec2):single;
- begin
-  result:=x*p.x+y*p.y;
- end;
-
-function TVec2.Cross(const p:TVec2):single;
- begin
-  result:=x*p.y-y*p.x;
- end;
-
-function TVec2.Length:single;
- begin
-  result:=sqrt(x*x+y*y);
- end;
-
-function TVec2.Length2:single;
- begin
-  result:=x*x+y*y;
- end;
-
-function TVec2.Sub(const p:TVec2):TVec2;
- begin
-  result.x:=x-p.x;
-  result.y:=y-p.y;
- end;
-
 function TVec2.Distance2(const p:TVec2):single;
  var
   dx,dy:single;
@@ -1183,18 +1195,6 @@ procedure TVec2.Multiply(value:single);
  begin
   x:=x*value;
   y:=y*value;
- end;
-
-function TVec2.Turn90R:TVec2;
- begin
-  result.x:=y;
-  result.y:=-x;
- end;
-
-function TVec2.Turn90L:TVec2;
- begin
-  result.x:=-y;
-  result.y:=x;
  end;
 
 { TSegment2 }
