@@ -24,7 +24,7 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses SysUtils, Classes, Types, Apus.Core, Apus.EventMan, Apus.Lib, Apus.Log,
+ uses SysUtils, Classes, Types, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Lib, Apus.Log,
   Apus.Clipboard,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc;
@@ -109,6 +109,55 @@ implementation
  procedure ClearCmd(cmd:string8);
   begin
    ConsoleClear;
+  end;
+
+ function SeverityName(sev:TSeverity):String8;
+  begin
+   case sev of
+    TSeverity.Debug:result:='debug';
+    TSeverity.Info:result:='info';
+    TSeverity.Normal:result:='normal';
+    TSeverity.Forced:result:='forced';
+    TSeverity.Warn:result:='warn';
+    TSeverity.Error:result:='error';
+    TSeverity.Fatal:result:='fatal';
+    else result:='?';
+   end;
+  end;
+
+ function ParseSeverity(const s:String8;out sev:TSeverity):boolean;
+  begin
+   result:=true;
+   if s='debug' then sev:=TSeverity.Debug
+   else if s='info' then sev:=TSeverity.Info
+   else if s='normal' then sev:=TSeverity.Normal
+   else if s='forced' then sev:=TSeverity.Forced
+   else if (s='warn') or (s='warning') then sev:=TSeverity.Warn
+   else if s='error' then sev:=TSeverity.Error
+   else if s='fatal' then sev:=TSeverity.Fatal
+   else result:=false;
+  end;
+
+ // F5: `loglevel [sev]` reads or sets the tier-1 capture threshold (non-retrospective:
+ // controls which new log lines enter the bounded ring; does not re-filter old ones).
+ procedure LogLevelCmd(cmd:string8);
+  var
+   arg:String8;
+   p:integer;
+   sev:TSeverity;
+  begin
+   arg:=cmd;
+   p:=pos(' ',arg);
+   if p=0 then arg:='' else delete(arg,1,p); // drop the operator word
+   arg:=arg.Trim.ToLower;
+   if arg='' then begin
+    CmdOutput('Console capture level: '+SeverityName(conCaptureLevel),TConsoleKind.Command);
+    exit;
+   end;
+   if not ParseSeverity(arg,sev) then
+    raise EWarning.Create('Unknown severity: '+arg+' (debug|info|normal|warn|error|fatal)');
+   conCaptureLevel:=sev;
+   CmdOutput('Console capture level set to '+SeverityName(sev),TConsoleKind.Command);
   end;
 
  // Resolve a line color from its kind and severity.
@@ -304,6 +353,7 @@ procedure AddConsoleScene;
   Logger.SetCustomHandler(@ConsoleLogHandler,false); // mirror the log into the console buffer
   OnOutput:=@ConsoleCmdOutput;                       // receive command I/O directly
   SetCmdFunc('CLEAR',opFirst,ClearCmd);              // `clear` flushes the console buffer
+  SetCmdFunc('LOGLEVEL',opFirst,LogLevelCmd);        // `loglevel [sev]` tier-1 capture threshold
  end;
 
 procedure ConsoleOnEnter(event:TEventStr;tag:TTag);
