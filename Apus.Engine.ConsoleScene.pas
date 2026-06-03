@@ -36,13 +36,19 @@ implementation
   CON_BUFFER_SIZE=2048; // max console lines kept in memory
   CON_LINE_HEIGHT=16;   // base rendered line height (px) before UI scale
   CON_TOOLBAR_H=18;     // view-control toolbar row height (px) at top of client area
-  // Line colors: color = f(kind, level).
-  CON_COLOR_NORMAL:cardinal=$FFD0D0D0; // diagnostics, Normal/Info
-  CON_COLOR_WARN:cardinal  =$FFA0FFF0; // diagnostics, Warn
-  CON_COLOR_ERROR:cardinal =$FFFF6060; // diagnostics, Error/Fatal
-  CON_COLOR_CMD:cardinal   =$FFA0FFF0; // command result
-  CON_COLOR_CMDERR:cardinal=$FFFFD040; // command failed / eval error
-  CON_COLOR_ECHO:cardinal  =$FF80FF80; // user input echo
+  // Line colors: color = f(kind, level). Two families by source:
+  //  - log/diagnostics: neutral->warm severity ramp (minor grey ... hot red);
+  //  - command I/O: cool/vivid (clearly not a log line).
+  CON_COLOR_DEBUG:cardinal =$FF6E7A8A; // diag Debug  - dim slate (least important)
+  CON_COLOR_INFO:cardinal  =$FF98A4B0; // diag Info   - muted grey-blue
+  CON_COLOR_NORMAL:cardinal=$FFCFD6DC; // diag Normal - neutral light grey (default)
+  CON_COLOR_FORCED:cardinal=$FFF2F2F2; // diag Forced - bright white (important, not a problem)
+  CON_COLOR_WARN:cardinal  =$FFF2C24E; // diag Warn   - amber
+  CON_COLOR_ERROR:cardinal =$FFFF6A4D; // diag Error  - red-orange
+  CON_COLOR_FATAL:cardinal =$FFFF3B30; // diag Fatal  - bright red (most important)
+  CON_COLOR_ECHO:cardinal  =$FF7CC4FF; // command echo (user input)  - sky blue
+  CON_COLOR_CMD:cardinal   =$FF86E8B0; // command result             - mint green
+  CON_COLOR_CMDERR:cardinal=$FFFFA53C; // command failed / eval error - orange
 
  type
   TConsoleLine=record
@@ -170,10 +176,16 @@ implementation
     TConsoleKind.Command:result:=CON_COLOR_CMD;
     TConsoleKind.CmdError:result:=CON_COLOR_CMDERR;
     TConsoleKind.Echo:result:=CON_COLOR_ECHO;
-    else begin // Diag
-     if line.level>=TSeverity.Error then result:=CON_COLOR_ERROR
-     else if line.level>=TSeverity.Warn then result:=CON_COLOR_WARN
-     else result:=CON_COLOR_NORMAL;
+    else begin // Diag - severity gradient
+     case line.level of
+      TSeverity.Debug:result:=CON_COLOR_DEBUG;
+      TSeverity.Info:result:=CON_COLOR_INFO;
+      TSeverity.Forced:result:=CON_COLOR_FORCED;
+      TSeverity.Warn:result:=CON_COLOR_WARN;
+      TSeverity.Error:result:=CON_COLOR_ERROR;
+      TSeverity.Fatal:result:=CON_COLOR_FATAL;
+      else result:=CON_COLOR_NORMAL; // Normal
+     end;
     end;
    end;
   end;
