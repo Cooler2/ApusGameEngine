@@ -83,6 +83,24 @@ implementation
    end;
   end;
 
+ // Flush the console ring buffer (the `clear` command). conTotal stays monotonic
+ // so the next added line still triggers auto-scroll.
+ procedure ConsoleClear;
+  begin
+   conLock.Enter;
+   try
+    conCount:=0;
+    conHead:=0;
+   finally
+    conLock.Leave;
+   end;
+  end;
+
+ procedure ClearCmd(cmd:string8);
+  begin
+   ConsoleClear;
+  end;
+
  // Resolve a line color from its kind and severity.
  function ConsoleColor(const line:TConsoleLine):cardinal;
   begin
@@ -195,6 +213,7 @@ procedure AddConsoleScene;
   cmdList:=TStringList.Create;
   Logger.SetCustomHandler(@ConsoleLogHandler,false); // mirror the log into the console buffer
   OnOutput:=@ConsoleCmdOutput;                       // receive command I/O directly
+  SetCmdFunc('CLEAR',opFirst,ClearCmd);              // `clear` flushes the console buffer
  end;
 
 procedure ConsoleOnEnter(event:TEventStr;tag:TTag);
