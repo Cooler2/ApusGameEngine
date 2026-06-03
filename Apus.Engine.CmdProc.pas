@@ -28,10 +28,22 @@ interface
   // Representation type
   TReprType=(rtDecimal,rtHex,rtBin);
 
+  {$SCOPEDENUMS ON}
+  // Kind of a console output line (drives color/filtering in the console UI)
+  TConsoleKind=(Diag,Command,CmdError,Echo);
+  {$SCOPEDENUMS OFF}
+  // Console output sink: a single command may emit 0..N lines from nested handlers,
+  // so output is pushed, not returned.
+  TCmdOutputProc=procedure(const line:String8;kind:TConsoleKind);
+
+ const
+  CAT_CONSOLE_CMD=200; // log category for command I/O; the console mirror filters it out
+
  var
   LastCmdError:string8; // error text when no handler can process the command
   curObj:pointer; // current object pointer
   curObjClass:TVarClassStruct; // current object class
+  OnOutput:TCmdOutputProc; // set by the console consumer; nil = no live console
 
  // Execute a single command line
  procedure ExecCmd(cmd:string8);
@@ -44,8 +56,13 @@ interface
  // Format integer in requested representation
  function RepresentInteger(n:integer;repr:TReprType):string8;
 
+ // Emit a line as command I/O: record it to the log (under CAT_CONSOLE_CMD) and
+ // push it to OnOutput so the live console can show it once (the console's log
+ // mirror skips CAT_CONSOLE_CMD to avoid double display).
+ procedure CmdOutput(const line:String8;kind:TConsoleKind);
+
 implementation
- uses SysUtils, Math, Apus.Lib, Apus.Strings, Apus.EventMan, Apus.Colors, Apus.Engine.Console,
+ uses SysUtils, Math, Apus.Lib, Apus.Strings, Apus.EventMan, Apus.Colors,
   Apus.Engine.RobotAPI,
   Apus.Files,
   Apus.Log;
@@ -100,6 +117,19 @@ implementation
    executers:=e;
   end;
 
+ procedure CmdOutput(const line:String8;kind:TConsoleKind);
+  var
+   level:TSeverity;
+  begin
+   case kind of
+    TConsoleKind.CmdError:level:=TSeverity.Error;
+    TConsoleKind.Echo:level:=TSeverity.Info;
+    else level:=TSeverity.Normal; // Command / Diag
+   end;
+   Log.Msg(line,CAT_CONSOLE_CMD,level); // record to the log file
+   if Assigned(OnOutput) then OnOutput(line,kind); // mirror to the live console
+  end;
+
  // Execute one already separated command.
  procedure ExecSingleCmd(cmd:string8);
   var
@@ -134,8 +164,8 @@ implementation
         location:=' in '+curFile+' line '+IntToStr(curLine)
        else
         location:='';
-       PutMsg('Command failed: '+cmd+location,false,41001);
-       PutMsg('  reason: '+ExceptionMsg(e),false,41001);
+       CmdOutput('Command failed: '+cmd+location,TConsoleKind.CmdError);
+       CmdOutput('  reason: '+ExceptionMsg(e),TConsoleKind.CmdError);
       end;
      end;
      exit;
@@ -145,11 +175,9 @@ implementation
    // Default action: evaluate the expression.
    try
 
-    PutMsg(EvalStr(cmd,nil,curObj,curObjClass),false,41000);
-{    if IsNAN(v) then PutMsg('Invalid expression - '+cmd,false,41001)
-     else PutMsg(FloatToStrF(v,ffGeneral,10,0),false,41000);}
+    CmdOutput(EvalStr(cmd,nil,curObj,curObjClass),TConsoleKind.Command);
    except
-    on e:exception do PutMsg('Evaluation error '+ExceptionMsg(e),false,41001)
+    on e:exception do CmdOutput('Evaluation error '+ExceptionMsg(e),TConsoleKind.CmdError)
    end;
   end;
 
@@ -177,7 +205,7 @@ implementation
     curFile:=ExtractFileName(fname);
     curLine:=1;
     for st in sa do begin
-     if echo then PutMsg(st,false,41000);
+     if echo then CmdOutput(st,TConsoleKind.Echo);
      ExecCmd(st);
      inc(curLine);
     end;
@@ -274,7 +302,7 @@ implementation
    if (cmd='self') and (curObj<>nil) then begin
     st:=curObjClass.GetValue(curObj);
     //st:=StringReplace(st,', ',','#13#10,[rfReplaceAll]);
-    PutMsg(curObjClass.ClassName+': '+st,false,41000);
+    CmdOutput(curObjClass.ClassName+': '+st,TConsoleKind.Command);
     exit;
    end;
    repr:=rtDecimal;
@@ -289,7 +317,7 @@ implementation
    end else
     st:='<undefined>';
 
-   PutMsg(st,false,41000);
+   CmdOutput(st,TConsoleKind.Command);
   end;
 
  // operator IF

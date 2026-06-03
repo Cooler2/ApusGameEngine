@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-24
+Last updated: 2026-06-03
 
 Language policy: this roadmap is maintained in English.
 
@@ -24,14 +24,14 @@ This file follows top-down planning:
 | R-05 | CSS-Like UI Style System | in-progress | ~75% | TStyleBlock, resolver, @refs, state blocks, patch, named catalog (TStyleCatalog), transitions (Tweenings), draw migration, StyleDemo, font/color/styleClass removed from TUIElement | Practical validation on real screens, resolver performance/caching, $varName support, visual regression tests |
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Working state merged; support track active with recent bugfixes, test expansion, and new benchmarks | Linux fixes/validation, full baseline delta pass, SSE optimization of top hot paths, remaining module migration (including SDL paths) |
-| R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
+| R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | Clip-threaded `FindElementAt` with `escapingOnly` mode for deep noParentClip descendants; `FindElementAt`/`FindAnyElementAt` unified as overloads. Verified on UI demo fixture (panel+popup and panel→mid→deep). Notes: `Work/reports/R-08_hittest_overlay_notes.md` | — |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
 | R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
-| R-16 | Console Modernization | planned | 0% | Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | Remove Console.pas, own log buffer in ConsoleScene, UX improvements (filter, timestamps, clear, clipboard) |
+| R-16 | Console Modernization | in-progress | ~70% | Console.pas dissolved (deleted); ConsoleScene owns the buffer fed by a log mirror + CmdProc `OnOutput` sink; DEBUG/ERROR→log bridge moved to engine init; UX: two-tier filter, timestamp toggle, `clear`, `loglevel`, Ctrl+C clipboard, DPI-scaled font, per-source color palette. Merged to master. Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | NOT closed — continues post-merge: scroll rework (sticky-bottom + ScrollToEnd unit fix), runtime polish. Related deferred-to-main bugs: build GUI mode, TUIWindow title-bar DPI, editbox Enter under SDL |
 
 ## 2) Strategic Directions
 

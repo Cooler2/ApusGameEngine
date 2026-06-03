@@ -254,7 +254,7 @@ implementation
  uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.Images, Apus.GfxFormats, Apus.Files,
    {$IFDEF MSWINDOWS}Apus.Clipboard,{$ENDIF}
    {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
-   Apus.Engine.API, Apus.Engine.Console, Apus.Engine.UIScene,
+   Apus.Engine.API, Apus.Engine.UIScene,
    Apus.Engine.UITypes, Apus.Engine.TextDraw;
 
 var
@@ -682,7 +682,7 @@ begin
     gfx.target.Clear($FF000000,z,s);
    end;
   except
-   on e:exception do CritMsg('RFrame1 '+ExceptionMsg(e));
+   on e:exception do CriticalError('RFrame1 '+ExceptionMsg(e));
   end;
   FLog('Eff');
   try
@@ -701,7 +701,7 @@ begin
      end;
     end;
   except
-   on e:exception do CritMsg('RFrame2 '+ExceptionMsg(e));
+   on e:exception do CriticalError('RFrame2 '+ExceptionMsg(e));
   end;
 
   // sort active scenes by Z order
@@ -722,7 +722,7 @@ begin
      inc(n);
     end;
   except
-   on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
+   on e:exception do CriticalError('RFrame3 '+ExceptionMsg(e));
   end;
   if n>0 then topmostScene:=sc[n]
    else topmostScene:=nil;
@@ -742,7 +742,7 @@ begin
    sc[i].InitGfx;
    sc[i].gfxInitialized:=true;
   except
-   on e:Exception do CritMsg('Scene '+sc[i].name+' InitGfx error: '+ExceptionMsg(e));
+   on e:Exception do CriticalError('Scene '+sc[i].name+' InitGfx error: '+ExceptionMsg(e));
   end;
 
   if IsTerminated then exit;
@@ -757,8 +757,8 @@ begin
   end;
  except
   on e:exception do begin
-   if sc[i] is TUIScene then CritMsg('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
-    else CritMsg('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
+   if sc[i] is TUIScene then CriticalError('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
+    else CriticalError('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
    halt;
   end;
  end;
@@ -810,7 +810,7 @@ begin
     sc[i].Render;
   except
    on e:Exception do
-    CritMsg('Window scene render error: '+ExceptionMsg(e));
+    CriticalError('Window scene render error: '+ExceptionMsg(e));
   end;
   if Assigned(drawOverlays) then drawOverlays;
  finally

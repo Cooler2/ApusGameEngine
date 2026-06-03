@@ -187,7 +187,7 @@ implementation
       Apus.Engine.Resources,
       {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
-      Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
+      Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
       Apus.Engine.Controller,
   Apus.Colors,
   Apus.Engine.RobotAPI,
@@ -411,7 +411,7 @@ begin
  params.VSync:=divider;
  if gfx.config.SetVSyncDivider(divider) then exit;
  if window.SetVSync(divider) then exit;
- PutMsg('Failed to set VSync: no method available');
+ Log.Warn('Failed to set VSync: no method available');
 end;
 
 procedure TGame.SetSettings(s: TGameSettings);
@@ -719,7 +719,7 @@ begin
 
  globalTintColor:=$FF808080;
  window.ProcessMessages;
- consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
+ allowCriticalPopup:=params.mode.displayMode<>dmSwitchResolution;
 
  AfterInitGraph;
 end;
@@ -1127,6 +1127,17 @@ begin
  TGame(game).onGamepadEvent(event,tag);
 end;
 
+// Mirror generic debug/error signals to the log (was Apus.Engine.Console)
+procedure DebugSignalEvent(event:TEventStr;tag:TTag);
+begin
+ Log.Msg('Evt: %s - %d',[event,tag]);
+end;
+
+procedure ErrorSignalEvent(event:TEventStr;tag:TTag);
+begin
+ Log.Error('Evt: %s - %d',[event,tag]);
+end;
+
 
 procedure TGame.Run;
 var
@@ -1148,6 +1159,8 @@ begin
  SetEventHandler('KBD\',GameKbdEvent,emInstant);
  SetEventHandler('JOYSTICK\',GameJoystickEvent,emInstant);
  SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
+ SetEventHandler('DEBUG',DebugSignalEvent,emInstant);
+ SetEventHandler('ERROR',ErrorSignalEvent,emInstant);
 
  for i:=1 to 400 do
   if not running then CoreTime.Sleep(50) else break;
@@ -1233,7 +1246,7 @@ begin
   try
    FrameLoop;
   except
-   on e:Exception do CritMsg(Format('Error in main loop: %s',[ExceptionMsg(e)]));
+   on e:Exception do CriticalError(Format('Error in main loop: %s',[ExceptionMsg(e)]));
   end;
   end else
  if event.Same('SETGLOBALTINTCOLOR') then globalTintColor:=tag
@@ -1849,7 +1862,7 @@ procedure TGame.RenderAndPresentFrame;
       RenderFrame;
       EndMeasure2(2);
      except
-      on E:Exception do CritMsg(Format('Error in renderframe: %s framelog: %s',[ExceptionMsg(e),window.frameLog]));
+      on E:Exception do CriticalError(Format('Error in renderframe: %s framelog: %s',[ExceptionMsg(e),window.frameLog]));
      end;
      if window.timings.phaseMetrics then renderUs:=round(Timer.Get(phaseTimer)*1000000);
     end;
@@ -1911,7 +1924,7 @@ procedure TGame.MainThreadLoop;
     try
      gameEx.FrameLoop;
     except
-     on e:Exception do CritMsg(Format('Error in main loop: %s',[ExceptionMsg(e)]));
+     on e:Exception do CriticalError(Format('Error in main loop: %s',[ExceptionMsg(e)]));
     end;
     if (window<>nil) and window.IsTerminated then
      break;
@@ -1936,7 +1949,7 @@ procedure TGame.MainThreadLoop;
   except
    on e:Exception do begin
      mainThreadErrorMsg:=ExceptionMsg(e);
-     CritMsg(Format('Global error: %s',[ExceptionMsg(e)]));
+     CriticalError(Format('Global error: %s',[ExceptionMsg(e)]));
     end;
   end;
 
@@ -1998,7 +2011,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
      ewCtx^.errorMsg:=ExceptionMsg(e);
      ewCtx^.startDone:=true;
      ewCtx:=nil; // startup context is no longer valid after reporting result
-      CritMsg(Format('Extra window startup error: %s',[ExceptionMsg(e)]));
+      CriticalError(Format('Extra window startup error: %s',[ExceptionMsg(e)]));
      if wnd<>nil then begin
       try
        wnd.DoneGraph;
@@ -2083,7 +2096,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    wnd.Close;
   except
    on e:Exception do
-    CritMsg(Format('Extra window error: %s',[ExceptionMsg(e)]));
+    CriticalError(Format('Extra window error: %s',[ExceptionMsg(e)]));
   end;
   if registered and (extraWindowCount>0) then Atomic.Dec(extraWindowCount);
   multiWindowMode:=(extraWindowCount>0);

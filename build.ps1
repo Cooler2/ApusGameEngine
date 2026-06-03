@@ -11,8 +11,9 @@ Set-Location $repoRoot
 
 function Get-Aliases {
   return @{
-    "simple"      = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL","SDL") }
-    "simpledemo"  = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL","SDL") }
+    "simple"         = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL","SDL") }
+    "simpledemo"     = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL","SDL") }
+    "simpledemo-win" = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL") }
   }
 }
 
