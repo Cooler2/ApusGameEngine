@@ -61,6 +61,7 @@ implementation
   conCaptureLevel:TSeverity=TSeverity.Info; // tier-1: min severity captured from the log
   lastShownTotal:int64; // last conTotal observed by DrawContent
   showTimestamps:boolean=false; // F1: prepend per-line capture time (toggled via toolbar)
+  filterGroup:TUIGroupBox;      // F2: display-filter radio group (0=All,1=Err,2=Warn,3=Cmd)
 
  // Rendered console line height in pixels at the given UI scale.
  function ConLineHeight(scale:single):integer;
@@ -121,6 +122,49 @@ implementation
      else if line.level>=TSeverity.Warn then result:=CON_COLOR_WARN
      else result:=CON_COLOR_NORMAL;
     end;
+   end;
+  end;
+
+ // Tier-2 display filter: is this line visible under the given filter index?
+ // 0=All, 1=Errors, 2=Warnings+, 3=Commands.
+ function ConsoleLineVisible(const line:TConsoleLine;filter:integer):boolean;
+  begin
+   case filter of
+    1:result:=((line.kind=TConsoleKind.Diag) and (line.level>=TSeverity.Error)) or
+              (line.kind=TConsoleKind.CmdError);
+    2:result:=((line.kind=TConsoleKind.Diag) and (line.level>=TSeverity.Warn)) or
+              (line.kind=TConsoleKind.CmdError);
+    3:result:=line.kind in [TConsoleKind.Command,TConsoleKind.CmdError,TConsoleKind.Echo];
+    else result:=true; // All
+   end;
+  end;
+
+ // Active display-filter index from the toolbar radio group (0=All if none/unset).
+ function CurrentFilter:integer;
+  begin
+   result:=0;
+   if filterGroup<>nil then begin
+    result:=TUIToggleButton.GetSwitchIndex(filterGroup);
+    if result<0 then result:=0;
+   end;
+  end;
+
+ // Count lines currently visible under the given filter (thread-safe).
+ function ConsoleVisibleCount(filter:integer):integer;
+  var
+   i,idx:integer;
+  begin
+   conLock.Enter;
+   try
+    if filter=0 then begin result:=conCount; exit; end;
+    result:=0;
+    for i:=0 to conCount-1 do begin
+     idx:=conHead-1-i;
+     while idx<0 do inc(idx,CON_BUFFER_SIZE);
+     if ConsoleLineVisible(conBuf[idx],filter) then inc(result);
+    end;
+   finally
+    conLock.Leave;
    end;
   end;
 
@@ -247,28 +291,38 @@ end;
 procedure DrawContent(item:TUIImage);
 var
  r:TRect;
- i,cnt,ypos,lineHeight,ll,idx:integer;
+ i,cnt,vcnt,ypos,lineHeight,ll,idx,filter:integer;
  total:int64;
  col,font:cardinal;
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
  lineHeight:=ConLineHeight(item.globalScale);
+ filter:=CurrentFilter;
  conLock.Enter;
  try
   cnt:=conCount;
   total:=conTotal;
+  if filter=0 then vcnt:=cnt
+  else begin
+   vcnt:=0; // only visible lines occupy rows / drive the scroll range
+   for i:=0 to cnt-1 do begin
+    idx:=conHead-1-i;
+    while idx<0 do inc(idx,CON_BUFFER_SIZE);
+    if ConsoleLineVisible(conBuf[idx],filter) then inc(vcnt);
+   end;
+  end;
  finally
   conLock.Leave;
  end;
- consoleScene.scroll.max:=cnt*lineHeight+lineHeight*0.6;
+ consoleScene.scroll.max:=vcnt*lineHeight+lineHeight*0.6;
  consolescene.scroll.pagesize:=r.height;
  ll:=round(lineHeight*0.75);
  with item do begin
-  if cnt*lineHeight-scroll.Y<r.height-ll then
-   scroll.Y:=cnt*lineHeight-(r.height-ll);
-  if (cnt*lineHeight-scroll.Y>r.height-ll) and (scroll.Y<0) then
-   scroll.Y:=scroll.Y+cnt*lineHeight-scroll.Y-r.height+ll;
+  if vcnt*lineHeight-scroll.Y<r.height-ll then
+   scroll.Y:=vcnt*lineHeight-(r.height-ll);
+  if (vcnt*lineHeight-scroll.Y>r.height-ll) and (scroll.Y<0) then
+   scroll.Y:=scroll.Y+vcnt*lineHeight-scroll.Y-r.height+ll;
   consolescene.scroll.value:=scroll.Y;
  end;
 
@@ -276,17 +330,18 @@ begin
   consoleScene.ScrollToEnd;
   lastShownTotal:=total;
  end;
- ypos:=cnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
+ ypos:=vcnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
  font:=txt.GetFont('Default',7);
  txt.BeginBlock;
  conLock.Enter;
  try
-  // Iterate newest-to-oldest; newest line sits at the bottom of the view.
+  // Iterate newest-to-oldest; newest visible line sits at the bottom of the view.
   for i:=0 to cnt-1 do begin
-   dec(ypos,lineHeight);
-   if (ypos<-lineHeight) or (ypos>=r.height+8) then continue;
    idx:=conHead-1-i;
    while idx<0 do inc(idx,CON_BUFFER_SIZE);
+   if not ConsoleLineVisible(conBuf[idx],filter) then continue; // hidden: no row
+   dec(ypos,lineHeight);
+   if (ypos<-lineHeight) or (ypos>=r.height+8) then continue;   // offscreen: skip draw
    col:=ConsoleColor(conBuf[idx]);
    if showTimestamps then
     txt.Write(font,r.left+2,r.top+yPos,col,StampStr(conBuf[idx].stamp)+conBuf[idx].text)
@@ -337,6 +392,14 @@ begin
   linkedToggled:=@showTimestamps; // F1: toggle per-line timestamps
  end;
 
+ // F2: display-filter radio group (TUIGroupBox parent → exactly one active).
+ filterGroup:=TUIGroupBox.Create(168,CON_TOOLBAR_H-2,wnd,'Console\Filter');
+ filterGroup.SetPos(52,1,pivotTopLeft);
+ TUIToggleButton.Create(36,CON_TOOLBAR_H-2,filterGroup,'Console\FltAll').Setup('All',true).SetPos(0,0,pivotTopLeft);
+ TUIToggleButton.Create(36,CON_TOOLBAR_H-2,filterGroup,'Console\FltErr').Setup('Err').SetPos(40,0,pivotTopLeft);
+ TUIToggleButton.Create(40,CON_TOOLBAR_H-2,filterGroup,'Console\FltWarn').Setup('Warn').SetPos(80,0,pivotTopLeft);
+ TUIToggleButton.Create(40,CON_TOOLBAR_H-2,filterGroup,'Console\FltCmd').Setup('Cmd').SetPos(124,0,pivotTopLeft);
+
  img:=TUIImage.Create(462,h-18-CON_TOOLBAR_H,wnd,'ConsoleMain');
  img.SetPos(0,CON_TOOLBAR_H,pivotTopLeft);
  img.SetAnchors(0,0,1,1);
@@ -372,8 +435,7 @@ var
  lineHeight,cnt:integer;
 begin
  lineHeight:=ConLineHeight(img.globalScale);
- conLock.Enter;
- try cnt:=conCount; finally conLock.Leave; end;
+ cnt:=ConsoleVisibleCount(CurrentFilter); // end position depends on visible lines
  img.scroll.Y:=cnt*lineHeight-round(img.size.y-12);
 end;
 
