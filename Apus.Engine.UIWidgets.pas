@@ -875,20 +875,7 @@ function TUIEditBox.GetText:String8;
    AdjustState;
    cursortimer:=CoreTime.Ticks;
    TUIElement.sender:=self;
-   if (ch=13) and (sendSignals<>ssNone) then begin
-    if (not completion.IsEmpty) and (not realText.Same(completion)) then begin
-     realText:=completion;
-     completion:=[];
-     cursorpos:=length(realtext);
-     selcount:=0;
-     Signal('UI\'+name+'\AutoCompletion',0);
-     Signal('UI\Editbox\AutoCompletion\'+name,0);
-    end else begin
-     Signal('UI\'+name+'\Enter',0);
-     Signal('UI\Editbox\Enter\'+name,0);
-    end;
-   end;
-   if (ch=27) and (sendSignals<>ssNone) then Signal('UI\'+name+'\Escape',0);
+   // Enter/Escape are handled in onKey (control chars aren't delivered via SDL text input)
    if (ch>=32) and (selcount>0) then begin
     delete(realtext,selstart,selcount);
     insert(ch,realtext,selstart);
@@ -1006,6 +993,26 @@ function TUIEditBox.GetText:String8;
     txtLen:=length(realText);
     useCtrl:=(shiftstate and sscCtrl)>0;
     useShift:=(shiftstate and sscShift)>0;
+
+    // [Enter]: accept autocompletion if present, otherwise emit Enter signal
+    if (TKey(keycode)=TKey.Enter) and (sendSignals<>ssNone) then begin
+     TUIElement.sender:=self;
+     if (not completion.IsEmpty) and (not realText.Same(completion)) then begin
+      realText:=completion;
+      completion:=[];
+      cursorpos:=length(realtext);
+      selcount:=0;
+      Signal('UI\'+name+'\AutoCompletion',0);
+      Signal('UI\Editbox\AutoCompletion\'+name,0);
+     end else begin
+      Signal('UI\'+name+'\Enter',0);
+      Signal('UI\Editbox\Enter\'+name,0);
+     end;
+    end;
+    if (TKey(keycode)=TKey.Escape) and (sendSignals<>ssNone) then begin
+     TUIElement.sender:=self;
+     Signal('UI\'+name+'\Escape',0);
+    end;
 
     // Arrow navigation:
     // - no Shift: move caret and clear selection
