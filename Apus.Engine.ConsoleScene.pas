@@ -16,6 +16,9 @@ type
   editbox:TUIEditBox;
   scroll:TUIScrollBar;
   img:TUIImage;
+  wnd:TUIWindow;
+  defWidth,defHeight:integer; // default window size, for the reset-on-show safety net
+  procedure ResetWindowIfOffscreen;
  end;
 
 var
@@ -382,6 +385,7 @@ var
  i,cnt,vcnt,ypos,lineHeight,ll,idx,filter:integer;
  total:int64;
  col,font:cardinal;
+ atBottom:boolean;
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
@@ -414,8 +418,11 @@ begin
   consolescene.scroll.value:=scroll.Y;
  end;
 
+ // Sticky-bottom auto-scroll: snap to the newest line only when the view is already at the
+ // bottom, so the user can scroll up (wheel or scrollbar) and stay there while new lines arrive.
+ atBottom:=vcnt*lineHeight-item.scroll.Y<=r.height;
  if total<>lastShownTotal then begin
-  consoleScene.ScrollToEnd;
+  if atBottom then consoleScene.ScrollToEnd;
   lastShownTotal:=total;
  end;
  ypos:=vcnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
@@ -448,7 +455,6 @@ end;
 constructor TConsoleScene.Create;
 var
  wndRef:TWindow;
- wnd:TUIWindow;
  font:cardinal;
  h:integer;
  dpi:integer;
@@ -466,6 +472,7 @@ begin
 
  font:=txt.GetFont('Default',7*ui.scale,fsIgnoreScale);
  h:=round(ui.clientHeight*0.7);
+ defWidth:=480; defHeight:=h; // remembered for ResetWindowIfOffscreen
  wnd:=TUIWindow.Create(480,h,true,UI,'ConsoleWnd','Console');
  wnd.SetPos(10,10,pivotTopLeft);
  wnd.moveable:=true;
@@ -527,9 +534,28 @@ begin
  img.scroll.Y:=cnt*lineHeight-round(img.size.y-12);
 end;
 
+// Safety net: TUIWindow move/resize can leave the window off-screen or at an unusable size
+// (a widget-level bug). On show, restore the default geometry if the current one is bad.
+procedure TConsoleScene.ResetWindowIfOffscreen;
+var
+ cw,ch:single;
+begin
+ if wnd=nil then exit;
+ cw:=ui.clientWidth;
+ ch:=ui.clientHeight;
+ if (wnd.position.x<0) or (wnd.position.y<0) or
+    (wnd.position.x>cw-40) or (wnd.position.y>ch-40) or
+    (wnd.size.x<wnd.minW) or (wnd.size.y<wnd.minH) or
+    (wnd.size.x>cw) or (wnd.size.y>ch) then begin
+  wnd.Resize(defWidth,defHeight);
+  wnd.SetPos(10,10,pivotTopLeft);
+ end;
+end;
+
 procedure TConsoleScene.SetStatus(status: TSceneStatus);
 begin
  inherited;
+ if status=TSceneStatus.ssActive then ResetWindowIfOffscreen; // before ScrollToEnd (uses window size)
  ScrollToEnd;
  if status=TSceneStatus.ssActive then SetFocusTo(editbox); // focus only when activating
 end;
