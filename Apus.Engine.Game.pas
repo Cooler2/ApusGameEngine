@@ -1127,6 +1127,17 @@ begin
  TGame(game).onGamepadEvent(event,tag);
 end;
 
+// Mirror generic debug/error signals to the log (was Apus.Engine.Console)
+procedure DebugSignalEvent(event:TEventStr;tag:TTag);
+begin
+ Log.Msg('Evt: %s - %d',[event,tag]);
+end;
+
+procedure ErrorSignalEvent(event:TEventStr;tag:TTag);
+begin
+ Log.Error('Evt: %s - %d',[event,tag]);
+end;
+
 
 procedure TGame.Run;
 var
@@ -1148,6 +1159,8 @@ begin
  SetEventHandler('KBD\',GameKbdEvent,emInstant);
  SetEventHandler('JOYSTICK\',GameJoystickEvent,emInstant);
  SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
+ SetEventHandler('DEBUG',DebugSignalEvent,emInstant);
+ SetEventHandler('ERROR',ErrorSignalEvent,emInstant);
 
  for i:=1 to 400 do
   if not running then CoreTime.Sleep(50) else break;
