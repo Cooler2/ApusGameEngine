@@ -419,7 +419,7 @@ begin
   lastShownTotal:=total;
  end;
  ypos:=vcnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
- font:=txt.GetFont('Default',7);
+ font:=txt.GetFont('Default',round(7*item.globalScale),fsIgnoreScale); // scale glyphs with the line height (DPI-aware)
  txt.BeginBlock;
  conLock.Enter;
  try
