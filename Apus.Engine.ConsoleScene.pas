@@ -25,6 +25,7 @@ var
 
 implementation
  uses SysUtils, Classes, Types, Apus.Core, Apus.EventMan, Apus.Lib, Apus.Log,
+  Apus.Clipboard,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc;
 
@@ -168,6 +169,35 @@ implementation
    end;
   end;
 
+ // Copy the currently visible (filtered) console lines to the clipboard as plain
+ // text, oldest first. The buffer is held only to snapshot line references.
+ procedure ConsoleCopyToClipboard;
+  var
+   i,idx,filter,n:integer;
+   lines:array of String8;
+   s:String8;
+  begin
+   filter:=CurrentFilter;
+   conLock.Enter;
+   try
+    setLength(lines,conCount);
+    n:=0;
+    for i:=conCount-1 downto 0 do begin // oldest -> newest
+     idx:=conHead-1-i;
+     while idx<0 do inc(idx,CON_BUFFER_SIZE);
+     if not ConsoleLineVisible(conBuf[idx],filter) then continue;
+     if showTimestamps then lines[n]:=StampStr(conBuf[idx].stamp)+conBuf[idx].text
+      else lines[n]:=conBuf[idx].text;
+     inc(n);
+    end;
+   finally
+    conLock.Leave;
+   end;
+   s:='';
+   for i:=0 to n-1 do s:=s+lines[i]+#13#10;
+   if s<>'' then CopyStrToClipboard(UTF8String(s));
+  end;
+
  // Log mirror: feeds engine diagnostics into the console buffer. Any thread.
  procedure ConsoleLogHandler(msg:String8;category:byte;level:TSeverity);
   begin
@@ -210,6 +240,14 @@ begin
  if (consoleScene.Activated) and
     (focusedElement=nil) then
     SetFocusTo(consoleScene.editbox);
+
+ // Ctrl+C with an empty input line - copy the visible console lines to the clipboard
+ // (a non-empty input keeps the edit box's own copy behavior).
+ if (consoleScene.activated) and
+    (TKey(tag and $FF)=TKey.C) and
+    (window.shiftState and sscCtrl>0) and
+    (consoleScene.editbox.text='') then
+  ConsoleCopyToClipboard;
 
  // Select from command history
  if (consoleScene.activated) and
