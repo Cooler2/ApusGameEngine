@@ -92,6 +92,7 @@ New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 $args = @(
   "-MDelphi",
   "-Sd",
+  "-WG",
   "-RIntel",
   "-Fu$repoRoot",
   "-Fu$repoRoot\extra",
