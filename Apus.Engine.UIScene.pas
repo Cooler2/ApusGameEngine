@@ -57,7 +57,7 @@ implementation
  uses SysUtils, Apus.Lib, Types,
    Apus.EventMan, Apus.Publics,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
-   Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API,
+   Apus.Engine.CmdProc, Apus.Engine.API,
   Apus.Engine.RobotAPI,
   Apus.Engine.UILayout,
   Apus.Log,
@@ -302,7 +302,7 @@ function UIScene(name:String8):TUIScene;
         st:=c2.name+'->'+st;
        end;
        ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
-       PutMsg(Format('%s: pos: %.1f,%.1f pivot: %.1f %.1f size: %.1f,%.1f gRect: (%d %d %d %d) ',
+       Log.Msg(Format('%s: pos: %.1f,%.1f pivot: %.1f %.1f size: %.1f,%.1f gRect: (%d %d %d %d) ',
         [c.name,c.position.x,c.position.y,c.pivot.x,c.pivot.y,c.size.x,c.size.y,
          c.globalRect.Left,c.globalRect.top,c.globalRect.right,c.globalRect.bottom]));
        if (window.shiftState and 2>0) and (c.name<>'') then
@@ -316,7 +316,7 @@ function UIScene(name:String8):TUIScene;
      end;
     end else begin
      if (hookedItem<>nil) and (btn=2) then begin
-      PutMsg('x='+inttostr(round(hookedItem.position.x))+' y='+inttostr(round(hookedItem.position.y)));
+      Log.Msg('x='+inttostr(round(hookedItem.position.x))+' y='+inttostr(round(hookedItem.position.y)));
       hookedItem:=nil;
      end;
      if e and (c<>nil) then c.onMouseButtons(btn,false);
