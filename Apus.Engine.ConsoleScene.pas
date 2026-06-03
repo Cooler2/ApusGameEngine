@@ -397,7 +397,6 @@ var
  i,cnt,vcnt,ypos,lineHeight,ll,idx,filter:integer;
  total:int64;
  col,font:cardinal;
- atBottom:boolean;
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
@@ -430,11 +429,11 @@ begin
   consolescene.scroll.value:=scroll.Y;
  end;
 
- // Sticky-bottom auto-scroll: snap to the newest line only when the view is already at the
- // bottom, so the user can scroll up (wheel or scrollbar) and stay there while new lines arrive.
- atBottom:=vcnt*lineHeight-item.scroll.Y<=r.height;
+ // Auto-scroll to the newest line. TODO (post-merge R-16): make this sticky-bottom and fix the
+ // scroll unit mismatch (ScrollToEnd uses logical img.size.y, DrawContent uses screen r.height)
+ // so wheel/scrollbar work and the view holds position while new lines arrive.
  if total<>lastShownTotal then begin
-  if atBottom then consoleScene.ScrollToEnd;
+  consoleScene.ScrollToEnd;
   lastShownTotal:=total;
  end;
  ypos:=vcnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
