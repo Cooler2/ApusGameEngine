@@ -24,13 +24,14 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses Classes, Types, Apus.Core, Apus.EventMan, Apus.Lib, Apus.Log,
+ uses SysUtils, Classes, Types, Apus.Core, Apus.EventMan, Apus.Lib, Apus.Log,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc;
 
  const
   CON_BUFFER_SIZE=2048; // max console lines kept in memory
   CON_LINE_HEIGHT=16;   // base rendered line height (px) before UI scale
+  CON_TOOLBAR_H=18;     // view-control toolbar row height (px) at top of client area
   // Line colors: color = f(kind, level).
   CON_COLOR_NORMAL:cardinal=$FFD0D0D0; // diagnostics, Normal/Info
   CON_COLOR_WARN:cardinal  =$FFA0FFF0; // diagnostics, Warn
@@ -59,11 +60,18 @@ implementation
   conTotal:int64;       // monotonic count of all lines ever added (auto-scroll trigger)
   conCaptureLevel:TSeverity=TSeverity.Info; // tier-1: min severity captured from the log
   lastShownTotal:int64; // last conTotal observed by DrawContent
+  showTimestamps:boolean=false; // F1: prepend per-line capture time (toggled via toolbar)
 
  // Rendered console line height in pixels at the given UI scale.
  function ConLineHeight(scale:single):integer;
   begin
    result:=round(CON_LINE_HEIGHT*scale);
+  end;
+
+ // Short capture-time prefix for the timestamp toggle.
+ function StampStr(t:TDateTime):String8;
+  begin
+   result:=String8(FormatDateTime('hh:nn:ss ',t));
   end;
 
  // Append a line to the ring buffer (thread-safe).
@@ -280,7 +288,10 @@ begin
    idx:=conHead-1-i;
    while idx<0 do inc(idx,CON_BUFFER_SIZE);
    col:=ConsoleColor(conBuf[idx]);
-   txt.Write(font,r.left+2,r.top+yPos,col,conBuf[idx].text);
+   if showTimestamps then
+    txt.Write(font,r.left+2,r.top+yPos,col,StampStr(conBuf[idx].stamp)+conBuf[idx].text)
+   else
+    txt.Write(font,r.left+2,r.top+yPos,col,conBuf[idx].text);
   end;
  finally
   conLock.Leave;
@@ -319,7 +330,15 @@ begin
  wnd.style.SetAttr('color','$80202020');
  zorder:=$FF0000;
 
- img:=TUIImage.Create(462,h-18,wnd,'ConsoleMain');
+ // View-control toolbar across the top of the client area.
+ with TUIToggleButton.Create(44,CON_TOOLBAR_H-2,wnd,'Console\TimeBtn') do begin
+  Setup('Time');
+  SetPos(2,1,pivotTopLeft);
+  linkedToggled:=@showTimestamps; // F1: toggle per-line timestamps
+ end;
+
+ img:=TUIImage.Create(462,h-18-CON_TOOLBAR_H,wnd,'ConsoleMain');
+ img.SetPos(0,CON_TOOLBAR_H,pivotTopLeft);
  img.SetAnchors(0,0,1,1);
  img.src:='proc:'+Conv.ToStr(@DrawContent);
 
@@ -331,8 +350,8 @@ begin
  TUIButton.Create(20,18,wnd,'Console\Enter').Setup('>').SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\OnClick','UI\Console\Input\Enter');
 
- scroll:=TUIScrollBar.CreateV(18,h-19,wnd,'Console\Scroll');
- scroll.SetPos(480,0,pivotTopRight);
+ scroll:=TUIScrollBar.CreateV(18,h-19-CON_TOOLBAR_H,wnd,'Console\Scroll');
+ scroll.SetPos(480,CON_TOOLBAR_H,pivotTopRight);
  scroll.style.SetAttr('color','$90808090');
  scroll.step:=32;
  scroll.SetAnchors(1,0,1,1);
