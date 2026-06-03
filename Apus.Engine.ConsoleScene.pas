@@ -30,6 +30,7 @@ implementation
 
  const
   CON_BUFFER_SIZE=2048; // max console lines kept in memory
+  CON_LINE_HEIGHT=16;   // base rendered line height (px) before UI scale
   // Line colors: color = f(kind, level).
   CON_COLOR_NORMAL:cardinal=$FFD0D0D0; // diagnostics, Normal/Info
   CON_COLOR_WARN:cardinal  =$FFA0FFF0; // diagnostics, Warn
@@ -58,6 +59,12 @@ implementation
   conTotal:int64;       // monotonic count of all lines ever added (auto-scroll trigger)
   conCaptureLevel:TSeverity=TSeverity.Info; // tier-1: min severity captured from the log
   lastShownTotal:int64; // last conTotal observed by DrawContent
+
+ // Rendered console line height in pixels at the given UI scale.
+ function ConLineHeight(scale:single):integer;
+  begin
+   result:=round(CON_LINE_HEIGHT*scale);
+  end;
 
  // Append a line to the ring buffer (thread-safe).
  procedure ConsoleAddLine(const text:String8;level:TSeverity;kind:TConsoleKind);
@@ -133,13 +140,6 @@ begin
  if (consoleScene.Activated) and
     (focusedElement=nil) then
     SetFocusTo(consoleScene.editbox);
-
- // TAB - mirror console window (debug helper, currently disabled)
-{ if (consoleScene.activated) and
-    (TKey.From(byte(tag and $FF))=TKey.Tab) then begin
-  c:=FindControl('ConsoleWnd');
-  c.x:=screenWidth-c.x-c.width;
- end;}
 
  // Select from command history
  if (consoleScene.activated) and
@@ -226,7 +226,7 @@ var
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
- lineHeight:=round(16*item.globalScale);
+ lineHeight:=ConLineHeight(item.globalScale);
  conLock.Enter;
  try
   cnt:=conCount;
@@ -333,7 +333,7 @@ procedure TConsoleScene.ScrollToEnd;
 var
  lineHeight,cnt:integer;
 begin
- lineHeight:=round(16*img.globalScale);
+ lineHeight:=ConLineHeight(img.globalScale);
  conLock.Enter;
  try cnt:=conCount; finally conLock.Leave; end;
  img.scroll.Y:=cnt*lineHeight-round(img.size.y-12);
@@ -343,7 +343,7 @@ procedure TConsoleScene.SetStatus(status: TSceneStatus);
 begin
  inherited;
  ScrollToEnd;
- SetFocusTo(editbox);
+ if status=TSceneStatus.ssActive then SetFocusTo(editbox); // focus only when activating
 end;
 
 end.
