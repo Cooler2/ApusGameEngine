@@ -987,12 +987,26 @@ var
  // Was key released since last frame?
  function IsKeyReleased(scanCode:integer):boolean;
 
+ // Allow showing a system message box for critical errors. Disabled in exclusive
+ // fullscreen, where a modal box cannot be shown.
+ var allowCriticalPopup:boolean=true;
+
+ // Report a critical error: log it at Error level and, when allowed, show a system
+ // message box. Used by the engine's top-level exception handlers.
+ procedure CriticalError(const msg:String8);
+
 implementation
  uses SysUtils, Apus.Strings, Apus.Utils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.Game,
    TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
  var
   ninePatchHash:TObjectHash;
+
+ procedure CriticalError(const msg:String8);
+  begin
+   Log.Error(msg);
+   if allowCriticalPopup then SystemMessage(msg); // visible crash report (except exclusive fullscreen)
+  end;
 
  function TranslateNoop8(s:String8):String8;
   begin result:=s; end;
