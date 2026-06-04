@@ -38,6 +38,7 @@ type
     currentScreen:integer;
     animTime:double;
     animTimeFrame:integer;
+    blockClipActive:boolean;
     layoutScale:single;
     menuWidth,menuTop,menuItemHeight,contentPadding,screenTopOffset:integer;
     lastDPI:integer;
@@ -54,6 +55,7 @@ type
     procedure DrawScreenTitle(const contentRect:TRect; const title,subtitle:string);
     // returns inner content rect (below title bar)
     procedure DrawBlock(const r:TRect; const title:string; out innerR:TRect);
+    procedure FinishBlockClipping;
     // compute cell rect for grid layout; gap between cells = GAP
     function GridCell(const area:TRect; col,row,cols,rows,gap:integer):TRect;
     procedure DrawScreenLines(const contentRect:TRect);
@@ -262,6 +264,7 @@ begin
   currentScreen:=0;
   animTime:=0;
   animTimeFrame:=-1;
+  blockClipActive:=false;
   UpdateMetrics;
   RebuildFonts;
   BuildCheckerTexture;
@@ -339,8 +342,8 @@ begin
   draw.FillRect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF1A2230);
   draw.Rect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF3B4B60);
 
-  txt.Write(titleFont,20,30,$FFE8F0FA,'Draw2D Screens',taLeft,toAddBaseline);
-  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [1..8]',taLeft,toAddBaseline);
+  txt.Write(titleFont,20,30,$FFE8F0FA,'Draw2D Screens',taLeft,toWithShadow);
+  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [1..8]',taLeft,0);
 
   for i:=0 to SCREEN_COUNT-1 do begin
     top:=menuTop+i*menuItemHeight;
@@ -365,7 +368,7 @@ begin
 
     draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,bg,8);
     draw.RRect(r.Left,r.Top,r.Right,r.Bottom,1,8,border);
-    txt.Write(menuFont,r.Left+12,r.Top+18,txtCol,IntToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,toAddBaseline);
+    txt.Write(menuFont,r.Left+12,r.Top+18,txtCol,IntToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,0);
   end;
 end;
 
@@ -373,19 +376,29 @@ procedure TMainScene.DrawScreenTitle(const contentRect:TRect; const title,subtit
 begin
   draw.FillRect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-10,$FF1F2A3A);
   draw.Rect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-10,$FF3D5067);
-  txt.Write(titleFont,contentRect.Left+14,contentRect.Top+20,$FFEAF2FC,title,taLeft,toAddBaseline);
-  txt.Write(hintFont,contentRect.Left+14,contentRect.Top+42,$FFA8BDD5,subtitle,taLeft,toAddBaseline);
+  txt.Write(titleFont,contentRect.Left+14,contentRect.Top+20,$FFEAF2FC,title,taLeft,toWithShadow);
+  txt.Write(hintFont,contentRect.Left+14,contentRect.Top+42,$FFA8BDD5,subtitle,taLeft,0);
 end;
 
 // draw a labeled block; innerR = area below the title bar for content
 procedure TMainScene.DrawBlock(const r:TRect; const title:string; out innerR:TRect);
 begin
+  FinishBlockClipping;
   draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,$FF1C2836,BLOCK_RADIUS);
   draw.FillRect(r.Left+1,r.Top+1,r.Right-1,r.Top+BLOCK_TITLE_H,$28AACCFF);
   draw.Rect(r.Left,r.Top,r.Right,r.Bottom,$FF3D5270);
   draw.Line(r.Left+1,r.Top+BLOCK_TITLE_H,r.Right-1,r.Top+BLOCK_TITLE_H,$FF3D5270);
-  txt.Write(bodyFont,r.Left+10,r.Top+BLOCK_TITLE_H-5,$FFDDEEFF,title,taLeft,toAddBaseline);
+  txt.Write(bodyFont,r.Left+10,r.Top+BLOCK_TITLE_H-5,$FFDDEEFF,title,taLeft,toWithShadow);
   innerR:=Rect(r.Left+8,r.Top+BLOCK_TITLE_H+6,r.Right-8,r.Bottom-8);
+  gfx.clip.Rect(innerR);
+  blockClipActive:=true;
+end;
+
+procedure TMainScene.FinishBlockClipping;
+begin
+  if not blockClipActive then exit;
+  gfx.clip.Restore;
+  blockClipActive:=false;
 end;
 
 // returns rect of grid cell (col,row) within area, zero-based
@@ -420,10 +433,12 @@ begin
     draw.Line(innerR.Left+10,innerR.Top+14+i*((innerR.Bottom-innerR.Top-20) div 13),
       innerR.Right-10,innerR.Top+14+i*((innerR.Bottom-innerR.Top-20) div 13),
       $FF2E4866+i*$000A0A0A);
+  draw.EndLines;
 
   // block 1: draw.Line (animated fan)
   r:=GridCell(area,1,0,3,1,BLOCK_GAP);
   DrawBlock(r,'draw.Line  [animated]',innerR);
+  draw.BeginLines;
   t:=animTime*2.5;
   cx:=innerR.Left+(innerR.Right-innerR.Left)*0.4;
   cy:=innerR.Top+(innerR.Bottom-innerR.Top)*0.55;
@@ -746,9 +761,9 @@ begin
   draw.Rect(innerR.Left+10,innerR.Top+(innerR.Bottom-innerR.Top) div 2+4,innerR.Right-10,innerR.Bottom-10,$FF6E8CAC);
   iScale:=draw.Inside(innerR.Left+10,innerR.Top+(innerR.Bottom-innerR.Top) div 2+4,innerR.Right-10,innerR.Bottom-10,checkerTex,$FFFFFFFF);
   txt.Write(bodyFont,innerR.Left+14,innerR.Top+(innerR.Bottom-innerR.Top) div 2-6,$FFCFE2F8,
-    'Cover='+FormatFloat('0.00',cScale),taLeft,toAddBaseline);
+    'Cover='+FormatFloat('0.00',cScale),taLeft,0);
   txt.Write(bodyFont,innerR.Left+14,innerR.Bottom-12,$FFCFE2F8,
-    'Inside='+FormatFloat('0.00',iScale),taLeft,toAddBaseline);
+    'Inside='+FormatFloat('0.00',iScale),taLeft,0);
 
   // row 1, col 2: draw.DoubleTex / draw.DoubleRotScaled
   r:=GridCell(area,2,1,3,2,BLOCK_GAP);
@@ -829,9 +844,10 @@ begin
     6:DrawScreenImageOps(contentRect);
     7:DrawScreenParticles(contentRect);
   end;
+  FinishBlockClipping;
 
   txt.Write(hintFont,contentRect.Left+12,contentRect.Bottom-18,$FF9BB0C8,
-    'Tip: switch screens with mouse or numeric keys [1..8]',taLeft,toAddBaseline);
+    'Tip: switch screens with mouse or numeric keys [1..8]',taLeft,0);
   inherited;
 end;
 

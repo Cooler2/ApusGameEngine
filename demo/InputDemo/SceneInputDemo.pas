@@ -330,13 +330,6 @@ procedure TMainScene.HandleInput;
 var
   item:integer;
 begin
-  if IsKeyPressed(60) or IsKeyPressed(59) or IsKeyPressed(58) then currentScreen:=0 else
-  if IsKeyPressed(61) or IsKeyPressed(60) or IsKeyPressed(59) then currentScreen:=1 else
-  if IsKeyPressed(62) or IsKeyPressed(61) or IsKeyPressed(60) then currentScreen:=2 else
-  if IsKeyPressed(63) or IsKeyPressed(62) or IsKeyPressed(61) then currentScreen:=3 else
-  if IsKeyPressed(64) or IsKeyPressed(63) or IsKeyPressed(62) then currentScreen:=4 else
-  if IsKeyPressed(65) or IsKeyPressed(64) or IsKeyPressed(63) then currentScreen:=5;
-
   if IsKeyPressed(2) or IsKeyPressed(30) then traceMode:=1;
   if IsKeyPressed(3) or IsKeyPressed(31) then traceMode:=2;
   if IsKeyPressed(4) or IsKeyPressed(32) then traceMode:=3;
