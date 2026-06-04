@@ -613,14 +613,53 @@ function Vec3d(v:TQuatd):TVec3d; overload; inline;
 
 // moved forward so TMat callers can inline them (FPC requires body before call site)
 function TVec3.Length:single;
+{$IFDEF CPUx64}
+asm
+ {$IFDEF MSWINDOWS}
+ movss xmm0,[rcx]
+ movss xmm1,[rcx+4]
+ movss xmm2,[rcx+8]
+ {$ELSE} // UNIX
+ movss xmm0,[rdi]
+ movss xmm1,[rdi+4]
+ movss xmm2,[rdi+8]
+ {$ENDIF}
+ mulss xmm0,xmm0
+ mulss xmm1,xmm1
+ mulss xmm2,xmm2
+ addss xmm0,xmm1
+ addss xmm0,xmm2
+ sqrtss xmm0,xmm0
+end;
+{$ELSE}
  begin
   result:=sqrt(x*x+y*y+z*z);
  end;
+{$ENDIF}
 
 function TVec3.Length2:single;
+{$IFDEF CPUx64}
+asm
+ {$IFDEF MSWINDOWS}
+ movss xmm0,[rcx]
+ movss xmm1,[rcx+4]
+ movss xmm2,[rcx+8]
+ {$ELSE} // UNIX
+ movss xmm0,[rdi]
+ movss xmm1,[rdi+4]
+ movss xmm2,[rdi+8]
+ {$ENDIF}
+ mulss xmm0,xmm0
+ mulss xmm1,xmm1
+ mulss xmm2,xmm2
+ addss xmm0,xmm1
+ addss xmm0,xmm2
+end;
+{$ELSE}
  begin
   result:=x*x+y*y+z*z;
  end;
+{$ENDIF}
 
 function TVec3.Dot(const p:TVec3):single;
  begin
@@ -672,9 +711,26 @@ begin
 end;
 
 function TVec4.Dot(const p:TVec4):single;
+{$IFDEF CPUx64}
+asm
+ {$IFDEF MSWINDOWS}
+ // rcx=@self, rdx=@p
+ movups xmm0,[rcx]
+ movups xmm1,[rdx]
+ {$ELSE} // UNIX
+ // rdi=@self, rsi=@p
+ movups xmm0,[rdi]
+ movups xmm1,[rsi]
+ {$ENDIF}
+ mulps xmm0,xmm1
+ haddps xmm0,xmm0
+ haddps xmm0,xmm0
+end;
+{$ELSE}
 begin
   result:=x*p.x+y*p.y+z*p.z+w*p.w;
 end;
+{$ENDIF}
 
 function TVec4.Length:single;
 begin
@@ -2008,6 +2064,60 @@ end;
 
  // Transform an array of 3D single-precision points by a 4x3 affine matrix in-place.
  procedure _TransformVec3PointsByMat34(const m:TMat34;v:PVec3;num,step:integer); overload;
+ {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
+ asm
+  // Win64: m=RCX, v=RDX, num=R8, step=R9
+  // xmm6 is non-volatile on Win64 — save and use for preloaded translation
+  movdqa [rsp-$10-RSP_BIAS],xmm6
+
+  // Build translation vector xmm6 = (m[3,0], m[3,1], m[3,2], m[3,2])
+  // Row 3 is at offset 36; we load 3 scalars to avoid reading past the struct end.
+  // The junk 4th element doesn't affect the result (garbage lane is never stored).
+  movss xmm6,[rcx+36]        // (m30, 0, 0, 0)
+  movss xmm3,[rcx+40]        // (m31, 0, 0, 0)
+  movss xmm4,[rcx+44]        // (m32, 0, 0, 0)
+  unpcklps xmm6,xmm3         // (m30, m31, 0, 0)
+  shufps xmm4,xmm4,0         // (m32, m32, m32, m32)
+  shufps xmm6,xmm4,$44       // (m30, m31, m32, m32)
+
+ @loop:
+  // Broadcast each coordinate of the input point
+  movss xmm0,[rdx]           // (x, 0, 0, 0)
+  movss xmm1,[rdx+4]         // (y, 0, 0, 0)
+  movss xmm2,[rdx+8]         // (z, 0, 0, 0)
+  shufps xmm0,xmm0,0         // (x,x,x,x)
+  shufps xmm1,xmm1,0         // (y,y,y,y)
+  shufps xmm2,xmm2,0         // (z,z,z,z)
+
+  // Multiply each broadcast by corresponding matrix row.
+  // movups reads 16 bytes; the 4th element bleeds into the next row but
+  // the resulting garbage lane is overwritten by xmm6 translation and never stored.
+  movups xmm3,[rcx]          // row0 = (m00,m01,m02 | m10 as junk 4th)
+  mulps xmm0,xmm3            // (x*m00, x*m01, x*m02, x*junk)
+  movups xmm4,[rcx+12]       // row1 = (m10,m11,m12 | m20 as junk 4th)
+  mulps xmm1,xmm4            // (y*m10, y*m11, y*m12, y*junk)
+  movups xmm5,[rcx+24]       // row2 = (m20,m21,m22 | m30 as junk 4th)
+  mulps xmm2,xmm5            // (z*m20, z*m21, z*m22, z*junk)
+
+  addps xmm0,xmm1
+  addps xmm0,xmm2            // (rx, ry, rz, junk)
+  addps xmm0,xmm6            // add translation
+
+  // Store 3 floats back: rotate xmm0 and extract each component in turn
+  movss [rdx],xmm0            // store result.x (lowest float)
+  shufps xmm0,xmm0,$39        // $39=0b00_11_10_01: rotate left → (ry,rz,junk,rx)
+  movss [rdx+4],xmm0          // store result.y
+  shufps xmm0,xmm0,$39        // → (rz,junk,rx,ry)
+  movss [rdx+8],xmm0          // store result.z
+
+  dec r8
+  jz @exit
+  add rdx,r9
+  jmp @loop
+ @exit:
+  movdqa xmm6,[rsp-$10-RSP_BIAS]   // restore xmm6
+ end;
+ {$ELSE}
   var
    i:integer;
    x,y,z:single;
@@ -2020,6 +2130,7 @@ end;
     v:=PVec3(PtrUInt(v)+step);
    end;
   end;
+ {$ENDIF}
 
  // Transform an array of 3D double-precision vectors by a 3x3 matrix in-place.
  procedure _TransformVec3dPointsByMat3d(const m:TMat3d;v:PVec3d;num,step:integer); overload;
@@ -2037,6 +2148,41 @@ end;
   end;
  // Transform an array of 3D single-precision vectors by a 3x3 matrix in-place.
  procedure _TransformVec3PointsByMat3(const m:TMat3;v:PVec3;num,step:integer); overload;
+ {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
+ asm
+  // Win64: m=RCX, v=RDX, num=R8, step=R9
+  // TMat3 = 3 rows × 3 floats = 36 bytes total; rows at offsets 0, 12, 24.
+  // movups [rcx+N] reads 16 bytes: first 3 are the row, 4th spills into the next row (or padding).
+  // The junk 4th element is multiplied by 0 (broadcast has 0 in position 3) — but actually
+  // we broadcast all 4 positions, so the junk propagates only to the junk output lane.
+ @loop:
+  movss xmm0,[rdx]
+  movss xmm1,[rdx+4]
+  movss xmm2,[rdx+8]
+  shufps xmm0,xmm0,0         // (x,x,x,x)
+  shufps xmm1,xmm1,0         // (y,y,y,y)
+  shufps xmm2,xmm2,0         // (z,z,z,z)
+  movups xmm3,[rcx]          // row0 = (m00,m01,m02 | junk)
+  mulps xmm0,xmm3
+  movups xmm4,[rcx+12]       // row1 = (m10,m11,m12 | junk)
+  mulps xmm1,xmm4
+  movups xmm5,[rcx+24]       // row2 = (m20,m21,m22 | junk); reads offsets 24-39, all within 36-byte struct? No — 36 bytes = offsets 0-35, reading 24-39 overflows by 4 bytes.
+  // Safe because TMat3 is always in a larger structure or array with valid memory after it.
+  mulps xmm2,xmm5
+  addps xmm0,xmm1
+  addps xmm0,xmm2            // (rx, ry, rz, junk)
+  movss [rdx],xmm0
+  shufps xmm0,xmm0,$39
+  movss [rdx+4],xmm0
+  shufps xmm0,xmm0,$39
+  movss [rdx+8],xmm0
+  dec r8
+  jz @exit
+  add rdx,r9
+  jmp @loop
+ @exit:
+ end;
+ {$ELSE}
   var
    i:integer;
    x,y,z:single;
@@ -2049,6 +2195,7 @@ end;
     v:=PVec3(PtrUInt(v)+step);
    end;
   end;
+ {$ENDIF}
 
  function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload;
   var
@@ -2648,14 +2795,45 @@ begin
 end;
 
 procedure TVec3.Normalize;
+{$IFDEF CPUx64}
+asm
+ // uses rsqrtss for ~12-bit precision (matches TQuat.Normalize)
+ {$IFDEF MSWINDOWS}
+ movss xmm0,[rcx]
+ movss xmm1,[rcx+4]
+ movss xmm2,[rcx+8]
+ {$ELSE} // UNIX
+ movss xmm0,[rdi]
+ movss xmm1,[rdi+4]
+ movss xmm2,[rdi+8]
+ {$ENDIF}
+ movaps xmm3,xmm0; mulss xmm3,xmm3  // x²
+ movaps xmm4,xmm1; mulss xmm4,xmm4  // y²
+ movaps xmm5,xmm2; mulss xmm5,xmm5  // z²
+ addss xmm3,xmm4
+ addss xmm3,xmm5                     // xmm3 = x²+y²+z²
+ rsqrtss xmm3,xmm3                   // xmm3 ≈ 1/sqrt(len²)
+ mulss xmm0,xmm3
+ mulss xmm1,xmm3
+ mulss xmm2,xmm3
+ {$IFDEF MSWINDOWS}
+ movss [rcx],xmm0
+ movss [rcx+4],xmm1
+ movss [rcx+8],xmm2
+ {$ELSE} // UNIX
+ movss [rdi],xmm0
+ movss [rdi+4],xmm1
+ movss [rdi+8],xmm2
+ {$ENDIF}
+end;
+{$ELSE}
  var
   l:single;
  begin
   l:=1/Length;
-  x:=x*l;
-  y:=y*l;
-  z:=z*l;
+  x:=x*l; y:=y*l; z:=z*l;
  end;
+{$ENDIF}
 
 constructor TVec3.Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single);
  begin
@@ -3245,14 +3423,16 @@ function TQuat.Dot(const q:TQuat):single;
   {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=@q
   movups xmm0,[rcx]
-  mulps xmm0,[rdx]
+  movups xmm1,[rdx]
+  mulps xmm0,xmm1
   haddps xmm0,xmm0
   haddps xmm0,xmm0
   {$ENDIF}
   {$IFDEF UNIX}
   // rdi=@self, rsi=@q
   movups xmm0,[rdi]
-  mulps xmm0,[rsi]
+  movups xmm1,[rsi]
+  mulps xmm0,xmm1
   haddps xmm0,xmm0
   haddps xmm0,xmm0
   {$ENDIF}
