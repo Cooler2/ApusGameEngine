@@ -2063,61 +2063,11 @@ end;
   end;
 
  // Transform an array of 3D single-precision points by a 4x3 affine matrix in-place.
+ // NOTE: SSE not attempted here. Vec3 = 12 bytes doesn't map cleanly to XMM (16 bytes);
+ // the 3-scalar store pattern (shufps×2 + 3×movss) costs more than the packed multiply saves.
+ // Benchmarks showed only ~14% gain vs x86 Pascal, which is within x64 compiler noise.
+ // Proper vectorization requires SoA layout or padding Vec3 to 16 bytes.
  procedure _TransformVec3PointsByMat34(const m:TMat34;v:PVec3;num,step:integer); overload;
- {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
- asm
-  // Win64: m=RCX, v=RDX, num=R8, step=R9
-  // xmm6 is non-volatile on Win64 — save and use for preloaded translation
-  movdqa [rsp-$10-RSP_BIAS],xmm6
-
-  // Build translation vector xmm6 = (m[3,0], m[3,1], m[3,2], m[3,2])
-  // Row 3 is at offset 36; we load 3 scalars to avoid reading past the struct end.
-  // The junk 4th element doesn't affect the result (garbage lane is never stored).
-  movss xmm6,[rcx+36]        // (m30, 0, 0, 0)
-  movss xmm3,[rcx+40]        // (m31, 0, 0, 0)
-  movss xmm4,[rcx+44]        // (m32, 0, 0, 0)
-  unpcklps xmm6,xmm3         // (m30, m31, 0, 0)
-  shufps xmm4,xmm4,0         // (m32, m32, m32, m32)
-  shufps xmm6,xmm4,$44       // (m30, m31, m32, m32)
-
- @loop:
-  // Broadcast each coordinate of the input point
-  movss xmm0,[rdx]           // (x, 0, 0, 0)
-  movss xmm1,[rdx+4]         // (y, 0, 0, 0)
-  movss xmm2,[rdx+8]         // (z, 0, 0, 0)
-  shufps xmm0,xmm0,0         // (x,x,x,x)
-  shufps xmm1,xmm1,0         // (y,y,y,y)
-  shufps xmm2,xmm2,0         // (z,z,z,z)
-
-  // Multiply each broadcast by corresponding matrix row.
-  // movups reads 16 bytes; the 4th element bleeds into the next row but
-  // the resulting garbage lane is overwritten by xmm6 translation and never stored.
-  movups xmm3,[rcx]          // row0 = (m00,m01,m02 | m10 as junk 4th)
-  mulps xmm0,xmm3            // (x*m00, x*m01, x*m02, x*junk)
-  movups xmm4,[rcx+12]       // row1 = (m10,m11,m12 | m20 as junk 4th)
-  mulps xmm1,xmm4            // (y*m10, y*m11, y*m12, y*junk)
-  movups xmm5,[rcx+24]       // row2 = (m20,m21,m22 | m30 as junk 4th)
-  mulps xmm2,xmm5            // (z*m20, z*m21, z*m22, z*junk)
-
-  addps xmm0,xmm1
-  addps xmm0,xmm2            // (rx, ry, rz, junk)
-  addps xmm0,xmm6            // add translation
-
-  // Store 3 floats back: rotate xmm0 and extract each component in turn
-  movss [rdx],xmm0            // store result.x (lowest float)
-  shufps xmm0,xmm0,$39        // $39=0b00_11_10_01: rotate left → (ry,rz,junk,rx)
-  movss [rdx+4],xmm0          // store result.y
-  shufps xmm0,xmm0,$39        // → (rz,junk,rx,ry)
-  movss [rdx+8],xmm0          // store result.z
-
-  dec r8
-  jz @exit
-  add rdx,r9
-  jmp @loop
- @exit:
-  movdqa xmm6,[rsp-$10-RSP_BIAS]   // restore xmm6
- end;
- {$ELSE}
   var
    i:integer;
    x,y,z:single;
@@ -2130,7 +2080,6 @@ end;
     v:=PVec3(PtrUInt(v)+step);
    end;
   end;
- {$ENDIF}
 
  // Transform an array of 3D double-precision vectors by a 3x3 matrix in-place.
  procedure _TransformVec3dPointsByMat3d(const m:TMat3d;v:PVec3d;num,step:integer); overload;
@@ -2147,42 +2096,9 @@ end;
    end;
   end;
  // Transform an array of 3D single-precision vectors by a 3x3 matrix in-place.
+ // NOTE: same reasoning as _TransformVec3PointsByMat34 — Vec3 AoS layout
+ // not SSE-friendly; compiler scalar output is competitive. See R-07_sse_plan.md.
  procedure _TransformVec3PointsByMat3(const m:TMat3;v:PVec3;num,step:integer); overload;
- {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
- asm
-  // Win64: m=RCX, v=RDX, num=R8, step=R9
-  // TMat3 = 3 rows × 3 floats = 36 bytes total; rows at offsets 0, 12, 24.
-  // movups [rcx+N] reads 16 bytes: first 3 are the row, 4th spills into the next row (or padding).
-  // The junk 4th element is multiplied by 0 (broadcast has 0 in position 3) — but actually
-  // we broadcast all 4 positions, so the junk propagates only to the junk output lane.
- @loop:
-  movss xmm0,[rdx]
-  movss xmm1,[rdx+4]
-  movss xmm2,[rdx+8]
-  shufps xmm0,xmm0,0         // (x,x,x,x)
-  shufps xmm1,xmm1,0         // (y,y,y,y)
-  shufps xmm2,xmm2,0         // (z,z,z,z)
-  movups xmm3,[rcx]          // row0 = (m00,m01,m02 | junk)
-  mulps xmm0,xmm3
-  movups xmm4,[rcx+12]       // row1 = (m10,m11,m12 | junk)
-  mulps xmm1,xmm4
-  movups xmm5,[rcx+24]       // row2 = (m20,m21,m22 | junk); reads offsets 24-39, all within 36-byte struct? No — 36 bytes = offsets 0-35, reading 24-39 overflows by 4 bytes.
-  // Safe because TMat3 is always in a larger structure or array with valid memory after it.
-  mulps xmm2,xmm5
-  addps xmm0,xmm1
-  addps xmm0,xmm2            // (rx, ry, rz, junk)
-  movss [rdx],xmm0
-  shufps xmm0,xmm0,$39
-  movss [rdx+4],xmm0
-  shufps xmm0,xmm0,$39
-  movss [rdx+8],xmm0
-  dec r8
-  jz @exit
-  add rdx,r9
-  jmp @loop
- @exit:
- end;
- {$ELSE}
   var
    i:integer;
    x,y,z:single;
@@ -2195,7 +2111,6 @@ end;
     v:=PVec3(PtrUInt(v)+step);
    end;
   end;
- {$ENDIF}
 
  function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload;
   var
