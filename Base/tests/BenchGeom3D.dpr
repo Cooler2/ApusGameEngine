@@ -108,8 +108,21 @@ begin
   EndBench;
 end;
 
+procedure BenchVec4_Normalize;
+var i:integer; v,u:TVec4;
+begin
+  v:=TVec4.Init(1.0,2.0,3.0,1.0);
+  StartBench('TVec4.Normalize',N_FAST);
+  for i:=1 to N_FAST do begin
+    u:=v;
+    u.Normalize;
+  end;
+  sink:=sink+u.x;
+  EndBench;
+end;
+
 // ============================================================================
-// TQuat operations (SSE since R-07 — comparison reference for TVec3)
+// TQuat operations (SSE)
 // ============================================================================
 
 procedure BenchQuat_Normalize;
@@ -134,6 +147,34 @@ begin
   for i:=1 to N_FAST do
     r:=a.Dot(b);
   sink:=sink+r;
+  EndBench;
+end;
+
+procedure BenchQuat_Mul;
+var i:integer; a,b,u:TQuat;
+begin
+  a:=TQuat.Init(0.1,0.2,0.3,0.9);
+  b:=TQuat.Init(0.4,0.5,0.6,0.7);
+  StartBench('TQuat.Mul',N_FAST);
+  for i:=1 to N_FAST do begin
+    u:=a;
+    u.Mul(b);
+  end;
+  sink:=sink+u.x;
+  EndBench;
+end;
+
+procedure BenchQuat_Add;
+var i:integer; a,b,u:TQuat;
+begin
+  a:=TQuat.Init(0.1,0.2,0.3,0.9);
+  b:=TQuat.Init(0.4,0.5,0.6,0.7);
+  StartBench('TQuat.Add',N_FAST);
+  for i:=1 to N_FAST do begin
+    u:=a;
+    u.Add(b);
+  end;
+  sink:=sink+u.x;
   EndBench;
 end;
 
@@ -221,11 +262,14 @@ begin
     BenchWriteln('--- TVec4 ---');
     BenchVec4_Dot;
     BenchVec4_Length;
+    BenchVec4_Normalize;
     BenchWriteln;
 
-    BenchWriteln('--- TQuat (SSE reference) ---');
+    BenchWriteln('--- TQuat (SSE) ---');
     BenchQuat_Normalize;
     BenchQuat_Dot;
+    BenchQuat_Mul;
+    BenchQuat_Add;
     BenchWriteln;
 
     BenchWriteln('--- Batch transforms ---');

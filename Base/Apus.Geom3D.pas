@@ -2939,14 +2939,42 @@ begin
 end;
 
 procedure TVec4.Normalize;
+{$IFDEF CPUx64}
+asm
+ {$IFDEF MSWINDOWS}
+  // Win64: self=RCX; TVec4=16 bytes, movups safe
+  movups xmm0,[rcx]
+  movaps xmm1,xmm0
+  mulps xmm0,xmm0         // (x²,y²,z²,w²)
+  haddps xmm0,xmm0
+  haddps xmm0,xmm0        // dot in all lanes
+  rsqrtss xmm0,xmm0       // ≈ 1/sqrt
+  shufps xmm0,xmm0,0      // broadcast
+  mulps xmm1,xmm0
+  movups [rcx],xmm1
+ {$ENDIF}
+ {$IFDEF UNIX}
+  // Linux/macOS x64: self=RDI
+  movups xmm0,[rdi]
+  movaps xmm1,xmm0
+  mulps xmm0,xmm0
+  haddps xmm0,xmm0
+  haddps xmm0,xmm0
+  rsqrtss xmm0,xmm0
+  shufps xmm0,xmm0,0
+  mulps xmm1,xmm0
+  movups [rdi],xmm1
+ {$ENDIF}
+end;
+{$ELSE}
 var
   len:single;
 begin
   len:=Length;
-  if len<>0 then begin
+  if len<>0 then
     Mul(1/len);
-  end;
 end;
+{$ENDIF}
 
 function TVec4.IsValid:boolean;
 begin
@@ -3221,15 +3249,17 @@ procedure TQuat.Sub(const q:TQuat);
  {$IFDEF CPUx64}
  asm
   {$IFDEF UNIX}
-  // rdi=@self, rsi=q
+  // rdi=@self, rsi=@q
   movups xmm0,[rdi]
-  subps xmm0,[rsi]
+  movups xmm1,[rsi]
+  subps xmm0,xmm1
   movups [rdi],xmm0
   {$ENDIF}
   {$IFDEF MSWINDOWS}
-  // rcx=@self, rdx=q
+  // rcx=@self, rdx=@q
   movups xmm0,[rcx]
-  subps xmm0,[rdx]
+  movups xmm1,[rdx]
+  subps xmm0,xmm1
   movups [rcx],xmm0
   {$ENDIF}
  end;
@@ -3246,15 +3276,17 @@ procedure TQuat.Add(const q:TQuat);
  {$IFDEF CPUx64}
  asm
   {$IFDEF UNIX}
-  // rdi=@self, rsi=q
+  // rdi=@self, rsi=@q
   movups xmm0,[rdi]
-  addps xmm0,[rsi]
+  movups xmm1,[rsi]
+  addps xmm0,xmm1
   movups [rdi],xmm0
   {$ENDIF}
   {$IFDEF MSWINDOWS}
-  // rcx=@self, rdx=q
+  // rcx=@self, rdx=@q
   movups xmm0,[rcx]
-  addps xmm0,[rdx]
+  movups xmm1,[rdx]
+  addps xmm0,xmm1
   movups [rcx],xmm0
   {$ENDIF}
  end;
@@ -3275,7 +3307,8 @@ procedure TQuat.Add(const q:TQuat;scale:single);
   shufps xmm2,xmm2,0
   movups xmm0,[rdx]
   mulps xmm0,xmm2
-  addps xmm0,[rcx]
+  movups xmm1,[rcx]
+  addps xmm0,xmm1
   movups [rcx],xmm0
   {$ENDIF}
   {$IFDEF UNIX}
@@ -3283,7 +3316,8 @@ procedure TQuat.Add(const q:TQuat;scale:single);
   shufps xmm0,xmm0,0
   movups xmm2,[rsi]
   mulps xmm2,xmm0
-  addps xmm2,[rdi]
+  movups xmm1,[rdi]
+  addps xmm2,xmm1
   movups [rdi],xmm2
   {$ENDIF}
  end;
@@ -3364,14 +3398,16 @@ procedure TQuat.Mul(const q:TQuat);
   {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=@q
   movups xmm0,[rcx]
-  mulps xmm0,[rdx]
+  movups xmm1,[rdx]
+  mulps xmm0,xmm1
   movups [rcx],xmm0
   {$ENDIF}
   {$IFDEF UNIX}
   // rdi=@self, rsi=@q
-  movups xmm0,[rdi] // load self
-  mulps xmm0,[rsi]
-  movups [rdi],xmm0 // save self
+  movups xmm0,[rdi]
+  movups xmm1,[rsi]
+  mulps xmm0,xmm1
+  movups [rdi],xmm0
   {$ENDIF}
  end;
  {$ELSE}
