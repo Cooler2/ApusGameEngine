@@ -816,8 +816,10 @@ procedure TRenderDevice.UploadStreamVertices(vertices:pointer;vertexLayout:TVert
   ASSERT(vertices<>nil);
   bytes:=vertexCount*vertexLayout.stride;
   EnsureStreamVB(bytes);
-  glBindBuffer(GL_ARRAY_BUFFER,streamVB);
-  TrackArrayBufferBinding(streamVB);
+  if boundArrayBuffer<>streamVB then begin
+   glBindBuffer(GL_ARRAY_BUFFER,streamVB);
+   TrackArrayBufferBinding(streamVB);
+  end;
   glBufferSubData(GL_ARRAY_BUFFER,0,bytes,vertices);
  end;
 
@@ -829,8 +831,10 @@ procedure TRenderDevice.UploadStreamIndices(indices:pointer;indexCount:integer);
   ASSERT(indices<>nil);
   bytes:=indexCount*2;
   EnsureStreamIB(bytes);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
-  TrackElementBufferBinding(streamIB);
+  if boundElementArrayBuffer<>streamIB then begin
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
+   TrackElementBufferBinding(streamIB);
+  end;
   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,bytes,indices);
  end;
 
@@ -884,11 +888,11 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
     ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
    if not IsCoreProfile then begin
-    if vertices<>nil then begin
+    if (vertices<>nil) and (boundArrayBuffer<>0) then begin
      glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
      TrackArrayBufferBinding(0);
     end;
-    if indices<>nil then begin
+    if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
      TrackElementBufferBinding(0);
     end;
@@ -928,11 +932,11 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    indices:=nil;
   end else
   if not IsCoreProfile then begin
-   if vertices<>nil then begin
+   if (vertices<>nil) and (boundArrayBuffer<>0) then begin
     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
     TrackArrayBufferBinding(0);
    end;
-   if indices<>nil then begin
+   if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
     TrackElementBufferBinding(0);
    end;
@@ -973,11 +977,11 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
    if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
     ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
    if not IsCoreProfile then begin
-    if vertices<>nil then begin
+    if (vertices<>nil) and (boundArrayBuffer<>0) then begin
      glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
      TrackArrayBufferBinding(0);
     end;
-    if indices<>nil then begin
+    if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
      TrackElementBufferBinding(0);
     end;
@@ -1012,7 +1016,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil;
   end else
-  if (vertices<>nil) and (not IsCoreProfile) then begin
+  if (vertices<>nil) and (not IsCoreProfile) and (boundArrayBuffer<>0) then begin
    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
    TrackArrayBufferBinding(0);
   end;
