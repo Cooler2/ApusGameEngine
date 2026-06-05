@@ -111,6 +111,7 @@ implementation
   Apus.Engine.TextDraw,
   Apus.Engine.ResManGL,
   Apus.Engine.ShadersGL,
+  Apus.Engine.Window,
   Apus.Log;
 
 type
@@ -818,6 +819,7 @@ procedure TRenderDevice.UploadStreamVertices(vertices:pointer;vertexLayout:TVert
   glBindBuffer(GL_ARRAY_BUFFER,streamVB);
   TrackArrayBufferBinding(streamVB);
   glBufferSubData(GL_ARRAY_BUFFER,0,bytes,vertices);
+  if window<>nil then inc(window.stats.verticesUploaded,vertexCount);
  end;
 
 procedure TRenderDevice.UploadStreamIndices(indices:pointer;indexCount:integer);
@@ -848,6 +850,7 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
    vertices:=nil; // attributes are offsets in bound stream VBO
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then inc(window.stats.drawCalls);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
    LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
@@ -890,6 +893,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    end;
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then inc(window.stats.drawCalls);
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
    LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices);
@@ -929,6 +933,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    end;
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then inc(window.stats.drawCalls);
   case primtype of
    LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
    LINE_STRIP:glDrawRangeElements(GL_LINE_STRIP,vrtStart,vrtStart+vrtCount-1,primCount+1,GL_UNSIGNED_SHORT,indices);
@@ -971,6 +976,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
    end;
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then inc(window.stats.drawCalls);
   case primtype of
    LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
    LINE_STRIP:glDrawElementsInstanced(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices,instances);
@@ -1000,6 +1006,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
    TrackArrayBufferBinding(0);
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then inc(window.stats.drawCalls);
   case primtype of
    LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);
    LINE_STRIP:glDrawArraysInstanced(GL_LINE_STRIP,0,primCount+1,instances);
@@ -1232,6 +1239,7 @@ procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
   if curTarget=nil then begin // invert Y-axis
    y:=realHeight-y-h;
   end;
+  if window<>nil then inc(window.stats.clipChanges);
   glScissor(x,y,w,h);
  end;
 
