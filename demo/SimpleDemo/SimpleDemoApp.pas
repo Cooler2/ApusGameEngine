@@ -124,7 +124,7 @@ procedure TMainScene.CreateUI;
   box:=TUIElement.Create(400,250,UI,'MainScene\MainMenu');
   box.Center; // make it center
   //c.SetPos(UI.size.x/2,UI.size.y/2,pivotCenter); // another way to make it center
-  box.styleinfo:='E0C0C8D0'; // fill color for the default style
+  box.styleinfo:='fill:#E0C0C8D0'; // fill color for the default style
   box.SetAnchors(0.5, 0.5, 0.5, 0.5); // make it always centered
 
   // Create an edit box. I don't want to use a variable for it
