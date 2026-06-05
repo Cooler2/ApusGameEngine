@@ -36,6 +36,16 @@ type
   procedure Reset;
  end;
 
+ // Per-frame render call counters (reset each frame in PresentRenderedFrame).
+ TRenderStats=record
+  drawCalls:integer;
+  shaderChanges:integer;
+  texChanges:integer;
+  clipChanges:integer;
+  verticesUploaded:integer;
+  procedure Reset;
+ end;
+
  TFrameTiming=record
   // Robot diagnostics toggle.
   phaseMetrics:boolean;
@@ -134,6 +144,7 @@ public
   renderThread:IThread; // nil for main window, set by AddWindow for extra windows
   runtimeLock:TLock; // protects scene list + UI access for this window
   timings:TFrameTiming;
+  stats:TRenderStats;
   capture:TFrameCapture;
   dRT:TTexture; // default render target (can be nil)
   dRTdepth:TTexture; // depth buffer texture
@@ -316,6 +327,15 @@ procedure TWindow.ReleaseGraphContext;
 procedure TWindow.ActivateGraphContext;
  begin
  end;
+
+procedure TRenderStats.Reset;
+begin
+ drawCalls:=0;
+ shaderChanges:=0;
+ texChanges:=0;
+ clipChanges:=0;
+ verticesUploaded:=0;
+end;
 
 procedure TFrameCapture.Reset;
 begin
@@ -1003,6 +1023,7 @@ begin
  inc(frameNum);
  screenChanged:=false;
  timings.idleRedrawAccUs:=0;
+ stats.Reset;
 end;
 
 procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);
