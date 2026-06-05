@@ -42,7 +42,7 @@ type
   shaderChanges:integer;
   texChanges:integer;
   clipChanges:integer;
-  verticesUploaded:integer;
+  verticesDrawn:integer;
   procedure Reset;
  end;
 
@@ -334,7 +334,7 @@ begin
  shaderChanges:=0;
  texChanges:=0;
  clipChanges:=0;
- verticesUploaded:=0;
+ verticesDrawn:=0;
 end;
 
 procedure TFrameCapture.Reset;
