@@ -685,8 +685,8 @@ implementation
      txt.WriteW(font,j,mY,color,copy(wst,0,selstart),taLeft,toDontTranslate);
      d:=selX2-selX1;
      if d>0 then begin
-      draw.FillRect(selX1,y1+1,selX2-1,y2-1,ColorSub(color,$60202020));
-      txt.WriteW(font,selX1,mY,color and $FF000000,copy(wst,selstart,selcount),taLeft,toDontTranslate);
+      draw.FillRect(selX1,y1+1,selX2-1,y2-1,$FF4488CC); // selection highlight
+      txt.WriteW(font,selX1,mY,$FFFFFFFF,copy(wst,selstart,selcount),taLeft,toDontTranslate);
      end;
      txt.WriteW(font,selX2,mY,color,
        copy(wst,selstart+selcount,length(wst)-selstart-selcount),taLeft,toDontTranslate);
