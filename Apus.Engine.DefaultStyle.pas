@@ -660,9 +660,10 @@ implementation
      i:=0
     else
      i:=txt.MeasuredRect(cursorpos).Left; // caret x in text-local coordinates
+    d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible
     if i-scroll.X<0 then scroll.X:=i;
-    if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
-    scrollPixels:=round(scroll.X*globalScale);
+    if i-scroll.X>(x2-x1-d-offset) then scroll.X:=i-(x2-x1-d-offset);
+    scrollPixels:=round(scroll.X); // scroll.X is already in screen pixels
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if not completion.IsEmpty then begin
      j:=xStart+txt.WidthW(font,wst);
