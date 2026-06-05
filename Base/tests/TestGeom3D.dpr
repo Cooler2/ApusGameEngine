@@ -56,6 +56,9 @@ begin
   v:=TVec3.Init(0,0,-2);
   v.Normalize;
   Check(Abs(v.z+1)<0.0001,'Normalize precision');
+  v:=TVec3.Init(0,0,-2);
+  v.NormalizeFast;
+  Check(Abs(v.Length-1)<0.001,'NormalizeFast approximate length');
   EndTest;
 end;
 

@@ -59,6 +59,8 @@ type
     // Weighted sum: p0*weight0 + p1*weight1.
     constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
     procedure Normalize;
+    // Approximate normalization using fast reciprocal square root where available.
+    procedure NormalizeFast;
     function IsValid:boolean;
     function IsZero:boolean; inline;
     function IsIdentity:boolean; inline; // all components = 1
@@ -2745,6 +2747,43 @@ end;
   l:=1/Length;
   x:=x*l; y:=y*l; z:=z*l;
  end;
+{$ENDIF}
+
+procedure TVec3.NormalizeFast;
+{$IFDEF CPUx64}
+asm
+ {$IFDEF MSWINDOWS}
+ movss xmm0,[rcx]
+ movss xmm1,[rcx+4]
+ movss xmm2,[rcx+8]
+ {$ELSE} // UNIX
+ movss xmm0,[rdi]
+ movss xmm1,[rdi+4]
+ movss xmm2,[rdi+8]
+ {$ENDIF}
+ movaps xmm3,xmm0; mulss xmm3,xmm3
+ movaps xmm4,xmm1; mulss xmm4,xmm4
+ movaps xmm5,xmm2; mulss xmm5,xmm5
+ addss xmm3,xmm4
+ addss xmm3,xmm5
+ rsqrtss xmm3,xmm3
+ mulss xmm0,xmm3
+ mulss xmm1,xmm3
+ mulss xmm2,xmm3
+ {$IFDEF MSWINDOWS}
+ movss [rcx],xmm0
+ movss [rcx+4],xmm1
+ movss [rcx+8],xmm2
+ {$ELSE} // UNIX
+ movss [rdi],xmm0
+ movss [rdi+4],xmm1
+ movss [rdi+8],xmm2
+ {$ENDIF}
+end;
+{$ELSE}
+begin
+  Normalize;
+end;
 {$ENDIF}
 
 constructor TVec3.Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single);

@@ -49,6 +49,15 @@ begin
   sink:=sink+u.x; EndBench;
 end;
 
+procedure BenchVec3_NormalizeFast;
+var i:integer; v,u:TVec3;
+begin
+  v:=TVec3.Init(1.0,2.0,3.0);
+  StartBench('TVec3.NormalizeFast',N_FAST);
+  for i:=1 to N_FAST do begin u:=v; u.NormalizeFast; end;
+  sink:=sink+u.x; EndBench;
+end;
+
 procedure BenchVec3_Dot;
 var i:integer; a,b:TVec3; r:single;
 begin
@@ -381,6 +390,7 @@ begin
     BenchVec3_Length;
     BenchVec3_Length2;
     BenchVec3_Normalize;
+    BenchVec3_NormalizeFast;
     BenchVec3_Dot;
     BenchVec3_Cross;
     BenchVec3_Add;
