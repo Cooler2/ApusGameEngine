@@ -692,12 +692,11 @@ implementation
        copy(wst,selstart+selcount,length(wst)-selstart-selcount),taLeft,toDontTranslate);
     end else
      txt.WriteW(font,xStart+offset,mY,color,wst,taLeft,toDontTranslate);
-    gfx.clip.Restore;
-    if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // курсор
+    if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // cursor
      curX:=xStart+offset+i-1; // slight visual alignment tweak: 1px to the left
      draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
-//     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
     end;
+    gfx.clip.Restore;
    end;
   end;
 
