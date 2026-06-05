@@ -8,7 +8,7 @@ uses
   Apus.Core,
   Apus.Geom3D;
 
-{$I test.inc}
+{$I Test.inc}
 
 const
   N_FAST  = 5000000;

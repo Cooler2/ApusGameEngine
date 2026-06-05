@@ -711,17 +711,11 @@ begin
 end;
 
 function TVec4.Dot(const p:TVec4):single;
-{$IFDEF CPUx64}
+{$IF Defined(CPUx64) and Defined(MSWINDOWS)}
 asm
- {$IFDEF MSWINDOWS}
  // rcx=@self, rdx=@p
  movups xmm0,[rcx]
  movups xmm1,[rdx]
- {$ELSE} // UNIX
- // rdi=@self, rsi=@p
- movups xmm0,[rdi]
- movups xmm1,[rsi]
- {$ENDIF}
  mulps xmm0,xmm1
  haddps xmm0,xmm0
  haddps xmm0,xmm0
@@ -2712,7 +2706,6 @@ end;
 procedure TVec3.Normalize;
 {$IFDEF CPUx64}
 asm
- // uses rsqrtss for ~12-bit precision (matches TQuat.Normalize)
  {$IFDEF MSWINDOWS}
  movss xmm0,[rcx]
  movss xmm1,[rcx+4]
@@ -2727,7 +2720,11 @@ asm
  movaps xmm5,xmm2; mulss xmm5,xmm5  // z²
  addss xmm3,xmm4
  addss xmm3,xmm5                     // xmm3 = x²+y²+z²
- rsqrtss xmm3,xmm3                   // xmm3 ≈ 1/sqrt(len²)
+ sqrtss xmm3,xmm3                    // xmm3 = length
+ mov eax,$3F800000
+ movd xmm4,eax                       // xmm4 = 1.0
+ divss xmm4,xmm3                     // xmm4 = 1/length
+ movaps xmm3,xmm4
  mulss xmm0,xmm3
  mulss xmm1,xmm3
  mulss xmm2,xmm3

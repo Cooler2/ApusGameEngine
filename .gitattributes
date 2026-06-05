@@ -1,0 +1,16 @@
+* text=auto
+
+# Pascal sources and Windows build files are normally edited from Windows.
+*.pas text eol=crlf
+*.inc text eol=crlf
+*.dpr text eol=crlf
+*.dproj text eol=crlf
+*.lpi text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.rc text eol=crlf
+*.iss text eol=crlf
+
+# Shell scripts must stay executable by /bin/sh and bash on Linux.
+*.sh text eol=lf

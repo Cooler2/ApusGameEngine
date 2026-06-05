@@ -53,6 +53,9 @@ begin
   v:=TVec3.Init(0,3,4);
   v.Normalize;
   Check(Abs(v.Length-1)<0.0002,'Normalize non-zero');
+  v:=TVec3.Init(0,0,-2);
+  v.Normalize;
+  Check(Abs(v.z+1)<0.0001,'Normalize precision');
   EndTest;
 end;
 
@@ -204,6 +207,8 @@ begin
   Check(Abs(v.w-2)<0.0001,'Vec4 explicit w');
   v:=Vec4(3,4,5,6);
   Check((Abs(v.x-3)<0.0001) and (Abs(v.y-4)<0.0001) and (Abs(v.z-5)<0.0001) and (Abs(v.w-6)<0.0001),'Vec4 component factory');
+  Check(Abs(v.Dot(Vec4(1,2,3,4))-50)<0.0001,'TVec4.Dot');
+  Check(Abs(Vec4(1,2,2,0).Length-3)<0.0001,'TVec4.Length');
   Check(Vec3(v).IsEqual(TVec3.Init(v.x,v.y,v.z)),'Vec4->Vec3 factory');
   Check(v.ToVec3.IsEqual(TVec3.Init(v.x,v.y,v.z)),'TVec4.ToVec3');
 
