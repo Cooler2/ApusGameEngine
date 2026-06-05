@@ -168,12 +168,13 @@ var
 
  procedure DrawHelp;
   const
-   lines:array[1..12] of String8=(
+   lines:array[1..13] of String8=(
     'Hotkeys:',
     '[Alt+F1] - show/hide debug overlays',
     '  [Alt+1] this help page (hold modifier)',
     '  [Alt+2] glyphs cache',
     '  [Alt+3] scenes',
+    '  [Alt+5] render stats',
     '',
     '[Shift+Alt+F1] - dump debug logs',
     '[Alt+F3] - toggle magnifier',
@@ -232,6 +233,28 @@ var
   begin
   end;
 
+ procedure ListRenderStats;
+  const
+   labels:array[0..4] of String8=('Draw calls','Shader changes','Tex changes','Clip changes','Vertices drawn');
+  var
+   values:array[0..4] of integer;
+   k,ly:integer;
+  begin
+   values[0]:=window.stats.drawCalls;
+   values[1]:=window.stats.shaderChanges;
+   values[2]:=window.stats.texChanges;
+   values[3]:=window.stats.clipChanges;
+   values[4]:=window.stats.verticesDrawn;
+   draw.FillRect(0,0,SRound(220*game.screenScale),SRound((length(labels)+0.4)*18*game.screenScale),$80000000);
+   txt.BeginBlock(toDontTranslate);
+   ly:=0;
+   for k:=0 to high(labels) do begin
+    inc(ly,SRound(18*game.screenScale));
+    txt.Write(game.defaultFont,5,ly,$FFFFFFC0,labels[k]+': '+IntToStr(values[k]),taLeft,toDontTranslate);
+   end;
+   txt.EndBlock;
+  end;
+
  function RingIndexByOffset(offset:integer):integer;
   begin
    result:=window.timings.frameTimeRingPos-1-offset;
@@ -275,6 +298,7 @@ var
    2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,Str32(''));
    3:ListScenes;
    4:ListUI;
+   5:ListRenderStats;
   end;
 
   for feature in state.features do

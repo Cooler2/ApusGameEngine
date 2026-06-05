@@ -111,6 +111,7 @@ implementation
   Apus.Engine.TextDraw,
   Apus.Engine.ResManGL,
   Apus.Engine.ShadersGL,
+  Apus.Engine.Window,
   Apus.Log;
 
 type
@@ -815,8 +816,10 @@ procedure TRenderDevice.UploadStreamVertices(vertices:pointer;vertexLayout:TVert
   ASSERT(vertices<>nil);
   bytes:=vertexCount*vertexLayout.stride;
   EnsureStreamVB(bytes);
-  glBindBuffer(GL_ARRAY_BUFFER,streamVB);
-  TrackArrayBufferBinding(streamVB);
+  if boundArrayBuffer<>streamVB then begin
+   glBindBuffer(GL_ARRAY_BUFFER,streamVB);
+   TrackArrayBufferBinding(streamVB);
+  end;
   glBufferSubData(GL_ARRAY_BUFFER,0,bytes,vertices);
  end;
 
@@ -828,8 +831,10 @@ procedure TRenderDevice.UploadStreamIndices(indices:pointer;indexCount:integer);
   ASSERT(indices<>nil);
   bytes:=indexCount*2;
   EnsureStreamIB(bytes);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
-  TrackElementBufferBinding(streamIB);
+  if boundElementArrayBuffer<>streamIB then begin
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
+   TrackElementBufferBinding(streamIB);
+  end;
   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,bytes,indices);
  end;
 
@@ -848,6 +853,10 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
    vertices:=nil; // attributes are offsets in bound stream VBO
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then begin
+   inc(window.stats.drawCalls);
+   inc(window.stats.verticesDrawn,vertexCount);
+  end;
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
    LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
@@ -879,17 +888,21 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
     ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
    if not IsCoreProfile then begin
-    if vertices<>nil then begin
+    if (vertices<>nil) and (boundArrayBuffer<>0) then begin
      glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
      TrackArrayBufferBinding(0);
     end;
-    if indices<>nil then begin
+    if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
      TrackElementBufferBinding(0);
     end;
    end;
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then begin
+   inc(window.stats.drawCalls);
+   inc(window.stats.verticesDrawn,indexCount);
+  end;
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
    LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices);
@@ -919,16 +932,20 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    indices:=nil;
   end else
   if not IsCoreProfile then begin
-   if vertices<>nil then begin
+   if (vertices<>nil) and (boundArrayBuffer<>0) then begin
     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
     TrackArrayBufferBinding(0);
    end;
-   if indices<>nil then begin
+   if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
     TrackElementBufferBinding(0);
    end;
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then begin
+   inc(window.stats.drawCalls);
+   inc(window.stats.verticesDrawn,vrtCount);
+  end;
   case primtype of
    LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
    LINE_STRIP:glDrawRangeElements(GL_LINE_STRIP,vrtStart,vrtStart+vrtCount-1,primCount+1,GL_UNSIGNED_SHORT,indices);
@@ -960,17 +977,21 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
    if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
     ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
    if not IsCoreProfile then begin
-    if vertices<>nil then begin
+    if (vertices<>nil) and (boundArrayBuffer<>0) then begin
      glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
      TrackArrayBufferBinding(0);
     end;
-    if indices<>nil then begin
+    if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
      TrackElementBufferBinding(0);
     end;
    end;
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then begin
+   inc(window.stats.drawCalls);
+   inc(window.stats.verticesDrawn,indexCount*instances);
+  end;
   case primtype of
    LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
    LINE_STRIP:glDrawElementsInstanced(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices,instances);
@@ -995,11 +1016,15 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil;
   end else
-  if (vertices<>nil) and (not IsCoreProfile) then begin
+  if (vertices<>nil) and (not IsCoreProfile) and (boundArrayBuffer<>0) then begin
    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
    TrackArrayBufferBinding(0);
   end;
   SetupAttributes(vertices,vertexLayout);
+  if window<>nil then begin
+   inc(window.stats.drawCalls);
+   inc(window.stats.verticesDrawn,vertexCount*instances);
+  end;
   case primtype of
    LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);
    LINE_STRIP:glDrawArraysInstanced(GL_LINE_STRIP,0,primCount+1,instances);
@@ -1232,6 +1257,7 @@ procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
   if curTarget=nil then begin // invert Y-axis
    y:=realHeight-y-h;
   end;
+  if window<>nil then inc(window.stats.clipChanges);
   glScissor(x,y,w,h);
  end;
 

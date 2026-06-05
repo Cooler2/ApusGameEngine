@@ -161,7 +161,8 @@ uses
   StrUtils,
   Apus.Geom3D,
   Apus.Engine.ResManGL,
-  Apus.Engine.OpenGL
+  Apus.Engine.OpenGL,
+  Apus.Engine.Window
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
 
@@ -943,6 +944,7 @@ procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
   end;
   curTextures[stage]:=tex;
   Bits.SetBit(curTexChanged,stage);
+  if window<>nil then inc(window.stats.texChanges);
  end;
 
 procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
@@ -1013,10 +1015,14 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
 procedure TGLShadersAPI.ActivateShader(shader:TShader);
  var
   stage:integer;
+  glShader:TGLShader;
  begin
-  activeShader:=shader as TGLShader;
+  glShader:=shader as TGLShader;
+  if glShader=activeShader then exit;
+  activeShader:=glShader;
+  if window<>nil then inc(window.stats.shaderChanges);
   glUseProgram(activeShader.handle);
-  // Mark textures as changed to force update
+  // Mark textures as changed to force update after shader switch
   for stage:=0 to high(curTextures) do
    if curTextures[stage]<>nil then
     Bits.SetBit(curTexChanged,stage);
