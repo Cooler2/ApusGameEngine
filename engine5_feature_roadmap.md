@@ -25,7 +25,7 @@ This file follows top-down planning:
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Working state merged; support track active with recent bugfixes, test expansion, and new benchmarks | Linux fixes/validation, full baseline delta pass, SSE optimization of top hot paths, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | Clip-threaded `FindElementAt` with `escapingOnly` mode for deep noParentClip descendants; `FindElementAt`/`FindAnyElementAt` unified as overloads. Verified on UI demo fixture (panel+popup and panel→mid→deep). Notes: `Work/reports/R-08_hittest_overlay_notes.md` | — |
-| R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
+| R-09 | GL Performance Modernization | planned | ~2% | Reframed: not speculative auto-batching but diagnose-then-fix. Four tracks agreed: A) draw-call/state-change telemetry in debug overlay + NSight on real scenes, B) cheap redundant-state-change wins, C) opt-in manual sprite-batch API, D) GL 4.x capability research | Add overlay counters, capture NSight baselines, then decide B/C scope from data; run D research |
 | R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
@@ -145,7 +145,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-006] 3D material pipeline: normal mapping (optional parallax/occlusion extensions)
 - [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
 - [ ] [R-008] UI input hit-test for out-of-bounds children without full-tree mouse-move traversal
-- [ ] [R-009] OpenGL performance modernization (bindless/persistent mapping + explicit batching)
+- [ ] [R-009] OpenGL performance modernization (diagnose-first: telemetry, cheap state-change wins, opt-in manual batch API, GL 4.x research)
 - [ ] [R-010] UI widget system refactor roadmap (TUIElement decomposition + widget-class review)
 - [ ] [R-011] Headless/NOGFX backend for CI-driven UI automation without window/OpenGL context
 - [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
@@ -396,24 +396,51 @@ Use this section for anything remembered on the fly.
     - Stage 2: test helpers (`click`, `move`, `type`, `advanceFrames`) + baseline UI automation scenarios.
     - Stage 3 (optional): simplified CPU offscreen rendering/capture for layout/snapshot-oriented checks.
 
-### [R-09] OpenGL Performance Modernization (Core-Profile Follow-Up)
-- Status: idea
+### [R-09] OpenGL Performance Modernization (Diagnose-First)
+- Status: planned
 - Priority: P1
 - Area: Render
-- Value: improve CPU/GPU efficiency on core profile and reduce driver overhead in real scenes.
-- Scope (MVP): reduce redundant state changes (`glBind*` churn), introduce practical batching for line-heavy immediate paths, and evaluate modern GL features behind capability gates (persistent mapped streaming, bindless resources where available).
-- Out of scope: full renderer rewrite or hard requirement on latest GL-only GPUs.
-- Dependencies: `Apus.Engine.OpenGL`, `Apus.Engine.Draw`, `Apus.Engine.ResManGL`, `Apus.Engine.ShadersGL`, runtime capability detection.
-- Risks: synchronization bugs with persistent mapping; cross-driver behavior differences; complexity creep in draw API.
+- Value: improve CPU/GPU efficiency and reduce driver overhead in real scenes — driven by measurement, not by speculative batching.
+- Framing decision (2026-06-05): the engine's 2D path issues one draw call per primitive (`Apus.Engine.Draw`), while text/lines/particles already batch. An automatic 2D/UI sprite-batcher was considered and **deliberately deprioritized**: in real UI the batch is broken not only by `glScissor` clip changes (which are already lazy — see `TClippingAPI.Prepare`) but mainly by per-widget texture changes (neutral fill + glyph atlas + icon), so a naive batcher would shine in synthetic tests and do almost nothing on real screens. Conclusion: start from practical scenarios, find where it actually hurts, and prefer cheap, safe wins. Work split into four independent tracks.
+- Out of scope: full renderer rewrite; hard requirement on latest GL-only GPUs; automatic UI sprite-batching (revisit only if Track A shows real pain on UI).
+
+- **Track A — Telemetry & diagnosis (do this first):**
+  - per-frame counters: draw calls, shader switches, texture binds, scissor/clip changes, uploaded vertices.
+  - surface them in the debug overlay (`Apus.Engine.DebugOverlays`, Alt+1..9).
+  - author runs NSight on representative real scenes (UI, a 3D demo, a sprite-heavy case if available) to locate the actual bottleneck before any optimization.
+  - benchmark scenes must model realistic clip patterns (scrollable/nested containers, texture interleaving), not a flat sheet of identical sprites — otherwise the numbers lie.
+
+- **Track B — Cheap redundant-state-change wins (low risk, helps every scene):**
+  - `UploadStreamVertices`/`UploadStreamIndices` currently re-`glBindBuffer` the stream VBO/IBO unconditionally per `Draw`, although `boundArrayBuffer`/`boundElementArrayBuffer` tracking already exists — bind only on change (explicit TODOs already in `OpenGL.pas`).
+  - `SetupAttributes` re-issues `glVertexAttribPointer` for every attribute on every `Draw` even when layout+buffer are unchanged — cache and skip.
+  - `shader.Apply` per `Draw` — ensure a "current program == wanted" guard avoids redundant `glUseProgram`.
+  - compat-path `DrawIndexed` unconditional unbind-to-zero (`OpenGL.pas` ~`:883`,`:923`) when the same buffer stays active.
+  - these reduce CPU/driver overhead even on scenes that "already fly", with no change to draw semantics.
+
+- **Track C — Opt-in manual sprite-batch API (for sprite games, not auto-magic):**
+  - explicit `Begin/Add/End`-style batch under one texture+mode; caller guarantees no texture/clip change inside; flush as a single `DrawIndexed`.
+  - predictable, no scissor heuristics; can build on existing `TVertexBuffer`/`TIndexBuffer` + `DrawIndexed`.
+  - target: tilemaps, sprite fields (Spectromancer/Astral profile).
+
+- **Track D — GL 4.x capability research (investigation, capability-gated + fallback):**
+  - core profile currently uses GL essentially as "3.3 + VBO"; 4.3–4.6 features may both simplify code and cut overhead.
+  - candidates: DSA (4.5, `glNamedBufferSubData`/`glCreateBuffers`) to remove bind-to-edit and bind churn (overlaps Track B); separate attribute format (4.3, `glVertexAttribFormat`+`glBindVertexBuffer`) to kill per-draw `glVertexAttribPointer`; persistent mapped buffers (4.4, `glBufferStorage` + `PERSISTENT|COHERENT`) for the stream path (also R-12); array/bindless textures to remove the texture-change barrier (enables Track C without atlasing); MultiDraw indirect (4.3) as advanced batching later.
+  - deliverable: research note `Work/reports/R-09_gl4x_research.md` on which features give (a) code simplification, (b) measurable overhead reduction, with fallback strategy for ES/ARM/older GPUs. **This note is Opus-authored** (design reasoning, not mechanical execution).
+
+- Dependencies: `Apus.Engine.OpenGL`, `Apus.Engine.Draw`, `Apus.Engine.DebugOverlays`, `Apus.Engine.ResManGL`, `Apus.Engine.ShadersGL`, runtime capability detection.
+- Risks: synchronization bugs with persistent mapping; cross-driver behavior differences; complexity creep in draw API; over-engineering a problem that may not exist on real scenes (Track A guards against this).
 - Acceptance Criteria:
-  - [ ] Redundant bind calls flagged as useless in NSight are reduced in representative captures.
-  - [ ] Introduced one explicit batch path for high-frequency simple primitives (e.g. lines) with deferred flush on state/shader/texture changes.
-  - [ ] Added capability-gated prototype for modern buffer update path (persistent mapping or equivalent) with fallback to current path.
-  - [ ] Performance telemetry/comparison added for at least one representative demo scene.
-- Notes: initial optimization candidates from NSight review:
-  - collapse repetitive `UseVertexBuffer/UseIndexBuffer/Draw/Unbind` pattern via scoped helper;
-  - avoid unconditional unbind-to-zero in upload paths when the same buffer remains active;
-  - add lightweight state cache to skip redundant binds at API boundary.
+  - [ ] Draw-call / state-change counters visible in the debug overlay.
+  - [ ] NSight baseline captured on at least one representative real scene; bottleneck (if any) identified and documented.
+  - [ ] Cheap redundant-state-change wins (Track B) applied where measurement justifies them; redundant binds flagged by NSight reduced.
+  - [ ] Opt-in manual batch API available for sprite-heavy use cases (Track C), if a real use case warrants it.
+  - [ ] GL 4.x research note (Track D) produced with concrete recommendations and fallback strategy.
+- Notes:
+  - Working in a branch off `engine5` in the main directory (no worktree); A/B via a runtime toggle inside the bench demo.
+  - Documentation: working journal `Work/reports/R-09_notes.md` (single persistent state across context resets, all tracks; any model continues from it) + Opus-authored research note `Work/reports/R-09_gl4x_research.md` (Track D) + this roadmap card as top-level status.
+  - Model split: Opus does design/decisions/Track-D research/NSight interpretation/Track-C API design; Sonnet executes spec'd work (Track-A counters, mechanical Track-B). Opus writes "what & why" into the journal → Sonnet executes a section in a fresh context → result back into the journal.
+  - Track order (dependencies, not strictly sequential): A first (telemetry baseline) → D early/parallel (its findings shape how B is done) → B after A+D → C on demand.
+  - 2026-06-05: reframed from "auto-batcher" to "diagnose-first, four tracks" after design discussion; Track D (GL 4.x research) added by author.
 
 ### [R-10] UI Widget System Refactor (TUIElement Decomposition First)
 - Status: in-progress
