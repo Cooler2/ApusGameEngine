@@ -245,6 +245,8 @@ begin
   mat.name:=name;
   mat.colorMap:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_color');
   mat.normalMap:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_normal');
+  mat.colorMap.Lock;
+  mat.normalMap.Lock;
   for y:=0 to TEX_SIZE-1 do begin
     colorRow:=PCardinal(UIntPtr(mat.colorMap.data)+UIntPtr(y*mat.colorMap.pitch));
     normalRow:=PCardinal(UIntPtr(mat.normalMap.data)+UIntPtr(y*mat.normalMap.pitch));
