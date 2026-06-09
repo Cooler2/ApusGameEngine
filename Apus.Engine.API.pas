@@ -366,10 +366,10 @@ type
   // Ox Oy Oz
   procedure SetView(view:TMat4d);
   // Alternate way to set camera position and orientation
-  // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
+  // (origin - camera center, target - point to look, upPoint - any point ABOVE camera view line, so plane OTU is vertical),
   // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetCamera(origin,target,up:TVec3d;turnCW:double=0); overload;
-  procedure SetCamera(origin,target,up:TVec3;turnCW:single=0); overload;
+  procedure SetCamera(origin,target,upPoint:TVec3d;turnCW:double=0); overload;
+  procedure SetCamera(origin,target,upPoint:TVec3;turnCW:single=0); overload;
   // Set Object (model to world) transformation matrix (must be used AFTER setting the view/camera)
   procedure SetObj(mat:TMat4d); overload;
   procedure SetObj(mat:TMat4); overload;

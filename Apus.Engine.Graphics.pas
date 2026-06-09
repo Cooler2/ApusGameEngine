@@ -75,8 +75,8 @@ type
   procedure Orthographic(scale,zMin,zMax:double); virtual;
   procedure SetProjection(proj:TMat4d); virtual;
   procedure SetView(view:TMat4d); virtual;
-  procedure SetCamera(origin,target,up:TVec3d;turnCW:double=0); overload; virtual;
-  procedure SetCamera(origin,target,up:TVec3;turnCW:single=0); overload; virtual;
+  procedure SetCamera(origin,target,upPoint:TVec3d;turnCW:double=0); overload; virtual;
+  procedure SetCamera(origin,target,upPoint:TVec3;turnCW:single=0); overload; virtual;
   procedure SetObj(mat:TMat4d); overload; virtual;
   procedure SetObj(mat:TMat4); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
@@ -368,7 +368,7 @@ procedure TTransformationAPI.Perspective(fov:single;zMin,zMax:double);
   Perspective(-x,x,-y,y,1,zMin,zMax);
  end;
 
-procedure TTransformationAPI.SetCamera(origin,target,up:TVec3d;
+procedure TTransformationAPI.SetCamera(origin,target,upPoint:TVec3d;
   turnCW: double);
  var
   mat:TMat4d;
@@ -379,7 +379,7 @@ procedure TTransformationAPI.SetCamera(origin,target,up:TVec3d;
  begin
   v1:=TVec3d.Init(target.x-origin.x,target.y-origin.y,target.z-origin.z); // front
   v1.Normalize;
-  v2:=TVec3d.Init(up.x-origin.x,up.y-origin.y,up.z-origin.z);
+  v2:=TVec3d.Init(upPoint.x-origin.x,upPoint.y-origin.y,upPoint.z-origin.z);
   v3:=v1.Cross(v2); // right
   v3.Normalize;
   v2:=v1.Cross(v3); // down
@@ -403,9 +403,9 @@ procedure TTransformationAPI.SetCamera(origin,target,up:TVec3d;
   SetView(mat);
  end;
 
-procedure TTransformationAPI.SetCamera(origin,target,up:TVec3;turnCW:single);
+procedure TTransformationAPI.SetCamera(origin,target,upPoint:TVec3;turnCW:single);
  begin
-  SetCamera(Vec3d(origin),Vec3d(target),Vec3d(up),turnCW);
+  SetCamera(Vec3d(origin),Vec3d(target),Vec3d(upPoint),turnCW);
  end;
 
 procedure TTransformationAPI.SetObj(oX,oY,oZ,scale,yaw,roll,pitch:single);
