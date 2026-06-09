@@ -7,7 +7,12 @@
 {$I defines.inc}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.Graphics,
+uses Apus.Core, Apus.Engine.Types,
+  {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
+  // Apus.Engine.API so the engine threadvar window remains the short name.
+  Apus.Engine.API,
+  Apus.Engine.Graphics,
   Apus.Lib,
   Apus.Strings;
 
@@ -163,8 +168,7 @@ uses
   Apus.Engine.ResManGL,
   Apus.Engine.OpenGL,
   Apus.Engine.Window
-  {$IFDEF MSWINDOWS},Windows{$ENDIF}
-  {$IFDEF DGL},dglOpenGL{$ENDIF};
+  {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
 const
  // Flags for the lighting mode
