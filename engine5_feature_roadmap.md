@@ -25,7 +25,7 @@ This file follows top-down planning:
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Working state merged; support track active with recent bugfixes, test expansion, and new benchmarks | Linux fixes/validation, full baseline delta pass, SSE optimization of top hot paths, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | Clip-threaded `FindElementAt` with `escapingOnly` mode for deep noParentClip descendants; `FindElementAt`/`FindAnyElementAt` unified as overloads. Verified on UI demo fixture (panel+popup and panel→mid→deep). Notes: `Work/reports/R-08_hittest_overlay_notes.md` | — |
-| R-09 | GL Performance Modernization | planned | ~2% | Reframed: not speculative auto-batching but diagnose-then-fix. Four tracks agreed: A) draw-call/state-change telemetry in debug overlay + NSight on real scenes, B) cheap redundant-state-change wins, C) opt-in manual sprite-batch API, D) GL 4.x capability research | Add overlay counters, capture NSight baselines, then decide B/C scope from data; run D research |
+| R-09 | GL Performance Modernization | in-progress | ~40% | Tracks A (telemetry overlay) + B (redundant state-change wins) done and merged; Track D research note drafted. Key finding: no cheap 4.x wins remain standalone — they pay off only as part of R-12 (persistent streaming) + Track C (array-texture batching) | NSight baseline on real scene (Track A); decide Track C scope from data |
 | R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
@@ -33,7 +33,7 @@ This file follows top-down planning:
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
 | R-16 | Console Modernization | in-progress | ~70% | Console.pas dissolved (deleted); ConsoleScene owns the buffer fed by a log mirror + CmdProc `OnOutput` sink; DEBUG/ERROR→log bridge moved to engine init; UX: two-tier filter, timestamp toggle, `clear`, `loglevel`, Ctrl+C clipboard, DPI-scaled font, per-source color palette. Merged to master. Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | NOT closed — continues post-merge: scroll rework (sticky-bottom + ScrollToEnd unit fix), runtime polish. Related deferred-to-main bugs: build GUI mode, TUIWindow title-bar DPI, editbox Enter under SDL |
-| R-17 | 3D Architecture Probe | idea | 0% | — | Top-down 3D skeleton to find architecture white spots; seam audit done; no retained-mode 3D types exist yet |
+| R-17 | 3D Game Architecture Probe (skeleton-first) | idea | 0% | — | Build a top-down integrated 3D skeleton (scene graph + camera + multi-pass + post-process) to expose architectural "white spots"; audit done (no Camera/Material/RenderPass/SceneGraph types exist) |
 
 ## 2) Strategic Directions
 
@@ -390,13 +390,14 @@ Goal: fast "change -> verify -> commit" workflow.
   - [ ] NSight baseline captured on at least one representative real scene; bottleneck (if any) identified and documented.
   - [ ] Cheap redundant-state-change wins (Track B) applied where measurement justifies them; redundant binds flagged by NSight reduced.
   - [ ] Opt-in manual batch API available for sprite-heavy use cases (Track C), if a real use case warrants it.
-  - [ ] GL 4.x research note (Track D) produced with concrete recommendations and fallback strategy.
+  - [x] GL 4.x research note (Track D) produced with concrete recommendations and fallback strategy. (draft v1, 2026-06-05 — awaiting NSight baseline to confirm priorities)
 - Notes:
   - Working in a branch off `engine5` in the main directory (no worktree); A/B via a runtime toggle inside the bench demo.
   - Documentation: working journal `Work/reports/R-09_notes.md` (single persistent state across context resets, all tracks; any model continues from it) + Opus-authored research note `Work/reports/R-09_gl4x_research.md` (Track D) + this roadmap card as top-level status.
   - Model split: Opus does design/decisions/Track-D research/NSight interpretation/Track-C API design; Sonnet executes spec'd work (Track-A counters, mechanical Track-B). Opus writes "what & why" into the journal → Sonnet executes a section in a fresh context → result back into the journal.
   - Track order (dependencies, not strictly sequential): A first (telemetry baseline) → D early/parallel (its findings shape how B is done) → B after A+D → C on demand.
   - 2026-06-05: reframed from "auto-batcher" to "diagnose-first, four tracks" after design discussion; Track D (GL 4.x research) added by author.
+  - 2026-06-05: Tracks A (telemetry) + B (cheap state-change wins) done and merged into `engine5`. Track D research note drafted. Key finding: no cheap 4.x wins remain standalone — B already removed redundant state churn and `SetupAttributes` is cached; real per-draw cost is `glBufferSubData` stream sync. 4.x pays off only as part of R-12 (persistent ring-buffer streaming) + Track C (array-texture batching). **Next blocker: NSight baseline — author runs it; everything else waits on that data.**
 
 ### [R-10] UI Widget System Refactor (TUIElement Decomposition First)
 - Status: done
@@ -627,3 +628,37 @@ type
   - 2026-03-20: created and integrated `demo/Draw2D` (modernized 2D primitive showcase).
   - Added and integrated `demo/TextDemo` (text rendering/formatting showcase).
 
+### [R-17] 3D Game Architecture Probe (Skeleton-First)
+- Status: idea
+- Priority: P1
+- Area: Render / Core (architecture)
+- Value: No real 3D game has ever been built on this engine. All current 3D demos are bottom-up, per-subsystem showcases that each set global render state imperatively and never compose. The valuable architecture feedback lives in the *seams between subsystems* (multi-pass, camera management, materials, scene traversal, post-processing), which no isolated demo exercises. This card builds a top-down **integrated 3D skeleton** whose explicit purpose is to discover where the engine resists a typical 3D-game structure — the "white spots" — before committing to features like R-06 or a real game.
+- Deliverable type: this is an **architecture probe / reference application**, not a user-facing showcase demo. It does not belong in R-15's per-subsystem demo suite. Output is (a) a working structural skeleton and (b) a findings report driving new API/architecture cards.
+- Long-term (dual purpose): the same scaffold can grow into a visually polished engine showcase. **Two distinct kinds of "beauty" must not be confused:** (1) *architectural* beauty — adding an abstraction for tidiness — is rejected at all times (must earn its place at the call site); (2) *visual* beauty — pretty rendering — is a **showcase-phase** concern, not needed during the probe, where placeholder boxes suffice. Order: probe first → showcase later.
+- Guiding principle (author, 2026-06-05): new entities must be introduced **only when they demonstrably simplify the calling code versus not having them**. The entities below are **hypotheses to test, not a checklist to implement**. The probe builds the skeleton the simplest way that works and lets abstractions earn their place by removing concrete pain.
+- Scale caveat: with 3 objects and one pass, inline always wins. Pain only appears at realistic multiplicity (many objects, several passes, transparent sorting, several distinct materials). The probe must deliberately reach that scale — otherwise the comparison lies.
+- Scope (MVP — a skeleton built simplest-first):
+  - render a 3D scene with **realistic multiplicity**: enough objects, ≥2 passes (e.g. depth/shadow + opaque, ideally + transparent), and ≥2 distinct materials;
+  - start fully inline (imperative `transform`/`shader`/`SetObj;Draw`), exactly as current demos do;
+  - then, **only where the inline form actually hurts**, try the minimal abstraction — candidate hypotheses in rough likelihood order: renderable list, camera object, pass list, material bundle, post-process fullscreen pass;
+  - keep an abstraction **only if the call site gets simpler**; otherwise leave inline;
+  - placeholder content is fine (boxes/spheres); the point is structure pressure, not art.
+- Candidate showcase features (for seam coverage, NOT a build-everything mandate): multiple light sources (material/shader pressure), water (reflection RT + second camera), terrain (LOD + frustum culling at scale), sky (background pass, draw order), rain/snow (3D particles, instancing), volumetric fog (post-process, screen-space). First two picks: **multiple lights + water** (hit material and multi-camera/RT — biggest white spots).
+- Out of scope: a real game; full PBR; deferred/G-buffer rendering (MRT) beyond noting the gap; committing to final public API in this card; introducing any entity purely for architectural tidiness.
+- Dependencies: `Apus.Engine.API` (`ITransformation`, `IShader`, `IRenderTarget`, `gfx.BeginPaint/EndPaint`), `Apus.Engine.Scene`, `Apus.Engine.Mesh`/`Model3D`, `Apus.Geom3D`, `Apus.Spatial` (R-07), `Apus.Engine.ShadersGL`. Informs: R-06, R-03, R-09/R-12.
+- Risks: scope creep into actually building a renderer; probe may reveal subsystems needing new retained-mode concepts (that's the *point*, but report them as separate cards, don't implement here).
+- Acceptance Criteria:
+  - [ ] Skeleton renders a multi-pass 3D scene at realistic multiplicity (multiple objects, ≥2 passes, ≥2 materials, an offscreen target composited to backbuffer), coexisting with a UI scene on top.
+  - [ ] Skeleton is first written fully inline, so the "no-abstraction" baseline is real and measurable.
+  - [ ] For each candidate entity: a verdict recorded — **adopted** (with the concrete call-site simplification it bought) or **rejected/deferred** (inline stayed simpler), with reasoning.
+  - [ ] Findings report enumerates each point where the engine forced a drop to raw GL, global-state juggling, or duplicated logic — each tagged as a new-abstraction card or "fine inline, leave it."
+- Notes:
+  - 2026-06-05: card created after design discussion. Seam audit performed:
+    - **No retained-mode 3D types exist anywhere**: no `TCamera`, `TMaterial`, `TRenderPass`, `TFramebuffer`, `TSceneGraph`/`TSceneNode`, no post-process concept.
+    - Camera = imperative `transform.SetCamera()`+`transform.Perspective()` overwriting single global state each frame (`ShadowMap` sets light "camera" then main camera sequentially).
+    - Multi-pass = hand-coded inline in `Scene.Render`; objects branch on a `mainPass:boolean` flag.
+    - Material = global mutable shader state (`shader.Material`+`AmbientLight`+`DirectLight`) set before each `Draw`; `shader.Material` is even commented "has no effect" in `demo/Simple3D`.
+    - No scene graph / renderable list: objects drawn via imperative `transform.SetObj(...); mesh.Draw;` sequences.
+    - Render-to-texture already works (`gfx.BeginPaint/EndPaint` + `IRenderTarget`, shadow map proves it); gaps: no MRT/named framebuffer, no ping-pong pair for post chains.
+    - 3D currently lives inside a `TUIScene.Render`; render/cull/blend state is global imperative and must be manually restored — a real state-leak hazard.
+  - Conclusion: engine is a 2D immediate-mode painter with 3D primitives bolted onto global services (`transform`, `shader`, `gfx.target`); no retained-mode 3D scene concepts exist. That is precisely the white-spot region this probe targets.
