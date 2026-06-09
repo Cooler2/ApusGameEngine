@@ -16,6 +16,17 @@ Use it as the primary reference when updating old code.
 
 ## Recent API fixes (2026-05-29)
 
+### Apus.Core typed row-pointer helpers
+
+- Added shared zero-based row-pointer helper types in `Apus.Core` for typed raw-buffer indexing:
+  - `TByteRow` / `PByteRow`
+  - `TWordRow` / `PWordRow`
+  - `TIntRow` / `PIntRow`
+  - `TCardinalRow` / `PCardinalRow`
+  - `TSingleRow` / `PSingleRow`
+- Motivation: make Delphi/FPC-safe row casts explicit and reusable in image/buffer code, for example `PCardinalRow(data)^[i]`.
+- Added `TTexture.ScanLine(y):pointer` and `TTexture.PixelPtr(x,y):pointer` in `Apus.Engine.Resources` so locked texture code can use `PCardinalRow(tex.ScanLine(y))` or address a concrete pixel without repeating raw `data+pitch` arithmetic.
+
 ### Engine Linux SDL/OpenGL compile sweep
 
 - Fixed `Apus.Engine.API` display-mode exports for API-only users:

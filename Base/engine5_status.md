@@ -68,6 +68,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Fixed SDL startup to avoid probing joystick index `0` when no controllers are connected.
 **Recent wins (2026-05-30):** Fixed SDL screen-coordinate helpers for window-relative conversion and global mouse position queries.
 **Recent wins (2026-05-30):** Made SDL close handling multi-window aware: termination state is per-window and close events are routed by native SDL window ID. Linux/WSL runtime verification closed `Tool 1` while the main window continued running.
+**Recent wins (2026-06-09):** Added shared typed row-pointer helpers in `Apus.Core` (`PByteRow`, `PWordRow`, `PIntRow`, `PCardinalRow`, `PSingleRow`) plus `TTexture.ScanLine(y)` and `TTexture.PixelPtr(x,y)` in `Apus.Engine.Resources`, so locked texture code can use explicit casts like `PCardinalRow(tex.ScanLine(y))` and direct pixel addressing without repeating raw `data+pitch` arithmetic.
 
 ## Live module inventory (2026-05-29)
 

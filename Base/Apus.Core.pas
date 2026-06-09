@@ -93,6 +93,19 @@ type
   PointerArray = array of pointer;
   VariantArray = array of variant;
   TObjectArray = array of TObject;
+
+  // Zero-based pointer-to-row helpers for typed buffer indexing:
+  // PCardinalRow(data)^[i], PWordRow(data)^[i], etc.
+  TByteRow = array[0..0] of byte;
+  PByteRow = ^TByteRow;
+  TWordRow = array[0..0] of word;
+  PWordRow = ^TWordRow;
+  TIntRow = array[0..0] of integer;
+  PIntRow = ^TIntRow;
+  TCardinalRow = array[0..0] of cardinal;
+  PCardinalRow = ^TCardinalRow;
+  TSingleRow = array[0..0] of single;
+  PSingleRow = ^TSingleRow;
   
   // Dynamic array helpers
   IntArrayHelper = record helper for IntArray

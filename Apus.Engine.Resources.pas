@@ -89,6 +89,8 @@ interface
    // Utilities
    procedure GenerateMipMaps(count:byte); virtual; abstract; // generate mip-map images
    function HasFlag(flag:cardinal):boolean;
+   function ScanLine(y:integer):pointer; inline;
+   function PixelPtr(x,y:integer):pointer; inline;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
    procedure SetFilter(filter:TTexFilter); virtual; abstract;
    function Size:TSize; // (width,height)
@@ -341,14 +343,25 @@ end;
   end;
 
 function TTexture.HasFlag(flag:cardinal): boolean;
- begin
-  result:=caps and flag>0;
- end;
+begin
+ result:=caps and flag>0;
+end;
+
+function TTexture.ScanLine(y:integer):pointer;
+begin
+ result:=pointer(UIntPtr(data)+UIntPtr(y*pitch));
+end;
+
+function TTexture.PixelPtr(x,y:integer):pointer;
+begin
+ ASSERT((x>=0) and (y>=0) and (x<width) and (y<height));
+ result:=pointer(UIntPtr(data)+UIntPtr(y*pitch+x*(pixelSize[pixelFormat] shr 3)));
+end;
 
 function TTexture.IsLocked:boolean;
- begin
-  result:=locked>0;
- end;
+begin
+ result:=locked>0;
+end;
 
 procedure TTexture.MakeImmutable;
 begin
