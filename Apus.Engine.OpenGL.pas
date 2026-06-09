@@ -7,7 +7,12 @@
 {$I defines.inc}
 unit Apus.Engine.OpenGL;
 interface
-uses Apus.Core, Apus.Engine.API, Apus.Images;
+uses Apus.Core,
+  {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
+  // Apus.Engine.API so the engine threadvar window remains the short name.
+  Apus.Engine.API,
+  Apus.Images;
 
 type
  TOpenGLContextProfile=(oglpAny,
@@ -102,7 +107,6 @@ var
 
 implementation
  uses
-  {$IFDEF DGL}dglOpenGL,{$ENDIF}
   SysUtils,
   Types,
   Apus.Engine.Types,
