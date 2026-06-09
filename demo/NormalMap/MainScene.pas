@@ -19,7 +19,7 @@ var
 implementation
 uses
   SysUtils, Math,
-  Apus.Core, Apus.Geom3D, Apus.VertexLayout,
+  Apus.Core, Apus.Colors, Apus.Geom3D, Apus.VertexLayout,
   Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene;
 
 const
@@ -76,28 +76,13 @@ type
 var
   sceneMain:TMainScene;
 
-function ClampS(v,minV,maxV:single):single; inline;
-begin
-  if v<minV then result:=minV else
-  if v>maxV then result:=maxV else
-    result:=v;
-end;
-
-function ARGB(r,g,b:integer):cardinal; inline;
-begin
-  r:=EnsureRange(r,0,255);
-  g:=EnsureRange(g,0,255);
-  b:=EnsureRange(b,0,255);
-  result:=$FF000000 or (cardinal(r) shl 16) or (cardinal(g) shl 8) or cardinal(b);
-end;
-
 function NormalColor(nx,ny,nz:single):cardinal;
 var
   n:TVec3;
 begin
   n:=Vec3(nx,ny,nz);
   n.Normalize;
-  result:=ARGB(round(127.5+n.x*127.5),round(127.5+n.y*127.5),round(127.5+n.z*127.5));
+  result:=MyColor(round(127.5+n.x*127.5),round(127.5+n.y*127.5),round(127.5+n.z*127.5));
 end;
 
 function Noise2(x,y:integer):single;
@@ -195,9 +180,9 @@ begin
       p:=Vec3((r0+r1*cv)*cu,(r0+r1*cv)*su,r1*sv);
       n:=Vec3(cv*cu,cv*su,sv);
       n.Normalize;
-      t:=Vec3(-su,cu,0);
+      t:=Vec3(su,-cu,0); // negated vs dP/du so that cross(T,N)=dP/dv (correct bitangent handedness)
       t.Normalize;
-      SetVertex(result.vertices[idx],p,n,t,i*2/U_SEG,j/V_SEG,$FFFFFFFF);
+      SetVertex(result.vertices[idx],p,n,t,i*4/U_SEG,j*2/V_SEG,$FFFFFFFF);
       inc(idx);
     end;
   end;
@@ -254,11 +239,11 @@ begin
     for x:=0 to TEX_SIZE-1 do begin
       h:=HeightAt(kind,x,y);
       case kind of
-        0:if h<0.2 then c:=ARGB(58,55,52)
-          else c:=ARGB(135+round(35*Noise2(x div 5,y div 5)),55+round(18*h),42);
-        1:c:=ARGB(82+round(80*h),88+round(75*h),84+round(70*h));
+        0:if h<0.2 then c:=MyColor(58,55,52)
+          else c:=MyColor(135+round(35*Noise2(x div 5,y div 5)),55+round(18*h),42);
+        1:c:=MyColor(82+round(80*h),88+round(75*h),84+round(70*h));
       else
-        c:=ARGB(48+round(50*h),96+round(110*h),135+round(80*h));
+        c:=MyColor(48+round(50*h),96+round(110*h),135+round(80*h));
       end;
       colorRow^[x]:=c;
       // central difference gradient; negate because slope toward +X tilts normal toward -X
@@ -411,8 +396,8 @@ begin
   dy:=y-window.oldMousePos.y;
   if ((window.mouseButtons and mbRight)>0) or
      (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0)) then begin
-    lightYaw:=lightYaw-dx*0.008;
-    lightPitch:=ClampS(lightPitch-dy*0.006,0.08,1.45);
+    lightYaw:=lightYaw+dx*0.008;
+    lightPitch:=Clamp(lightPitch-dy*0.006,0.08,1.45);
   end else
   if (window.mouseButtons and mbLeft)>0 then begin
     cameraYaw:=cameraYaw-dx*0.008;
@@ -425,7 +410,7 @@ begin
   inherited;
   if delta>0 then cameraDist:=cameraDist/1.12;
   if delta<0 then cameraDist:=cameraDist*1.12;
-  cameraDist:=ClampS(cameraDist,3.2,18);
+  cameraDist:=Clamp(cameraDist,3.2,18);
 end;
 
 procedure TMainScene.HandleKey(keyCode:integer);
