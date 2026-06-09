@@ -104,6 +104,25 @@ begin
     result:=string(msg);
 end;
 
+function QuoteCmdArg(const st:string):string;
+begin
+  if (st='') or (Pos(' ',st)>0) or (Pos(#9,st)>0) or (Pos('"',st)>0) then
+    result:='"'+StringReplace(st,'"','""',[rfReplaceAll])+'"'
+  else
+    result:=st;
+end;
+
+function BuildCmdParams:string;
+var
+  i:integer;
+begin
+  result:='';
+  for i:=1 to ParamCount do begin
+    if result<>'' then result:=result+' ';
+    result:=result+QuoteCmdArg(ParamStr(i));
+  end;
+end;
+
 procedure AppendLogFile(var data; size:integer);
 var
   f:file;
@@ -290,11 +309,14 @@ var
   f:TextFile;
   dt:TDateTime;
   age:integer;
+  exePath,cmdParams:string;
 begin
   Logger.Flush;
   logLock.Enter;
   try
     logFileName:=ExpandFileName(name);
+    exePath:=ExpandFileName(ParamStr(0));
+    cmdParams:=BuildCmdParams;
     {$WARN SYMBOL_DEPRECATED OFF}
     age:=FileAge(ParamStr(0));
     {$WARN SYMBOL_DEPRECATED ON}
@@ -303,6 +325,8 @@ begin
       assign(f,name);
       rewrite(f);
       writeln(f,FormatDateTime('ddddd t',dt));
+      writeln(f,'exe: '+exePath);
+      writeln(f,'params: '+cmdParams);
       close(f);
       if keepOpened then begin
         AssignFile(logFile,name);
