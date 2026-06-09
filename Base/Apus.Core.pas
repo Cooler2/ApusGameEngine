@@ -47,6 +47,7 @@ const
   MIN_FLOAT = 1.18E-38;
   MAX_INT64 = $7FFFFFFFFFFFFFFF;
   MAX_UINT64 = $FFFFFFFFFFFFFFFF;
+  MAX_ROW_INDEX = $00FFFFFF; // 16M items is enough for practical scanline indexing
 
 type
   // =============================================================================
@@ -96,15 +97,15 @@ type
 
   // Zero-based pointer-to-row helpers for typed buffer indexing:
   // PCardinalRow(data)^[i], PWordRow(data)^[i], etc.
-  TByteRow = array[0..0] of byte;
+  TByteRow = array[0..MAX_ROW_INDEX] of byte;
   PByteRow = ^TByteRow;
-  TWordRow = array[0..0] of word;
+  TWordRow = array[0..MAX_ROW_INDEX] of word;
   PWordRow = ^TWordRow;
-  TIntRow = array[0..0] of integer;
+  TIntRow = array[0..MAX_ROW_INDEX] of integer;
   PIntRow = ^TIntRow;
-  TCardinalRow = array[0..0] of cardinal;
+  TCardinalRow = array[0..MAX_ROW_INDEX] of cardinal;
   PCardinalRow = ^TCardinalRow;
-  TSingleRow = array[0..0] of single;
+  TSingleRow = array[0..MAX_ROW_INDEX] of single;
   PSingleRow = ^TSingleRow;
   
   // Dynamic array helpers

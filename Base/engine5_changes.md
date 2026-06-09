@@ -24,7 +24,7 @@ Use it as the primary reference when updating old code.
   - `TIntRow` / `PIntRow`
   - `TCardinalRow` / `PCardinalRow`
   - `TSingleRow` / `PSingleRow`
-- Motivation: make Delphi/FPC-safe row casts explicit and reusable in image/buffer code, for example `PCardinalRow(data)^[i]`.
+- Motivation: make Delphi/FPC-safe row casts explicit and reusable in image/buffer code, for example `PCardinalRow(data)^[i]`. Row types use a large upper bound so indexed access also works with range checking enabled.
 - Added `TTexture.ScanLine(y):pointer` and `TTexture.PixelPtr(x,y):pointer` in `Apus.Engine.Resources` so locked texture code can use `PCardinalRow(tex.ScanLine(y))` or address a concrete pixel without repeating raw `data+pitch` arithmetic.
 
 ### Engine Linux SDL/OpenGL compile sweep
