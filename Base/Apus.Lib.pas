@@ -31,7 +31,8 @@ uses
   Apus.Utils,
   Apus.Geom2D,
   Apus.Geom3D,
-  Apus.AnimatedValues;
+  Apus.AnimatedValues,
+  Apus.Colors;
 
 type
   // --- SysUtils ---
@@ -93,6 +94,15 @@ type
   PAnimatedValue = Apus.AnimatedValues.PAnimatedValue;
   TAnimatedValue = Apus.AnimatedValues.TAnimatedValue;
 
+  // --- Apus.Colors ---
+  Color = Apus.Colors.Color;
+  TARGBColor = Apus.Colors.TARGBColor;
+  PARGBColor = Apus.Colors.PARGBColor;
+
+const
+  InvalidColor = Apus.Colors.InvalidColor;
+
+type
   // Geom2D
   TVec2 = Apus.Geom2D.TVec2;
   TRect2 = Apus.Geom2D.TRect2;
