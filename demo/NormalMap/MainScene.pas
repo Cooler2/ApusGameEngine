@@ -157,12 +157,13 @@ begin
   result:=TDemoMesh.Create;
   result.layout:=TVertexLayout.Create([vcPosition3d,vcNormal,vcColor,vcUV1,vcTangent]);
   s:=1.0;
-  AddQuad(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s),Vec3(0,0,-1),Vec3(1,0,0));
-  AddQuad(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s),Vec3(0,0, 1),Vec3(1,0,0));
-  AddQuad(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s),Vec3(0,-1,0),Vec3(1,0,0));
-  AddQuad(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s),Vec3(0, 1,0),Vec3(-1,0,0));
-  AddQuad(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s),Vec3(1,0,0),Vec3(0,1,0));
-  AddQuad(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s),Vec3(-1,0,0),Vec3(0,-1,0));
+  // each face: 4 verts (CCW from outside), face normal, tangent (+U direction)
+  AddQuad(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s),Vec3(0,0,-1),Vec3(1,0,0));  // front -Z
+  AddQuad(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s),Vec3(0,0, 1),Vec3(1,0,0));  // back  +Z
+  AddQuad(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s),Vec3(0,-1,0),Vec3(1,0,0));  // bottom -Y
+  AddQuad(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s),Vec3(0, 1,0),Vec3(-1,0,0)); // top    +Y
+  AddQuad(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s),Vec3(1,0,0),Vec3(0,1,0));   // right  +X
+  AddQuad(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s),Vec3(-1,0,0),Vec3(0,-1,0)); // left   -X
 end;
 
 function BuildTorus:TdemoMesh;
@@ -260,9 +261,10 @@ begin
         c:=ARGB(48+round(50*h),96+round(110*h),135+round(80*h));
       end;
       colorRow^[x]:=c;
+      // central difference gradient; negate because slope toward +X tilts normal toward -X
       dx:=HeightAt(kind,(x+1) mod TEX_SIZE,y)-HeightAt(kind,(x+TEX_SIZE-1) mod TEX_SIZE,y);
       dy:=HeightAt(kind,x,(y+1) mod TEX_SIZE)-HeightAt(kind,x,(y+TEX_SIZE-1) mod TEX_SIZE);
-      normalRow^[x]:=NormalColor(-dx*3.0,-dy*3.0,1.0);
+      normalRow^[x]:=NormalColor(-dx*3.0,-dy*3.0,1.0); // tangent-space normal encoded as RGB
     end;
   end;
   mat.colorMap.Unlock;
@@ -334,6 +336,7 @@ end;
 
 procedure TMainScene.InitGfx;
 const
+  // vertex shader: transforms position/normal/tangent to world space via NormalMatrix
   VSH =
     '#version 330'#13#10+
     'uniform mat4 MVP;'#13#10+
@@ -353,11 +356,12 @@ const
     '  vTangent = normalize(NormalMatrix*tangent);'#13#10+
     '  vTexCoord = texCoord;'#13#10+
     '}';
+  // fragment shader: TBN normal mapping with diffuse lighting
   FSH =
     '#version 330'#13#10+
-    'uniform sampler2D tex0;'#13#10+
-    'uniform sampler2D tex1;'#13#10+
-    'uniform vec3 lightDir;'#13#10+
+    'uniform sampler2D tex0;'#13#10+   // color map
+    'uniform sampler2D tex1;'#13#10+   // normal map (tangent-space, RGB=XYZ encoded 0..1)
+    'uniform vec3 lightDir;'#13#10+    // world-space direction toward light (normalized)
     'uniform vec3 lightColor;'#13#10+
     'uniform vec3 ambientColor;'#13#10+
     'uniform int normalOn;'#13#10+
@@ -370,12 +374,12 @@ const
     '{'#13#10+
     '  vec3 base = texture(tex0,vTexCoord).rgb;'#13#10+
     '  vec3 N = normalize(vNormal);'#13#10+
-    '  vec3 T = normalize(vTangent - N*dot(N,vTangent));'#13#10+
-    '  vec3 B = normalize(cross(N,T));'#13#10+
+    '  vec3 T = normalize(vTangent - N*dot(N,vTangent));'#13#10+  // Gram-Schmidt re-orthogonalize
+    '  vec3 B = normalize(cross(T,N));'#13#10+  // cross(T,N): +V bitangent in right-handed TBN
     '  if (normalOn!=0) {'#13#10+
-    '    vec3 nm = texture(tex1,vTexCoord).rgb*2.0-1.0;'#13#10+
+    '    vec3 nm = texture(tex1,vTexCoord).rgb*2.0-1.0;'#13#10+  // decode [0,1] -> [-1,1]
     '    nm.xy *= normalStrength;'#13#10+
-    '    N = normalize(mat3(T,B,N)*nm);'#13#10+
+    '    N = normalize(mat3(T,B,N)*nm);'#13#10+  // transform normal from tangent to world space
     '  }'#13#10+
     '  float diff = max(dot(N,normalize(lightDir)),0.0);'#13#10+
     '  vec3 c = base*(ambientColor+lightColor*diff);'#13#10+
@@ -393,6 +397,7 @@ end;
 
 function TMainScene.LightDir:TVec3;
 begin
+  // spherical → Cartesian; lightPitch=0 is horizontal, Pi/2 is straight up
   result:=Vec3(cos(lightPitch)*cos(lightYaw),cos(lightPitch)*sin(lightYaw),sin(lightPitch));
   result.Normalize;
 end;
@@ -410,7 +415,8 @@ begin
     lightPitch:=ClampS(lightPitch-dy*0.006,0.08,1.45);
   end else
   if (window.mouseButtons and mbLeft)>0 then begin
-    cameraYaw:=cameraYaw+dx*0.008;
+    cameraYaw:=cameraYaw-dx*0.008;
+    cameraPitch:=Clamp(cameraPitch+dy*0.01, -1.0, 1.0);
   end;
 end;
 
@@ -435,6 +441,9 @@ procedure TMainScene.DrawGrid;
 var
   i:integer;
   c:cardinal;
+  ld:TVec3;
+  lx,ly,scale:single;
+  px,py:single;
 begin
   shader.Reset;
   shader.LightOff;
@@ -453,6 +462,16 @@ begin
   draw.Line(0,0,0,4,$FF30C050);
   draw.Line(0,4,0.20,3.55,$FF30C050);
   draw.Line(0,4,-0.20,3.55,$FF30C050);
+  // light direction indicator (XY projection, length = cos(pitch)*scale)
+  ld:=LightDir;
+  scale:=4.5;
+  lx:=ld.x*scale;
+  ly:=ld.y*scale;
+  draw.Line(0,0,lx,ly,$FFFFCC00);
+  // arrowhead — two lines perpendicular-ish at tip
+  px:=-ld.y*0.45;  py:= ld.x*0.45;
+  draw.Line(lx,ly,lx-ld.x*0.55+px,ly-ld.y*0.55+py,$FFFFCC00);
+  draw.Line(lx,ly,lx-ld.x*0.55-px,ly-ld.y*0.55-py,$FFFFCC00);
   draw.SetZ(0);
 end;
 
@@ -507,7 +526,10 @@ var
 begin
   gfx.target.Clear($111820,1);
   target:=Vec3(0,0,1.35);
-  eye:=Vec3(cameraDist*cos(cameraYaw),cameraDist*sin(cameraYaw),cameraDist*cameraPitch);
+  // spherical coords: XY shrink with pitch, Z rises with pitch
+  eye:=Vec3(cameraDist*cos(cameraPitch)*cos(cameraYaw),
+            cameraDist*cos(cameraPitch)*sin(cameraYaw),
+            cameraDist*sin(cameraPitch));
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
   gfx.SetCullMode(cullNone);
