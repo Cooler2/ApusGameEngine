@@ -60,7 +60,7 @@ What's being worked on is tracked in [engine5_feature_roadmap.md](engine5_featur
 - [ ] Geometry library overhaul: single-precision first, spatial primitives, intersection and culling tests
 - [ ] Multi-window support with runtime DPI changes
 - [ ] CI coverage on Windows and Linux (GitHub Actions)
-- [ ] Modernized demo suite and console
+- [ ] Modernized demo suite
 
 Documentation for engine5 does not exist yet — it will appear as the codebase stabilizes.
 
