@@ -21,8 +21,8 @@ final migration map live in `demo_plan.md`; this file says what to do next.
 
 ## Progress
 
-- Done: `R15-S00`, `R15-S01`, `R15-S02`.
-- Next: `R15-S03`.
+- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`.
+- Next: `R15-S10`.
 
 ## Stage 0: Inventory and Build Metadata
 
@@ -58,7 +58,9 @@ Goal: make the current flat demo tree truthful and diagnosable before larger mov
 - Document the required files and settings for a new demo.
 - Use `NormalMap.dproj` or another current maintained `.dproj` as the template baseline.
 - Include FPC wrapper build, Delphi manual check, group project entry, and ignored output cleanup.
-- Validation: the checklist is sufficient to recreate the NormalMap integration steps.
+- Implementation: `demo\new_demo_checklist.md`.
+- Validation: the checklist is sufficient to recreate the NormalMap, StyleDemo,
+  and UIScaleDPI integration steps.
 
 ## Stage 1: Small Standalone Demos
 
@@ -256,4 +258,4 @@ Goal: make the suite maintainable after restructuring.
 
 ## Suggested Next Task
 
-Continue with `R15-S03`: standardize the new-demo checklist/template.
+Continue with `R15-S10`: create `HelloEngine`.
