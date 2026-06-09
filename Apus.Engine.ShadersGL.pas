@@ -33,7 +33,7 @@ type
   texMode:cardinal; // low part of TTexMode
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
-  uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
+  uNormalMat:integer; // normal matrix = inverse-transpose of model 3x3, for transforming normals (named "NormalMatrix")
   uShadowMapMat:integer; // light space matrix for shadow mapping
   uTexShadowMap:integer; // shadow texture sampler
   uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
@@ -275,7 +275,13 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4)
    glUniformMatrix4fv(uModelMat,1,GL_FALSE,@mat);
   end;
   if uNormalMat>=0 then begin
-   // normal matrix = inverse-transpose of the model 3x3 (correct under non-uniform scale)
+   // Normal matrix = inverse-transpose of the model 3x3.
+   // A normal is a covector: it must transform by (M^-1)^T, not by M, to stay
+   // perpendicular to the transformed surface. For pure rotation (M^-1)^T=M, and for
+   // uniform scale they differ only by a scalar that normalize() in the shader cancels -
+   // so mat3(ModelMatrix) is fine in those cases. They diverge only under non-uniform
+   // scale or shear, where the error is directional and normalize() can't fix it.
+   // NB: tangents/bitangents are real directions - transform those by mat3(ModelMatrix).
    m3:=transformationAPI.objMatrix.ToMat3;
    m3.Invert;
    m3.Transpose;
@@ -381,7 +387,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'void main(void)');
   AddLine(result,' {');
   AddLine(result,'   gl_Position = MVP*vec4(position,1.0);');
-  AddLine(result,'   vNormal = NormalMatrix*normal;',hasNormal);
+  AddLine(result,'   vNormal = NormalMatrix*normal;',hasNormal); // inverse-transpose model 3x3 (not mat3(ModelMatrix)) - correct under non-uniform scale; see UpdateMatrices
   AddLine(result,'   vColor = color;',hasColor);
   AddLine(result,'   vTexCoord = texCoord;',hasUV);
   AddLine(result,'   vLightPos = vec3(ShadowMapMatrix * ModelMatrix * vec4(position,1.0));',shadowMap);
