@@ -23,7 +23,7 @@ uses
   Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene;
 
 const
-  TEX_SIZE = 192;
+  TEX_SIZE = 256;
   OBJ_CUBE = 0;
   OBJ_TORUS = 1;
   OBJECT_COUNT = 2;
@@ -217,9 +217,9 @@ var
 begin
   case kind of
     0:begin
-      by:=y div 24;
+      by:=y div 32;
       bx:=(x+(by and 1)*32) mod 64;
-      mortar:=byte((bx<3) or (bx>60) or (y mod 24<3) or (y mod 24>21));
+      mortar:=byte((bx<3) or (bx>60) or (y mod 32<3) or (y mod 32>29));
       if mortar>0 then
         result:=0.12
       else
@@ -308,8 +308,8 @@ constructor TMainScene.Create;
 begin
   inherited Create('Main');
   cameraYaw:=0.7;
-  cameraPitch:=0.38;
-  cameraDist:=7.5;
+  cameraPitch:=0.4;
+  cameraDist:=12;
   lightYaw:=0.65;
   lightPitch:=0.75;
   objectID:=OBJ_CUBE;
@@ -337,7 +337,7 @@ const
   VSH =
     '#version 330'#13#10+
     'uniform mat4 MVP;'#13#10+
-    'uniform mat4 ModelMatrix;'#13#10+
+    'uniform mat3 NormalMatrix;'#13#10+
     'layout (location=0) in vec3 position;'#13#10+
     'layout (location=1) in vec3 normal;'#13#10+
     'layout (location=2) in vec4 color;'#13#10+
@@ -349,8 +349,8 @@ const
     'void main(void)'#13#10+
     '{'#13#10+
     '  gl_Position = MVP*vec4(position,1.0);'#13#10+
-    '  vNormal = normalize(mat3(ModelMatrix)*normal);'#13#10+
-    '  vTangent = normalize(mat3(ModelMatrix)*tangent);'#13#10+
+    '  vNormal = normalize(NormalMatrix*normal);'#13#10+
+    '  vTangent = normalize(NormalMatrix*tangent);'#13#10+
     '  vTexCoord = texCoord;'#13#10+
     '}';
   FSH =
@@ -410,8 +410,7 @@ begin
     lightPitch:=ClampS(lightPitch-dy*0.006,0.08,1.45);
   end else
   if (window.mouseButtons and mbLeft)>0 then begin
-    cameraYaw:=cameraYaw-dx*0.008;
-    cameraPitch:=ClampS(cameraPitch+dy*0.006,0.12,1.35);
+    cameraYaw:=cameraYaw+dx*0.008;
   end;
 end;
 
@@ -472,7 +471,7 @@ begin
   else
     shader.SetUniform('normalOn',0);
   shader.UseTexture(materials[materialID].normalMap,1);
-  transform.SetObj(0,0,1.45,1.35,0,window.frameStartMs*0.00025,0);
+  transform.SetObj(0,0,1.45,1.35,0,0,0);
   meshes[objectID].Draw(materials[materialID].colorMap);
   shader.Reset;
 end;
@@ -498,7 +497,7 @@ begin
   if objectID=OBJ_CUBE then objName:='Cube' else objName:='Torus';
   if normalEnabled then nmState:='ON' else nmState:='OFF';
   txt.Write(0,18,22,$FFE8EDF5,'R-06 NormalMap prototype');
-  txt.Write(0,18,44,$FFC8D2DF,'LMB orbit camera, RMB/Ctrl+LMB rotate light, wheel zoom');
+  txt.Write(0,18,44,$FFC8D2DF,'LMB rotate camera around vertical axis, RMB/Ctrl+LMB rotate light, wheel zoom');
   txt.Write(0,18,66,$FFC8D2DF,'1 object: '+objName+'   2 material: '+materials[materialID].name+'   3/N normal map: '+nmState);
 end;
 
@@ -508,11 +507,9 @@ var
 begin
   gfx.target.Clear($111820,1);
   target:=Vec3(0,0,1.35);
-  eye:=Vec3(target.x+cameraDist*cos(cameraPitch)*cos(cameraYaw),
-            target.y+cameraDist*cos(cameraPitch)*sin(cameraYaw),
-            target.z+cameraDist*sin(cameraPitch));
+  eye:=Vec3(cameraDist*cos(cameraYaw),cameraDist*sin(cameraYaw),cameraDist*cameraPitch);
   transform.Perspective(0.95,0.2,100);
-  transform.SetCamera(eye,target,Vec3(0,0,1));
+  transform.SetCamera(eye,target,Vec3(0,0,1000));
   gfx.SetCullMode(cullNone);
   gfx.clip.Nothing;
   DrawGrid;
