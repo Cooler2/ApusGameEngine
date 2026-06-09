@@ -262,6 +262,8 @@ procedure TGLShader.SetUniform(uniLoc:integer;const value:TVec3);
 procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4);
  var
   mat:TMat4;
+  nrm:TMat3;
+  m3:TMat3d;
  begin
   matrixRevision:=revision;
   if uMVP>=0 then begin
@@ -271,6 +273,14 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4)
   if uModelMat>=0 then begin
    mat.Init(transformationAPI.objMatrix);
    glUniformMatrix4fv(uModelMat,1,GL_FALSE,@mat);
+  end;
+  if uNormalMat>=0 then begin
+   // normal matrix = inverse-transpose of the model 3x3 (correct under non-uniform scale)
+   m3:=transformationAPI.objMatrix.ToMat3;
+   m3.Invert;
+   m3.Transpose;
+   nrm.Init(m3);
+   glUniformMatrix3fv(uNormalMat,1,GL_FALSE,@nrm);
   end;
   if uShadowMapMat>=0 then begin
    glUniformMatrix4fv(uShadowMapMat,1,GL_FALSE,@shadowMapMatrix);
@@ -345,7 +355,8 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'#version 330');
   AddLine(result,'// '+notes);
   AddLine(result,'uniform mat4 MVP;');
-  AddLine(result,'uniform mat4 ModelMatrix;',hasNormal or shadowMap);
+  AddLine(result,'uniform mat4 ModelMatrix;',shadowMap);
+  AddLine(result,'uniform mat3 NormalMatrix;',hasNormal);
   AddLine(result,'uniform mat4 ShadowMapMatrix;',shadowMap);
   AddLine(result,'layout (location=0) in vec3 position;');
   ch:='0';
@@ -370,7 +381,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'void main(void)');
   AddLine(result,' {');
   AddLine(result,'   gl_Position = MVP*vec4(position,1.0);');
-  AddLine(result,'   vNormal = mat3(ModelMatrix)*normal;',hasNormal);
+  AddLine(result,'   vNormal = NormalMatrix*normal;',hasNormal);
   AddLine(result,'   vColor = color;',hasColor);
   AddLine(result,'   vTexCoord = texCoord;',hasUV);
   AddLine(result,'   vLightPos = vec3(ShadowMapMatrix * ModelMatrix * vec4(position,1.0));',shadowMap);
