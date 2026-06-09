@@ -19,6 +19,11 @@ final migration map live in `demo_plan.md`; this file says what to do next.
 - When a task exposes a reusable engine gap, record it in the problem knowledge
   base and decide whether it belongs in the demo, in R-15, or in another roadmap item.
 
+## Progress
+
+- Done: `R15-S00`, `R15-S01`, `R15-S02`.
+- Next: `R15-S03`.
+
 ## Stage 0: Inventory and Build Metadata
 
 Goal: make the current flat demo tree truthful and diagnosable before larger moves.
@@ -44,7 +49,9 @@ Goal: make the current flat demo tree truthful and diagnosable before larger mov
 
 - Add a small repo-local script that validates `demo\demos.groupproj` paths and targets.
 - Keep it read-only and fast so it can run before manual Delphi checks.
-- Validation: the helper catches the known missing `.dproj` / dangling target pattern.
+- Implementation: `demo\validate_demo_group.cmd` / `demo\validate_demo_group.ps1`.
+- Validation: the helper catches missing `.dproj` files, missing project Build/Clean/Make
+  targets, and dangling or incomplete aggregate target lists.
 
 ### R15-S03: Standardize new-demo checklist/template
 
@@ -249,5 +256,4 @@ Goal: make the suite maintainable after restructuring.
 
 ## Suggested Next Task
 
-Start with `R15-S00` and `R15-S01`. They are small, reveal drift early, and make
-all later demo work easier to diagnose.
+Continue with `R15-S03`: standardize the new-demo checklist/template.
