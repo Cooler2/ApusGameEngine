@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-06-03
+Last updated: 2026-06-09
 
 Language policy: this roadmap is maintained in English.
 
@@ -29,24 +29,19 @@ This file follows top-down planning:
 | R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
+| R-13 | Robot API Input Simulation | idea | 0% | — | Implement `ui.click`/`ui.type`/`ui.focus` commands in Robot API |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
 | R-16 | Console Modernization | in-progress | ~70% | Console.pas dissolved (deleted); ConsoleScene owns the buffer fed by a log mirror + CmdProc `OnOutput` sink; DEBUG/ERROR→log bridge moved to engine init; UX: two-tier filter, timestamp toggle, `clear`, `loglevel`, Ctrl+C clipboard, DPI-scaled font, per-source color palette. Merged to master. Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | NOT closed — continues post-merge: scroll rework (sticky-bottom + ScrollToEnd unit fix), runtime polish. Related deferred-to-main bugs: build GUI mode, TUIWindow title-bar DPI, editbox Enter under SDL |
+| R-17 | 3D Architecture Probe | idea | 0% | — | Top-down 3D skeleton to find architecture white spots; seam audit done; no retained-mode 3D types exist yet |
 
 ## 2) Strategic Directions
-
-Current phase note:
-- The first migration wave is effectively complete: almost all engine modules already use the new foundation API, and `demo/SimpleDemo` builds and works.
-- Roadmap work now proceeds on top of that baseline rather than in parallel with broad compile-unblock work.
-- Recent execution focus delivered practical progress (2026-03-20..2026-03-23): several benchmark/test additions, runtime bugfixes in animation/time paths, and new diagnostics/showcase demos (`InputDemo`, `Draw2D`).
-- Immediate execution queue is currently led by R-07 support hardening and R-02 multi-window/DPI closure, while R-05 continues in parallel branch work.
 
 ### A. Engine Module Refactoring
 Goal: improve quality of migrated engine code after the first compile-rescue wave.
 - [ ] A1. Refine engine modules to use the new foundation API more idiomatically
 - [ ] A2. Remove temporary migration leftovers and compatibility-style code
 - [ ] A3. Simplify and reduce engine-module dependencies
-- [ ] A4. R-16: Console modernization — remove Console.pas, ConsoleScene owns its buffer, UX polish ([plan](Work/reports/R-16_console_modernization.md))
 
 ### B. Targeted Base Refactoring
 Goal: continue selective Base improvements where they unlock cleaner engine code or remove remaining migration friction.
@@ -74,7 +69,6 @@ Goal: simple, reproducible builds on Delphi + FPC, Windows + Linux.
 
 ### F. Core Runtime & Scenes
 Goal: predictable scene lifecycle and transitions.
-- [x] F1. Formalize lifecycle: Create(window) → Load → InitGfx → Process → Render
 - [ ] F2. Safe scene transitions (including async loading)
 - [ ] F3. Lifecycle diagnostics and error logging
 
@@ -83,8 +77,6 @@ Goal: a modern and stable UI subsystem.
 - [ ] G1. Core widgets with consistent behavior
 - [ ] G2. Layout engine (adaptive behavior, alignment, spacing)
 - [ ] G3. Testability of UI logic and events
-- [x] G4. Widget construction pattern: minimal constructor + `.Setup(...)` + chainable base setters
-- [x] G5. Font handles as threadvar for multi-window scale independence
 
 ### H. Graphics / Render
 Goal: a robust 2D/3D render pipeline.
@@ -116,44 +108,7 @@ Goal: fast "change -> verify -> commit" workflow.
 - [ ] L2. Migration-path documentation (Engine4 -> Engine5)
 - [ ] L3. Pre-release check suite
 
-## 3) Feature Cards (expand during discussion)
-Card template:
-
-```md
-### [ID] Feature Name
-- Status: idea | planned | in-progress | done | dropped
-- Priority: P0 | P1 | P2
-- Area: Platform | Core | UI | Render | Resources | Audio | Network | Tooling
-- Value: why we are doing this (1-2 lines)
-- Scope (MVP): what is included
-- Out of scope: what is excluded
-- Dependencies: modules/tools/platforms
-- Risks: key technical risks
-- Acceptance Criteria:
-  - [ ] criterion 1
-  - [ ] criterion 2
-- Notes: links/sketches/decisions
-```
-
-## 4) Inbox (quick ideas without details yet)
-Use this section for anything remembered on the fly.
-- [x] [R-001] Core OpenGL pipeline modernization (drop compatibility profile, VBO/IBO everywhere, NSight-friendly debugging)
-- [ ] [R-002] Multi-window + multi-monitor support with hot DPI-awareness
-- [ ] [R-003] Native model/animation format (AEM) with ultra-compact data encodings + Blender export plugin
-- [x] [R-004] Robot interaction layer (MCP server or file-dialog bridge)
-- [ ] [R-005] CSS-like UI style system completion (text-defined inherited styles, from prototype to production-ready)
-- [ ] [R-006] 3D material pipeline: normal mapping (optional parallax/occlusion extensions)
-- [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
-- [ ] [R-008] UI input hit-test for out-of-bounds children without full-tree mouse-move traversal
-- [ ] [R-009] OpenGL performance modernization (diagnose-first: telemetry, cheap state-change wins, opt-in manual batch API, GL 4.x research)
-- [ ] [R-010] UI widget system refactor roadmap (TUIElement decomposition + widget-class review)
-- [ ] [R-011] Headless/NOGFX backend for CI-driven UI automation without window/OpenGL context
-- [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
-- [ ] [R-013] Robot API input simulation (`ui.click`/`ui.type`/`ui.focus`)
-- [ ] [R-014] UI widget expansion: new component types + module organization strategy
-- [ ] [R-015] Demo suite restructuring: 3-tier organization, new demos, merge redundant ones
-
-## 5) Seed Feature Cards
+## 3) Feature Cards
 
 ### [R-01] Core OpenGL Pipeline Modernization
 - Status: done
@@ -362,7 +317,7 @@ Use this section for anything remembered on the fly.
     - added `BenchAnimation` (`TTweening` vs `TAnimatedValue`) and expanded timing benchmark coverage.
 
 ### [R-08] UI Hit-Test for Out-of-Bounds Children (Performance-Safe)
-- Status: idea
+- Status: done
 - Priority: P1
 - Area: UI
 - Value: Fix a real UX/input bug where child UI elements intentionally rendered outside parent bounds may not receive mouse input, while preserving high mouse-move performance.
@@ -371,10 +326,11 @@ Use this section for anything remembered on the fly.
 - Dependencies: `Apus.Engine.UI`, `Apus.Engine.UITypes`, `Apus.Engine.UIScene`, clipping semantics (`clipChildren` / `parentClip`), root element ordering.
 - Risks: regressions in modal/focus behavior; hidden coupling with existing `FindElementAt` recursion and clipping assumptions; accidental perf degradation on deep UI trees.
 - Acceptance Criteria:
-  - [ ] A child element intentionally outside parent bounds and configured as non-clipped can receive hover/click input.
-  - [ ] Mouse move processing does not degrade to full-tree scan for common frames.
-  - [ ] Existing modal-window and z-order input behavior remains unchanged in representative UI demo flows.
-  - [ ] Add at least one focused test or reproducible scenario covering this case.
+  - [x] A child element intentionally outside parent bounds and configured as non-clipped can receive hover/click input.
+  - [x] Mouse move processing does not degrade to full-tree scan for common frames.
+  - [x] Existing modal-window and z-order input behavior remains unchanged in representative UI demo flows.
+  - [x] Add at least one focused test or reproducible scenario covering this case.
+- Notes: Clip-threaded `FindElementAt` overload with `escapingOnly` mode for deep noParentClip descendants; `FindElementAt`/`FindAnyElementAt` unified as overloads. Verified via Ctrl+Alt+Win hover. UI demo carries §7 fixture (panel+popup, panel→mid→deep). Details: `Work/reports/R-08_hittest_overlay_notes.md`.
 
 ### [R-11] Headless/NOGFX Backend for CI UI Automation
 - Status: idea
@@ -443,7 +399,7 @@ Use this section for anything remembered on the fly.
   - 2026-06-05: reframed from "auto-batcher" to "diagnose-first, four tracks" after design discussion; Track D (GL 4.x research) added by author.
 
 ### [R-10] UI Widget System Refactor (TUIElement Decomposition First)
-- Status: in-progress
+- Status: done
 - Priority: P0
 - Area: UI
 - Value: reduce UI core complexity and improve maintainability/testability by restructuring `TUIElement` and clarifying responsibilities across widget classes.
@@ -671,8 +627,3 @@ type
   - 2026-03-20: created and integrated `demo/Draw2D` (modernized 2D primitive showcase).
   - Added and integrated `demo/TextDemo` (text rendering/formatting showcase).
 
-## 6) Next Planning Session
-Prepare for the next discussion:
-- Select 3-5 priority items from Inbox.
-- Create a Feature Card for each selected item (MVP + Acceptance Criteria).
-- Mark explicitly which items require Base API changes.
