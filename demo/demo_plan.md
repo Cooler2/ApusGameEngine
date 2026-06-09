@@ -4,13 +4,15 @@ Date: 2026-03-22
 
 This document defines the target demo structure for Engine5.
 For the current state of demos, see `demo_inventory.md`.
+For ordered implementation steps, see `demo_execution_plan.md`.
 
 ## Goals
 
-Demos serve three purposes:
+Demos serve these purposes:
 1. **New user onboarding** — progressive learning path from minimal to advanced.
 2. **API reference** — each subsystem has exactly one demo showing its full API surface.
 3. **Test base** — CI can build and run all demos; Robot API can validate via screenshot/pixel.
+4. **Complex showcases** — integrated scenes that combine multiple systems and expose architecture gaps.
 
 ## Directory Structure
 
@@ -31,16 +33,19 @@ demo/
     Sound/                 — playback, streaming, backends (GUI, not console)
     Shaders/               — custom shaders, uniforms, post-effects
     Scene3D/               — mesh loading, camera, lighting, materials
+    NormalMap/             — tangent-space normal mapping, material diagnostics
     CharAnimation/         — skeletal animation, IQM/AEM, blend, bone hierarchy
     Animation/             — tweening, animated values (2D focus)
     Platform/              — multi-window, DPI scaling, borderless, fullscreen toggle
   3-advanced/
-    AdvancedGfx/           — texture arrays, mip-maps, shadow maps, normal maps (R-06)
+    AdvancedGfx/           — texture arrays, mip-maps, shadow maps, advanced texture operations
     Resources/             — async loading, queues, ref counting, hot reload
     Network/               — TCP client/server, HTTP requests, timeouts
     Particles/             — instanced rendering, GPU particles (performance demo)
     Billboards/            — billboard stress test (performance demo)
     VertexBuffer/          — procedural mesh generation (performance demo)
+  4-complex/
+    Game3DShowcase/        — R-017 integrated 3D scene: camera, materials, passes, post-process
 ```
 
 ## Demo Descriptions
@@ -94,6 +99,11 @@ Source: current `Shaders`, expanded.
 lighting (directional, point), textures and materials, basic transforms.
 Source: current `Simple3D`, expanded.
 
+**NormalMap** — tangent-space normal mapping as a regular material/rendering feature:
+normal map generation/loading, tangent basis diagnostics, camera/light controls,
+and side-by-side material comparison. Source: current `NormalMap`, expanded once
+R-06 functionality moves from local demo shader code into the engine material path.
+
 **CharAnimation** — skeletal animation: loading animated models (IQM/AEM format),
 skeleton visualization, animation playback, blending between animations,
 bone attachment points. Source: current `CharAnimation`, expanded.
@@ -109,8 +119,8 @@ Source: current `MultiWindow` + `UIScaleDPI` + `Borderless` merged.
 ### 3-advanced: Advanced & Performance
 
 **AdvancedGfx** — advanced graphics techniques: texture arrays, manual mip-map control,
-shadow mapping, normal maps (R-06), advanced texture operations.
-Source: current `AdvTex` + `ShadowMap` merged + R-06 content.
+shadow mapping, and advanced texture operations.
+Source: current `AdvTex` + `ShadowMap` merged.
 
 **Resources** — resource management patterns: async loading with queues and priorities,
 reference counting, resource lifecycle, hot reload during development.
@@ -132,6 +142,16 @@ Source: current `Billboards` (unchanged scope).
 vertex/index buffer management, normal calculation. Performance/stress test.
 Source: current `VertexBuffer` (unchanged scope).
 
+### 4-complex: Integrated Showcases
+
+Complex demos are not subsystem reference demos. They combine several engine systems
+in one realistic scene and are allowed to reveal architecture gaps before the final
+engine abstractions exist.
+
+**Game3DShowcase** — R-017 skeleton-first integrated 3D showcase: scene organization,
+camera model, material path, normal-mapped objects, multi-pass rendering,
+post-processing, and debug/diagnostic controls. Source: **new**, created from R-017.
+
 ## Migration Map
 
 What happens to each current demo:
@@ -151,6 +171,7 @@ What happens to each current demo:
 | SoundDemo | 2-features/Sound | Rewrite as GUI app |
 | Shaders | 2-features/Shaders | Move + expand |
 | Simple3D | 2-features/Scene3D | Rename + expand |
+| NormalMap | 2-features/NormalMap | Move + expand when R-06 becomes engine-level functionality |
 | CharAnimation | 2-features/CharAnimation | Move + expand |
 | Tweenings | 2-features/Animation | Rename + expand |
 | MultiWindow | 2-features/Platform | Merge with UIScaleDPI + Borderless |
@@ -163,6 +184,7 @@ What happens to each current demo:
 | Particles | 3-advanced/Particles | Move as-is |
 | Billboards | 3-advanced/Billboards | Move as-is |
 | VertexBuffer | 3-advanced/VertexBuffer | Move as-is |
+| — | 4-complex/Game3DShowcase | **New** (R-017 integrated 3D architecture showcase) |
 | EngineTest | — | Distribute cases to Draw2D/Text/etc, then remove |
 
 ## Dependencies on Roadmap Features
@@ -171,8 +193,9 @@ What happens to each current demo:
 |---|---|
 | Styles | R-05 (CSS-like style system) |
 | Platform | R-02 (multi-window) |
-| AdvancedGfx (normal maps) | R-06 (normal mapping) |
+| NormalMap | R-06 (normal mapping) |
 | Resources | Resource API stabilization |
 | Network | Roadmap section K |
+| Game3DShowcase | R-017 (3D game architecture probe) |
 | HelloEngine | None (can be created now) |
 | Text | None (can be created now) |

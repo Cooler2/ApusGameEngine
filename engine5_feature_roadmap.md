@@ -30,8 +30,9 @@ This file follows top-down planning:
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
-| R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
+| R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue 4-tier restructuring, merge/move remaining demos, distribute EngineTest cases |
 | R-16 | Console Modernization | in-progress | ~70% | Console.pas dissolved (deleted); ConsoleScene owns the buffer fed by a log mirror + CmdProc `OnOutput` sink; DEBUG/ERROR→log bridge moved to engine init; UX: two-tier filter, timestamp toggle, `clear`, `loglevel`, Ctrl+C clipboard, DPI-scaled font, per-source color palette. Merged to master. Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | NOT closed — continues post-merge: scroll rework (sticky-bottom + ScrollToEnd unit fix), runtime polish. Related deferred-to-main bugs: build GUI mode, TUIWindow title-bar DPI, editbox Enter under SDL |
+| R-17 | 3D Game Architecture Probe (skeleton-first) | idea | 0% | — | Build a top-down integrated 3D skeleton (scene graph + camera + multi-pass + post-process) to expose architectural "white spots"; audit done (no Camera/Material/RenderPass/SceneGraph types exist) |
 
 ## 2) Strategic Directions
 
@@ -151,7 +152,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
 - [ ] [R-013] Robot API input simulation (`ui.click`/`ui.type`/`ui.focus`)
 - [ ] [R-014] UI widget expansion: new component types + module organization strategy
-- [ ] [R-015] Demo suite restructuring: 3-tier organization, new demos, merge redundant ones
+- [ ] [R-015] Demo suite restructuring: 4-tier organization, new demos, merge redundant ones
 
 ## 5) Seed Feature Cards
 
@@ -640,8 +641,10 @@ type
 - Area: Tooling
 - Value: Provide a coherent, progressive demo suite that serves as onboarding path, API reference, and test base for CI/Robot validation.
 - Scope (MVP):
-  - Reorganize demos into 3-tier structure: `1-start/`, `2-features/`, `3-advanced/`
+  - Reorganize demos into 4-tier structure: `1-start/`, `2-features/`, `3-advanced/`, `4-complex/`
   - Create new demos: HelloEngine, Text (highest priority — biggest current gap)
+  - Keep NormalMap as a feature-level demo once R-06 normal mapping becomes core engine functionality
+  - Add a complex showcase tier for R-017 integrated 3D architecture/demo work
   - Merge redundant demos: Input (InputDemo+ControllerDemo), Platform (MultiWindow+UIScaleDPI+Borderless), AdvancedGfx (AdvTex+ShadowMap)
   - Absorb Draw2D cases from NinePatch and EngineTest; absorb text cases from EngineTest into Text demo
   - Rewrite SoundDemo as GUI application
@@ -652,19 +655,22 @@ type
 - Risks: EngineTest distribution requires careful case-by-case review to avoid losing coverage.
 - Acceptance Criteria:
   - [x] New standalone diagnostic/showcase demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow.
-  - [ ] Directory structure matches target layout (`1-start/`, `2-features/`, `3-advanced/`)
+  - [ ] Directory structure matches target layout (`1-start/`, `2-features/`, `3-advanced/`, `4-complex/`)
   - [ ] HelloEngine demo created and working
   - [ ] Text demo created with font/Unicode/formatting showcase
   - [ ] Draw2D absorbs NinePatch and relevant EngineTest cases
   - [ ] Input demo merges keyboard/mouse (InputDemo) and gamepad (ControllerDemo)
   - [ ] Platform demo merges multi-window, DPI, and borderless demos
+  - [ ] NormalMap demo moves into the feature tier and uses engine-level R-06 material functionality
   - [ ] AdvancedGfx demo merges AdvTex and ShadowMap
+  - [ ] R-017 integrated 3D showcase has a home in the complex tier
   - [ ] SoundDemo rewritten as GUI app
   - [ ] EngineTest fully distributed and removed
   - [ ] All demos compile with FPC and Delphi
   - [ ] CI can build all demos in the new structure
 - Notes:
   - Full plan with migration map: `demo/demo_plan.md`
+  - Ordered execution backlog: `demo/demo_execution_plan.md`
   - Current inventory: `demo/demo_inventory.md`
   - 2026-03-22: plan created and agreed.
   - 2026-03-20: created and integrated `demo/InputDemo` (input diagnostics focus).
