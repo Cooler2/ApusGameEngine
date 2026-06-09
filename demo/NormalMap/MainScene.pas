@@ -1,4 +1,4 @@
-// Normal mapping prototype demo for R-06.
+﻿// Normal mapping prototype demo for R-06.
 //
 // This demo intentionally keeps tangent, shader and material code local.
 // Once the visual path is stable, proven parts can be moved into engine APIs.
@@ -197,7 +197,7 @@ begin
       n.Normalize;
       t:=Vec3(-su,cu,0);
       t.Normalize;
-      SetVertex(result.vertices[idx],p,n,t,i/U_SEG,j/V_SEG,$FFFFFFFF);
+      SetVertex(result.vertices[idx],p,n,t,i*2/U_SEG,j/V_SEG,$FFFFFFFF);
       inc(idx);
     end;
   end;
@@ -443,8 +443,9 @@ const
 var
   i:integer;
   c:cardinal;
-  ld,tip,perp:TVec3;
+  ld,tip,proj,perp:TVec3;
   scale:single;
+  lightDragging:boolean;
 begin
   shader.Reset;
   shader.LightOff;
@@ -475,6 +476,15 @@ begin
   perp:=Vec3(perp.x*0.4, perp.y*0.4, perp.z*0.4);
   draw.Line3D(tip.x,tip.y,tip.z, tip.x-ld.x*0.6+perp.x, tip.y-ld.y*0.6+perp.y, tip.z-ld.z*0.6+perp.z, $FFFFCC00);
   draw.Line3D(tip.x,tip.y,tip.z, tip.x-ld.x*0.6-perp.x, tip.y-ld.y*0.6-perp.y, tip.z-ld.z*0.6-perp.z, $FFFFCC00);
+  // elevation triangle: only while rotating the light (RMB or Ctrl+LMB)
+  lightDragging:=((window.mouseButtons and mbRight)>0) or
+                 (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0));
+  if lightDragging then begin
+    // triangle: origin → floor-projection of tip → 3D tip
+    // shows the elevation angle as the right angle at proj
+    proj:=Vec3(tip.x, tip.y, OBJ_Z); // XY projection of tip onto horizontal plane
+    draw.Triangle(Vec3(0,0,OBJ_Z), proj, tip, $28FFEE88);
+  end;
   draw.SetZ(0);
 end;
 
