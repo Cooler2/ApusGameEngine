@@ -487,7 +487,7 @@ procedure LoadTGA;
      if i<=size then str:=str+c^;
      HandleWord;
      if i>size then begin
-      if line=4 then text:=MyColor(r,g,b);
+      if line=4 then text:=Color.RGB(r,g,b);
       if (line>4) and (line mod 2=0) and (lcnt<length(lines)) then begin
        inc(lcnt); lines[lcnt]:=str; lx[lcnt]:=x; ly[lcnt]:=y;
       end;
@@ -498,9 +498,9 @@ procedure LoadTGA;
      // разделитель строки
      if c^=#10 then begin
       if line=1 then img:=Apus.Images.TBitmapImage.Create(w,h);
-      if line=2 then bgnd:=MyColor(r,g,b);
-      if line=3 then border:=MyColor(r,g,b);
-      if line=4 then text:=MyColor(r,g,b);
+      if line=2 then bgnd:=Color.RGB(r,g,b);
+      if line=3 then border:=Color.RGB(r,g,b);
+      if line=4 then text:=Color.RGB(r,g,b);
       if (line>4) and (line mod 2=0) and (lcnt<length(lines)) then begin
        inc(lcnt); lines[lcnt]:=str; lx[lcnt]:=x; ly[lcnt]:=y;
       end;

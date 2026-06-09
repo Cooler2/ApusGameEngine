@@ -334,7 +334,7 @@ function Sharpen(buf:pointer;pitch,width,height,strength:integer;inplace:boolean
     b:=((c0 and $FF0000) shl 3-(c1 and $FF0000)-(c2 and $FF0000)-(c3 and $FF0000)-(c4 and $FF0000)) div $40000;
     if b<0 then b:=0; if b>255 then b:=255;
     v:=v+(b shl 16);
-    pc^:=ColorMix(v,c0,strength);
+    pc^:=Color.Mix(v,c0,strength);
     inc(pc); inc(o);
    end;
    inc(pc,2);

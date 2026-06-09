@@ -210,8 +210,8 @@ var
 
  function GetPixel(x,y:integer):cardinal; // read ARGB pixel from current render target (clamp coordinates)
  procedure PutPixel(x,y:integer;color:cardinal); // store ARGB pixes AS IS (ignore out of range coordinates)
- procedure DrawPixel(x,y:integer;color:cardinal); // draw ARGB pixel using alpha blending (ignore out of range coordinates)
- procedure DrawPixelAA(x,y:single;color:cardinal); // the same with anti-aliasing
+ procedure DrawPixel(x,y:integer;col:cardinal); // draw ARGB pixel using alpha blending (ignore out of range coordinates)
+ procedure DrawPixelAA(x,y:single;col:cardinal); // the same with anti-aliasing
  procedure SmoothLine(x1,y1,x2,y2:single;color:cardinal;width:single=1.0); // width = 0.5-1.5
  procedure Arc(x,y,r,fromA,toA:single;color:cardinal;width:single=1.0);
  procedure Circle(x,y,r:single;color:cardinal;width:single=1.0);
@@ -1751,7 +1751,7 @@ const
    sp,dp,p:PCardinal;
    i,j,w,h,o:integer;
    u,u0,v,du,dv:single;
-   color,c0,c1,c2,c3:cardinal;
+   col,c0,c1,c2,c3:cardinal;
   begin
    {$IFDEF ANDROID}
 //   DebugMessage(Format('StretchDraw(%x,%d, %x,%d, %d,%d,%d,%d, %f,%f,%f,%f)',
@@ -1775,8 +1775,8 @@ const
      inc(sp,sPitch); c3:=sp^;
      dec(sp); c2:=sp^;
      if (c0 or c1 or c2 or c3>$FFFFFF) then begin
-      color:=BilinearMix(c0,c1,c2,c3,frac(u),frac(v));
-      dp^:=Blender(dp^,color);
+      col:=Color.BilinearMix(c0,c1,c2,c3,frac(u),frac(v));
+      dp^:=Blender(dp^,col);
      end;
      inc(sp); inc(dp);
      u:=u+du;
@@ -1843,7 +1843,7 @@ const
     dp:=dest;
     inc(dp,dPitch*y);
     for x:=0 to width-1 do begin
-     dp^:=BilinearBlend(src[a],src[a+1],src[a+sPitch],src[a+sPitch+1],0.5,0.5);
+     dp^:=Color.BilinearBlend(src[a],src[a+1],src[a+sPitch],src[a+sPitch+1],0.5,0.5);
      inc(dp);
      inc(a,2);
     end;
@@ -1902,16 +1902,16 @@ const
    pc^:=color;
   end;
 
- procedure DrawPixel(x,y:integer;color:cardinal);
+ procedure DrawPixel(x,y:integer;col:cardinal);
   var
    pc:PCardinal;
   begin
    if (x<0) or (y<0) or (x>=rWidth) or (y>=rHeight) then exit;
    pc:=rBuf; inc(pc,x+y*rPitch);
-   pc^:=Blend(pc^,color);
+   pc^:=Color.Blend(pc^,col);
   end;
 
- procedure DrawPixelAA(x,y:single;color:cardinal);
+ procedure DrawPixelAA(x,y:single;col:cardinal);
   var
    ix,iy,pitch,width,height:integer;
    f,fx,fy:single;
@@ -1921,49 +1921,49 @@ const
    pitch:=rPitch; width:=rWidth; height:=rHeight; buf:=rBuf;
    if (x>=0) and (x<width-1) and (y>=0) and (y<height-1) then begin
     // No clipping
-    a:=color shr 24;
-    color:=color and $FFFFFF;
+    a:=col shr 24;
+    col:=col and $FFFFFF;
     ix:=trunc(x); iy:=trunc(y);
     fx:=frac(x); fy:=frac(y);
     pc:=Buf; inc(pc,Pitch*iy+ix);
     f:=(1-fx)*(1-fy);
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
     inc(pc);
     f:=fx*(1-fy);
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
     inc(pc,Pitch);
     f:=fx*fy;
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
     dec(pc);
     f:=(1-fx)*fy;
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
     exit;
    end;
    // Clipped version
    if (x<-1) or (x>Width) or (y<-1) or (y>Height) then exit;
-   a:=color shr 24;
-   color:=color and $FFFFFF;
+   a:=col shr 24;
+   col:=col and $FFFFFF;
    ix:=trunc(x); iy:=trunc(y);
    fx:=frac(x); fy:=frac(y);
    pc:=Buf; inc(pc,Pitch*iy+ix);
    if (ix>=0) and (iy>=0) then begin
     f:=(1-fx)*(1-fy);
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
    end;
    inc(pc);
    if (ix<Width-1) and (iy>=0) then begin
     f:=fx*(1-fy);
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
    end;
    inc(pc,Pitch);
    if (ix<Width-1) and (iy<Height-1) then begin
     f:=fx*fy;
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
    end;
    dec(pc);
    if (ix>=0) and (iy<Height-1) then begin
     f:=(1-fx)*fy;
-    pc^:=Blend(pc^,color+round(a*f) shl 24);
+    pc^:=Color.Blend(pc^,col+round(a*f) shl 24);
    end;
   end;
 
@@ -2115,7 +2115,7 @@ const
   end;
 
 initialization
- blBlend:=Blend;
+ blBlend:=Color.Blend;
  blCopy:=ColorCopy;
  blender:=blBlend;
 end.
