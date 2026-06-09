@@ -75,8 +75,6 @@
         <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>
         <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <DCC_RangeChecking>true</DCC_RangeChecking>
-        <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
-        <ImageDebugInfo>true</ImageDebugInfo>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <DCC_Namespace>System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
@@ -129,11 +127,16 @@
         <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
-        <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
         <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>
         <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <Debugger_RunParams>-GLDEBUGCTX</Debugger_RunParams>
+        <DCC_IntegerOverflowCheck>false</DCC_IntegerOverflowCheck>
+        <DCC_IOChecking>false</DCC_IOChecking>
+        <DCC_DebugInfoInExe>false</DCC_DebugInfoInExe>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
