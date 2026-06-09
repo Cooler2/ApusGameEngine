@@ -238,7 +238,7 @@ end;
 procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
 var
   x,y:integer;
-  colorRow,normalRow:PCardinal;
+  colorRow,normalRow:PCardinalRow;
   h,dx,dy:single;
   c:cardinal;
 begin
@@ -248,8 +248,8 @@ begin
   mat.colorMap.Lock;
   mat.normalMap.Lock;
   for y:=0 to TEX_SIZE-1 do begin
-    colorRow:=PCardinal(UIntPtr(mat.colorMap.data)+UIntPtr(y*mat.colorMap.pitch));
-    normalRow:=PCardinal(UIntPtr(mat.normalMap.data)+UIntPtr(y*mat.normalMap.pitch));
+    colorRow:=PCardinalRow(mat.colorMap.ScanLine(y));
+    normalRow:=PCardinalRow(mat.normalMap.ScanLine(y));
     for x:=0 to TEX_SIZE-1 do begin
       h:=HeightAt(kind,x,y);
       case kind of
@@ -259,10 +259,10 @@ begin
       else
         c:=ARGB(48+round(50*h),96+round(110*h),135+round(80*h));
       end;
-      colorRow[x]:=c;
+      colorRow^[x]:=c;
       dx:=HeightAt(kind,(x+1) mod TEX_SIZE,y)-HeightAt(kind,(x+TEX_SIZE-1) mod TEX_SIZE,y);
       dy:=HeightAt(kind,x,(y+1) mod TEX_SIZE)-HeightAt(kind,x,(y+TEX_SIZE-1) mod TEX_SIZE);
-      normalRow[x]:=NormalColor(-dx*3.0,-dy*3.0,1.0);
+      normalRow^[x]:=NormalColor(-dx*3.0,-dy*3.0,1.0);
     end;
   end;
   mat.colorMap.Unlock;

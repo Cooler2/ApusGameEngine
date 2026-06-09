@@ -146,20 +146,19 @@ end;
 procedure TMainScene.BuildCheckerTexture;
 var
   x,y:integer;
-  row:PCardinal;
+  row:PCardinalRow;
   color:cardinal;
 begin
   checkerTex:=AllocImage(96,96,ipfARGB,aiTexture,'Draw2DChecker');
   checkerTex.Lock;
   for y:=0 to checkerTex.height-1 do begin
-    row:=PCardinal(UIntPtr(checkerTex.data)+UIntPtr(y*checkerTex.pitch));
+    row:=PCardinalRow(checkerTex.ScanLine(y));
     for x:=0 to checkerTex.width-1 do begin
       if ((x div 12+y div 12) and 1)=0 then
         color:=$FF9ABBE7
       else
         color:=$FF24466F;
-      row^:=color;
-      inc(row);
+      row^[x]:=color;
     end;
   end;
   checkerTex.Unlock;
@@ -168,7 +167,7 @@ end;
 procedure TMainScene.BuildHelperTexture;
 var
   x,y,w,h,cx,cy:integer;
-  row:PCardinal;
+  row:PCardinalRow;
   dx,dy,dist,alpha:single;
   col:cardinal;
 begin
@@ -179,15 +178,14 @@ begin
   helperTex:=AllocImage(w,h,ipfARGB,aiTexture,'Draw2DHelper');
   helperTex.Lock;
   for y:=0 to h-1 do begin
-    row:=PCardinal(UIntPtr(helperTex.data)+UIntPtr(y*helperTex.pitch));
+    row:=PCardinalRow(helperTex.ScanLine(y));
     for x:=0 to w-1 do begin
       dx:=x-cx;
       dy:=y-cy;
       dist:=sqrt(dx*dx+dy*dy);
       alpha:=Clamp((58-dist)*0.08,0,1);
       col:=ColorMixF($FF3D6EA8,$FF9DD2F0,Clamp((x+y)/(w+h),0,1));
-      row^:=(SRound(alpha*255) shl 24) or (col and $FFFFFF);
-      inc(row);
+      row^[x]:=(SRound(alpha*255) shl 24) or (col and $FFFFFF);
     end;
   end;
   helperTex.Unlock;
@@ -196,7 +194,7 @@ end;
 procedure TMainScene.BuildAtlasTexture;
 var
   x,y,w,h,cxCell,cyCell:integer;
-  row:PCardinal;
+  row:PCardinalRow;
   cellX,cellY:integer;
   baseCol,col:cardinal;
   dx,dy,dist:single;
@@ -206,7 +204,7 @@ begin
   atlasTex:=AllocImage(w,h,ipfARGB,aiTexture,'Draw2DAtlas');
   atlasTex.Lock;
   for y:=0 to h-1 do begin
-    row:=PCardinal(UIntPtr(atlasTex.data)+UIntPtr(y*atlasTex.pitch));
+    row:=PCardinalRow(atlasTex.ScanLine(y));
     for x:=0 to w-1 do begin
       cellX:=x div 32;
       cellY:=y div 32;
@@ -222,8 +220,7 @@ begin
       else
       if dist>14 then
         col:=ColorMixF(baseCol,$FF1A2538,Clamp((dist-14)/7,0,1));
-      row^:=$FF000000 or (col and $FFFFFF);
-      inc(row);
+      row^[x]:=$FF000000 or (col and $FFFFFF);
     end;
   end;
   atlasTex.Unlock;
