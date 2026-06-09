@@ -44,6 +44,8 @@ TDrawer=class(TInterfacedObject,IDrawer)
   // Drawing methods
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Line3D(x1,y1,z1,x2,y2,z2:single;color:cardinal); // line with explicit 3D coordinates
+  procedure Triangle(p1,p2,p3:TVec3;color:cardinal); overload; // filled triangle, uniform color
+  procedure Triangle(p1,p2,p3:TVec3;c1,c2,c3:cardinal); overload; // filled triangle, per-vertex color
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
   procedure BeginLines;
@@ -542,6 +544,23 @@ begin
  vrt[0].Init(x1,y1,z1,color);
  vrt[1].Init(x2,y2,z2,color);
  renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
+end;
+
+procedure TDrawer.Triangle(p1,p2,p3:TVec3;color:cardinal);
+begin
+ Triangle(p1,p2,p3,color,color,color);
+end;
+
+procedure TDrawer.Triangle(p1,p2,p3:TVec3;c1,c2,c3:cardinal);
+var
+ vrt:array[0..2] of TVertex;
+begin
+ // bypasses 2D clipping; alpha in vertex colors controls transparency
+ shader.UseTexture(neutral);
+ vrt[0].Init(p1.x,p1.y,p1.z,c1);
+ vrt[1].Init(p2.x,p2.y,p2.z,c2);
+ vrt[2].Init(p3.x,p3.y,p3.z,c3);
+ renderDevice.Draw(TRG_LIST,1,@vrt[0],TVertex.layoutTex);
 end;
 
 procedure TDrawer.Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
