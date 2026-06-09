@@ -24,6 +24,9 @@
         <Projects Include="MultiWindow\MultiWindow.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="UIScaleDPI\UIScaleDPI.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="UI\UI.dproj">
             <Dependencies/>
         </Projects>
@@ -52,6 +55,15 @@
     </Target>
     <Target Name="SimpleDemo:Make">
         <MSBuild Projects="SimpleDemo\SimpleDemo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="StyleDemo">
+        <MSBuild Projects="StyleDemo\StyleDemo.dproj"/>
+    </Target>
+    <Target Name="StyleDemo:Clean">
+        <MSBuild Projects="StyleDemo\StyleDemo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="StyleDemo:Make">
+        <MSBuild Projects="StyleDemo\StyleDemo.dproj" Targets="Make"/>
     </Target>
     <Target Name="scenes">
         <MSBuild Projects="01-Scenes\scenes.dproj"/>
@@ -98,6 +110,15 @@
     <Target Name="MultiWindow:Make">
         <MSBuild Projects="MultiWindow\MultiWindow.dproj" Targets="Make"/>
     </Target>
+    <Target Name="UIScaleDPI">
+        <MSBuild Projects="UIScaleDPI\UIScaleDPI.dproj"/>
+    </Target>
+    <Target Name="UIScaleDPI:Clean">
+        <MSBuild Projects="UIScaleDPI\UIScaleDPI.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="UIScaleDPI:Make">
+        <MSBuild Projects="UIScaleDPI\UIScaleDPI.dproj" Targets="Make"/>
+    </Target>
     <Target Name="UI">
         <MSBuild Projects="UI\UI.dproj"/>
     </Target>
@@ -135,13 +156,13 @@
         <MSBuild Projects="TextDemo\TextDemo.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;Draw2D;InputDemo;TextDemo"/>
+        <CallTarget Targets="SimpleDemo;StyleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;UI;InputDemo;Draw2D;TextDemo"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;StyleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;UI:Clean;InputDemo:Clean;Draw2D:Clean;TextDemo:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;StyleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;UI:Make;InputDemo:Make;Draw2D:Make;TextDemo:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

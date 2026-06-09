@@ -52,7 +52,7 @@ implementation
  var
   sceneMain:TMainScene;
   statusLabel:TUILabel;
-  cardGrid:TUIElement;
+  cardGrid:TUIScrollable;
   userZoom:single=1.0;
 
  function DPIScale:single;
@@ -201,7 +201,7 @@ procedure TMainScene.Load;
   content.styleInfo:='fill:FF2E2E2E';
 
   // scrollable card container
-  cardGrid:=TUIElement.Create(content.clientWidth-14,-1,content,'CardGrid');
+  cardGrid:=TUIScrollable.Create(content.clientWidth-14,-1,content,'CardGrid');
   cardGrid.layout:=TGridLayout.Create(8,8,12,12,true);
   cardGrid.SetAnchors(0,0,1,0);
 
