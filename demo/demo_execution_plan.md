@@ -21,8 +21,8 @@ final migration map live in `demo_plan.md`; this file says what to do next.
 
 ## Progress
 
-- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`.
-- Next: `R15-S10`.
+- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`, `R15-S10`.
+- Next: `R15-S11`.
 
 ## Stage 0: Inventory and Build Metadata
 
@@ -71,6 +71,7 @@ Goal: add or finish demos that do not require large merges.
 - Build a compact first-run demo that replaces `SimpleDemo` as onboarding.
 - Include a sprite/texture, text, a button/signal, and one tiny effect or sound trigger.
 - Keep it intentionally small and readable.
+- Implementation: `demo\HelloEngine`.
 - Validation: FPC wrapper build passes; Delphi project is present for manual build;
   runtime check can be done manually or through Robot API when requested.
 
@@ -258,4 +259,4 @@ Goal: make the suite maintainable after restructuring.
 
 ## Suggested Next Task
 
-Continue with `R15-S10`: create `HelloEngine`.
+Continue with `R15-S11`: update `ProjectTemplate`.

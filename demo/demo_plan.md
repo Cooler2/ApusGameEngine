@@ -22,7 +22,7 @@ Flat within numbered category folders:
 demo/
   1-start/
     ProjectTemplate/       — copy & go skeleton
-    HelloEngine/           — first taste: sprite, text, button, sound in ~100 lines
+    HelloEngine/           — first taste: sprite, text, button, tiny effect
   2-features/
     Scenes/                — lifecycle, transitions, effects, modal, async Load
     Draw2D/                — 2D primitives, gradients, blend, nine-patch, texturing
@@ -55,9 +55,10 @@ demo/
 **ProjectTemplate** — minimal project skeleton. Copy this folder to start a new project.
 One window, one scene, one exit button. No logic beyond setup.
 
-**HelloEngine** — "what the engine can do in 100 lines". Draws a sprite, renders text,
-plays a sound on button click, shows a particle effect. Covers the most common API
-entry points so the user sees the breadth immediately.
+**HelloEngine** — first taste of the engine in one compact scene. Draws a sprite,
+renders text, handles a UI button callback, links an exit button through signals,
+and shows a tiny click-triggered effect. Covers common API entry points so the
+user sees the breadth immediately.
 
 ### 2-features: Feature Showcases
 

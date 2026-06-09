@@ -99,6 +99,8 @@ Common problems:
 - missing `.res` files caused by unconditional `{$R *.res}`
 - stale `_fpc` files after switching compiler defines
 - `.dproj` paths drifting from the group project
+- procedural texture code should qualify pixel formats, for example
+  `TImagePixelFormat.ipfARGB`
 
 ## Runtime Validation
 
