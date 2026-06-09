@@ -418,6 +418,7 @@ const
   // Invalid (NaN) vectors
   invalidVec3d:TVec3d = (x:NaN;y:NaN;z:NaN);
   invalidVec3:TVec3   = (x:NaN;y:NaN;z:NaN);
+  invalidVec4:TVec4   = (x:NaN;y:NaN;z:NaN;w:NaN);
 
   // --- Vector/quaternion factories ---
   function Vec3(x,y,z:single):TVec3; overload; inline;

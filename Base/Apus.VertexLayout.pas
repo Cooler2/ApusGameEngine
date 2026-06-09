@@ -33,10 +33,14 @@ type
   function GetColor(var vertex):cardinal;
   function GetNormal(var vertex):TVec3;
   function GetUV(var vertex;idx:cardinal=0):TVec2;
+  function GetTangent(var vertex):TVec3;
+  function GetExtra(var vertex):TVec4;
   procedure SetPos(var vertex;pos:TVec3);
   procedure SetColor(var vertex;color:cardinal);
   procedure SetNormal(var vertex;normal:TVec3);
   procedure SetUV(var vertex;uv:TVec2);
+  procedure SetTangent(var vertex;tangent:TVec3);
+  procedure SetExtra(var vertex;extra:TVec4);
   // Describe vertex data
   function DumpVertex(var vertex):string;
  private
@@ -141,6 +145,9 @@ function TVertexLayout.DumpVertex(var vertex):string;
   p2:=GetUV(vertex);
   if p2.IsValid then
    result:=result+Format(', u=%f, v=%f',[p2.x,p2.y]);
+  p:=GetTangent(vertex);
+  if p.IsValid then
+   result:=result+Format(', tX=%f, tY=%f, tZ=%f',[p.x,p.y,p.z]);
   c:=GetColor(vertex);
   if c<>InvalidColor then
    result:=result+Format(', c=%8x',[c]);
@@ -213,6 +220,24 @@ function TVertexLayout.GetUV(var vertex;idx:cardinal):TVec2;
    else result:=InvalidVec2;
  end;
 
+function TVertexLayout.GetTangent(var vertex):TVec3;
+ var
+  p:integer;
+ begin
+  p:=(layout shr 20) and $F;
+  if p>0 then GetField(vertex,p*4,sizeof(result),result)
+   else result:=InvalidVec3;
+ end;
+
+function TVertexLayout.GetExtra(var vertex):TVec4;
+ var
+  p:integer;
+ begin
+  p:=(layout shr 24) and $F;
+  if p>0 then GetField(vertex,p*4,sizeof(result),result)
+   else result:=InvalidVec4;
+ end;
+
 procedure TVertexLayout.SetColor(var vertex;color:cardinal);
  var
   p:integer;
@@ -246,6 +271,22 @@ procedure TVertexLayout.SetUV(var vertex;uv:TVec2);
  begin
    p:=(layout shr 12) and $F;
   if p>0 then SetField(vertex,p*4,8,uv);
+ end;
+
+procedure TVertexLayout.SetTangent(var vertex;tangent:TVec3);
+ var
+  p:integer;
+ begin
+  p:=(layout shr 20) and $F;
+  if p>0 then SetField(vertex,p*4,12,tangent);
+ end;
+
+procedure TVertexLayout.SetExtra(var vertex;extra:TVec4);
+ var
+  p:integer;
+ begin
+  p:=(layout shr 24) and $F;
+  if p>0 then SetField(vertex,p*4,16,extra);
  end;
 
 procedure TVertexLayout.Init(position,normal,color,uv1,uv2:integer);
