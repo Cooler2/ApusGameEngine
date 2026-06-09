@@ -59,6 +59,7 @@ What's being worked on is tracked in [engine5_feature_roadmap.md](engine5_featur
 - [ ] CSS-like style system for UI (declarative, inherited, state-aware)
 - [ ] Geometry library overhaul: single-precision first, spatial primitives, intersection and culling tests
 - [ ] Multi-window support with runtime DPI changes
+- [ ] Robot API for automated testing and tooling integration (file-based protocol, UI introspection, screenshot/pixel commands)
 - [ ] CI coverage on Windows and Linux (GitHub Actions)
 - [ ] Modernized demo suite
 
