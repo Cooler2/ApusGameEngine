@@ -21,8 +21,8 @@ final migration map live in `demo_plan.md`; this file says what to do next.
 
 ## Progress
 
-- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`, `R15-S10`.
-- Next: `R15-S11`.
+- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`, `R15-S10`, `R15-S11`.
+- Next: `R15-S12`.
 
 ## Stage 0: Inventory and Build Metadata
 
@@ -80,6 +80,7 @@ Goal: add or finish demos that do not require large merges.
 - Modernize imports and structure.
 - Keep it a copy-and-go skeleton, not a feature showcase.
 - Align `.dproj` and output paths with maintained demos.
+- Implementation: compact current `demo\ProjectTemplate` starter plus group-project entry.
 - Validation: FPC wrapper build passes; no deprecated `Apus.Common` or
   `Apus.CrossPlatform` imports remain in template code.
 
@@ -259,4 +260,4 @@ Goal: make the suite maintainable after restructuring.
 
 ## Suggested Next Task
 
-Continue with `R15-S11`: update `ProjectTemplate`.
+Continue with `R15-S12`: finish `StyleDemo` integration.

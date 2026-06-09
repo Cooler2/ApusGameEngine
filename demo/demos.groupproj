@@ -9,6 +9,9 @@
         <Projects Include="HelloEngine\HelloEngine.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="ProjectTemplate\ProjectTemplate.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="StyleDemo\StyleDemo.dproj">
             <Dependencies/>
         </Projects>
@@ -67,6 +70,15 @@
     </Target>
     <Target Name="HelloEngine:Make">
         <MSBuild Projects="HelloEngine\HelloEngine.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="ProjectTemplate">
+        <MSBuild Projects="ProjectTemplate\ProjectTemplate.dproj"/>
+    </Target>
+    <Target Name="ProjectTemplate:Clean">
+        <MSBuild Projects="ProjectTemplate\ProjectTemplate.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ProjectTemplate:Make">
+        <MSBuild Projects="ProjectTemplate\ProjectTemplate.dproj" Targets="Make"/>
     </Target>
     <Target Name="StyleDemo">
         <MSBuild Projects="StyleDemo\StyleDemo.dproj"/>
@@ -168,13 +180,13 @@
         <MSBuild Projects="TextDemo\TextDemo.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;HelloEngine;StyleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;UI;InputDemo;Draw2D;TextDemo"/>
+        <CallTarget Targets="SimpleDemo;HelloEngine;ProjectTemplate;StyleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;UI;InputDemo;Draw2D;TextDemo"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;HelloEngine:Clean;StyleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;UI:Clean;InputDemo:Clean;Draw2D:Clean;TextDemo:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;HelloEngine:Clean;ProjectTemplate:Clean;StyleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;UI:Clean;InputDemo:Clean;Draw2D:Clean;TextDemo:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;HelloEngine:Make;StyleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;UI:Make;InputDemo:Make;Draw2D:Make;TextDemo:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;HelloEngine:Make;ProjectTemplate:Make;StyleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;UI:Make;InputDemo:Make;Draw2D:Make;TextDemo:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

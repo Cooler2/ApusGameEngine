@@ -6,76 +6,82 @@
 
 unit MainScene;
 interface
- uses Apus.Engine.GameApp,Apus.Engine.API;
- type
-  // Let's override to have a custom app class
+uses
+  Apus.Engine.GameApp,
+  Apus.Engine.API;
+
+type
   TMainApp=class(TGameApplication)
-   constructor Create;
-   procedure CreateScenes; override;
+    constructor Create;
+    procedure SetupGameSettings(var settings:TGameSettings); override;
+    procedure CreateScenes; override;
   end;
 
- var
+var
   application:TMainApp;
 
 implementation
- uses Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
-   Apus.Engine.UI;
+uses
+  Apus.EventMan,
+  Apus.Engine.Types,
+  Apus.Engine.UI;
 
- type
-  // This will be our single scene
+type
   TMainScene=class(TUIScene)
-   procedure Load; override;
-   procedure Render; override;
+    procedure CreateUI;
+    procedure Render; override;
   end;
 
- var
+var
   sceneMain:TMainScene;
 
 constructor TMainApp.Create;
- begin
-  inherited;
-  // Alter some global settings
-  gameTitle:='Apus Game Engine'; // app window title
-  //configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+begin
+  {$IFDEF SDL}
+  usedPlatform:=spSDL;
+  {$ELSE}
   usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;   // alternative cross-platform solution
-  //directRenderOnly:=true; // draw to backbuffer (instead of a screen-size RT-texture for post-processing)
-  //windowedMode:=false;
- end;
-
-// Most app initialization is here. Default spinner is running
-procedure TMainApp.CreateScenes;
- begin
+  {$ENDIF}
   inherited;
-  // initialize our main scene
+  gameTitle:='Apus Game Engine';
+  usedAPI:=gaOpenGL2;
+  windowWidth:=960;
+  windowHeight:=540;
+  windowSizeable:=false;
+end;
+
+procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
+begin
+  inherited;
+  settings.mode.displayMode:=dmWindow;
+  settings.mode.displayFitMode:=dfmFullSize;
+  settings.mode.displayScaleMode:=dsmDontScale;
+end;
+
+procedure TMainApp.CreateScenes;
+begin
+  inherited;
   sceneMain:=TMainScene.Create('Main');
-  // switch to the main scene using fade transition effect
-  // (this will wait in a separate thread until scene's Load() is executed
-  game.SwitchToScene('Main');  
- end;
+  sceneMain.CreateUI;
+  game.SwitchToScene('Main');
+end;
 
 { TMainScene }
-procedure TMainScene.Load; // This is called from the launch thread, no draw calls allowed
- var
+
+procedure TMainScene.CreateUI;
+var
   btn:TUIButton;
- begin
-  // Create a button
-  btn:=TUIButton.Create(100,32,UI,'Main\Close').Setup('Exit');
+begin
+  btn:=TUIButton.Create(120,34,UI,'Main\Close').Setup('Exit');
   btn.SetPos(UI.width/2,UI.height/2,pivotCenter);
   btn.hint:='Press this button to exit';
-
-  // Link the button click signal to the engine termination signal
   Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
- end;
+end;
 
 procedure TMainScene.Render;
- begin
-  // Clear scene background
-  gfx.target.Clear($406080); // clear with blue
-  // Draw something here...  
-  inherited; // this will draw the UI elements
-  // You can draw something here over the UI
- end;
+begin
+  gfx.target.Clear($FF203040);
+  inherited;
+end;
 
 end.

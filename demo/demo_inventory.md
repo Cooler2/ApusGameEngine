@@ -47,7 +47,7 @@ Relevance categories:
 
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
-| `ProjectTemplate` | Minimal starter project skeleton (window + simple scene + Exit button); target is modernized `1-start/ProjectTemplate`. | `scaffold` |
+| `ProjectTemplate` | Modern starter project skeleton (window + one scene + signal-linked Exit button); target is `1-start/ProjectTemplate`. | `scaffold` |
 | `EngineTest` | Large old set of manual graphics/resource tests, many modes, and deprecated API paths; target is case-by-case distribution, then removal. | `legacy` |
 
 ## S00 Checks
