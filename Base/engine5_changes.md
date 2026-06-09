@@ -308,6 +308,45 @@ Fixed incorrect return types that could truncate values:
 
 Implementation of `Min/Max(a,b,c:single)` was also fixed to compare `single` values directly (no `trunc()`).
 
+## Apus.Colors (2026-06-09)
+
+Global free functions replaced with static methods on `type Color = record`.
+`BilinearMixF` (scalar) and `BilinearMix(values:PCardinal,u,v)` (SSE pointer overload) remain free functions.
+`Color`, `TARGBColor`, `InvalidColor` are re-exported from `Apus.Lib`.
+
+**Gotcha:** Pascal is case-insensitive — a local var named `color:cardinal` shadows the `Color` type.
+Rename any such local to `col` or a more specific name before calling `Color.XXX()`.
+
+| Old name | New name (Color record) | Notes |
+|---|---|---|
+| `MyColor(r,g,b)` | `Color.RGB(r,g,b)` | |
+| `MyColor(a,r,g,b)` | `Color.ARGB(a,r,g,b)` | |
+| `MyColorF(a,r,g,b)` | `Color.ARGBf(a,r,g,b)` | |
+| `GrayColor(gray)` | `Color.Gray(gray)` | |
+| `GrayAlpha(alpha)` | `Color.GrayAlpha(alpha)` | |
+| `GetAlpha(color)` | `Color.Alpha(color)` | |
+| `IsSemiTransparent(color)` | `Color.HasAlpha(color)` | |
+| `SwapColor(color)` | `Color.Swap(color)` | |
+| `ColorAdd(c1,c2)` | `Color.Add(c1,c2)` | |
+| `ColorSub(c1,c2)` | `Color.Sub(c1,c2)` | |
+| `ColorMult2(c1,c2)` | `Color.Mult(c1,c2)` | |
+| `ColorAlpha(color,alpha)` | `Color.Scale(color,alpha)` | multiplies alpha channel |
+| `ReplaceAlpha(color,alpha)` | `Color.SetAlpha(color,alpha)` | replaces alpha channel |
+| `ColorMix(c1,c2,value:integer)` | `Color.Mix(c1,c2,value:integer)` | |
+| `ColorMixF(c1,c2,t:single)` | `Color.Mix(c1,c2,t:single)` | |
+| `ColorBlend(c1,c2,value:integer)` | `Color.Blend(c1,c2,value:integer)` | |
+| `ColorBlendF(c1,c2,value:single)` | `Color.Blend(c1,c2,value:single)` | |
+| `Blend(background,foreground)` | `Color.Blend(background,foreground)` | alpha-blend overload |
+| `BilinearMix(c0,c1,c2,c3,u,v)` | `Color.BilinearMix(c0,c1,c2,c3,u,v)` | 4-arg cardinal overload |
+| `BilinearBlend(c0,c1,c2,c3,v1,v2)` | `Color.BilinearBlend(c0,c1,c2,c3,v1,v2)` | |
+| `Lightness(color)` | `Color.Lightness(color)` | |
+| `ColorDiff(c1,c2)` | `Color.Diff(c1,c2)` | |
+| `SimpleColorDiff(c1,c2)` | `Color.SimpleDiff(c1,c2)` | |
+| `Brightness(c,value)` | `Color.Brighten(c,value)` | renamed |
+| `Contrast(c,value)` | `Color.Contrast(c,value)` | same name |
+| `BilinearMixF(v0,v1,v2,v3,u,v)` | `BilinearMixF(...)` | **stays free function** |
+| `BilinearMix(values:PCardinal,u,v)` | `BilinearMix(values:PCardinal,u,v)` | **stays free function** (SSE) |
+
 ## Apus.Core (low-level math, memory, bits, time, exceptions)
 
 | Old name (Common) | New name (Core) | Notes |

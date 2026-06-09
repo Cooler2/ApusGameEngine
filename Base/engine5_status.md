@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-03-24)
+## Summary (last updated: 2026-06-09)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -68,6 +68,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Fixed SDL startup to avoid probing joystick index `0` when no controllers are connected.
 **Recent wins (2026-05-30):** Fixed SDL screen-coordinate helpers for window-relative conversion and global mouse position queries.
 **Recent wins (2026-05-30):** Made SDL close handling multi-window aware: termination state is per-window and close events are routed by native SDL window ID. Linux/WSL runtime verification closed `Tool 1` while the main window continued running.
+**Recent wins (2026-06-09):** Replaced ~25 global color functions in `Apus.Colors` with static methods on a new `Color` record type (`Color.RGB`, `Color.Blend`, `Color.Add`, etc.); `BilinearMixF` and pointer-based `BilinearMix(PCardinal)` kept as free functions; `Color`/`TARGBColor`/`InvalidColor` re-exported via `Apus.Lib`.
 **Recent wins (2026-06-09):** Added shared typed row-pointer helpers in `Apus.Core` (`PByteRow`, `PWordRow`, `PIntRow`, `PCardinalRow`, `PSingleRow`) plus `TTexture.ScanLine(y)` and `TTexture.PixelPtr(x,y)` in `Apus.Engine.Resources`, so locked texture code can use explicit casts like `PCardinalRow(tex.ScanLine(y))` and direct pixel addressing without repeating raw `data+pitch` arithmetic.
 
 ## Live module inventory (2026-05-29)
@@ -83,7 +84,7 @@ means the module is live but is not currently compiled by those sweep scripts.
 | `Apus.AnimatedValues` | Win/Linux | - | Covered indirectly by `BenchAnimation`. |
 | `Apus.Classes` | Win/Linux | - | Foundation module; uses `Apus.HashMaps` in implementation. |
 | `Apus.Clipboard` | Win/Linux | - | |
-| `Apus.Colors` | Win/Linux | - | |
+| `Apus.Colors` | Win/Linux | TestGFX | `Color` record static-method API (2026-06-09); no free functions except `BilinearMixF` and `BilinearMix(PCardinal)`. |
 | `Apus.Compress` | Win/Linux | TestCompress | |
 | `Apus.Containers` | Win/Linux | TestContainers, BenchContainers | |
 | `Apus.ControlFiles` | Win/Linux | - | |
