@@ -172,7 +172,7 @@ function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
 
  function TColorGradient.ColorAt(x,y:single):cardinal;
   begin
-   result:=MyColorF(alpha.ValueAt(x,y),red.valueAt(x,y),green.ValueAt(x,y),blue.ValueAt(x,y));
+   result:=Color.ARGBf(alpha.ValueAt(x,y),red.valueAt(x,y),green.ValueAt(x,y),blue.ValueAt(x,y));
   end;
 
  procedure TColorGradient.Init(color1,color2:cardinal;angle,scale:single);

@@ -451,8 +451,8 @@ begin
   color1:=round(EvalFloat(sa[0],nil,context,contextClass));
   color2:=round(EvalFloat(sa[1],nil,context,contextClass));
  case tag of
-  1:result:=ColorAdd(color1,color2);
-  2:result:=ColorSub(color1,color2);
+  1:result:=Color.Add(color1,color2);
+  2:result:=Color.Sub(color1,color2);
  end;
 end;
 
@@ -492,8 +492,8 @@ end;
 initialization
  RegisterRobotCommand('cmd',@RobotCmdExec);
  SetEventHandler('CMDPROC',EventHandler,emInstant);
- PublishFunction('ColorAdd',fColorFunc,1);
- PublishFunction('ColorSub',fColorFunc,2);
+ PublishFunction('Color_Add',fColorFunc,1);
+ PublishFunction('Color_Sub',fColorFunc,2);
  SetCmdFunc('SIGNAL ',opFirst,SignalCmd);
  SetCmdFunc('LINK ',opFirst,LinkCmd);
  SetCmdFunc('REDIRECT ',opFirst,LinkCmd);

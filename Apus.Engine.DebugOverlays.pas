@@ -367,7 +367,7 @@ var
          3:rowColor:=$FFFF9080;
          else rowColor:=$FFC8B0FF;
         end;
-        maxColor:=Blend(rowColor,$A0FFFFFF);
+        maxColor:=Color.Blend(rowColor,$A0FFFFFF);
         y:=detY+SRound(3*game.screenScale)+row*rowH;
         draw.Line(detX+2,y+rowH-1,detX+detailW-4,y+rowH-1,$18FFFFFF);
 
@@ -378,7 +378,7 @@ var
          usValue:=PhaseSampleUs(row,j);
          vx:=MapMsToX(usValue*0.001);
          fade:=0.7*(n-j)/n;
-         draw.Line(vx,y+1,vx,y+rowH-2,ReplaceAlpha(rowColor,fade));
+         draw.Line(vx,y+1,vx,y+rowH-2,Color.SetAlpha(rowColor,fade));
         end;
        end;
        draw.EndLines;
@@ -393,7 +393,7 @@ var
          else rowColor:=$FFC8B0FF;
         end;
         y:=detY+SRound(3*game.screenScale)+row*rowH;
-        txt.Write(game.smallFont,detX+2,y+rowH-4,ReplaceAlpha(rowColor,220/255),timingLabels[row],taLeft,toDontTranslate);
+        txt.Write(game.smallFont,detX+2,y+rowH-4,Color.SetAlpha(rowColor,220/255),timingLabels[row],taLeft,toDontTranslate);
         txt.WriteC(game.smallFont,detX+labelW+valueW div 2-4,y+rowH-4,rowColor,Conv.ToStr(rowMaxUsArr[row]*0.001,1,1));
        end;
        txt.EndBlock;

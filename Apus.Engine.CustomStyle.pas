@@ -146,7 +146,7 @@ implementation
            (bStyle.timeDown=0) or
            (pressed and (bStyle.imageDown<>0)) then
          else begin
-          c:=ColorMix(bStyle.imageColorOver,bStyle.imageColor,tag);
+          c:=Color.Mix(bStyle.imageColorOver,bStyle.imageColor,tag);
           if pressed then c:=bStyle.imageColorDown;
           DrawBtnImage(bPos,btnImages[bStyle.image].image,c,sx,sy);
          end;
@@ -185,7 +185,7 @@ implementation
            if bStyle.colorDisabled<>0 then col:=bStyle.colorDisabled;
            if bStyle.colorShadowDisabled<>0 then col2:=bStyle.ColorShadowDisabled;
          end;
-         if tag>0 then col:=ColorMix(bStyle.colorOver,col,tag);
+         if tag>0 then col:=Color.Mix(bStyle.colorOver,col,tag);
          if pressed and (bStyle.colorDown<>0) then col:=bStyle.colorDown;
 
          // перевод ДО разделения на подстроки!
@@ -208,7 +208,7 @@ implementation
           for j:=0 to length(sa)-1 do begin
            txt.Write(font,ix,iy,col,sa[j],mode,toAddBaseline);
            if bStyle.underline then begin
-            col:=ColorMult2(col,$80FFFFFF);
+            col:=Color.Mult(col,$80FFFFFF);
             k:=round(txt.Height(font)*0.96);
             l:=txt.Width(font,sa[j]);
             if mode=TTextAlignment.taLeft then
@@ -258,24 +258,25 @@ implementation
     if TranspBgnd then gfx.target.BlendMode(blMove);
     img:=background;
     if img is TTexture then
-     draw.Image(globalRect.Left,globalRect.Top,img as TTexture,color);
+     draw.Image(globalRect.Left,globalRect.Top,img as TTexture,GetStyleColor('color',$FFFFFFFF));
     if TranspBgnd then gfx.target.BlendMode(blAlpha);
    end;
 
    // Полоса прокрутки
    if item is TUIScrollBar then with item as TUIScrollBar do begin
-    v:=colorMix(color,$40101010,96);
-    c:=colorAdd(v,$202020);
-    d:=ColorSub(v,$202020);
+    c:=GetStyleColor('color',$FFA8B0BC);
+    v:=Color.Mix(c,$40101010,96);
+    d:=Color.Sub(v,$202020);
+    c:=Color.Add(v,$202020);
     if horizontal then begin
      // горизонтальная
 
     end else begin
      // вертикальная
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
-     if enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
-      c:=colorMix(color,$FF909090,128);
-      if sliderUnder and not (hooked=item) then c:=ColorAdd(c,$101010);
+     if flags.enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
+      c:=Color.Mix(GetStyleColor('color',$FFA8B0BC),$FF909090,128);
+      if sliderUnder and not (hooked=item) then c:=Color.Add(c,$101010);
       i:=round((globalrect.height-16)*value/max);
       j:=15+round((globalrect.height-16)*(value+pagesize)/max);
       if i<0 then i:=0;
@@ -283,7 +284,7 @@ implementation
       if j>i+15 then begin
        d:=(j-i)*8+round(sqrt((j-i)*10));
        draw.TexturedRect(x1,y1+i,x2,y1+j,scrollTex,0.02,0.5-d/1000,0.98,0.5-d/1000,0.98,0.5+d/1000,c);
-       c:=colorAdd(c,$101010);
+       c:=Color.Add(c,$101010);
        draw.Scaled(x1,y1+j-10,x2,y1+j,scroll2,c);
        draw.Scaled(x1,y1+i,x2,y1+i+10,scroll1,c);
       end;

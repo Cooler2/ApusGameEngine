@@ -1221,12 +1221,12 @@ function TGameBase.RenderSize:TSize;
 
 function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
  begin
-  result:=Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(window.frameStartMs),0,1));
+  result:=Apus.Colors.Color.Mix(color0,color1,Clamp(av.ValueAt(window.frameStartMs),0,1));
  end;
 
 function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
  begin
-  result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(window.frameStartMs),0,1));
+  result:=Apus.Colors.Color.Scale(color,Clamp(av.ValueAt(window.frameStartMs),0,1));
  end;
 
 function TGameBase.AddWindow(title:string;w,h:integer):TWindow;

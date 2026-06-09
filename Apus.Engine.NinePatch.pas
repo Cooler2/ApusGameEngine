@@ -230,34 +230,34 @@ procedure TCustomNinePatch.ClearBorder;
    for x:=1 to tex.width-2 do begin
     // top line
     c:=GetPixel(x,1);
-    c:=ReplaceAlpha(c,0);
+    c:=Color.SetAlpha(c,0);
     PutPixel(x,0,c);
     // bottom line
     c:=GetPixel(x,y-1);
-    c:=ReplaceAlpha(c,0);
+    c:=Color.SetAlpha(c,0);
     PutPixel(x,y,c);
    end;
    x:=tex.width-1;
    for y:=1 to tex.height-2 do begin
     // left line
     c:=GetPixel(1,y);
-    c:=ReplaceAlpha(c,0);
+    c:=Color.SetAlpha(c,0);
     PutPixel(0,y,c);
     // right line
     c:=GetPixel(x-1,y);
-    c:=ReplaceAlpha(c,0);
+    c:=Color.SetAlpha(c,0);
     PutPixel(x,y,c);
    end;
    // Corner pixels
    x:=tex.width-1;
    y:=tex.height-1;
-   c:=ColorMix(GetPixel(0,1),GetPixel(1,0),128);
+   c:=Color.Mix(GetPixel(0,1),GetPixel(1,0),128);
    PutPixel(0,0,c);
-   c:=ColorMix(GetPixel(x,1),GetPixel(x-1,0),128);
+   c:=Color.Mix(GetPixel(x,1),GetPixel(x-1,0),128);
    PutPixel(x,0,c);
-   c:=ColorMix(GetPixel(0,y-1),GetPixel(1,y),128);
+   c:=Color.Mix(GetPixel(0,y-1),GetPixel(1,y),128);
    PutPixel(0,y,c);
-   c:=ColorMix(GetPixel(x,y-1),GetPixel(x-1,y),128);
+   c:=Color.Mix(GetPixel(x,y-1),GetPixel(x-1,y),128);
    PutPixel(x,y,c);
  end;
 

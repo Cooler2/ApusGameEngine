@@ -156,11 +156,11 @@ type
  threadvar
   glyphCache,altGlyphCache:TGlyphCache;
 
-procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
+procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var col:cardinal);
  begin
   sUnderline:=true;
   if link=curTextLink then begin
-   color:=ColorAdd(color,$604030);
+   col:=Color.Add(col,$604030);
   end;
  end;
 

@@ -1,4 +1,4 @@
-﻿// Default UI style (0) inspired by CSS
+// Default UI style (0) inspired by CSS
 //
 // Copyright (C) 2022 Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -220,7 +220,7 @@ implementation
       exit;
      end;
      if v>256 then v:=256;
-     c:=ColorAlpha(clNeutral,v/256);
+     c:=Color.Scale(clNeutral,v/256);
      gfx.clip.Nothing;
      draw.Image(x1,y1,HintImage,c);
      gfx.clip.Restore;
@@ -267,7 +267,7 @@ implementation
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
    duration:integer;
-   color,vColor:cardinal;
+   col,vColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
    v,ss,tt,alpha:single;
@@ -276,7 +276,7 @@ implementation
   begin
    context:=element.styleContext as TContext;
 
-   color:=element.GetStyleColor('color',$FF808080);
+   col:=element.GetStyleColor('col',$FF808080);
    font:=StyleFont(element);
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
@@ -286,7 +286,7 @@ implementation
    //
    inTransition:=context.active.IsAnimating(window.frameStartMs);
    if element.classType=TUICheckBox then begin
-    vColor:=element.GetStyleColor('tick-color',color);
+    vColor:=element.GetStyleColor('tick-col',col);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
@@ -302,12 +302,12 @@ implementation
        alpha:=tt;
       end;
      end;
-     draw.Centered(x1+size*0.65,y-size*0.4,ss*size/tickImage.height,tickImage,ColorAlpha(vColor,alpha));
+     draw.Centered(x1+size*0.65,y-size*0.4,ss*size/tickImage.height,tickImage,Color.Scale(vColor,alpha));
     end;
    end;
    if element.ClassType=TUIRadioButton then begin
     yy:=y-size+d;
-    draw.RoundRect(x1,yy,x1+size,yy+size,size*0.5+1,element.globalScale,color,0);
+    draw.RoundRect(x1,yy,x1+size,yy+size,size*0.5+1,element.globalScale,col,0);
     if element.checked or inTransition then begin
      alpha:=1;
      v:=size*0.24;
@@ -323,17 +323,17 @@ implementation
        v:=size*(0.24+tt*0.2);
       end;
      end;
-     vColor:=ColorAlpha(color,alpha);
+     vColor:=Color.Scale(col,alpha);
      draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,vColor,vColor);
     end;
    end;
    // Caption
    inc(x1,round(size*1.5));
    gfx.clip.Rect(Rect(x1,y1,x2,y2));
-   txt.Write(font,x1,y,color,element.caption);
+   txt.Write(font,x1,y,col,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
-     draw.Rect(x1,y1,x2,y2,color xor $808080);
+     draw.Rect(x1,y1,x2,y2,col xor $808080);
   end;
 
  procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext);
@@ -353,21 +353,21 @@ implementation
 
       // background color: base → hover → pressed (layered)
       baseC:=control.GetBaseStyleColor('color',defaultBtnColor);
-      c:=ColorMixF(baseC,control.style.GetStateColor('hover','color',ColorAdd(baseC,$101010)),hv);
-      c:=ColorMixF(c,control.style.GetStateColor('pressed','color',ColorSub(baseC,$282020)),av);
+      c:=Color.Mix(baseC,control.style.GetStateColor('hover','color',Color.Add(baseC,$101010)),hv);
+      c:=Color.Mix(c,control.style.GetStateColor('pressed','color',Color.Sub(baseC,$282020)),av);
       if dv>0 then
-       c:=ColorMixF(c,control.style.GetStateColor('disabled','color',ColorMix(baseC,$FFA0A0A0,128)),dv);
+       c:=Color.Mix(c,control.style.GetStateColor('disabled','color',Color.Mix(baseC,$FFA0A0A0,128)),dv);
 
       d:=round(av);
-      draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
+      draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,Color.Add(c,$303030),Color.Sub(c,$303030),true);
       c:=control.GetBaseStyleColor('border-light',$60000000);
       c2:=control.GetBaseStyleColor('border-dark',$80FFFFFF);
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // outer frame
       if av>=1 then { pressed, no inner frame }
        else if dv<1 then begin // enabled
-         c:=ColorMixF(control.GetBaseStyleColor('border-light',$A0FFFFFF),
+         c:=Color.Mix(control.GetBaseStyleColor('border-light',$A0FFFFFF),
                       control.style.GetStateColor('hover','border-light',$A0FFFFFF),hv);
-         c2:=ColorMixF(control.GetBaseStyleColor('border-dark',$70000000),
+         c2:=Color.Mix(control.GetBaseStyleColor('border-dark',$70000000),
                        control.style.GetStateColor('hover','border-dark',$70000000),hv);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end else begin // disabled
@@ -383,9 +383,9 @@ implementation
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
        textBaseC:=control.GetBaseStyleColor('text-color',clBlack);
-       c:=ColorMixF(textBaseC,control.style.GetStateColor('hover','text-color',$FF300000),hv);
+       c:=Color.Mix(textBaseC,control.style.GetStateColor('hover','text-color',$FF300000),hv);
        if dv>0 then
-        c:=ColorMixF(c,control.style.GetStateColor('disabled','text-color',$80000000),dv);
+        c:=Color.Mix(c,control.style.GetStateColor('disabled','text-color',$80000000),dv);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=Str32(caption);
        if dv<1 then
@@ -460,16 +460,16 @@ implementation
   var
    c:cardinal;
    tx,ty:integer;
-   color:cardinal;
+   col:cardinal;
    font:TFontHandle;
   begin
-   color:=element.GetStyleColor('color',$FFB0B0C0);
+   col:=element.GetStyleColor('col',$FFB0B0C0);
    font:=StyleFont(element);
    with element do begin
-    draw.FillRect(x1,y1,x2,y2,color);
+    draw.FillRect(x1,y1,x2,y2,col);
     if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
-    c:=ColorMix(color,c,128);
+    c:=Color.Mix(col,c,128);
     if resizeable then begin
       draw.FillRect(x1,y1,x2,y1+header-1,c);
       draw.FillRect(x1,y1+header,x1+wcFrameBorder-1,y2,c);
@@ -493,7 +493,7 @@ implementation
 
  procedure DrawUIScrollbar(element:TUIScrollbar;x1,y1,x2,y2:integer);
   var
-   c,d,v,color,trackColor:cardinal;
+   c,d,v,col,trackColor:cardinal;
    size,width,startPos,endPos,minSize:integer;
    scale,trackWidth,sliderWidth,sliderRadius,f:single;
    sStyle:string8;
@@ -510,7 +510,7 @@ implementation
    // Draw
    context:=TContext(element.styleContext);
    sStyle:=element.GetStyleValue('style','flat');
-   color:=element.GetStyleColor('color',$FFA8B0BC);
+   col:=element.GetStyleColor('col',$FFA8B0BC);
    scale:=element.globalScale;
 
    if SameText(sStyle,'flat') then begin
@@ -519,8 +519,8 @@ implementation
     sliderWidth:=element.GetStyleNumber('slider-width',0.9);
     sliderRadius:=element.GetStyleNumber('radius',0)*width*sliderWidth;
     // Draw track
-    trackColor:=element.GetBaseStyleColor('track-color',ColorAlpha(color,0.5));
-    trackColor:=ColorMixF(trackColor,element.style.GetStateColor('hover','track-color',trackColor),context.hover.Value);
+    trackColor:=element.GetBaseStyleColor('track-col',Color.Scale(col,0.5));
+    trackColor:=Color.Mix(trackColor,element.style.GetStateColor('hover','track-col',trackColor),context.hover.Value);
     r.Init(x1,y1,x2,y2);
     f:=(1-trackWidth)/2;
     if element.horizontal then begin
@@ -547,22 +547,22 @@ implementation
       r.x2:=Lerp(x1,x2,1-f);
       r.y2:=Lerp(y1,y2,element.sliderEnd);
      end;
-     // color
+     // col
      if element.sliderUnder then
-      color:=element.style.GetStateColor('hover','color',ColorAdd(color,$202020)); // hover color
+      col:=element.style.GetStateColor('hover','col',Color.Add(col,$202020)); // hover col
      if sliderRadius=0 then
-      draw.FillRect(r.left,r.top,r.right,r.bottom,color)
+      draw.FillRect(r.left,r.top,r.right,r.bottom,col)
      else begin
       r.Round;
-      draw.RoundRect(r.left,r.top,r.right,r.bottom,sliderRadius,0,color,color);
+      draw.RoundRect(r.left,r.top,r.right,r.bottom,sliderRadius,0,col,col);
      end;
     end;
    end else begin
     // Default (3D) style
 
     // Draw track
-{    c:=colorAdd(color,$202020);
-    d:=ColorSub(color,$202020);
+{    c:=colorAdd(col,$202020);
+    d:=Color.Sub(col,$202020);
     iwidth:=x2-x1;
     iheight:=y2-y1;
     draw.FillGradrect(x1,y1,x2,y2,d,c,element.horizontal);
@@ -571,10 +571,10 @@ implementation
     if element.horizontal then begin
      minWidth:=Max(8,round((y2-y1)*0.75));
      if element.flags.enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
-      v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
+      v:=colorMix(Color.Add(col,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
-      if sliderUnder and not (hooked=element) then v:=ColorAdd(v,$101010);
+      if sliderUnder and not (hooked=element) then v:=Color.Add(v,$101010);
       i:=round((x2-x1)*(sliderStart/size.x));
       j:=round((x2-x1)*(sliderEnd/size.x));
       if i<0 then i:=0;
@@ -593,10 +593,10 @@ implementation
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
      minWidth:=Max(8,round((x2-x1)*0.75));
      if enabled and (iheight>=minWidth) and (pagesize<max-min) then begin
-      v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
+      v:=colorMix(Color.Add(col,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
-      if sliderUnder and not (hooked=element) then v:=ColorAdd(v,$101010);
+      if sliderUnder and not (hooked=element) then v:=Color.Add(v,$101010);
       i:=round((y2-y1)*(sliderStart/size.y));
       j:=round((y2-y1)*(sliderEnd/size.y));
       if i<0 then i:=0;
@@ -620,10 +620,10 @@ implementation
    i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
    c:cardinal;
    font:TFontHandle;
-   color:cardinal;
+   col:cardinal;
   begin
    font:=StyleFont(control);
-   color:=control.GetStyleColor('color',$FF202020);
+   col:=control.GetStyleColor('col',$FF202020);
    with control do begin
     wst:=realtext;
     if password then begin
@@ -636,7 +636,7 @@ implementation
     my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
     // Default text?
     if realtext.IsEmpty and (not defaultText.IsEmpty) and (FocusedElement<>control) then begin
-     txt.WriteW(font,x1+2+offset,mY,ColorMix(color,$00808080,160),defaultText,taLeft,toDontTranslate);
+     txt.WriteW(font,x1+2+offset,mY,Color.Mix(col,$00808080,160),defaultText,taLeft,toDontTranslate);
      gfx.clip.Restore;
      exit;
     end;
@@ -644,7 +644,7 @@ implementation
     // Measure full string once and use the same metrics for:
     // caret position, mouse hit-test, and selection bounds.
     if txtLen>0 then
-     txt.WriteW(font,0,mY,color,wst,taLeft,toDontTranslate or toDontDraw or toMeasure);
+     txt.WriteW(font,0,mY,col,wst,taLeft,toDontTranslate or toDontDraw or toMeasure);
 
     if needpos>=0 then begin
      targetX:=needPos-3+round(scroll.X);
@@ -667,7 +667,7 @@ implementation
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if not completion.IsEmpty then begin
      j:=xStart+txt.WidthW(font,wst);
-     txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
+     txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),
        copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);
     end;
     if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
@@ -683,19 +683,19 @@ implementation
      selX2:=j+selEndWidth;
 
      // Draw in three parts, but with x-positions taken from full-string metrics.
-     txt.WriteW(font,j,mY,color,copy(wst,0,selstart),taLeft,toDontTranslate);
+     txt.WriteW(font,j,mY,col,copy(wst,0,selstart),taLeft,toDontTranslate);
      d:=selX2-selX1;
      if d>0 then begin
       draw.FillRect(selX1,y1+1,selX2-1,y2-1,$FF4488CC); // selection highlight
       txt.WriteW(font,selX1,mY,$FFFFFFFF,copy(wst,selstart,selcount),taLeft,toDontTranslate);
      end;
-     txt.WriteW(font,selX2,mY,color,
+     txt.WriteW(font,selX2,mY,col,
        copy(wst,selstart+selcount,length(wst)-selstart-selcount),taLeft,toDontTranslate);
     end else
-     txt.WriteW(font,xStart+offset,mY,color,wst,taLeft,toDontTranslate);
+     txt.WriteW(font,xStart+offset,mY,col,wst,taLeft,toDontTranslate);
     if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // cursor
      curX:=xStart+offset+i-1; // slight visual alignment tweak: 1px to the left
-     draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
+     draw.Line(curX,y1+2,curX,y2-2,Color.Add(col,$404040));
     end;
     gfx.clip.Restore;
    end;
@@ -812,15 +812,15 @@ implementation
    // hover blend
    v:=context.hover.Value;
    if v>0 then begin
-    fillColor:=ColorMixF(fillColor,element.style.GetStateColor('hover','fill',fillColor),v);
-    borderColor:=ColorMixF(borderColor,element.style.GetStateColor('hover','border-color',borderColor),v);
+    fillColor:=Color.Mix(fillColor,element.style.GetStateColor('hover','fill',fillColor),v);
+    borderColor:=Color.Mix(borderColor,element.style.GetStateColor('hover','border-color',borderColor),v);
     radius:=Lerp(radius,element.style.GetStateNumber('hover','radius',radius),v);
     bWidth:=Lerp(bWidth,element.style.GetStateNumber('hover','border-width',bWidth),v);
    end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
    // to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
-   if IsSemiTransparent(fillColor) then SetProperBlendMode(element);
+   if Color.HasAlpha(fillColor) then SetProperBlendMode(element);
    DrawBlock;
    RestoreBlendMode;
 

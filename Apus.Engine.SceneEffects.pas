@@ -1,4 +1,4 @@
-﻿// Common scene effects
+// Common scene effects
 //
 // Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -455,7 +455,7 @@ end;
 procedure TShowWindowEffect.DrawScene;
 var
  stage:integer;
- color:cardinal;
+ col:cardinal;
  cx,cy,dx,dy:integer;
  scaleX,scaleY,centerX,centerY:double;
  savePos:TVec2;
@@ -498,90 +498,90 @@ begin
  end;
  if mode=sweHide then stage:=255-stage;
  if shadow<>0 then
-  target.shadowColor:=ColorMix(shadow,shadow and $FFFFFF,stage);
+  target.shadowColor:=Color.Mix(shadow,shadow and $FFFFFF,stage);
 
  try
  if eff=1 then begin
   // Эффект изменения прозрачности
-  color:=cardinal(stage) shl 24+$808080;
-  draw.Image(x,y,buffer,color);
+  col:=cardinal(stage) shl 24+$808080;
+  draw.Image(x,y,buffer,col);
  end;
  if eff=2 then begin
   // Эффект "телевизора"
-//  color:=round(300-10000/(stage+34));
-  color:=stage;
-  if color>255 then color:=255;
-  color:=color shl 24+$808080;
+//  col:=round(300-10000/(stage+34));
+  col:=stage;
+  if col>255 then col:=255;
+  col:=col shl 24+$808080;
   cx:=x+w div 2; cy:=y+h div 2;
   dx:=round(w*sqrt(sin(pi*stage/512))/2);
   dy:=round((h-4)*(1-sqrt(cos(pi*stage/512)))/2)+2;
-  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
+  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,col);
  end;
  if eff=3 then begin
   // обратный телевизор (выключение)
   stage:=255-stage;
-  color:=round(stage*0.9);
-  color:=ColorAdd($FF808080,color+color shl 8+color shl 16);
-  color:=colorSub(color,Clamp(stage*2-250,0,255) shl 24);
+  col:=round(stage*0.9);
+  col:=Color.Add($FF808080,col+col shl 8+col shl 16);
+  col:=Color.Sub(col,Clamp(stage*2-250,0,255) shl 24);
   cx:=x+w div 2; cy:=y+h div 2;
   dy:=round(h*exp(-stage/70)/2);
   dx:=round(w/2+exp(2+stage/60)-7);
-  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
+  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,col);
  end;
  if eff in [4,8] then begin
   // появление снизу
-  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
+  col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
 //  dy:=round(h*spline(stage/256,0,1.2,1,0,0.6));
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
-  draw.Scaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,color);
+  draw.Scaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,col);
  end;
  if eff in [5,9] then begin
   // появление сверху
-  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
+  col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
-  draw.Scaled(x,y+cy,x+w,y+cy+dy,buffer,color);
+  draw.Scaled(x,y+cy,x+w,y+cy+dy,buffer,col);
  end;
  if eff in [6,10] then begin
   // появление слева
-  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
+  col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
-  draw.Scaled(x+cx,y,x+cx+dx,y+h,buffer,color);
+  draw.Scaled(x+cx,y,x+cx+dx,y+h,buffer,col);
  end;
  if eff in [7,11] then begin
   // появление справа
-  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
+  col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
-  draw.Scaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,color);
+  draw.Scaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,col);
  end;
  if eff=22 then begin
   // Эффект масштабирования (не особо линейного)
-  color:=stage;
-  if color>255 then color:=255;
-  color:=color shl 24+$808080;
+  col:=stage;
+  if col>255 then col:=255;
+  col:=col shl 24+$808080;
   centerX:=x+w div 2; centerY:=y+h div 2;
   scaleX:=Spline(stage/255,0.6,0.3,1,0,0.5);
   scaleY:=scaleX;
   draw.Scaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
-    centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,color);
+    centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,col);
  end;
  if eff=23 then begin
   // Эффект масштабирования (не особо линейного)
-  color:=stage;
-  if color>255 then color:=255;
-  color:=color shl 24+$808080;
+  col:=stage;
+  if col>255 then col:=255;
+  col:=col shl 24+$808080;
   centerX:=x+w div 2; centerY:=y+h div 2;
   scaleX:=Spline(stage/255,0.6,0.3,1,0.05,0.5);
   scaleY:=Spline(stage/255,0.3,0.4,1,0.05,0.5);
   draw.Scaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
-    centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,color);
+    centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,col);
  end;
 
  except
