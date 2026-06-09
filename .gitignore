@@ -95,6 +95,7 @@ modules/
 /tmp_*.csv
 /.codexignore
 /.claude/agents/
+CLAUDE.local.md
 *.zip
 robot_in.txt
 robot_out.txt
