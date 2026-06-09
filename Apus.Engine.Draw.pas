@@ -43,6 +43,7 @@ TDrawer=class(TInterfacedObject,IDrawer)
 
   // Drawing methods
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
+  procedure Line3D(x1,y1,z1,x2,y2,z2:single;color:cardinal); // line with explicit 3D coordinates
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
   procedure BeginLines;
@@ -530,6 +531,17 @@ begin
   vrt[1].Init(x2,y2,zPlane,color);
   renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
  end;
+end;
+
+procedure TDrawer.Line3D(x1,y1,z1,x2,y2,z2:single;color:cardinal);
+var
+ vrt:array[0..1] of TVertex;
+begin
+ // bypasses 2D clipping — caller is responsible for valid viewport
+ shader.UseTexture(neutral);
+ vrt[0].Init(x1,y1,z1,color);
+ vrt[1].Init(x2,y2,z2,color);
+ renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
 end;
 
 procedure TDrawer.Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);

@@ -604,6 +604,7 @@ type
  IDrawer=interface
   // Basic primitives -----------------
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
+  procedure Line3D(x1,y1,z1,x2,y2,z2:single;color:cardinal); // line with explicit 3D coordinates
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
   procedure BeginLines; // start batching line primitives

@@ -438,12 +438,13 @@ begin
 end;
 
 procedure TMainScene.DrawGrid;
+const
+  OBJ_Z = 1.45; // object center height
 var
   i:integer;
   c:cardinal;
-  ld:TVec3;
-  lx,ly,scale:single;
-  px,py:single;
+  ld,tip,perp:TVec3;
+  scale:single;
 begin
   shader.Reset;
   shader.LightOff;
@@ -462,16 +463,18 @@ begin
   draw.Line(0,0,0,4,$FF30C050);
   draw.Line(0,4,0.20,3.55,$FF30C050);
   draw.Line(0,4,-0.20,3.55,$FF30C050);
-  // light direction indicator (XY projection, length = cos(pitch)*scale)
+  // light direction: 3D line from object center toward light source
   ld:=LightDir;
   scale:=4.5;
-  lx:=ld.x*scale;
-  ly:=ld.y*scale;
-  draw.Line(0,0,lx,ly,$FFFFCC00);
-  // arrowhead — two lines perpendicular-ish at tip
-  px:=-ld.y*0.45;  py:= ld.x*0.45;
-  draw.Line(lx,ly,lx-ld.x*0.55+px,ly-ld.y*0.55+py,$FFFFCC00);
-  draw.Line(lx,ly,lx-ld.x*0.55-px,ly-ld.y*0.55-py,$FFFFCC00);
+  tip:=Vec3(ld.x*scale, ld.y*scale, OBJ_Z+ld.z*scale);
+  draw.Line3D(0,0,OBJ_Z, tip.x,tip.y,tip.z, $FFFFCC00);
+  // arrowhead — two lines in a plane perpendicular to ld (using any cross vector)
+  perp:=ld.Cross(Vec3(0,0,1));
+  if perp.Length<0.1 then perp:=ld.Cross(Vec3(1,0,0));
+  perp.Normalize;
+  perp:=Vec3(perp.x*0.4, perp.y*0.4, perp.z*0.4);
+  draw.Line3D(tip.x,tip.y,tip.z, tip.x-ld.x*0.6+perp.x, tip.y-ld.y*0.6+perp.y, tip.z-ld.z*0.6+perp.z, $FFFFCC00);
+  draw.Line3D(tip.x,tip.y,tip.z, tip.x-ld.x*0.6-perp.x, tip.y-ld.y*0.6-perp.y, tip.z-ld.z*0.6-perp.z, $FFFFCC00);
   draw.SetZ(0);
 end;
 
