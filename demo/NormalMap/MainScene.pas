@@ -82,7 +82,7 @@ var
 begin
   n:=Vec3(nx,ny,nz);
   n.Normalize;
-  result:=MyColor(round(127.5+n.x*127.5),round(127.5+n.y*127.5),round(127.5+n.z*127.5));
+  result:=Color.RGB(round(127.5+n.x*127.5),round(127.5+n.y*127.5),round(127.5+n.z*127.5));
 end;
 
 function Noise2(x,y:integer):single;
@@ -239,11 +239,11 @@ begin
     for x:=0 to TEX_SIZE-1 do begin
       h:=HeightAt(kind,x,y);
       case kind of
-        0:if h<0.2 then c:=MyColor(58,55,52)
-          else c:=MyColor(135+round(35*Noise2(x div 5,y div 5)),55+round(18*h),42);
-        1:c:=MyColor(82+round(80*h),88+round(75*h),84+round(70*h));
+        0:if h<0.2 then c:=Color.RGB(58,55,52)
+          else c:=Color.RGB(135+round(35*Noise2(x div 5,y div 5)),55+round(18*h),42);
+        1:c:=Color.RGB(82+round(80*h),88+round(75*h),84+round(70*h));
       else
-        c:=MyColor(48+round(50*h),96+round(110*h),135+round(80*h));
+        c:=Color.RGB(48+round(50*h),96+round(110*h),135+round(80*h));
       end;
       colorRow^[x]:=c;
       // central difference gradient; negate because slope toward +X tilts normal toward -X

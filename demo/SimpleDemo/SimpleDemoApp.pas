@@ -162,7 +162,7 @@ procedure TMainScene.HandleParticles;
     particles[i].x:=window.mousePos.x;
     particles[i].y:=window.mousePos.y;
     particles[i].z:=0;
-    particles[i].color:=MyColor(255,40+random(100),40+random(100),40+random(100));
+    particles[i].color:=Color.ARGB(255,40+random(100),40+random(100),40+random(100));
     particles[i].scale:=0.5+random*3;
     particles[i].angle:=random;
     particles[i].index:=random(3);
@@ -187,7 +187,7 @@ procedure TMainScene.HandleParticles;
      continue;
     end;
     // Fade off
-    color:=ColorAlpha(color,particlesData[i].life*0.1);
+    color:=Color.Scale(color,particlesData[i].life*0.1);
     scale:=scale*0.98;
     // Movement
     x:=x+particlesData[i].dx;

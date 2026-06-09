@@ -220,3 +220,30 @@ SimpleCompress -> LZ.Compress [Apus.Compress]
 SimpleDecompress -> LZ.Decompress [Apus.Compress]
 CreateBackupPatch -> Patch.Create [Apus.Compress]
 ApplyBackupPatch -> Patch.Apply [Apus.Compress]
+
+// === Apus.Colors: color API renames ===
+// Note: local vars named 'color' must be renamed to 'col' to avoid shadowing the Color type
+MyColor -> Color.RGB [Apus.Colors]     // 3-arg form; 4-arg MyColor(a,r,g,b) → Color.ARGB
+MyColorF -> Color.ARGBf [Apus.Colors]
+GrayColor -> Color.Gray [Apus.Colors]
+GrayAlpha -> Color.GrayAlpha [Apus.Colors]
+SwapColor -> Color.Swap [Apus.Colors]
+GetAlpha -> Color.Alpha [Apus.Colors]
+IsSemiTransparent -> Color.HasAlpha [Apus.Colors]
+ColorAdd -> Color.Add [Apus.Colors]
+ColorSub -> Color.Sub [Apus.Colors]
+ColorMult2 -> Color.Mult [Apus.Colors]
+ColorAlpha -> Color.Scale [Apus.Colors]
+ReplaceAlpha -> Color.SetAlpha [Apus.Colors]
+ColorMix -> Color.Mix [Apus.Colors]    // int overload; ColorMixF → Color.Mix (float)
+ColorMixF -> Color.Mix [Apus.Colors]
+ColorBlend -> Color.Blend [Apus.Colors] // int overload; ColorBlendF → Color.Blend (float)
+ColorBlendF -> Color.Blend [Apus.Colors]
+BilinearBlend -> Color.BilinearBlend [Apus.Colors]
+BilinearMix -> Color.BilinearMix [Apus.Colors]  // 6-arg form; pointer overload stays free
+Lightness -> Color.Lightness [Apus.Colors]
+Brightness -> Color.Brighten [Apus.Colors]
+Contrast -> Color.Contrast [Apus.Colors]
+SimpleColorDiff -> Color.SimpleDiff [Apus.Colors]
+ColorDiff -> Color.Diff [Apus.Colors]
+// Blend(bg,fg) → Color.Blend(bg,fg)  [2-arg free function — manual, context-sensitive]

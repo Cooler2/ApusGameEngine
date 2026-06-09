@@ -144,7 +144,7 @@ procedure TMainScene.Load;
 
   // Random colors
   for i:=0 to 255 do
-   colors[i]:=MyColor(128+random(40)-random(40),128+random(40)-random(40),128+random(40)-random(40));
+   colors[i]:=Color.RGB(128+random(40)-random(40),128+random(40)-random(40),128+random(40)-random(40));
 
   // Load baloon image
   baloon1:=LoadImageFromFile(baseDir+'res\baloon');

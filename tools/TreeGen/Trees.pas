@@ -118,7 +118,7 @@ procedure TTreeGenerator.Build;
    for i:=1 to sCount do begin
     par:=sNodes[i].parent;
     r:=0.01+0.1*sqrt(sNodes[i].weight);
-    color:=MyColor(150,200-sNodes[i].depth*30,100);
+    color:=Color.RGB(150,200-sNodes[i].depth*30,100);
     skeleton.AddCylinder(sNodes[par].pos,sNodes[i].pos,r,r,8,color);
    end;
    skeleton.Finish;

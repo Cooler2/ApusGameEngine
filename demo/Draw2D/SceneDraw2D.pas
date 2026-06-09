@@ -184,7 +184,7 @@ begin
       dy:=y-cy;
       dist:=sqrt(dx*dx+dy*dy);
       alpha:=Clamp((58-dist)*0.08,0,1);
-      col:=ColorMixF($FF3D6EA8,$FF9DD2F0,Clamp((x+y)/(w+h),0,1));
+      col:=Color.Mix($FF3D6EA8,$FF9DD2F0,Clamp((x+y)/(w+h),0,1));
       row^[x]:=(SRound(alpha*255) shl 24) or (col and $FFFFFF);
     end;
   end;
@@ -213,13 +213,13 @@ begin
       dx:=x-cxCell;
       dy:=y-cyCell;
       dist:=sqrt(dx*dx+dy*dy);
-      baseCol:=ColorMixF($FF2A3A54,$FF82B8EA,(cellX+cellY*4)/15);
+      baseCol:=Color.Mix($FF2A3A54,$FF82B8EA,(cellX+cellY*4)/15);
       col:=baseCol;
       if dist<11 then
-        col:=ColorMixF($FFFFFFFF,baseCol,dist/11)
+        col:=Color.Mix($FFFFFFFF,baseCol,dist/11)
       else
       if dist>14 then
-        col:=ColorMixF(baseCol,$FF1A2538,Clamp((dist-14)/7,0,1));
+        col:=Color.Mix(baseCol,$FF1A2538,Clamp((dist-14)/7,0,1));
       row^[x]:=$FF000000 or (col and $FFFFFF);
     end;
   end;
@@ -236,7 +236,7 @@ begin
     particles[i].x:=cos(t)*220;
     particles[i].y:=sin(t*1.4)*110;
     particles[i].z:=20+abs(sin(t*0.8))*120;
-    particles[i].color:=ColorMixF($FFA0C8FF,$FFFFB080,frac(i*0.13));
+    particles[i].color:=Color.Mix($FFA0C8FF,$FFFFB080,frac(i*0.13));
     particles[i].scale:=0.7+frac(i*0.19)*0.9;
     particles[i].angle:=t*0.6;
     particles[i].index:=((i and 3)*partPosU)+(((i shr 2) and 3)*partPosV);
@@ -247,7 +247,7 @@ begin
     bandParts[i].x:=20+i*40;
     bandParts[i].y:=60+PRound(sin(t*Pi*2)*20);
     bandParts[i].z:=0;
-    bandParts[i].color:=ColorMixF($FF60D0FF,$FFFFD080,t);
+    bandParts[i].color:=Color.Mix($FF60D0FF,$FFFFD080,t);
     bandParts[i].scale:=0.8+0.4*sin(t*Pi);
     bandParts[i].angle:=0;
     bandParts[i].index:=SRound(255*t);
