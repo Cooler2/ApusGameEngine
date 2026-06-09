@@ -3,7 +3,7 @@
 Cross-platform 2D/3D game engine written in Delphi/Pascal by Ivan Polyacov ([Apus Software](https://apus-software.com)). In active development since the early 2000s, used in several commercial titles.
 
 **Games made with this engine:**
-* [Spectromancer](https://store.steampowered.com/app/22500/Spectromancer/) — Windows, iOS
+* [Spectromancer](https://store.steampowered.com/app/22500/Spectromancer/) — Windows
 * [Astral Heroes](https://store.steampowered.com/app/488910/Astral_Heroes/) — Windows
 * [Astral Towers](https://store.steampowered.com/app/983450/Astral_Towers/) — Windows, Linux
 
@@ -34,7 +34,7 @@ This means: no inline variables, no type inference, no attributes, no anonymous 
 - OpenGL renderer (core profile): 2D/3D drawing, shaders, textures, nine-patch, text
 - Resource management with reference counting
 - Audio (BASS, SDL, IMX backends)
-- Platform layer: Windows (native WinAPI), Linux/macOS (SDL2), Android, iOS
+- Platform layer: Windows (native WinAPI), Linux (SDL2)
 - Multi-window and DPI-aware display support
 
 ---
