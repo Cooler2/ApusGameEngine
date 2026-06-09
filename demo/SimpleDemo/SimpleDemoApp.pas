@@ -176,27 +176,26 @@ procedure TMainScene.HandleParticles;
 
   // Process particles
   i:=0; count:=length(particles);
-  while i<count do
-   with particles[i] do begin
-    dec(particlesData[i].life);
-    // Delete dead
-    if particlesData[i].life=0 then begin
-     dec(count);
-     particlesData[i]:=particlesData[count];
-     particles[i]:=particles[count];
-     continue;
-    end;
-    // Fade off
-    color:=Color.Scale(color,particlesData[i].life*0.1);
-    scale:=scale*0.98;
-    // Movement
-    x:=x+particlesData[i].dx;
-    y:=y+particlesData[i].dy;
-    // Deceleration + gravity
-    particlesData[i].dx:=particlesData[i].dx*0.95;
-    particlesData[i].dy:=particlesData[i].dy*0.95+0.3;
-    inc(i);
+  while i<count do begin
+   dec(particlesData[i].life);
+   // Delete dead
+   if particlesData[i].life=0 then begin
+    dec(count);
+    particlesData[i]:=particlesData[count];
+    particles[i]:=particles[count];
+    continue;
    end;
+   // Fade off
+   particles[i].color:=Color.Scale(particles[i].color,particlesData[i].life*0.1);
+   particles[i].scale:=particles[i].scale*0.98;
+   // Movement
+   particles[i].x:=particles[i].x+particlesData[i].dx;
+   particles[i].y:=particles[i].y+particlesData[i].dy;
+   // Deceleration + gravity
+   particlesData[i].dx:=particlesData[i].dx*0.95;
+   particlesData[i].dy:=particlesData[i].dy*0.95+0.3;
+   inc(i);
+  end;
   SetLength(particles,count);
   SetLength(particlesData,count);
 
