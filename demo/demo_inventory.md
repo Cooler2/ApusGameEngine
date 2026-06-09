@@ -14,7 +14,7 @@ Relevance categories:
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
 | `SimpleDemo` | Core end-to-end engine demo (App/Scene/UI/particles/config), frequent smoke/runtime testbed; target is replacement by `HelloEngine`. | `engine5` |
-| `HelloEngine` | Compact onboarding demo: procedural texture/sprite, text rendering, UI button callback, and signal-linked exit button. | `engine5` |
+| `HelloEngine` | Onboarding demo based on SimpleDemo: App/Scene/UI/particles/config, renamed for the 1-start tier. | `engine5` |
 | `01-Scenes` | Scene lifecycle and scene switching, transition effects, modal/window scenes, UI signals. | `engine5` |
 | `Draw2D` | Full gallery of 2D primitive drawing (`Line/Polyline/Polygon/Rect/RRect/RoundRect/Fill*/Gradient/TexturedRect`) in a standalone modern demo. | `engine5` |
 | `InputDemo` | Input diagnostics: overview, keyboard/mouse deep views, high-rate mouse trace, polling vs events, stress counters. | `engine5` |

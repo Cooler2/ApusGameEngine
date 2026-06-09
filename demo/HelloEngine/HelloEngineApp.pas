@@ -1,237 +1,227 @@
-// Compact first-run demo for the Apus Game Engine
-//
-// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Simple demo of the Apus Game Engine framework
+
+// Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
 unit HelloEngineApp;
 interface
-uses
-  Apus.Engine.GameApp,
-  Apus.Engine.API;
-
-type
+ uses Apus.Engine.GameApp,Apus.Engine.API, Apus.Engine.MessageScene;
+ type
+  // Let's override to have a custom app class
   THelloEngineApp=class(TGameApplication)
-    constructor Create;
-    procedure SetupGameSettings(var settings:TGameSettings); override;
-    procedure CreateScenes; override;
+   constructor Create;
+   procedure SetupGameSettings(var settings:TGameSettings); override;
+   procedure CreateScenes; override;
   end;
 
-var
+ var
   application:THelloEngineApp;
 
 implementation
-uses
-  SysUtils,
-  Math,
-  Apus.EventMan,
-  Apus.Colors,
-  Apus.FastGFX,
-  Apus.Engine.Types,
-  Apus.Engine.SceneEffects,
-  Apus.Engine.UI;
+ uses SysUtils, Apus.EventMan, Apus.Colors, Apus.Strings,
+   Apus.Engine.Types,Apus.Engine.SceneEffects,Apus.Engine.UI;
 
-type
-  TMainScene=class(TUIScene)
-    iconTex:TTexture;
-    titleFont,bodyFont:TFontHandle;
-    sparkFrame:integer;
-    clickCount:integer;
-    procedure CreateUI;
-    procedure CreateIconTexture;
-    procedure TriggerSpark;
-    procedure RenderBackground;
-    procedure RenderSprite;
-    procedure RenderSpark(cx,cy:single);
-    procedure Render; override;
-    destructor Destroy; override;
+ type
+  TParticleData=record
+   dx,dy:single;
+   life:integer;
   end;
 
-var
-  mainScene:TMainScene;
+  // This will be our single scene
+  TMainScene=class(TUIScene)
+   particles:array of TParticle;
+   particlesData:array of TParticleData;
+   particlesTex:TTexture;
 
-procedure SparkButtonClick;
-begin
-  if mainScene<>nil then
-    mainScene.TriggerSpark;
-end;
+   procedure InitParticles;
+   procedure CreateUI;
+   procedure HandleParticles;
+   procedure Render; override;
+  end;
+
+ var
+  mainScene:TMainScene;
 
 { THelloEngineApp }
 
 constructor THelloEngineApp.Create;
-var
+ var
   st:string;
-begin
+ begin
+  // Platform must be selected before TGameApplication.Create chooses backend.
   {$IFDEF SDL}
   usedPlatform:=spSDL;
   {$ELSE}
   usedPlatform:=spDefault;
   {$ENDIF}
   inherited;
-
+  // Change dir from \bin or \bin64 to the demo folder
   st:=ExtractFileDir(ParamStr(0));
   SetCurrentDir(st);
   if DirectoryExists('../demo/HelloEngine') then
     SetCurrentDir('../demo/HelloEngine');
 
-  gameTitle:='Apus Engine: HelloEngine';
-  usedAPI:=gaOpenGL2;
-  windowWidth:=1280;
-  windowHeight:=720;
-  windowSizeable:=false;
-end;
+  // Alter some global settings
+  gameTitle:='Hello Engine Demo'; // app window title
+  configFileName:='game.ctl';
+  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+ end;
 
+// This is executed just before the game object is launched
 procedure THelloEngineApp.SetupGameSettings(var settings:TGameSettings);
-begin
-  inherited;
-  settings.mode.displayMode:=dmWindow;
+ begin
+  inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
+
+  settings.mode.displayMode:=dmWindow; // run in window
   settings.mode.displayFitMode:=dfmFullSize;
   settings.mode.displayScaleMode:=dsmDontScale;
-end;
+ end;
 
+ procedure ExitBtnClick;
+ begin
+   Ask('Are you sure?','Engine\Cmd\Exit');
+ end;
+
+// Most app initialization is here. Default spinner is running
 procedure THelloEngineApp.CreateScenes;
-begin
+ begin
   inherited;
+  // initialize our main scene
   mainScene:=TMainScene.Create;
-  mainScene.CreateIconTexture;
   mainScene.CreateUI;
+  mainScene.InitParticles;
+  // just wait a second so you can notice the default loader scene with spinner :-)
+  Sleep(1000);
+  // switch to the main scene using fade transition effect
   TTransitionEffect.Create(mainScene,250);
-end;
+ end;
 
 { TMainScene }
-
-destructor TMainScene.Destroy;
-begin
-  FreeImage(iconTex);
-  inherited;
-end;
-
-procedure TMainScene.CreateIconTexture;
-var
-  x,y,r,g,b:integer;
-  dx,dy,dist,light:single;
-begin
-  iconTex:=AllocImage(64,64,TImagePixelFormat.ipfARGB,0,'HelloEngineIcon');
-  DrawToTexture(iconTex);
-  ClearRenderTarget(0);
-  for y:=0 to 63 do
-    for x:=0 to 63 do begin
-      dx:=x-31.5;
-      dy:=y-31.5;
-      dist:=Sqrt(dx*dx+dy*dy);
-      if dist>29.0 then continue;
-      light:=1.0-dist/29.0;
-      r:=40+round(90*light);
-      g:=130+round(95*light);
-      b:=170+round(70*light);
-      if ((x+y) and 7)<3 then begin
-        inc(r,20);
-        inc(g,20);
-      end;
-      if (Abs(dx)<2.0) or (Abs(dy)<2.0) then begin
-        r:=240;
-        g:=250;
-        b:=255;
-      end;
-      PutPixel(x,y,MyColor(255,r,g,b));
-    end;
-  iconTex.Unlock;
-end;
-
 procedure TMainScene.CreateUI;
-var
-  panel:TUIElement;
+ var
+  box:TUIElement;
   btn:TUIButton;
-begin
-  panel:=TUIElement.Create(400,130,UI,'Hello\Panel');
-  panel.SetPos(0.5*window.renderWidth,window.renderHeight-110,pivotCenter);
-  panel.SetAnchors(0.5,1.0,0.5,1.0);
-  panel.styleinfo:='fill: $CC172333; border-width: 1; border-color: $FF5EA8C8;';
+ begin
+  // Let's create a simple container
+  box:=TUIElement.Create(400,250,UI,'MainScene\MainMenu');
+  box.Center; // make it center
+  box.styleinfo:='fill:#E0C0C8D0'; // fill color for the default style
+  box.SetAnchors(0.5, 0.5, 0.5, 0.5); // make it always centered
 
-  TUILabel.Create(360,26,panel,'Hello\Title').
-    Centered('HelloEngine').SetPos(200,24,pivotCenter);
+  // Create an edit box. I don't want to use a variable for it
+  TUIEditBox.Create(250,26,box,'MainScene\Edit').SetPos(200,100,pivotCenter);
+  UIEditBox('MainScene\Edit').defaultText:=Str32('Type something here...'); // referencing UI element by its name
 
-  btn:=TUIButton.Create(150,32,panel,'Hello\Spark').Setup('Spark');
-  btn.SetPos(110,78,pivotCenter);
-  btn.hint:='Trigger a small sprite effect';
-  btn.onClickAsync:=@SparkButtonClick;
+  // Create a button (now using a variable - classic way)
+  btn:=TUIButton.Create(100,35,box,'MainScene\Close').Setup('Exit');
+  btn.SetPos(200,200,pivotCenter);
+  btn.hint:='Press this button to exit';
+  btn.onClickAsync:=@ExitBtnClick;
+ end;
 
-  btn:=TUIButton.Create(150,32,panel,'Hello\Exit').Setup('Exit');
-  btn.SetPos(290,78,pivotCenter);
-  Link('UI\Hello\Exit\OnClick','Engine\Cmd\Exit');
-end;
+procedure TMainScene.InitParticles;
+ begin
+  particlesTex:=LoadImageFromFile('particles');
+ end;
 
-procedure TMainScene.TriggerSpark;
-begin
-  sparkFrame:=window.frameNum;
-  inc(clickCount);
-end;
 
-procedure TMainScene.RenderBackground;
-var
-  i,w,h:integer;
-begin
-  w:=window.renderWidth;
-  h:=window.renderHeight;
-  draw.FillGradRect(0,0,w,h,$FF101820,$FF243040,true);
-  for i:=0 to 11 do
-    draw.Line(0,h*i/12,w,h-h*i/18,$2048B0D8);
-  draw.FillRect(0,h-92,w,h,$40203038);
-end;
-
-procedure TMainScene.RenderSprite;
-var
-  cx,cy,scale,angle:single;
-begin
-  cx:=window.renderWidth*0.5;
-  cy:=window.renderHeight*0.38;
-  scale:=2.35+0.12*Sin(window.frameNum*0.055);
-  angle:=window.frameNum*0.018;
-  draw.RotScaled(cx,cy,scale,scale,angle,iconTex);
-  txt.WriteC(bodyFont,cx,cy+105,$FFD7EEF8,'procedural texture + sprite draw',toAddBaseline);
-end;
-
-procedure TMainScene.RenderSpark(cx,cy:single);
-var
-  i,age:integer;
-  a,r,ang:single;
-  color:cardinal;
-begin
-  if sparkFrame=0 then exit;
-  age:=window.frameNum-sparkFrame;
-  if age>60 then exit;
-
-  a:=1.0-age/60.0;
-  r:=28+age*2.1;
-  color:=ColorAlpha($FFFFD080,a);
-  for i:=0 to 9 do begin
-    ang:=i*Pi/5+age*0.08;
-    draw.Line(cx+Cos(ang)*20,cy+Sin(ang)*20,
-      cx+Cos(ang)*r,cy+Sin(ang)*r,color);
+procedure TMainScene.HandleParticles;
+ var
+  i,n,count:integer;
+  angle:single;
+ begin
+  // Emit new particles with right mouse button
+  if window.mouseButtons and 2>0 then begin
+   count:=10;
+   n:=length(particles);
+   SetLength(particles,n+count);
+   SetLength(particlesData,n+count);
+   for i:=n to n+count-1 do begin
+    particles[i].x:=window.mousePos.x;
+    particles[i].y:=window.mousePos.y;
+    particles[i].z:=0;
+    particles[i].color:=MyColor(255,40+random(100),40+random(100),40+random(100));
+    particles[i].scale:=0.5+random*3;
+    particles[i].angle:=random;
+    particles[i].index:=random(3);
+    // Additional data
+    angle:=random(1000);
+    particlesData[i].dx:=(1+random*10)*cos(angle);
+    particlesData[i].dy:=(1+random*10)*sin(angle);
+    particlesData[i].life:=20+random(10);
+   end;
   end;
-  txt.WriteC(bodyFont,cx,cy+145,ColorAlpha($FFFFFFFF,a),
-    'button signal count: '+IntToStr(clickCount),toAddBaseline);
-end;
+
+  // Process particles
+  i:=0; count:=length(particles);
+  while i<count do
+   with particles[i] do begin
+    dec(particlesData[i].life);
+    // Delete dead
+    if particlesData[i].life=0 then begin
+     dec(count);
+     particlesData[i]:=particlesData[count];
+     particles[i]:=particles[count];
+     continue;
+    end;
+    // Fade off
+    color:=ColorAlpha(color,particlesData[i].life*0.1);
+    scale:=scale*0.98;
+    // Movement
+    x:=x+particlesData[i].dx;
+    y:=y+particlesData[i].dy;
+    // Deceleration + gravity
+    particlesData[i].dx:=particlesData[i].dx*0.95;
+    particlesData[i].dy:=particlesData[i].dy*0.95+0.3;
+    inc(i);
+   end;
+  SetLength(particles,count);
+  SetLength(particlesData,count);
+
+  // Draw particles in additive mode
+  if count>0 then begin
+   gfx.target.BlendMode(blAdd);
+   draw.Particles(0,0,@particles[0],count,particlesTex,16,1);
+   gfx.target.BlendMode(blAlpha);
+  end;
+ end;
 
 procedure TMainScene.Render;
-var
-  cx,cy:single;
-begin
-  if titleFont=0 then begin
-    titleFont:=txt.GetFont('Default',13);
-    bodyFont:=txt.GetFont('Default',8);
+ var
+  i,n,maxX,maxY:integer;
+  x1,y1,x2,y2,x3,y3,x4,y4:single;
+  font:cardinal;
+ begin
+  // 1. Draw scene background
+  gfx.target.Clear(0); // clear with black
+  // Draw some lines
+  maxX:=window.renderWidth-1;
+  maxY:=window.renderHeight-1;
+  n:=24;
+  for i:=0 to n-1 do begin
+    x1:=maxX*i/n; y1:=0;
+    x2:=maxX; y2:=maxY*i/n;
+    x3:=maxX-maxX*i/n; y3:=maxY;
+    x4:=0; y4:=maxY-maxY*i/n;
+    draw.Line(x1,y1,x2,y2,$8020C0F0);
+    draw.Line(x2,y2,x3,y3,$8020C0F0);
+    draw.Line(x3,y3,x4,y4,$8020C0F0);
+    draw.Line(x4,y4,x1,y1,$8020C0F0);
   end;
+  // Border rects
+  draw.Rect(0,0,maxX,maxY, $FFFFC020);
+  draw.Rect(10,10,maxX-10,maxY-10, $FFC00000);
 
-  RenderBackground;
+  font:=txt.GetFont('Default',7); // Select font (no need to do this every frame)
+  txt.Write(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
 
-  cx:=window.renderWidth*0.5;
-  cy:=window.renderHeight*0.38;
-  txt.WriteC(titleFont,cx,72,$FFFFFFFF,'Apus Engine',toAddBaseline or toWithShadow);
-  txt.WriteC(bodyFont,cx,106,$FFB8D0E0,'scene, text, UI, signal, texture and a tiny effect',toAddBaseline);
-  RenderSprite;
-  RenderSpark(cx,cy);
+  txt.Write(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
 
-  inherited;
-end;
+  inherited; // Here all the UI is displayed
+
+  // I want particles to be drawn over the UI so handle them here
+  HandleParticles;
+ end;
 
 end.
