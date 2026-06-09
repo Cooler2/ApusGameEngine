@@ -21,8 +21,8 @@ final migration map live in `demo_plan.md`; this file says what to do next.
 
 ## Progress
 
-- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`, `R15-S10`, `R15-S11`.
-- Next: `R15-S12`.
+- Done: `R15-S00`, `R15-S01`, `R15-S02`, `R15-S03`, `R15-S10`, `R15-S11`, `R15-S12`.
+- Next: `R15-S13`.
 
 ## Stage 0: Inventory and Build Metadata
 
@@ -89,6 +89,8 @@ Goal: add or finish demos that do not require large merges.
 - Add/repair `StyleDemo.dproj`.
 - Ensure it is listed correctly in `demo\demos.groupproj`.
 - Keep the demo focused on R-05 style behavior.
+- Implementation: completed during S01/S12 validation; `StyleDemo` has `.dproj`,
+  group-project targets, and a passing FPC wrapper build.
 - Validation: FPC wrapper build passes if supported; Delphi project is ready for manual build.
 
 ### R15-S13: Keep `NormalMap` as feature-tier demo
@@ -260,4 +262,4 @@ Goal: make the suite maintainable after restructuring.
 
 ## Suggested Next Task
 
-Continue with `R15-S12`: finish `StyleDemo` integration.
+Continue with `R15-S13`: keep `NormalMap` as feature-tier demo.
