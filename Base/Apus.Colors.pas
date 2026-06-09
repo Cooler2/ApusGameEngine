@@ -1,4 +1,4 @@
-﻿// Some useful operations with color (for ARGB-mode, D3D compatible)
+// Some useful operations with color (for ARGB-mode, D3D compatible)
 //
 // Copyright (C) 2004 Apus Software
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
@@ -20,42 +20,46 @@ type
  end;
  PARGBColor=^TARGBColor;
 
- function MyColor(r,g,b:cardinal):cardinal; overload;
- function MyColor(a,r,g,b:cardinal):cardinal; overload;
- function MyColorF(a,r,g,b:single):cardinal; overload;
- function GrayColor(gray:integer):cardinal; // FFxxxxxx
- function GrayAlpha(alpha:single):cardinal; // aa808080
- function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
- function GetAlpha(color:cardinal):single;
- function IsSemiTransparent(color:cardinal):boolean;
+ Color=record
+  // constructors
+  class function RGB(r,g,b:cardinal):cardinal; overload; static; inline;
+  class function ARGB(a,r,g,b:cardinal):cardinal; overload; static; inline;
+  class function ARGBf(a,r,g,b:single):cardinal; static;
+  class function Gray(gray:integer):cardinal; static;
+  class function GrayAlpha(alpha:single):cardinal; static; inline;
+  // channel access
+  class function Alpha(color:cardinal):single; static; inline;
+  class function HasAlpha(color:cardinal):boolean; static; inline;
+  class function Swap(color:cardinal):cardinal; static; inline;
+  // arithmetic
+  class function Add(c1,c2:cardinal):cardinal; static;
+  class function Sub(c1,c2:cardinal):cardinal; static;
+  class function Mult(c1,c2:cardinal):cardinal; static;
+  // alpha manipulation
+  class function Scale(color:cardinal;alpha:single):cardinal; static; inline;    // multiply alpha channel
+  class function SetAlpha(color:cardinal;alpha:single):cardinal; static; inline; // replace alpha channel
+  // interpolation
+  class function Mix(c1,c2:cardinal;value:integer):cardinal; overload; static;
+  class function Mix(c1,c2:cardinal;t:single):cardinal; overload; static;
+  class function Blend(c1,c2:cardinal;value:integer):cardinal; overload; static;
+  class function Blend(c1,c2:cardinal;value:single):cardinal; overload; static;
+  class function Blend(background,foreground:cardinal):cardinal; overload; static;
+  class function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; static;
+  class function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; static;
+  // analysis
+  class function Lightness(color:cardinal):byte; static; inline;
+  class function Diff(c1,c2:cardinal):single; static; inline;
+  class function SimpleDiff(c1,c2:cardinal):integer; static; inline;
+  // adjustments
+  class function Brighten(c:cardinal;value:integer):cardinal; static;
+  class function Contrast(c:cardinal;value:integer):cardinal; static;
+ end;
 
- function ColorAdd(c1,c2:cardinal):cardinal;
- function ColorSub(c1,c2:cardinal):cardinal;
- function ColorMult2(c1,c2:cardinal):cardinal;
- // Multiply color by (alpha,1,1,1)
- function ColorAlpha(color:cardinal;alpha:single):cardinal;
- function ReplaceAlpha(color:cardinal;alpha:single):cardinal;
- // value=0 -> c2, value=256 -> c1
- function ColorMix(c1,c2:cardinal;value:integer):cardinal; // Линейная интерполяция
- function ColorMixF(c1,c2:cardinal;t:single):cardinal; // Линейная интерполяция
- function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
- function ColorBlendF(c1,c2:cardinal;value:single):cardinal; // FP version (from 0 to 1)
- function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; overload; inline;  // Билинейная интерполяция
- function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
- function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; overload; // Билинейная интерполяция
- function BilinearMix(values:PCardinal;u,v:single):cardinal; overload; // Bilinear interpolation (SSE)
- function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный квази-билинейный бленд (гораздо медленнее!)
- function Blend(background,foreground:cardinal):cardinal; // Качественный альфа-блендинг
-
- function Lightness(color:cardinal):byte; // яркость цвета (0..255)
-
- // value - -120..120
- function Brightness(c:cardinal;value:integer):cardinal;
- // Value - 0..500, 256 - neutral
- function Contrast(c:cardinal;value:integer):cardinal;
-
- function SimpleColorDiff(c1,c2:cardinal):integer; // Simple color difference (fast)
- function ColorDiff(c1,c2:cardinal):single;  // Relative visual color difference (0..1+)
+ // Bilinear interpolation of scalar values — not a color operation
+ function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; overload; inline;
+ function BilinearMixF(values:PSingle;u,v:single):single; overload;
+ // Pointer-based bilinear mix (SSE, 6x faster than scalar)
+ function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
 
 implementation
  uses Apus.Core;
@@ -78,80 +82,9 @@ implementation
  var
   SSE_CONST:^TSSEConst;
 
- function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
-  begin
-   result:=color and $FF00FF00+(color shr 16) and $FF+(color and $FF) shl 16;
-  end;
+ // --- internal helpers (not in interface) ---
 
- function MyColor(r,g,b:cardinal):cardinal; {$IFDEF CPU386} assembler;
-  asm
-   shl eax,16
-   shl edx,8
-   or eax,$FF000000
-   or eax,edx
-   or eax,ecx
-  end;
-  {$ELSE} inline;
-  begin
-   result:=$FF000000 or (r shl 16) or (g shl 8) or b;
-  end;
-  {$ENDIF}
-
- function MyColor(a,r,g,b:cardinal):cardinal; {$IFDEF CPU386} assembler;
-  asm
-   shl eax,24
-   shl edx,16
-   shl ecx,8
-   or eax,edx
-   or eax,ecx
-   or eax,b
-  end;
-  {$ELSE} inline;
-  begin
-   result:=a shl 24+r shl 16+g shl 8+b;
-  end;
-  {$ENDIF}
-
- function MyColorF(a,r,g,b:single):cardinal;
-  begin
-   result:=SRound(a*255) shl 24+
-     SRound(r*255) shl 16+
-     SRound(g*255) shl 8+
-     SRound(b*255);
-  end;
-
-
- function GetAlpha(color:cardinal):single;
-  begin
-   result:=(color shr 24)/255;
-  end;
-
- function IsSemiTransparent(color:cardinal):boolean;
-  begin
-   color:=color shr 24;
-   result:=(color>0) and (color<255);
-  end;
-
- function GrayColor(gray:integer):cardinal;
-  begin
-   gray:=Clamp(gray,0,255);
-   result:=MyColor(255,gray,gray,gray);
-  end;
-
- function GrayAlpha(alpha:single):cardinal;
-  begin
-   result:=round(Clamp(alpha,0,1)*255) shl 24+$808080;
-  end;
-
- function Lightness(color:cardinal):byte; // яркость цвета (0..255)
-  begin
-   result:=round(
-      0.2*(color and $FF)+
-      0.5*((color shr 8) and $FF)+
-      0.3*((color shr 16) and $FF));
-  end;
-
- function ColorAdd(c1,c2:cardinal):cardinal;
+ function _ColorAdd(c1,c2:cardinal):cardinal;
   {$IFDEF CPU386}
   asm
    movd mm0,c1
@@ -175,7 +108,7 @@ implementation
   end;
   {$ENDIF}
 
- function ColorSub(c1,c2:cardinal):cardinal;
+ function _ColorSub(c1,c2:cardinal):cardinal;
   {$IFDEF CPU386}
   asm
    movd mm0,c1
@@ -199,7 +132,7 @@ implementation
   end;
   {$ENDIF}
 
- function ColorMult2(c1,c2:cardinal):cardinal;
+ function _ColorMult(c1,c2:cardinal):cardinal;
   {$IFDEF CPU386}
   asm
    movd mm0,c1
@@ -228,33 +161,127 @@ implementation
   end;
   {$ENDIF}
 
- function ColorAlpha(color:cardinal;alpha:single):cardinal;
+ function _Blend(background,foreground:cardinal):cardinal;
+  var
+   v1:byte;
+   c1:TARGBColor absolute background;
+   c2:TARGBColor absolute foreground;
+   v:cardinal;
+  begin
+   if c2.a=0 then
+    result:=background
+   else
+   if c2.a=255 then
+    result:=foreground
+   else begin
+    if c1.a=255 then begin
+     // opaque background
+     v1:=255-c2.a;
+     result:=((c1.b*v1+c2.b*c2.a)*258 and $FF0000) shr 16+
+             ((c1.g*v1+c2.g*c2.a)*258 and $FF0000) shr 8+
+             ((c1.r*v1+c2.r*c2.a)*258 and $FF0000)+
+             $FF000000;
+    end else begin
+     // transparent background
+     v1:=258*c1.a*(255-c2.a) shr 16;
+     v:=65792 div (v1+c2.a);
+     result:=((c1.b*v1+c2.b*c2.a)*v and $FF0000) shr 16+
+             ((c1.g*v1+c2.g*c2.a)*v and $FF0000) shr 8+
+             ((c1.r*v1+c2.r*c2.a)*v and $FF0000)+
+             ($FF000000-(255-c1.a)*(255-c2.a)*66051 and $FF000000);
+    end;
+   end;
+  end;
+
+ // --- Color methods ---
+
+ class function Color.RGB(r,g,b:cardinal):cardinal;
+  begin
+   result:=$FF000000 or (r shl 16) or (g shl 8) or b;
+  end;
+
+ class function Color.ARGB(a,r,g,b:cardinal):cardinal;
+  begin
+   result:=a shl 24+r shl 16+g shl 8+b;
+  end;
+
+ class function Color.ARGBf(a,r,g,b:single):cardinal;
+  begin
+   result:=SRound(a*255) shl 24+
+     SRound(r*255) shl 16+
+     SRound(g*255) shl 8+
+     SRound(b*255);
+  end;
+
+ class function Color.Gray(gray:integer):cardinal;
+  begin
+   gray:=Clamp(gray,0,255);
+   result:=$FF000000 or (cardinal(gray) shl 16) or (cardinal(gray) shl 8) or cardinal(gray);
+  end;
+
+ class function Color.GrayAlpha(alpha:single):cardinal;
+  begin
+   result:=round(Clamp(alpha,0,1)*255) shl 24+$808080;
+  end;
+
+ class function Color.Alpha(color:cardinal):single;
+  begin
+   result:=(color shr 24)/255;
+  end;
+
+ class function Color.HasAlpha(color:cardinal):boolean;
+  begin
+   color:=color shr 24;
+   result:=(color>0) and (color<255);
+  end;
+
+ class function Color.Swap(color:cardinal):cardinal;
+  begin
+   result:=color and $FF00FF00+(color shr 16) and $FF+(color and $FF) shl 16;
+  end;
+
+ class function Color.Add(c1,c2:cardinal):cardinal;
+  begin
+   result:=_ColorAdd(c1,c2);
+  end;
+
+ class function Color.Sub(c1,c2:cardinal):cardinal;
+  begin
+   result:=_ColorSub(c1,c2);
+  end;
+
+ class function Color.Mult(c1,c2:cardinal):cardinal;
+  begin
+   result:=_ColorMult(c1,c2);
+  end;
+
+ class function Color.Scale(color:cardinal;alpha:single):cardinal;
   begin
    alpha:=Clamp(alpha,0,1);
    result:=color and $FFFFFF+round(alpha*(color and $FF000000)) and $FF000000;
   end;
 
- function ReplaceAlpha(color:cardinal;alpha:single):cardinal;
+ class function Color.SetAlpha(color:cardinal;alpha:single):cardinal;
   begin
    alpha:=Clamp(alpha,0,1);
    result:=color and $FFFFFF+round(alpha*255) shl 24;
   end;
 
- function ColorMix(c1,c2:cardinal;value:integer):cardinal;
+ class function Color.Mix(c1,c2:cardinal;value:integer):cardinal;
   var
    val2:integer;
   begin
    val2:=256-value;
-   result:=(byte(c1)*value+byte(c2)*val2) shr 8; // blue part
+   result:=(byte(c1)*value+byte(c2)*val2) shr 8; // blue
    c1:=c1 shr 8; c2:=c2 shr 8;
-   result:=result+cardinal((byte(c1)*value+byte(c2)*val2) and $FF00); // green part
+   result:=result+cardinal((byte(c1)*value+byte(c2)*val2) and $FF00); // green
    c1:=c1 shr 8; c2:=c2 shr 8;
-   result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
+   result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red
    c1:=c1 shr 8; c2:=c2 shr 8;
-   result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) and $FF00) shl 16); // alpha part
+   result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) and $FF00) shl 16); // alpha
   end;
 
- function ColorMixF(c1,c2:cardinal;t:single):cardinal;
+ class function Color.Mix(c1,c2:cardinal;t:single):cardinal;
   var
    a,r,g,b:single;
   begin
@@ -265,7 +292,7 @@ implementation
    result:=round(a) shl 24+round(r) shl 16+round(g) shl 8+round(b);
   end;
 
- function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный линейный бленд
+ class function Color.Blend(c1,c2:cardinal;value:integer):cardinal;
   var
    val2,m:integer;
    a1,a2:byte;
@@ -274,20 +301,17 @@ implementation
    a1:=c1 shr 24;
    a2:=c2 shr 24;
    result:=((a1*value+a2*val2) and $FF00) shl 16;
-//   m:=256;
    m:=16842752 div (a1*value+a2*val2+1);
    value:=m*(value*a1) shr 16;
    val2:=m*(val2*a2) shr 16;
-
-   result:=result or cardinal((byte(c1)*value+byte(c2)*val2) shr 8); // blue part
+   result:=result or cardinal((byte(c1)*value+byte(c2)*val2) shr 8); // blue
    c1:=c1 shr 8; c2:=c2 shr 8;
-   result:=result or cardinal((byte(c1)*value+byte(c2)*val2) and $FF00); // green part
+   result:=result or cardinal((byte(c1)*value+byte(c2)*val2) and $FF00); // green
    c1:=c1 shr 8; c2:=c2 shr 8;
-   result:=result or cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
-   //c1:=c1 shr 8; c2:=c2 shr 8;
+   result:=result or cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red
   end;
 
- function ColorBlendF(c1,c2:cardinal;value:single):cardinal; // Качественный линейный бленд
+ class function Color.Blend(c1,c2:cardinal;value:single):cardinal;
   var
    val2,m:single;
    a1,a2:byte;
@@ -299,7 +323,6 @@ implementation
    m:=255/(a1*value+a2*val2+1);
    value:=m*(value*a1);
    val2:=m*(val2*a2);
-
    result:=result or cardinal(round(byte(c1)*val2+byte(c2)*value));
    c1:=c1 shr 8; c2:=c2 shr 8;
    result:=result or cardinal(round(byte(c1)*val2+byte(c2)*value) shl 8);
@@ -307,14 +330,75 @@ implementation
    result:=result or cardinal(round(byte(c1)*val2+byte(c2)*value) shl 16);
   end;
 
-
- function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; // Билинейная интерполяция
+ class function Color.Blend(background,foreground:cardinal):cardinal;
   begin
-   //result:=v0*(1-u)*(1-v)+v1*u*(1-v)+v2*(1-u)*v+v3*u*v;
-   result:=v0+u*(v1-v0)+v*(v2-v0)+u*v*(v0+v3-v1-v2); // faster when u/v aren'c constant
+   result:=_Blend(background,foreground);
   end;
 
- function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
+ class function Color.BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal;
+  var
+   v0,v1,v2,v3:integer;
+  begin
+   v3:=round(256*(u)*(v));
+   v1:=round(256*(u)*(1-v));
+   v0:=round(256*(1-u)*(1-v));
+   v2:=round(256*(1-u)*(v));
+   result:=(byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shr 8; // blue
+   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
+   result:=result or cardinal((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00); // green
+   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
+   result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shl 8) and $FF0000); // red
+   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
+   result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00) shl 16); // alpha
+  end;
+
+ class function Color.BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal;
+  begin
+   result:=Color.BilinearMix(c0,c1,c2,c3,v1,v2); // temp stub
+  end;
+
+ class function Color.Lightness(color:cardinal):byte;
+  begin
+   result:=round(
+      0.2*(color and $FF)+
+      0.5*((color shr 8) and $FF)+
+      0.3*((color shr 16) and $FF));
+  end;
+
+ class function Color.Diff(c1,c2:cardinal):single;
+  var
+   col1:TARGBColor absolute c1;
+   col2:TARGBColor absolute c2;
+  begin
+   result:=0.002*sqr(col1.r-col2.r)+0.003*sqr(col1.g-col2.g)+0.001*sqr(col1.b-col2.b)+0.001*sqr(col1.a-col2.a);
+  end;
+
+ class function Color.SimpleDiff(c1,c2:cardinal):integer;
+  var
+   col1:TARGBColor absolute c1;
+   col2:TARGBColor absolute c2;
+  begin
+   result:=Max(Max(abs(col1.r-col2.r),abs(col1.g-col2.g)), Max(abs(col1.b-col2.b),abs(col1.a-col2.a)));
+  end;
+
+ class function Color.Brighten(c:cardinal;value:integer):cardinal;
+  begin
+   result:=c; // TODO: implement brightness adjustment
+   Assert(false,'Brighten not implemented');
+  end;
+
+ class function Color.Contrast(c:cardinal;value:integer):cardinal;
+  asm
+  end;
+
+ // --- free functions ---
+
+ function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single;
+  begin
+   result:=v0+u*(v1-v0)+v*(v2-v0)+u*v*(v0+v3-v1-v2);
+  end;
+
+ function BilinearMixF(values:PSingle;u,v:single):single; overload;
   asm
   {$IFDEF CPUx64}
    {$IFDEF MSWINDOWS}
@@ -352,26 +436,7 @@ implementation
   {$ENDIF}
   end;
 
- function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
-  // Integer version
-  var
-   v0,v1,v2,v3:integer;
-  begin
-   v3:=round(256*(u)*(v));
-   v1:=round(256*(u)*(1-v));
-   v0:=round(256*(1-u)*(1-v));
-   v2:=round(256*(1-u)*(v));
-   result:=(byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shr 8; // blue part
-   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
-   result:=result or cardinal((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00); // green part
-   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
-   result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shl 8) and $FF0000); // red part
-   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
-   result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00) shl 16); // alpha part
-  end;
-
-  // Bilinear interpolation (SSE)
-  // 6x faster than reference version
+ // Bilinear interpolation (SSE), 6x faster than reference version
  function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
   asm
   {$IFDEF CPUx64}
@@ -454,81 +519,6 @@ implementation
    movd eax,xmm2
    {$ENDIF}
   {$ENDIF}
-  end;
-
- function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный билинейный бленд
-  begin
-   result:=BilinearMix(c0,c1,c2,c3,v1,v2); // temp stub
-  end;
-
- function Blend(background,foreground:cardinal):cardinal; // Alpha blending
-  var
-   v1:byte;
-   c1:TARGBColor absolute background;
-   c2:TARGBColor absolute foreground;
-   v:cardinal;
-  begin
-   if c2.a=0 then
-    result:=background
-   else
-   if c2.a=255 then
-    result:=foreground
-   else begin
-    if c1.a=255 then begin
-     // Opaque background
-     v1:=255-c2.a;
-     result:=((c1.b*v1+c2.b*c2.a)*258 and $FF0000) shr 16+
-             ((c1.g*v1+c2.g*c2.a)*258 and $FF0000) shr 8+
-             ((c1.r*v1+c2.r*c2.a)*258 and $FF0000)+
-             $FF000000;
-    end else begin
-     // Transparent background (more complex)
-     v1:=258*c1.a*(255-c2.a) shr 16;
-     v:=65792 div (v1+c2.a);
-     result:=((c1.b*v1+c2.b*c2.a)*v and $FF0000) shr 16+
-             ((c1.g*v1+c2.g*c2.a)*v and $FF0000) shr 8+
-             ((c1.r*v1+c2.r*c2.a)*v and $FF0000)+
-             ($FF000000-(255-c1.a)*(255-c2.a)*66051 and $FF000000);
-    end;
-   end;
-  end;
-
-function Brightness(c:cardinal;value:integer):cardinal;
-    begin
-      result:=c; // TODO: implement brightness adjustment
-      Assert(false,'Brightness not implemented');
-    end;
-
-{  asm
-   movd mm0,c
-   mov dh,dl
-   mov cx,dx
-   shl edx,16
-   mov dx,cx
-   movd mm1,edx
-   paddsb mm0,mm1
-   movd eax,mm0
-   emms
-  end; }
-
- function Contrast(c:cardinal;value:integer):cardinal;
-  asm
-  end;
-
- function SimpleColorDiff(c1,c2:cardinal):integer; // Simple color difference (fast)
-  var
-   col1:TARGBColor absolute c1;
-   col2:TARGBColor absolute c2;
-  begin
-   result:=Max(Max(abs(col1.r-col2.r),abs(col1.g-col2.g)), Max(abs(col1.b-col2.b),abs(col1.a-col2.a)));
-  end;
-
- function ColorDiff(c1,c2:cardinal):single; // relative color difference (0..1+)
-  var
-   col1:TARGBColor absolute c1;
-   col2:TARGBColor absolute c2;
-  begin
-   result:=0.002*sqr(col1.r-col2.r)+0.003*sqr(col1.g-col2.g)+0.001*sqr(col1.b-col2.b)+0.001*sqr(col1.a-col2.a);
   end;
 
 initialization
