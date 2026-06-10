@@ -18,6 +18,12 @@ type
   procedure SetVertices(data:pointer;sizeInBytes:integer);
   function AddVertex(var vertexData):integer; overload;
   function AddVertex(pos:TVec3;norm:TVec3;uv:TVec2;color:cardinal):integer; overload;
+  function AddVertex(pos:TVec3;norm:TVec3;tangent:TVec3;uv:TVec2;color:cardinal):integer; overload;
+  // Write/read extra attributes of an already added vertex (no-op if absent in layout)
+  procedure SetTangent(vert:integer;tangent:TVec3);
+  procedure SetExtra(vert:integer;extra:TVec4);
+  function GetTangent(vert:integer):TVec3;
+  function GetExtra(vert:integer):TVec4;
   procedure AddTrg(v0,v1,v2:integer);
   procedure AddTriangle(p1,p2,p3:TVec3;color:cardinal=$FF808080);
   procedure AddMesh(mesh:TMesh);
@@ -89,6 +95,20 @@ function TMesh.AddVertex(pos:TVec3;norm:TVec3;uv:TVec2;color:cardinal):integer;
   inc(vIdx);
  end;
 
+function TMesh.AddVertex(pos:TVec3;norm:TVec3;tangent:TVec3;uv:TVec2;color:cardinal):integer;
+ var
+  vData:PByte;
+ begin
+  result:=AssertVertices;
+  vData:=vertices; inc(vData,vIdx*layout.stride);
+  layout.SetPos(vData^,pos);
+  layout.SetNormal(vData^,norm);
+  layout.SetTangent(vData^,tangent);
+  layout.SetUV(vData^,uv);
+  layout.SetColor(vData^,color);
+  inc(vIdx);
+ end;
+
 function TMesh.AddVertex(var vertexData):integer;
  var
   vData:PByte;
@@ -97,6 +117,42 @@ function TMesh.AddVertex(var vertexData):integer;
   vData:=vertices; inc(vData,vIdx*layout.stride);
   move(vertexData,vData^,layout.stride);
   inc(vIdx);
+ end;
+
+procedure TMesh.SetTangent(vert:integer;tangent:TVec3);
+ var
+  vData:PByte;
+ begin
+  ASSERT(cardinal(vert)<cardinal(vCount));
+  vData:=vertices; inc(vData,vert*layout.stride);
+  layout.SetTangent(vData^,tangent);
+ end;
+
+procedure TMesh.SetExtra(vert:integer;extra:TVec4);
+ var
+  vData:PByte;
+ begin
+  ASSERT(cardinal(vert)<cardinal(vCount));
+  vData:=vertices; inc(vData,vert*layout.stride);
+  layout.SetExtra(vData^,extra);
+ end;
+
+function TMesh.GetTangent(vert:integer):TVec3;
+ var
+  vData:PByte;
+ begin
+  ASSERT(cardinal(vert)<cardinal(vCount));
+  vData:=vertices; inc(vData,vert*layout.stride);
+  result:=layout.GetTangent(vData^);
+ end;
+
+function TMesh.GetExtra(vert:integer):TVec4;
+ var
+  vData:PByte;
+ begin
+  ASSERT(cardinal(vert)<cardinal(vCount));
+  vData:=vertices; inc(vData,vert*layout.stride);
+  result:=layout.GetExtra(vData^);
  end;
 
 function TMesh.DumpVertex(n:cardinal):String8;
