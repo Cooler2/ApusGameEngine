@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-06-09
+Last updated: 2026-06-10
 
 Language policy: this roadmap is maintained in English.
 
@@ -34,6 +34,8 @@ This file follows top-down planning:
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
 | R-16 | Console Modernization | in-progress | ~70% | Console.pas dissolved (deleted); ConsoleScene owns the buffer fed by a log mirror + CmdProc `OnOutput` sink; DEBUG/ERROR→log bridge moved to engine init; UX: two-tier filter, timestamp toggle, `clear`, `loglevel`, Ctrl+C clipboard, DPI-scaled font, per-source color palette. Merged to master. Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | NOT closed — continues post-merge: scroll rework (sticky-bottom + ScrollToEnd unit fix), runtime polish. Related deferred-to-main bugs: build GUI mode, TUIWindow title-bar DPI, editbox Enter under SDL |
 | R-17 | 3D Game Architecture Probe (skeleton-first) | idea | 0% | — | Build a top-down integrated 3D skeleton (scene graph + camera + multi-pass + post-process) to expose architectural "white spots"; audit done (no Camera/Material/RenderPass/SceneGraph types exist) |
+| R-18 | Debug Draw Primitives (3D Gizmos) | planned | ~10% | Design settled: solid-primary set + line exceptions, drawer 3D-line/triangle batch foundation, module-baked lighting; task doc written | Extend `TDrawer` batching, build `Apus.Engine.DebugDraw`, validate by porting NormalMap demo's `DrawGrid` |
+| R-19 | Mesh Representation Unification & Rework | planned | ~10% | Design exploration done (storage axes S1 interleaved / S2 SoA / S3 multi-stream; class structure unify/bake/minimal; layout encoding closed/open; CPU/GPU skinning). Etap A scope LOCKED: `TMesh` tangent/extra write-API + tangent-aware generators, no GL change. Big arch decision (S3/L2/unify) deferred to A→B boundary | Implement etap A (port NormalMap off `TDemoMesh`), then decide stream-layout for etap B; foundation for AEM (R-03) |
 
 ## 2) Strategic Directions
 
@@ -662,3 +664,56 @@ type
     - Render-to-texture already works (`gfx.BeginPaint/EndPaint` + `IRenderTarget`, shadow map proves it); gaps: no MRT/named framebuffer, no ping-pong pair for post chains.
     - 3D currently lives inside a `TUIScene.Render`; render/cull/blend state is global imperative and must be manually restored — a real state-leak hazard.
   - Conclusion: engine is a 2D immediate-mode painter with 3D primitives bolted onto global services (`transform`, `shader`, `gfx.target`); no retained-mode 3D scene concepts exist. That is precisely the white-spot region this probe targets.
+
+### [R-18] Debug Draw Primitives (3D Gizmos)
+- Status: planned
+- Priority: P2
+- Area: Render / Tooling
+- Value: Provide ready-made debug/visualization primitives (axes, arrows, grid, box, sphere, capsule) so debugging 3D code does not require hand-rolling line/triangle gizmos every time (as `demo/NormalMap` currently does in `DrawGrid`). A reusable, self-contained helper that does not depend on scene lighting or the app's shaders.
+- Origin: split out of the R-06 follow-up plan (`Work/reports/R-06_followup_plan.md`, task 3). Explicitly **not** R-06 core — general-engine helper; R-06's NormalMap demo is just the first consumer. Matches the long-deferred idea in `memory/idea_debug_draw_helpers.md`.
+- Scope (MVP):
+  - New module `Apus.Engine.DebugDraw.pas` exposing a `DebugDraw` record-namespace ({$SCOPEDENUMS ON}); **`IDrawer`/`TDrawer` interface is not modified** — the module sits over `draw.*` + `Apus.Engine.API` globals.
+  - **Solid is the primary mode** (filled triangles): `Arrow3D` (cylinder shaft + cone head), `Axes` (3 solid arrows, X=red/Y=green/Z=blue), `Box` (solid AABB), `Sphere` (UV-tessellated), `Capsule` (cylinder + 2 hemispheres).
+  - **Line/wireframe is the exception**, only where solid is meaningless: `Grid`, `Arrow2D` (flat arrow), `BoxWire` (AABB outline, e.g. for bounding-box visualization), and a `Line` primitive.
+  - **Immediate lifetime**: a `Begin3D`/`Flush` session draws in the current frame; no retained queue / no render-loop hook (a retained+duration mode is a possible later extension, not built now).
+  - **Drawer batching foundation** (prerequisite, edits in `TDrawer` / `Apus.Engine.Draw.pas`): `Line3D` is currently *not* batched (only 2D `Line` is) and `Triangle` is never batched — each is its own draw call. Route `Line3D` through the existing `lineBuf`; add a triangle batch (`trgBuf`/`trgCount`/flush); a `BeginGeometry`/`EndGeometry`-style session opens both buffers and flushes both. This makes both wireframe and solid gizmos cheap immediate draws **with no TMesh**, so the whole set is independent of the undecided mesh rework (R-06 follow-up task 1).
+  - **Module-baked lighting** (decided): solid shapes are shaded by the module's own `ambient + directional` light (configurable via `SetLight`), baked into vertex color **at emit using the world-space normal** (so lighting stays world-stable under rotation); flat shading for Box/Arrow3D/Axes, smooth for Sphere/Capsule. Keeps the unlit `TVertex.layoutTex` path and `shader.LightOff` — no shader/GL changes. (Alternative: a lighting shader mode requiring normals in the batch vertex format — deferred, only if shapes ever go high-poly.)
+  - **Showcase/test demo** `demo/DebugDraw`: a 3D scene exercising every primitive (axes, grid, arrows 2D/3D, box solid+wire, sphere, capsule) under a rotating camera, with toggles for the baked-light direction — doubles as the manual test surface and the visual reference. (Fits R-15's `2-features` tier; coordinate placement with R-15.)
+- Out of scope: retained debug-draw queue with per-shape duration; oriented (matrix) box `BoxM`; translucent/sorted solids; real shader-based lighting with normals in the vertex format; reusable cached GPU meshes (those are the primitive generators of R-06 follow-up task 1, not this card).
+- Dependencies: `Apus.Engine.Draw` (`TDrawer` batching), `Apus.Engine.API` (`draw`/`shader`/`transform`/`gfx`), `Apus.Geom3D` (`TVec3` + basis from an axis). Independent of the mesh-representation rework.
+- Risks: mixing line and triangle batches in one session (different primitive types ⇒ two buffers, flush independently); unlit solids looking flat without the baked-shade step; per-frame CPU shading of cached sphere/capsule (trivial at debug vertex counts); keeping depth/overlay behavior matching current `DrawGrid`.
+- Acceptance Criteria:
+  - [ ] `TDrawer` supports manual batching of 3D lines (`Line3D` routed through the batch) and triangles, with a session that flushes both as one draw call each.
+  - [ ] `Apus.Engine.DebugDraw` provides the solid set (`Arrow3D`, `Axes`, `Box`, `Sphere`, `Capsule`) and the line set (`Grid`, `Arrow2D`, `BoxWire`, `Line`) without modifying `IDrawer`.
+  - [ ] Solid shapes are readable in 3D via module-baked `ambient + directional` lighting (world-normal shade at emit), independent of scene lighting/shaders; light is configurable.
+  - [ ] `demo/NormalMap` `DrawGrid` is ported onto `DebugDraw` with equivalent visuals (visual-parity validation).
+  - [ ] `demo/DebugDraw` showcases every primitive and is integrated into the demo build flow.
+  - [ ] Module compiles under FPC (and Delphi) on Win/Linux.
+- Notes:
+  - Full task plan + decisions: `Work/reports/R-06_task_debug_shapes.md`.
+  - Cross-link: the drawer batching foundation overlaps R-09 Track C ("opt-in manual batch") — same manual-batch facility extended to 3D lines + triangles.
+  - Staged plan: (1) drawer batch foundation → (2) module scaffold + session + light config/shade helper → (3) line primitives → (4) solid primitives (Sphere/Capsule with lazy unit-shape cache) → (5) `demo/DebugDraw` showcase + port NormalMap `DrawGrid` → (6) FPC smoke test.
+  - 2026-06-10: card created; key decisions locked (solid-primary, drawer line+triangle batching, module-baked lighting, immediate lifetime).
+
+### [R-19] Mesh Representation Unification, Refactoring & Rework
+- Status: planned
+- Priority: P1
+- Area: Render / 3D Core
+- Value: Give the engine one solid mesh foundation that carries arbitrary vertex attributes (tangents, bone weights/indices, wind weights, morph data) instead of two unrelated representations. Today `TMesh` (interleaved, layout-based, no bones/parts) and `TModel3D` (fixed SoA, 2-bone skinning, multi-part, 64K cap) don't share code; tangents and custom attributes have nowhere to live in the animated path. This blocks the AEM loader (R-03) from having a durable base and forces demos to reinvent mesh code (`demo/NormalMap` carries its own `TVertexNM`/`TDemoMesh`).
+- Origin: task 1 of the R-06 follow-up plan (`Work/reports/R-06_followup_plan.md`). General-engine/foundation work, not R-06 core; R-06's normal mapping is the first consumer (needs tangent write-API). Gates R-06 follow-up task 2 (`ComputeTangents`) and underpins R-03 (AEM).
+- Design axes (explored, decision staged): (1) **vertex storage** — S1 single interleaved (current `TMesh`) / S2 full SoA (current `TModel3D`) / S3 multi-stream hybrid (streams with static|dynamic|perInstance usage); user leans S3 ("partially abandon interleaved") — key driver: skinned `TModel3D` re-uploads the *whole* interleaved vertex every anim frame though only pos/normal change. (2) **class structure** — unify (`TMesh` universal core + skeleton/anim layer) / SoA-source+bake / minimal-now. (3) **layout encoding** — extend closed slot scheme (L1) vs open `(semantic,format,offset,stream)` descriptor (L2). (4) **skinning** — keep CPU / move to GPU.
+- Backend reality: attribute binding lives in `TRenderDevice.SetupAttributes`/`ProcessLayout` (`Apus.Engine.OpenGL.pas`), driven by the closed 28-bit layout (slots pos/normal/color/uv1/uv2/tangent; tangent already binds via slot-5 vec3 branch, `extra4` does not). Locations are compact/sequential (matches stock shader generator, fragile for hand-written fixed-location shaders). Core profile binds attribute offsets in one `ARRAY_BUFFER`. The 2D/UI fast path (`PainterGL2`, hardcoded locs 0/1/2) is separate and untouched. S3/L2 rework is localized to three points: `TVertexLayout`, `SetupAttributes/ProcessLayout`, `ShadersGL` location generator.
+- Scope — staged:
+  - **Etap A (LOCKED 2026-06-10, narrowed same day; no GL change) — DONE 2026-06-10:** `TMesh` tangent/extra **write-API only** (`SetTangent`/`SetExtra`/`GetTangent`/`GetExtra` by vertex index + `AddVertex(pos,norm,tangent,uv,color)` overload). **Primitive generators excluded** — `TMesh` stays a data container + basic fill-API; quad/torus/sphere and tangent-extension of cube/cylinder move to a separate shape-generator module (user decision: the mesh is already complex). Tangent convention: store `T` along `+U`, bitangent `= cross(T,N)` in shader, no handedness sign yet. Acceptance = demo port, deferred until the generator module exists.
+  - **Etap B (foundation):** stream-based layout (open descriptor + usage hints); reimplement `TMesh` so "1 stream" = current behavior (zero regression). The big S3/L2/unify-vs-middle decision is taken at the A→B boundary, informed by etap A experience.
+  - **Etap C (model + AEM):** `TModel3D`/AEM onto streams — static stream (uv/color/weights/indices) + dynamic stream (pos/normal/tangent); CPU skin re-uploads only the dynamic stream; 32-bit index path added here (no earlier consumer needs >64K); GPU skinning becomes a later flag with the format already in place.
+- Out of scope (this card): **primitive/shape generators** (quad/torus/sphere; tangent-extension of cube/cylinder) — a separate shape-generator module, `TMesh` is container-only; the standalone debug-draw helper (that is R-18, which does *not* depend on this rework); `TMaterial` + normal map in the stock shader (R-06 core); `NormalMapFromHeight` (R-06 follow-up task 4).
+- Dependencies: `Apus.VertexLayout`, `Apus.Engine.Mesh`, `Apus.Engine.Model3D`, `Apus.Engine.OpenGL` (`SetupAttributes`), `Apus.Engine.ShadersGL` (location generator), `Apus.Geom3D`. Informs/unblocks: R-06 follow-up task 2 (`ComputeTangents`), R-03 (AEM).
+- Risks: etap A is safe (write-API guarded by layout presence checks; tangent already on the GPU path); etap B/C touch the GL attribute-binding core and the closed layout encoding — the main risk surface, mitigated by the 1-stream-equals-today zero-regression target; CPU vs GPU skinning choice constrains layout slot design (decide before committing the encoding).
+- Acceptance Criteria (etap A):
+  - [x] `TMesh` writes tangent/extra per vertex (`SetTangent`/`SetExtra`/`GetTangent`/`GetExtra`, `AddVertex` overload), safe no-op when the layout lacks the slot.
+  - [ ] `demo/NormalMap` drops `TVertexNM`/`TDemoMesh` and uses `TMesh`, with visually identical normal mapping (visual + Robot API parity) — gated on the generator module (cube/torus) and on full-engine FPC build (currently blocked by a pre-existing FreeType binding error).
+  - [ ] Builds under FPC (and Delphi) on Win/Linux.
+- Notes:
+  - Design exploration + axes + backend reality + etap A detailed plan: `Work/reports/R-06_mesh_architecture_options.md`.
+  - 2026-06-10: card created from R-06 follow-up task 1; etap A scope locked, then **narrowed to write-API only** (generators → separate shape-generator module); write-API implemented same day. Big architecture decision deferred to A→B boundary.
