@@ -187,7 +187,8 @@ constructor TMessageScene.Create;
 // Update scene with new text and buttons
 procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
  var
-  i,width,height:integer;
+  width,height:integer;
+  line:String8;
  begin
   msgText:=msgText.ReplaceAll('~',#13);
   msgText:=msgText.ReplaceAll(#10,'');
@@ -201,8 +202,8 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
 
   width:=300;
   if title<>'' then width:=Max(width,txt.Width(msgTitleFont,title));
-  for i:=0 to high(lines) do
-   width:=Max(width,txt.Width(msgMainFont,lines[i]));
+  for line in lines do
+   width:=Max(width,txt.Width(msgMainFont,line));
 
   inc(width,100);
   height:=120+30*length(lines)+40*byte(title<>'');
@@ -232,7 +233,8 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
 procedure TMessageScene.Render;
  var
   r:TRect;
-  i,x,y:integer;
+  x,y:integer;
+  line:String8;
  begin
   // Draw background
   r:=wnd.GetPosOnScreen;
@@ -247,8 +249,8 @@ procedure TMessageScene.Render;
   end else
    inc(y,8);
 
-  for i:=0 to high(lines) do begin
-   txt.Write(msgMainFont,x,y,$FF202020,lines[i],TTextAlignment.taCenter);
+  for line in lines do begin
+   txt.Write(msgMainFont,x,y,$FF202020,line,TTextAlignment.taCenter);
    inc(y,30);
   end;
   // Buttons and child elements

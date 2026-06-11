@@ -200,6 +200,7 @@ var
    i,n,y:integer;
    c:cardinal;
    sList:array of TGameScene;
+   s:TGameScene;
  begin
    game.Lock;
    try
@@ -212,19 +213,19 @@ var
    y:=0;
    draw.FillRect(0,0,game.screenScale*360,(n+0.4)*game.screenScale*16,$80000000);
    txt.BeginBlock(toDontTranslate);
-   for i:=0 to high(sList) do begin
+   for s in sList do begin
     inc(y,round(16*game.screenScale));
     c:=$FFA0A0A0;
-    if sList[i].IsActive then begin
+    if s.IsActive then begin
      c:=$FFFFFFC0;
-     txt.WriteW(game.smallFont,50*game.screenScale,y,c,Str32(IntToStr(sList[i].zOrder)),taRight);
+     txt.WriteW(game.smallFont,50*game.screenScale,y,c,Str32(IntToStr(s.zOrder)),taRight);
     end else
-    if sList[i].status=TSceneStatus.ssBackground then
+    if s.status=TSceneStatus.ssBackground then
      c:=$FFC0D0E0;
-    txt.WriteW(game.smallFont,60*game.screenScale,y,c,Str32(sList[i].name));
-    txt.WriteW(game.smallFont,200*game.screenScale,y,c,Str32(sList[i].ClassName));
-    if sList[i].effect<>nil then
-     txt.WriteW(game.smallFont,360*game.screenScale,y,c,Str32(sList[i].effect.ClassName));
+    txt.WriteW(game.smallFont,60*game.screenScale,y,c,Str32(s.name));
+    txt.WriteW(game.smallFont,200*game.screenScale,y,c,Str32(s.ClassName));
+    if s.effect<>nil then
+     txt.WriteW(game.smallFont,360*game.screenScale,y,c,Str32(s.effect.ClassName));
    end;
    txt.EndBlock;
  end;
