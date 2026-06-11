@@ -77,7 +77,7 @@ type
 
   // --- Apus.Containers ---
   TObjectList = Apus.Containers.TObjectList;
-  TObjectQueue = Apus.Containers.TObjectQueue;
+  TObjectQueue = Apus.Containers.TGenQueue<TObject>;
 
   // --- Apus.HashMaps ---
   TObjectHash = Apus.HashMaps.TObjectHash;

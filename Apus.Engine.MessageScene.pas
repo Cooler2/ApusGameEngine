@@ -80,10 +80,13 @@ var
 
  // Process next queued message if the scene is not currently active.
  procedure CheckQueue;
+  var
+   obj:TObject;
   begin
    if scene.IsActive then exit;
    if curMsg<>nil then curMsg.Free;
-   curMsg:=TQueuedMessage(queue.Get);
+   curMsg:=nil;
+   if queue.Get(obj) then curMsg:=TQueuedMessage(obj);
    if curMsg=nil then exit;
    // Build UI for current message.
    with curMsg do
