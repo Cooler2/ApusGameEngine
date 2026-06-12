@@ -141,11 +141,65 @@ procedure TestCylinder;
   EndTest;
  end;
 
+function AllNormalsEqual(m:TMesh;const expected:TVec3;eps:single=0.001):boolean;
+ var
+  i:integer;
+  d:TVec3;
+ begin
+  result:=true;
+  for i:=0 to high(m.normals) do begin
+   d:=m.normals[i]-expected;
+   if (abs(d.x)>eps) or (abs(d.y)>eps) or (abs(d.z)>eps) then exit(false);
+  end;
+ end;
+
+function AllTangentsEqual(m:TMesh;const expected:TVec4;eps:single=0.001):boolean;
+ var
+  i:integer;
+  t:TVec4;
+ begin
+  result:=true;
+  for i:=0 to high(m.tangents) do begin
+   t:=m.tangents[i];
+   if (abs(t.x-expected.x)>eps) or (abs(t.y-expected.y)>eps) or
+      (abs(t.z-expected.z)>eps) or (abs(t.w-expected.w)>eps) then exit(false);
+  end;
+ end;
+
+// y = x -> constant slope, gradient-derived normal = (-1,1,0)/sqrt(2) everywhere
+function TiltHeightFn(x,z:single):single;
+ begin
+  result:=x;
+ end;
+
+procedure TestPlane;
+ var
+  m:TMesh;
+ begin
+  StartTest('MeshShapes.Plane');
+  // flat plane
+  m:=MeshShapes.Plane(2,2,2,2);
+  Check(m.VertexCount=9,'flat plane vertex count');
+  Check(m.IndexCount=24,'flat plane index count');
+  Check(m.TriangleCount=8,'flat plane triangle count');
+  Check(AllNormalsEqual(m,Vec3(0,1,0)),'flat plane normals = +Y');
+  Check(AllTangentsEqual(m,Vec4(1,0,0,-1)),'flat plane tangents along +X, w=-1');
+  m.Free;
+  // deformed plane: constant-slope heightFn -> constant tilted normal everywhere
+  m:=MeshShapes.Plane(2,2,1,1,@TiltHeightFn);
+  Check(m.VertexCount=4,'deformed plane (1x1) vertex count');
+  Check(m.IndexCount=6,'deformed plane (1x1) index count');
+  Check(AllNormalsEqual(m,Vec3(-0.7071068,0.7071068,0),0.001),'deformed plane normals follow heightFn slope');
+  m.Free;
+  EndTest;
+ end;
+
 begin
   writeln('=== TestMeshShapes ===');
   TestBox;
   TestAppend;
   TestCylinder;
+  TestPlane;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

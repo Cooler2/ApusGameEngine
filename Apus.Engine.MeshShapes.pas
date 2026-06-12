@@ -44,6 +44,14 @@ type
   // normals smooth around the circumference (cone apex = ring of distinct
   // per-segment vertices, NOT a single shared apex); cap normals flat.
   class function Cylinder(r1,r2,height:single;segments:integer;caps:boolean=true):TMesh; static;
+
+  // Grid in the XZ plane, centered, height (Y) optionally displaced by
+  // heightFn(x,z). (segX+1)x(segY+1) verts, segX*segY*2 tris. pos+normal+uv+
+  // tangent; tangent along +X, normal/tangent computed numerically via
+  // central differences (one-sided at the grid border) so any heightFn works
+  // without an analytic gradient. heightFn=nil + segX=segY=1 = a flat
+  // tangent-bearing quad (e.g. for normal-map test surfaces).
+  class function Plane(w,h:single;segX,segY:integer;heightFn:THeightFn=nil):TMesh; static;
  end;
 
 implementation
@@ -174,6 +182,59 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
    for i:=0 to segments-1 do
     result.AddTriangle(capCenter,capRing+((i+1) mod segments),capRing+i);
   end;
+  result.Finish;
+ end;
+
+class function MeshShapes.Plane(w,h:single;segX,segY:integer;heightFn:THeightFn=nil):TMesh;
+ var
+  i,j,idx,idx00,idx10,idx01,idx11:integer;
+  x,z,dx,dz:single;
+  p:TVec3;
+  dPdx,dPdz,nrm,tng:TVec3;
+ begin
+  ASSERT((segX>=1) and (segY>=1),'Plane: segX/segY must be >=1');
+  result:=TMesh.Create('plane');
+  result.SetVertexCount((segX+1)*(segY+1),[TMeshAttribute.Normal,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  dx:=w/segX; dz:=h/segY;
+  // pass 1: positions + uv
+  for j:=0 to segY do
+   for i:=0 to segX do begin
+    x:=-w*0.5+i*dx;
+    z:=-h*0.5+j*dz;
+    idx:=j*(segX+1)+i;
+    p.x:=x; p.z:=z;
+    if Assigned(heightFn) then p.y:=heightFn(x,z) else p.y:=0;
+    result.positions[idx]:=p;
+    result.uv0[idx]:=Vec2(i/segX,j/segY);
+   end;
+  // pass 2: normal/tangent via central differences over the (already filled) grid
+  for j:=0 to segY do
+   for i:=0 to segX do begin
+    idx:=j*(segX+1)+i;
+    if i=0 then dPdx:=result.positions[idx+1]-result.positions[idx]
+    else if i=segX then dPdx:=result.positions[idx]-result.positions[idx-1]
+    else dPdx:=result.positions[idx+1]-result.positions[idx-1];
+    if j=0 then dPdz:=result.positions[idx+(segX+1)]-result.positions[idx]
+    else if j=segY then dPdz:=result.positions[idx]-result.positions[idx-(segX+1)]
+    else dPdz:=result.positions[idx+(segX+1)]-result.positions[idx-(segX+1)];
+    nrm:=dPdz.Cross(dPdx); // = +Y for the flat (heightFn=nil) case
+    nrm.Normalize;
+    tng:=dPdx;
+    tng.Normalize;
+    result.normals[idx]:=nrm;
+    // bitangent=cross(N,T) is anti-parallel to dPdz (the +V direction) -> w=-1
+    result.tangents[idx]:=Vec4(tng,-1);
+   end;
+  // triangles: (i,j),(i,j+1),(i+1,j) and (i,j+1),(i+1,j+1),(i+1,j) -> +Y outward
+  for j:=0 to segY-1 do
+   for i:=0 to segX-1 do begin
+    idx00:=j*(segX+1)+i;
+    idx10:=idx00+1;
+    idx01:=idx00+(segX+1);
+    idx11:=idx01+1;
+    result.AddTriangle(idx00,idx01,idx10);
+    result.AddTriangle(idx01,idx11,idx10);
+   end;
   result.Finish;
  end;
 
