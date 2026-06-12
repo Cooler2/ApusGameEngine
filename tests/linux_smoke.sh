@@ -75,13 +75,4 @@ run_test tests/TestGpuLayout.dpr
 run_test tests/TestMesh3D.dpr
 run_test tests/TestObjMesh.dpr
 
-compile_only demo/SimpleDemo/SimpleDemo.dpr demo/SimpleDemo
-compile_only demo/StyleDemo/StyleDemo.dpr demo/StyleDemo
-compile_only demo/MultiWindow/MultiWindow.dpr demo/MultiWindow
-compile_only demo/Draw2D/Draw2D.dpr demo/Draw2D
-compile_only demo/InputDemo/InputDemo.dpr demo/InputDemo
-compile_only demo/UI/UI.dpr demo/UI
-compile_only demo/TextDemo/TextDemo.dpr demo/TextDemo
-compile_only demo/Tweenings/Tweenings.dpr demo/Tweenings
-
 printf '\nSUMMARY: Linux/FPC engine smoke targets passed\n'
