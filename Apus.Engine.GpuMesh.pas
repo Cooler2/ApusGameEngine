@@ -44,6 +44,9 @@ type
 
   procedure Upload(flags:TUploadFlags=[]);
   procedure DrawRange(firstIndex,rangeCount:integer;tex:TTexture=nil);
+  // Draw one geometric section by its index in source.sections (needs the CPU
+  // copy — sections live on the mesh; not available after muDiscardCPUCopy).
+  procedure DrawSection(sectionIndex:integer;tex:TTexture=nil);
   procedure Draw(tex:TTexture=nil); // draw the whole mesh
  private
   cpuDiscarded:boolean;
@@ -178,6 +181,13 @@ procedure TGpuMesh.DrawRange(firstIndex,rangeCount:integer;tex:TTexture=nil);
   renderDevice.DrawMesh(layout,firstIndex,rangeCount,indexBytes);
   gfx.resMan.UseVertexBuffer(nil);
   if indexBytes>0 then gfx.resMan.UseIndexBuffer(nil);
+ end;
+
+procedure TGpuMesh.DrawSection(sectionIndex:integer;tex:TTexture=nil);
+ begin
+  ASSERT(source<>nil,'TGpuMesh.DrawSection: sections live on the CPU mesh (discarded)');
+  with source.sections[sectionIndex] do
+   DrawRange(firstIndex,indexCount,tex);
  end;
 
 procedure TGpuMesh.Draw(tex:TTexture=nil);

@@ -136,6 +136,44 @@ begin
   EndTest;
 end;
 
+// Build the same quad via the direct index-fill path (SetVertexCount + public arrays).
+function DirectFillSizing(m:TMesh):boolean;
+begin
+  result:=
+    (m.VertexCount=4) and
+    (length(m.normals)=4) and (length(m.uv0)=4) and (length(m.colors)=4) and
+    (length(m.tangents)=0) and (length(m.joints)=0) and (length(m.weights)=0) and
+    (length(m.uv1)=0);
+end;
+
+procedure TestDirectFill;
+var
+  m:TMesh;
+  i:integer;
+begin
+  StartTest('mesh direct fill (SetVertexCount)');
+  m:=TMesh.Create('grid');
+  m.SetVertexCount(4,[TMeshAttribute.Normal,TMeshAttribute.UV0,TMeshAttribute.Color]);
+  Check(DirectFillSizing(m),'active attrs sized, others cleared');
+  // fill by index through the public SoA arrays
+  m.positions[0]:=Vec3(-1,-1,0); m.positions[1]:=Vec3(1,-1,0);
+  m.positions[2]:=Vec3(1,1,0);   m.positions[3]:=Vec3(-1,1,0);
+  for i:=0 to 3 do begin m.normals[i]:=Vec3(0,0,1); m.colors[i]:=$FFFFFFFF; end;
+  m.uv0[0]:=Vec2(0,0); m.uv0[1]:=Vec2(1,0); m.uv0[2]:=Vec2(1,1); m.uv0[3]:=Vec2(0,1);
+  SetLength(m.indices,6);
+  m.indices[0]:=0; m.indices[1]:=1; m.indices[2]:=2;
+  m.indices[3]:=0; m.indices[4]:=2; m.indices[5]:=3;
+  m.Finish;
+  Check((m.IndexCount=6) and (m.MaxIndex=3) and not m.boundsDirty,'finish ok after direct fill');
+  Check((m.bounds.Size.x=2) and (m.bounds.Size.y=2) and (m.bounds.Size.z=0),'bounds from direct fill');
+  // resizing clears non-requested attributes (color dropped here)
+  m.SetVertexCount(2,[TMeshAttribute.Normal]);
+  Check((m.VertexCount=2) and (length(m.normals)=2) and (length(m.colors)=0) and (length(m.uv0)=0),
+    'resize re-sizes active, clears dropped');
+  m.Free;
+  EndTest;
+end;
+
 function FinishRaises(m:TMesh):boolean;
 begin
   result:=false;
@@ -183,6 +221,7 @@ begin
   TestSections;
   TestMaxIndex;
   TestBounds;
+  TestDirectFill;
   TestValidation;
   writeln;
   if testsFailed=0 then

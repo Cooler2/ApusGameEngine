@@ -23,6 +23,14 @@ unit Apus.Engine.Mesh3D;
 interface
 uses Apus.Core, Apus.Classes, Apus.Geom2D, Apus.Geom3D;
 
+{$SCOPEDENUMS ON}
+type
+ // Optional standard attributes a mesh may carry (position is always present).
+ // Used by SetVertexCount to size the active attribute arrays for direct fill.
+ TMeshAttribute=(Normal,Color,UV0,UV1,Tangent,Joints,Weights);
+ TMeshAttributes=set of TMeshAttribute;
+{$SCOPEDENUMS OFF}
+
 type
  // 4 bone indices per vertex (CPU storage; encoded to UByte4 on upload).
  TJoints4=array[0..3] of word;
@@ -61,6 +69,13 @@ type
   function MaxIndex:integer;    // O(n) scan, cached after Finish
 
   // --- build API (cursors are cheap; no separate heap builder) ---
+  // Preallocate and size the standard attribute arrays for direct, index-based
+  // fill (generators/loaders that know the vertex count upfront): positions plus
+  // each requested attribute are set to n, every other attribute array is cleared.
+  // Fill the public arrays by index, set indices, then call Finish. This keeps the
+  // length(array)==count invariant — there is no hidden capacity model. Marks
+  // bounds dirty. (For incremental/irregular build use AddVertex instead.)
+  procedure SetVertexCount(n:integer;attrs:TMeshAttributes=[]);
   // position+normal+color, no texture coords (flat-shaded colored geometry)
   function AddVertex(const p,n:TVec3;color:cardinal):integer; overload;
   function AddVertex(const p,n:TVec3;const uv:TVec2;color:cardinal):integer; overload;
@@ -122,6 +137,20 @@ function TMesh.MaxIndex:integer;
    if indices[i]>result then result:=indices[i];
   fMaxIndex:=result;
   fMaxIndexValid:=true;
+ end;
+
+procedure TMesh.SetVertexCount(n:integer;attrs:TMeshAttributes=[]);
+ begin
+  SetLength(positions,n);
+  if TMeshAttribute.Normal  in attrs then SetLength(normals,n)  else SetLength(normals,0);
+  if TMeshAttribute.Color   in attrs then SetLength(colors,n)   else SetLength(colors,0);
+  if TMeshAttribute.UV0     in attrs then SetLength(uv0,n)      else SetLength(uv0,0);
+  if TMeshAttribute.UV1     in attrs then SetLength(uv1,n)      else SetLength(uv1,0);
+  if TMeshAttribute.Tangent in attrs then SetLength(tangents,n) else SetLength(tangents,0);
+  if TMeshAttribute.Joints  in attrs then SetLength(joints,n)   else SetLength(joints,0);
+  if TMeshAttribute.Weights in attrs then SetLength(weights,n)  else SetLength(weights,0);
+  boundsDirty:=true;
+  fMaxIndexValid:=false;
  end;
 
 function TMesh.AddVertex(const p,n:TVec3;color:cardinal):integer;
