@@ -15,124 +15,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  prepare-toolchain:
-    name: Prepare Toolchain (${{ matrix.os_name }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os_name: linux
-            runner: ubuntu-latest
-          - os_name: windows
-            runner: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install FPC (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fpc
-          fpc -iV
-
-      - name: Install FPC (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
-          $fpcDirs=@(
-            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
-            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
-            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
-            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
-            "C:\FPC\3.2.2\bin\x86_64-win64",
-            "C:\FPC\3.2.2\bin\i386-win32"
-          )
-          foreach($dir in $fpcDirs){
-            if(Test-Path (Join-Path $dir "fpc.exe")){
-              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-              $env:PATH="$dir;$env:PATH"
-              break
-            }
-          }
-          where.exe fpc
-          fpc -iV
-
-  base-buildtest:
-    name: Base BuildTest (${{ matrix.os_name }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
-    needs: prepare-toolchain
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os_name: linux
-            runner: ubuntu-latest
-          - os_name: windows
-            runner: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install FPC (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fpc
-          fpc -iV
-
-      - name: Install FPC (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
-          $fpcDirs=@(
-            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
-            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
-            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
-            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
-            "C:\FPC\3.2.2\bin\x86_64-win64",
-            "C:\FPC\3.2.2\bin\i386-win32"
-          )
-          foreach($dir in $fpcDirs){
-            if(Test-Path (Join-Path $dir "fpc.exe")){
-              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-              $env:PATH="$dir;$env:PATH"
-              break
-            }
-          }
-          where.exe fpc
-          fpc -iV
-
-      - name: Build test (Linux)
-        if: runner.os == 'Linux'
-        run: bash Base/tests/buildtest.sh
-
-      - name: Build test (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: Base\tests\buildtest.bat
-
-      - name: Upload buildtest log
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: buildtest-${{ matrix.os_name }}
-          path: Base/tests/buildtest_results.txt
-          if-no-files-found: warn
-
   base-tests:
     name: Base Tests (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
-    needs: [prepare-toolchain, base-buildtest]
-    if: always()
     strategy:
       fail-fast: false
       matrix:
@@ -175,6 +61,15 @@ jobs:
           }
           where.exe fpc
           fpc -iV
+
+      - name: Build Base modules (Linux)
+        if: runner.os == 'Linux'
+        run: bash Base/tests/buildtest.sh
+
+      - name: Build Base modules (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Base\tests\buildtest.bat
 
       - name: Run Base tests (Linux)
         if: runner.os == 'Linux'
@@ -202,6 +97,7 @@ jobs:
         with:
           name: base-tests-${{ matrix.os_name }}
           path: |
+            Base/tests/buildtest_results.txt
             Base/tests/test_results_64.txt
             Base/tests/test_results_32.txt
             Base/tests/test_results_L64.txt
@@ -211,8 +107,6 @@ jobs:
     name: Demo Build (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    needs: [prepare-toolchain, base-buildtest]
-    if: always()
     strategy:
       fail-fast: false
       matrix:
