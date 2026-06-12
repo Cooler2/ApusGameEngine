@@ -61,6 +61,8 @@ type
   function MaxIndex:integer;    // O(n) scan, cached after Finish
 
   // --- build API (cursors are cheap; no separate heap builder) ---
+  // position+normal+color, no texture coords (flat-shaded colored geometry)
+  function AddVertex(const p,n:TVec3;color:cardinal):integer; overload;
   function AddVertex(const p,n:TVec3;const uv:TVec2;color:cardinal):integer; overload;
   function AddVertex(const p,n:TVec3;const tangent:TVec4;
     const uv:TVec2;color:cardinal):integer; overload;
@@ -120,6 +122,18 @@ function TMesh.MaxIndex:integer;
    if indices[i]>result then result:=indices[i];
   fMaxIndex:=result;
   fMaxIndexValid:=true;
+ end;
+
+function TMesh.AddVertex(const p,n:TVec3;color:cardinal):integer;
+ var
+  v:integer;
+ begin
+  v:=length(positions);
+  SetLength(positions,v+1); positions[v]:=p;
+  SetLength(normals,v+1);   normals[v]:=n;
+  SetLength(colors,v+1);    colors[v]:=color;
+  boundsDirty:=true;
+  result:=v;
  end;
 
 function TMesh.AddVertex(const p,n:TVec3;const uv:TVec2;color:cardinal):integer;
