@@ -159,8 +159,11 @@ interface
 
  TVertexBuffer=class(TEngineBuffer)
   count:integer;
-  layout:TVertexLayout;
-  constructor Create(layout:TVertexLayout;count:integer;flags:cardinal=0);
+  layout:TVertexLayout;   // legacy packed layout (empty for raw/GpuMesh buffers)
+  strideBytes:integer;    // bytes per vertex; source of truth for sizing/upload
+  constructor Create(layout:TVertexLayout;count:integer;flags:cardinal=0); overload;
+  // Layout-less buffer: caller owns the byte layout (R-19 TGpuMesh path).
+  constructor Create(strideBytes,count:integer;flags:cardinal=0); overload;
   procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); virtual; abstract;
   procedure Resize(newCount:integer); virtual; abstract;
  end;
@@ -461,7 +464,16 @@ constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer;flags:cardin
   inherited Create(flags);
   self.layout:=layout;
   self.count:=count;
-  sizeInBytes:=count*layout.stride;
+  strideBytes:=layout.stride;
+  sizeInBytes:=count*strideBytes;
+ end;
+
+constructor TVertexBuffer.Create(strideBytes,count:integer;flags:cardinal=0);
+ begin
+  inherited Create(flags);
+  self.count:=count;
+  self.strideBytes:=strideBytes;
+  sizeInBytes:=count*strideBytes;
  end;
 
 { TIndexBuffer }

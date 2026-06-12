@@ -175,6 +175,8 @@ type
   // Data buffers
   function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;
     usage:TBufferUsage=buStatic;flags:cardinal=0):TVertexBuffer;
+  function AllocRawVertexBuffer(strideBytes,numVertices:integer;
+    usage:TBufferUsage=buStatic;flags:cardinal=0):TVertexBuffer;
   procedure UseVertexBuffer(vb:TVertexBuffer);
   function AllocIndexBuffer(indCount:integer;elementSize:integer=2;
     usage:TBufferUsage=buStatic;flags:cardinal=0):TIndexBuffer;
@@ -1838,9 +1840,34 @@ begin
   buDynamic:   vb.usage:=GL_DYNAMIC_DRAW;
   buTemporary: vb.usage:=GL_STREAM_DRAW;
  end;
- glBufferData(GL_ARRAY_BUFFER,layout.stride*numVertices,nil,vb.usage);
+ glBufferData(GL_ARRAY_BUFFER,vb.strideBytes*numVertices,nil,vb.usage);
  CheckForGLError('AllocVB'); // validate real allocation call
  // Stage 7: semantic label is taken from vb.debugName when provided by caller.
+ SetGLObjectLabel(GL_BUFFER,vb.buffer,BuildVBLabel(vb));
+ result:=vb;
+end;
+
+// Layout-less vertex buffer with an explicit byte stride (R-19 TGpuMesh path).
+// The caller binds attributes via renderDevice.BindMeshLayout(TGpuLayout), so the
+// packed TVertexLayout is not involved.
+function TGLResourceManager.AllocRawVertexBuffer(strideBytes,numVertices:integer;
+  usage:TBufferUsage;flags:cardinal):TVertexBuffer;
+var
+ vb:TVertexBufferGL;
+begin
+ vb:=TVertexBufferGL.Create(strideBytes,numVertices,flags);
+ vb.publishedSync:=nil;
+ glGenBuffers(1,@vb.buffer);
+ ASSERT(vb.buffer<>0);
+ glBindBuffer(GL_ARRAY_BUFFER,vb.buffer);
+ TrackArrayBufferBinding(vb.buffer);
+ case usage of
+  buStatic:    vb.usage:=GL_STATIC_DRAW;
+  buDynamic:   vb.usage:=GL_DYNAMIC_DRAW;
+  buTemporary: vb.usage:=GL_STREAM_DRAW;
+ end;
+ glBufferData(GL_ARRAY_BUFFER,vb.strideBytes*numVertices,nil,vb.usage);
+ CheckForGLError('AllocRawVB');
  SetGLObjectLabel(GL_BUFFER,vb.buffer,BuildVBLabel(vb));
  result:=vb;
 end;
@@ -1923,7 +1950,7 @@ begin
  EnsureWritable('Resize');
  BeginWrite;
  count:=newCount;
- sizeInBytes:=count*layout.stride;
+ sizeInBytes:=count*strideBytes;
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
  TrackArrayBufferBinding(buffer);
  glBufferData(GL_ARRAY_BUFFER,sizeInBytes,nil,usage);
@@ -1938,7 +1965,7 @@ begin
  BeginWrite;
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
  TrackArrayBufferBinding(buffer);
- glBufferSubData(GL_ARRAY_BUFFER,fromVertex*layout.stride,numVertices*layout.stride,vertexData);
+ glBufferSubData(GL_ARRAY_BUFFER,fromVertex*strideBytes,numVertices*strideBytes,vertexData);
  glBindBuffer(GL_ARRAY_BUFFER,0);
  TrackArrayBufferBinding(0);
  EndWrite;
