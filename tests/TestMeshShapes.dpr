@@ -166,8 +166,8 @@ function AllTangentsEqual(m:TMesh;const expected:TVec4;eps:single=0.001):boolean
   end;
  end;
 
-// y = x -> constant slope, gradient-derived normal = (-1,1,0)/sqrt(2) everywhere
-function TiltHeightFn(x,z:single):single;
+// z = x -> constant slope, gradient-derived normal = (-1,0,1)/sqrt(2) everywhere
+function TiltHeightFn(x,y:single):single;
  begin
   result:=x;
  end;
@@ -182,14 +182,14 @@ procedure TestPlane;
   Check(m.VertexCount=9,'flat plane vertex count');
   Check(m.IndexCount=24,'flat plane index count');
   Check(m.TriangleCount=8,'flat plane triangle count');
-  Check(AllNormalsEqual(m,Vec3(0,1,0)),'flat plane normals = +Y');
-  Check(AllTangentsEqual(m,Vec4(1,0,0,-1)),'flat plane tangents along +X, w=-1');
+  Check(AllNormalsEqual(m,Vec3(0,0,1)),'flat plane normals = +Z');
+  Check(AllTangentsEqual(m,Vec4(1,0,0,1)),'flat plane tangents along +X, w=1');
   m.Free;
   // deformed plane: constant-slope heightFn -> constant tilted normal everywhere
   m:=MeshShapes.Plane(2,2,1,1,@TiltHeightFn);
   Check(m.VertexCount=4,'deformed plane (1x1) vertex count');
   Check(m.IndexCount=6,'deformed plane (1x1) index count');
-  Check(AllNormalsEqual(m,Vec3(-0.7071068,0.7071068,0),0.001),'deformed plane normals follow heightFn slope');
+  Check(AllNormalsEqual(m,Vec3(-0.7071068,0,0.7071068),0.001),'deformed plane normals follow heightFn slope');
   m.Free;
   EndTest;
  end;
