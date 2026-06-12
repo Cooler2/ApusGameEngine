@@ -8,6 +8,7 @@ unit Apus.Engine.API;
 interface
  uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Window, Apus.Engine.Keys,
    Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.EventMan, Apus.VertexLayout,
+   Apus.Engine.GpuLayout,
    Apus.Engine.Mesh, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
 const
@@ -450,6 +451,9 @@ type
 
   // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
   procedure Apply(vertexLayout:TVertexLayout);
+  // R-19: select/build a stock shader for a GPU mesh layout (table-based attribute
+  // locations). Coexists with Apply(TVertexLayout) used by the 2D painter path.
+  procedure ApplyMeshLayout(layout:TGpuLayout);
  end;
 
  // Configuration
@@ -490,6 +494,9 @@ type
 
   // Vertex/Index buffers
   function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;
+    usage:TBufferUsage=buStatic;flags:cardinal=0):TVertexBuffer;
+  // Layout-less vertex buffer with explicit byte stride (R-19 TGpuMesh path).
+  function AllocRawVertexBuffer(strideBytes,numVertices:integer;
     usage:TBufferUsage=buStatic;flags:cardinal=0):TVertexBuffer;
   function AllocIndexBuffer(indCount:integer;indSize:integer=2;
     usage:TBufferUsage=buStatic;flags:cardinal=0):TIndexBuffer;

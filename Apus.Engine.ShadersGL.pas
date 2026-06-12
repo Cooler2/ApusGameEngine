@@ -7,7 +7,7 @@
 {$I defines.inc}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.Core, Apus.Engine.Types,
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.GpuLayout,
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.
@@ -107,6 +107,7 @@ type
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
 
  procedure Apply(vertexLayout:TVertexLayout);
+  procedure ApplyMeshLayout(layout:TGpuLayout);
  private
   class threadvar
    curTextures:array[0..15] of TTexture; // up to 16 texture units
@@ -143,6 +144,8 @@ type
    threadStateReady:boolean;
    shaderCache:TSimpleHash;
    shaderCacheReady:boolean;
+   meshShaderCache:TSimpleHash; // R-19: stock mesh shaders keyed by (layout.id,texMode)
+   meshShaderCacheReady:boolean;
 
   customized:Strings8;
 
@@ -151,6 +154,10 @@ type
   // Get/create shader for current render settings
   function GetShaderFor:TGLShader;
   function CreateShaderFor:TGLShader;
+  function GetMeshShaderFor(layout:TGpuLayout):TGLShader;
+  function CreateMeshShaderFor(layout:TGpuLayout):TGLShader;
+  // Upload matrices/textures/lights to the active shader (shared Apply tail)
+  procedure ApplyShaderState(shaderChanged:boolean);
   function IsCustomized:boolean;
   procedure EnsureThreadState;
   procedure CustomizedUniform(name:string8;valueType:AnsiChar;const value);
@@ -351,10 +358,22 @@ procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
   if condition then st:=st+line+#13#10;
  end;
 
-function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:cardinal):String8;
+// useTable=false (2D painter / legacy mesh): attribute locations are assigned
+// sequentially (position=0, then each present attribute +1) and the binder
+// (SetupAttributes) must enable the same contiguous prefix.
+// useTable=true (R-19 TGpuMesh): locations come from the stable semantic table
+// (MeshSemanticLocation), so they are SPARSE and stable regardless of which
+// attributes are present; the binder (BindMeshLayout) enables exactly those.
+function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:cardinal;
+   useTable:boolean=false):String8;
  var
   ch:AnsiChar;
   depthPass,shadowMap:boolean;
+  function Loc(seq:AnsiChar;tableLoc:integer):String8;
+   begin
+    if useTable then result:=Conv.ToStr(tableLoc)
+     else result:=seq;
+   end;
  begin
   depthPass:=Bits.HasAll(lighting,LIGHT_DEPTHPASS);
   if depthPass then begin
@@ -368,21 +387,21 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'uniform mat4 ModelMatrix;',shadowMap);
   AddLine(result,'uniform mat3 NormalMatrix;',hasNormal);
   AddLine(result,'uniform mat4 ShadowMapMatrix;',shadowMap);
-  AddLine(result,'layout (location=0) in vec3 position;');
+  AddLine(result,'layout (location='+Loc('0',LOC_POSITION)+') in vec3 position;');
   ch:='0';
   if hasNormal then begin
    inc(ch);
-   AddLine(result,'layout (location='+ch+') in vec3 normal;');
+   AddLine(result,'layout (location='+Loc(ch,LOC_NORMAL)+') in vec3 normal;');
    AddLine(result,'out vec3 vNormal;');
   end;
   if hasColor then begin
    inc(ch);
-   AddLine(result,'layout (location='+ch+') in vec4 color;');
+   AddLine(result,'layout (location='+Loc(ch,LOC_COLOR0)+') in vec4 color;');
    AddLine(result,'out vec4 vColor;');
   end;
   if hasUV then begin
    inc(ch);
-   AddLine(result,'layout (location='+ch+') in vec2 texCoord;');
+   AddLine(result,'layout (location='+Loc(ch,LOC_TEXCOORD0)+') in vec2 texCoord;');
    AddLine(result,'out vec2 vTexCoord;');
   end;
   AddLine(result,'out vec3 vLightPos;',shadowMap);
@@ -529,6 +548,47 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   result.fSrc:=fSrc;
  end;
 
+// R-19: build a stock shader for a GPU mesh layout (table-based attribute locations).
+function TGLShadersAPI.CreateMeshShaderFor(layout:TGpuLayout):TGLShader;
+ var
+  vSrc,fSrc,notes:String8;
+  hasNormal,hasColor,hasUV:boolean;
+ begin
+  hasNormal:=layout.Find(TMeshSemantic.Normal)>=0;
+  hasColor:=layout.Find(TMeshSemantic.Color)>=0;
+  hasUV:=layout.Find(TMeshSemantic.TexCoord)>=0;
+  notes:='Mesh shader for mode '+Conv.ToHex(curTexMode.mode)+' '+layout.Describe;
+  Log.Msg('Building: '+notes);
+  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting,true); // table locations
+  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
+  result:=Build(vSrc,fSrc) as TGLShader;
+  result.name:=notes+' h'+Conv.ToHex(result.handle);
+  UpdateShaderProgramLabel(result);
+  result.texMode:=curTexMode.mode;
+  result.isCustom:=false;
+  result.vSrc:=vSrc;
+  result.fSrc:=fSrc;
+ end;
+
+// R-19: get-or-build a mesh shader, keyed by (layout.id, texMode). Separate cache
+// from the painter's, so the two binding/shader-location schemes never collide.
+function TGLShadersAPI.GetMeshShaderFor(layout:TGpuLayout):TGLShader;
+ var
+  key:int64;
+  v:int64;
+ begin
+  EnsureThreadState;
+  if not meshShaderCacheReady then begin
+   meshShaderCache.Init(32);
+   meshShaderCacheReady:=true;
+  end;
+  key:=(int64(layout.id) shl 32) or curTexMode.mode;
+  v:=meshShaderCache.Get(key);
+  if v<>-1 then exit(TGLShader(v));
+  result:=CreateMeshShaderFor(layout);
+  meshShaderCache.Put(key,UIntPtr(result));
+ end;
+
 // Get shader for the current TexMode and current vertex layout
 function TGLShadersAPI.GetShaderFor:TGLShader;
  var
@@ -581,6 +641,13 @@ destructor TGLShadersAPI.Destroy;
      TGLShader(UIntPtr(shaderCache.values[i])).Free;
    shaderCache.Clear;
    shaderCacheReady:=false;
+  end;
+  if meshShaderCacheReady then begin
+   for i:=0 to meshShaderCache.count-1 do
+    if meshShaderCache.values[i]<>-1 then
+     TGLShader(UIntPtr(meshShaderCache.values[i])).Free;
+   meshShaderCache.Clear;
+   meshShaderCacheReady:=false;
   end;
   inherited;
  end;
@@ -971,8 +1038,6 @@ procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
 procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
  var
   shader:TGLShader;
-  i:integer;
-  tex:TTexture;
   mat:TMat4d;
   shaderChanged:boolean;
  begin
@@ -992,7 +1057,33 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
       viewProjMatrix.Init(mat);
     end;
    end;
-  // Set uniforms (if modified)
+  ApplyShaderState(shaderChanged);
+ end;
+
+// R-19: select/build a stock shader for a GPU mesh layout (table-based attribute
+// locations) and upload matrices/textures/lights. The 2D painter path is untouched.
+procedure TGLShadersAPI.ApplyMeshLayout(layout:TGpuLayout);
+ var
+  shader:TGLShader;
+  shaderChanged:boolean;
+ begin
+  EnsureThreadState;
+  shader:=GetMeshShaderFor(layout);
+  shaderChanged:=shader<>activeShader;
+  ActivateShader(shader);
+  actualTexMode:=curTexMode;
+  // The painter shader-selection state no longer matches the active program;
+  // invalidate it so the next 2D Apply rebuilds/reselects.
+  actualVertexLayout:=cardinal(-1);
+  ApplyShaderState(shaderChanged);
+ end;
+
+// Shared Apply tail: upload matrices, textures and lights to the active shader.
+procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
+ var
+  i:integer;
+  tex:TTexture;
+ begin
   // Transformations
   if transformationAPI.Update then
    inc(matrixRevision);

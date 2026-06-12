@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Graphics;
 interface
- uses Types, Apus.Engine.Types, Apus.Engine.API;
+ uses Types, Apus.Engine.Types, Apus.Engine.GpuLayout, Apus.Engine.API;
 
 type
  IRenderDevice=interface
@@ -33,6 +33,18 @@ type
 
   // Set vertex attribute array divisors (for instanced rendering)
   procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
+
+  // R-19: table-driven attribute binding for a GPU mesh. Enables exactly the
+  // sparse locations described by the layout from the currently bound ARRAY_BUFFER
+  // (stream 0). Coexists with SetupAttributes(TVertexLayout) used by the 2D painter.
+  // Call UnbindMeshLayout after the draw to hand state back to the painter path.
+  procedure BindMeshLayout(layout:TGpuLayout);
+  procedure UnbindMeshLayout;
+  // R-19: draw a triangle-list GPU mesh range. Buffers must be bound (resman.Use*Buffer)
+  // and the shader applied (shader.ApplyMeshLayout) by the caller. indexBytes: 0 =
+  // non-indexed (first/count are vertices), 2 = uint16 IBO, 4 = uint32 IBO.
+  // Binds attributes per layout, issues the draw, then unbinds.
+  procedure DrawMesh(layout:TGpuLayout;first,count,indexBytes:integer);
   // Buffer handling should be organized differently.
   // A dedicated buffer class is needed, managed by the resource manager.
 (*  // Draw primitives using built-in buffers

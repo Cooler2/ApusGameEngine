@@ -7,7 +7,7 @@
 {$I defines.inc}
 unit Apus.Engine.OpenGL;
 interface
-uses Apus.Core,
+uses Apus.Core, Apus.Engine.GpuLayout,
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.
@@ -149,6 +149,11 @@ type
   procedure UseExtraVertexData(vertices:pointer;vertexLayout:TVertexLayout);
   procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
 
+  // R-19: table-driven attribute binding for a GPU mesh (coexists with SetupAttributes).
+  procedure BindMeshLayout(layout:TGpuLayout);
+  procedure UnbindMeshLayout;
+  procedure DrawMesh(layout:TGpuLayout;first,count,indexBytes:integer);
+
 {  // Draw primitives using custom buffers
   procedure DrawBuffer(primType:TPrimitiveType;vb:TVertexBuffer;ib:TIndexBuffer); overload;
 
@@ -169,6 +174,7 @@ type
    extraVertices:pointer;
    extraLayout:TVertexLayout;
    divisors:array[0..9] of integer;
+   meshEnabledMask:cardinal; // R-19: bitmask of attrib locations enabled by BindMeshLayout
    streamVB,streamIB:cardinal;
    streamVBSize,streamIBSize:integer;
    threadReady:boolean;
@@ -1135,6 +1141,102 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
 
   EnableDisableArrays;
   SetArrayDivisors;
+ end;
+
+// Map a TGpuLayout vertex format to GL attribute parameters.
+// isInt selects glVertexAttribIPointer (integer attributes fed to int/uint shader inputs).
+procedure MeshFormatToGL(format:TVertexFormat;out comps:integer;out glType:cardinal;
+   out normalized:GLboolean;out isInt:boolean);
+ begin
+  normalized:=GL_FALSE;
+  isInt:=false;
+  comps:=VertexFormatComponents(format);
+  case format of
+   TVertexFormat.Float1,TVertexFormat.Float2,
+   TVertexFormat.Float3,TVertexFormat.Float4: glType:=GL_FLOAT;
+   TVertexFormat.UByte4Norm:begin glType:=GL_UNSIGNED_BYTE; normalized:=GL_TRUE; end;
+   TVertexFormat.UByte4:    begin glType:=GL_UNSIGNED_BYTE; isInt:=true; end;
+   TVertexFormat.UInt16x4:  begin glType:=GL_UNSIGNED_SHORT; isInt:=true; end;
+   TVertexFormat.UInt32:    begin glType:=GL_UNSIGNED_INT; isInt:=true; end;
+   else begin glType:=GL_FLOAT; end;
+  end;
+ end;
+
+procedure TRenderDevice.BindMeshLayout(layout:TGpuLayout);
+ var
+  i,loc,comps,stride:integer;
+  glType:cardinal;
+  normalized:GLboolean;
+  isInt:boolean;
+  newMask,bit:cardinal;
+ begin
+  EnsureThreadState;
+  if IsCoreProfile then
+   ASSERT(boundArrayBuffer<>0,'BindMeshLayout requires a bound GL_ARRAY_BUFFER (the mesh stream VBO)');
+  newMask:=0;
+  for i:=0 to high(layout.attributes) do with layout.attributes[i] do begin
+   loc:=MeshSemanticLocation(semantic,semanticIndex);
+   if loc<0 then continue;
+   MeshFormatToGL(format,comps,glType,normalized,isInt);
+   stride:=layout.StreamStride(stream);
+   // Single-stream assumption: every attribute reads from the currently bound
+   // ARRAY_BUFFER. Multi-stream (static/dynamic split, instance) needs per-stream
+   // binding before its attributes — deferred to C3.
+   if isInt then
+    glVertexAttribIPointer(loc,comps,glType,stride,pointer(UIntPtr(offset)))
+   else
+    glVertexAttribPointer(loc,comps,glType,normalized,stride,pointer(UIntPtr(offset)));
+   glEnableVertexAttribArray(loc);
+   if (loc<=high(divisors)) and (divisors[loc]<>0) then begin
+    glVertexAttribDivisor(loc,0); // per-vertex (instance streams wired in C3)
+    divisors[loc]:=0;
+   end;
+   newMask:=newMask or (cardinal(1) shl loc);
+  end;
+  // disable locations a previous mesh bind left enabled but this one doesn't use
+  bit:=meshEnabledMask and not newMask;
+  for loc:=0 to 31 do
+   if bit and (cardinal(1) shl loc)<>0 then glDisableVertexAttribArray(loc);
+  meshEnabledMask:=newMask;
+  CheckForGLError(115);
+ end;
+
+procedure TRenderDevice.UnbindMeshLayout;
+ var
+  loc,i:integer;
+ begin
+  EnsureThreadState;
+  for loc:=0 to 31 do
+   if meshEnabledMask and (cardinal(1) shl loc)<>0 then glDisableVertexAttribArray(loc);
+  meshEnabledMask:=0;
+  // Hand attribute state back to the 2D painter path: force a full re-sync on the
+  // next SetupAttributes (sparse mesh locations don't match the painter's prefix model).
+  lastVertices:=nil;
+  lastLayout.stride:=0;
+  lastArrayBuffer:=-1;
+  actualAttribArrays:=-1;
+  for i:=0 to high(divisors) do divisors[i]:=-1;
+ end;
+
+procedure TRenderDevice.DrawMesh(layout:TGpuLayout;first,count,indexBytes:integer);
+ var
+  glType:cardinal;
+ begin
+  EnsureThreadState;
+  BindMeshLayout(layout);
+  if window<>nil then begin
+   inc(window.stats.drawCalls);
+   inc(window.stats.verticesDrawn,count);
+  end;
+  if indexBytes=0 then
+   glDrawArrays(GL_TRIANGLES,first,count)
+  else begin
+   if indexBytes=2 then glType:=GL_UNSIGNED_SHORT
+    else glType:=GL_UNSIGNED_INT;
+   glDrawElements(GL_TRIANGLES,count,glType,pointer(UIntPtr(first*indexBytes)));
+  end;
+  CheckForGLError(116);
+  UnbindMeshLayout;
  end;
 
 procedure TRenderDevice.SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
