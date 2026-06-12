@@ -36,6 +36,14 @@ type
   class function Box(const size:TVec3):TMesh; static; overload;
   // Cube variant: Box(Vec3(s,s,s)).
   class function Box(s:single):TMesh; static; overload;
+
+  // Cylinder / cone / truncated cone / tube, axis = Y, centered at origin.
+  // r1 = bottom radius, r2 = top radius (r2=0 -> cone; r1<>r2 -> truncated
+  // cone), height = full extent along Y, segments = radial subdivisions.
+  // caps adds flat end discs (normal +-Y). pos+normal+uv+tangent; side
+  // normals smooth around the circumference (cone apex = ring of distinct
+  // per-segment vertices, NOT a single shared apex); cap normals flat.
+  class function Cylinder(r1,r2,height:single;segments:integer;caps:boolean=true):TMesh; static;
  end;
 
 implementation
@@ -88,6 +96,83 @@ class function MeshShapes.Box(const size:TVec3):TMesh;
    end;
    result.AddTriangle(f*4+0,f*4+1,f*4+2);
    result.AddTriangle(f*4+0,f*4+2,f*4+3);
+  end;
+  result.Finish;
+ end;
+
+class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boolean=true):TMesh;
+ var
+  vcSide,vc,i,vi,bi0,ti0,bi1,ti1,capCenter,capRing:integer;
+  halfH,angle,dAngle,cosA,sinA:single;
+  nDir:TVec3;
+ begin
+  ASSERT(segments>=3,'Cylinder: segments must be >=3');
+  halfH:=height*0.5;
+  dAngle:=2*PI/segments;
+  vcSide:=2*(segments+1);
+  vc:=vcSide;
+  if caps then inc(vc,2*(segments+1));
+  result:=TMesh.Create('cylinder');
+  result.SetVertexCount(vc,[TMeshAttribute.Normal,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  // side: segments+1 columns (seam duplicated for UV wrap) x 2 rows (bottom,top)
+  for i:=0 to segments do begin
+   angle:=i*dAngle;
+   cosA:=cos(angle); sinA:=sin(angle);
+   nDir:=Vec3(height*cosA,r1-r2,height*sinA);
+   nDir.Normalize;
+   vi:=2*i;
+   result.positions[vi]:=Vec3(r1*cosA,-halfH,r1*sinA);
+   result.normals[vi]:=nDir;
+   result.uv0[vi]:=Vec2(i/segments,0);
+   result.tangents[vi]:=Vec4(-sinA,0,cosA,-1);
+   vi:=2*i+1;
+   result.positions[vi]:=Vec3(r2*cosA,halfH,r2*sinA);
+   result.normals[vi]:=nDir;
+   result.uv0[vi]:=Vec2(i/segments,1);
+   result.tangents[vi]:=Vec4(-sinA,0,cosA,-1);
+  end;
+  for i:=0 to segments-1 do begin
+   bi0:=2*i; ti0:=2*i+1; bi1:=2*(i+1); ti1:=2*(i+1)+1;
+   result.AddTriangle(bi0,ti0,bi1);
+   result.AddTriangle(bi1,ti0,ti1);
+  end;
+  if caps then begin
+   // bottom cap (normal -Y): fan (center,ring_i,ring_i+1) is outward-CCW
+   capCenter:=vcSide;
+   capRing:=vcSide+1;
+   result.positions[capCenter]:=Vec3(0,-halfH,0);
+   result.normals[capCenter]:=Vec3(0,-1,0);
+   result.uv0[capCenter]:=Vec2(0.5,0.5);
+   result.tangents[capCenter]:=Vec4(1,0,0,1);
+   for i:=0 to segments-1 do begin
+    angle:=i*dAngle;
+    cosA:=cos(angle); sinA:=sin(angle);
+    vi:=capRing+i;
+    result.positions[vi]:=Vec3(r1*cosA,-halfH,r1*sinA);
+    result.normals[vi]:=Vec3(0,-1,0);
+    result.uv0[vi]:=Vec2(0.5+0.5*cosA,0.5+0.5*sinA);
+    result.tangents[vi]:=Vec4(1,0,0,1);
+   end;
+   for i:=0 to segments-1 do
+    result.AddTriangle(capCenter,capRing+i,capRing+((i+1) mod segments));
+   // top cap (normal +Y): fan (center,ring_i+1,ring_i) is outward-CCW
+   capCenter:=vcSide+segments+1;
+   capRing:=capCenter+1;
+   result.positions[capCenter]:=Vec3(0,halfH,0);
+   result.normals[capCenter]:=Vec3(0,1,0);
+   result.uv0[capCenter]:=Vec2(0.5,0.5);
+   result.tangents[capCenter]:=Vec4(1,0,0,1);
+   for i:=0 to segments-1 do begin
+    angle:=i*dAngle;
+    cosA:=cos(angle); sinA:=sin(angle);
+    vi:=capRing+i;
+    result.positions[vi]:=Vec3(r2*cosA,halfH,r2*sinA);
+    result.normals[vi]:=Vec3(0,1,0);
+    result.uv0[vi]:=Vec2(0.5+0.5*cosA,0.5+0.5*sinA);
+    result.tangents[vi]:=Vec4(1,0,0,1);
+   end;
+   for i:=0 to segments-1 do
+    result.AddTriangle(capCenter,capRing+((i+1) mod segments),capRing+i);
   end;
   result.Finish;
  end;

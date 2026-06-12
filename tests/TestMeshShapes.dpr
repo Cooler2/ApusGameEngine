@@ -82,10 +82,70 @@ procedure TestAppend;
   EndTest;
  end;
 
+// All side vertices (indices 0..2*(segments+1)-1) sit on the expected radius:
+// even index = bottom ring (r1), odd index = top ring (r2).
+function SideVertsAtRadius(m:TMesh;segments:integer;r1,r2:single):boolean;
+ var
+  i:integer;
+  p:TVec3;
+  rad:single;
+ begin
+  result:=true;
+  for i:=0 to 2*(segments+1)-1 do begin
+   p:=m.positions[i];
+   rad:=sqrt(p.x*p.x+p.z*p.z);
+   if i mod 2=0 then begin
+    if abs(rad-r1)>0.001 then exit(false);
+   end else
+    if abs(rad-r2)>0.001 then exit(false);
+  end;
+ end;
+
+// Top-ring side vertices collapse to the apex (0,height/2,0) when r2=0.
+function ConeApexCollapsed(m:TMesh;segments:integer;halfH:single):boolean;
+ var
+  i:integer;
+  p:TVec3;
+ begin
+  result:=true;
+  for i:=0 to segments do begin
+   p:=m.positions[2*i+1];
+   if (abs(p.x)>0.001) or (abs(p.y-halfH)>0.001) or (abs(p.z)>0.001) then exit(false);
+  end;
+ end;
+
+procedure TestCylinder;
+ var
+  m:TMesh;
+  segments:integer;
+ begin
+  StartTest('MeshShapes.Cylinder');
+  segments:=8;
+  // plain cylinder with caps
+  m:=MeshShapes.Cylinder(1,1,2,segments,true);
+  Check(m.VertexCount=4*(segments+1),'cylinder vertex count');
+  Check(m.IndexCount=12*segments,'cylinder index count');
+  Check(SideVertsAtRadius(m,segments,1,1),'cylinder side verts at radius 1');
+  m.Free;
+  // cone (r2=0): same counts, top ring collapses to apex
+  m:=MeshShapes.Cylinder(1,0,2,segments,true);
+  Check(m.VertexCount=4*(segments+1),'cone vertex count');
+  Check(SideVertsAtRadius(m,segments,1,0),'cone side verts at radii 1/0');
+  Check(ConeApexCollapsed(m,segments,1),'cone apex ring collapsed to apex point');
+  m.Free;
+  // open tube (no caps): fewer verts/indices
+  m:=MeshShapes.Cylinder(1,1,2,segments,false);
+  Check(m.VertexCount=2*(segments+1),'tube vertex count (no caps)');
+  Check(m.IndexCount=6*segments,'tube index count (no caps)');
+  m.Free;
+  EndTest;
+ end;
+
 begin
   writeln('=== TestMeshShapes ===');
   TestBox;
   TestAppend;
+  TestCylinder;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')
