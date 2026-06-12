@@ -1,0 +1,95 @@
+// Procedural primitive mesh generators (R-20).
+//
+// Each generator is a pure fresh producer: it returns a new TMesh through the
+// public fill-API (Apus.Engine.Mesh3D) with a sensible default attribute set.
+// Generators do NOT take a target/transform - composition and merging is done
+// via TMesh.Append. See Work/reports/R-20_meshshapes_design.md for the design.
+//
+// Conventions (apply to every generator):
+//  - shapes are centered at origin (Box/sphere/cylinder centered; Plane on XZ)
+//  - up axis = +Y; cylinder/cone axis = Y; Plane lies in XZ
+//  - winding: CCW = front face (outward-facing)
+//  - size params are full extents, not half
+//  - tangent stored along +U, bitangent = cross(N,T) in shader
+//
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+unit Apus.Engine.MeshShapes;
+interface
+uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh3D;
+
+{$SCOPEDENUMS ON}
+type
+ // Octant-subset selection for partial Octasphere generation.
+ TSpherePortion=(Full,Hemisphere,Quarter,Eighth);
+{$SCOPEDENUMS OFF}
+
+type
+ // Height displacement callback for MeshShapes.Plane: y = heightFn(x,z).
+ THeightFn=function(x,z:single):single;
+
+ // Namespace record - all generators are static class functions.
+ MeshShapes=record
+  // Axis-aligned box centered at origin. 24 verts (4/face), 12 tris.
+  // pos+normal+uv+tangent; per-face UV in [0,1], tangent along the face's +U.
+  class function Box(const size:TVec3):TMesh; static; overload;
+  // Cube variant: Box(Vec3(s,s,s)).
+  class function Box(s:single):TMesh; static; overload;
+ end;
+
+implementation
+
+{ MeshShapes }
+
+class function MeshShapes.Box(s:single):TMesh;
+ begin
+  result:=Box(Vec3(s,s,s));
+ end;
+
+class function MeshShapes.Box(const size:TVec3):TMesh;
+ const
+  // Per-face axes: N (outward normal), U (+U tangent direction), V (= cross(N,T)
+  // bitangent direction). Chosen so N=Cross(U,V) -> CCW (0,0),(1,0),(1,1),(0,1)
+  // winding is outward-facing and handedness w=+1 for every face.
+  faceN:array[0..5] of TVec3=(
+   (x:1; y:0; z:0),(x:-1;y:0; z:0),
+   (x:0; y:1; z:0),(x:0; y:-1;z:0),
+   (x:0; y:0; z:1),(x:0; y:0; z:-1));
+  faceU:array[0..5] of TVec3=(
+   (x:0; y:0; z:-1),(x:0;y:0; z:1),
+   (x:1; y:0; z:0), (x:1;y:0; z:0),
+   (x:1; y:0; z:0), (x:-1;y:0;z:0));
+  faceV:array[0..5] of TVec3=(
+   (x:0; y:1; z:0),(x:0;y:1; z:0),
+   (x:0; y:0; z:-1),(x:0;y:0;z:1),
+   (x:0; y:1; z:0),(x:0;y:1; z:0));
+  cornerUV:array[0..3] of TVec2=((x:0;y:0),(x:1;y:0),(x:1;y:1),(x:0;y:1));
+ var
+  half:TVec3;
+  f,i,vi:integer;
+  n,u,v:TVec3;
+  sizeU,sizeV,halfN:single;
+ begin
+  result:=TMesh.Create('box');
+  result.SetVertexCount(24,[TMeshAttribute.Normal,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  half:=size*0.5;
+  for f:=0 to 5 do begin
+   n:=faceN[f]; u:=faceU[f]; v:=faceV[f];
+   sizeU:=abs(u.x)*size.x+abs(u.y)*size.y+abs(u.z)*size.z;
+   sizeV:=abs(v.x)*size.x+abs(v.y)*size.y+abs(v.z)*size.z;
+   halfN:=abs(n.x)*half.x+abs(n.y)*half.y+abs(n.z)*half.z;
+   for i:=0 to 3 do begin
+    vi:=f*4+i;
+    result.positions[vi]:=n*halfN+u*((cornerUV[i].x-0.5)*sizeU)+v*((cornerUV[i].y-0.5)*sizeV);
+    result.normals[vi]:=n;
+    result.uv0[vi]:=cornerUV[i];
+    result.tangents[vi]:=Vec4(u,1);
+   end;
+   result.AddTriangle(f*4+0,f*4+1,f*4+2);
+   result.AddTriangle(f*4+0,f*4+2,f*4+3);
+  end;
+  result.Finish;
+ end;
+
+end.

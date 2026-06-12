@@ -86,6 +86,14 @@ type
   procedure EndSection;
   procedure AddSection(const aName:String8;firstIndex,indexCount:integer);
 
+  // Append src into self under transform m: positions <- m*pos, normals/tangents
+  // rotated by the linear part of m (re-normalized, xyz only), indices offset by
+  // the current vertex count. Attributes present in self but absent in src are
+  // left at their default value; attributes present in src but absent in self
+  // are dropped (R-19 stage-A guarded semantics). Adds and returns a new
+  // (unnamed) section covering the appended index range. Marks bounds dirty.
+  function Append(const src:TMesh;const m:TMat4):TMeshSection;
+
   // Validate, compute MaxIndex/bounds, mark bounds clean. Call once after build.
   procedure Finish;
   procedure RecalculateBounds; // also clears boundsDirty
@@ -230,6 +238,90 @@ procedure TMesh.AddSection(const aName:String8;firstIndex,indexCount:integer);
   sections[n].name:=aName;
   sections[n].firstIndex:=firstIndex;
   sections[n].indexCount:=indexCount;
+ end;
+
+function TMesh.Append(const src:TMesh;const m:TMat4):TMeshSection;
+ var
+  baseVertex,baseIndex,n,i,s:integer;
+  rot:TMat3;
+  v:TVec3;
+  t:TVec4;
+ begin
+  baseVertex:=VertexCount;
+  baseIndex:=IndexCount;
+  n:=src.VertexCount;
+  rot:=TMat3.Init(m);
+
+  SetLength(positions,baseVertex+n);
+  for i:=0 to n-1 do positions[baseVertex+i]:=m.TransformPoint(src.positions[i]);
+
+  if length(normals)>0 then begin
+   SetLength(normals,baseVertex+n);
+   if length(src.normals)>0 then
+    for i:=0 to n-1 do begin
+     v:=src.normals[i];
+     rot.TransformPoints(@v,1,0);
+     v.Normalize;
+     normals[baseVertex+i]:=v;
+    end;
+  end;
+
+  if length(colors)>0 then begin
+   SetLength(colors,baseVertex+n);
+   if length(src.colors)>0 then
+    for i:=0 to n-1 do colors[baseVertex+i]:=src.colors[i];
+  end;
+
+  if length(uv0)>0 then begin
+   SetLength(uv0,baseVertex+n);
+   if length(src.uv0)>0 then
+    for i:=0 to n-1 do uv0[baseVertex+i]:=src.uv0[i];
+  end;
+
+  if length(uv1)>0 then begin
+   SetLength(uv1,baseVertex+n);
+   if length(src.uv1)>0 then
+    for i:=0 to n-1 do uv1[baseVertex+i]:=src.uv1[i];
+  end;
+
+  if length(tangents)>0 then begin
+   SetLength(tangents,baseVertex+n);
+   if length(src.tangents)>0 then
+    for i:=0 to n-1 do begin
+     t:=src.tangents[i];
+     v:=t.xyz;
+     rot.TransformPoints(@v,1,0);
+     v.Normalize;
+     tangents[baseVertex+i]:=Vec4(v,t.w);
+    end;
+  end;
+
+  if length(joints)>0 then begin
+   SetLength(joints,baseVertex+n);
+   if length(src.joints)>0 then
+    for i:=0 to n-1 do joints[baseVertex+i]:=src.joints[i];
+  end;
+
+  if length(weights)>0 then begin
+   SetLength(weights,baseVertex+n);
+   if length(src.weights)>0 then
+    for i:=0 to n-1 do weights[baseVertex+i]:=src.weights[i];
+  end;
+
+  if length(src.indices)>0 then begin
+   SetLength(indices,baseIndex+length(src.indices));
+   for i:=0 to high(src.indices) do indices[baseIndex+i]:=src.indices[i]+baseVertex;
+  end;
+
+  result.name:='';
+  result.firstIndex:=baseIndex;
+  result.indexCount:=length(src.indices);
+  s:=length(sections);
+  SetLength(sections,s+1);
+  sections[s]:=result;
+
+  boundsDirty:=true;
+  fMaxIndexValid:=false;
  end;
 
 procedure TMesh.RecalculateBounds;
