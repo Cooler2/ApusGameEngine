@@ -196,8 +196,6 @@ jobs:
   engine-tests:
     name: Engine Tests (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
-    needs: [ base-tests, demo-build ]
-    if: always()
     timeout-minutes: 35
     strategy:
       fail-fast: false
