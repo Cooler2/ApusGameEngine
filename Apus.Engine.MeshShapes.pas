@@ -23,6 +23,8 @@ uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh3D;
 type
  // Octant-subset selection for partial Octasphere generation.
  TSpherePortion=(Full,Hemisphere,Quarter,Eighth);
+ // Axis the Hemisphere/Quarter/Eighth cut aligns to (default Y).
+ TAxis=(X,Y,Z);
 {$SCOPEDENUMS OFF}
 
 type
@@ -52,6 +54,17 @@ type
   // without an analytic gradient. heightFn=nil + segX=segY=1 = a flat
   // tangent-bearing quad (e.g. for normal-map test surfaces).
   class function Plane(w,h:single;segX,segY:integer;heightFn:THeightFn=nil):TMesh; static;
+
+  // Octahedron-based sphere: recursive midpoint subdivision (level=0 -> the
+  // octahedron itself, 8 tris; each level x4), shared edge-midpoint vertices.
+  // pos+normal only (no UV/tangent). portion selects an octant subset
+  // (Full=8/Hemisphere=4/Quarter=2/Eighth=1 octants) aligned to `axis`
+  // (default +Y): Hemisphere keeps octants with +axis sign, Quarter also
+  // requires +sign on the next axis (cyclic axis->axis+1->axis+2), Eighth on
+  // all three. Partial spheres are surface-only with an open boundary (no
+  // cap disc).
+  class function Octasphere(level:integer;portion:TSpherePortion=TSpherePortion.Full;
+    radius:single=1;axis:TAxis=TAxis.Y):TMesh; static;
  end;
 
 implementation
@@ -235,6 +248,141 @@ class function MeshShapes.Plane(w,h:single;segX,segY:integer;heightFn:THeightFn=
     result.AddTriangle(idx00,idx01,idx10);
     result.AddTriangle(idx01,idx11,idx10);
    end;
+  result.Finish;
+ end;
+
+class function MeshShapes.Octasphere(level:integer;portion:TSpherePortion=TSpherePortion.Full;
+   radius:single=1;axis:TAxis=TAxis.Y):TMesh;
+ const
+  // octahedron base vertices: 0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z
+  baseVerts:array[0..5] of TVec3=(
+   (x:1;y:0;z:0),(x:-1;y:0;z:0),
+   (x:0;y:1;z:0),(x:0;y:-1;z:0),
+   (x:0;y:0;z:1),(x:0;y:0;z:-1));
+ type
+  TTri=array[0..2] of integer;
+ var
+  positions:array of TVec3;
+  triangles:array of TTri;
+  triCount:integer;
+  edgeA,edgeB,edgeMid:array of integer;
+  edgeCount:integer;
+  baseIdx:array[0..5] of integer;
+  pAxis,sAxis,uAxis:integer;
+  sx,sy,sz,negCount,i:integer;
+  ord0,ord1,ord2:integer;
+  s,vfor:array[0..2] of integer;
+  incl:boolean;
+
+  function AddPoint(const p:TVec3):integer;
+   var n:TVec3;
+   begin
+    n:=p; n.Normalize;
+    result:=length(positions);
+    SetLength(positions,result+1);
+    positions[result]:=n;
+   end;
+
+  function GetBaseVertex(k:integer):integer;
+   begin
+    if baseIdx[k]<0 then baseIdx[k]:=AddPoint(baseVerts[k]);
+    result:=baseIdx[k];
+   end;
+
+  // Edge-midpoint cache (linear search; edge counts stay small for the
+  // subdivision levels this generator is meant for).
+  function Midpoint(i0,i1:integer):integer;
+   var j,a,b:integer;
+   begin
+    a:=i0; b:=i1;
+    if a>b then begin j:=a; a:=b; b:=j; end;
+    for j:=0 to edgeCount-1 do
+     if (edgeA[j]=a) and (edgeB[j]=b) then exit(edgeMid[j]);
+    result:=AddPoint((positions[i0]+positions[i1])*0.5);
+    if edgeCount>=length(edgeA) then begin
+     SetLength(edgeA,edgeCount+64);
+     SetLength(edgeB,edgeCount+64);
+     SetLength(edgeMid,edgeCount+64);
+    end;
+    edgeA[edgeCount]:=a; edgeB[edgeCount]:=b; edgeMid[edgeCount]:=result;
+    inc(edgeCount);
+   end;
+
+  procedure AddTri(a,b,c:integer);
+   begin
+    if triCount>=length(triangles) then SetLength(triangles,triCount+64);
+    triangles[triCount][0]:=a;
+    triangles[triCount][1]:=b;
+    triangles[triCount][2]:=c;
+    inc(triCount);
+   end;
+
+  procedure Subdivide(a,b,c,lvl:integer);
+   var ab,bc,ca:integer;
+   begin
+    if lvl=0 then begin AddTri(a,b,c); exit; end;
+    ab:=Midpoint(a,b);
+    bc:=Midpoint(b,c);
+    ca:=Midpoint(c,a);
+    Subdivide(a,ab,ca,lvl-1);
+    Subdivide(ab,b,bc,lvl-1);
+    Subdivide(ca,bc,c,lvl-1);
+    Subdivide(ab,bc,ca,lvl-1);
+   end;
+
+ begin
+  ASSERT(level>=0,'Octasphere: level must be >=0');
+  for i:=0 to 5 do baseIdx[i]:=-1;
+  triCount:=0;
+  edgeCount:=0;
+  case axis of
+   TAxis.X:begin pAxis:=0; sAxis:=1; uAxis:=2; end;
+   TAxis.Y:begin pAxis:=1; sAxis:=2; uAxis:=0; end;
+   else begin pAxis:=2; sAxis:=0; uAxis:=1; end; // TAxis.Z
+  end;
+  // 8 octants = all (sx,sy,sz) in {-1,+1}^3
+  for sx:=-1 to 1 do begin
+   if sx=0 then continue;
+   for sy:=-1 to 1 do begin
+    if sy=0 then continue;
+    for sz:=-1 to 1 do begin
+     if sz=0 then continue;
+     s[0]:=sx; s[1]:=sy; s[2]:=sz;
+     case portion of
+      TSpherePortion.Full:incl:=true;
+      TSpherePortion.Hemisphere:incl:=s[pAxis]=1;
+      TSpherePortion.Quarter:incl:=(s[pAxis]=1) and (s[sAxis]=1);
+      else incl:=(s[pAxis]=1) and (s[sAxis]=1) and (s[uAxis]=1); // TSpherePortion.Eighth
+     end;
+     if not incl then continue;
+     // winding: base order (X,Y,Z) for an even number of negative signs,
+     // (X,Z,Y) for odd - keeps every octant face outward-CCW.
+     negCount:=0;
+     if sx=-1 then inc(negCount);
+     if sy=-1 then inc(negCount);
+     if sz=-1 then inc(negCount);
+     if negCount mod 2=0 then begin ord0:=0; ord1:=1; ord2:=2; end
+     else begin ord0:=0; ord1:=2; ord2:=1; end;
+     if s[0]=1 then vfor[0]:=GetBaseVertex(0) else vfor[0]:=GetBaseVertex(1);
+     if s[1]=1 then vfor[1]:=GetBaseVertex(2) else vfor[1]:=GetBaseVertex(3);
+     if s[2]=1 then vfor[2]:=GetBaseVertex(4) else vfor[2]:=GetBaseVertex(5);
+     Subdivide(vfor[ord0],vfor[ord1],vfor[ord2],level);
+    end;
+   end;
+  end;
+  SetLength(triangles,triCount);
+  result:=TMesh.Create('octasphere');
+  result.SetVertexCount(length(positions),[TMeshAttribute.Normal]);
+  for i:=0 to high(positions) do begin
+   result.normals[i]:=positions[i];
+   result.positions[i]:=positions[i]*radius;
+  end;
+  SetLength(result.indices,triCount*3);
+  for i:=0 to triCount-1 do begin
+   result.indices[i*3]:=triangles[i][0];
+   result.indices[i*3+1]:=triangles[i][1];
+   result.indices[i*3+2]:=triangles[i][2];
+  end;
   result.Finish;
  end;
 

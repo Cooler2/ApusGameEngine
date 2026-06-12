@@ -194,12 +194,62 @@ procedure TestPlane;
   EndTest;
  end;
 
+function AllVertsAtRadius(m:TMesh;r:single;eps:single=0.001):boolean;
+ var
+  i:integer;
+ begin
+  result:=true;
+  for i:=0 to high(m.positions) do
+   if abs(m.positions[i].Length-r)>eps then exit(false);
+ end;
+
+procedure TestOctasphere;
+ var
+  m:TMesh;
+ begin
+  StartTest('MeshShapes.Octasphere');
+  // level 0 = octahedron: 8 tris, 6 verts (Euler: V=4^(level+1)+2)
+  m:=MeshShapes.Octasphere(0);
+  Check(m.TriangleCount=8,'level 0 triangle count = 8');
+  Check(m.VertexCount=6,'level 0 vertex count = 6');
+  Check(length(m.normals)=6,'normals present, no uv/tangent');
+  Check(length(m.uv0)=0,'no uv0');
+  Check(length(m.tangents)=0,'no tangents');
+  Check(AllVertsAtRadius(m,1),'level 0 verts at radius 1');
+  m.Free;
+  // level 1: each of 8 base tris -> 4 sub-tris; shared edges dedup verts
+  m:=MeshShapes.Octasphere(1);
+  Check(m.TriangleCount=32,'level 1 triangle count = 8*4');
+  Check(m.VertexCount=18,'level 1 vertex count = 4^2+2');
+  Check(AllVertsAtRadius(m,1),'level 1 verts at radius 1');
+  m.Free;
+  // radius scaling
+  m:=MeshShapes.Octasphere(0,TSpherePortion.Full,2);
+  Check(AllVertsAtRadius(m,2),'radius=2 scales all verts');
+  m.Free;
+  // partial: hemisphere = 4 of 8 octants
+  m:=MeshShapes.Octasphere(0,TSpherePortion.Hemisphere);
+  Check(m.TriangleCount=4,'hemisphere = 4 octants');
+  m.Free;
+  // partial: quarter = 2 of 8 octants
+  m:=MeshShapes.Octasphere(0,TSpherePortion.Quarter);
+  Check(m.TriangleCount=2,'quarter = 2 octants');
+  m.Free;
+  // partial: eighth = 1 of 8 octants, open boundary (no extra cap verts)
+  m:=MeshShapes.Octasphere(0,TSpherePortion.Eighth);
+  Check(m.TriangleCount=1,'eighth = 1 octant');
+  Check(m.VertexCount=3,'eighth has only its own 3 verts (no cap)');
+  m.Free;
+  EndTest;
+ end;
+
 begin
   writeln('=== TestMeshShapes ===');
   TestBox;
   TestAppend;
   TestCylinder;
   TestPlane;
+  TestOctasphere;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')
