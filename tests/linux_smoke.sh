@@ -72,6 +72,7 @@ compile_only tests/PlatformTest.dpr
 compile_only tests/OpenGL.dpr
 run_test tests/TestStyle.dpr
 run_test tests/TestGpuLayout.dpr
+run_test tests/TestMesh3D.dpr
 
 compile_only demo/SimpleDemo/SimpleDemo.dpr demo/SimpleDemo
 compile_only demo/StyleDemo/StyleDemo.dpr demo/StyleDemo
