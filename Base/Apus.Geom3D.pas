@@ -404,6 +404,19 @@ type
     1:(rows:array[0..3] of TVec3);
   end;
 
+  // Axis-aligned bounding box (single precision). A freshly Reset box is "empty"
+  // (min>max) and absorbs points/boxes via Include.
+  TBox3=record
+    min,max:TVec3;
+    procedure Reset; // mark empty (min=+inf, max=-inf)
+    function IsEmpty:boolean; inline;
+    procedure Include(const p:TVec3); overload; // expand to contain a point
+    procedure Include(const b:TBox3); overload; // expand to contain another box
+    function Center:TVec3; inline;
+    function Size:TVec3; inline; // max-min (zero/negative if empty)
+  end;
+  PBox3=^TBox3;
+
 const
   {$IFDEF DELPHI}[Align(16)] {$ENDIF}
   identMat4:TMat4     = (v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
@@ -2506,6 +2519,54 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
   begin
    result:=pnt.x*a+pnt.y*b+pnt.z*c+d;
   end;
+
+{ TBox3 }
+
+const
+ boxBig=1e30; // sentinel for an empty box
+
+procedure TBox3.Reset;
+ begin
+  min.x:=boxBig; min.y:=boxBig; min.z:=boxBig;
+  max.x:=-boxBig; max.y:=-boxBig; max.z:=-boxBig;
+ end;
+
+function TBox3.IsEmpty:boolean;
+ begin
+  result:=(min.x>max.x); // any axis suffices: Reset makes all three so
+ end;
+
+procedure TBox3.Include(const p:TVec3);
+ begin
+  if p.x<min.x then min.x:=p.x;
+  if p.y<min.y then min.y:=p.y;
+  if p.z<min.z then min.z:=p.z;
+  if p.x>max.x then max.x:=p.x;
+  if p.y>max.y then max.y:=p.y;
+  if p.z>max.z then max.z:=p.z;
+ end;
+
+procedure TBox3.Include(const b:TBox3);
+ begin
+  if b.IsEmpty then exit;
+  Include(b.min);
+  Include(b.max);
+ end;
+
+function TBox3.Center:TVec3;
+ begin
+  result.x:=(min.x+max.x)*0.5;
+  result.y:=(min.y+max.y)*0.5;
+  result.z:=(min.z+max.z)*0.5;
+ end;
+
+function TBox3.Size:TVec3;
+ begin
+  result.x:=max.x-min.x;
+  result.y:=max.y-min.y;
+  result.z:=max.z-min.z;
+ end;
+
 procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
  var
   ca,sa,cb,sb,cc,sc:double;

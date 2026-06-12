@@ -39,6 +39,8 @@ type
  TMat4 = Apus.Geom3D.TMat4;
  PMat4 = Apus.Geom3D.PMat4;
  TPlane = Apus.Geom3D.TPlane;
+ TBox3 = Apus.Geom3D.TBox3;
+ PBox3 = Apus.Geom3D.PBox3;
 
  TAsyncProc = function(param:UIntPtr):integer;
 
