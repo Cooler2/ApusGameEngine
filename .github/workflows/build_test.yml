@@ -300,12 +300,69 @@ jobs:
           if-no-files-found: ignore
 
   engine-tests:
-    name: Engine Tests Placeholder
-    runs-on: ubuntu-latest
+    name: Engine Tests (${{ matrix.os_name }})
+    runs-on: ${{ matrix.runner }}
     needs: [ base-tests, demo-build ]
     if: always()
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+          - os_name: windows
+            runner: windows-latest
+
     steps:
-      - name: Placeholder
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install FPC (Linux)
+        if: runner.os == 'Linux'
         run: |
-          echo "Engine tests are not available yet."
-          echo "This job is reserved for future automated engine test suites."
+          sudo apt-get update
+          sudo apt-get install -y fpc
+          fpc -iV
+
+      - name: Install FPC (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
+          $fpcDirs=@(
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
+            "C:\FPC\3.2.2\bin\x86_64-win64",
+            "C:\FPC\3.2.2\bin\i386-win32"
+          )
+          foreach($dir in $fpcDirs){
+            if(Test-Path (Join-Path $dir "fpc.exe")){
+              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              $env:PATH="$dir;$env:PATH"
+              break
+            }
+          }
+          where.exe fpc
+          fpc -iV
+
+      - name: Run engine smoke tests (Linux)
+        if: runner.os == 'Linux'
+        env:
+          OUTDIR: tests/_engine_smoke
+        run: bash tests/linux_smoke.sh
+
+      - name: Run engine smoke tests (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\tests\windows_smoke.ps1 -OutDir tests\_engine_smoke
+
+      - name: Upload engine smoke logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: engine-tests-${{ matrix.os_name }}
+          path: tests/_engine_smoke/*.log
+          if-no-files-found: warn
