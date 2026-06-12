@@ -243,6 +243,68 @@ procedure TestOctasphere;
   EndTest;
  end;
 
+// u increases with longitude (i), v increases with latitude (j), over the whole grid.
+function UVMonotone(m:TMesh;segments,rings:integer):boolean;
+ var
+  i,j:integer;
+ begin
+  result:=true;
+  for j:=0 to rings do
+   for i:=0 to segments-1 do
+    if m.uv0[j*(segments+1)+i+1].x<=m.uv0[j*(segments+1)+i].x then exit(false);
+  for i:=0 to segments do
+   for j:=0 to rings-1 do
+    if m.uv0[(j+1)*(segments+1)+i].y<=m.uv0[j*(segments+1)+i].y then exit(false);
+ end;
+
+function AllYAtLeast(m:TMesh;y0:single;eps:single=0.001):boolean;
+ var
+  i:integer;
+ begin
+  result:=true;
+  for i:=0 to high(m.positions) do
+   if m.positions[i].y<y0-eps then exit(false);
+ end;
+
+procedure TestUVSphere;
+ var
+  m:TMesh;
+  segments,rings:integer;
+ begin
+  StartTest('MeshShapes.UVSphere');
+  segments:=8; rings:=4;
+  // full sphere
+  m:=MeshShapes.UVSphere(segments,rings);
+  Check(m.VertexCount=(rings+1)*(segments+1),'vertex count = (rings+1)*(segments+1)');
+  Check(m.TriangleCount=2*segments*(rings-1),'triangle count = 2*segments*(rings-1)');
+  Check(length(m.normals)=m.VertexCount,'normals present');
+  Check(length(m.uv0)=m.VertexCount,'uv0 present');
+  Check(length(m.tangents)=m.VertexCount,'tangents present');
+  Check(AllVertsAtRadius(m,1),'all verts at radius 1');
+  Check((m.uv0[0].x=0) and (m.uv0[0].y=0),'uv origin = (0,0)');
+  Check((m.uv0[high(m.uv0)].x=1) and (m.uv0[high(m.uv0)].y=1),'uv far corner = (1,1)');
+  Check(UVMonotone(m,segments,rings),'uv monotone in lon/lat');
+  m.Free;
+  // radius scaling
+  m:=MeshShapes.UVSphere(segments,rings,2);
+  Check(AllVertsAtRadius(m,2),'radius=2 scales all verts');
+  m.Free;
+  // partial: hemisphere (lat in [0,pi/2]) -> y >= 0 everywhere
+  m:=MeshShapes.UVSphere(segments,rings,0,2*Pi,0,Pi/2);
+  Check(m.VertexCount=(rings+1)*(segments+1),'hemisphere keeps full grid (open boundary)');
+  Check(AllYAtLeast(m,0),'hemisphere patch y >= 0');
+  m.Free;
+  // partial: longitude wedge, normalizeUV remaps the patch to [0,1]
+  m:=MeshShapes.UVSphere(segments,rings,0,Pi,0,Pi,1,true);
+  Check((m.uv0[segments].x=1),'normalizeUV remaps lon wedge to u=1 at far edge');
+  m.Free;
+  // same wedge without normalizeUV: u stays a window into the global unwrap
+  m:=MeshShapes.UVSphere(segments,rings,0,Pi,0,Pi,1,false);
+  Check((abs(m.uv0[segments].x-0.5)<0.001),'without normalizeUV, lon wedge u = 0.5 (global unwrap)');
+  m.Free;
+  EndTest;
+ end;
+
 begin
   writeln('=== TestMeshShapes ===');
   TestBox;
@@ -250,6 +312,7 @@ begin
   TestCylinder;
   TestPlane;
   TestOctasphere;
+  TestUVSphere;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

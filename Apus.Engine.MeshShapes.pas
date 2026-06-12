@@ -65,6 +65,25 @@ type
   // cap disc).
   class function Octasphere(level:integer;portion:TSpherePortion=TSpherePortion.Full;
     radius:single=1;axis:TAxis=TAxis.Y):TMesh; static;
+
+  // Lat-long sphere: segments = longitude divisions, rings = latitude
+  // divisions. pos+normal+uv+tangent; normal = position/radius (unit
+  // direction); u=lon/2pi, v=lat/pi where lat=0 at the +Y pole and lat=pi at
+  // the -Y pole; tangent = dPos/dlon direction (+U), analytic and well-defined
+  // at the poles, w=+1 (bitangent parallel to dPos/dlat, the +V direction).
+  // Poles use per-segment duplicate vertices (same position, distinct u) for
+  // a clean UV fan.
+  class function UVSphere(segments,rings:integer;radius:single=1):TMesh; static; overload;
+
+  // Spherical patch: lon in [lonFrom,lonTo], lat in [latFrom,latTo] (same
+  // convention as the full sphere). (rings+1)x(segments+1) grid; boundary
+  // open (no cap). UV = the corresponding slice of the full-sphere lat-long
+  // unwrap (u=lon/2pi, v=lat/pi); if normalizeUV, remapped to [0,1] over the
+  // patch range instead. A row exactly at a pole (sin(lat)=0) collapses to a
+  // single point - the band touching it emits one fan triangle per segment
+  // instead of two.
+  class function UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,latTo:single;
+    radius:single=1;normalizeUV:boolean=false):TMesh; static; overload;
  end;
 
 implementation
@@ -383,6 +402,62 @@ class function MeshShapes.Octasphere(level:integer;portion:TSpherePortion=TSpher
    result.indices[i*3+1]:=triangles[i][1];
    result.indices[i*3+2]:=triangles[i][2];
   end;
+  result.Finish;
+ end;
+
+class function MeshShapes.UVSphere(segments,rings:integer;radius:single=1):TMesh;
+ begin
+  result:=UVSphere(segments,rings,0,2*Pi,0,Pi,radius,false);
+ end;
+
+class function MeshShapes.UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,latTo:single;
+   radius:single=1;normalizeUV:boolean=false):TMesh;
+ const
+  eps=1e-5;
+ var
+  i,j,idx,a,b,c,d:integer;
+  lon,lat,rh,u,v:single;
+  p,n,t:TVec3;
+ begin
+  ASSERT(segments>=3,'UVSphere: segments must be >=3');
+  ASSERT(rings>=1,'UVSphere: rings must be >=1');
+  result:=TMesh.Create('uvsphere');
+  result.SetVertexCount((rings+1)*(segments+1),
+    [TMeshAttribute.Normal,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  for j:=0 to rings do begin
+   lat:=latFrom+(latTo-latFrom)*j/rings;
+   for i:=0 to segments do begin
+    lon:=lonFrom+(lonTo-lonFrom)*i/segments;
+    rh:=sin(lat);
+    // n is already a unit vector: |n|^2 = rh^2*(cos^2+sin^2)+cos(lat)^2 = 1
+    n:=Vec3(rh*cos(lon),cos(lat),rh*sin(lon));
+    p:=n*radius;
+    // dPos/dlon direction, unit length regardless of rh (well-defined at poles)
+    t:=Vec3(-sin(lon),0,cos(lon));
+    u:=lon/(2*Pi); v:=lat/Pi;
+    if normalizeUV then begin
+     if lonTo<>lonFrom then u:=(lon-lonFrom)/(lonTo-lonFrom);
+     if latTo<>latFrom then v:=(lat-latFrom)/(latTo-latFrom);
+    end;
+    idx:=j*(segments+1)+i;
+    result.positions[idx]:=p;
+    result.normals[idx]:=n;
+    result.uv0[idx]:=Vec2(u,v);
+    result.tangents[idx]:=Vec4(t,1);
+   end;
+  end;
+  // quad grid split into 2 triangles each, both outward-CCW: (a,b,c) and
+  // (b,d,c). A row collapsed to a pole point degenerates one of the two -
+  // (a,b,c) when row j is a pole, (b,d,c) when row j+1 is a pole.
+  for j:=0 to rings-1 do
+   for i:=0 to segments-1 do begin
+    a:=j*(segments+1)+i;
+    b:=a+1;
+    c:=a+(segments+1);
+    d:=c+1;
+    if abs(sin(latFrom+(latTo-latFrom)*j/rings))>eps then result.AddTriangle(a,b,c);
+    if abs(sin(latFrom+(latTo-latFrom)*(j+1)/rings))>eps then result.AddTriangle(b,d,c);
+   end;
   result.Finish;
  end;
 
