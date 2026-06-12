@@ -934,7 +934,6 @@ end;
 
 function RobotCmdScenes(const req:TRobotRequest; out body:String8):boolean;
 var
-  i:integer;
   s:TGameScene;
   activeOnly:boolean;
 begin
@@ -943,8 +942,7 @@ begin
   body:='';
   window.Lock;
   try
-    for i:=0 to high(window.scenes) do begin
-      s:=window.scenes[i];
+    for s in window.scenes do begin
       if activeOnly and (s.status<>ssActive) then continue;
       body:=body+'SCENE: '+s.name+#13#10+
         '  status: '+statusNames[s.status]+#13#10+

@@ -287,10 +287,10 @@ end;
 
 function KeyIn(code:byte; const keys:array of TKey):boolean;
 var
-  i:integer;
+  key:TKey;
 begin
-  for i:=0 to high(keys) do
-    if code=ord(keys[i]) then exit(true);
+  for key in keys do
+    if code=ord(key) then exit(true);
   result:=false;
 end;
 

@@ -137,68 +137,32 @@ begin
   EndTest;
 end;
 
-procedure TestStringQueue;
-var
-  q:TStringQueue;
-  overflowCaught:boolean;
-begin
-  StartTest('Containers.StringQueue');
-  q.Init(3);
-  Check(q.Empty,'empty after init');
-  q.Add('a');
-  q.Add('b');
-  Check(not q.Empty,'not empty');
-  Check(q.Get='a','get a');
-  Check(q.Get='b','get b');
-  Check(q.Get='','get empty string');
-  Check(q.Empty,'empty after reads');
-
-  overflowCaught:=false;
-  q.Clear;
-  q.Add('1');
-  q.Add('2');
-  try
-    q.Add('3');
-  except
-    on EWarning do overflowCaught:=true;
-  end;
-  Check(overflowCaught,'overflow raises EWarning');
-  EndTest;
-end;
-
 procedure TestObjectQueue;
 var
-  q:TObjectQueue;
-  o1,o2:TObject;
-  overflowCaught:boolean;
-  leakObj:TObject;
+  q:TGenQueue<TObject>;
+  o1,o2,o3:TObject;
+  outObj:TObject;
 begin
   StartTest('Containers.ObjectQueue');
   q.Init(3);
   o1:=TObject.Create;
   o2:=TObject.Create;
+  o3:=TObject.Create;
   try
-    q.Add(o1);
-    q.Add(o2);
-    Check(q.Get=o1,'get o1');
-    Check(q.Get=o2,'get o2');
-    Check(q.Get=nil,'get nil when empty');
+    Check(q.Add(o1),'add o1');
+    Check(q.Add(o2),'add o2');
+    Check(q.Get(outObj) and (outObj=o1),'get o1');
+    Check(q.Get(outObj) and (outObj=o2),'get o2');
+    Check(not q.Get(outObj),'get false when empty');
 
-    overflowCaught:=false;
     q.Clear;
-    q.Add(o1);
-    q.Add(o2);
-    leakObj:=TObject.Create;
-    try
-      q.Add(leakObj);
-    except
-      on EWarning do overflowCaught:=true;
-    end;
-    leakObj.Free;
-    Check(overflowCaught,'overflow raises EWarning');
+    Check(q.Add(o1),'add #1');
+    Check(q.Add(o2),'add #2');
+    Check(not q.Add(o3),'add full=false');
   finally
     o1.Free;
     o2.Free;
+    o3.Free;
   end;
   EndTest;
 end;
@@ -342,7 +306,6 @@ begin
   try
     TestGenericTree;
     TestHeap;
-    TestStringQueue;
     TestObjectQueue;
     TestDataQueue;
     TestGenQueue;
