@@ -6,8 +6,8 @@
 // via TMesh.Append. See Work/reports/R-20_meshshapes_design.md for the design.
 //
 // Conventions (apply to every generator):
-//  - shapes are centered at origin (Box/sphere/cylinder centered; Plane on XZ)
-//  - up axis = +Y; cylinder/cone axis = Y; Plane lies in XZ
+//  - shapes are centered at origin (Box/sphere/cylinder centered; Plane on XY)
+//  - up axis = +Y; cylinder/cone axis = Y; Plane lies in XY, facing +Z
 //  - winding: CCW = front face (outward-facing)
 //  - size params are full extents, not half
 //  - tangent stored along +U, bitangent = cross(N,T) in shader
