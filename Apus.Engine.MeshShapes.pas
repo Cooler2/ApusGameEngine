@@ -7,7 +7,8 @@
 //
 // Conventions (apply to every generator):
 //  - shapes are centered at origin (Box/sphere/cylinder centered; Plane on XY)
-//  - up axis = +Y; cylinder/cone axis = Y; Plane lies in XY, facing +Z
+//  - up axis = +Z (engine world convention); cylinder/cone axis = Z; Plane
+//    lies in XY, facing +Z (= up)
 //  - winding: CCW = front face (outward-facing)
 //  - size params are full extents, not half
 //  - tangent stored along +U, bitangent = cross(N,T) in shader
@@ -23,7 +24,7 @@ uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh3D;
 type
  // Octant-subset selection for partial Octasphere generation.
  TSpherePortion=(Full,Hemisphere,Quarter,Eighth);
- // Axis the Hemisphere/Quarter/Eighth cut aligns to (default Y).
+ // Axis the Hemisphere/Quarter/Eighth cut aligns to (default Z).
  TAxis=(X,Y,Z);
 {$SCOPEDENUMS OFF}
 
@@ -39,10 +40,10 @@ type
   // Cube variant: Box(Vec3(s,s,s)).
   class function Box(s:single):TMesh; static; overload;
 
-  // Cylinder / cone / truncated cone / tube, axis = Y, centered at origin.
+  // Cylinder / cone / truncated cone / tube, axis = Z, centered at origin.
   // r1 = bottom radius, r2 = top radius (r2=0 -> cone; r1<>r2 -> truncated
-  // cone), height = full extent along Y, segments = radial subdivisions.
-  // caps adds flat end discs (normal +-Y). pos+normal+uv+tangent; side
+  // cone), height = full extent along Z, segments = radial subdivisions.
+  // caps adds flat end discs (normal +-Z). pos+normal+uv+tangent; side
   // normals smooth around the circumference (cone apex = ring of distinct
   // per-segment vertices, NOT a single shared apex); cap normals flat.
   class function Cylinder(r1,r2,height:single;segments:integer;caps:boolean=true):TMesh; static;
@@ -59,17 +60,17 @@ type
   // octahedron itself, 8 tris; each level x4), shared edge-midpoint vertices.
   // pos+normal only (no UV/tangent). portion selects an octant subset
   // (Full=8/Hemisphere=4/Quarter=2/Eighth=1 octants) aligned to `axis`
-  // (default +Y): Hemisphere keeps octants with +axis sign, Quarter also
+  // (default +Z): Hemisphere keeps octants with +axis sign, Quarter also
   // requires +sign on the next axis (cyclic axis->axis+1->axis+2), Eighth on
   // all three. Partial spheres are surface-only with an open boundary (no
   // cap disc).
   class function Octasphere(level:integer;portion:TSpherePortion=TSpherePortion.Full;
-    radius:single=1;axis:TAxis=TAxis.Y):TMesh; static;
+    radius:single=1;axis:TAxis=TAxis.Z):TMesh; static;
 
   // Lat-long sphere: segments = longitude divisions, rings = latitude
   // divisions. pos+normal+uv+tangent; normal = position/radius (unit
-  // direction); u=lon/2pi, v=lat/pi where lat=0 at the +Y pole and lat=pi at
-  // the -Y pole; tangent = dPos/dlon direction (+U), analytic and well-defined
+  // direction); u=lon/2pi, v=lat/pi where lat=0 at the +Z pole and lat=pi at
+  // the -Z pole; tangent = dPos/dlon direction (+U), analytic and well-defined
   // at the poles, w=+1 (bitangent parallel to dPos/dlat, the +V direction).
   // Poles use per-segment duplicate vertices (same position, distinct u) for
   // a clean UV fan.
@@ -158,18 +159,18 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
   for i:=0 to segments do begin
    angle:=i*dAngle;
    cosA:=cos(angle); sinA:=sin(angle);
-   nDir:=Vec3(height*cosA,r1-r2,height*sinA);
+   nDir:=Vec3(height*cosA,-height*sinA,r1-r2);
    nDir.Normalize;
    vi:=2*i;
-   result.positions[vi]:=Vec3(r1*cosA,-halfH,r1*sinA);
+   result.positions[vi]:=Vec3(r1*cosA,-r1*sinA,-halfH);
    result.normals[vi]:=nDir;
    result.uv0[vi]:=Vec2(i/segments,0);
-   result.tangents[vi]:=Vec4(-sinA,0,cosA,-1);
+   result.tangents[vi]:=Vec4(-sinA,-cosA,0,-1);
    vi:=2*i+1;
-   result.positions[vi]:=Vec3(r2*cosA,halfH,r2*sinA);
+   result.positions[vi]:=Vec3(r2*cosA,-r2*sinA,halfH);
    result.normals[vi]:=nDir;
    result.uv0[vi]:=Vec2(i/segments,1);
-   result.tangents[vi]:=Vec4(-sinA,0,cosA,-1);
+   result.tangents[vi]:=Vec4(-sinA,-cosA,0,-1);
   end;
   for i:=0 to segments-1 do begin
    bi0:=2*i; ti0:=2*i+1; bi1:=2*(i+1); ti1:=2*(i+1)+1;
@@ -177,37 +178,37 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
    result.AddTriangle(bi1,ti0,ti1);
   end;
   if caps then begin
-   // bottom cap (normal -Y): fan (center,ring_i,ring_i+1) is outward-CCW
+   // bottom cap (normal -Z): fan (center,ring_i,ring_i+1) is outward-CCW
    capCenter:=vcSide;
    capRing:=vcSide+1;
-   result.positions[capCenter]:=Vec3(0,-halfH,0);
-   result.normals[capCenter]:=Vec3(0,-1,0);
+   result.positions[capCenter]:=Vec3(0,0,-halfH);
+   result.normals[capCenter]:=Vec3(0,0,-1);
    result.uv0[capCenter]:=Vec2(0.5,0.5);
    result.tangents[capCenter]:=Vec4(1,0,0,1);
    for i:=0 to segments-1 do begin
     angle:=i*dAngle;
     cosA:=cos(angle); sinA:=sin(angle);
     vi:=capRing+i;
-    result.positions[vi]:=Vec3(r1*cosA,-halfH,r1*sinA);
-    result.normals[vi]:=Vec3(0,-1,0);
+    result.positions[vi]:=Vec3(r1*cosA,-r1*sinA,-halfH);
+    result.normals[vi]:=Vec3(0,0,-1);
     result.uv0[vi]:=Vec2(0.5+0.5*cosA,0.5+0.5*sinA);
     result.tangents[vi]:=Vec4(1,0,0,1);
    end;
    for i:=0 to segments-1 do
     result.AddTriangle(capCenter,capRing+i,capRing+((i+1) mod segments));
-   // top cap (normal +Y): fan (center,ring_i+1,ring_i) is outward-CCW
+   // top cap (normal +Z): fan (center,ring_i+1,ring_i) is outward-CCW
    capCenter:=vcSide+segments+1;
    capRing:=capCenter+1;
-   result.positions[capCenter]:=Vec3(0,halfH,0);
-   result.normals[capCenter]:=Vec3(0,1,0);
+   result.positions[capCenter]:=Vec3(0,0,halfH);
+   result.normals[capCenter]:=Vec3(0,0,1);
    result.uv0[capCenter]:=Vec2(0.5,0.5);
    result.tangents[capCenter]:=Vec4(1,0,0,1);
    for i:=0 to segments-1 do begin
     angle:=i*dAngle;
     cosA:=cos(angle); sinA:=sin(angle);
     vi:=capRing+i;
-    result.positions[vi]:=Vec3(r2*cosA,halfH,r2*sinA);
-    result.normals[vi]:=Vec3(0,1,0);
+    result.positions[vi]:=Vec3(r2*cosA,-r2*sinA,halfH);
+    result.normals[vi]:=Vec3(0,0,1);
     result.uv0[vi]:=Vec2(0.5+0.5*cosA,0.5+0.5*sinA);
     result.tangents[vi]:=Vec4(1,0,0,1);
    end;
@@ -271,7 +272,7 @@ class function MeshShapes.Plane(w,h:single;segX,segY:integer;heightFn:THeightFn=
  end;
 
 class function MeshShapes.Octasphere(level:integer;portion:TSpherePortion=TSpherePortion.Full;
-   radius:single=1;axis:TAxis=TAxis.Y):TMesh;
+   radius:single=1;axis:TAxis=TAxis.Z):TMesh;
  const
   // octahedron base vertices: 0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z
   baseVerts:array[0..5] of TVec3=(
@@ -430,10 +431,10 @@ class function MeshShapes.UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,
     lon:=lonFrom+(lonTo-lonFrom)*i/segments;
     rh:=sin(lat);
     // n is already a unit vector: |n|^2 = rh^2*(cos^2+sin^2)+cos(lat)^2 = 1
-    n:=Vec3(rh*cos(lon),cos(lat),rh*sin(lon));
+    n:=Vec3(rh*cos(lon),-rh*sin(lon),cos(lat));
     p:=n*radius;
     // dPos/dlon direction, unit length regardless of rh (well-defined at poles)
-    t:=Vec3(-sin(lon),0,cos(lon));
+    t:=Vec3(-sin(lon),-cos(lon),0);
     u:=lon/(2*Pi); v:=lat/Pi;
     if normalizeUV then begin
      if lonTo<>lonFrom then u:=(lon-lonFrom)/(lonTo-lonFrom);

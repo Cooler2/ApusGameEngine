@@ -93,7 +93,7 @@ function SideVertsAtRadius(m:TMesh;segments:integer;r1,r2:single):boolean;
   result:=true;
   for i:=0 to 2*(segments+1)-1 do begin
    p:=m.positions[i];
-   rad:=sqrt(p.x*p.x+p.z*p.z);
+   rad:=sqrt(p.x*p.x+p.y*p.y);
    if i mod 2=0 then begin
     if abs(rad-r1)>0.001 then exit(false);
    end else
@@ -101,7 +101,7 @@ function SideVertsAtRadius(m:TMesh;segments:integer;r1,r2:single):boolean;
   end;
  end;
 
-// Top-ring side vertices collapse to the apex (0,height/2,0) when r2=0.
+// Top-ring side vertices collapse to the apex (0,0,height/2) when r2=0.
 function ConeApexCollapsed(m:TMesh;segments:integer;halfH:single):boolean;
  var
   i:integer;
@@ -110,7 +110,7 @@ function ConeApexCollapsed(m:TMesh;segments:integer;halfH:single):boolean;
   result:=true;
   for i:=0 to segments do begin
    p:=m.positions[2*i+1];
-   if (abs(p.x)>0.001) or (abs(p.y-halfH)>0.001) or (abs(p.z)>0.001) then exit(false);
+   if (abs(p.x)>0.001) or (abs(p.y)>0.001) or (abs(p.z-halfH)>0.001) then exit(false);
   end;
  end;
 
@@ -257,13 +257,13 @@ function UVMonotone(m:TMesh;segments,rings:integer):boolean;
     if m.uv0[(j+1)*(segments+1)+i].y<=m.uv0[j*(segments+1)+i].y then exit(false);
  end;
 
-function AllYAtLeast(m:TMesh;y0:single;eps:single=0.001):boolean;
+function AllZAtLeast(m:TMesh;z0:single;eps:single=0.001):boolean;
  var
   i:integer;
  begin
   result:=true;
   for i:=0 to high(m.positions) do
-   if m.positions[i].y<y0-eps then exit(false);
+   if m.positions[i].z<z0-eps then exit(false);
  end;
 
 procedure TestUVSphere;
@@ -289,10 +289,10 @@ procedure TestUVSphere;
   m:=MeshShapes.UVSphere(segments,rings,2);
   Check(AllVertsAtRadius(m,2),'radius=2 scales all verts');
   m.Free;
-  // partial: hemisphere (lat in [0,pi/2]) -> y >= 0 everywhere
+  // partial: hemisphere (lat in [0,pi/2]) -> z >= 0 everywhere
   m:=MeshShapes.UVSphere(segments,rings,0,2*Pi,0,Pi/2);
   Check(m.VertexCount=(rings+1)*(segments+1),'hemisphere keeps full grid (open boundary)');
-  Check(AllYAtLeast(m,0),'hemisphere patch y >= 0');
+  Check(AllZAtLeast(m,0),'hemisphere patch z >= 0');
   m.Free;
   // partial: longitude wedge, normalizeUV remaps the patch to [0,1]
   m:=MeshShapes.UVSphere(segments,rings,0,Pi,0,Pi,1,true);
