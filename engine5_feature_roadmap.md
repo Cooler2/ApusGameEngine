@@ -732,7 +732,7 @@ type
   - **OPEN (revisit later): tangent `vec4` vs `vec3`.** Design (§3/§8) stores tangent as `vec4` (xyz along +U, `w`=handedness). The `w` sign matters *only* for mirrored UVs: to support them you need either `w` or an explicit `vec3` bitangent — `vec3 tangent` + `B=cross(N,T)` cannot represent mirrored islands (inverted normals on the mirror seam). Author's lean (2026-06-12): `vec4` likely unnecessary for this engine since we own the asset pipeline and can avoid mirrored UVs. Note `glTF`/MikkTSpace mandate `vec4` for interop. **If we switch to `vec3`:** change `TMesh.tangents`→`array of TVec3`, the `AddVertex` tangent overload, `TestMesh3D`, default tangent format in layout (`Float4`→`Float3`), and update design §3/§8 + memory. Not blocking B3/B4 (tangent is not wired into the stock shader yet — that's R-06 core). Deferred; tangent left `vec4` until decided.
 
 ### [R-20] Mesh Shape Generators (Procedural Primitives)
-- Status: planned (card created 2026-06-13; **design LOCKED 2026-06-13** — authoritative spec `Work/reports/R-20_meshshapes_design.md`; implementation pending, per-generator tasks ready to delegate)
+- Status: done (2026-06-13, branch `feature/r-20-mesh-shapes`, not yet merged) — all 5 generators + `TMesh.Append` implemented, `tests/TestMeshShapes.dpr` 59 checks pass on FPC Win32/Win64; Z-up convention fix landed 2026-06-14. Remaining: port a real consumer (`demo/NormalMap`, deferred to next R-06 iteration)
 - Priority: P2
 - Area: Render / 3D Core
 - Value: Give the engine ready-made procedural primitive meshes (quad/plane, box, cylinder, cone, sphere, torus, …) that produce a `TMesh` through its public fill-API, so app/demo/tooling code stops hand-rolling vertex/triangle loops (as `demo/NormalMap` does for its cube and torus, and as R-18 solid gizmos would otherwise have to). Also the first real consumer that exercises and proves the new `TMesh` fill-API end-to-end — a precondition for the deferred mesh consolidation migration ("content-proven" gate from the R-19 scope lock).
@@ -743,17 +743,19 @@ type
   - Generators: `Box` (24-vert per-face, pos+normal+uv+tangent); `Octasphere(level,portion)` (octahedron-based, pos+normal, octant-subset partials Full/Hemi/Quarter/Eighth, **surface-only open boundary**); `UVSphere(segs,rings)` (+ angular-range partial overload, full pos+normal+uv+tangent); `Cylinder(r1,r2,h,seg,caps)` (tapered → cone when `r2=0`, tube when `caps=false`); `Plane(w,h,segX,segY,heightFn)` (optional height deformer, numeric normals).
   - **Composition/merge = `TMesh.Append(src,m)`** — a fill-API method on the container (NOT a separate module); the single mechanism for in-generator composition and post-process merge.
   - Fill-API: both block-fill (`SetVertexCount`+direct index-fill, most generators) and cursor-fill (`AddVertex`/`AddTriangle`) retained from R-19 stage C.
-  - Conventions: origin-centered, +Y up, CCW front, size = full extent, tangent along +U (R-19 convention; `vec3`/`vec4` not forced here).
+  - Conventions: origin-centered, **+Z up** (engine world convention, fixed 2026-06-14 — was +Y in the original design), CCW front, size = full extent, tangent along +U (R-19 convention; `vec3`/`vec4` not forced here).
 - Out of scope: the debug gizmo composites themselves — `Arrow3D` (=Cylinder shaft+cone), `Arrow2D` (flat double-sided poly, **immediate `draw.Triangle`/`draw.Poly`, not meshed**), `Axes`, `Capsule` (=Cylinder+2 hemi-octaspheres), `Grid` → all **R-18**, built on these primitives; heavy mesh ops (subdivide/weld/flip/recompute-normals) → future `Apus.Engine.MeshOps`; GPU upload (`TGpuMesh`); materials; skeletal/animated content (R-03).
 - Dependencies: `Apus.Engine.Mesh3D` (`TMesh` + fill-API: `SetVertexCount`/`AddVertex`/`Append`), `Apus.Geom3D` (`TVec2`/`TVec3`/`TMat4`). Independent of GL. **Unblocks:** R-18 (gizmo composites), R-06 follow-up (tangent-bearing Box → lets `demo/NormalMap` drop `TVertexNM`/`TDemoMesh`, closing R-19's last acceptance criterion).
 - Risks: low — pure CPU math over a tested fill-API; cone apex normals and UVSphere pole UVs are the only fiddly spots (called out in the spec); non-uniform-scale `Append` (normal matrix) deferred.
 - Acceptance Criteria:
-  - [ ] `Apus.Engine.MeshShapes` produces the locked MVP set as valid `TMesh` (correct winding, unit normals, UV/tangent where specified).
-  - [ ] `TMesh.Append(src,m)` merges with correct vertex/index/section counts and transformed positions/normals.
-  - [ ] `Octasphere` partials cover the right octant count, surface-only (no cap); `UVSphere` angular partial within range.
-  - [ ] At least one real consumer ported (NormalMap cube and/or a MeshLab/DebugDraw stand) — visual parity.
-  - [ ] Headless test `tests/TestMeshShapes.dpr` (wired into `tests/linux_smoke.sh`) + compiles under FPC (and Delphi) on Win/Linux.
+  - [x] `Apus.Engine.MeshShapes` produces the locked MVP set as valid `TMesh` (correct winding, unit normals, UV/tangent where specified).
+  - [x] `TMesh.Append(src,m)` merges with correct vertex/index/section counts and transformed positions/normals.
+  - [x] `Octasphere` partials cover the right octant count, surface-only (no cap); `UVSphere` angular partial within range.
+  - [ ] At least one real consumer ported (NormalMap cube and/or a MeshLab/DebugDraw stand) — visual parity. (deferred to next R-06 iteration)
+  - [x] Headless test `tests/TestMeshShapes.dpr` (wired into `tests/linux_smoke.sh`) + compiles under FPC (and Delphi) on Win/Linux.
 - Notes:
   - **Authoritative design spec: `Work/reports/R-20_meshshapes_design.md`** (conventions, signatures, per-generator tessellation, test plan, delegation order).
   - **Delegation:** tessellation formulas are mechanical → each generator is a unit to spec out and delegate (Sonnet/Codex) per `memory/feedback_delegate_simple_tasks`. Order: `TMesh.Append`+`Box` → `Cylinder` → `Plane` → `Octasphere` → `UVSphere`. Design/API decisions stay with author/Claude.
   - 2026-06-13: card created (number R-20 reclaimed from the accidental modern-syntax branch name); same-day design discussion converged and LOCKED (two spheres by purpose, generators as fresh producers + `TMesh.Append` merge, partial spheres surface-only/open, Plane height deformer, arrows → R-18).
+  - 2026-06-13: implementation done — all 5 generators + `TMesh.Append`, `tests/TestMeshShapes.dpr` 59 checks pass. Plane deviated from the design doc's XZ/+Y orientation to XY/+Z (author decision).
+  - 2026-06-14: fixed remaining Y-up defaults in `Cylinder`/`Octasphere`/`UVSphere` to match the engine's Z-up world convention (CLAUDE.md), via a proper rotation that preserves winding/handedness; design doc's "+Y up" references updated to match.
