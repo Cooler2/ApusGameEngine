@@ -1,16 +1,16 @@
-// MeshLab — visual validation stand for R-19 stages B3/B4.
+// MeshLab — visual validation stand for R-19 (SoA TMesh/TGpuMesh) and R-20
+// (MeshShapes procedural generators).
 //
-// It builds two CPU meshes with the new SoA TMesh (Apus.Engine.Mesh3D), uploads
-// them as TGpuMesh (Apus.Engine.GpuMesh) and draws them through the new
-// table-driven binding path (ApplyMeshLayout + renderDevice.DrawMesh) — NOT the
-// legacy TVertexLayout painter. If both objects render correctly this proves the
-// descriptor binder, the stable semantic->location table and the auto-generated
-// mesh shaders (lit + textured variants) all agree.
+// All shapes are laid out on a grid on the ground (XZ... no, XY plane, Z-up):
+// the R-20 generator gallery (Box/Cylinder/Cone/Tube/Plane/Octasphere/UVSphere
+// + an Append-built Arrow) plus the original R-19 regression set (lit cube,
+// textured quad, multi-section row), all drawn through TGpuMesh via the
+// table-driven binding path (ApplyMeshLayout + renderDevice.DrawMesh). A big
+// rippled grid (90k verts, uint32 IBO) underlays everything as a floor.
 //
-//   * a lit, vertex-coloured cube (Position+Normal+Color, no UV, indexed) — checks
-//     position/normal/color locations, per-fragment lighting and the uint16 IBO;
-//   * a textured quad (Position+Normal+Color+TexCoord, indexed) — checks the
-//     TexCoord location and texture sampling on the same path.
+// Navigation: LMB drag rotates, wheel zooms. Tab/Escape toggles between an
+// overview of the whole grid and a focused view of one cell; arrow keys move
+// the selection between cells while focused.
 //
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -30,29 +30,71 @@ var
 
 implementation
 uses
-  Apus.Core, Apus.Geom2D, Apus.Geom3D,
+  Apus.Core, Apus.Conv, Apus.Geom2D, Apus.Geom3D,
+  Apus.EventMan, Apus.Engine.Keys,
   Apus.Engine.Resources, // TTexFilter
   Apus.Engine.UI, Apus.Engine.UIScene,
   // listed after API so the unqualified TMesh resolves to the new SoA mesh, not
   // the legacy Apus.Engine.Mesh.TMesh that Apus.Engine.API re-exports (until C2)
-  Apus.Engine.Mesh3D, Apus.Engine.GpuMesh;
+  Apus.Engine.Mesh3D, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes;
+
+const
+  GRID_COLS=4;
+  GRID_ROWS=3;
+  CELL=3.2;
 
 type
+  TItemKind=(gikLit,gikLitTextured,gikUnlitTextured,gikMultiSection);
+
+  TGalleryItem=record
+    name:String8;
+    mesh:TMesh;
+    gpu:TGpuMesh;
+    col,row:integer;
+    kind:TItemKind;
+  end;
+
   TMainScene=class(TUIScene)
-    cube,quad,multiSection,bigGrid:TMesh;
-    gpuCube,gpuQuad,gpuMulti,gpuGrid:TGpuMesh;
+    items:array of TGalleryItem;
+    floorMesh:TMesh;
+    floorGpu:TGpuMesh;
     spin:single;
-    cameraYaw,cameraPitch,cameraDist:single;
+    cameraYaw,cameraPitch:single;
+    overviewDist,focusDist:single;
+    overview:boolean;
+    selCol,selRow:integer;
+    camTargetCur,camTargetGoal:TVec3;
+    camDistCur,camDistGoal:single;
     constructor Create;
     destructor Destroy; override;
     procedure InitGfx; override;
     procedure Render; override;
     procedure onMouseMove(x,y:integer); override;
     procedure onMouseWheel(delta:integer); override;
+    procedure HandleKey(keyCode:integer);
+    function GridPos(c,r:integer):TVec3;
+    function FindItem(c,r:integer):integer;
+    procedure AddItem(const name:String8;m:TMesh;kind:TItemKind;c,r:integer);
   end;
 
 var
   sceneMain:TMainScene;
+
+// Constant-curvature ripple for the Plane gallery item: amplitude 0.3,
+// period ~pi -> visibly bumpy within a 2x2 patch.
+function RippleFn(x,y:single):single;
+ begin
+  result:=0.3*sin(x*2)*cos(y*2);
+ end;
+
+procedure MeshLabKeyHandler(event:TEventStr;tag:TTag);
+ var
+  keyCode:integer;
+ begin
+  if sceneMain=nil then exit;
+  keyCode:=WordFromTag(tag,0);
+  sceneMain.HandleKey(keyCode);
+ end;
 
 // A flat-shaded, vertex-coloured cube: 24 verts (4 per face, per-face normal),
 // 36 indices. No texture coords -> auto-layout omits TexCoord.
@@ -82,23 +124,23 @@ function BuildLitCube:TMesh;
   result:=m;
  end;
 
-// A textured ground quad on the z=0 plane (UV present -> auto-layout adds TexCoord).
+// A small textured quad on the z=0 plane (UV present -> auto-layout adds TexCoord).
 function BuildTexQuad:TMesh;
  var
   m:TMesh;
  begin
   m:=TMesh.Create('quad');
-  m.AddVertex(Vec3(-4,-4,0),Vec3(0,0,1),Vec2(0,0),$FFFFFFFF);
-  m.AddVertex(Vec3( 4,-4,0),Vec3(0,0,1),Vec2(4,0),$FFFFFFFF);
-  m.AddVertex(Vec3( 4, 4,0),Vec3(0,0,1),Vec2(4,4),$FFFFFFFF);
-  m.AddVertex(Vec3(-4, 4,0),Vec3(0,0,1),Vec2(0,4),$FFFFFFFF);
+  m.AddVertex(Vec3(-1,-1,0),Vec3(0,0,1),Vec2(0,0),$FFFFFFFF);
+  m.AddVertex(Vec3( 1,-1,0),Vec3(0,0,1),Vec2(2,0),$FFFFFFFF);
+  m.AddVertex(Vec3( 1, 1,0),Vec3(0,0,1),Vec2(2,2),$FFFFFFFF);
+  m.AddVertex(Vec3(-1, 1,0),Vec3(0,0,1),Vec2(0,2),$FFFFFFFF);
   m.AddTriangle(0,1,2);
   m.AddTriangle(0,2,3);
   m.Finish;
   result:=m;
  end;
 
-// A row of 4 separate colored boxes, each wrapped in its own section -> proves
+// A row of 4 small colored boxes, each in its own section -> proves
 // TMesh.sections carries correct index ranges and TGpuMesh.DrawSection works.
 function BuildMultiSectionRow:TMesh;
  var
@@ -132,10 +174,10 @@ function BuildMultiSectionRow:TMesh;
    end;
  begin
   m:=TMesh.Create('multiSection');
-  Box(0,0,0,0.7,$FFE05545,'part0'); // red
-  Box(2.2,0,0,0.7,$FF45E055,'part1'); // green
-  Box(4.4,0,0,0.7,$FF4555E0,'part2'); // blue
-  Box(6.6,0,0,0.7,$FFE0C040,'part3'); // yellow
+  Box(-1.2,0,0,0.35,$FFE05545,'part0'); // red
+  Box(-0.4,0,0,0.35,$FF45E055,'part1'); // green
+  Box( 0.4,0,0,0.35,$FF4555E0,'part2'); // blue
+  Box( 1.2,0,0,0.35,$FFE0C040,'part3'); // yellow
   m.Finish;
   result:=m;
  end;
@@ -183,7 +225,7 @@ function BuildBigGrid:TMesh;
 constructor TMainApp.Create;
  begin
   inherited;
-  gameTitle:='Apus Engine: MeshLab (R-19 B3/B4)';
+  gameTitle:='Apus Engine: MeshLab (R-19 + R-20 shapes gallery)';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
   useRealDPI:=false;
@@ -207,39 +249,87 @@ constructor TMainScene.Create;
   inherited Create('Main');
   cameraYaw:=0.8;
   cameraPitch:=0.5;
-  cameraDist:=11;
+  overviewDist:=18;
+  focusDist:=5;
+  camDistCur:=overviewDist;
+  overview:=true;
+  SetEventHandler('SCENE\MAIN\KEYDOWN',MeshLabKeyHandler,emInstant);
  end;
 
 destructor TMainScene.Destroy;
+ var
+  i:integer;
  begin
-  gpuCube.Free;
-  gpuQuad.Free;
-  gpuMulti.Free;
-  gpuGrid.Free;
-  // gpu meshes discard their source on upload? No (we don't pass muDiscardCPUCopy),
-  // so the CPU meshes are still owned here.
-  cube.Free;
-  quad.Free;
-  multiSection.Free;
-  bigGrid.Free;
+  RemoveEventHandler(MeshLabKeyHandler);
+  floorGpu.Free;
+  floorMesh.Free;
+  for i:=0 to high(items) do begin
+   items[i].gpu.Free;
+   items[i].mesh.Free;
+  end;
   inherited;
  end;
 
-procedure TMainScene.InitGfx;
+// World-space (X,Y) center of a grid cell, Z=0 (ground plane).
+function TMainScene.GridPos(c,r:integer):TVec3;
  begin
-  cube:=BuildLitCube;
-  quad:=BuildTexQuad;
-  multiSection:=BuildMultiSectionRow;
-  bigGrid:=BuildBigGrid;
-  gpuCube:=TGpuMesh.Create(cube);
-  gpuCube.Upload;
-  gpuQuad:=TGpuMesh.Create(quad);
-  gpuQuad.Upload;
-  gpuMulti:=TGpuMesh.Create(multiSection);
-  gpuMulti.Upload;
-  gpuGrid:=TGpuMesh.Create(bigGrid);
-  gpuGrid.Upload;
-  game.defaultTexture.SetFilter(TTexFilter.fltNearest); // crisp checker floor (no bilinear blur)
+  result:=Vec3((c-(GRID_COLS-1)/2)*CELL,(r-(GRID_ROWS-1)/2)*CELL,0);
+ end;
+
+function TMainScene.FindItem(c,r:integer):integer;
+ var
+  i:integer;
+ begin
+  result:=-1;
+  for i:=0 to high(items) do
+   if (items[i].col=c) and (items[i].row=r) then exit(i);
+ end;
+
+procedure TMainScene.AddItem(const name:String8;m:TMesh;kind:TItemKind;c,r:integer);
+ var
+  it:TGalleryItem;
+ begin
+  it.name:=name;
+  it.mesh:=m;
+  it.gpu:=TGpuMesh.Create(m);
+  it.gpu.Upload;
+  it.col:=c;
+  it.row:=r;
+  it.kind:=kind;
+  SetLength(items,length(items)+1);
+  items[high(items)]:=it;
+ end;
+
+procedure TMainScene.InitGfx;
+ var
+  shaft,head:TMesh;
+ begin
+  // R-20 generator gallery
+  AddItem('Box',MeshShapes.Box(2),gikLit,0,0);
+  AddItem('Cylinder',MeshShapes.Cylinder(1,1,2,16,true),gikLit,1,0);
+  AddItem('Cone',MeshShapes.Cylinder(1,0,2,16,true),gikLit,2,0);
+  AddItem('Tube (open)',MeshShapes.Cylinder(1,1,2,16,false),gikLit,3,0);
+  AddItem('Plane (ripple)',MeshShapes.Plane(2,2,8,8,@RippleFn),gikLit,0,1);
+  AddItem('Octasphere',MeshShapes.Octasphere(2),gikLit,1,1);
+  AddItem('UVSphere',MeshShapes.UVSphere(16,8),gikLitTextured,2,1);
+  AddItem('UVSphere (hemisphere)',MeshShapes.UVSphere(16,8,0,2*Pi,0,Pi/2,1,true),gikLitTextured,3,1);
+
+  // R-19 regression set
+  AddItem('R-19 cube',BuildLitCube,gikLit,0,2);
+  AddItem('R-19 quad',BuildTexQuad,gikUnlitTextured,1,2);
+  AddItem('R-19 multi-section',BuildMultiSectionRow,gikMultiSection,2,2);
+
+  // Arrow built via TMesh.Append (shaft + cone head) - preview of R-18 Arrow3D
+  shaft:=MeshShapes.Cylinder(0.25,0.25,1.4,12,true);
+  head:=MeshShapes.Cylinder(0.5,0,0.7,12,true);
+  shaft.Append(head,TMat4.Translation(0,0,1.05));
+  head.Free;
+  AddItem('Arrow (Append)',shaft,gikLit,3,2);
+
+  floorMesh:=BuildBigGrid;
+  floorGpu:=TGpuMesh.Create(floorMesh);
+  floorGpu.Upload;
+  game.defaultTexture.SetFilter(TTexFilter.fltNearest); // crisp checker (no bilinear blur)
  end;
 
 procedure TMainScene.onMouseMove(x,y:integer);
@@ -258,58 +348,123 @@ procedure TMainScene.onMouseMove(x,y:integer);
 procedure TMainScene.onMouseWheel(delta:integer);
  begin
   inherited;
-  if delta>0 then cameraDist:=cameraDist/1.12;
-  if delta<0 then cameraDist:=cameraDist*1.12;
-  cameraDist:=Clamp(cameraDist,4,24);
+  if overview then begin
+   if delta>0 then overviewDist:=overviewDist/1.12;
+   if delta<0 then overviewDist:=overviewDist*1.12;
+   overviewDist:=Clamp(overviewDist,10,28);
+  end else begin
+   if delta>0 then focusDist:=focusDist/1.12;
+   if delta<0 then focusDist:=focusDist*1.12;
+   focusDist:=Clamp(focusDist,2.5,9);
+  end;
+ end;
+
+procedure TMainScene.HandleKey(keyCode:integer);
+ begin
+  case keyCode of
+   ord(TKey.Tab),ord(TKey.Escape):overview:=not overview;
+   ord(TKey.Left):if not overview then selCol:=(selCol-1+GRID_COLS) mod GRID_COLS;
+   ord(TKey.Right):if not overview then selCol:=(selCol+1) mod GRID_COLS;
+   ord(TKey.Up):if not overview then selRow:=(selRow-1+GRID_ROWS) mod GRID_ROWS;
+   ord(TKey.Down):if not overview then selRow:=(selRow+1) mod GRID_ROWS;
+  end;
  end;
 
 procedure TMainScene.Render;
  var
-  eye,target:TVec3;
-  i:integer;
+  eye,target,pos:TVec3;
+  i,s,selIdx:integer;
+  statusText,hintText:String8;
+  titleH,lineH,y1,y2,y3,panelW:integer;
  begin
-  spin:=spin+0.006; // slow auto-rotation for a livelier screenshot
+  spin:=spin+0.006; // slow auto-rotation for a livelier view
+
+  // camera target/distance fly smoothly toward the overview or the focused cell
+  if overview then begin
+   camTargetGoal:=Vec3(0,0,0);
+   camDistGoal:=overviewDist;
+  end else begin
+   camTargetGoal:=GridPos(selCol,selRow);
+   camDistGoal:=focusDist;
+  end;
+  camTargetCur:=camTargetCur+(camTargetGoal-camTargetCur)*0.15;
+  camDistCur:=camDistCur+(camDistGoal-camDistCur)*0.15;
+
   gfx.target.Clear($14181F,1);
 
-  target:=Vec3(0,0,1.0);
-  eye:=Vec3(cameraDist*cos(cameraPitch)*cos(cameraYaw),
-            cameraDist*cos(cameraPitch)*sin(cameraYaw),
-            1.0+cameraDist*sin(cameraPitch));
+  target:=camTargetCur+Vec3(0,0,1.0);
+  eye:=Vec3(camTargetCur.x+camDistCur*cos(cameraPitch)*cos(cameraYaw),
+            camTargetCur.y+camDistCur*cos(cameraPitch)*sin(cameraYaw),
+            1.0+camDistCur*sin(cameraPitch));
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
   gfx.SetCullMode(cullNone);
   gfx.target.UseDepthBuffer(dbPassLess);
 
-  // textured ground quad (unlit) — checks TexCoord location + texture sampling
-  shader.LightOff;
-  shader.TexMode(0,tblModulate,tblModulate);
-  transform.SetObj(0,0,0);
-  gpuQuad.Draw(game.defaultTexture);
-
-  // lit, vertex-coloured cube — checks position/normal/color + per-fragment light
   shader.AmbientLight($303838);
   shader.DirectLight(Vec3(0.4,0.6,1.0),1.0,$FFFFFF);
-  transform.SetObj(0,0,2.0,1.0,spin,0,0); // yaw spin around the vertical axis
-  gpuCube.Draw;
 
-  // multi-section row of colored boxes — each section drawn separately to
-  // prove TMesh.sections index ranges + TGpuMesh.DrawSection
-  transform.SetObj(-3,4,0.7,1.0,0,0,0);
-  for i:=0 to high(multiSection.sections) do
-   gpuMulti.DrawSection(i);
+  // floor - underlays the whole grid (no UV -> texturing disabled)
+  shader.TexMode(0,tblDisable,tblDisable);
+  transform.SetObj(0,0,-1.5,1.0,0,0,0);
+  floorGpu.Draw;
 
-  // big rippled grid (90000 verts, > 65535 -> uint32 IBO) — proves the 32-bit
-  // index path end-to-end
-  transform.SetObj(0,0,-1.0,1.0,0,0,0);
-  gpuGrid.Draw;
+  // gallery items, one per grid cell
+  for i:=0 to high(items) do begin
+   pos:=GridPos(items[i].col,items[i].row);
+   transform.SetObj(pos.x,pos.y,0,1.0,spin,0,0);
+   case items[i].kind of
+    gikLit:begin
+     // most generators carry UV+tangent but no texture is meant to be shown
+     // here -> disable texturing, else a stale bound texture (e.g. the glyph
+     // cache from the overlay text) would get sampled and modulated in.
+     shader.TexMode(0,tblDisable,tblDisable);
+     items[i].gpu.Draw;
+    end;
+    gikLitTextured:begin
+     shader.TexMode(0,tblModulate,tblModulate);
+     items[i].gpu.Draw(game.defaultTexture);
+    end;
+    gikUnlitTextured:begin
+     shader.LightOff;
+     shader.TexMode(0,tblModulate,tblModulate);
+     items[i].gpu.Draw(game.defaultTexture);
+     shader.AmbientLight($303838);
+     shader.DirectLight(Vec3(0.4,0.6,1.0),1.0,$FFFFFF);
+    end;
+    gikMultiSection:begin
+     shader.TexMode(0,tblDisable,tblDisable);
+     for s:=0 to high(items[i].mesh.sections) do items[i].gpu.DrawSection(s);
+    end;
+   end;
+  end;
 
-  // overlay
+  // overlay - title + status + hint, on a translucent panel for contrast
   transform.DefaultView;
   shader.LightOff;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled);
-  txt.Write(0,18,24,$FFE8EDF5,'R-19 MeshLab - new SoA TMesh + TGpuMesh through the table-driven path (B3/B4)');
-  txt.Write(0,18,46,$FFC8D2DF,'Cube + quad + multi-section row (DrawSection) + 90k-vert grid (uint32 IBO). LMB rotate, wheel zoom.');
+  if overview then
+   statusText:=Conv.ToStr(length(items))+' shapes - press Tab/Esc to focus'
+  else begin
+   selIdx:=FindItem(selCol,selRow);
+   if selIdx>=0 then statusText:='Selected: '+items[selIdx].name+' - arrows to move, Tab/Esc for overview'
+    else statusText:='(empty cell) - arrows to move, Tab/Esc for overview';
+  end;
+  hintText:='LMB: rotate camera    Wheel: zoom';
+
+  titleH:=txt.Height(game.largerFont);
+  lineH:=txt.Height(game.defaultFont);
+  y1:=14;
+  y2:=y1+titleH+8;
+  y3:=y2+lineH+4;
+  panelW:=txt.Width(game.largerFont,'R-20 MeshLab gallery');
+  if txt.Width(game.defaultFont,statusText)>panelW then panelW:=txt.Width(game.defaultFont,statusText);
+  if txt.Width(game.defaultFont,hintText)>panelW then panelW:=txt.Width(game.defaultFont,hintText);
+  draw.FillRect(8,8,28+panelW,y3+lineH+10,$C8141A24);
+  txt.Write(game.largerFont,18,y1,$FFFFFFFF,'R-20 MeshLab gallery');
+  txt.Write(game.defaultFont,18,y2,$FFE8C25A,statusText);
+  txt.Write(game.defaultFont,18,y3,$FFA8B4C4,hintText);
   inherited;
  end;
 
