@@ -31,6 +31,13 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 - Code should be compatible with both Delphi 12+ and FPC 3.2+ compilers.
 - We use GitHub actions to run tests on Windows and Linux.
 
+### Coordinate Conventions
+
+- World space: **Z-up**, right-handed.
+- Camera/view space: **forward = Z** (matches the depth buffer), X-right, Y-down.
+- This is not enforced on user content - users may pick any "up" axis for their own
+  scenes/models. But engine demos, samples and generator defaults must use Z-up.
+
 ### String Types
 
 - **Primary**: `String8` (UTF-8) — main string type for all text
