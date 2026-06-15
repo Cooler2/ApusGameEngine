@@ -1,7 +1,7 @@
 program VertexBuffer;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  MainScene in 'MainScene.pas';
+  VertexBufferMain in 'VertexBufferMain.pas';
 
 {$R *.res}
 

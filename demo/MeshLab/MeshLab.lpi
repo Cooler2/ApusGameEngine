@@ -136,7 +136,7 @@
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
-        <Filename Value="MainScene.pas"/>
+        <Filename Value="MeshLabMain.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit1>
     </Units>

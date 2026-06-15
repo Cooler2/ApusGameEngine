@@ -1,6 +1,6 @@
 program ControllerDemo;
  uses
-  MainScene in 'MainScene.pas';
+  ControllerDemoMain in 'ControllerDemoMain.pas';
 
 begin
  application:=TMainApp.Create;

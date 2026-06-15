@@ -1,6 +1,6 @@
 program ShadowMap;
  uses
-  MainScene in 'MainScene.pas';
+  ShadowMapMain in 'ShadowMapMain.pas';
 
 begin
  application:=TMainApp.Create;

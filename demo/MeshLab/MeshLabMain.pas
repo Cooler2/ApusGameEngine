@@ -15,7 +15,7 @@
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
-unit MainScene;
+unit MeshLabMain;
 interface
 uses Apus.Engine.GameApp, Apus.Engine.API;
 
@@ -225,7 +225,7 @@ function BuildBigGrid:TMesh;
 constructor TMainApp.Create;
  begin
   inherited;
-  gameTitle:='Apus Engine: MeshLab (R-19 + R-20 shapes gallery)';
+  gameTitle:='Apus Engine: MeshLab (shapes gallery)';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
   useRealDPI:=false;
@@ -450,25 +450,25 @@ procedure TMainScene.Render;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled);
   if overview then
-   statusText:=Conv.ToStr(length(items))+' shapes - press Tab/Esc to focus'
+   statusText:='Overview: '+Conv.ToStr(length(items))+' shapes - press Tab to focus'
   else begin
    selIdx:=FindItem(selCol,selRow);
-   if selIdx>=0 then statusText:='Selected: '+items[selIdx].name+' - arrows to move, Tab/Esc for overview'
+   if selIdx>=0 then statusText:='Selected: '+items[selIdx].name+' - arrows to move, Tab - back to overview'
     else statusText:='(empty cell) - arrows to move, Tab/Esc for overview';
   end;
   hintText:='LMB: rotate camera    Wheel: zoom';
 
   titleH:=txt.Height(game.largerFont);
   lineH:=txt.Height(game.defaultFont);
-  y1:=14;
-  y2:=y1+titleH+8;
-  y3:=y2+lineH+4;
-  panelW:=txt.Width(game.largerFont,'R-20 MeshLab gallery');
+  y1:=20;
+  y2:=y1+titleH+10;
+  y3:=y2+lineH+8;
+  panelW:=txt.Width(game.largerFont,'MeshLab gallery');
   if txt.Width(game.defaultFont,statusText)>panelW then panelW:=txt.Width(game.defaultFont,statusText);
   if txt.Width(game.defaultFont,hintText)>panelW then panelW:=txt.Width(game.defaultFont,hintText);
   draw.FillRect(8,8,28+panelW,y3+lineH+10,$C8141A24);
-  txt.Write(game.largerFont,18,y1,$FFFFFFFF,'R-20 MeshLab gallery');
-  txt.Write(game.defaultFont,18,y2,$FFE8C25A,statusText);
+  txt.Write(game.largerFont,18,y1,$FFFFFFFF,'MeshLab gallery');
+  txt.Write(game.largerFont,18,y2,$FFE8C25A,statusText);
   txt.Write(game.defaultFont,18,y3,$FFA8B4C4,hintText);
   inherited;
  end;

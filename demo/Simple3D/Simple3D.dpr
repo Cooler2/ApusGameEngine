@@ -1,7 +1,7 @@
 program Simple3D;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  MainScene in 'MainScene.pas';
+  Simple3DMain in 'Simple3DMain.pas';
 
 begin
  application:=TMainApp.Create;

@@ -1,6 +1,6 @@
 program particles;
  uses
-  MainScene in 'MainScene.pas';
+  ParticlesMain in 'ParticlesMain.pas';
 
 {$R *.res}
 

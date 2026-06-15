@@ -1,7 +1,7 @@
 program NormalMap;
 uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  MainScene in 'MainScene.pas';
+  NormalMapMain in 'NormalMapMain.pas';
 
 begin
   application:=TMainApp.Create;

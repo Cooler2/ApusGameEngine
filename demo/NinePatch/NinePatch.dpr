@@ -1,6 +1,6 @@
 program NinePatch;
  uses
-  MainScene in 'MainScene.pas';
+  NinePatchMain in 'NinePatchMain.pas';
 
 begin
  application:=TMainApp.Create;

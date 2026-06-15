@@ -3,7 +3,7 @@
 // This demo intentionally keeps tangent, shader and material code local.
 // Once the visual path is stable, proven parts can be moved into engine APIs.
 
-unit MainScene;
+unit NormalMapMain;
 interface
 uses Apus.Engine.GameApp, Apus.Engine.API;
 

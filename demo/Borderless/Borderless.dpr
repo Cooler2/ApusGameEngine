@@ -1,6 +1,6 @@
 program Borderless;
  uses
-  MainScene in 'MainScene.pas';
+  BorderlessMain in 'BorderlessMain.pas';
 
 {$R *.res}
 

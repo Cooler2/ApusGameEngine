@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-unit MainScene;
+unit ShadersMain;
 interface
  uses Apus.Engine.GameApp,Apus.Engine.API;
  type

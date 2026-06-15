@@ -1,6 +1,6 @@
 program CharAnimation;
  uses
-  MainScene in 'MainScene.pas';
+  CharAnimationMain in 'CharAnimationMain.pas';
 
 {$R *.res}
 
