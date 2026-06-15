@@ -196,6 +196,8 @@ type
 
   // Pointer to TVec4 (for bulk transforms).
   PVec4=^TVec4;
+  // Dynamic array of TVec4.
+  TVec4Array=array of TVec4;
 
   // Infinite plane in 3D space
   TPlane=packed record
