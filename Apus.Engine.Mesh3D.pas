@@ -47,15 +47,15 @@ type
 
  TMesh=class(TNamedObject)
   // standard attributes (empty array = attribute absent)
-  positions:array of TVec3;
-  normals:array of TVec3;
+  positions:TVec3Array;
+  normals:TVec3Array;
   colors:array of cardinal;     // full-precision color storage
-  uv0,uv1:array of TVec2;
-  tangents:array of TVec4;      // xyz along +U, w = handedness sign
+  uv0,uv1:TVec2Array;
+  tangents:TVec4Array;          // xyz along +U, w = handedness sign
   joints:array of TJoints4;     // 4 bone indices
   weights:array of TWeights4;   // 4 weights (normalized on upload)
   // topology
-  indices:array of integer;     // always 32-bit on CPU; optional
+  indices:IntArray;             // always 32-bit on CPU; optional
   sections:array of TMeshSection;
   // spatial
   bounds:TBox3;

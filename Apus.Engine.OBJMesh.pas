@@ -32,13 +32,13 @@ function ParseMeshOBJ(const data:String8;const name:String8=''):TMesh;
   m:TMesh;
   lines,tok:Strings8;
   // raw OBJ arrays (as defined in the file)
-  vP,vN:array of TVec3;
-  vT:array of TVec2;
+  vP,vN:TVec3Array;
+  vT:TVec2Array;
   pCnt,nCnt,tCnt:integer;
-  // deduplicated output arrays
-  oP,oN:array of TVec3;
-  oT:array of TVec2;
-  oI:array of integer;
+  // deduplicated output arrays (named types match the TMesh fields they fill)
+  oP,oN:TVec3Array;
+  oT:TVec2Array;
+  oI:IntArray;
   vCnt,iCnt:integer;
   hasN,hasT:boolean;
   vHash:TSimpleHash;
