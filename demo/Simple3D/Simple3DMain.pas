@@ -19,19 +19,21 @@ interface
   baseDir:string;
 
 implementation
- uses Apus.Common,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,Apus.VertexLayout;
+ uses SysUtils,Apus.Core,Apus.Geom3D,Apus.AnimatedValues,
+   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,
+   Apus.Engine.Mesh,Apus.Engine.Mesh3D,Apus.Engine.GpuMesh,Apus.Engine.MeshShapes;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
    cameraAngle:single;
    cameraZoom:TAnimatedValue;
-   texCube,objCube,objGear:TMesh;
-   cCubeMesh:TMesh;
+   texCube,objCube,objGear:Apus.Engine.Mesh.TMesh;
+   generatedMesh:TGpuMesh;
    texture:TTexture;
    constructor Create;
-   procedure Initialize; override;
+   destructor Destroy; override;
+   procedure InitGfx; override;
    procedure Render; override;
    procedure onMouseMove(x,y:integer); override;
    procedure onMouseWheel(delta:integer); override;
@@ -79,15 +81,29 @@ constructor TMainScene.Create;
   texture:=LoadImageFromFile(baseDir+'res\cubetex.png');
  end;
 
-procedure TMainScene.Initialize;
- var
-  st:string;
+destructor TMainScene.Destroy;
  begin
-  cCubeMesh:=TMesh.Create(TVertexLayout.Create([vcPosition3d,vcNormal,vcColor]),0,0);
-  cCubeMesh.AddCube(NullPointS,Vector3s(1,2,3),$FF20C040);
-  cCubeMesh.AddCylinder(Point3s(0,0,3),Point3s(0,1,6),0.5,0.2,16,$FFC0A040);
-  cCubeMesh.Finish;
-  //st:=cCubeMesh.DumpVertex(0);
+  generatedMesh.Free;
+  texCube.Free;
+  objCube.Free;
+  objGear.Free;
+  texture.Free;
+  inherited;
+ end;
+
+procedure TMainScene.InitGfx;
+ var
+  mesh,part:Apus.Engine.Mesh3D.TMesh;
+ begin
+  inherited;
+  // R-20 procedural generators build the new SoA mesh; TGpuMesh owns the
+  // retained GPU upload and uses the R-19 layout/binding path.
+  mesh:=MeshShapes.Box(Vec3(1,2,3));
+  part:=MeshShapes.Cylinder(0.5,0.2,3,16,true);
+  mesh.Append(part,TMat4.Translation(0,0.5,4.5));
+  part.Free;
+  generatedMesh:=TGpuMesh.Create(mesh);
+  generatedMesh.Upload([muDiscardCPUCopy]);
  end;
 
 procedure TMainScene.onMouseMove(x, y: integer);
@@ -112,19 +128,19 @@ procedure TMainScene.Render;
  var
   distance,time:single;
  begin
-  time:=MyTickCount/1000;
+  time:=CoreTime.Ticks/1000;
   gfx.target.Clear(0,1);
   // Set 3D view
   transform.Perspective(1/cameraZoom.Value,1,1000);
   distance:=30;
   transform.SetCamera(
-    Point3(distance*cos(cameraAngle),distance*sin(cameraAngle),distance*0.4),
-    Point3(0,0,3),Point3(0,0,1000));
+    Vec3(distance*cos(cameraAngle),distance*sin(cameraAngle),distance*0.4),
+    Vec3(0,0,3),Vec3(0,0,1000));
 
   gfx.target.UseDepthBuffer(dbPass);
 
   gfx.SetCullMode(cullNone);
-  transform.Transform(Point3(0,0,0));
+  transform.Transform(Vec3(0,0,0));
   gfx.clip.Nothing;
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
   draw.TexturedRect(-20,-20,20,20,game.defaultTexture,-0.125,-0.125,10.125,-0.125,10.125,10.125,$FFFFFFFF);
@@ -143,22 +159,24 @@ procedure TMainScene.Render;
 
   // Setup light and material
   shader.AmbientLight($303030);
-  shader.DirectLight(Vector3(1,0.5,1),1.0,$FFFFFF);
+  shader.DirectLight(Vec3(1,0.5,1),1.0,$FFFFFF);
   shader.Material($FF408090,0); // has no effect
 
   // Draw objects
   transform.SetObj(5,5,2); // Set object position and scale
-  cCubeMesh.Draw;
+  shader.TexMode(0,tblDisable,tblDisable);
+  generatedMesh.Draw;
 
   transform.SetObj(0,0,1.5+1.3*sin(time), 2); // Set object position and scale
-  //shader.TexMode(0,tblReplace,tblKeep);
+  shader.TexMode(0,tblModulate,tblModulate);
   texCube.Draw(texture);
   transform.SetObj(0,-5,1.5+1.3*sin(time), 2); // Set object position and scale
+  shader.TexMode(0,tblDisable,tblDisable);
   objGear.Draw;
   //objCube.Draw;
 
   transform.SetObj(-5,5,2); // Set object position and scale
-  cCubeMesh.Draw;
+  generatedMesh.Draw;
 
   // Turn back to 2D view
   transform.DefaultView;
