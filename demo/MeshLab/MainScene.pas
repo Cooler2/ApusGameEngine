@@ -41,7 +41,7 @@ uses
 const
   GRID_COLS=4;
   GRID_ROWS=3;
-  CELL=3.2;
+  CELL=6.4;
 
 type
   TItemKind=(gikLit,gikLitTextured,gikUnlitTextured,gikMultiSection);
@@ -247,9 +247,12 @@ procedure TMainApp.CreateScenes;
 constructor TMainScene.Create;
  begin
   inherited Create('Main');
-  cameraYaw:=0.8;
+  // axis-aligned: camera looks straight along -Y (cols/X = screen-right,
+  // rows/Y = depth) so the grid reads as a straight array, and arrow
+  // navigation tracks the on-screen movement
+  cameraYaw:=-Pi/2;
   cameraPitch:=0.5;
-  overviewDist:=18;
+  overviewDist:=24;
   focusDist:=5;
   camDistCur:=overviewDist;
   overview:=true;
@@ -351,7 +354,7 @@ procedure TMainScene.onMouseWheel(delta:integer);
   if overview then begin
    if delta>0 then overviewDist:=overviewDist/1.12;
    if delta<0 then overviewDist:=overviewDist*1.12;
-   overviewDist:=Clamp(overviewDist,10,28);
+   overviewDist:=Clamp(overviewDist,14,36);
   end else begin
    if delta>0 then focusDist:=focusDist/1.12;
    if delta<0 then focusDist:=focusDist*1.12;
@@ -365,8 +368,10 @@ procedure TMainScene.HandleKey(keyCode:integer);
    ord(TKey.Tab),ord(TKey.Escape):overview:=not overview;
    ord(TKey.Left):if not overview then selCol:=(selCol-1+GRID_COLS) mod GRID_COLS;
    ord(TKey.Right):if not overview then selCol:=(selCol+1) mod GRID_COLS;
-   ord(TKey.Up):if not overview then selRow:=(selRow-1+GRID_ROWS) mod GRID_ROWS;
-   ord(TKey.Down):if not overview then selRow:=(selRow+1) mod GRID_ROWS;
+   // camera looks along -Y (north): +Y is farther away -> appears higher on
+   // screen, so Up = row+1 (away), Down = row-1 (closer)
+   ord(TKey.Up):if not overview then selRow:=(selRow+1) mod GRID_ROWS;
+   ord(TKey.Down):if not overview then selRow:=(selRow-1+GRID_ROWS) mod GRID_ROWS;
   end;
  end;
 

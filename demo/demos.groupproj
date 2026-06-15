@@ -36,6 +36,9 @@
         <Projects Include="TextDemo\TextDemo.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="MeshLab\MeshLab.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -134,14 +137,23 @@
     <Target Name="TextDemo:Make">
         <MSBuild Projects="TextDemo\TextDemo.dproj" Targets="Make"/>
     </Target>
+    <Target Name="MeshLab">
+        <MSBuild Projects="MeshLab\MeshLab.dproj"/>
+    </Target>
+    <Target Name="MeshLab:Clean">
+        <MSBuild Projects="MeshLab\MeshLab.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MeshLab:Make">
+        <MSBuild Projects="MeshLab\MeshLab.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;Draw2D;InputDemo;TextDemo"/>
+        <CallTarget Targets="SimpleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;Draw2D;InputDemo;TextDemo;MeshLab"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
