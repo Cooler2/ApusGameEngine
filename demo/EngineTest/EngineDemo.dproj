@@ -211,7 +211,6 @@
         <DCCReference Include="..\..\Apus.Engine.IQMloader.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ImgLoadQueue.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIScript.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.GfxFormats3D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ImageTools.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Draw.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Graphics.pas"/>
@@ -227,7 +226,6 @@
         <DCCReference Include="..\..\Apus.Engine.Scene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Types.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UILayout.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.OBJLoader.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Mesh.pas"/>
         <DCCReference Include="..\..\Apus.Engine.MessageScene.pas"/>
         <BuildConfiguration Include="Base">

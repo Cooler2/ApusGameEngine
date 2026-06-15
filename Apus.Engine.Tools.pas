@@ -85,7 +85,6 @@ type
  procedure Reset2DTransform;
 
  // Meshes
- function LoadMesh(fname:string):TMesh;
  function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
  procedure TransformVertices(vertices:PVertex;vCount:integer;shader:TVertexHandler); overload;
  procedure TransformVertices(vertices:PVertex3D;vCount:integer;shader:TVertex3DHandler); overload;
@@ -114,7 +113,7 @@ implementation
  uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,Apus.Engine.DxImages8,{$ENDIF}
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
     Apus.GfxFormats,Classes,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
-    Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D,
+    Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,
   Apus.Lib,
   Apus.Strings,
   Apus.Translation,
@@ -447,15 +446,6 @@ end;
  procedure Reset2DTransform;
   begin
    Set2DTransform(0,0,1,1);
-  end;
-
- function LoadMesh(fname:string):TMesh;
-  var
-   ext:string;
-  begin
-   fname:=Files.FixName(fName);
-   ext:=lowerCase {TODO: use st.ToLower}(ExtractFileExt(fname));
-   if ext='.obj' then result:=LoadOBJ(fName);
   end;
 
  function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;

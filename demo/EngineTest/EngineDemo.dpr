@@ -57,7 +57,6 @@ uses
   Apus.Engine.IQMloader in '..\..\Apus.Engine.IQMloader.pas',
   Apus.Engine.ImgLoadQueue in '..\..\Apus.Engine.ImgLoadQueue.pas',
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
-  Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
   Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
   Apus.Engine.Draw in '..\..\Apus.Engine.Draw.pas',
   Apus.Engine.Graphics in '..\..\Apus.Engine.Graphics.pas',
@@ -73,7 +72,6 @@ uses
   Apus.Engine.Scene in '..\..\Apus.Engine.Scene.pas',
   Apus.Engine.Types in '..\..\Apus.Engine.Types.pas',
   Apus.Engine.UILayout in '..\..\Apus.Engine.UILayout.pas',
-  Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
   Apus.Engine.Mesh in '..\..\Apus.Engine.Mesh.pas',
   Apus.Engine.MessageScene in '..\..\Apus.Engine.MessageScene.pas';
 
