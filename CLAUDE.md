@@ -23,6 +23,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 - `begin` on same line after `then/do/else`, new line for procedures
 - Classes: `TName`, Interfaces: `IName`, vars: `camelCase`
 - Comments in English, translate Russian when modifying
+- Method directive order matters: `overload; static;` not `static; overload;` — wrong order is a compile error
 - Preserve UTF-8 BOM
 
 ## Architecture

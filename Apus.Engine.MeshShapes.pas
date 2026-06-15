@@ -36,9 +36,9 @@ type
  MeshShapes=record
   // Axis-aligned box centered at origin. 24 verts (4/face), 12 tris.
   // pos+normal+uv+tangent; per-face UV in [0,1], tangent along the face's +U.
-  class function Box(const size:TVec3):TMesh; static; overload;
+  class function Box(const size:TVec3):TMesh; overload; static;
   // Cube variant: Box(Vec3(s,s,s)).
-  class function Box(s:single):TMesh; static; overload;
+  class function Box(s:single):TMesh; overload; static;
 
   // Cylinder / cone / truncated cone / tube, axis = Z, centered at origin.
   // r1 = bottom radius, r2 = top radius (r2=0 -> cone; r1<>r2 -> truncated
@@ -74,7 +74,7 @@ type
   // at the poles, w=+1 (bitangent parallel to dPos/dlat, the +V direction).
   // Poles use per-segment duplicate vertices (same position, distinct u) for
   // a clean UV fan.
-  class function UVSphere(segments,rings:integer;radius:single=1):TMesh; static; overload;
+  class function UVSphere(segments,rings:integer;radius:single=1):TMesh; overload; static;
 
   // Spherical patch: lon in [lonFrom,lonTo], lat in [latFrom,latTo] (same
   // convention as the full sphere). (rings+1)x(segments+1) grid; boundary
@@ -84,7 +84,7 @@ type
   // single point - the band touching it emits one fan triangle per segment
   // instead of two.
   class function UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,latTo:single;
-    radius:single=1;normalizeUV:boolean=false):TMesh; static; overload;
+    radius:single=1;normalizeUV:boolean=false):TMesh; overload; static;
  end;
 
 implementation
