@@ -20,15 +20,15 @@ interface
 
 implementation
  uses SysUtils,Apus.Core,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,
-   Apus.Engine.Mesh,Apus.Engine.Mesh3D,Apus.Engine.GpuMesh,Apus.Engine.MeshShapes;
+   Apus.Engine.UI,Apus.Engine.UIScene,
+   Apus.Engine.Mesh3D,Apus.Engine.GpuMesh,Apus.Engine.MeshShapes,Apus.Engine.OBJMesh;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
    cameraAngle:single;
    cameraZoom:TAnimatedValue;
-   texCube,objCube,objGear:Apus.Engine.Mesh.TMesh;
+   texCube,objCube,objGear:TGpuMesh;
    generatedMesh:TGpuMesh;
    texture:TTexture;
    constructor Create;
@@ -75,9 +75,6 @@ constructor TMainScene.Create;
   inherited Create;
   cameraZoom.Init(1);
   // Load resources
-  texCube:=LoadMesh(baseDir+'res\cubetex.obj');
-  objCube:=LoadMesh(baseDir+'res\cube.obj');
-  objGear:=LoadMesh(baseDir+'res\gear.obj');
   texture:=LoadImageFromFile(baseDir+'res\cubetex.png');
  end;
 
@@ -104,6 +101,13 @@ procedure TMainScene.InitGfx;
   part.Free;
   generatedMesh:=TGpuMesh.Create(mesh);
   generatedMesh.Upload([muDiscardCPUCopy]);
+
+  texCube:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res\cubetex.obj'));
+  texCube.Upload([muDiscardCPUCopy]);
+  objCube:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res\cube.obj'));
+  objCube.Upload([muDiscardCPUCopy]);
+  objGear:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res\gear.obj'));
+  objGear.Upload([muDiscardCPUCopy]);
  end;
 
 procedure TMainScene.onMouseMove(x, y: integer);
@@ -160,7 +164,7 @@ procedure TMainScene.Render;
   // Setup light and material
   shader.AmbientLight($303030);
   shader.DirectLight(Vec3(1,0.5,1),1.0,$FFFFFF);
-  shader.Material($FF408090,0); // has no effect
+  shader.Material($FF408090,0); // material tint applied by the mesh shader
 
   // Draw objects
   transform.SetObj(5,5,2); // Set object position and scale
