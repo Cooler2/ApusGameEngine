@@ -236,4 +236,4 @@ excluding `tmp/**` and `Base/Deprecated/**`.
 * Replace use of critical sections / TLock to lighter options when possible, for example use SpinLock to protect short access to global variables
 * Replace String16 / WideString to String32, use String8 for everything, where direct character indexing is not required. Avoid use of String.
 * Don't create any compatibility aliases. Old types should be changed to new types as well as function calls.
-* Don't try to use or keep MyTickCount - use GetTickCount64 instead. MyTickCount should not remain anywhere.
+* Don't try to use or keep MyTickCount - use Time.Ticks instead. MyTickCount should not remain anywhere.

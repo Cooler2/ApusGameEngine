@@ -409,9 +409,9 @@ Unified time API replacing fragmented functions:
 
 | Old name | New name (Time) | Notes |
 |---|---|---|
-| `GetTickCount` (32-bit) | `Time.GetTicks` | **REMOVED** — old 32-bit version (overflow every 49 days) |
-| `GetTickCount64` | `Time.GetTicks` | 64-bit monotonic time in ms, cross-platform |
-| `MyTickCount` | `Time.GetTicks` | better replacement with no overflow |
+| `GetTickCount` (32-bit) | `Time.Ticks` | **REMOVED** — old 32-bit version (overflow every 49 days) |
+| `GetTickCount64` | `Time.Ticks` | 64-bit monotonic time in ms, cross-platform |
+| `MyTickCount` | `Time.Ticks` | better replacement with no overflow |
 | `Sleep(ms)` | `Time.Sleep(ms)` | moved to Time scope |
 | `Time.Now` | `Time.Now` | same — high-precision local datetime |
 | `Time.UTC` | `Time.UTC` | same — high-precision UTC datetime |
@@ -438,7 +438,7 @@ High-precision time functions:
 | `NowGMT` | `Time.UTC` | UTC time in TDateTime format (high-precision on Windows 8+) |
 | — | `Time.Now` | Local time in TDateTime format (high-precision on Windows 8+) |
 | `GetUTCTime` + formatting | `Time.Stamp` | Returns `HH:MM:SS.mmm` string for logs |
-| `MyTickCount` | ~~removed~~ | Use standard `GetTickCount64` (available on all platforms) |
+| `MyTickCount` | `Time.Ticks` | coarse monotonic milliseconds, cross-platform |
 
 **Usage:**
 ```pascal
@@ -446,6 +446,8 @@ dt := Time.UTC;           // high-precision UTC
 dt := Time.Now;           // high-precision local time
 Log.Msg(Time.Stamp + ' Started');
 ```
+
+Use `CoreTime.Ticks` when `SysUtils.Time` creates a name conflict in a unit.
 
 ## Apus.Conv (parsing and formatting)
 
@@ -713,7 +715,6 @@ Functions that don't fit scope of core/conv/strings/files modules.
 | `SplitA(divider,st)` | `SplitA(divider,st)` | same name - splits by string divider (whole string, not charset) |
 | `SplitA(divider,st,quotes)` | `SplitA(divider,st,quotes)` | same name - with quote handling |
 | `Chop(st)` | `Chop(st)` or `st.Trim` | both available - trim whitespace |
-| `MyTickCount` | `GetTickCount64` | use system function instead |
 
 **Note**: Utils is the default place for functions that don't fit other modules. More functions will be added here (EncodeUTF8/DecodeUTF8, AddString/RemoveString, HasParam/GetParam, etc).
 

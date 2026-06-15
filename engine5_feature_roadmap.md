@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-06-13
+Last updated: 2026-06-15
 
 Language policy: this roadmap is maintained in English.
 
@@ -22,13 +22,13 @@ This file follows top-down planning:
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
 | R-05 | CSS-Like UI Style System | in-progress | ~75% | TStyleBlock, resolver, @refs, state blocks, patch, named catalog (TStyleCatalog), transitions (Tweenings), draw migration, StyleDemo, font/color/styleClass removed from TUIElement | Practical validation on real screens, resolver performance/caching, $varName support, visual regression tests |
-| R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
+| R-06 | 3D Material: Normal Mapping | planned | ~15% | Foundation unblocked via R-19/R-20 (tangent-bearing `TMesh`/`TGpuMesh`, `Box` generator with tangents); `NormalMatrix` uniform done; working prototype in `demo/NormalMap` | `ComputeTangents`, `TMaterial`, normal-map path in stock shader, port `demo/NormalMap` to engine API |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Working state merged; support track active with recent bugfixes, test expansion, and new benchmarks | Linux fixes/validation, full baseline delta pass, SSE optimization of top hot paths, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | Clip-threaded `FindElementAt` with `escapingOnly` mode for deep noParentClip descendants; `FindElementAt`/`FindAnyElementAt` unified as overloads. Verified on UI demo fixture (panel+popup and panel→mid→deep). Notes: `Work/reports/R-08_hittest_overlay_notes.md` | — |
 | R-09 | GL Performance Modernization | in-progress | ~40% | Tracks A (telemetry overlay) + B (redundant state-change wins) done and merged; Track D research note drafted. Key finding: no cheap 4.x wins remain standalone — they pay off only as part of R-12 (persistent streaming) + Track C (array-texture batching) | NSight baseline on real scene (Track A); decide Track C scope from data |
 | R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
-| R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
+| R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy); R-09 (2026-06-05) identified persistent ring-buffer streaming as the next major perf win, gated on the NSight baseline | Ring-buffer implementation, persistent text cache, profiling |
 | R-13 | Robot API Input Simulation | idea | 0% | — | Implement `ui.click`/`ui.type`/`ui.focus` commands in Robot API |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
@@ -36,7 +36,7 @@ This file follows top-down planning:
 | R-17 | 3D Game Architecture Probe (skeleton-first) | idea | 0% | — | Build a top-down integrated 3D skeleton (scene graph + camera + multi-pass + post-process) to expose architectural "white spots"; audit done (no Camera/Material/RenderPass/SceneGraph types exist) |
 | R-18 | Debug Draw Primitives (3D Gizmos) | planned | ~10% | Design settled (rev.2 2026-06-15): solid set = cached `TGpuMesh` from R-20 MeshShapes, lit by stock mesh shader, per-shape colour via new `materialColor` tint uniform; line set immediate; batching deferred to R-09. Plan rewritten after course-correcting the agent off the immediate/`draw.Triangle` path | Implement tint uniform in `ShadersGL` + build `Apus.Engine.DebugDraw`, showcase in `demo/MeshLab`, validate by porting NormalMap's `DrawGrid` |
 | R-19 | Mesh Representation Unification & Rework | done | 100% | Geometry level complete & merged to `engine5`: `TGpuLayout`+semantic location table (B1), SoA `TMesh`+`TBox3` (B2), table-driven GL binding pair (B3), `TGpuMesh` upload/draw (B4), stage-C closeout (`SetVertexCount` fill-API, per-section draw, geometry-only OBJ→`TMesh` loader, MeshLab multi-section + 90k-vert grid). Headless gates pass; MeshLab author-validated. Scope re-bound 2026-06-12 to geometry level only | Moved OUT (not R-19): TModel/TModelInstance + AEM + GPU-skin/instancing → R-03; `Mesh3D`→`Mesh` rename + legacy-consumer migration + drop IQM + OBJ-loader consolidation → deferred migration |
-| R-20 | Mesh Shape Generators (Procedural Primitives) | planned | ~10% | Design LOCKED 2026-06-13 (`Work/reports/R-20_meshshapes_design.md`): MVP = `Box`/`Octasphere`(+portion)/`UVSphere`(+angular partial)/`Cylinder`(tapered→cone)/`Plane`(+heightFn) + `TMesh.Append` merge; conventions, attributes, per-generator tessellation specced for delegation | Implement `Apus.Engine.MeshShapes` + `TMesh.Append` + `tests/TestMeshShapes`; unblocks R-18 composites (arrows/axes/capsule) & R-06 NormalMap port |
+| R-20 | Mesh Shape Generators (Procedural Primitives) | done | 100% | All 5 generators (`Box`/`Octasphere`/`UVSphere`/`Cylinder`/`Plane`) + `TMesh.Append` implemented and tested (59 `TestMeshShapes` checks pass on Win32/Win64), Z-up convention fix landed, MeshLab shape gallery demo added | Port a real consumer (`demo/NormalMap` cube and/or R-18 composites) — deferred to R-06/R-18 |
 
 ## 2) Strategic Directions
 
@@ -267,19 +267,24 @@ Goal: fast "change -> verify -> commit" workflow.
   - Follow-ups (post-MVP, non-blocking): `$varName` substitution via `Apus.Publics`; visual regression tests via Robot API `pixel` command.
 
 ### [R-06] 3D Material Pipeline: Normal Mapping (+ Optional Parallax/Occlusion)
-- Status: idea
+- Status: planned — foundation unblocked (R-19/R-20 done 2026-06-13/14); core shading work not started
 - Priority: P1
 - Area: Render
 - Value: Improve 3D visual quality with modern per-pixel surface detail while preserving practical performance.
 - Scope (MVP): support normal maps in core 3D shading path for supported model/material formats; define optional extension path for parallax mapping and ambient occlusion inputs.
 - Out of scope: full physically based rendering overhaul in the first iteration.
-- Dependencies: `Apus.Engine.ShadersGL`, `Apus.Engine.Model3D`, `Apus.Engine.Mesh`, material/texture loading path.
+- Dependencies: `Apus.Engine.ShadersGL`, `Apus.Engine.Model3D`, `Apus.Engine.Mesh3D`/`Apus.Engine.GpuMesh` (R-19), `Apus.Engine.MeshShapes` (R-20, tangent-bearing `Box`), material/texture loading path.
 - Risks: tangent-space consistency issues; shader complexity/performance regressions on lower-end GPUs; asset pipeline mismatch.
 - Acceptance Criteria:
   - [ ] Normal mapping is available for target 3D model path with documented material inputs.
   - [ ] Tangent/bitangent handling is validated on representative assets.
   - [ ] Optional parallax/occlusion hooks are clearly defined (enabled where supported, safely ignored otherwise).
-- Notes: design should keep compatibility with existing assets and allow gradual adoption.
+- Notes:
+  - design should keep compatibility with existing assets and allow gradual adoption.
+  - 2026-06-09: working prototype in `demo/NormalMap` (manual mesh/material/shader); `NormalMatrix` uniform and tangent/extra accessors added to `TVertexLayout`.
+  - 2026-06-10: follow-up plan (`Work/reports/R-06_followup_plan.md`) split off the mesh-representation rework (→ R-19), primitive generators (→ R-20) and the debug-draw helper (→ R-18) as general-engine work; not part of R-06 core.
+  - 2026-06-12..14: R-19 (mesh foundation: `TGpuLayout`, SoA `TMesh`, `TGpuMesh`, `vec4` tangent) and R-20 (`Apus.Engine.MeshShapes` generators incl. tangent-bearing `Box`) are done — `ComputeTangents` and a real engine-API consumer are now unblocked.
+  - Remaining for R-06 core: `ComputeTangents` (Lengyel + Gram-Schmidt, per `Work/reports/R-06_followup_plan.md` task 2), `TMaterial` (colorMap/normalMap/normalStrength), normal-map path in the stock mesh shader, and porting `demo/NormalMap` onto them to validate the acceptance criteria on a real asset.
 
 ### [R-07] Geometry Library Overhaul (Single-First + Spatial Primitives)
 - Status: in-progress
@@ -492,6 +497,8 @@ Goal: fast "change -> verify -> commit" workflow.
   - [ ] Ring-buffer overflow behavior is deterministic and documented.
   - [ ] Profiling on one representative UI/demo scene shows measurable CPU reduction in text rendering hot path.
 - Notes:
+  - 2026-06-05: R-09 (GL Performance Modernization) Tracks A+B landed and found no standalone cheap 4.x wins — the remaining cost is `glBufferSubData` stream sync, which only this card's persistent ring-buffer streaming addresses (jointly with R-09 Track D persistent-mapped-buffer research, `Work/reports/R-09_gl4x_research.md`). R-12 is therefore the likely next major perf step, gated on the NSight baseline the author still has to run for R-09 Track A.
+  - The `IRingBuffer` contract below targets the 2D/text painter path (`TVertexLayout`), which R-19's §15 COEXIST decision left untouched — no conflict with the new `TGpuLayout`-based `TGpuMesh` path.
   - Existing hint flag can remain as a compatibility bridge, but API clarity should improve by splitting intent at call site.
   - Candidate API direction:
     - keep `txt.write(...)` as transient/default path;
