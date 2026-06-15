@@ -85,7 +85,6 @@ type
  procedure Reset2DTransform;
 
  // Meshes
- function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
  procedure TransformVertices(vertices:PVertex;vCount:integer;shader:TVertexHandler); overload;
  procedure TransformVertices(vertices:PVertex3D;vCount:integer;shader:TVertex3DHandler); overload;
  procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
@@ -446,39 +445,6 @@ end;
  procedure Reset2DTransform;
   begin
    Set2DTransform(0,0,1,1);
-  end;
-
- function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
-  var
-   i,j,n,v:integer;
-   du,dv,dx,dy:single;
-   vert:TVertex;
-  begin
-   ASSERT(TVertex.layoutTex.stride=sizeof(vert));
-   result:=TMesh.Create(TVertex.layoutTex,(splitX+1)*(splitY+1),splitX*splitY*2*3);
-   // Fill vertices
-   du:=(img.u2-img.u1)/splitX;
-   dv:=(img.v2-img.v1)/splitY;
-   dx:=img.width/splitX;
-   dy:=img.height/splitY;
-   n:=0;
-   for i:=0 to splitY do
-    for j:=0 to splitX do
-     with vert do begin
-      x:=j*dx-0.5; y:=i*dy-0.5; z:=0;
-      color:=$FF808080;
-      u:=img.u1+du*j;
-      v:=img.v1+dv*i;
-      result.AddVertex(vert);
-     end;
-
-   // Fill indices
-   for i:=0 to splitY-1 do
-    for j:=0 to splitX-1 do begin
-     v:=i*(splitX+1)+j;
-     result.AddTrg(v,v+1,v+splitX+1);
-     result.AddTrg(v+splitX+1,v+1,v+splitX+2);
-    end;
   end;
 
  procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
