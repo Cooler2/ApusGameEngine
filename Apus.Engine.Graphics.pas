@@ -74,10 +74,12 @@ type
    viewMatrix:TMat4d; // current view (camera) matrix
    invViewMatrix:TMat4d; // inverted view matrix
    invVPMatrix:TMat4d; // inverted view-Projection matrix
-   objMatrix:TMat4d; // current object (model) matrix
+   objMatrix:TMat4d; // current effective object (model) matrix = relative*base
+   baseMatrix:TMat4d; // base (world) coordinate system; SetObj is relative to it
    projMatrix:TMat4d; // current projection matrix
    MVP:TMat4d; // combined matrix
    modified,modifiedVP:boolean;
+   objBaseIsIdentity:boolean; // base==identity fast path (SetObj stores matrix as-is, no multiply)
    zMin,zMax,xMax,xMin,yMax,yMin:single;
 
   constructor Create;
@@ -93,6 +95,8 @@ type
   procedure SetObj(mat:TMat4); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
   procedure ResetObj; virtual;
+  procedure SetBase(mat:TMat4d); virtual;
+  procedure ResetBase; virtual;
   function Update:boolean; // Calculate combined matrix (if needed), returns true if matrix was changed
   function GetMVPMatrix:TMat4d;
   function GetProjMatrix:TMat4d;
@@ -234,6 +238,8 @@ constructor TTransformationAPI.Create;
  begin
   viewMatrix:=identMat4d;
   objMatrix:=identMat4d;
+  baseMatrix:=identMat4d;
+  objBaseIsIdentity:=true;
   projMatrix:=identMat4d;
   modified:=true;
  end;
@@ -257,6 +263,8 @@ procedure TTransformationAPI.DefaultView;
   viewMatrix:=identMat4d;
   invViewMatrix:=identMat4d;
   objMatrix:=identMat4d;
+  baseMatrix:=identMat4d;
+  objBaseIsIdentity:=true;
 
   modified:=true;
   //Update;
@@ -456,18 +464,37 @@ procedure TTransformationAPI.SetProjection(proj:TMat4d);
 
 procedure TTransformationAPI.ResetObj;
  begin
-  SetObj(identMat4d);
+  objMatrix:=baseMatrix; // back to the base CS (identity if no base is set)
+  modified:=true;
  end;
 
 procedure TTransformationAPI.SetObj(mat:TMat4d);
  begin
-  objMatrix:=mat;
+  if objBaseIsIdentity then objMatrix:=mat
+   else objMatrix:=mat*baseMatrix; // row-vector: local first, then base
   modified:=true;
  end;
 
 procedure TTransformationAPI.SetObj(mat:TMat4);
  begin
-  objMatrix:=mat.ToMat4d;
+  if objBaseIsIdentity then objMatrix:=mat.ToMat4d
+   else objMatrix:=mat.ToMat4d*baseMatrix;
+  modified:=true;
+ end;
+
+procedure TTransformationAPI.SetBase(mat:TMat4d);
+ begin
+  baseMatrix:=mat;
+  objBaseIsIdentity:=false; // identity not auto-detected here; use ResetBase to leave
+  objMatrix:=mat; // enter the CS: relative part is reset, so objMatrix == base
+  modified:=true;
+ end;
+
+procedure TTransformationAPI.ResetBase;
+ begin
+  baseMatrix:=identMat4d;
+  objBaseIsIdentity:=true;
+  objMatrix:=identMat4d;
   modified:=true;
  end;
 

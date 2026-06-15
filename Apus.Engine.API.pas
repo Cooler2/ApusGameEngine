@@ -376,8 +376,15 @@ type
   procedure SetObj(mat:TMat4); overload;
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
-  // Reset object matrix to default
+  // Reset object matrix to the current base (identity if no base is set)
   procedure ResetObj;
+  // Set the base (world) coordinate system: all subsequent SetObj matrices are
+  // applied relative to it, so a whole group can be drawn "here" without multiplying
+  // the base into every object manually. Right after SetBase the object matrix equals
+  // the base itself (relative part is reset). Pass identity or call ResetBase to leave it.
+  procedure SetBase(mat:TMat4d);
+  // Leave the base coordinate system (back to world space, base = identity)
+  procedure ResetBase;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function MVPMatrix:TMat4d;
   function ProjMatrix:TMat4d;
