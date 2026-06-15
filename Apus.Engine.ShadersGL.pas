@@ -43,6 +43,7 @@ type
   uTexShadowMap:integer; // shadow texture sampler
   uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
   uLightDir,uLightColor,uAmbientColor:integer;
+  uMaterialColor:integer; // material tint (named "materialColor", mesh shaders only)
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
   matrixRevision:integer; // used to determine if matrix uniforms should be updated
@@ -130,6 +131,10 @@ type
    pointLightPos:TVec3;
    pointLightColor:TVec3; // light color multiplied by power
    pointLightModified:boolean;
+
+   // Current material tint (mesh shaders only)
+   materialColor:cardinal;
+   materialModified:boolean;
 
    activeShader:TGLShader; // current OpenGL shader
    isCustom:boolean;
@@ -333,6 +338,7 @@ constructor TGLShader.Create(h:TGLShaderHandle);
   uLightDir:=glGetUniformLocation(h,'lightDir');
   uLightColor:=glGetUniformLocation(h,'lightColor');
   uAmbientColor:=glGetUniformLocation(h,'ambientColor');
+  uMaterialColor:=glGetUniformLocation(h,'materialColor');
  end;
 
 destructor TGLShader.Destroy;
@@ -417,7 +423,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'}');
  end;
 
-function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texMode:TTexMode):String8;
+function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:boolean;texMode:TTexMode):String8;
  var
   i:integer;
   m,colorMode,alphaMode:byte;
@@ -457,6 +463,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    AddLine(result,'uniform vec3 lightDir;');
    AddLine(result,'uniform vec3 lightColor;');
   end;
+  AddLine(result,'uniform vec3 materialColor;',hasMaterial);
   if customized then
    AddLine(result,custUniforms);
   AddLine(result,'in vec3 vNormal;',hasNormal);
@@ -475,6 +482,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result,'  vec3 c = vColor.bgr;',hasColor);
   AddLine(result,'  float a = vColor.a;',hasColor);
   AddLine(result,'  vec3 c = vec3(1.0,1.0,1.0); float a = 1.0;',not hasColor);
+  AddLine(result,'  c = c*materialColor;',hasMaterial);
   AddLine(result,'  float shadow = texture(texShadowMap, vLightPos);',shadowMap);
   AddLine(result,'  vec4 t;');
   if lighting then begin
@@ -537,7 +545,7 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   notes:=notes+'shader for mode '+Conv.ToHex(curTexMode.mode)+' layout='+Conv.ToHex(actualVertexLayout);
   Log.Msg('Building: '+notes);
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
-  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
+  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,false,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
   // TNamedObject names are global; include GL handle to avoid cross-thread duplicates.
   result.name:=notes+' h'+Conv.ToHex(result.handle);
@@ -560,7 +568,7 @@ function TGLShadersAPI.CreateMeshShaderFor(layout:TGpuLayout):TGLShader;
   notes:='Mesh shader for mode '+Conv.ToHex(curTexMode.mode)+' '+layout.Describe;
   Log.Msg('Building: '+notes);
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting,true); // table locations
-  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
+  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,true,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
   result.name:=notes+' h'+Conv.ToHex(result.handle);
   UpdateShaderProgramLabel(result);
@@ -619,6 +627,7 @@ procedure TGLShadersAPI.EnsureThreadState;
   end;
   curTexChanged:=0;
   Bits.SetBit(curTexChanged,0); // invalidate primary texture binding
+  materialColor:=$FFFFFF; // neutral tint by default
   threadStateReady:=true;
  end;
 
@@ -673,7 +682,10 @@ procedure TGLShadersAPI.AmbientLight(color:cardinal);
 
 procedure TGLShadersAPI.Material(color:cardinal;shininess:single);
  begin
-  // TODO: implement material properties upload to shader
+  // shininess/specular: TODO
+  EnsureThreadState;
+  materialColor:=color;
+  materialModified:=true;
  end;
 
 procedure TGLShadersAPI.CustomizedUniform(name:string8;valueType:AnsiChar;const value);
@@ -1121,6 +1133,10 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
   if shaderChanged or ambientLightModified then begin
    activeShader.SetUniform(activeShader.uAmbientColor,TShader.VectorFromColor3(ambientLightColor));
    ambientLightModified:=false;
+  end;
+  if shaderChanged or materialModified then begin
+   activeShader.SetUniform(activeShader.uMaterialColor,TShader.VectorFromColor3(materialColor));
+   materialModified:=false;
   end;
  end;
 
