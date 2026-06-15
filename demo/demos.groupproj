@@ -6,12 +6,6 @@
         <Projects Include="SimpleDemo\SimpleDemo.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="StyleDemo\StyleDemo.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="01-Scenes\scenes.dproj">
-            <Dependencies/>
-        </Projects>
         <Projects Include="Simple3D\Simple3D.dproj">
             <Dependencies/>
         </Projects>
@@ -24,13 +18,10 @@
         <Projects Include="MultiWindow\MultiWindow.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="UI\UI.dproj">
+        <Projects Include="Draw2D\Draw2D.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="InputDemo\InputDemo.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="Draw2D\Draw2D.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="TextDemo\TextDemo.dproj">
@@ -55,15 +46,6 @@
     </Target>
     <Target Name="SimpleDemo:Make">
         <MSBuild Projects="SimpleDemo\SimpleDemo.dproj" Targets="Make"/>
-    </Target>
-    <Target Name="scenes">
-        <MSBuild Projects="01-Scenes\scenes.dproj"/>
-    </Target>
-    <Target Name="scenes:Clean">
-        <MSBuild Projects="01-Scenes\scenes.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="scenes:Make">
-        <MSBuild Projects="01-Scenes\scenes.dproj" Targets="Make"/>
     </Target>
     <Target Name="Simple3D">
         <MSBuild Projects="Simple3D\Simple3D.dproj"/>
@@ -101,14 +83,14 @@
     <Target Name="MultiWindow:Make">
         <MSBuild Projects="MultiWindow\MultiWindow.dproj" Targets="Make"/>
     </Target>
-    <Target Name="UI">
-        <MSBuild Projects="UI\UI.dproj"/>
+    <Target Name="Draw2D">
+        <MSBuild Projects="Draw2D\Draw2D.dproj"/>
     </Target>
-    <Target Name="UI:Clean">
-        <MSBuild Projects="UI\UI.dproj" Targets="Clean"/>
+    <Target Name="Draw2D:Clean">
+        <MSBuild Projects="Draw2D\Draw2D.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="UI:Make">
-        <MSBuild Projects="UI\UI.dproj" Targets="Make"/>
+    <Target Name="Draw2D:Make">
+        <MSBuild Projects="Draw2D\Draw2D.dproj" Targets="Make"/>
     </Target>
     <Target Name="InputDemo">
         <MSBuild Projects="InputDemo\InputDemo.dproj"/>
@@ -118,15 +100,6 @@
     </Target>
     <Target Name="InputDemo:Make">
         <MSBuild Projects="InputDemo\InputDemo.dproj" Targets="Make"/>
-    </Target>
-    <Target Name="Draw2D">
-        <MSBuild Projects="Draw2D\Draw2D.dproj"/>
-    </Target>
-    <Target Name="Draw2D:Clean">
-        <MSBuild Projects="Draw2D\Draw2D.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="Draw2D:Make">
-        <MSBuild Projects="Draw2D\Draw2D.dproj" Targets="Make"/>
     </Target>
     <Target Name="TextDemo">
         <MSBuild Projects="TextDemo\TextDemo.dproj"/>
@@ -147,13 +120,13 @@
         <MSBuild Projects="MeshLab\MeshLab.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;scenes;Simple3D;NormalMap;VertexBuffer;MultiWindow;UIScaleDPI;Draw2D;InputDemo;TextDemo;MeshLab"/>
+        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
