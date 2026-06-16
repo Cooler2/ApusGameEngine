@@ -10,7 +10,8 @@
 //
 // Face polygons are triangulated as a fan; identical v/vt/vn corners are shared
 // (vertex dedup). The engine OBJ convention is preserved: position/normal are
-// remapped to (-X,-Z,Y) and texture V is flipped (U, 1-V).
+// remapped to (-X,-Z,Y), face winding is reversed to compensate for that
+// handedness flip, and texture V is flipped (U, 1-V).
 //
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -46,7 +47,7 @@ function ParseMeshOBJ(const data:String8;const name:String8=''):TMesh;
   pendingName,line:String8;
   secStart:integer;
   secOpen:boolean;
-  i,j,c0:integer;
+  i,j,c0,c1,c2:integer;
 
   procedure Compact(var a:Strings8); // drop empty tokens (collapse runs of spaces)
    var k,w:integer;
@@ -151,9 +152,11 @@ function ParseMeshOBJ(const data:String8;const name:String8=''):TMesh;
     EnsureSection;
     c0:=CornerIdx(tok[1]);
     for j:=2 to high(tok)-1 do begin // triangulate as a fan
+     c1:=CornerIdx(tok[j]);
+     c2:=CornerIdx(tok[j+1]);
      PushIndex(c0);
-     PushIndex(CornerIdx(tok[j]));
-     PushIndex(CornerIdx(tok[j+1]));
+     PushIndex(c2);
+     PushIndex(c1);
     end;
    end else
    if (tok[0]='usemtl') or (tok[0]='g') or (tok[0]='o') then begin

@@ -63,6 +63,20 @@ begin
     (m.normals[0].x=0) and (m.normals[0].y=-1) and (m.normals[0].z=0);
 end;
 
+function QuadWinding(m:TMesh):boolean;
+var
+  a,b,c,n:TVec3;
+begin
+  // (-X,-Z,Y) flips handedness, so the loader must reverse face winding.
+  result:=(m.indices[0]=0) and (m.indices[1]=2) and (m.indices[2]=1);
+  if not result then exit;
+  a:=m.positions[m.indices[0]];
+  b:=m.positions[m.indices[1]];
+  c:=m.positions[m.indices[2]];
+  n:=(b-a).Cross(c-a);
+  result:=n.Dot(m.normals[m.indices[0]])>0;
+end;
+
 procedure TestQuad;
 var
   m:TMesh;
@@ -72,6 +86,7 @@ begin
   Check(QuadCounts(m),'counts: 4 verts / 6 idx / 2 sections, attrs present');
   Check(QuadSections(m),'sections per usemtl with correct ranges');
   Check(QuadConvention(m),'coordinate/uv/normal convention');
+  Check(QuadWinding(m),'winding matches remapped normals');
   m.Free;
   EndTest;
 end;
