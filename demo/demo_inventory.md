@@ -39,7 +39,7 @@ Relevance categories:
 | `AdvTex` | Advanced texturing: texture array, manual mip levels, direct texture access, shader path. | `engine4` |
 | `Billboards` | 3D billboards, camera/zoom behavior, sprite rendering in 3D space. | `engine4` |
 | `CharAnimation` | Loading/rendering animated character (`IQM`), basic 3D character pipeline. | `engine4` |
-| `ShadowMap` | 3D scene with shadow map pass and custom shader files. | `engine4` |
+| `ShadowMap` | 3D scene with shadow map pass, custom shader files, and OBJ geometry loaded through the engine5 `TGpuMesh` path. | `engine5` |
 
 ## 4. Platform and Subsystem Demos (specialized)
 

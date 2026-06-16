@@ -12,6 +12,9 @@
         <Projects Include="NormalMap\NormalMap.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="ShadowMap\ShadowMap.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="VertexBuffer\VertexBuffer.dproj">
             <Dependencies/>
         </Projects>
@@ -64,6 +67,15 @@
     </Target>
     <Target Name="NormalMap:Make">
         <MSBuild Projects="NormalMap\NormalMap.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="ShadowMap">
+        <MSBuild Projects="ShadowMap\ShadowMap.dproj"/>
+    </Target>
+    <Target Name="ShadowMap:Clean">
+        <MSBuild Projects="ShadowMap\ShadowMap.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ShadowMap:Make">
+        <MSBuild Projects="ShadowMap\ShadowMap.dproj" Targets="Make"/>
     </Target>
     <Target Name="VertexBuffer">
         <MSBuild Projects="VertexBuffer\VertexBuffer.dproj"/>
@@ -120,13 +132,13 @@
         <MSBuild Projects="MeshLab\MeshLab.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab"/>
+        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;ShadowMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;ShadowMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;ShadowMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

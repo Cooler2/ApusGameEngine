@@ -19,22 +19,22 @@ interface
   baseDir:string;
 
 implementation
- uses Apus.Common,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,
-   dglOpenGL;
+ uses SysUtils,Apus.Core,Apus.Geom3D,Apus.AnimatedValues,
+   Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,
+   Apus.Engine.Mesh3D,Apus.Engine.GpuMesh,Apus.Engine.OBJMesh;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
    cameraAngleX,cameraAngleY:single;
    cameraZoom:TAnimatedValue;
-   objHoney:TMesh;
+   objHoney:TGpuMesh;
    time:single;
    shadowMap:TTexture;
-   lightDir:TVector3;
-   lightMatrix:TMat4d;
+   lightDir:TVec3;
    constructor Create;
-   procedure Initialize; override;
+   destructor Destroy; override;
+   procedure InitGfx; override;
    procedure Render; override;
    procedure onMouseMove(x,y:integer); override;
    procedure onMouseWheel(delta:integer); override;
@@ -77,12 +77,23 @@ constructor TMainScene.Create;
   inherited Create;
   cameraZoom.Init(1);
   cameraAngleY:=0.5;
-  // Load resources
-  objHoney:=LoadMesh(baseDir+'res\honey.obj');
  end;
 
-procedure TMainScene.Initialize;
+destructor TMainScene.Destroy;
  begin
+  objHoney.Free;
+  shadowMap.Free;
+  inherited;
+ end;
+
+procedure TMainScene.InitGfx;
+ var
+  mesh:Apus.Engine.Mesh3D.TMesh;
+ begin
+  inherited;
+  mesh:=LoadMeshOBJ(baseDir+'res\honey.obj');
+  objHoney:=TGpuMesh.Create(mesh);
+  objHoney.Upload([muDiscardCPUCopy]);
   // No pixel format for the image buffer means that only depth buffer should be allocated
   shadowMap:=gfx.resman.AllocImage(1024,1024,TImagePixelFormat.ipfDepth32f,
    aiRenderTarget+aiDepthBuffer+aiClampUV,'ShadowMap');
@@ -111,8 +122,6 @@ procedure TMainScene.onMouseWheel(delta: integer);
  end;
 
 procedure TMainScene.DrawScene(mainPass: boolean);
- var
-  i:integer;
  begin
   gfx.target.UseDepthBuffer(dbPass);
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
@@ -141,6 +150,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
   // Draw objects
   transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position, scale and rotation
+  shader.TexMode(0,tblDisable,tblDisable);
   objHoney.Draw;
   // Benchmark
 {  for i:=1 to 100 do begin
@@ -154,14 +164,13 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
 procedure TMainScene.Render;
  var
-  distance,zBias:single;
-  frustum,tmp:TMat4d;
+  distance:single;
  begin
   // setup
-  time:=MyTickCount/1000;
+  time:=CoreTime.Ticks/1000;
   // This allows to adjust the light direction at runtime via the Tweaker
   SetGlobals('GF0=1;GF1=0.5;GF2=1','LightDir');
-  lightDir:=Vector3(gF0, gF1, gF2);
+  lightDir:=Vec3(gF0, gF1, gF2);
 
   gfx.SetCullMode(cullCW); // this is a trick! Draw back faces only into the shadowmap (cullNone will work too, but not cullCCW)
   // 1-st pass: build shadowmap
@@ -169,7 +178,7 @@ procedure TMainScene.Render;
   gfx.target.Clear(0,1);
   shader.Shadow(shadowDepthPass);
   // Set ortho view from the light source
-  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+  transform.SetCamera(lightDir*single(20.0), Vec3(0,0,0), Vec3(0,0,1000));
   // Scale 25 should be enough to cover all scene even at minimal zoom level.
   // If scene is too large, this method won't work: you need either
   // cascaded shadow maps or (better) compressed (non-linear) shadow maps
@@ -188,16 +197,16 @@ procedure TMainScene.Render;
   distance:=30/cameraZoom.value;
   transform.Perspective(1/cameraZoom.Value,1,1000);
   transform.SetCamera(
-    Point3(distance*cos(cameraAngleX)*cos(cameraAngleY),
+    Vec3(distance*cos(cameraAngleX)*cos(cameraAngleY),
            distance*sin(cameraAngleX)*cos(cameraAngleY),
            distance*sin(cameraAngleY)),
-    Point3(0,0,3),Point3(0,0,1000));
+    Vec3(0,0,3),Vec3(0,0,1000));
 
 { // Uncomment to view from the light position
-  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+  transform.SetCamera(lightDir*single(20.0), Vec3(0,0,0), Vec3(0,0,1000));
   transform.Orthographic(25, 1,100); // Z range: 0..100}
 
-  //transform.Transform(Point3(0,0,0));
+  //transform.Transform(Vec3(0,0,0));
 
   DrawScene(true);
 
