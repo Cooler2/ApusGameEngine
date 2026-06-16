@@ -21,7 +21,7 @@ interface
 implementation
  uses SysUtils,Apus.Core,Apus.Geom3D,Apus.AnimatedValues,
    Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,
-   Apus.Engine.Mesh,Apus.Engine.GpuMesh,Apus.Engine.OBJMesh;
+   Apus.Engine.Mesh,Apus.Engine.GpuMesh,Apus.Engine.OBJLoader;
 
  type
   // This will be our single scene

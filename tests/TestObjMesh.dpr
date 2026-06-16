@@ -9,7 +9,7 @@ uses
   Apus.Geom2D,
   Apus.Geom3D,
   Apus.Engine.Mesh,
-  Apus.Engine.OBJMesh;
+  Apus.Engine.OBJLoader;
 
 {$I ..\Base\tests\Test.inc}
 

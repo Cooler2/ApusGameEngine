@@ -1,4 +1,4 @@
-// Wavefront OBJ -> SoA TMesh geometry loader (R-19, geometry level).
+﻿// Wavefront OBJ -> SoA TMesh geometry loader (R-19, geometry level).
 //
 // Loads GEOMETRY ONLY into a new Apus.Engine.Mesh.TMesh: positions, normals
 // (if the file has any 'vn'), uv0 (if any 'vt'), and one geometric section per
@@ -16,7 +16,7 @@
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
-unit Apus.Engine.OBJMesh;
+unit Apus.Engine.OBJLoader;
 interface
 uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh;
 
