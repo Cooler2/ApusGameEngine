@@ -330,6 +330,8 @@ constructor TGLShader.Create(h:TGLShaderHandle);
   uModelMat:=glGetUniformLocation(h,'ModelMatrix');
   uNormalMat:=glGetUniformLocation(h,'NormalMatrix');
   uShadowMapMat:=glGetUniformLocation(h,'ShadowMapMatrix');
+  for i:=0 to high(uTex) do
+   uTex[i]:=-1;
   for i:=0 to 7 do begin
    st:='tex'+inttostr(i);
    uTex[i]:=glGetUniformLocation(h,PAnsiChar(st));
