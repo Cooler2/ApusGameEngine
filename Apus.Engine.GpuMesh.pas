@@ -1,6 +1,6 @@
 // GPU mesh resource — retained upload of a CPU TMesh (R-19, stage B4).
 //
-// TGpuMesh takes a CPU SoA mesh (Apus.Engine.Mesh3D.TMesh), gathers its per-attribute
+// TGpuMesh takes a CPU SoA mesh (Apus.Engine.Mesh.TMesh), gathers its per-attribute
 // arrays into one interleaved vertex stream according to a TGpuLayout, encodes the
 // formats and uploads them into a GPU vertex buffer. The index buffer width
 // (uint16/uint32) is chosen here from the mesh's max index. Drawing goes through the
@@ -18,9 +18,7 @@ unit Apus.Engine.GpuMesh;
 interface
 uses Apus.Core, Apus.Classes, Apus.Geom2D, Apus.Geom3D,
   Apus.Engine.GpuLayout, Apus.Engine.API, Apus.Engine.Graphics,
-  // listed last so the unqualified TMesh resolves to the new SoA mesh, not the
-  // legacy Apus.Engine.Mesh.TMesh that Apus.Engine.API re-exports (until C2 rename)
-  Apus.Engine.Mesh3D;
+  Apus.Engine.Mesh;
 
 type
  // Upload behaviour flags.

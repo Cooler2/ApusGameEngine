@@ -21,7 +21,7 @@ interface
 implementation
  uses SysUtils,Apus.Core,Apus.Geom3D,Apus.AnimatedValues,
    Apus.Engine.UI,Apus.Engine.UIScene,
-   Apus.Engine.Mesh3D,Apus.Engine.GpuMesh,Apus.Engine.MeshShapes,Apus.Engine.OBJMesh;
+   Apus.Engine.Mesh,Apus.Engine.GpuMesh,Apus.Engine.MeshShapes,Apus.Engine.OBJMesh;
 
  type
   // This will be our single scene
@@ -90,7 +90,7 @@ destructor TMainScene.Destroy;
 
 procedure TMainScene.InitGfx;
  var
-  mesh,part:Apus.Engine.Mesh3D.TMesh;
+  mesh,part:Apus.Engine.Mesh.TMesh;
  begin
   inherited;
   // R-20 procedural generators build the new SoA mesh; TGpuMesh owns the

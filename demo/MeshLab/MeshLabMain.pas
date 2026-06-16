@@ -34,9 +34,7 @@ uses
   Apus.EventMan, Apus.Engine.Keys,
   Apus.Engine.Resources, // TTexFilter
   Apus.Engine.UI, Apus.Engine.UIScene,
-  // listed after API so the unqualified TMesh resolves to the new SoA mesh, not
-  // the legacy Apus.Engine.Mesh.TMesh that Apus.Engine.API re-exports (until C2)
-  Apus.Engine.Mesh3D, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes;
+  Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes;
 
 const
   GRID_COLS=4;

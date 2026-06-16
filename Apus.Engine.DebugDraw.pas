@@ -42,7 +42,7 @@ type
   end;
 
 implementation
-uses Apus.Core, Math, Apus.Engine.API, Apus.Engine.Mesh3D, Apus.Engine.MeshShapes, Apus.Engine.GpuMesh;
+uses Apus.Core, Math, Apus.Engine.API, Apus.Engine.Mesh, Apus.Engine.MeshShapes, Apus.Engine.GpuMesh;
 
 const
   CYL_SEGMENTS=16; // default radial tessellation for the cached unit cylinder/cone

@@ -1,7 +1,7 @@
 // Procedural primitive mesh generators (R-20).
 //
 // Each generator is a pure fresh producer: it returns a new TMesh through the
-// public fill-API (Apus.Engine.Mesh3D) with a sensible default attribute set.
+// public fill-API (Apus.Engine.Mesh) with a sensible default attribute set.
 // Generators do NOT take a target/transform - composition and merging is done
 // via TMesh.Append. See Work/reports/R-20_meshshapes_design.md for the design.
 //
@@ -18,7 +18,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.MeshShapes;
 interface
-uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh3D;
+uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh;
 
 {$SCOPEDENUMS ON}
 type

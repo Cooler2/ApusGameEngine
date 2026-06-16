@@ -1,322 +1,368 @@
-﻿// Basic Mesh object: static single part (material) triangle-list mesh.
+// CPU triangle mesh — SoA container (R-19).
 //
-// Copyright (C) 2022 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// TMesh stores geometry as per-attribute typed arrays (Structure-of-Arrays):
+// positions/normals/colors/uv0/uv1/tangents/joints/weights, plus int32 indices
+// and geometric sections (index ranges, no material). An empty attribute array
+// means the attribute is absent. Interleaving into GPU buffers is a concern of
+// the upload step (TGpuMesh, stage B4), NOT of this container.
+//
+// TMesh is a triangle mesh only — there is no primitive-type field. Wireframe is
+// a polygon-mode render-state over the same triangles; dynamic lines/points go
+// through the R-18 drawer batch. Indices are optional (empty => glDrawArrays,
+// non-empty => glDrawElements over GL_TRIANGLES).
+//
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Mesh;
 interface
-uses Apus.Core, Apus.VertexLayout, Apus.Engine.Types, Apus.Engine.Resources;
+uses Apus.Core, Apus.Classes, Apus.Geom2D, Apus.Geom3D;
+
+{$SCOPEDENUMS ON}
+type
+ // Optional standard attributes a mesh may carry (position is always present).
+ // Used by SetVertexCount to size the active attribute arrays for direct fill.
+ TMeshAttribute=(Normal,Color,UV0,UV1,Tangent,Joints,Weights);
+ TMeshAttributes=set of TMeshAttribute;
+{$SCOPEDENUMS OFF}
 
 type
- // Simple mesh
- TMesh=class
-  layout:TVertexLayout;
-  vertices:pointer;
-  indices:WordArray; // optional, can be empty
-  vCount:integer; // number of vertices allocated
-  constructor Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
-  procedure SetVertices(data:pointer;sizeInBytes:integer);
-  function AddVertex(var vertexData):integer; overload;
-  function AddVertex(pos:TVec3;norm:TVec3;uv:TVec2;color:cardinal):integer; overload;
-  function AddVertex(pos:TVec3;norm:TVec3;tangent:TVec3;uv:TVec2;color:cardinal):integer; overload;
-  // Write/read extra attributes of an already added vertex (no-op if absent in layout)
-  procedure SetTangent(vert:integer;tangent:TVec3);
-  procedure SetExtra(vert:integer;extra:TVec4);
-  function GetTangent(vert:integer):TVec3;
-  function GetExtra(vert:integer):TVec4;
-  procedure AddTrg(v0,v1,v2:integer);
-  procedure AddTriangle(p1,p2,p3:TVec3;color:cardinal=$FF808080);
-  procedure AddMesh(mesh:TMesh);
-  procedure AddCube(center:TVec3;size:TVec3;color:cardinal=$FF808080);
-  procedure AddCylinder(p0,p1:TVec3;r0,r1:single;segments:integer;color:cardinal=$FF808080;addCaps:boolean=false);
-  procedure Finish; // finalize write and fix current number of written vertices/indices
-  procedure Draw(tex:TTexture=nil); // draw whole mesh
-  destructor Destroy; override;
-  function DumpVertex(n:cardinal):String8;
-  function vPos:integer;
-  procedure UseBuffers; // Create vertex index buffers and upload mesh data for faster rendering
+ // 4 bone indices per vertex (CPU storage; encoded to UByte4 on upload).
+ TJoints4=array[0..3] of word;
+ // 4 bone weights per vertex (CPU storage; normalized + encoded on upload).
+ TWeights4=array[0..3] of single;
+
+ // A geometric section: a named range of indices. Carries NO material — the
+ // material is assigned in the model/instance layer, indexed by section.
+ TMeshSection=record
+  name:String8;
+  firstIndex:integer;
+  indexCount:integer;
+ end;
+
+ TMesh=class(TNamedObject)
+  // standard attributes (empty array = attribute absent)
+  positions:TVec3Array;
+  normals:TVec3Array;
+  colors:array of cardinal;     // full-precision color storage
+  uv0,uv1:TVec2Array;
+  tangents:TVec4Array;          // xyz along +U, w = handedness sign
+  joints:array of TJoints4;     // 4 bone indices
+  weights:array of TWeights4;   // 4 weights (normalized on upload)
+  // topology
+  indices:IntArray;             // always 32-bit on CPU; optional
+  sections:array of TMeshSection;
+  // spatial
+  bounds:TBox3;
+  boundsDirty:boolean;
+
+  constructor Create(const aName:String8='');
+
+  function VertexCount:integer; // = length(positions)
+  function IndexCount:integer;  // = length(indices)
+  function TriangleCount:integer;
+  function MaxIndex:integer;    // O(n) scan, cached after Finish
+
+  // --- build API (cursors are cheap; no separate heap builder) ---
+  // Preallocate and size the standard attribute arrays for direct, index-based
+  // fill (generators/loaders that know the vertex count upfront): positions plus
+  // each requested attribute are set to n, every other attribute array is cleared.
+  // Fill the public arrays by index, set indices, then call Finish. This keeps the
+  // length(array)==count invariant — there is no hidden capacity model. Marks
+  // bounds dirty. (For incremental/irregular build use AddVertex instead.)
+  procedure SetVertexCount(n:integer;attrs:TMeshAttributes=[]);
+  // position+normal+color, no texture coords (flat-shaded colored geometry)
+  function AddVertex(const p,n:TVec3;color:cardinal):integer; overload;
+  function AddVertex(const p,n:TVec3;const uv:TVec2;color:cardinal):integer; overload;
+  function AddVertex(const p,n:TVec3;const tangent:TVec4;
+    const uv:TVec2;color:cardinal):integer; overload;
+  procedure AddTriangle(v0,v1,v2:integer);
+  procedure BeginSection(const aName:String8);
+  procedure EndSection;
+  procedure AddSection(const aName:String8;firstIndex,indexCount:integer);
+
+  // Append src into self under transform m: positions <- m*pos, normals/tangents
+  // rotated by the linear part of m (re-normalized, xyz only), indices offset by
+  // the current vertex count. Attributes present in self but absent in src are
+  // left at their default value; attributes present in src but absent in self
+  // are dropped (R-19 stage-A guarded semantics). Adds and returns a new
+  // (unnamed) section covering the appended index range. Marks bounds dirty.
+  function Append(const src:TMesh;const m:TMat4):TMeshSection;
+
+  // Validate, compute MaxIndex/bounds, mark bounds clean. Call once after build.
+  procedure Finish;
+  procedure RecalculateBounds; // also clears boundsDirty
+
  private
-  vIdx:integer; // vertex to write
-  idx:integer; // index write pointer
-  // These buffer objects can be used instead of "vertices"/"indices"
-  vb:TVertexBuffer;
-  ib:TIndexBuffer;
-  function AssertVertices(num:integer=1):integer; // returns index of the next available vertex
+  fMaxIndex:integer;
+  fMaxIndexValid:boolean;
+  openSection:integer; // index in sections[] of the section being built, or -1
  end;
 
 implementation
-uses Apus.Engine.API, Apus.Geom3D;
 
 { TMesh }
 
-constructor TMesh.Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
+constructor TMesh.Create(const aName:String8='');
  begin
-  layout:=vertexLayout;
-  vCount:=vertCount;
-  if vCount>0 then GetMem(vertices,vCount*layout.stride);
-  SetLength(indices,indCount);
-  vIdx:=0;
-  idx:=0;
+  inherited Create;
+  if aName<>'' then name:=aName;
+  boundsDirty:=true;
+  bounds.Reset;
+  fMaxIndex:=-1;
+  fMaxIndexValid:=false;
+  openSection:=-1;
  end;
 
-destructor TMesh.Destroy;
+function TMesh.VertexCount:integer;
  begin
-  FreeMem(vertices);
-  inherited;
+  result:=length(positions);
  end;
 
-procedure TMesh.AddTrg(v0,v1,v2:integer);
+function TMesh.IndexCount:integer;
  begin
-  if idx+3>length(indices) then SetLength(indices,idx+3);
-  indices[idx]:=v0; inc(idx);
-  indices[idx]:=v1; inc(idx);
-  indices[idx]:=v2; inc(idx);
+  result:=length(indices);
  end;
 
-function TMesh.AssertVertices(num:integer):integer;
+function TMesh.TriangleCount:integer;
  begin
-  result:=vIdx;
-  if vIdx+num>vCount then begin
-   vCount:=(vIdx+num)+16+vIdx div 4;
-   ReallocMem(vertices,vCount*layout.stride);
+  if length(indices)>0 then result:=length(indices) div 3
+   else result:=length(positions) div 3;
+ end;
+
+function TMesh.MaxIndex:integer;
+ var
+  i:integer;
+ begin
+  if fMaxIndexValid then exit(fMaxIndex);
+  result:=-1;
+  for i:=0 to high(indices) do
+   if indices[i]>result then result:=indices[i];
+  fMaxIndex:=result;
+  fMaxIndexValid:=true;
+ end;
+
+procedure TMesh.SetVertexCount(n:integer;attrs:TMeshAttributes=[]);
+ begin
+  SetLength(positions,n);
+  if TMeshAttribute.Normal  in attrs then SetLength(normals,n)  else SetLength(normals,0);
+  if TMeshAttribute.Color   in attrs then SetLength(colors,n)   else SetLength(colors,0);
+  if TMeshAttribute.UV0     in attrs then SetLength(uv0,n)      else SetLength(uv0,0);
+  if TMeshAttribute.UV1     in attrs then SetLength(uv1,n)      else SetLength(uv1,0);
+  if TMeshAttribute.Tangent in attrs then SetLength(tangents,n) else SetLength(tangents,0);
+  if TMeshAttribute.Joints  in attrs then SetLength(joints,n)   else SetLength(joints,0);
+  if TMeshAttribute.Weights in attrs then SetLength(weights,n)  else SetLength(weights,0);
+  boundsDirty:=true;
+  fMaxIndexValid:=false;
+ end;
+
+function TMesh.AddVertex(const p,n:TVec3;color:cardinal):integer;
+ var
+  v:integer;
+ begin
+  v:=length(positions);
+  SetLength(positions,v+1); positions[v]:=p;
+  SetLength(normals,v+1);   normals[v]:=n;
+  SetLength(colors,v+1);    colors[v]:=color;
+  boundsDirty:=true;
+  result:=v;
+ end;
+
+function TMesh.AddVertex(const p,n:TVec3;const uv:TVec2;color:cardinal):integer;
+ var
+  v:integer;
+ begin
+  v:=length(positions);
+  SetLength(positions,v+1); positions[v]:=p;
+  SetLength(normals,v+1);   normals[v]:=n;
+  SetLength(uv0,v+1);       uv0[v]:=uv;
+  SetLength(colors,v+1);    colors[v]:=color;
+  boundsDirty:=true;
+  result:=v;
+ end;
+
+function TMesh.AddVertex(const p,n:TVec3;const tangent:TVec4;
+   const uv:TVec2;color:cardinal):integer;
+ var
+  v:integer;
+ begin
+  v:=AddVertex(p,n,uv,color);
+  SetLength(tangents,v+1);
+  tangents[v]:=tangent;
+  result:=v;
+ end;
+
+procedure TMesh.AddTriangle(v0,v1,v2:integer);
+ var
+  i:integer;
+ begin
+  i:=length(indices);
+  SetLength(indices,i+3);
+  indices[i]:=v0;
+  indices[i+1]:=v1;
+  indices[i+2]:=v2;
+  fMaxIndexValid:=false;
+ end;
+
+procedure TMesh.BeginSection(const aName:String8);
+ var
+  n:integer;
+ begin
+  ASSERT(openSection<0,'Section already open');
+  n:=length(sections);
+  SetLength(sections,n+1);
+  sections[n].name:=aName;
+  sections[n].firstIndex:=length(indices);
+  sections[n].indexCount:=0;
+  openSection:=n;
+ end;
+
+procedure TMesh.EndSection;
+ begin
+  ASSERT(openSection>=0,'No open section');
+  sections[openSection].indexCount:=length(indices)-sections[openSection].firstIndex;
+  openSection:=-1;
+ end;
+
+procedure TMesh.AddSection(const aName:String8;firstIndex,indexCount:integer);
+ var
+  n:integer;
+ begin
+  n:=length(sections);
+  SetLength(sections,n+1);
+  sections[n].name:=aName;
+  sections[n].firstIndex:=firstIndex;
+  sections[n].indexCount:=indexCount;
+ end;
+
+function TMesh.Append(const src:TMesh;const m:TMat4):TMeshSection;
+ var
+  baseVertex,baseIndex,n,i,s:integer;
+  rot:TMat3;
+  v:TVec3;
+  t:TVec4;
+ begin
+  baseVertex:=VertexCount;
+  baseIndex:=IndexCount;
+  n:=src.VertexCount;
+  rot:=TMat3.Init(m);
+
+  SetLength(positions,baseVertex+n);
+  for i:=0 to n-1 do positions[baseVertex+i]:=m.TransformPoint(src.positions[i]);
+
+  if length(normals)>0 then begin
+   SetLength(normals,baseVertex+n);
+   if length(src.normals)>0 then
+    for i:=0 to n-1 do begin
+     v:=src.normals[i];
+     rot.TransformPoints(@v,1,0);
+     v.Normalize;
+     normals[baseVertex+i]:=v;
+    end;
   end;
+
+  if length(colors)>0 then begin
+   SetLength(colors,baseVertex+n);
+   if length(src.colors)>0 then
+    for i:=0 to n-1 do colors[baseVertex+i]:=src.colors[i];
+  end;
+
+  if length(uv0)>0 then begin
+   SetLength(uv0,baseVertex+n);
+   if length(src.uv0)>0 then
+    for i:=0 to n-1 do uv0[baseVertex+i]:=src.uv0[i];
+  end;
+
+  if length(uv1)>0 then begin
+   SetLength(uv1,baseVertex+n);
+   if length(src.uv1)>0 then
+    for i:=0 to n-1 do uv1[baseVertex+i]:=src.uv1[i];
+  end;
+
+  if length(tangents)>0 then begin
+   SetLength(tangents,baseVertex+n);
+   if length(src.tangents)>0 then
+    for i:=0 to n-1 do begin
+     t:=src.tangents[i];
+     v:=t.xyz;
+     rot.TransformPoints(@v,1,0);
+     v.Normalize;
+     tangents[baseVertex+i]:=Vec4(v,t.w);
+    end;
+  end;
+
+  if length(joints)>0 then begin
+   SetLength(joints,baseVertex+n);
+   if length(src.joints)>0 then
+    for i:=0 to n-1 do joints[baseVertex+i]:=src.joints[i];
+  end;
+
+  if length(weights)>0 then begin
+   SetLength(weights,baseVertex+n);
+   if length(src.weights)>0 then
+    for i:=0 to n-1 do weights[baseVertex+i]:=src.weights[i];
+  end;
+
+  if length(src.indices)>0 then begin
+   SetLength(indices,baseIndex+length(src.indices));
+   for i:=0 to high(src.indices) do indices[baseIndex+i]:=src.indices[i]+baseVertex;
+  end;
+
+  result.name:='';
+  result.firstIndex:=baseIndex;
+  result.indexCount:=length(src.indices);
+  s:=length(sections);
+  SetLength(sections,s+1);
+  sections[s]:=result;
+
+  boundsDirty:=true;
+  fMaxIndexValid:=false;
  end;
 
-function TMesh.AddVertex(pos:TVec3;norm:TVec3;uv:TVec2;color:cardinal):integer;
+procedure TMesh.RecalculateBounds;
  var
-  vData:PByte;
+  i:integer;
  begin
-  vData:=vertices; inc(vData,vIdx*layout.stride);
-  result:=AssertVertices;
-  layout.SetPos(vData^,pos);
-  layout.SetNormal(vData^,norm);
-  layout.SetUV(vData^,uv);
-  layout.SetColor(vData^,color);
-  inc(vIdx);
- end;
-
-function TMesh.AddVertex(pos:TVec3;norm:TVec3;tangent:TVec3;uv:TVec2;color:cardinal):integer;
- var
-  vData:PByte;
- begin
-  result:=AssertVertices;
-  vData:=vertices; inc(vData,vIdx*layout.stride);
-  layout.SetPos(vData^,pos);
-  layout.SetNormal(vData^,norm);
-  layout.SetTangent(vData^,tangent);
-  layout.SetUV(vData^,uv);
-  layout.SetColor(vData^,color);
-  inc(vIdx);
- end;
-
-function TMesh.AddVertex(var vertexData):integer;
- var
-  vData:PByte;
- begin
-  result:=AssertVertices;
-  vData:=vertices; inc(vData,vIdx*layout.stride);
-  move(vertexData,vData^,layout.stride);
-  inc(vIdx);
- end;
-
-procedure TMesh.SetTangent(vert:integer;tangent:TVec3);
- var
-  vData:PByte;
- begin
-  ASSERT(cardinal(vert)<cardinal(vCount));
-  vData:=vertices; inc(vData,vert*layout.stride);
-  layout.SetTangent(vData^,tangent);
- end;
-
-procedure TMesh.SetExtra(vert:integer;extra:TVec4);
- var
-  vData:PByte;
- begin
-  ASSERT(cardinal(vert)<cardinal(vCount));
-  vData:=vertices; inc(vData,vert*layout.stride);
-  layout.SetExtra(vData^,extra);
- end;
-
-function TMesh.GetTangent(vert:integer):TVec3;
- var
-  vData:PByte;
- begin
-  ASSERT(cardinal(vert)<cardinal(vCount));
-  vData:=vertices; inc(vData,vert*layout.stride);
-  result:=layout.GetTangent(vData^);
- end;
-
-function TMesh.GetExtra(vert:integer):TVec4;
- var
-  vData:PByte;
- begin
-  ASSERT(cardinal(vert)<cardinal(vCount));
-  vData:=vertices; inc(vData,vert*layout.stride);
-  result:=layout.GetExtra(vData^);
- end;
-
-function TMesh.DumpVertex(n:cardinal):String8;
- var
-  pb:PByte;
- begin
-  ASSERT(n<vCount);
-  pb:=vertices;
-  inc(pb,n*layout.stride);
-  result:=layout.DumpVertex(pb^);
+  bounds.Reset;
+  for i:=0 to high(positions) do bounds.Include(positions[i]);
+  boundsDirty:=false;
  end;
 
 procedure TMesh.Finish;
- begin
-  vCount:=vIdx;
-  ReallocMem(vertices,vCount*layout.stride);
-  SetLength(indices,idx);
- end;
-
-procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
- begin
-  if (vb<>nil) then begin // buffers are used
-   Apus.Engine.API.draw.IndexedMesh(vb,ib,tex);
-   exit;
-  end;
-  if length(indices)>0 then
-   Apus.Engine.API.draw.IndexedMesh(vertices,layout,@indices[0],
-     length(indices) div 3,vCount,tex)
-  else
-   Apus.Engine.API.draw.TrgList(vertices,layout,vCount div 3,tex)
- end;
-
-procedure TMesh.SetVertices(data:pointer;sizeInBytes:integer);
- begin
-  FreeMem(vertices);
-  vertices:=data;
-  vCount:=sizeInBytes div layout.stride;
-  vIdx:=0;
- end;
-
-procedure TMesh.UseBuffers;
- begin
- ASSERT((vb=nil) and (ib=nil),'Already buffered');
- vb:=gfx.resMan.AllocVertexBuffer(layout,vCount);
- vb.debugName:='meshVB';
- vb.Upload(0,vCount,vertices);
- FreeMem(vertices);
- ib:=gfx.resMan.AllocIndexBuffer(length(indices));
- ib.debugName:='meshIB';
- ib.Upload(0,length(indices),@indices[0]);
- SetLength(indices,0);
-end;
-
-function TMesh.vPos:integer;
- begin
-  result:=vIdx;
- end;
-
-procedure TMesh.AddTriangle(p1,p2,p3:TVec3;color:cardinal);
  var
-  norm:TVec3;
-  uv:TVec2;
-  base:integer;
+  vc,i:integer;
  begin
-  base:=AssertVertices(3);
-  norm:=Vec3(p1,p2).Cross(Vec3(p1,p3));
-  uv.Init(0,0);
-  AddVertex(p1,norm,uv,color);
-  AddVertex(p2,norm,uv,color);
-  AddVertex(p3,norm,uv,color);
-  AddTrg(base,base+1,base+2);
- end;
-
-procedure TMesh.AddMesh(mesh:TMesh);
- var
-  i,base,ii:integer;
-  src:PByte;
-  sameLayout:boolean;
- begin
-  base:=AssertVertices(mesh.vCount);
-  // Add vertices
-  sameLayout:=layout.Equals(mesh.layout);
-  src:=mesh.vertices;
-  for i:=0 to mesh.vCount-1 do begin
-   if sameLayout then
-    AddVertex(src^)
-   else
-    AddVertex(mesh.layout.GetPos(src^),
-              mesh.layout.GetNormal(src^),
-              mesh.layout.GetUV(src^),
-              mesh.layout.GetColor(src^));
-   inc(src,mesh.layout.stride);
-  end;
-  // Add triangles
-  if idx+length(mesh.indices)>length(indices) then
-   SetLength(indices,idx+length(mesh.indices));
-  for i:=0 to length(mesh.indices) div 3 do begin
-   ii:=i*3;
-   AddTrg(base+mesh.indices[ii],
-          base+mesh.indices[ii+1],
-          base+mesh.indices[ii+2]);
-  end;
- end;
-
-procedure TMesh.AddCube(center:TVec3;size:TVec3;color:cardinal);
- const
-  mm:array[0..3,0..1] of single=((-1,-1),(-1,1),(1,-1),(1,1));
- var
-  n:TVec3;
-  uv:TVec2;
-  i,base:integer;
- begin
-  base:=AssertVertices(24);
-  size.Multiply(0.5);
-  uv.Init(0,0);
-  for i:=0 to 3 do begin
-   AddVertex(Vec3(center.x+size.x,center.y+size.y*mm[i,0],center.z+size.z*mm[i,1]),Vec3(1,0,0),uv,color);
-   AddVertex(Vec3(center.x-size.x,center.y-size.y*mm[i,0],center.z-size.z*mm[i,1]),Vec3(-1,0,0),uv,color);
-   AddVertex(Vec3(center.x+size.x*mm[i,0],center.y+size.y,center.z+size.z*mm[i,1]),Vec3(0,1,0),uv,color);
-   AddVertex(Vec3(center.x-size.x*mm[i,0],center.y-size.y,center.z-size.z*mm[i,1]),Vec3(0,-1,0),uv,color);
-   AddVertex(Vec3(center.x+size.x*mm[i,0],center.y+size.y*mm[i,1],center.z+size.z),Vec3(0,0,1),uv,color);
-   AddVertex(Vec3(center.x-size.x*mm[i,0],center.y-size.y*mm[i,1],center.z-size.z),Vec3(0,0,-1),uv,color);
-  end;
-  for i:=0 to 5 do begin
-   AddTrg(base+i,base+i+6,base+i+18);
-   AddTrg(base+i,base+i+18,base+i+12);
-  end;
- end;
-
-procedure TMesh.AddCylinder(p0,p1:TVec3;r0,r1:single;segments:integer;color:cardinal;addCaps:boolean);
- var
-  i,base,vNum:integer;
-  rX,rY,rZ,r,norm:TVec3;
-  v0,v1:TVec3;
-  a:single;
-  uv:TVec2;
- begin
-  base:=AssertVertices(segments*2);
-  rZ:=Vec3(p0,p1);
-  rZ.Normalize;
-  if abs(rZ.z)>abs(rZ.y) then rX:=rZ.Cross(Vec3(0,1,0))
-   else rX:=rZ.Cross(Vec3(0,0,1));
-  rX.Normalize;
-  rY:=rZ.Cross(rX);
-  uv.Init(0,0);
-  // Create vertices
-  for i:=0 to segments-1 do begin
-   a:=2*Pi*i/segments;
-   r.Init(rx,cos(a),ry,sin(a));
-   v0:=p0+r*r0; //  PointAdd(p0,r,r0);
-   v1:=p1+r*r1;
-   norm:=Vec3(p0,p1).Cross(r);
-   norm:=norm.Cross(Vec3(v0,v1));
-   norm.Normalize;
-   AddVertex(v0,norm,uv,color);
-   AddVertex(v1,norm,uv,color);
-  end;
-  // Add surface
-  vNum:=segments*2;
-  for i:=0 to segments-1 do begin
-   AddTrg(base+i*2,base+i*2+1,base+(i*2+3) mod vNum);
-   AddTrg(base+i*2,base+(i*2+3) mod vNum,base+(i*2+2) mod vNum);
-  end;
+  ASSERT(openSection<0,'A section is still open');
+  vc:=length(positions);
+  // every present attribute array must align with the vertex count
+  if (length(normals)>0) and (length(normals)<>vc) then
+   raise EError.Create('Mesh: normals count mismatch');
+  if (length(colors)>0) and (length(colors)<>vc) then
+   raise EError.Create('Mesh: colors count mismatch');
+  if (length(uv0)>0) and (length(uv0)<>vc) then
+   raise EError.Create('Mesh: uv0 count mismatch');
+  if (length(uv1)>0) and (length(uv1)<>vc) then
+   raise EError.Create('Mesh: uv1 count mismatch');
+  if (length(tangents)>0) and (length(tangents)<>vc) then
+   raise EError.Create('Mesh: tangents count mismatch');
+  if (length(joints)>0) and (length(joints)<>vc) then
+   raise EError.Create('Mesh: joints count mismatch');
+  if (length(weights)>0) and (length(weights)<>vc) then
+   raise EError.Create('Mesh: weights count mismatch');
+  // index range validation (only meaningful for an indexed mesh)
+  if length(indices)>0 then begin
+   if length(indices) mod 3<>0 then
+    raise EError.Create('Mesh: index count is not a multiple of 3');
+   for i:=0 to high(indices) do
+    if (indices[i]<0) or (indices[i]>=vc) then
+     raise EError.Create('Mesh: index out of range');
+  end else
+   if vc mod 3<>0 then
+    raise EError.Create('Mesh: non-indexed vertex count is not a multiple of 3');
+  // cache MaxIndex and recompute bounds
+  fMaxIndexValid:=false;
+  MaxIndex;
+  RecalculateBounds;
  end;
 
 end.
-

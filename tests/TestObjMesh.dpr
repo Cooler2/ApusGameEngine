@@ -8,7 +8,7 @@ uses
   Apus.Core,
   Apus.Geom2D,
   Apus.Geom3D,
-  Apus.Engine.Mesh3D,
+  Apus.Engine.Mesh,
   Apus.Engine.OBJMesh;
 
 {$I ..\Base\tests\Test.inc}

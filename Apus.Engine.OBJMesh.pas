@@ -1,6 +1,6 @@
 // Wavefront OBJ -> SoA TMesh geometry loader (R-19, geometry level).
 //
-// Loads GEOMETRY ONLY into a new Apus.Engine.Mesh3D.TMesh: positions, normals
+// Loads GEOMETRY ONLY into a new Apus.Engine.Mesh.TMesh: positions, normals
 // (if the file has any 'vn'), uv0 (if any 'vt'), and one geometric section per
 // material/group ('usemtl'/'g'/'o'). Materials are NOT resolved here — the
 // section name carries the group/material name; bind textures manually at the
@@ -18,7 +18,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.OBJMesh;
 interface
-uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh3D;
+uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh;
 
 // Parse OBJ text held in a String8 into a new TMesh (the caller owns it).
 function ParseMeshOBJ(const data:String8;const name:String8=''):TMesh;

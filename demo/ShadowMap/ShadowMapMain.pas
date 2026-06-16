@@ -21,7 +21,7 @@ interface
 implementation
  uses SysUtils,Apus.Core,Apus.Geom3D,Apus.AnimatedValues,
    Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,
-   Apus.Engine.Mesh3D,Apus.Engine.GpuMesh,Apus.Engine.OBJMesh;
+   Apus.Engine.Mesh,Apus.Engine.GpuMesh,Apus.Engine.OBJMesh;
 
  type
   // This will be our single scene
@@ -88,7 +88,7 @@ destructor TMainScene.Destroy;
 
 procedure TMainScene.InitGfx;
  var
-  mesh:Apus.Engine.Mesh3D.TMesh;
+  mesh:Apus.Engine.Mesh.TMesh;
  begin
   inherited;
   mesh:=LoadMeshOBJ(baseDir+'res\honey.obj');
