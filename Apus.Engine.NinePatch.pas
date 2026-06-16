@@ -19,7 +19,12 @@ type
   procedure Draw(x,y,width,height:single;scale:single=1.0); override;
  protected
   meshWidth,meshHeight:single;
-  mesh:TMesh;
+  // Cached patch geometry: topology+UV built once, vertex positions re-fitted on resize.
+  // Submitted directly via draw.IndexedMesh — the patch itself is the abstraction, no mesh class needed.
+  vertices:array of TVertex;
+  indices:array of word;
+  vCount,iCount:integer; // number of vertices/indices currently written
+  geomBuilt:boolean;     // whether geometry has been built for the current patch
   tex:TTexture;
   procedure BuildMeshForSize(width,height:single);
  private
@@ -49,9 +54,13 @@ type
   procedure ClearBorder(tex:TTexture);
   procedure CalcSizes;
   procedure ResizeGrid(reqWidth,reqHeight:single;var xx,yy:TGridArray);
-  function CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
-  function CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh;
-  function CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
+  procedure ResetGeom(vCapacity,iCapacity:integer);
+  function AddVertex(const v:TVertex):integer;
+  procedure AddTrg(a,b,c:integer);
+  procedure BuildSimpleMesh(nH,nW:integer;du,dv:single);
+  procedure BuildOverlappedMesh(nH,nW:integer;du,dv:single);
+  procedure BuildTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray);
+  procedure FillCellMesh(x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
   procedure AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
   procedure AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArray);
   procedure BuildTiledGrid(var xx,yy:TGridArray;var x1,y1,x2,y2:TGridArray;var gridW,gridH:TIntGridArray);
@@ -327,13 +336,36 @@ procedure TCustomNinePatch.ResizeGrid(reqWidth,reqHeight:single;var xx,yy:TGridA
    end;
  end;
 
-function TCustomNinePatch.CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
+procedure TCustomNinePatch.ResetGeom(vCapacity,iCapacity:integer);
+ begin
+  SetLength(vertices,vCapacity);
+  SetLength(indices,iCapacity);
+  vCount:=0;
+  iCount:=0;
+ end;
+
+function TCustomNinePatch.AddVertex(const v:TVertex):integer;
+ begin
+  if vCount>=length(vertices) then SetLength(vertices,vCount+16);
+  result:=vCount;
+  vertices[vCount]:=v;
+  inc(vCount);
+ end;
+
+procedure TCustomNinePatch.AddTrg(a,b,c:integer);
+ begin
+  if iCount+3>length(indices) then SetLength(indices,iCount+6);
+  indices[iCount]:=a; indices[iCount+1]:=b; indices[iCount+2]:=c;
+  inc(iCount,3);
+ end;
+
+procedure TCustomNinePatch.BuildSimpleMesh(nH,nW:integer;du,dv:single);
  var
   i,j,base:integer;
   vrt:TVertex;
   u,v:single;
  begin
-   result:=TMesh.Create(TVertex.layoutTex,(nW+1)*(nH+1),numCells*6);
+   ResetGeom((nW+1)*(nH+1),numCells*6);
    // Fill vertices
    for i:=0 to nH do begin
      if i<nH then v:=vRanges[i].pFrom*dv
@@ -342,7 +374,7 @@ function TCustomNinePatch.CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
       if j<nW then u:=hRanges[j].pFrom*du
               else u:=1-du;
       vrt.Init(0,0,0,u,v,$FF808080); // position will be filled later
-      result.AddVertex(vrt);
+      AddVertex(vrt);
      end;
    end;
    // Fill indices
@@ -350,18 +382,18 @@ function TCustomNinePatch.CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
     for j:=0 to nW-1 do
      if Bits.Get(usedCells[i],j) then begin
       base:=i*(nW+1)+j; // base index
-      result.AddTrg(base,base+1,base+2+nW);
-      result.AddTrg(base,base+2+nW,base+1+nW);
+      AddTrg(base,base+1,base+2+nW);
+      AddTrg(base,base+2+nW,base+1+nW);
      end;
  end;
 
-function TCustomNinePatch.CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh;
+procedure TCustomNinePatch.BuildOverlappedMesh(nH,nW:integer;du,dv:single);
  var
   i,j,base,pass:integer;
   vrt:TVertex;
   u1,v1,u2,v2:single;
  begin
-   result:=TMesh.Create(TVertex.layoutTex,numCells*4,numCells*6);
+   ResetGeom(numCells*4,numCells*6);
    base:=0;
    // Fill vertices
    for pass:=0 to 2 do
@@ -375,17 +407,17 @@ function TCustomNinePatch.CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh
        u2:=hRanges[j].pTo*du+du;
        // Define 4 vertices for a quad
        vrt.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
-       result.AddVertex(vrt);
+       AddVertex(vrt);
        vrt.Init(0,0,0,u2,v1,$FF808080);
-       result.AddVertex(vrt);
+       AddVertex(vrt);
        vrt.Init(0,0,0,u2,v2,$FF808080);
-       result.AddVertex(vrt);
+       AddVertex(vrt);
        vrt.Init(0,0,0,u1,v2,$FF808080);
-       result.AddVertex(vrt);
+       AddVertex(vrt);
        // 1-st triangle
-       result.AddTrg(base,base+1,base+2);
+       AddTrg(base,base+1,base+2);
        // 2-nd triangle
-       result.AddTrg(base,base+2,base+3);
+       AddTrg(base,base+2,base+3);
        inc(base,4);
       end;
     end;
@@ -397,7 +429,7 @@ function CalcGridSize(size,tileSize:single):integer;
   result:=1+2*trunc(0.5+size/(tileSize*2));
  end;
 
-procedure FillCellMesh(mesh:TMesh; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
+procedure TCustomNinePatch.FillCellMesh(x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
  var
   vrt:TVertex;
   i,j,w,h,base:integer;
@@ -442,22 +474,22 @@ procedure FillCellMesh(mesh:TMesh; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeigh
       yy:=y2;
      end;
      // Add quad
-     base:=mesh.vPos;
+     base:=vCount;
      vrt.Init(x,y,0,tu1,tv1,$FF808080);
-     mesh.AddVertex(vrt);
+     AddVertex(vrt);
      vrt.Init(xx,y,0,tu2,tv1,$FF808080);
-     mesh.AddVertex(vrt);
+     AddVertex(vrt);
      vrt.Init(xx,yy,0,tu2,tv2,$FF808080);
-     mesh.AddVertex(vrt);
+     AddVertex(vrt);
      vrt.Init(x,yy,0,tu1,tv2,$FF808080);
-     mesh.AddVertex(vrt);
+     AddVertex(vrt);
      // Add triangles
-     mesh.AddTrg(base,base+1,base+2);
-     mesh.AddTrg(base,base+2,base+3);
+     AddTrg(base,base+1,base+2);
+     AddTrg(base,base+2,base+3);
    end;
  end;
 
-function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
+procedure TCustomNinePatch.BuildTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray);
  var
   i,j,pass,tileCount:integer;
   gridW,gridH:TIntGridArray;
@@ -473,8 +505,7 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
     if Bits.Get(usedCells[i],j) then begin
      inc(tileCount,gridW[j]*gridH[i]);
     end;
-  // Create mesh
-  result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,tileCount*4,tileCount*6);
+  ResetGeom(tileCount*4,tileCount*6);
   // Fill mesh
   for pass:=0 to 2 do
    for i:=0 to nH-1 do begin
@@ -487,7 +518,7 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
        u1:=hRanges[j].pFrom*du+du/2;
        u2:=hRanges[j].pTo*du+du/2;
        tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
-       FillCellMesh(result, x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
+       FillCellMesh(x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
      end;
    end;
  end;
@@ -505,7 +536,7 @@ procedure TCustomNinePatch.AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
   i,j:Integer;
   pVrt:PVertex;
  begin
-  pVrt:=mesh.vertices;
+  pVrt:=@vertices[0];
   for i:=0 to nH do
     for j:=0 to nW do
     begin
@@ -522,7 +553,7 @@ procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArr
   pVrt:PVertex;
   x1,y1,x2,y2:single;
  begin
-  pVrt:=mesh.vertices;
+  pVrt:=@vertices[0];
   for pass:=0 to 2 do
    for i:=0 to nH-1 do
     for j:=0 to nW-1 do
@@ -597,25 +628,26 @@ procedure TCustomNinePatch.BuildMeshForSize(width,height:single);
   du,dv:single;
   xx,yy:TGridArray;
  begin
-  if tiled and (mesh<>nil) then FreeAndNil(mesh); // Always rebuild mesh for a complex tiled patch
+  if tiled then geomBuilt:=false; // Always rebuild geometry for a complex tiled patch
   nW:=length(hRanges);
   nH:=length(vRanges);
-  if mesh=nil then begin
+  if not geomBuilt then begin
    du:=1/tex.width;
    dv:=1/tex.height;
    if not (overlapped or tiled) then begin
      // Indexed mesh for a regular 9-patch (simple case)
-     mesh:=CreateSimpleMesh(nH,nW,du,dv);
+     BuildSimpleMesh(nH,nW,du,dv);
    end else
    if not tiled then begin
      // Non-indexed mesh for an overlapped 9-patch
-     mesh:=CreateOverlappedMesh(nH,nW,du,dv);
+     BuildOverlappedMesh(nH,nW,du,dv);
    end else begin
      // Tiled patch - complex case
-     // Such mesh is always created for specific size and not adjusted later
+     // Such geometry is always created for a specific size and not adjusted later
      ResizeGrid(width,height,xx,yy);
-     mesh:=CreateTiledMesh(nH,nW,du,dv,xx,yy);
+     BuildTiledMesh(nH,nW,du,dv,xx,yy);
    end;
+   geomBuilt:=true;
   end;
   // Adjust previously created mesh
   if not tiled then begin
@@ -664,7 +696,8 @@ procedure TCustomNinePatch.Draw(x,y,width,height:single;scale:single);
   if (meshWidth<>rWidth) or (meshHeight<>rHeight) then
    BuildMeshForSize(rWidth,rHeight);
   transform.SetObj(x-0.5,y-0.5,0,scale);
-  mesh.Draw(tex);
+  if vCount>0 then // qualified: bare 'draw' would resolve to this Draw method (case-insensitive)
+   Apus.Engine.API.draw.IndexedMesh(@vertices[0],TVertex.layoutTex,@indices[0],iCount div 3,vCount,tex);
   transform.ResetObj;
  end;
 
