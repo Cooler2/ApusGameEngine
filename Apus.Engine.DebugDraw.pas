@@ -64,6 +64,32 @@ var
   unitSphere:TGpuMesh=nil;     // r=1; rebuilt when segments change
   unitSphereSeg:integer=0;
 
+type
+  TDDMode=(ddNone,ddSolid,ddLines); // current render-state group within a session
+var
+  ddMode:TDDMode=ddNone;
+
+// Solids and lines need different shader state: solids are lit, texture-disabled
+// meshes; lines are unlit painter primitives (lighting would sink them to the dark
+// ambient color - see #2). Switch lazily on the first call of each kind so a
+// session can freely interleave solids and lines with no per-call thrash.
+procedure EnterSolid;
+begin
+  if ddMode=ddSolid then exit;
+  shader.TexMode(0,tblDisable,tblDisable);
+  shader.AmbientLight(lightAmbient);
+  shader.DirectLight(lightDir,lightPower,lightColor);
+  ddMode:=ddSolid;
+end;
+
+procedure EnterLines;
+begin
+  if ddMode=ddLines then exit;
+  shader.LightOff;
+  shader.DefaultTexMode;
+  ddMode:=ddLines;
+end;
+
 // Model->world matrix mapping unit shapes (radius 1, +Z axis) onto the
 // segment p0->dir, scaled to radiusXY in X/Y and lenZ along Z.
 function AxisBasis(const p0,dir:TVec3;radiusXY,lenZ:single):TMat4;
@@ -130,7 +156,7 @@ function GetHemi(segments:integer):TGpuMesh;
 begin
   if (unitHemi=nil) or (unitHemiSeg<>segments) then begin
     if unitHemi<>nil then unitHemi.Free;
-    unitHemi:=MakeGpu(MeshShapes.UVSphere(segments,Max(segments div 4,2),0,2*PI,0,PI/2,1));
+    unitHemi:=MakeGpu(MeshShapes.UVSphere(segments,Apus.Core.Max(segments div 4,2),0,2*PI,0,PI/2,1));
     unitHemiSeg:=segments;
   end;
   result:=unitHemi;
@@ -140,7 +166,7 @@ function GetSphere(segments:integer):TGpuMesh;
 begin
   if (unitSphere=nil) or (unitSphereSeg<>segments) then begin
     if unitSphere<>nil then unitSphere.Free;
-    unitSphere:=MakeGpu(MeshShapes.UVSphere(segments,Max(segments div 2,3),1));
+    unitSphere:=MakeGpu(MeshShapes.UVSphere(segments,Apus.Core.Max(segments div 2,3),1));
     unitSphereSeg:=segments;
   end;
   result:=unitSphere;
@@ -149,6 +175,7 @@ end;
 // Draw a cached unit mesh under model->world matrix m, tinted by color.
 procedure DrawUnit(g:TGpuMesh;const m:TMat4;color:cardinal);
 begin
+  EnterSolid;
   shader.Material(color,0);
   transform.SetObj(m);
   g.Draw;
@@ -159,6 +186,7 @@ end;
 // replacement is in Work/reports/transform_api_relative_matrix_design.md.
 procedure EmitLine(const p0,p1:TVec3;color:cardinal);
 begin
+  EnterLines;
   draw.Line3D(p0.x,p0.y,p0.z,p1.x,p1.y,p1.z,color);
 end;
 
@@ -166,13 +194,11 @@ end;
 
 class procedure DebugDraw.SetupRender(depthTest:boolean=true);
 begin
-  shader.TexMode(0,tblDisable,tblDisable);
-  shader.AmbientLight(lightAmbient);
-  shader.DirectLight(lightDir,lightPower,lightColor);
   transform.ResetObj;
   draw.SetZ(0);
-  if depthTest then gfx.target.UseDepthBuffer(dbPass)
-   else gfx.target.UseDepthBuffer(dbDisabled);
+  if depthTest then gfx.target.UseDepthBuffer(dbPassLess) // real occlusion: solids self-occlude
+   else gfx.target.UseDepthBuffer(dbDisabled);            // overlay gizmos, always on top
+  ddMode:=ddNone; // solids/lines set their own light+texmode lazily on first use
 end;
 
 class procedure DebugDraw.Flush;
@@ -180,6 +206,7 @@ begin
   shader.Material($FFFFFF,0); // restore neutral tint so it doesn't leak into the next mesh render
   shader.LightOff;
   shader.DefaultTexMode;
+  ddMode:=ddNone;
   // seam: later draw.Batching(false) (R-09)
 end;
 
@@ -270,9 +297,9 @@ begin
   transform.ResetObj; // world-space group; clear any object matrix left by a prior solid
   half:=size*0.5;
   a:=(color shr 24) and $FF;
-  r:=Min(255,((color shr 16) and $FF)*2);
-  g:=Min(255,((color shr 8) and $FF)*2);
-  b:=Min(255,(color and $FF)*2);
+  r:=Apus.Core.Min(255,((color shr 16) and $FF)*2);
+  g:=Apus.Core.Min(255,((color shr 8) and $FF)*2);
+  b:=Apus.Core.Min(255,(color and $FF)*2);
   centerColor:=cardinal(a shl 24) or cardinal(r shl 16) or cardinal(g shl 8) or cardinal(b);
   for i:=0 to cells do begin
     t:=-half+i*(size/cells);
