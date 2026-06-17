@@ -43,6 +43,7 @@ type
     lightYaw,lightPitch:single;
     objectID,materialID:integer;
     normalEnabled:boolean;
+    computedNT:boolean; // true = MeshOps normals+tangents, false = analytic
     constructor Create;
     destructor Destroy; override;
     procedure InitGfx; override;
@@ -52,6 +53,7 @@ type
     procedure HandleKey(keyCode:integer);
   private
     function LightDir:TVec3;
+    procedure RebuildMesh(id:integer);
     procedure DrawGrid;
     procedure DrawObject;
     procedure DrawOverlay;
@@ -79,12 +81,13 @@ begin
   result:=(n and $FFFF)/65535;
 end;
 
+// Add a unit quad (4 verts, 2 triangles) with explicit flat normal and tangent.
 procedure AddQuad(mesh:TMesh;const p0,p1,p2,p3,n,t:TVec3);
 var
   base:integer;
   tv:TVec4;
 begin
-  tv:=Vec4(t,1.0); // w=1: consistent winding, no mirroring
+  tv:=Vec4(t,1.0);
   base:=mesh.AddVertex(p0,n,tv,Vec2(0,0),$FFFFFFFF);
   mesh.AddVertex(p1,n,tv,Vec2(1,0),$FFFFFFFF);
   mesh.AddVertex(p2,n,tv,Vec2(1,1),$FFFFFFFF);
@@ -93,22 +96,50 @@ begin
   mesh.AddTriangle(base,base+2,base+3);
 end;
 
-function BuildCube:TMesh;
+// Add a unit quad without normals/tangents (placeholder normal=0; MeshOps fills later).
+procedure AddQuadP(mesh:TMesh;const p0,p1,p2,p3:TVec3);
+var
+  base:integer;
+  zero:TVec3;
+begin
+  zero:=Vec3(0,0,0);
+  base:=mesh.AddVertex(p0,zero,Vec2(0,0),$FFFFFFFF);
+  mesh.AddVertex(p1,zero,Vec2(1,0),$FFFFFFFF);
+  mesh.AddVertex(p2,zero,Vec2(1,1),$FFFFFFFF);
+  mesh.AddVertex(p3,zero,Vec2(0,1),$FFFFFFFF);
+  mesh.AddTriangle(base,base+1,base+2);
+  mesh.AddTriangle(base,base+2,base+3);
+end;
+
+// computed=true: let MeshOps derive normals+tangents; false: explicit per-face values.
+function BuildCube(computed:boolean):TMesh;
 var
   s:single;
 begin
   result:=TMesh.Create('Cube');
   s:=1.0;
-  // each face: 4 verts (CCW from outside), face normal, tangent (+U direction), w=1
-  AddQuad(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s),Vec3(0,0,-1),Vec3(1,0,0));  // front -Z
-  AddQuad(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s),Vec3(0,0, 1),Vec3(1,0,0));  // back  +Z
-  AddQuad(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s),Vec3(0,-1,0),Vec3(1,0,0));  // bottom -Y
-  AddQuad(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s),Vec3(0, 1,0),Vec3(-1,0,0)); // top    +Y
-  AddQuad(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s),Vec3(1,0,0),Vec3(0,1,0));   // right  +X
-  AddQuad(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s),Vec3(-1,0,0),Vec3(0,-1,0)); // left   -X
+  if computed then begin
+    AddQuadP(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s));
+    AddQuadP(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s));
+    AddQuadP(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s));
+    AddQuadP(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s));
+    AddQuadP(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s));
+    AddQuadP(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s));
+    MeshOps.ComputeNormals(result);
+    MeshOps.ComputeTangents(result);
+  end else begin
+    // each face: CCW from outside, face normal, tangent = +U direction
+    AddQuad(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s),Vec3(0,0,-1),Vec3(1,0,0));
+    AddQuad(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s),Vec3(0,0, 1),Vec3(1,0,0));
+    AddQuad(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s),Vec3(0,-1,0),Vec3(1,0,0));
+    AddQuad(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s),Vec3(0, 1,0),Vec3(-1,0,0));
+    AddQuad(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s),Vec3(1,0,0),Vec3(0,1,0));
+    AddQuad(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s),Vec3(-1,0,0),Vec3(0,-1,0));
+  end;
 end;
 
-function BuildTorus:TMesh;
+// computed=true: let MeshOps derive normals+tangents; false: analytic per-vertex values.
+function BuildTorus(computed:boolean):TMesh;
 const
   U_SEG = 64;
   V_SEG = 24;
@@ -117,6 +148,7 @@ var
   u,v,cu,su,cv,sv:single;
   p,n,t:TVec3;
   r0,r1:single;
+  attrs:TMeshAttributes;
   function VIdx(a,b:integer):integer; inline;
   begin
     result:=a*(V_SEG+1)+b;
@@ -125,7 +157,11 @@ begin
   result:=TMesh.Create('Torus');
   r0:=1.25;
   r1:=0.38;
-  result.SetVertexCount((U_SEG+1)*(V_SEG+1),[TMeshAttribute.Normal,TMeshAttribute.Color,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  if computed then
+    attrs:=[TMeshAttribute.Color,TMeshAttribute.UV0]
+  else
+    attrs:=[TMeshAttribute.Normal,TMeshAttribute.Color,TMeshAttribute.UV0,TMeshAttribute.Tangent];
+  result.SetVertexCount((U_SEG+1)*(V_SEG+1),attrs);
   idx:=0;
   for i:=0 to U_SEG do begin
     u:=2*Pi*i/U_SEG;
@@ -134,15 +170,17 @@ begin
       v:=2*Pi*j/V_SEG;
       cv:=cos(v); sv:=sin(v);
       p:=Vec3((r0+r1*cv)*cu,(r0+r1*cv)*su,r1*sv);
-      n:=Vec3(cv*cu,cv*su,sv);
-      n.Normalize;
-      t:=Vec3(su,-cu,0); // negated vs dP/du so that cross(T,N)=dP/dv (correct bitangent handedness)
-      t.Normalize;
       result.positions[idx]:=p;
-      result.normals[idx]:=n;
       result.colors[idx]:=$FFFFFFFF;
       result.uv0[idx]:=Vec2(i*4/U_SEG,j*2/V_SEG);
-      result.tangents[idx]:=Vec4(t,1.0); // w=1: consistent UV winding
+      if not computed then begin
+        n:=Vec3(cv*cu,cv*su,sv);
+        n.Normalize;
+        t:=Vec3(su,-cu,0); // dP/du direction (ensures cross(T,N)=dP/dv)
+        t.Normalize;
+        result.normals[idx]:=n;
+        result.tangents[idx]:=Vec4(t,1.0);
+      end;
       inc(idx);
     end;
   end;
@@ -158,6 +196,10 @@ begin
       result.indices[idx+5]:=VIdx(i,j+1);
       inc(idx,6);
     end;
+  if computed then begin
+    MeshOps.ComputeNormals(result);
+    MeshOps.ComputeTangents(result);
+  end;
 end;
 
 function HeightAt(kind,x,y:integer):single;
@@ -260,6 +302,7 @@ begin
   objectID:=OBJ_CUBE;
   materialID:=0;
   normalEnabled:=true;
+  computedNT:=false;
 end;
 
 destructor TMainScene.Destroy;
@@ -276,15 +319,27 @@ begin
   inherited;
 end;
 
+procedure TMainScene.RebuildMesh(id:integer);
+var
+  m:TMesh;
+begin
+  meshes[id].Free;
+  if id=OBJ_CUBE then m:=BuildCube(computedNT)
+   else m:=BuildTorus(computedNT);
+  meshes[id]:=TGpuMesh.Create(m);
+  meshes[id].Upload;
+  m.Free;
+end;
+
 procedure TMainScene.InitGfx;
 var
   m:TMesh;
 begin
-  m:=BuildCube;
+  m:=BuildCube(computedNT);
   meshes[OBJ_CUBE]:=TGpuMesh.Create(m);
   meshes[OBJ_CUBE].Upload;
   m.Free;
-  m:=BuildTorus;
+  m:=BuildTorus(computedNT);
   meshes[OBJ_TORUS]:=TGpuMesh.Create(m);
   meshes[OBJ_TORUS].Upload;
   m.Free;
@@ -328,11 +383,17 @@ begin
 end;
 
 procedure TMainScene.HandleKey(keyCode:integer);
+var
+  i:integer;
 begin
   case keyCode of
     ord(TKey.D1),ord(TKey.Num1):objectID:=(objectID+1) mod OBJECT_COUNT;
     ord(TKey.D2),ord(TKey.Num2):materialID:=(materialID+1) mod MATERIAL_COUNT;
     ord(TKey.D3),ord(TKey.Num3),ord(TKey.N):normalEnabled:=not normalEnabled;
+    ord(TKey.C): begin
+      computedNT:=not computedNT;
+      for i:=0 to OBJECT_COUNT-1 do RebuildMesh(i);
+    end;
   end;
 end;
 
@@ -397,8 +458,12 @@ begin
   if objectID=OBJ_CUBE then objName:='Cube' else objName:='Torus';
   if normalEnabled then nmState:='ON' else nmState:='OFF';
   txt.Write(0,18,22,$FFE8EDF5,'R-06 NormalMap (stock shader)');
-  txt.Write(0,18,44,$FFC8D2DF,'LMB rotate camera around vertical axis, RMB/Ctrl+LMB rotate light, wheel zoom');
+  txt.Write(0,18,44,$FFC8D2DF,'LMB rotate camera  RMB/Ctrl+LMB rotate light  wheel zoom');
   txt.Write(0,18,66,$FFC8D2DF,'1 object: '+objName+'   2 material: '+materials[materialID].name+'   3/N normal map: '+nmState);
+  if computedNT then
+    txt.Write(0,18,88,$FFFFCC55,'C normals/tangents: MeshOps.Compute*  (C to switch)')
+  else
+    txt.Write(0,18,88,$FF88CCFF,'C normals/tangents: analytic/manual  (C to switch)');
 end;
 
 procedure TMainScene.Render;
