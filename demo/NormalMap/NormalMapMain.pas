@@ -17,10 +17,10 @@ var
 
 implementation
 uses
-  SysUtils, Math,
+  SysUtils,
   Apus.Core, Apus.Colors, Apus.Geom2D, Apus.Geom3D,
   Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene,
-  Apus.Engine.Mesh, Apus.Engine.GpuMesh,
+  Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes,
   Apus.Engine.DebugDraw;
 
 const
@@ -81,61 +81,12 @@ begin
   result:=(n and $FFFF)/65535;
 end;
 
-// Add a unit quad (4 verts, 2 triangles) with explicit flat normal and tangent.
-procedure AddQuad(mesh:TMesh;const p0,p1,p2,p3,n,t:TVec3);
-var
-  base:integer;
-  tv:TVec4;
-begin
-  tv:=Vec4(t,1.0);
-  base:=mesh.AddVertex(p0,n,tv,Vec2(0,0),$FFFFFFFF);
-  mesh.AddVertex(p1,n,tv,Vec2(1,0),$FFFFFFFF);
-  mesh.AddVertex(p2,n,tv,Vec2(1,1),$FFFFFFFF);
-  mesh.AddVertex(p3,n,tv,Vec2(0,1),$FFFFFFFF);
-  mesh.AddTriangle(base,base+1,base+2);
-  mesh.AddTriangle(base,base+2,base+3);
-end;
-
-// Add a unit quad without normals/tangents (placeholder normal=0; MeshOps fills later).
-// Vertices in CCW order when viewed from outside (so ComputeNormals yields outward normals).
-procedure AddQuadP(mesh:TMesh;const p0,p1,p2,p3:TVec3);
-var
-  base:integer;
-  zero:TVec3;
-begin
-  zero:=Vec3(0,0,0);
-  base:=mesh.AddVertex(p0,zero,Vec2(0,0),$FFFFFFFF);
-  mesh.AddVertex(p1,zero,Vec2(1,0),$FFFFFFFF);
-  mesh.AddVertex(p2,zero,Vec2(1,1),$FFFFFFFF);
-  mesh.AddVertex(p3,zero,Vec2(0,1),$FFFFFFFF);
-  mesh.AddTriangle(base,base+2,base+1); // CCW from outside → ComputeNormals gives outward normal
-  mesh.AddTriangle(base,base+3,base+2);
-end;
-
-// computed=true: let MeshOps derive normals+tangents; false: explicit per-face values.
 function BuildCube(computed:boolean):TMesh;
-var
-  s:single;
 begin
-  result:=TMesh.Create('Cube');
-  s:=1.0;
+  result:=MeshShapes.Box(1.0);
   if computed then begin
-    AddQuadP(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s));
-    AddQuadP(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s));
-    AddQuadP(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s));
-    AddQuadP(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s));
-    AddQuadP(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s));
-    AddQuadP(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s));
     MeshOps.ComputeNormals(result);
     MeshOps.ComputeTangents(result);
-  end else begin
-    // each face: CCW from outside, face normal, tangent = +U direction
-    AddQuad(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s),Vec3(0,0,-1),Vec3(1,0,0));
-    AddQuad(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s),Vec3(0,0, 1),Vec3(1,0,0));
-    AddQuad(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s),Vec3(0,-1,0),Vec3(1,0,0));
-    AddQuad(result,Vec3( s, s, s),Vec3(-s, s, s),Vec3(-s, s,-s),Vec3( s, s,-s),Vec3(0, 1,0),Vec3(-1,0,0));
-    AddQuad(result,Vec3( s,-s, s),Vec3( s, s, s),Vec3( s, s,-s),Vec3( s,-s,-s),Vec3(1,0,0),Vec3(0,1,0));
-    AddQuad(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s),Vec3(-1,0,0),Vec3(0,-1,0));
   end;
 end;
 
@@ -495,7 +446,7 @@ begin
             cameraDist*sin(cameraPitch));
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(cullCCW);
   gfx.clip.Nothing;
   DrawGrid;
   gfx.target.UseDepthBuffer(dbPassLess);
