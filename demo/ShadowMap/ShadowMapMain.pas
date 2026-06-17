@@ -172,7 +172,7 @@ procedure TMainScene.Render;
   SetGlobals('GF0=1;GF1=0.5;GF2=1','LightDir');
   lightDir:=Vec3(gF0, gF1, gF2);
 
-  gfx.SetCullMode(cullCW); // this is a trick! Draw back faces only into the shadowmap (cullNone will work too, but not cullCCW)
+  gfx.SetCullMode(cullCCW); // this is a trick! Draw back faces only into the shadowmap (cullNone will work too, but not cullCW)
   // 1-st pass: build shadowmap
   gfx.BeginPaint(shadowMap);
   gfx.target.Clear(0,1);
@@ -191,7 +191,7 @@ procedure TMainScene.Render;
   shader.Shadow(shadowMainPass,shadowMap);
   // 2-nd pass: render scene with shadows
   gfx.target.Clear($20,1);
-  gfx.SetCullMode(cullCCW); // cull back faces (!! don't forget to restore, as engine used the opposite face direction)
+  gfx.SetCullMode(cullCW); // cull back faces
 
   // Set 3D view
   distance:=30/cameraZoom.value;
