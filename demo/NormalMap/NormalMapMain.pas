@@ -20,7 +20,8 @@ implementation
 uses
   SysUtils, Math,
   Apus.Core, Apus.Colors, Apus.Geom3D, Apus.VertexLayout,
-  Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene;
+  Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene,
+  Apus.Engine.DebugDraw;
 
 const
   TEX_SIZE = 256;
@@ -426,50 +427,29 @@ procedure TMainScene.DrawGrid;
 const
   OBJ_Z = 1.45; // object center height
 var
-  i:integer;
-  c:cardinal;
-  ld,tip,proj,perp:TVec3;
+  ld,tip,proj:TVec3;
   scale:single;
   lightDragging:boolean;
 begin
-  shader.Reset;
-  shader.LightOff;
-  shader.DefaultTexMode;
-  transform.SetObj(0,0,0);
-  draw.SetZ(0);
-  gfx.target.UseDepthBuffer(dbPass);
-  for i:=-10 to 10 do begin
-    if i=0 then c:=$FF505866 else c:=$FF2D3440;
-    draw.Line(-10,i,10,i,c);
-    draw.Line(i,-10,i,10,c);
-  end;
-  draw.Line(0,0,4,0,$FF3030E0);
-  draw.Line(4,0,3.55,0.20,$FF3030E0);
-  draw.Line(4,0,3.55,-0.20,$FF3030E0);
-  draw.Line(0,0,0,4,$FF30C050);
-  draw.Line(0,4,0.20,3.55,$FF30C050);
-  draw.Line(0,4,-0.20,3.55,$FF30C050);
-  // light direction: 3D line from object center toward light source
+  // ground gizmos via the R-18 DebugDraw helper (was a hand-rolled grid + arrows)
+  DebugDraw.SetupRender(true);
+  DebugDraw.Grid(20,20,$FF2D3440,TGridPlane.XY);
+  DebugDraw.Arrow2D(Vec3(0,0,0),Vec3(4,0,0),$FF3030E0); // X - blue
+  DebugDraw.Arrow2D(Vec3(0,0,0),Vec3(0,4,0),$FF30C050); // Y - green
+  // light direction: arrow from object center toward the light source
   ld:=LightDir;
   scale:=4.5;
-  tip:=Vec3(ld.x*scale, ld.y*scale, OBJ_Z+ld.z*scale);
-  draw.Line3D(0,0,OBJ_Z, tip.x,tip.y,tip.z, $FFFFCC00);
-  // arrowhead — two lines in a plane perpendicular to ld (using any cross vector)
-  perp:=ld.Cross(Vec3(0,0,1));
-  if perp.Length<0.1 then perp:=ld.Cross(Vec3(1,0,0));
-  perp.Normalize;
-  perp:=Vec3(perp.x*0.4, perp.y*0.4, perp.z*0.4);
-  draw.Line3D(tip.x,tip.y,tip.z, tip.x-ld.x*0.6+perp.x, tip.y-ld.y*0.6+perp.y, tip.z-ld.z*0.6+perp.z, $FFFFCC00);
-  draw.Line3D(tip.x,tip.y,tip.z, tip.x-ld.x*0.6-perp.x, tip.y-ld.y*0.6-perp.y, tip.z-ld.z*0.6-perp.z, $FFFFCC00);
-  // elevation triangle: only while rotating the light (RMB or Ctrl+LMB)
+  tip:=Vec3(ld.x*scale,ld.y*scale,OBJ_Z+ld.z*scale);
+  DebugDraw.Arrow2D(Vec3(0,0,OBJ_Z),tip,$FFFFCC00);
+  // elevation triangle: only while rotating the light (RMB or Ctrl+LMB) - kept inline (no DebugDraw helper)
   lightDragging:=((window.mouseButtons and mbRight)>0) or
                  (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0));
   if lightDragging then begin
-    // triangle: origin → floor-projection of tip → 3D tip
-    // shows the elevation angle as the right angle at proj
-    proj:=Vec3(tip.x, tip.y, OBJ_Z); // XY projection of tip onto horizontal plane
-    draw.Triangle(Vec3(0,0,OBJ_Z), proj, tip, $28FFEE88);
+    // triangle: origin -> floor-projection of tip -> 3D tip, the right angle at proj shows elevation
+    proj:=Vec3(tip.x,tip.y,OBJ_Z); // XY projection of tip onto horizontal plane
+    draw.Triangle(Vec3(0,0,OBJ_Z),proj,tip,$28FFEE88);
   end;
+  DebugDraw.Flush;
   draw.SetZ(0);
 end;
 

@@ -34,7 +34,8 @@ uses
   Apus.EventMan, Apus.Engine.Keys,
   Apus.Engine.Resources, // TTexFilter
   Apus.Engine.UI, Apus.Engine.UIScene,
-  Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes;
+  Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes,
+  Apus.Engine.DebugDraw;
 
 const
   GRID_COLS=4;
@@ -63,10 +64,13 @@ type
     selCol,selRow:integer;
     camTargetCur,camTargetGoal:TVec3;
     camDistCur,camDistGoal:single;
+    showDebug:boolean;
+    debugLightYaw:single;
     constructor Create;
     destructor Destroy; override;
     procedure InitGfx; override;
     procedure Render; override;
+    procedure DrawDebugShowcase;
     procedure onMouseMove(x,y:integer); override;
     procedure onMouseWheel(delta:integer); override;
     procedure HandleKey(keyCode:integer);
@@ -254,6 +258,8 @@ constructor TMainScene.Create;
   focusDist:=5;
   camDistCur:=overviewDist;
   overview:=true;
+  showDebug:=true;
+  debugLightYaw:=0;
   SetEventHandler('SCENE\MAIN\KEYDOWN',MeshLabKeyHandler,emInstant);
  end;
 
@@ -370,6 +376,11 @@ procedure TMainScene.HandleKey(keyCode:integer);
    // screen, so Up = row+1 (away), Down = row-1 (closer)
    ord(TKey.Up):if not overview then selRow:=(selRow+1) mod GRID_ROWS;
    ord(TKey.Down):if not overview then selRow:=(selRow-1+GRID_ROWS) mod GRID_ROWS;
+   ord(TKey.B):showDebug:=not showDebug;
+   ord(TKey.L):begin // rotate the DebugDraw light around Z to read the shading on solids
+     debugLightYaw:=debugLightYaw+0.4;
+     DebugDraw.SetLight($303838,Vec3(cos(0.6)*cos(debugLightYaw),cos(0.6)*sin(debugLightYaw),sin(0.6)),1.0,$FFFFFF);
+    end;
   end;
  end;
 
@@ -442,6 +453,11 @@ procedure TMainScene.Render;
    end;
   end;
 
+  // R-18 DebugDraw showcase: lit/tinted solids + wire/line gizmos in the same
+  // frame as the gallery - also the runtime check that Flush restores state
+  // (next-frame gallery must stay correctly per-vertex colored, not tinted).
+  if showDebug then DrawDebugShowcase;
+
   // overlay - title + status + hint, on a translucent panel for contrast
   transform.DefaultView;
   shader.LightOff;
@@ -454,7 +470,7 @@ procedure TMainScene.Render;
    if selIdx>=0 then statusText:='Selected: '+items[selIdx].name+' - arrows to move, Tab - back to overview'
     else statusText:='(empty cell) - arrows to move, Tab/Esc for overview';
   end;
-  hintText:='LMB: rotate camera    Wheel: zoom';
+  hintText:='LMB: rotate    Wheel: zoom    B: debug shapes    L: rotate light';
 
   titleH:=txt.Height(game.largerFont);
   lineH:=txt.Height(game.defaultFont);
@@ -469,6 +485,24 @@ procedure TMainScene.Render;
   txt.Write(game.largerFont,18,y2,$FFE8C25A,statusText);
   txt.Write(game.defaultFont,18,y3,$FFA8B4C4,hintText);
   inherited;
+ end;
+
+// R-18 DebugDraw gallery: every solid/line helper drawn in one bracketed group.
+// Laid out as a dedicated row behind the gallery (y=ROWY), on the same ground
+// plane (centers at z~0, like the gallery cells), so it reads coplanar and gets
+// proper depth occlusion (SetupRender uses dbPassLess).
+procedure TMainScene.DrawDebugShowcase;
+ const
+  ROWY=12.8; // one CELL beyond the last gallery row (rows are at -6.4, 0, 6.4)
+ begin
+  DebugDraw.SetupRender(true);
+  DebugDraw.Axes(Vec3(-7.5,ROWY,-1),2.5); // X/Y/Z arrows (lit cylinder+cone solids)
+  DebugDraw.Box(Vec3(-4.5,ROWY,0),Vec3(1,1,1),$FF4060FF);
+  DebugDraw.BoxWire(Vec3(-1.5,ROWY,0),Vec3(1,1,1),$FFFFFFFF); // standalone wire box
+  DebugDraw.Sphere(Vec3(1.5,ROWY,0),1.2,$FF40C060);
+  DebugDraw.Capsule(Vec3(4.5,ROWY,-1),Vec3(4.5,ROWY,1),0.7,$FFE08040);
+  DebugDraw.Arrow3D(Vec3(7.5,ROWY,-1),Vec3(7.5,ROWY,2),$FFE040C0);
+  DebugDraw.Flush;
  end;
 
 end.
