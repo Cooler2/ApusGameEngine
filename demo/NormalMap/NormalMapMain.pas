@@ -97,6 +97,7 @@ begin
 end;
 
 // Add a unit quad without normals/tangents (placeholder normal=0; MeshOps fills later).
+// Vertices in CCW order when viewed from outside (so ComputeNormals yields outward normals).
 procedure AddQuadP(mesh:TMesh;const p0,p1,p2,p3:TVec3);
 var
   base:integer;
@@ -107,8 +108,8 @@ begin
   mesh.AddVertex(p1,zero,Vec2(1,0),$FFFFFFFF);
   mesh.AddVertex(p2,zero,Vec2(1,1),$FFFFFFFF);
   mesh.AddVertex(p3,zero,Vec2(0,1),$FFFFFFFF);
-  mesh.AddTriangle(base,base+1,base+2);
-  mesh.AddTriangle(base,base+2,base+3);
+  mesh.AddTriangle(base,base+2,base+1); // CCW from outside → ComputeNormals gives outward normal
+  mesh.AddTriangle(base,base+3,base+2);
 end;
 
 // computed=true: let MeshOps derive normals+tangents; false: explicit per-face values.
@@ -145,7 +146,7 @@ const
   V_SEG = 24;
 var
   i,j,idx:integer;
-  u,v,cu,su,cv,sv:single;
+  u,v,cu,su,cv,sv,tw:single;
   p,n,t:TVec3;
   r0,r1:single;
   attrs:TMeshAttributes;
@@ -199,6 +200,22 @@ begin
   if computed then begin
     MeshOps.ComputeNormals(result);
     MeshOps.ComputeTangents(result);
+    // weld periodic u-seam: VIdx(0,j) and VIdx(U_SEG,j) share the same position
+    for j:=0 to V_SEG do begin
+      n:=result.normals[VIdx(0,j)]+result.normals[VIdx(U_SEG,j)]; n.Normalize;
+      result.normals[VIdx(0,j)]:=n; result.normals[VIdx(U_SEG,j)]:=n;
+      t:=result.tangents[VIdx(0,j)].ToVec3+result.tangents[VIdx(U_SEG,j)].ToVec3; t.Normalize;
+      tw:=result.tangents[VIdx(0,j)].w;
+      result.tangents[VIdx(0,j)]:=Vec4(t,tw); result.tangents[VIdx(U_SEG,j)]:=Vec4(t,tw);
+    end;
+    // weld periodic v-seam: VIdx(i,0) and VIdx(i,V_SEG) share the same position
+    for i:=0 to U_SEG do begin
+      n:=result.normals[VIdx(i,0)]+result.normals[VIdx(i,V_SEG)]; n.Normalize;
+      result.normals[VIdx(i,0)]:=n; result.normals[VIdx(i,V_SEG)]:=n;
+      t:=result.tangents[VIdx(i,0)].ToVec3+result.tangents[VIdx(i,V_SEG)].ToVec3; t.Normalize;
+      tw:=result.tangents[VIdx(i,0)].w;
+      result.tangents[VIdx(i,0)]:=Vec4(t,tw); result.tangents[VIdx(i,V_SEG)]:=Vec4(t,tw);
+    end;
   end;
 end;
 
