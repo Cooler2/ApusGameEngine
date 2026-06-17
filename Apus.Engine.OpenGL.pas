@@ -379,6 +379,7 @@ begin
  // Keep lazy EnsureThreadState as fallback in all subsystems.
  target.Resized(window.windowWidth,window.windowHeight);
  target.Viewport(0,0,window.windowWidth,window.windowHeight,window.renderWidth,window.renderHeight);
+ glFrontFace(GL_CCW); // anchor the front-face winding the cull-mode mapping relies on
  shader.Reset;
  clip.Nothing;
  clip.Restore;
@@ -449,21 +450,22 @@ procedure TOpenGL.Restore;
   renderDevice.Reset;
   shader.Reset;
   transform.DefaultView;
-  SetCullMode(cullNone);
+  SetCullMode(TCullMode.DrawAll);
  end;
 
 procedure TOpenGL.SetCullMode(mode: TCullMode);
  begin
+  // front=CCW is fixed at context init (glFrontFace(GL_CCW)), so GL_BACK=CW, GL_FRONT=CCW
   case mode of
-   cullCW:begin
+   TCullMode.DrawCCW:begin // keep CCW, cull CW (back)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
    end;
-   cullCCW:begin
+   TCullMode.DrawCW:begin // keep CW, cull CCW (front)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
    end;
-   cullNone:glDisable(GL_CULL_FACE);
+   TCullMode.DrawAll:glDisable(GL_CULL_FACE);
   end;
  end;
 

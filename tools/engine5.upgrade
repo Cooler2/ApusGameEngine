@@ -247,3 +247,9 @@ Contrast -> Color.Contrast [Apus.Colors]
 SimpleColorDiff -> Color.SimpleDiff [Apus.Colors]
 ColorDiff -> Color.Diff [Apus.Colors]
 // Blend(bg,fg) → Color.Blend(bg,fg)  [2-arg free function — manual, context-sensitive]
+
+// === Apus.Engine.API: TCullMode scoped enum (semantics inverted: name now = faces DRAWN, not culled) ===
+// Order matters: cullCCW before cullCW (substring); inversion: cullCW=>DrawCCW, cullCCW=>DrawCW
+cullCCW -> TCullMode.DrawCW [Apus.Engine.API]
+cullCW -> TCullMode.DrawCCW [Apus.Engine.API]
+cullNone -> TCullMode.DrawAll [Apus.Engine.API]

@@ -281,9 +281,13 @@ type
    dbPassGreater, // pass greater values
    dbNever); // never pass depth test
 
- TCullMode=(cullNone, // Display both sides
-   cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
-   cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
+{$SCOPEDENUMS ON}
+ // Which faces to draw. The engine assumes front=CCW (set via glFrontFace at init);
+ // generators emit CCW-outward faces, so DrawCCW = show outer surface (cull backfaces).
+ TCullMode=(DrawAll,  // display both sides
+   DrawCCW,  // draw CCW faces only (cull CW). Default for 3D solids
+   DrawCW);  // draw CW faces only (cull CCW). 2D drawing uses CW winding
+{$SCOPEDENUMS OFF}
 
  // Shader mode for shadow mapping
  TShadowMapMode=(shadowDisabled,  // No shadow mapping (default, no shadows)

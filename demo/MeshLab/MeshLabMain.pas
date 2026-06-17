@@ -412,7 +412,7 @@ procedure TMainScene.Render;
             1.0+camDistCur*sin(cameraPitch));
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
-  gfx.SetCullMode(cullCW);
+  gfx.SetCullMode(TCullMode.DrawCCW);
   gfx.target.UseDepthBuffer(dbPassLess);
 
   shader.AmbientLight($303838);
@@ -463,7 +463,7 @@ procedure TMainScene.Render;
   shader.LightOff;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled);
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   if overview then
    statusText:='Overview: '+Conv.ToStr(length(items))+' shapes - press Tab to focus'
   else begin

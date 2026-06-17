@@ -202,7 +202,7 @@ procedure SetupView;
 
   gfx.target.UseDepthBuffer(dbPass);
 
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
   gfx.clip.Nothing;
   if curTree.ground<>nil then

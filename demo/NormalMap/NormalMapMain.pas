@@ -446,14 +446,14 @@ begin
             cameraDist*sin(cameraPitch));
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   gfx.clip.Nothing;
   DrawGrid;
   gfx.target.UseDepthBuffer(dbPassLess);
-  gfx.SetCullMode(cullCW);
+  gfx.SetCullMode(TCullMode.DrawCCW);
   DrawObject;
   gfx.clip.Restore;
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   DrawOverlay;
   inherited;
 end;

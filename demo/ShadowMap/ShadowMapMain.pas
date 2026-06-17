@@ -172,7 +172,7 @@ procedure TMainScene.Render;
   SetGlobals('GF0=1;GF1=0.5;GF2=1','LightDir');
   lightDir:=Vec3(gF0, gF1, gF2);
 
-  gfx.SetCullMode(cullCCW); // this is a trick! Draw back faces only into the shadowmap (cullNone will work too, but not cullCW)
+  gfx.SetCullMode(TCullMode.DrawCW); // this is a trick! Draw back faces only into the shadowmap (TCullMode.DrawAll will work too, but not TCullMode.DrawCCW)
   // 1-st pass: build shadowmap
   gfx.BeginPaint(shadowMap);
   gfx.target.Clear(0,1);
@@ -191,7 +191,7 @@ procedure TMainScene.Render;
   shader.Shadow(shadowMainPass,shadowMap);
   // 2-nd pass: render scene with shadows
   gfx.target.Clear($20,1);
-  gfx.SetCullMode(cullCW); // cull back faces
+  gfx.SetCullMode(TCullMode.DrawCCW); // cull back faces
 
   // Set 3D view
   distance:=30/cameraZoom.value;
@@ -217,7 +217,7 @@ procedure TMainScene.Render;
   shader.DefaultTexMode;
   transform.DefaultView;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
 
   //glFlush;
   txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');

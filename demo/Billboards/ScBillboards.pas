@@ -229,7 +229,7 @@ procedure TMainScene.Render;
   SetupCamera;
 
   gfx.target.UseDepthBuffer(dbPass);
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
 
   gfx.clip.Reject(false); // disable primitive culling (because we're in 3D mode)
   transform.SetObj(0,0,MAX_Z); // move current position to maxZ height to draw ceiling

@@ -143,7 +143,7 @@ procedure TMainScene.Render;
 
   gfx.target.UseDepthBuffer(dbPass);
 
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Vec3(0,0,0));
   gfx.clip.Nothing;
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
@@ -160,7 +160,7 @@ procedure TMainScene.Render;
   gfx.clip.Restore;
 
   gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
-  gfx.SetCullMode(cullCW);
+  gfx.SetCullMode(TCullMode.DrawCCW);
 
   // Setup light and material
   shader.AmbientLight($303030);
@@ -188,7 +188,7 @@ procedure TMainScene.Render;
   shader.LightOff;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
 
   txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
   inherited;

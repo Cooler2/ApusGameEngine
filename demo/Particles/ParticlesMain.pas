@@ -76,7 +76,7 @@ procedure BasicTest;
 
   gfx.target.UseDepthBuffer(dbPass);
 
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
   gfx.clip.Nothing;
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
@@ -197,7 +197,7 @@ procedure SoftTest;
   SetupCamera;
   gfx.target.UseDepthBuffer(dbPass);
 
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
   gfx.clip.Nothing;
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)

@@ -591,7 +591,7 @@ function UIScene(name:String8):TUIScene;
     window.Lock;
     try
      try
-      gfx.SetCullMode(cullNone);
+      gfx.SetCullMode(TCullMode.DrawAll);
       DrawUI(UI);
      except
       on e:exception do raise EError.Create('UI.DrawUI '+name+' Err '+e.message);
