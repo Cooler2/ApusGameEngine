@@ -19,7 +19,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | AEM v1 spec, runtime loader alignment, Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | — |
 | R-05 | CSS-Like UI Style System | in-progress | ~75% | Real-screen validation, resolver perf/caching, $varName support, visual regression tests |
-| R-06 | 3D Material: Normal Mapping | in-progress | ~30% | `MeshOps.ComputeTangents`; normal-map branch in stock shader; port demo/NormalMap |
+| R-06 | 3D Material: Normal Mapping | in-progress | ~30% | `ComputeTangents` proc in `Apus.Engine.Mesh`; normal-map branch in stock shader; port demo/NormalMap |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Linux validation, benchmark pass, SSE hot paths, remaining module migration |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | — |
 | R-09 | GL Performance Modernization | in-progress | ~40% | NSight baseline (Track A); Track C opt-in batching on demand |
@@ -34,6 +34,8 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-18 | Debug Draw Primitives (3D Gizmos) | planned | ~10% | `materialColor` tint uniform; solid/line sets; MeshLab showcase; NormalMap port |
 | R-19 | Mesh Representation Unification & Rework | done | 100% | — |
 | R-20 | Mesh Shape Generators (Procedural Primitives) | done | 100% | — |
+| R-21 | Mesh Editing Operations (Stateful Wrapper) | idea | 0% | Design-now / build-on-demand; first heavy consumer gates implementation |
+| R-22 | Toast Notifications (Implement + Extend `FireMessage`) | idea | 0% | `FireMessage` is a stub; implement timed pop-up + config (position/timeout) + stacking |
 
 ## 2) Strategic Directions
 
@@ -145,10 +147,10 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Status: in-progress (~30%) | Priority: P1 | Area: Render
 - Value: Per-pixel normal mapping in the stock mesh shader for static `TMesh`/`TGpuMesh` geometry.
 - Key finding: tangents are generated (R-20) + uploaded (R-19 TGpuMesh) but **stock mesh shader ignores them** — dead pipeline until R-06 lands the shader branch.
-- Scope: `MeshOps.ComputeTangents` in new `Apus.Engine.MeshOps` (tangent gen is a mesh-op, NOT a TMesh method) + normal-map branch in stock mesh shader + `shader.NormalMap(tex;strength)` / `NormalMapOff` state + port `demo/NormalMap` onto GPU-mesh + stock shader.
+- Scope: `ComputeTangents` as a unit-level procedure in `Apus.Engine.Mesh` (NOT a TMesh method; no separate MeshOps module — one-pass ops co-locate in the mesh unit) + normal-map branch in stock mesh shader + `shader.NormalMap(tex;strength)` / `NormalMapOff` state + port `demo/NormalMap` onto GPU-mesh + stock shader.
 - Out of scope: full PBR; `TMaterial` type (→ R-17/R-03); skinned-model tangents; procedural texture baking.
 - Acceptance Criteria:
-  - [ ] `MeshOps.ComputeTangents(mesh)` in new `Apus.Engine.MeshOps`; headless test (degenerate UV does not NaN).
+  - [ ] `ComputeTangents(mesh)` procedure in `Apus.Engine.Mesh`; headless test (degenerate UV does not NaN).
   - [ ] Stock mesh shader does TBN normal mapping when normal map bound + mesh carries tangents; non-mapped draws unchanged.
   - [ ] `demo/NormalMap` ported onto TGpuMesh + stock shader + ComputeTangents. Visual parity.
   - [ ] Tangent handedness validated on real surface (MeshLab or ported demo).
@@ -308,3 +310,39 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Status: **done** (2026-06-13)
 - 5 generators (Box/Cylinder/Plane/Octasphere/UVSphere) + `TMesh.Append`. 59 tests pass Win32/Win64. Design: `Work/reports/R-20_meshshapes_design.md`.
 - Note: Plane uses XY/+Z orientation (author decision; differs from design doc's XZ/+Y).
+
+### [R-21] Mesh Editing Operations (Stateful Wrapper)
+- Status: idea | Priority: P2 | Area: Render/Tooling
+- Value: A home for topology-heavy mesh operations (smoothing, subdivision, decimation, boolean, bridge) that share expensive derived structures, without bloating the lean `TMesh` container.
+- Disposition: **design now, build on demand.** No commitment to implement yet — the first real heavy consumer gates the build (otherwise we design adjacency/BVH against imaginary ops).
+- Model — hybrid:
+  - **One-pass, structure-free ops** (ComputeNormals/ComputeTangents/Weld/RecalculateBounds/Flip) stay as plain unit-level procedures in `Apus.Engine.Mesh` — no wrapper, no ceremony at the call site. (ComputeTangents lands here via R-06.)
+  - **Heavy ops sharing a derived structure** get a stateful coordinator (`TMeshEditor`) that builds the structure once and dirty-tracks it across a chain of edits.
+- Derived structures are **detachable first-class objects**, not private fields of the editor:
+  - `TMeshAdjacency` (vertex→faces, vertex→vertex, edge→faces / half-edge)
+  - `TMeshSpatial` (octree / BVH / hash — variant chosen per query: weld/raycast/boolean)
+  - `TMeshTags` (per-vertex / face / edge marks)
+  - Lifetime owned by the holder: can be passed into the editor (reuse), detached and kept after editing (e.g. an octree surviving as a runtime accelerator), or dropped. The editor coordinates + invalidates them while editing; once detached, a structure is a snapshot whose validity is the holder's contract.
+- Orientation op: **bridge** — join two loops/polylines with a surface (the join itself only; boundary/loop *selection* is a separate subtask). Reveals that even one op splits across the hybrid: bridging two raw polylines is pure construction (one-pass/generator), bridging two boundary loops of a live mesh needs adjacency (editor).
+- Out of scope (until a driver appears): concrete heavy ops, the editor's public API shape, structure internals (half-edge layout, BVH vs octree).
+- Note: detailed design deferred to a `Work/reports/R-21_*` doc when promoted to a real card. Background: discussed 2026-06-17 alongside R-06/R-19.
+
+### [R-22] Toast Notifications (Implement + Extend `FireMessage`)
+- Status: idea | Priority: P2 | Area: UI / Core Runtime
+- Value: A lightweight, non-blocking way to surface transient info to the user (screenshot saved, connected, error, achievement) — the toast/flyout pattern from Windows and Telegram. Distinct from a modal dialog that demands an answer.
+- Existing baseline — **this is the surface to build on, not a new one**:
+  - `IGame.FireMessage(st:String8)` (`Apus.Engine.API.pas:861`), commented *"Show message in engine-driven pop-up (3 sec)"* — the intended engine-driven toast entry point.
+  - The implementation in `Apus.Engine.Game.pas:1538` is an **empty stub with a TODO**; it has been empty since the initial commit (a working version existed in engine4 but was never ported in this refactor). The screenshot hotkey (`RequestScreenshot`, F12/PrintScreen) is the canonical caller that should surface a "saved as …" toast.
+  - NOT the same as `Apus.Engine.MessageScene` — that is the **modal** path (`ShowMessage`/`Ask`/`Confirm`, blocking, one-at-a-time queue, Ok/Yes/No, `sweShowModal`). Leave it untouched.
+- Scope (implement the stub, then extend it):
+  - **Implement `FireMessage`** as a real non-modal timed pop-up (the 3-sec default the comment promises), and wire the screenshot path to call it.
+  - **Configuration:** position presets — a 9-anchor grid (center, 4 corners, 4 edge midpoints); default duration; max concurrent/stack count; default fade in/out timing.
+  - **Stacking:** multiple toasts visible at once, stacked like OS/Telegram notifications — newest enters, others shift, auto-reflow when one dismisses. (`FireMessage` today is single-shot by contract; stacking is the main extension.)
+  - **Auto-dismiss:** per-toast timeout (with sensible default), plus manual dismiss (click/close). Optional persist-until-clicked for important messages.
+  - **Per-toast overrides:** duration, position, and optionally severity/icon — overriding the global config. May need a richer overload beyond the bare `FireMessage(st:String8)` signature.
+- Open design questions (settle before building):
+  - Where the implementation lives: directly in `TGame` vs. a dedicated overlay (new module `Apus.Engine.Notifications` / a non-modal scene) that `FireMessage` delegates to. Leaning toward a delegated overlay — the lifecycle (concurrent + timed) wants its own home.
+  - Reuse `TUIScene` + `SceneEffects` for entry/exit animation and the toast container layout; reuse the style system (R-05) for appearance/severity.
+  - Coexistence with the modal path: shared z-order discipline so toasts sit above content but below true modal `MessageScene` dialogs.
+- Out of scope (until needed): OS-native notification integration (taskbar/tray), notification history/center, sound hooks, action buttons inside a toast.
+- Note: discussed 2026-06-17 (author pointed to `FireMessage`/screenshot path as the real baseline). Detailed design deferred to a `Work/reports/R-22_*` doc when promoted to a real card.

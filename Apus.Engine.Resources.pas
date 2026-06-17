@@ -88,7 +88,7 @@ interface
    procedure AddDirtyRect(rect:TRect;level:integer=0); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
    // Utilities
    procedure GenerateMipMaps(count:byte); virtual; abstract; // generate mip-map images
-   function HasFlag(flag:cardinal):boolean;
+   function HasFlag(flag:cardinal):boolean; inline;
    function ScanLine(y:integer):pointer; inline;
    function PixelPtr(x,y:integer):pointer; inline;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)

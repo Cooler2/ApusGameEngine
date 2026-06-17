@@ -8,6 +8,8 @@ This file provides guidance to Claude Code when working on the Apus Game Engine 
 
 Structure: `Base/` (platform-independent utilities) + root (engine modules).
 
+**`Game/` is NOT part of the engine project** — it is just an EXAMPLE of game code built on the engine (separate product). Do not migrate, refactor, or count it as a consumer during engine refactoring; it is not in the engine CI build and adapts downstream on its own.
+
 ## Building
 
 - Projects: `.dproj` (Delphi), `.lpi` (Lazarus/FPC)
