@@ -46,7 +46,8 @@ type
   normals:TVec3Array;
   colors:array of cardinal;     // full-precision color storage
   uv0,uv1:TVec2Array;
-  tangents:TVec4Array;          // xyz along +U, w = handedness sign
+  tangents:TVec4Array;          // xyz = tangent direction (along +U in UV space, world space after upload)
+                                // w = handedness: B = cross(T,N)*w reconstructs the bitangent (+V direction)
   joints:array of TJoints4;     // 4 bone indices
   weights:array of TWeights4;   // 4 weights (normalized on upload)
   // topology
@@ -104,9 +105,12 @@ type
 type
  MeshOps = record
   // Fill mesh.normals with area-weighted smooth normals.
+  // Winding convention: vertices CCW when viewed from outside (outward-facing side).
+  // cross(e1,e2) then yields outward normals — same as OpenGL front-face default.
   // Requires positions + indices. Replaces any previous normals array.
   class procedure ComputeNormals(mesh:TMesh); static;
-  // Fill mesh.tangents (xyz along +U, w=handedness ±1) from UV space.
+  // Fill mesh.tangents from UV space: xyz = tangent along +U (world), w = handedness ±1.
+  // Handedness w encodes: bitangent B = cross(T,N)*w points along +V.
   // Requires positions, normals, uv0, indices (call ComputeNormals first if needed).
   // Replaces any previous tangents array.
   class procedure ComputeTangents(mesh:TMesh); static;
@@ -183,9 +187,9 @@ begin
     else tx:=Vec3(0,1,0)-tn*tn.y;
   end;
   tx.Normalize;
-  // handedness: sign of the triple product (N × T) · B
-  w:=1.0;
-  if tn.Cross(tx).Dot(bAcc[i])<0 then w:=-1.0;
+  // handedness: shader reconstructs B=cross(T,N)*w, so w=sign(cross(T,N)·bAcc)=-sign(cross(N,T)·bAcc)
+  w:=-1.0;
+  if tn.Cross(tx).Dot(bAcc[i])<0 then w:=1.0;
   mesh.tangents[i]:=Vec4(tx,w);
  end;
 end;

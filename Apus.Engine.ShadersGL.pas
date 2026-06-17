@@ -514,8 +514,9 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
    AddLine(result,'   vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
    AddLine(result,'   vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
    if hasNormalMap then begin
+    AddLine(result,'   // tangent convention: T along +U (world space), w=handedness, B=cross(T,N)*w points along +V');
     AddLine(result,'   vec3 nmT = normalize(vTangent.xyz-normal*dot(normal,vTangent.xyz));'); // Gram-Schmidt re-orthogonalize
-    AddLine(result,'   vec3 nmB = cross(nmT,normal)*vTangent.w;');
+    AddLine(result,'   vec3 nmB = cross(nmT,normal)*vTangent.w;'); // bitangent (+V direction)
     AddLine(result,'   vec3 nmS = texture(normalMap,vTexCoord).rgb*2.0-1.0;');
     AddLine(result,'   nmS.xy *= normalStrength;');
     AddLine(result,'   normal = normalize(nmT*nmS.x+nmB*nmS.y+normal*nmS.z);'); // tangent-space → world-space
