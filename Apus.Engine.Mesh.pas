@@ -99,7 +99,96 @@ type
   openSection:integer; // index in sections[] of the section being built, or -1
  end;
 
+// Mesh utility operations: standalone procedures that operate on TMesh
+// without requiring structural state. Heavy ops (topology, BVH) → R-21 TMeshEditor.
+type
+ MeshOps = record
+  // Fill mesh.normals with area-weighted smooth normals.
+  // Requires positions + indices. Replaces any previous normals array.
+  class procedure ComputeNormals(mesh:TMesh); static;
+  // Fill mesh.tangents (xyz along +U, w=handedness ±1) from UV space.
+  // Requires positions, normals, uv0, indices (call ComputeNormals first if needed).
+  // Replaces any previous tangents array.
+  class procedure ComputeTangents(mesh:TMesh); static;
+ end;
+
 implementation
+
+{ MeshOps }
+
+class procedure MeshOps.ComputeNormals(mesh:TMesh);
+var
+ i,i0,i1,i2,n:integer;
+ e1,e2,fn:TVec3;
+begin
+ n:=mesh.VertexCount;
+ ASSERT(n>0,'MeshOps.ComputeNormals: empty mesh');
+ ASSERT(length(mesh.indices)>0,'MeshOps.ComputeNormals: non-indexed mesh not supported');
+ SetLength(mesh.normals,n);
+ FillChar(mesh.normals[0],n*sizeof(TVec3),0);
+ i:=0;
+ while i+2<=high(mesh.indices) do begin
+  i0:=mesh.indices[i]; i1:=mesh.indices[i+1]; i2:=mesh.indices[i+2];
+  e1:=mesh.positions[i1]-mesh.positions[i0];
+  e2:=mesh.positions[i2]-mesh.positions[i0];
+  fn:=e1.Cross(e2); // area-weighted — not normalized before accumulation
+  mesh.normals[i0]:=mesh.normals[i0]+fn;
+  mesh.normals[i1]:=mesh.normals[i1]+fn;
+  mesh.normals[i2]:=mesh.normals[i2]+fn;
+  inc(i,3);
+ end;
+ for i:=0 to n-1 do mesh.normals[i].Normalize;
+end;
+
+class procedure MeshOps.ComputeTangents(mesh:TMesh);
+var
+ i,i0,i1,i2,n:integer;
+ dp1,dp2,t,b,tn,tx:TVec3;
+ du1x,du1y,du2x,du2y,det,r,d,w:single;
+ tAcc,bAcc:TVec3Array;
+begin
+ n:=mesh.VertexCount;
+ ASSERT(n>0,'MeshOps.ComputeTangents: empty mesh');
+ ASSERT(length(mesh.normals)=n,'MeshOps.ComputeTangents: normals absent — call ComputeNormals first');
+ ASSERT(length(mesh.uv0)=n,'MeshOps.ComputeTangents: uv0 absent');
+ ASSERT(length(mesh.indices)>0,'MeshOps.ComputeTangents: non-indexed mesh not supported');
+ SetLength(tAcc,n); FillChar(tAcc[0],n*sizeof(TVec3),0);
+ SetLength(bAcc,n); FillChar(bAcc[0],n*sizeof(TVec3),0);
+ i:=0;
+ while i+2<=high(mesh.indices) do begin
+  i0:=mesh.indices[i]; i1:=mesh.indices[i+1]; i2:=mesh.indices[i+2];
+  dp1:=mesh.positions[i1]-mesh.positions[i0];
+  dp2:=mesh.positions[i2]-mesh.positions[i0];
+  du1x:=mesh.uv0[i1].x-mesh.uv0[i0].x; du1y:=mesh.uv0[i1].y-mesh.uv0[i0].y;
+  du2x:=mesh.uv0[i2].x-mesh.uv0[i0].x; du2y:=mesh.uv0[i2].y-mesh.uv0[i0].y;
+  det:=du1x*du2y-du1y*du2x;
+  if abs(det)<1e-7 then begin inc(i,3); continue; end; // degenerate UV island
+  r:=1.0/det;
+  t:=(dp1*du2y-dp2*du1y)*r;
+  b:=(dp2*du1x-dp1*du2x)*r;
+  tAcc[i0]:=tAcc[i0]+t; tAcc[i1]:=tAcc[i1]+t; tAcc[i2]:=tAcc[i2]+t;
+  bAcc[i0]:=bAcc[i0]+b; bAcc[i1]:=bAcc[i1]+b; bAcc[i2]:=bAcc[i2]+b;
+  inc(i,3);
+ end;
+ SetLength(mesh.tangents,n);
+ for i:=0 to n-1 do begin
+  tn:=mesh.normals[i];
+  tx:=tAcc[i];
+  // Gram-Schmidt re-orthogonalize T against N
+  d:=tn.Dot(tx);
+  tx.x:=tx.x-tn.x*d; tx.y:=tx.y-tn.y*d; tx.z:=tx.z-tn.z*d;
+  if tx.x*tx.x+tx.y*tx.y+tx.z*tx.z<1e-12 then begin
+   // fallback: arbitrary perpendicular to N
+   if abs(tn.x)<0.9 then tx:=Vec3(1,0,0)-tn*tn.x
+    else tx:=Vec3(0,1,0)-tn*tn.y;
+  end;
+  tx.Normalize;
+  // handedness: sign of the triple product (N × T) · B
+  w:=1.0;
+  if tn.Cross(tx).Dot(bAcc[i])<0 then w:=-1.0;
+  mesh.tangents[i]:=Vec4(tx,w);
+ end;
+end;
 
 { TMesh }
 
