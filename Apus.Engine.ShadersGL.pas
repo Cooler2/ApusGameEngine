@@ -44,6 +44,8 @@ type
   uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
   uLightDir,uLightColor,uAmbientColor:integer;
   uMaterialColor:integer; // material tint (named "materialColor", mesh shaders only)
+  uNormalMap:integer;      // normalMap sampler (unit 3, mesh shaders with LIGHT_NORMALMAP)
+  uNormalStrength:integer; // normalStrength float (scales XY of the sampled tangent-space normal)
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
   matrixRevision:integer; // used to determine if matrix uniforms should be updated
@@ -101,6 +103,9 @@ type
   procedure PointLight(position:TVec3d;power:single;color:cardinal);
   // Disable lighting
   procedure LightOff;
+  // Bind a tangent-space normal map for subsequent GPU-mesh draw calls.
+  procedure NormalMap(tex:TTexture;strength:single=1.0);
+  procedure NormalMapOff;
 
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
@@ -135,6 +140,11 @@ type
    // Current material tint (mesh shaders only)
    materialColor:cardinal;
    materialModified:boolean;
+
+   // Normal map state (mesh shaders with LIGHT_NORMALMAP)
+   normalMapTex:TTexture;
+   normalStrength:single;
+   normalMapModified:boolean;
 
    activeShader:TGLShader; // current OpenGL shader
    isCustom:boolean;
@@ -187,6 +197,7 @@ const
  LIGHT_AMBIENT_ON = 1;
  LIGHT_DIRECT_ON  = 2;
  LIGHT_POINT_ON   = 4;
+ LIGHT_NORMALMAP  = 8;  // normal-map branch enabled (mesh shaders, requires Tangent layout slot)
  LIGHT_SPECULAR   = 16; // add specular calculation
  LIGHT_SHADOWMAP  = 32; // use shadowmap for light calculations (use ambient light only for pixels in shadow)
  LIGHT_DEPTHPASS  = 64; // use empty shader for rendering into a depth texture
@@ -341,6 +352,8 @@ constructor TGLShader.Create(h:TGLShaderHandle);
   uLightColor:=glGetUniformLocation(h,'lightColor');
   uAmbientColor:=glGetUniformLocation(h,'ambientColor');
   uMaterialColor:=glGetUniformLocation(h,'materialColor');
+  uNormalMap:=glGetUniformLocation(h,'normalMap');
+  uNormalStrength:=glGetUniformLocation(h,'normalStrength');
  end;
 
 destructor TGLShader.Destroy;
@@ -373,7 +386,7 @@ procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
 // (MeshSemanticLocation), so they are SPARSE and stable regardless of which
 // attributes are present; the binder (BindMeshLayout) enables exactly those.
 function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:cardinal;
-   useTable:boolean=false):String8;
+   useTable:boolean=false;hasTangent:boolean=false):String8;
  var
   ch:AnsiChar;
   depthPass,shadowMap:boolean;
@@ -392,7 +405,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'#version 330');
   AddLine(result,'// '+notes);
   AddLine(result,'uniform mat4 MVP;');
-  AddLine(result,'uniform mat4 ModelMatrix;',shadowMap);
+  AddLine(result,'uniform mat4 ModelMatrix;',shadowMap or hasTangent);
   AddLine(result,'uniform mat3 NormalMatrix;',hasNormal);
   AddLine(result,'uniform mat4 ShadowMapMatrix;',shadowMap);
   AddLine(result,'layout (location='+Loc('0',LOC_POSITION)+') in vec3 position;');
@@ -412,6 +425,10 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
    AddLine(result,'layout (location='+Loc(ch,LOC_TEXCOORD0)+') in vec2 texCoord;');
    AddLine(result,'out vec2 vTexCoord;');
   end;
+  if hasTangent then begin // only emitted for mesh shaders (useTable=true)
+   AddLine(result,'layout (location='+Conv.ToStr(LOC_TANGENT)+') in vec4 tangent;');
+   AddLine(result,'out vec4 vTangent;');
+  end;
   AddLine(result,'out vec3 vLightPos;',shadowMap);
 
   AddLine(result);
@@ -421,11 +438,12 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'   vNormal = NormalMatrix*normal;',hasNormal); // inverse-transpose model 3x3 (not mat3(ModelMatrix)) - correct under non-uniform scale; see UpdateMatrices
   AddLine(result,'   vColor = color;',hasColor);
   AddLine(result,'   vTexCoord = texCoord;',hasUV);
+  AddLine(result,'   vTangent = vec4(mat3(ModelMatrix)*tangent.xyz,tangent.w);',hasTangent); // tangents are real directions: transform by M, not M^-T
   AddLine(result,'   vLightPos = vec3(ShadowMapMatrix * ModelMatrix * vec4(position,1.0));',shadowMap);
   AddLine(result,'}');
  end;
 
-function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:boolean;texMode:TTexMode):String8;
+function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:boolean;texMode:TTexMode;hasNormalMap:boolean=false):String8;
  var
   i:integer;
   m,colorMode,alphaMode:byte;
@@ -466,11 +484,14 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
    AddLine(result,'uniform vec3 lightColor;');
   end;
   AddLine(result,'uniform vec3 materialColor;',hasMaterial);
+  AddLine(result,'uniform sampler2D normalMap;',hasNormalMap);
+  AddLine(result,'uniform float normalStrength;',hasNormalMap);
   if customized then
    AddLine(result,custUniforms);
   AddLine(result,'in vec3 vNormal;',hasNormal);
   AddLine(result,'in vec4 vColor;',hasColor);
   AddLine(result,'in vec2 vTexCoord;',hasUV);
+  AddLine(result,'in vec4 vTangent;',hasNormalMap);
   AddLine(result,'in vec3 vLightPos;',shadowMap);
   AddLine(result,'out vec4 fragColor;');
   AddLine(result);
@@ -492,6 +513,13 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
    AddLine(result,'  if (shadow>0) {',shadowMap);
    AddLine(result,'   vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
    AddLine(result,'   vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
+   if hasNormalMap then begin
+    AddLine(result,'   vec3 nmT = normalize(vTangent.xyz-normal*dot(normal,vTangent.xyz));'); // Gram-Schmidt re-orthogonalize
+    AddLine(result,'   vec3 nmB = cross(nmT,normal)*vTangent.w;');
+    AddLine(result,'   vec3 nmS = texture(normalMap,vTexCoord).rgb*2.0-1.0;');
+    AddLine(result,'   nmS.xy *= normalStrength;');
+    AddLine(result,'   normal = normalize(nmT*nmS.x+nmB*nmS.y+normal*nmS.z);'); // tangent-space → world-space
+   end;
    AddLine(result,'   diff = '+IfThen(shadowMap,'shadow*','')+'max(dot(normal,lightDir),0.0);');
    AddLine(result,'   vec3 ambientColor = vec3(0,0,0);',not Bits.HasAll(texMode.lighting,LIGHT_AMBIENT_ON));
    AddLine(result,'  }',shadowMap);
@@ -562,15 +590,19 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
 function TGLShadersAPI.CreateMeshShaderFor(layout:TGpuLayout):TGLShader;
  var
   vSrc,fSrc,notes:String8;
-  hasNormal,hasColor,hasUV:boolean;
+  hasNormal,hasColor,hasUV,hasTangent,hasNormalMap:boolean;
  begin
   hasNormal:=layout.Find(TMeshSemantic.Normal)>=0;
   hasColor:=layout.Find(TMeshSemantic.Color)>=0;
   hasUV:=layout.Find(TMeshSemantic.TexCoord)>=0;
+  hasTangent:=layout.Find(TMeshSemantic.Tangent)>=0;
+  hasNormalMap:=hasTangent and hasUV and hasNormal and
+    Bits.HasAll(curTexMode.lighting,LIGHT_NORMALMAP) and
+    not Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED);
   notes:='Mesh shader for mode '+Conv.ToHex(curTexMode.mode)+' '+layout.Describe;
   Log.Msg('Building: '+notes);
-  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting,true); // table locations
-  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,true,curTexMode);
+  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting,true,hasNormalMap); // table locations
+  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,true,curTexMode,hasNormalMap);
   result:=Build(vSrc,fSrc) as TGLShader;
   result.name:=notes+' h'+Conv.ToHex(result.handle);
   UpdateShaderProgramLabel(result);
@@ -630,6 +662,7 @@ procedure TGLShadersAPI.EnsureThreadState;
   curTexChanged:=0;
   Bits.SetBit(curTexChanged,0); // invalidate primary texture binding
   materialColor:=$FFFFFF; // neutral tint by default
+  normalStrength:=1.0;
   threadStateReady:=true;
  end;
 
@@ -747,6 +780,23 @@ procedure TGLShadersAPI.LightOff;
  begin
   EnsureThreadState;
   Bits.Clear(curTexMode.lighting,LIGHT_DIRECT_ON+LIGHT_AMBIENT_ON+LIGHT_POINT_ON);
+ end;
+
+procedure TGLShadersAPI.NormalMap(tex:TTexture;strength:single);
+ begin
+  EnsureThreadState;
+  normalMapTex:=tex;
+  normalStrength:=strength;
+  normalMapModified:=true;
+  Bits.Modify(curTexMode.lighting,LIGHT_NORMALMAP,tex<>nil);
+ end;
+
+procedure TGLShadersAPI.NormalMapOff;
+ begin
+  EnsureThreadState;
+  normalMapTex:=nil;
+  normalMapModified:=true;
+  Bits.Clear(curTexMode.lighting,LIGHT_NORMALMAP);
  end;
 
 procedure TGLShadersAPI.DefaultTexMode;
@@ -1139,6 +1189,15 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
   if shaderChanged or materialModified then begin
    activeShader.SetUniform(activeShader.uMaterialColor,TShader.VectorFromColor3(materialColor));
    materialModified:=false;
+  end;
+  if (shaderChanged or normalMapModified) and (activeShader.uNormalMap>=0) then begin
+   if normalMapTex<>nil then begin
+    resourceManagerGL.MakeOnline(normalMapTex,3); // bind to unit 3
+    glUniform1i(activeShader.uNormalMap,3);
+   end;
+   if activeShader.uNormalStrength>=0 then
+    glUniform1f(activeShader.uNormalStrength,normalStrength);
+   normalMapModified:=false;
   end;
  end;
 

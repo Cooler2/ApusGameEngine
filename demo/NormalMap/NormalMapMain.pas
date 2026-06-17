@@ -1,7 +1,6 @@
-﻿// Normal mapping prototype demo for R-06.
-//
-// This demo intentionally keeps tangent, shader and material code local.
-// Once the visual path is stable, proven parts can be moved into engine APIs.
+// Normal mapping demo for R-06 — uses the stock engine GPU-mesh pipeline.
+// Mesh builders produce TMesh with positions/normals/uv0/tangents (w=handedness);
+// TGpuMesh uploads them and draws via shader.NormalMap / shader.NormalMapOff.
 
 unit NormalMapMain;
 interface
@@ -19,8 +18,9 @@ var
 implementation
 uses
   SysUtils, Math,
-  Apus.Core, Apus.Colors, Apus.Geom3D, Apus.VertexLayout,
+  Apus.Core, Apus.Colors, Apus.Geom2D, Apus.Geom3D,
   Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene,
+  Apus.Engine.Mesh, Apus.Engine.GpuMesh,
   Apus.Engine.DebugDraw;
 
 const
@@ -31,31 +31,14 @@ const
   MATERIAL_COUNT = 3;
 
 type
-  TVertexNM=packed record
-    x,y,z:single;
-    nx,ny,nz:single;
-    color:cardinal;
-    u,v:single;
-    tx,ty,tz:single;
-  end;
-  TVerticesNM=array of TVertexNM;
-
-  TDemoMesh=class
-    vertices:TVerticesNM;
-    indices:array of word;
-    layout:TVertexLayout;
-    procedure Draw(tex:TTexture);
-  end;
-
   TDemoMaterial=record
     name:String8;
     colorMap,normalMap:TTexture;
   end;
 
   TMainScene=class(TUIScene)
-    meshes:array[0..OBJECT_COUNT-1] of TDemoMesh;
+    meshes:array[0..OBJECT_COUNT-1] of TGpuMesh;
     materials:array[0..MATERIAL_COUNT-1] of TDemoMaterial;
-    nmShader:TShader;
     cameraYaw,cameraPitch,cameraDist:single;
     lightYaw,lightPitch:single;
     objectID,materialID:integer;
@@ -96,54 +79,27 @@ begin
   result:=(n and $FFFF)/65535;
 end;
 
-procedure SetVertex(var v:TVertexNM;const p,n,t:TVec3;u,uv:single;color:cardinal);
-begin
-  v.x:=p.x; v.y:=p.y; v.z:=p.z;
-  v.nx:=n.x; v.ny:=n.y; v.nz:=n.z;
-  v.color:=color;
-  v.u:=u; v.v:=uv;
-  v.tx:=t.x; v.ty:=t.y; v.tz:=t.z;
-end;
-
-procedure AddVertex(var vertices:TVerticesNM;const p,n,t:TVec3;u,v:single;color:cardinal);
+procedure AddQuad(mesh:TMesh;const p0,p1,p2,p3,n,t:TVec3);
 var
-  idx:integer;
+  base:integer;
+  tv:TVec4;
 begin
-  idx:=length(vertices);
-  SetLength(vertices,idx+1);
-  SetVertex(vertices[idx],p,n,t,u,v,color);
+  tv:=Vec4(t,1.0); // w=1: consistent winding, no mirroring
+  base:=mesh.AddVertex(p0,n,tv,Vec2(0,0),$FFFFFFFF);
+  mesh.AddVertex(p1,n,tv,Vec2(1,0),$FFFFFFFF);
+  mesh.AddVertex(p2,n,tv,Vec2(1,1),$FFFFFFFF);
+  mesh.AddVertex(p3,n,tv,Vec2(0,1),$FFFFFFFF);
+  mesh.AddTriangle(base,base+1,base+2);
+  mesh.AddTriangle(base,base+2,base+3);
 end;
 
-procedure AddTrg(var indices:array of word;idx:integer;a,b,c:word);
-begin
-  indices[idx]:=a;
-  indices[idx+1]:=b;
-  indices[idx+2]:=c;
-end;
-
-procedure AddQuad(mesh:TDemoMesh;const p0,p1,p2,p3,n,t:TVec3);
-var
-  base,idx:integer;
-begin
-  base:=length(mesh.vertices);
-  AddVertex(mesh.vertices,p0,n,t,0,0,$FFFFFFFF);
-  AddVertex(mesh.vertices,p1,n,t,1,0,$FFFFFFFF);
-  AddVertex(mesh.vertices,p2,n,t,1,1,$FFFFFFFF);
-  AddVertex(mesh.vertices,p3,n,t,0,1,$FFFFFFFF);
-  idx:=length(mesh.indices);
-  SetLength(mesh.indices,idx+6);
-  AddTrg(mesh.indices,idx,base,base+1,base+2);
-  AddTrg(mesh.indices,idx+3,base,base+2,base+3);
-end;
-
-function BuildCube:TdemoMesh;
+function BuildCube:TMesh;
 var
   s:single;
 begin
-  result:=TDemoMesh.Create;
-  result.layout:=TVertexLayout.Create([vcPosition3d,vcNormal,vcColor,vcUV1,vcTangent]);
+  result:=TMesh.Create('Cube');
   s:=1.0;
-  // each face: 4 verts (CCW from outside), face normal, tangent (+U direction)
+  // each face: 4 verts (CCW from outside), face normal, tangent (+U direction), w=1
   AddQuad(result,Vec3(-s,-s,-s),Vec3( s,-s,-s),Vec3( s, s,-s),Vec3(-s, s,-s),Vec3(0,0,-1),Vec3(1,0,0));  // front -Z
   AddQuad(result,Vec3(-s, s, s),Vec3( s, s, s),Vec3( s,-s, s),Vec3(-s,-s, s),Vec3(0,0, 1),Vec3(1,0,0));  // back  +Z
   AddQuad(result,Vec3(-s,-s, s),Vec3( s,-s, s),Vec3( s,-s,-s),Vec3(-s,-s,-s),Vec3(0,-1,0),Vec3(1,0,0));  // bottom -Y
@@ -152,7 +108,7 @@ begin
   AddQuad(result,Vec3(-s, s, s),Vec3(-s,-s, s),Vec3(-s,-s,-s),Vec3(-s, s,-s),Vec3(-1,0,0),Vec3(0,-1,0)); // left   -X
 end;
 
-function BuildTorus:TdemoMesh;
+function BuildTorus:TMesh;
 const
   U_SEG = 64;
   V_SEG = 24;
@@ -161,16 +117,15 @@ var
   u,v,cu,su,cv,sv:single;
   p,n,t:TVec3;
   r0,r1:single;
-  function VIdx(a,b:integer):word; inline;
+  function VIdx(a,b:integer):integer; inline;
   begin
     result:=a*(V_SEG+1)+b;
   end;
 begin
-  result:=TDemoMesh.Create;
-  result.layout:=TVertexLayout.Create([vcPosition3d,vcNormal,vcColor,vcUV1,vcTangent]);
+  result:=TMesh.Create('Torus');
   r0:=1.25;
   r1:=0.38;
-  SetLength(result.vertices,(U_SEG+1)*(V_SEG+1));
+  result.SetVertexCount((U_SEG+1)*(V_SEG+1),[TMeshAttribute.Normal,TMeshAttribute.Color,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
   idx:=0;
   for i:=0 to U_SEG do begin
     u:=2*Pi*i/U_SEG;
@@ -183,7 +138,11 @@ begin
       n.Normalize;
       t:=Vec3(su,-cu,0); // negated vs dP/du so that cross(T,N)=dP/dv (correct bitangent handedness)
       t.Normalize;
-      SetVertex(result.vertices[idx],p,n,t,i*4/U_SEG,j*2/V_SEG,$FFFFFFFF);
+      result.positions[idx]:=p;
+      result.normals[idx]:=n;
+      result.colors[idx]:=$FFFFFFFF;
+      result.uv0[idx]:=Vec2(i*4/U_SEG,j*2/V_SEG);
+      result.tangents[idx]:=Vec4(t,1.0); // w=1: consistent UV winding
       inc(idx);
     end;
   end;
@@ -191,8 +150,12 @@ begin
   idx:=0;
   for i:=0 to U_SEG-1 do
     for j:=0 to V_SEG-1 do begin
-      AddTrg(result.indices,idx,VIdx(i,j),VIdx(i+1,j),VIdx(i+1,j+1));
-      AddTrg(result.indices,idx+3,VIdx(i,j),VIdx(i+1,j+1),VIdx(i,j+1));
+      result.indices[idx]  :=VIdx(i,j);
+      result.indices[idx+1]:=VIdx(i+1,j);
+      result.indices[idx+2]:=VIdx(i+1,j+1);
+      result.indices[idx+3]:=VIdx(i,j);
+      result.indices[idx+4]:=VIdx(i+1,j+1);
+      result.indices[idx+5]:=VIdx(i,j+1);
       inc(idx,6);
     end;
 end;
@@ -257,12 +220,6 @@ begin
   mat.normalMap.Unlock;
 end;
 
-procedure TDemoMesh.Draw(tex:TTexture);
-begin
-  if (vertices=nil) or (indices=nil) then exit;
-  Apus.Engine.API.draw.IndexedMesh(@vertices[0],layout,@indices[0],length(indices) div 3,length(vertices),tex);
-end;
-
 procedure NormalMapKeyHandler(event:TEventStr;tag:TTag);
 var
   keyCode:integer;
@@ -275,7 +232,7 @@ end;
 constructor TMainApp.Create;
 begin
   inherited;
-  gameTitle:='Apus Engine: Normal Mapping Prototype';
+  gameTitle:='Apus Engine: Normal Mapping (R-06)';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
   useRealDPI:=false;
@@ -316,68 +273,24 @@ begin
     FreeImage(materials[i].colorMap);
     FreeImage(materials[i].normalMap);
   end;
-  nmShader.Free;
   inherited;
 end;
 
 procedure TMainScene.InitGfx;
-const
-  // vertex shader: transforms position/normal/tangent to world space via NormalMatrix
-  VSH =
-    '#version 330'#13#10+
-    'uniform mat4 MVP;'#13#10+
-    'uniform mat3 NormalMatrix;'#13#10+
-    'layout (location=0) in vec3 position;'#13#10+
-    'layout (location=1) in vec3 normal;'#13#10+
-    'layout (location=2) in vec4 color;'#13#10+
-    'layout (location=3) in vec2 texCoord;'#13#10+
-    'layout (location=4) in vec3 tangent;'#13#10+
-    'out vec3 vNormal;'#13#10+
-    'out vec3 vTangent;'#13#10+
-    'out vec2 vTexCoord;'#13#10+
-    'void main(void)'#13#10+
-    '{'#13#10+
-    '  gl_Position = MVP*vec4(position,1.0);'#13#10+
-    '  vNormal = normalize(NormalMatrix*normal);'#13#10+
-    '  vTangent = normalize(NormalMatrix*tangent);'#13#10+
-    '  vTexCoord = texCoord;'#13#10+
-    '}';
-  // fragment shader: TBN normal mapping with diffuse lighting
-  FSH =
-    '#version 330'#13#10+
-    'uniform sampler2D tex0;'#13#10+   // color map
-    'uniform sampler2D tex1;'#13#10+   // normal map (tangent-space, RGB=XYZ encoded 0..1)
-    'uniform vec3 lightDir;'#13#10+    // world-space direction toward light (normalized)
-    'uniform vec3 lightColor;'#13#10+
-    'uniform vec3 ambientColor;'#13#10+
-    'uniform int normalOn;'#13#10+
-    'uniform float normalStrength;'#13#10+
-    'in vec3 vNormal;'#13#10+
-    'in vec3 vTangent;'#13#10+
-    'in vec2 vTexCoord;'#13#10+
-    'out vec4 fragColor;'#13#10+
-    'void main(void)'#13#10+
-    '{'#13#10+
-    '  vec3 base = texture(tex0,vTexCoord).rgb;'#13#10+
-    '  vec3 N = normalize(vNormal);'#13#10+
-    '  vec3 T = normalize(vTangent - N*dot(N,vTangent));'#13#10+  // Gram-Schmidt re-orthogonalize
-    '  vec3 B = normalize(cross(T,N));'#13#10+  // cross(T,N): +V bitangent in right-handed TBN
-    '  if (normalOn!=0) {'#13#10+
-    '    vec3 nm = texture(tex1,vTexCoord).rgb*2.0-1.0;'#13#10+  // decode [0,1] -> [-1,1]
-    '    nm.xy *= normalStrength;'#13#10+
-    '    N = normalize(mat3(T,B,N)*nm);'#13#10+  // transform normal from tangent to world space
-    '  }'#13#10+
-    '  float diff = max(dot(N,normalize(lightDir)),0.0);'#13#10+
-    '  vec3 c = base*(ambientColor+lightColor*diff);'#13#10+
-    '  fragColor = vec4(c,1.0);'#13#10+
-    '}';
+var
+  m:TMesh;
 begin
-  meshes[OBJ_CUBE]:=BuildCube;
-  meshes[OBJ_TORUS]:=BuildTorus;
+  m:=BuildCube;
+  meshes[OBJ_CUBE]:=TGpuMesh.Create(m);
+  meshes[OBJ_CUBE].Upload;
+  m.Free;
+  m:=BuildTorus;
+  meshes[OBJ_TORUS]:=TGpuMesh.Create(m);
+  meshes[OBJ_TORUS].Upload;
+  m.Free;
   FillMaterial(materials[0],0,'Bricks');
   FillMaterial(materials[1],1,'StoneNoise');
   FillMaterial(materials[2],2,'Waves');
-  nmShader:=shader.Build(VSH,FSH);
   SetEventHandler('SCENE\MAIN\KEYDOWN',NormalMapKeyHandler,emInstant);
 end;
 
@@ -431,22 +344,19 @@ var
   scale:single;
   lightDragging:boolean;
 begin
-  // ground gizmos via the R-18 DebugDraw helper (was a hand-rolled grid + arrows)
   DebugDraw.SetupRender(true);
   DebugDraw.Grid(20,20,$FF2D3440,TGridPlane.XY);
   DebugDraw.Arrow2D(Vec3(0,0,0),Vec3(4,0,0),$FF3030E0); // X - blue
   DebugDraw.Arrow2D(Vec3(0,0,0),Vec3(0,4,0),$FF30C050); // Y - green
-  // light direction: arrow from object center toward the light source
+  // light direction arrow from object center toward the light source
   ld:=LightDir;
   scale:=4.5;
   tip:=Vec3(ld.x*scale,ld.y*scale,OBJ_Z+ld.z*scale);
   DebugDraw.Arrow2D(Vec3(0,0,OBJ_Z),tip,$FFFFCC00);
-  // elevation triangle: only while rotating the light (RMB or Ctrl+LMB) - kept inline (no DebugDraw helper)
   lightDragging:=((window.mouseButtons and mbRight)>0) or
                  (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0));
   if lightDragging then begin
-    // triangle: origin -> floor-projection of tip -> 3D tip, the right angle at proj shows elevation
-    proj:=Vec3(tip.x,tip.y,OBJ_Z); // XY projection of tip onto horizontal plane
+    proj:=Vec3(tip.x,tip.y,OBJ_Z);
     draw.Triangle(Vec3(0,0,OBJ_Z),proj,tip,$28FFEE88);
   end;
   DebugDraw.Flush;
@@ -454,23 +364,16 @@ begin
 end;
 
 procedure TMainScene.DrawObject;
-var
-  ld:TVec3;
 begin
-  shader.UseCustom(nmShader);
-  ld:=LightDir;
-  shader.SetUniform('lightDir',ld);
-  shader.SetUniform('lightColor',Vec3(1.15,1.10,1.02));
-  shader.SetUniform('ambientColor',Vec3(0.16,0.17,0.20));
-  shader.SetUniform('normalStrength',1.0);
+  shader.DirectLight(LightDir,1.15,$FFF4E2); // warm white, slightly overbright
+  shader.AmbientLight($292B33);
   if normalEnabled then
-    shader.SetUniform('normalOn',1)
+    shader.NormalMap(materials[materialID].normalMap,1.0)
   else
-    shader.SetUniform('normalOn',0);
-  shader.UseTexture(materials[materialID].normalMap,1);
+    shader.NormalMapOff;
   transform.SetObj(0,0,1.45,1.35,0,0,0);
   meshes[objectID].Draw(materials[materialID].colorMap);
-  shader.Reset;
+  shader.NormalMapOff;
 end;
 
 procedure TMainScene.DrawOverlay;
@@ -493,7 +396,7 @@ begin
   draw.Scaled(x,y+s+38,x+s,y+s*2+38,materials[materialID].normalMap,$FFFFFFFF);
   if objectID=OBJ_CUBE then objName:='Cube' else objName:='Torus';
   if normalEnabled then nmState:='ON' else nmState:='OFF';
-  txt.Write(0,18,22,$FFE8EDF5,'R-06 NormalMap prototype');
+  txt.Write(0,18,22,$FFE8EDF5,'R-06 NormalMap (stock shader)');
   txt.Write(0,18,44,$FFC8D2DF,'LMB rotate camera around vertical axis, RMB/Ctrl+LMB rotate light, wheel zoom');
   txt.Write(0,18,66,$FFC8D2DF,'1 object: '+objName+'   2 material: '+materials[materialID].name+'   3/N normal map: '+nmState);
 end;

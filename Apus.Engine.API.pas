@@ -451,6 +451,11 @@ type
   procedure PointLight(position:TVec3d;power:single;color:cardinal=$FFFFFF);
   // Disable lighting
   procedure LightOff;
+  // Bind a tangent-space normal map for subsequent GPU-mesh draw calls.
+  // Active only when the mesh layout carries a Tangent attribute and lighting is on.
+  // tex=nil is equivalent to NormalMapOff. strength=1.0 is full intensity.
+  procedure NormalMap(tex:TTexture;strength:single=1.0);
+  procedure NormalMapOff;
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
   // Shadow mapping
