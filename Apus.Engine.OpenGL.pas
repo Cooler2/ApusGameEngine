@@ -455,11 +455,11 @@ procedure TOpenGL.Restore;
 procedure TOpenGL.SetCullMode(mode: TCullMode);
  begin
   case mode of
-   cullCCW:begin
+   cullCW:begin
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
    end;
-   cullCW:begin
+   cullCCW:begin
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
    end;
