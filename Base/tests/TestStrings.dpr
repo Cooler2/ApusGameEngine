@@ -293,11 +293,29 @@ begin
   s:='a;b,c';
   arr:=s.Split(',;');
   Check(length(arr)=3,'Split multi delim');
-  // with quote char
+  // with quote char: outer quotes stripped, embedded delimiter preserved
   s:='a,"b,c",d';
   arr:=s.Split(',','"');
   Check(length(arr)=3,'Split quoted length');
-  Check(arr[1]='"b,c"','Split quoted[1]');
+  Check(arr[0]='a','Split quoted[0]');
+  Check(arr[1]='b,c','Split quoted[1]');
+  Check(arr[2]='d','Split quoted[2]');
+  // doubled quote collapses to one literal quote inside a quoted token
+  s:='"a""b",c';
+  arr:=s.Split(',','"');
+  Check(SL(arr,['a"b','c']),'Split doubled quote');
+  // quote is only special when it opens a token (mid-token quote is literal)
+  s:='a"b,c';
+  arr:=s.Split(',','"');
+  Check(SL(arr,['a"b','c']),'Split mid-token quote literal');
+  // trailing quoted token, terminated exactly at the closing quote
+  s:='a,"b,c"';
+  arr:=s.Split(',','"');
+  Check(SL(arr,['a','b,c']),'Split trailing quoted');
+  // unterminated quoted token takes the rest of the string
+  s:='a,"b,c';
+  arr:=s.Split(',','"');
+  Check(SL(arr,['a','b,c']),'Split unterminated quote');
   // Join
   SetLength(arr,3);
   arr[0]:='x'; arr[1]:='y'; arr[2]:='z';
@@ -311,7 +329,7 @@ var
   arr:Strings8;
 begin
   StartTest('String8.SplitEscaped');
-  s:='a~b_c~~d_~e__f~';
+  s:='a~bc~~d_~e__f~'; // no redundant escapes, so the encoding round-trips exactly
   arr:=s.SplitEscaped('~','_');
   Check(SL(arr,['a','bc','','d~e_f','']),'escaped split');
   Check(arr.JoinEscaped('~','_')=s,'escaped join round-trip');
@@ -686,11 +704,21 @@ begin
   Check(UTF8.Encode(arr[0])='a','Split multi delim[0]');
   Check(UTF8.Encode(arr[1])='b','Split multi delim[1]');
   Check(UTF8.Encode(arr[2])='c','Split multi delim[2]');
-  // with quote char
+  // with quote char: outer quotes stripped, embedded delimiter preserved
   s:=UTF8.Decode('a,"b,c",d');
   arr:=s.Split(UTF8.Decode(','),UCS4Char('"'));
   Check(length(arr)=3,'Split quoted length');
-  Check(UTF8.Encode(arr[1])='"b,c"','Split quoted[1]');
+  Check(UTF8.Encode(arr[0])='a','Split quoted[0]');
+  Check(UTF8.Encode(arr[1])='b,c','Split quoted[1]');
+  Check(UTF8.Encode(arr[2])='d','Split quoted[2]');
+  // doubled quote collapses to one literal quote inside a quoted token
+  s:=UTF8.Decode('"a""b",c');
+  arr:=s.Split(UTF8.Decode(','),UCS4Char('"'));
+  Check((length(arr)=2) and (UTF8.Encode(arr[0])='a"b') and (UTF8.Encode(arr[1])='c'),'Split doubled quote');
+  // mid-token quote is literal
+  s:=UTF8.Decode('a"b,c');
+  arr:=s.Split(UTF8.Decode(','),UCS4Char('"'));
+  Check((length(arr)=2) and (UTF8.Encode(arr[0])='a"b') and (UTF8.Encode(arr[1])='c'),'Split mid-token quote literal');
   // Join
   arr:=UTF8.Decode('a,b,c').Split(UCS4Char(','));
   delim:=UTF8.Decode('-');

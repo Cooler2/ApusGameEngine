@@ -72,8 +72,14 @@ type
     function ReplaceAll(const oldStr,newStr:String8):String8;
 
     // === Split/Join ===
+    // Split by a single delimiter / by any char from the delimiters set.
+    // quoteChar (#0=off) enables CSV-style quoting: a quoteChar is special only when
+    // it OPENS a token; such a token has its enclosing quotes stripped and doubled
+    // quoteChar ("") collapsed to one literal. Whitespace is NOT trimmed.
     function Split(delimiter:AnsiChar;quoteChar:AnsiChar=#0):Strings8; overload;
     function Split(const delimiters:String8;quoteChar:AnsiChar=#0):Strings8; overload;
+    // Split by a single delimiter, escapeChar-style: escapeChar protects the next
+    // char (incl. delimiter or escapeChar itself) and is removed from the output.
     function SplitEscaped(delimiter:AnsiChar;escapeChar:AnsiChar='\'):Strings8;
     function SplitLines:Strings8; // split by #13, #10, or #13#10
     class function Join(const arr:Strings8;const delimiter:String8):String8; static;
@@ -166,6 +172,9 @@ type
     function ReplaceAll(const oldStr,newStr:String32):String32;
 
     // === Split/Join ===
+    // Same semantics as String8.Split: quoteChar (0=off) enables CSV-style quoting
+    // (special only when opening a token; outer quotes stripped, doubled quoteChar
+    // collapsed to one literal; whitespace not trimmed).
     function Split(delimiter:UCS4Char):Strings32; overload;
     function Split(const delimiters:String32;quoteChar:UCS4Char=0):Strings32; overload;
     class function Join(const arr:Strings32;const delimiter:String32):String32; static;
@@ -576,39 +585,56 @@ begin
 end;
 
 function String8Helper.Split(delimiter:AnsiChar;quoteChar:AnsiChar):Strings8;
-var i,start,cnt:integer; inQuote:boolean;
+var d:String8;
 begin
-  SetLength(result,16); cnt:=0; start:=1; inQuote:=false;
-  for i:=1 to System.Length(self) do begin
-    if (quoteChar<>#0) and (self[i]=quoteChar) then
-      inQuote:=not inQuote
-    else if (not inQuote) and (self[i]=delimiter) then begin
-      if cnt>=System.Length(result) then SetLength(result,cnt*2);
-      result[cnt]:=System.Copy(self,start,i-start);
-      inc(cnt); start:=i+1;
-    end;
-  end;
-  if cnt>=System.Length(result) then SetLength(result,cnt+1);
-  result[cnt]:=System.Copy(self,start,System.Length(self)-start+1);
-  SetLength(result,cnt+1);
+  SetLength(d,1); d[1]:=delimiter;
+  result:=Split(d,quoteChar);
 end;
 
+// A quoteChar is only special when it opens a token (sits right after a delimiter).
+// A quoted token gets its enclosing quotes stripped and doubled quoteChar collapsed
+// to a single literal one. Whitespace is never trimmed.
 function String8Helper.Split(const delimiters:String8;quoteChar:AnsiChar):Strings8;
-var i,start,cnt:integer; inQuote:boolean;
+var
+  i,len,start,cnt:integer;
+  token:String8;
 begin
-  SetLength(result,16); cnt:=0; start:=1; inQuote:=false;
-  for i:=1 to System.Length(self) do begin
-    if (quoteChar<>#0) and (self[i]=quoteChar) then
-      inQuote:=not inQuote
-    else if (not inQuote) and (System.Pos(self[i],delimiters)>0) then begin
+  len:=System.Length(self);
+  SetLength(result,16); cnt:=0; start:=1;
+  while true do begin
+    if (start<=len) and (quoteChar<>#0) and (self[start]=quoteChar) then begin
+      // quoted token: strip outer quotes, collapse doubled quoteChar
+      token:='';
+      i:=start+1;
+      while i<=len do begin
+        if self[i]=quoteChar then begin
+          if (i<len) and (self[i+1]=quoteChar) then begin
+            token:=token+quoteChar; inc(i,2); // doubled quote -> one literal
+          end else break; // closing quote
+        end else begin
+          token:=token+self[i]; inc(i);
+        end;
+      end;
       if cnt>=System.Length(result) then SetLength(result,cnt*2);
-      result[cnt]:=System.Copy(self,start,i-start);
-      inc(cnt); start:=i+1;
+      result[cnt]:=token; inc(cnt);
+      if i>len then break; // unterminated, or string ends at closing quote
+      inc(i); // skip closing quote
+      while (i<=len) and (System.Pos(self[i],delimiters)=0) do inc(i); // discard up to next delimiter
+      if i>len then break;
+      start:=i+1;
+    end else begin
+      // unquoted token: copy verbatim up to next delimiter
+      i:=start;
+      while (i<=len) and (System.Pos(self[i],delimiters)=0) do inc(i);
+      if cnt>=System.Length(result) then SetLength(result,cnt*2);
+      if i>len then begin
+        result[cnt]:=System.Copy(self,start,len-start+1); inc(cnt); break;
+      end;
+      result[cnt]:=System.Copy(self,start,i-start); inc(cnt);
+      start:=i+1;
     end;
   end;
-  if cnt>=System.Length(result) then SetLength(result,cnt+1);
-  result[cnt]:=System.Copy(self,start,System.Length(self)-start+1);
-  SetLength(result,cnt+1);
+  SetLength(result,cnt);
 end;
 
 function String8Helper.SplitEscaped(delimiter:AnsiChar;escapeChar:AnsiChar):Strings8;
@@ -1181,32 +1207,71 @@ begin
   result:=Split(delim,0);
 end;
 
+// Mirrors String8.Split quote semantics: a quoteChar is only special when it opens
+// a token; quoted tokens get outer quotes stripped and doubled quoteChar collapsed.
 function String32Helper.Split(const delimiters:String32;quoteChar:UCS4Char):Strings32;
 var
-  i,j,start,cnt:integer;
-  inQuote,isDelim:boolean;
+  i,j,k,m,len,start,cnt:integer;
+  isDelim,doubled:boolean;
 begin
-  SetLength(result,16); cnt:=0; start:=0; inQuote:=false;
-  for i:=0 to high(self) do begin
-    if (quoteChar<>0) and (self[i]=quoteChar) then
-      inQuote:=not inQuote
-    else if not inQuote then begin
-      isDelim:=false;
-      for j:=0 to high(delimiters) do
-        if self[i]=delimiters[j] then begin
-          isDelim:=true;
-          break;
-        end;
-      if isDelim then begin
-        if cnt>=System.Length(result) then SetLength(result,cnt*2);
-        result[cnt]:=System.Copy(self,start,i-start);
-        inc(cnt); start:=i+1;
+  len:=System.Length(self);
+  SetLength(result,16); cnt:=0; start:=0;
+  while true do begin
+    if (start<len) and (quoteChar<>0) and (self[start]=quoteChar) then begin
+      // quoted token: locate closing quote (skipping doubled pairs), then build content
+      doubled:=false;
+      i:=start+1;
+      while i<len do begin
+        if self[i]=quoteChar then begin
+          if (i<len-1) and (self[i+1]=quoteChar) then begin
+            doubled:=true; inc(i,2); // doubled quote
+          end else break; // closing quote
+        end else inc(i);
       end;
+      if cnt>=System.Length(result) then SetLength(result,cnt*2);
+      if not doubled then
+        result[cnt]:=System.Copy(self,start+1,i-start-1) // fast path: content is contiguous
+      else begin
+        SetLength(result[cnt],i-start-1); // upper bound, trimmed below
+        m:=0; k:=start+1;
+        while k<i do begin
+          result[cnt][m]:=self[k];
+          if (self[k]=quoteChar) and (k+1<i) and (self[k+1]=quoteChar) then inc(k,2)
+            else inc(k);
+          inc(m);
+        end;
+        SetLength(result[cnt],m);
+      end;
+      inc(cnt);
+      if i>=len then break; // unterminated, or string ends at closing quote
+      inc(i); // skip closing quote
+      // discard chars between closing quote and the next delimiter
+      while i<len do begin
+        isDelim:=false;
+        for j:=0 to high(delimiters) do
+          if self[i]=delimiters[j] then begin isDelim:=true; break; end;
+        if isDelim then break;
+        inc(i);
+      end;
+      if i>=len then break;
+      start:=i+1;
+    end else begin
+      // unquoted token: copy verbatim up to next delimiter
+      i:=start;
+      while i<len do begin
+        isDelim:=false;
+        for j:=0 to high(delimiters) do
+          if self[i]=delimiters[j] then begin isDelim:=true; break; end;
+        if isDelim then break;
+        inc(i);
+      end;
+      if cnt>=System.Length(result) then SetLength(result,cnt*2);
+      result[cnt]:=System.Copy(self,start,i-start); inc(cnt);
+      if i>=len then break;
+      start:=i+1;
     end;
   end;
-  if cnt>=System.Length(result) then SetLength(result,cnt+1);
-  result[cnt]:=System.Copy(self,start,System.Length(self)-start);
-  SetLength(result,cnt+1);
+  SetLength(result,cnt);
 end;
 
 class function String32Helper.Join(const arr:Strings32;const delimiter:String32):String32;
