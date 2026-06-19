@@ -176,3 +176,63 @@ What happens to each current demo:
 | Network | Roadmap section K |
 | HelloEngine | None (can be created now) |
 | Text | None (can be created now) |
+
+## Plan Evolution Ideas
+
+These notes are candidate refinements for the R-15 demo plan. They do not
+change the target structure or migration map above yet.
+
+### Resource Lab / ResLab
+
+Consider making the planned `Resources` demo a focused `ResLab`: a resource
+lifecycle and diagnostics surface rather than a general "load some images"
+showcase.
+
+Possible coverage:
+- `TTexture` creation, ownership, naming, lookup, reference/free patterns.
+- `ImgLoadQueue` async loading with placeholder/completion/error states.
+- Hot reload / reload-from-file if the stabilized resource API supports it.
+- Direct texture operations: `Upload`, `UploadPart`, `Clear`, `ClearPart`,
+  lock/unlock, and pixel updates.
+- Resource diagnostics: loaded resources, dimensions, format, source, and
+  reference state.
+- Stress cases: many small textures, repeated load of the same name, free and
+  recreate cycles.
+- Robot-friendly fixed checks: deterministic texture-update areas whose pixels
+  can be validated.
+
+### AdvTex Decomposition
+
+The current `AdvTex` mixes several useful but different concerns. Instead of
+porting it as one demo, split its cases by purpose:
+
+- Direct texture upload/fill/update belongs in `ResLab` because it tests
+  resource mutation and lifecycle behavior.
+- Manual mip levels and filter comparison belong in `AdvancedGfx` as rendering
+  behavior.
+- Texture arrays belong in `AdvancedGfx`, but only after deciding whether the
+  public Engine5 API should expose them above the current OpenGL-specific
+  `TGLTextureArray` surface.
+- Shader sampling from texture arrays can be a higher-level `AdvancedGfx` case,
+  not part of the basic shader introduction.
+
+### Shaders vs AdvancedGfx
+
+Keep `Shaders` as a lightweight feature demo / shader lab:
+
+- custom shader snippets and file-loaded shaders;
+- uniform editing and animation (`time`, colors, radius, border, UV offsets);
+- small 2D examples such as rounded-rect SDF, color ramp, UV grid, image tint,
+  and distortion;
+- stable pixel-test zones for Robot API checks.
+
+Keep `AdvancedGfx` for heavier rendering techniques:
+
+- mipmaps and texture filtering;
+- texture arrays;
+- shadow maps;
+- normal maps;
+- advanced texture/render-pass interactions.
+
+This split keeps `Shaders` useful as an API-reference entry point while leaving
+`AdvancedGfx` free to become the deeper rendering-techniques demo.
