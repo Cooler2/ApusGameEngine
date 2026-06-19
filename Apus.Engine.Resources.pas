@@ -51,6 +51,12 @@ interface
              lmWriteOnly,      //< write-only (don't download texture data into the internal storage)
              lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
+  TTexture=class; // forward (referenced by the pixel-fill callbacks below)
+  // Callback computing the ARGB color of a single texel. The texture is passed
+  // so the callback can derive normalized u,v from x,y and tex.width/height when needed.
+  TPixelFillFunc=function(tex:TTexture;x,y:integer):cardinal;             // plain function
+  TPixelFillMethod=function(tex:TTexture;x,y:integer):cardinal of object; // method (e.g. of a scene)
+
   // Base abstract class: texture or texture region
   TTexture=class(TNamedObject)
    pixelFormat:TImagePixelFormat;
@@ -73,6 +79,10 @@ interface
    function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
    procedure Clear(color:cardinal=$808080); virtual; abstract; // Clear and fill the texture with given color
    procedure ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal=$808080); virtual; abstract; // clear part of texture
+   // Fill the top mip level by calling a callback for every texel (convenient but not fast).
+   // Locks/unlocks the texture automatically if it is not already locked. ARGB/XRGB formats only.
+   procedure Fill(func:TPixelFillFunc); overload;
+   procedure Fill(func:TPixelFillMethod); overload;
    // Define (upload) texture content directly from user defined storage
    procedure Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); overload; virtual; abstract;
    procedure Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); overload; virtual; abstract;
@@ -364,6 +374,46 @@ end;
 function TTexture.IsLocked:boolean;
 begin
  result:=locked>0;
+end;
+
+procedure TTexture.Fill(func:TPixelFillFunc);
+var
+ x,y:integer;
+ row:PCardinalRow;
+ wasLocked:boolean;
+begin
+ ASSERT(pixelFormat in [ipfARGB,ipfXRGB],'Fill supports 32-bit ARGB/XRGB textures only: '+name);
+ wasLocked:=IsLocked;
+ if not wasLocked then Lock; // lock the top mip level
+ try
+  for y:=0 to height-1 do begin
+   row:=PCardinalRow(ScanLine(y));
+   for x:=0 to width-1 do
+    row^[x]:=func(self,x,y);
+  end;
+ finally
+  if not wasLocked then Unlock;
+ end;
+end;
+
+procedure TTexture.Fill(func:TPixelFillMethod);
+var
+ x,y:integer;
+ row:PCardinalRow;
+ wasLocked:boolean;
+begin
+ ASSERT(pixelFormat in [ipfARGB,ipfXRGB],'Fill supports 32-bit ARGB/XRGB textures only: '+name);
+ wasLocked:=IsLocked;
+ if not wasLocked then Lock; // lock the top mip level
+ try
+  for y:=0 to height-1 do begin
+   row:=PCardinalRow(ScanLine(y));
+   for x:=0 to width-1 do
+    row^[x]:=func(self,x,y);
+  end;
+ finally
+  if not wasLocked then Unlock;
+ end;
 end;
 
 procedure TTexture.MakeImmutable;
