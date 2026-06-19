@@ -1,4 +1,4 @@
-// Normal mapping demo for R-06 — uses the stock engine GPU-mesh pipeline.
+﻿// Normal mapping demo for R-06 — uses the stock engine GPU-mesh pipeline.
 // Mesh builders produce TMesh with positions/normals/uv0/tangents (w=handedness);
 // TGpuMesh uploads them and draws via shader.NormalMap / shader.NormalMapOff.
 
@@ -322,8 +322,10 @@ begin
   lightDragging:=((window.mouseButtons and mbRight)>0) or
                  (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0));
   if lightDragging then begin
+    gfx.target.SetDepthMode(TDepthTest.Keep,TDepthWrite.Off); // translucent gizmo: keep test, don't pollute depth
     proj:=Vec3(tip.x,tip.y,OBJ_Z);
     draw.Triangle(Vec3(0,0,OBJ_Z),proj,tip,$28FFEE88);
+    gfx.target.SetDepthMode(TDepthTest.Keep,TDepthWrite.On); // restore depth writes
   end;
   DebugDraw.Flush;
   draw.SetZ(0);
@@ -348,7 +350,7 @@ var
   objName,nmState:String8;
 begin
   transform.DefaultView;
-  gfx.target.UseDepthBuffer(dbDisabled);
+  gfx.target.SetDepthMode(TDepthTest.Disabled);
   shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
@@ -386,7 +388,7 @@ begin
   gfx.SetCullMode(TCullMode.DrawAll);
   gfx.clip.Nothing;
   DrawGrid;
-  gfx.target.UseDepthBuffer(dbPassLess);
+  gfx.target.SetDepthMode(TDepthTest.Less);
   gfx.SetCullMode(TCullMode.DrawCCW);
   DrawObject;
   gfx.clip.Restore;

@@ -74,7 +74,7 @@ procedure BasicTest;
   gfx.target.Clear($406080,1);
   SetupCamera;
 
-  gfx.target.UseDepthBuffer(dbPass);
+  gfx.target.SetDepthMode(TDepthTest.Pass);
 
   gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
@@ -143,7 +143,7 @@ procedure GalaxyTest;
   gfx.target.Clear(0,1);
   SetupCamera;
 
-  gfx.target.UseDepthBuffer(dbDisabled);
+  gfx.target.SetDepthMode(TDepthTest.Disabled);
   gfx.target.BlendMode(blAdd);
   draw.Particles(@particles[0],sizeof(TParticle),length(particles),tex,16,false);
   gfx.target.BlendMode(blAlpha);
@@ -195,7 +195,7 @@ procedure SoftTest;
  begin
   gfx.target.Clear(0,1);
   SetupCamera;
-  gfx.target.UseDepthBuffer(dbPass);
+  gfx.target.SetDepthMode(TDepthTest.Pass);
 
   gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
@@ -235,11 +235,11 @@ procedure SoftTest;
    particles[i].color:=Color.GrayAlpha(PikeS(1-particles[i].custom/100,0.2,1,1,0));
   end;
 
-  gfx.target.UseDepthBuffer(dbPassLess,false);
+  gfx.target.SetDepthMode(TDepthTest.Less,TDepthWrite.Off);
   draw.EnableSoftParticles(0.9);
   draw.Particles(@particles[0],length(particles),tex,16);
 
-  gfx.target.UseDepthBuffer(dbDisabled);
+  gfx.target.SetDepthMode(TDepthTest.Disabled);
   transform.DefaultView;
 
  end;

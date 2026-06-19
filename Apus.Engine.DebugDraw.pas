@@ -196,8 +196,8 @@ class procedure DebugDraw.SetupRender(depthTest:boolean=true);
 begin
   transform.ResetObj;
   draw.SetZ(0);
-  if depthTest then gfx.target.UseDepthBuffer(dbPassLess) // real occlusion: solids self-occlude
-   else gfx.target.UseDepthBuffer(dbDisabled);            // overlay gizmos, always on top
+  if depthTest then gfx.target.SetDepthMode(TDepthTest.Less) // real occlusion: solids self-occlude
+   else gfx.target.SetDepthMode(TDepthTest.Disabled);            // overlay gizmos, always on top
   ddMode:=ddNone; // solids/lines set their own light+texmode lazily on first use
 end;
 

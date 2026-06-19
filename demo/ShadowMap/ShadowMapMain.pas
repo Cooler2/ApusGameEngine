@@ -123,7 +123,7 @@ procedure TMainScene.onMouseWheel(delta: integer);
 
 procedure TMainScene.DrawScene(mainPass: boolean);
  begin
-  gfx.target.UseDepthBuffer(dbPass);
+  gfx.target.SetDepthMode(TDepthTest.Pass);
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
   draw.FillRect(-20,-20,20,20,$FF80A0B0);
   if mainPass then begin
@@ -137,7 +137,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
    draw.Line(0,10,-1,9,$FF007000);
   end;
 
-  gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
+  gfx.target.SetDepthMode(TDepthTest.Less); // clip anything below the floor plane
 
   if mainPass then begin
    // Setup light and material
@@ -216,7 +216,7 @@ procedure TMainScene.Render;
   shader.LightOff;
   shader.DefaultTexMode;
   transform.DefaultView;
-  gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
+  gfx.target.SetDepthMode(TDepthTest.Disabled); // Disable depth buffer
   gfx.SetCullMode(TCullMode.DrawAll);
 
   //glFlush;

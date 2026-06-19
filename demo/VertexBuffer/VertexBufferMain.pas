@@ -135,7 +135,7 @@ procedure TMainScene.Render;
   gfx.target.Clear($204030,1);
   transform.Perspective(1,1,1000);
   transform.SetCamera(Point3s(0,30,10),Point3s(0,0,2),Point3s(0,0,1000));
-  gfx.target.UseDepthBuffer(dbPassLess);
+  gfx.target.SetDepthMode(TDepthTest.Less);
 
   shader.AmbientLight($404030);
   shader.DirectLight(Vector3(1,1,1),2,$907060);
@@ -152,7 +152,7 @@ procedure TMainScene.Render;
 
   shader.LightOff;
   transform.DefaultView;
-  gfx.target.UseDepthBuffer(dbDisabled);
+  gfx.target.SetDepthMode(TDepthTest.Disabled);
   inherited;
   // Text overlays
   txt.Write(0,10,20,clWhite,'Mesh triangles: '+IntToStr(trgCount div 1000)+'K');

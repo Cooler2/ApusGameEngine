@@ -115,7 +115,7 @@ procedure TMainScene.Render;
     Point3(distance*cos(cameraAngle),distance*sin(cameraAngle),distance*0.4),
     Point3(0,0,4),Point3(0,0,1000));
 
-  gfx.target.UseDepthBuffer(dbPass);
+  gfx.target.SetDepthMode(TDepthTest.Pass);
 
   gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
@@ -133,7 +133,7 @@ procedure TMainScene.Render;
 
   gfx.clip.Restore;
 
-  gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
+  gfx.target.SetDepthMode(TDepthTest.Less); // clip anything below the floor plane
 
   // Setup light and material
   shader.AmbientLight($303030);
@@ -150,7 +150,7 @@ procedure TMainScene.Render;
   transform.DefaultView;
   shader.LightOff;
   shader.DefaultTexMode;
-  gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
+  gfx.target.SetDepthMode(TDepthTest.Disabled); // Disable depth buffer
 
   txt.Write(0,10,20,$FFD0D0D0,'Mouse - rotate/zoom.');
   txt.Write(0,10,40,$FFD0D0D0,IntToStr(globalDirty));

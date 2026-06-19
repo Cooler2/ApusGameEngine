@@ -200,7 +200,7 @@ procedure SetupView;
            distance*sin(cameraHeight)),
     Point3(0,0,distance*0.25),Point3(0,0,1000));
 
-  gfx.target.UseDepthBuffer(dbPass);
+  gfx.target.SetDepthMode(TDepthTest.Pass);
 
   gfx.SetCullMode(TCullMode.DrawAll);
   transform.Transform(Point3(0,0,0));
@@ -226,7 +226,7 @@ procedure TMainScene.Render;
   gfx.target.Clear($90B0C0,1); // clear with blue
   SetupView;
 
-  gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
+  gfx.target.SetDepthMode(TDepthTest.Less); // clip anything below the floor plane
 
   curTree.gen.seed:=1;
   curTree.gen.Build;
@@ -242,7 +242,7 @@ procedure TMainScene.Render;
   transform.DefaultView;
   shader.LightOff;
   shader.DefaultTexMode;
-  gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
+  gfx.target.SetDepthMode(TDepthTest.Disabled); // Disable depth buffer
 
 
   inherited; // this will draw the UI elements

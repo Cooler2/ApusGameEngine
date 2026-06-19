@@ -208,7 +208,7 @@ procedure DrawBillboards;
  var
   i:integer;
  begin
-  gfx.target.UseDepthBuffer(dbPassLess); // enable depth buffer
+  gfx.target.SetDepthMode(TDepthTest.Less); // enable depth buffer
   draw.Billboard(Point3s(0,0,0),0.1,baloon1,0.5,1.0);
 
   //exit;
@@ -228,7 +228,7 @@ procedure TMainScene.Render;
   gfx.target.Clear($304050,1);
   SetupCamera;
 
-  gfx.target.UseDepthBuffer(dbPass);
+  gfx.target.SetDepthMode(TDepthTest.Pass);
   gfx.SetCullMode(TCullMode.DrawAll);
 
   gfx.clip.Reject(false); // disable primitive culling (because we're in 3D mode)
@@ -246,7 +246,7 @@ procedure TMainScene.Render;
   // Turn back to 2D view
   gfx.clip.Reject(true);
   transform.DefaultView;
-  gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
+  gfx.target.SetDepthMode(TDepthTest.Disabled); // Disable depth buffer
   inherited;
  end;
 

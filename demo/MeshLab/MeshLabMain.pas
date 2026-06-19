@@ -405,7 +405,7 @@ procedure TMainScene.Render;
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
   gfx.SetCullMode(TCullMode.DrawCCW);
-  gfx.target.UseDepthBuffer(dbPassLess);
+  gfx.target.SetDepthMode(TDepthTest.Less);
 
   shader.AmbientLight($303838);
   shader.DirectLight(Vec3(0.4,0.6,1.0),1.0,$FFFFFF);
@@ -454,7 +454,7 @@ procedure TMainScene.Render;
   transform.DefaultView;
   shader.LightOff;
   shader.DefaultTexMode;
-  gfx.target.UseDepthBuffer(dbDisabled);
+  gfx.target.SetDepthMode(TDepthTest.Disabled);
   gfx.SetCullMode(TCullMode.DrawAll);
   if overview then
    statusText:='Overview: '+Conv.ToStr(length(items))+' shapes - press Tab to focus'
@@ -483,7 +483,7 @@ procedure TMainScene.Render;
 // R-18 DebugDraw gallery: every solid/line helper drawn in one bracketed group.
 // Laid out as a dedicated row behind the gallery (y=ROWY), on the same ground
 // plane (centers at z~0, like the gallery cells), so it reads coplanar and gets
-// proper depth occlusion (SetupRender uses dbPassLess).
+// proper depth occlusion (SetupRender uses TDepthTest.Less).
 procedure TMainScene.DrawDebugShowcase;
  const
   ROWY=12.8; // one CELL beyond the last gallery row (rows are at -6.4, 0, 6.4)
