@@ -21,7 +21,7 @@ uses
   Apus.Core, Apus.Colors, Apus.Geom2D, Apus.Geom3D,
   Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene,
   Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes,
-  Apus.Engine.DebugDraw;
+  Apus.Engine.ImageTools, Apus.Engine.DebugDraw;
 
 const
   TEX_SIZE = 256;
@@ -56,7 +56,7 @@ type
     function LightDir:TVec3;
     procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
     function ColorPixel(tex:TTexture;x,y:integer):cardinal;  // Fill callback: albedo for fillKind
-    function NormalPixel(tex:TTexture;x,y:integer):cardinal; // Fill callback: tangent-space normal for fillKind
+    function HeightPixel(tex:TTexture;x,y:integer):cardinal; // Fill callback: grayscale height for fillKind
     procedure RebuildMesh(id:integer);
     procedure DrawGrid;
     procedure DrawObject;
@@ -65,15 +65,6 @@ type
 
 var
   sceneMain:TMainScene;
-
-function NormalColor(nx,ny,nz:single):cardinal;
-var
-  n:TVec3;
-begin
-  n:=Vec3(nx,ny,nz);
-  n.Normalize;
-  result:=Color.RGB(round(127.5+n.x*127.5),round(127.5+n.y*127.5),round(127.5+n.z*127.5));
-end;
 
 function Noise2(x,y:integer):single;
 var
@@ -179,25 +170,28 @@ begin
   end;
 end;
 
-// Tangent-space normal for the current material, derived from the height field's gradient.
-function TMainScene.NormalPixel(tex:TTexture;x,y:integer):cardinal;
+// Grayscale height for the current material (the height field is demo content).
+function TMainScene.HeightPixel(tex:TTexture;x,y:integer):cardinal;
 var
-  dx,dy:single;
+  h:integer;
 begin
-  // central difference gradient; negate because slope toward +X tilts normal toward -X
-  dx:=HeightAt(fillKind,(x+1) mod TEX_SIZE,y)-HeightAt(fillKind,(x+TEX_SIZE-1) mod TEX_SIZE,y);
-  dy:=HeightAt(fillKind,x,(y+1) mod TEX_SIZE)-HeightAt(fillKind,x,(y+TEX_SIZE-1) mod TEX_SIZE);
-  result:=NormalColor(-dx*3.0,-dy*3.0,1.0); // tangent-space normal encoded as RGB
+  h:=round(Clamp(HeightAt(fillKind,x,y),0.0,1.0)*255);
+  result:=Color.RGB(h,h,h);
 end;
 
 procedure TMainScene.FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
+var
+  heightTex:TTexture;
 begin
   mat.name:=name;
-  fillKind:=kind; // pass the material kind to ColorPixel/NormalPixel (callbacks can't capture)
+  fillKind:=kind; // pass the material kind to ColorPixel/HeightPixel (callbacks can't capture)
   mat.colorMap:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_color');
-  mat.normalMap:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_normal');
   mat.colorMap.Fill(ColorPixel);
-  mat.normalMap.Fill(NormalPixel);
+  // rasterize the height field, then derive a tileable normal map with the engine helper
+  heightTex:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_height');
+  heightTex.Fill(HeightPixel);
+  mat.normalMap:=NormalMapFromHeight(heightTex,3.0); // wrap=true → seamless tiling
+  FreeImage(heightTex);
 end;
 
 procedure NormalMapKeyHandler(event:TEventStr;tag:TTag);
