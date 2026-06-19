@@ -73,6 +73,7 @@ compile_only tests/OpenGL.dpr
 run_test tests/TestStyle.dpr
 run_test tests/TestGpuLayout.dpr
 run_test tests/TestMesh3D.dpr
+run_test tests/TestMeshOps.dpr
 run_test tests/TestMeshShapes.dpr
 run_test tests/TestObjMesh.dpr
 

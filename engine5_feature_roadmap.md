@@ -19,7 +19,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | AEM v1 spec, runtime loader alignment, Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | — |
 | R-05 | CSS-Like UI Style System | in-progress | ~75% | Real-screen validation, resolver perf/caching, $varName support, visual regression tests |
-| R-06 | 3D Material: Normal Mapping | in-progress | ~30% | `ComputeTangents` proc in `Apus.Engine.Mesh`; normal-map branch in stock shader; port demo/NormalMap |
+| R-06 | 3D Material: Normal Mapping | in-progress | ~95% | Final visual handedness sign-off (TestMeshOps now in CI smoke, Win+Linux) |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Linux validation, benchmark pass, SSE hot paths, remaining module migration |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | — |
 | R-09 | GL Performance Modernization | in-progress | ~40% | NSight baseline (Track A); Track C opt-in batching on demand |
@@ -144,17 +144,18 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Design: `Work/reports/R-05_notes.md`
 
 ### [R-06] 3D Material Pipeline: Normal Mapping
-- Status: in-progress (~30%) | Priority: P1 | Area: Render
+- Status: in-progress (~85%) | Priority: P1 | Area: Render
 - Value: Per-pixel normal mapping in the stock mesh shader for static `TMesh`/`TGpuMesh` geometry.
-- Key finding: tangents are generated (R-20) + uploaded (R-19 TGpuMesh) but **stock mesh shader ignores them** — dead pipeline until R-06 lands the shader branch.
-- Scope: `ComputeTangents` as a unit-level procedure in `Apus.Engine.Mesh` (NOT a TMesh method; no separate MeshOps module — one-pass ops co-locate in the mesh unit) + normal-map branch in stock mesh shader + `shader.NormalMap(tex;strength)` / `NormalMapOff` state + port `demo/NormalMap` onto GPU-mesh + stock shader.
+- Implemented (committed on `engine5`, T1–T3): `MeshOps.ComputeNormals`/`ComputeTangents` co-located in `Apus.Engine.Mesh` (as a `MeshOps` class with static methods, not a bare proc — minor deviation from the locked design, but co-located in the unit as decided); normal-map branch in stock mesh shader (`LIGHT_NORMALMAP` flag, TBN reconstruction with Gram-Schmidt + `vTangent.w` handedness, `normalMap`/`normalStrength` uniforms, bound to unit 3); `shader.NormalMap(tex;strength)` / `NormalMapOff` state; `demo/NormalMap` ported onto `TMesh`+`MeshShapes.Box`+stock shader with computed/analytic toggle (key C); handedness fix (`35a79c5`/`33c698e`).
+- Scope: see Implemented above.
 - Out of scope: full PBR; `TMaterial` type (→ R-17/R-03); skinned-model tangents; procedural texture baking.
 - Acceptance Criteria:
-  - [ ] `ComputeTangents(mesh)` procedure in `Apus.Engine.Mesh`; headless test (degenerate UV does not NaN).
-  - [ ] Stock mesh shader does TBN normal mapping when normal map bound + mesh carries tangents; non-mapped draws unchanged.
-  - [ ] `demo/NormalMap` ported onto TGpuMesh + stock shader + ComputeTangents. Visual parity.
-  - [ ] Tangent handedness validated on real surface (MeshLab or ported demo).
-  - [ ] FPC/Linux smoke.
+  - [x] `ComputeTangents(mesh)` in `Apus.Engine.Mesh` (`MeshOps.ComputeTangents`).
+  - [x] Headless test: degenerate UV does not NaN; handedness sign correctness — `Base/tests/TestMeshOps.dpr`, 9 checks, passes FPC x86+x64; no bugs found.
+  - [x] Stock mesh shader does TBN normal mapping when normal map bound + mesh carries tangents; non-mapped draws unchanged.
+  - [x] `demo/NormalMap` ported onto stock shader + ComputeTangents (TMesh SoA + MeshShapes.Box).
+  - [ ] Tangent handedness validated on real surface — algebraically covered by TestMeshOps; final visual sign-off pending.
+  - [x] `TestMeshOps` wired into engine CI smoke (`tests/linux_smoke.sh` + `tests/windows_smoke.ps1`) — runs Win+Linux.
 - Plan: `Work/reports/R-06_normal_mapping_plan.md`
 
 ### [R-07] Geometry Library Overhaul (Single-First + Spatial)
