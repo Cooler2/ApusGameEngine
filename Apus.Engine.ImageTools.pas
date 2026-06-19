@@ -85,6 +85,10 @@ interface
 
  procedure ImageHueSaturation(image:TTexture;hue,saturation:single);
 
+ // Build a tangent-space normal map texture from a height-map texture (ARGB/xRGB, height = pixel luminance).
+ // Returns a new ARGB texture of the same size. See Apus.GfxFilters.HeightToNormalMap for strength/wrap semantics.
+ function NormalMapFromHeight(heightMap:TTexture;strength:single=2.0;wrap:boolean=true):TTexture;
+
  function MTFlags(mtWidth,mtHeight:integer):cardinal; // build liffMxxx flags for given width/height values
 
 
@@ -362,6 +366,21 @@ begin
   tex.Unlock;
  end;
  result:=tex;
+end;
+
+function NormalMapFromHeight(heightMap:TTexture;strength:single;wrap:boolean):TTexture;
+begin
+ ASSERT(heightMap.PixelFormat in [ipfARGB,ipfxRGB]);
+ result:=AllocImage(heightMap.width,heightMap.height,ipfARGB,aiTexture,heightMap.name+'_nm') as TTexture;
+ heightMap.Lock(0,lmReadOnly);
+ result.Lock;
+ try
+  HeightToNormalMap(heightMap.data,heightMap.pitch, result.data,result.pitch,
+    heightMap.width,heightMap.height, strength,wrap);
+ finally
+  result.Unlock;
+  heightMap.Unlock;
+ end;
 end;
 
 function MTFlags(mtWidth,mtHeight:integer):cardinal;

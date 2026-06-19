@@ -54,6 +54,19 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
 
 
 // ---------------------
+// HEIGHT -> NORMAL MAP
+
+// Build a tangent-space normal map from a height field.
+//   src - ARGB/xRGB buffer, height is taken as the luminance of each pixel
+//   dst - ARGB buffer (same dimensions), normal encoded as R=x, G=y, B=z (z is "up"), A=255
+//   strength - scales the surface slope (higher = bumpier), applied to the per-texel height difference
+//   wrap - true makes the result tileable by sampling neighbours toroidally; false clamps at the edges
+// src and dst may be different buffers of the same size (in-place is not supported).
+procedure HeightToNormalMap(srcBuf:pointer;srcPitch:integer;
+            dstBuf:pointer;dstPitch:integer; width,height:integer;
+            strength:single=2.0; wrap:boolean=true);
+
+// ---------------------
 // Color transformation
 procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMat34);
 
@@ -1298,6 +1311,49 @@ procedure Emboss32;
 
   finally
    freemem(abuf,aheight*awidth);
+  end;
+ end;
+
+procedure HeightToNormalMap(srcBuf:pointer;srcPitch:integer;
+            dstBuf:pointer;dstPitch:integer; width,height:integer;
+            strength:single=2.0; wrap:boolean=true);
+ var
+  x,y:integer;
+  scale:single;
+  dp:PCardinal;
+  n:TVec3;
+  nx,ny,nz:integer;
+ // luminance of the source texel at (px,py), with toroidal wrap or edge clamp
+ function Lum(px,py:integer):integer;
+  var
+   v:cardinal;
+  begin
+   if wrap then begin
+    px:=(px+width) mod width;
+    py:=(py+height) mod height;
+   end else begin
+    if px<0 then px:=0; if px>=width then px:=width-1;
+    if py<0 then py:=0; if py>=height then py:=height-1;
+   end;
+   v:=PCardinal(UIntPtr(srcBuf)+UIntPtr(py)*srcPitch+UIntPtr(px)*4)^;
+   result:=((v shr 16 and $FF)*77+(v shr 8 and $FF)*151+(v and $FF)*28) shr 8; // ITU-R BT.601 luma
+  end;
+ begin
+  scale:=strength/255; // height differences are byte luminances (0..255)
+  for y:=0 to height-1 do begin
+   dp:=PCardinal(UIntPtr(dstBuf)+UIntPtr(y)*dstPitch);
+   for x:=0 to width-1 do begin
+    // central-difference slope; negate because a rise toward +X tilts the normal toward -X
+    n.x:=-(Lum(x+1,y)-Lum(x-1,y))*scale;
+    n.y:=-(Lum(x,y+1)-Lum(x,y-1))*scale;
+    n.z:=1;
+    n.Normalize;
+    nx:=round(127.5+n.x*127.5); if nx<0 then nx:=0; if nx>255 then nx:=255;
+    ny:=round(127.5+n.y*127.5); if ny<0 then ny:=0; if ny>255 then ny:=255;
+    nz:=round(127.5+n.z*127.5); if nz<0 then nz:=0; if nz>255 then nz:=255;
+    dp^:=$FF000000 or cardinal(nx shl 16) or cardinal(ny shl 8) or cardinal(nz);
+    inc(dp);
+   end;
   end;
  end;
 
