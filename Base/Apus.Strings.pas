@@ -74,6 +74,7 @@ type
     // === Split/Join ===
     function Split(delimiter:AnsiChar;quoteChar:AnsiChar=#0):Strings8; overload;
     function Split(const delimiters:String8;quoteChar:AnsiChar=#0):Strings8; overload;
+    function SplitEscaped(delimiter:AnsiChar;escapeChar:AnsiChar='\'):Strings8;
     function SplitLines:Strings8; // split by #13, #10, or #13#10
     class function Join(const arr:Strings8;const delimiter:String8):String8; static;
 
@@ -192,6 +193,7 @@ type
     function Remove(const s:String8):boolean;  // returns true if found and removed
     procedure Clear;
     function Join(const delimiter:String8):String8;
+    function JoinEscaped(delimiter:AnsiChar;escapeChar:AnsiChar='\'):String8;
     procedure Sort;
   end;
 
@@ -257,6 +259,9 @@ function Str32(const st:UnicodeString):String32; overload;
 // Simple fast hash function for strings (case-insensitive)
 function FastHash(const st:String8):cardinal; overload;
 function FastHash(const st:String16):cardinal; overload;
+
+// Extract string representation from TVarRec argument
+function VarRecToStr(const v:TVarRec):String8;
 
 // String hash function (case-sensitive)
 function StrHash(const st:String8):cardinal; overload;
@@ -604,6 +609,31 @@ begin
   if cnt>=System.Length(result) then SetLength(result,cnt+1);
   result[cnt]:=System.Copy(self,start,System.Length(self)-start+1);
   SetLength(result,cnt+1);
+end;
+
+function String8Helper.SplitEscaped(delimiter:AnsiChar;escapeChar:AnsiChar):Strings8;
+var
+  i,cnt:integer;
+  escaped:boolean;
+begin
+  result:=nil;
+  SetLength(result,1);
+  cnt:=0;
+  escaped:=false;
+  for i:=1 to System.Length(self) do begin
+    if escaped then begin
+      result[cnt]:=result[cnt]+self[i];
+      escaped:=false;
+    end else
+    if self[i]=escapeChar then
+      escaped:=true
+    else
+    if self[i]=delimiter then begin
+      inc(cnt);
+      SetLength(result,cnt+1);
+    end else
+      result[cnt]:=result[cnt]+self[i];
+  end;
 end;
 
 function String8Helper.SplitLines:Strings8;
@@ -1280,6 +1310,23 @@ begin
   for i:=0 to high(self) do begin
     if i>0 then result:=result+delimiter;
     result:=result+self[i];
+  end;
+end;
+
+function Strings8Helper.JoinEscaped(delimiter:AnsiChar;escapeChar:AnsiChar):String8;
+var
+  i,j:integer;
+  st:String8;
+begin
+  result:='';
+  for i:=0 to high(self) do begin
+    if i>0 then result:=result+delimiter;
+    st:=self[i];
+    for j:=1 to System.Length(st) do begin
+      if (st[j]=delimiter) or (st[j]=escapeChar) then
+        result:=result+escapeChar;
+      result:=result+st[j];
+    end;
   end;
 end;
 

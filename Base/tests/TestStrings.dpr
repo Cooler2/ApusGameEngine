@@ -305,6 +305,23 @@ begin
   EndTest;
 end;
 
+procedure TestString8SplitEscaped;
+var
+  s:String8;
+  arr:Strings8;
+begin
+  StartTest('String8.SplitEscaped');
+  s:='a~b_c~~d_~e__f~';
+  arr:=s.SplitEscaped('~','_');
+  Check(SL(arr,['a','bc','','d~e_f','']),'escaped split');
+  Check(arr.JoinEscaped('~','_')=s,'escaped join round-trip');
+  arr:=String8('plain').SplitEscaped('~','_');
+  Check(SL(arr,['plain']),'no delimiter');
+  arr:=String8('').SplitEscaped('~','_');
+  Check(SL(arr,['']),'empty string');
+  EndTest;
+end;
+
 procedure TestString8Quote;
 var s:String8;
 begin
@@ -954,6 +971,7 @@ begin
     TestString8Modify;
     TestString8SplitLines;
     TestString8Split;
+    TestString8SplitEscaped;
     TestString8Quote;
     TestString8Escape;
     TestString8Url;
