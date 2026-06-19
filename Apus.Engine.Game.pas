@@ -191,6 +191,7 @@ implementation
       Apus.Engine.Controller,
   Apus.Colors,
   Apus.Engine.RobotAPI,
+  Apus.Engine.Notifications,
   Apus.Files,
   Apus.Lib,
   Apus.Strings
@@ -339,6 +340,8 @@ begin
    // Alt+F11
    if (TKey(keyCode and $FF)=TKey.F11) and Bits.HasAll(window.shiftState,sscAlt) then begin
      SetVSync(params.VSync xor 1); // toggle vsync
+     if params.VSync>0 then ShowToast('VSync: ON',TToastKind.Success)
+      else ShowToast('VSync: OFF',TToastKind.Warning);
    end;
 
    // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
@@ -1496,6 +1499,7 @@ var
 begin
  FLog('RDebug');
  DrawDebugOverlays(debug);
+ DrawNotifications; // product-facing toasts, share the same draw-last overlay slot
  // Navigation points (needs protected field)
  if dfShowNavigationPoints in debug.features then begin
   for i:=0 to high(activeCustomPoints) do
@@ -1532,7 +1536,7 @@ procedure TGame.Minimize;
 
 procedure TGame.FireMessage(st: string8);
  begin
-  // TODO: implement or remove this stub
+  ShowToast(st); // engine-driven non-modal toast (Info, auto duration)
  end;
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter

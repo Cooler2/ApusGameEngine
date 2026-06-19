@@ -1097,6 +1097,7 @@ begin
    end;
    capture.capturedName:=st;
    capture.capturedTime:=CoreTime.Ticks;
+   if game<>nil then game.FireMessage('Screenshot saved:~'+st); // transient toast
   except
    on e:Exception do Log.Force('Error saving screenshot: '+ExceptionMsg(e));
   end;

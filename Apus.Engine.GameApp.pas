@@ -121,7 +121,7 @@ implementation
    SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
-   Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.RobotAPI,
+   Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.Notifications,Apus.Engine.RobotAPI,
    Apus.Engine.Types,
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
@@ -732,6 +732,7 @@ procedure TGameApplication.Run;
   SelectFonts;
   InitStyles;
   InitMessageScene;
+  InitNotifications;
   if useConsoleScene then AddConsoleScene;
   if useTweakerScene then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
   // Create scenes
