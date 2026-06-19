@@ -10,8 +10,9 @@ uses Apus.Core, Apus.Classes, Apus.Containers, Apus.Engine.Keys;
 type
  TGameScene=class;
 
- // Scene-level hotkey handler (see TGameScene.RegisterHotKey)
- TKeyHandler=procedure(key:TKey;shift:byte) of object;
+ // Scene-level hotkey handler (see TGameScene.RegisterHotKey). Parameterless: the binding
+ // already encodes the trigger, so it's a pure action. Need the key value? override onKeyDown.
+ TKeyHandler=procedure of object;
 
  // One entry in a scene's declarative hotkey table
  TSceneHotKey=record
@@ -382,7 +383,7 @@ class procedure TGameScene.LoadAllScenes;
      if sceneHotKeys[i].vKey=key then begin
       reg:=sceneHotKeys[i].shiftState;
       if (reg=shift) or ((reg>0) and (reg and shift=reg)) then begin
-       sceneHotKeys[i].handler(key,shift);
+       sceneHotKeys[i].handler;
        exit(true);
       end;
      end;

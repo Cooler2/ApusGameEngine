@@ -53,11 +53,11 @@ type
     procedure Render; override;
     procedure onMouseMove(x,y:integer); override;
     procedure onMouseWheel(delta:integer); override;
-    // scene hotkey handlers (registered via RegisterHotKey)
-    procedure CycleObject(key:TKey;shift:byte);
-    procedure CycleMaterial(key:TKey;shift:byte);
-    procedure ToggleNormal(key:TKey;shift:byte);
-    procedure ToggleComputed(key:TKey;shift:byte);
+    // scene hotkey actions (registered via RegisterHotKey)
+    procedure CycleObject;
+    procedure CycleMaterial;
+    procedure ToggleNormal;
+    procedure ToggleComputed;
   private
     function LightDir:TVec3;
     procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
@@ -279,22 +279,22 @@ begin
   cameraDist:=Clamp(cameraDist,3.2,18);
 end;
 
-procedure TMainScene.CycleObject(key:TKey;shift:byte);
+procedure TMainScene.CycleObject;
 begin
   objectID:=(objectID+1) mod OBJECT_COUNT;
 end;
 
-procedure TMainScene.CycleMaterial(key:TKey;shift:byte);
+procedure TMainScene.CycleMaterial;
 begin
   materialID:=(materialID+1) mod MATERIAL_COUNT;
 end;
 
-procedure TMainScene.ToggleNormal(key:TKey;shift:byte);
+procedure TMainScene.ToggleNormal;
 begin
   normalEnabled:=not normalEnabled;
 end;
 
-procedure TMainScene.ToggleComputed(key:TKey;shift:byte);
+procedure TMainScene.ToggleComputed;
 var
   i:integer;
 begin
