@@ -29,7 +29,7 @@ uses
   Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
   Apus.Engine.Game in '..\..\Apus.Engine.Game.pas',
   Apus.Engine.TweakScene in '..\..\Apus.Engine.TweakScene.pas',
-  Apus.Engine.Networking3 in '..\..\Apus.Engine.Networking3.pas',
+  Apus.Engine.HttpGameClient in '..\..\Apus.Engine.HttpGameClient.pas',
   Apus.Engine.UDict in '..\..\Apus.Engine.UDict.pas',
   Apus.Engine.CustomStyle in '..\..\Apus.Engine.CustomStyle.pas',
   Apus.Engine.Objects in '..\..\Apus.Engine.Objects.pas',

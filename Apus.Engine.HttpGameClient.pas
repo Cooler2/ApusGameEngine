@@ -5,12 +5,12 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
 {$R+}
-unit Apus.Engine.Networking3;
+unit Apus.Engine.HttpGameClient;
 interface
-uses Apus.Common;
+uses Apus.Core;
 type
  TNetMessage=record
-  values:StringArr;
+  values:Strings8;
   index:integer;
   function NextInt:integer;
   function NextStr:string;
@@ -19,7 +19,7 @@ type
  end;
 
 var
- NW3ErrorMessage:string; // текст последней ошибки (если был сигнал Net\Conn3\Error)
+ HGCErrorMessage:string; // текст последней ошибки (если был сигнал Net\Conn3\Error)
  mainLoopDelay:integer=10; // периодичность главного цикла в мс (вносит задержку в отправку/приём
                            // сообщений, но помогает объединять их в один запрос
 
@@ -76,7 +76,8 @@ var
 
 implementation
  uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Apus.CrossPlatform,Sockets,BaseUnix,{$ENDIF}
-      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,Apus.HttpRequests;
+      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,
+      Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Strings,Apus.Threads;
 
  type
   TMainThread=class(TThread)
@@ -95,7 +96,7 @@ implementation
 
  var
   mainThread:TMainThread;
-  critSect:TMyCriticalSection;
+  critSect:TLock;
   state:TConnectionState; // current state
   userID:integer; // current UserID
   MD5pwd:string; // short hash for signature
@@ -229,7 +230,7 @@ procedure GetInternetAddress(address:String8;var ip:cardinal;var port:word);
     if fl then begin
      ip:=inet_addr(PAnsiChar(address));
     end else begin
-     LogMessage('Resolving host address: '+address);
+     Log.Msg('Resolving host address: '+address);
      sleep(10);
      h:=GetHostByName(PAnsiChar(address));
      if h=nil then begin
@@ -239,7 +240,7 @@ procedure GetInternetAddress(address:String8;var ip:cardinal;var port:word);
       ip:=0;
      end else
       move(h^.h_addr^[0],ip,4);
-     LogMessage('Resolved IP: '+iptostr(ip));
+     Log.Msg('Resolved IP: '+Conv.FormatIp(ip));
     end;
    end else
     ip:=$FFFFFFFF;
@@ -256,10 +257,10 @@ procedure EventHandler(event:TEventStr;tag:TTag);
  var
   i,code,t,e1,e2,httpStatus:integer;
   response:String8;
-  sa:AStringArr;
+  sa:Strings8;
  begin
   if (event='HTTP_Event\ResendPost') and (activePostRequest>0) then begin
-    LogMessage('NW3: resending POST request');
+    Log.Msg('HGC: resending POST request');
     activePostRequest:=HTTPRequest(lastPostURL,lastPostData,'HTTP_Event',4000,lastPostType);
     exit;
   end;
@@ -267,7 +268,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   if code<>httpStatusCompleted then begin
    // Request failed
    inc(failedRequests);
-   ForceLogMessage(Format('NW3 HTTP request %d failure (state=%d): %s',
+   Log.Force(Format('HGC HTTP request %d failure (state=%d): %s',
      [tag,ord(state),response]));
    Sleep(50);
    if state=csConnecting then Signal('NET\Conn3\ConnectionFailed')
@@ -275,12 +276,12 @@ procedure EventHandler(event:TEventStr;tag:TTag);
      e1:=pos('404 Not Found',response);
      e2:=pos('503 Internal Server Error',response);
      if (e1 in [1..100]) or (e2 in [1..100]) or
-        (MyTickCount>connectionTimeout) then begin
+        (CoreTime.Ticks>connectionTimeout) then begin
       Signal('NET\Conn3\ConnectionBroken',1);
       state:=csDisconnected;
      end else begin
       sleep(1000);
-      LogMessage('NW3: Resending request');
+      Log.Msg('HGC: Resending request');
       // Resend request
       if tag=activePollRequest then
        activePollRequest:=HTTPRequest(lastPollURL,'','HTTP_Event');
@@ -290,14 +291,14 @@ procedure EventHandler(event:TEventStr;tag:TTag);
     end;
   end else begin
    failedRequests:=0;
-   connectionTimeout:=MyTickCount+120000; // +100 seconds
+   connectionTimeout:=CoreTime.Ticks+120000; // +100 seconds
    // Success
    case state of
     csConnecting:begin // simple login
       userID:=StrToIntDef(response,-1);
-      LogMessage('NW3: UserID='+inttostr(userID));
+      Log.Msg('HGC: UserID='+inttostr(userID));
       if userID=-1 then begin
-       LogMessage('NW3 Rejected: '+response);
+       Log.Msg('HGC Rejected: '+response);
        Signal('NET\Conn3\ConnectionRejected');
        if mainThread<>nil then mainThread.Terminate;
       end else begin
@@ -309,13 +310,13 @@ procedure EventHandler(event:TEventStr;tag:TTag);
     csLogging:begin // advanced login
       userID:=StrToIntDef(response,-1);
       if userID=-1 then begin
-       LogMessage('NW3 Access Denied: '+response);
-       NW3ErrorMessage:=response;
+       Log.Msg('HGC Access Denied: '+response);
+       HGCErrorMessage:=response;
        Signal('Net\Conn3\AccessDenied');
        state:=csDisconnected;
        if mainThread<>nil then mainThread.Terminate;
       end else begin
-       LogMessage('NW3 Authenticated under UserID='+inttostr(userID));
+       Log.Msg('HGC Authenticated under UserID='+inttostr(userID));
        Signal('NET\Conn3\Logged',userID);
        state:=csLogged; // Authorized
       end;
@@ -325,16 +326,16 @@ procedure EventHandler(event:TEventStr;tag:TTag);
       if tag=activePollRequest then begin
        if length(response)>0 then begin
         if copy(response,1,5)='WTF!?' then begin
-         LogMessage('NW3: Error! Bad serial in request #'+inttostr(tag));
+         Log.Msg('HGC: Error! Bad serial in request #'+inttostr(tag));
          state:=csDisconnected;
          Signal('NET\Conn3\ConnectionBroken',2);
          exit;
         end;
         // messages received
-        sa:=SplitA(#13#10,response);
-        LogMessage('NW3: '+IntToStr(length(sa))+' messages received from request #'+inttostr(tag));
+        sa:=response.SplitLines;
+        Log.Msg('HGC: '+IntToStr(length(sa))+' messages received from request #'+inttostr(tag));
         for i:=0 to length(sa)-1 do begin
-         sa[i]:=UnEscape(sa[i]);
+         sa[i]:=sa[i].Unescape;
 {         sa[i]:=StringReplace(sa[i],'\n',#13#10,[rfReplaceAll]);
          sa[i]:=StringReplace(sa[i],'\\','\',[rfReplaceAll]);}
          inQueue[inPos]:=sa[i];
@@ -345,7 +346,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
          lastTag:=(lastTag+1) and $FFFF;
         end;
        end else
-        LogMessage('NW3: empty poll #'+inttostr(tag));
+        Log.Msg('HGC: empty poll #'+inttostr(tag));
        Sleep(20);
        activePollRequest:=0;
       end;
@@ -353,10 +354,10 @@ procedure EventHandler(event:TEventStr;tag:TTag);
        // Нужно либо обнулить activePostRequest (чтобы разрешить последующую отправку данных)
        // либо перевыслать запрос
        if (response<>'OK') and (response<>'IGNORED') then begin
-        LogMessage('NW3: bad response to request '+inttostr(tag)+': '+response);
+        Log.Msg('HGC: bad response to request '+inttostr(tag)+': '+response);
         if (Now>lastPostSent+120/86400) or    // соединение считать разорванным если не удалось доставить пакет за 120 секунд
            (httpStatus>400) then begin // доставка невозможна
-         LogMessage('NW3: delivery timeout');
+         Log.Msg('HGC: delivery timeout');
          activePostRequest:=0;
          state:=csDisconnected;
          Signal('NET\Conn3\ConnectionBroken',3);
@@ -392,7 +393,7 @@ procedure SendMessages(server:string);
   i,size,count:integer;
   msgs:array[1..10] of integer;
   query,boundary,sign:string;
-  names,values:StringArr;
+  names,values:Strings8;
   cType:TContentType;
  begin
   // Тут нужно определиться каким способом отправлять сообщения
@@ -408,7 +409,7 @@ procedure SendMessages(server:string);
    query:=server+'/'+inttostr(userID)+'?';
    data:='';
    for i:=1 to count do begin
-    query:=query+chr(64+i)+'='+UrlEncode(outQueue[msgs[i]])+'&';
+    query:=query+chr(64+i)+'='+String8(outQueue[msgs[i]]).UrlEncode+'&';
     data:=data+outQueue[msgs[i]];
    end;
    query:=query+'Z='+ShortMD5(data+MD5pwd);
@@ -462,13 +463,12 @@ procedure PollRequest(server:string);
 { TMainThread }
 procedure TMainThread.Execute;
  begin
-  RegisterThread('NW3');
   userID:=0;
   activePollRequest:=0;
   activePostRequest:=0;
   serial:=0;
   MD5pwd:=ShortMD5(password);
-  LogMessage('NW3: HTTP thread started');
+  Log.Msg('HGC: HTTP thread started');
   SetEventHandler('HTTP_Event',EventHandler,emQueued);
   try
    state:=csNone;
@@ -483,8 +483,8 @@ procedure TMainThread.Execute;
     // Advanced login
     if (state=csConnected) and (password<>'') and (userID>0) then begin
      state:=csLogging; // waiting for auth userID
-     HTTPRequest(server+'/login?A='+inttostr(userID)+'&B='+UrlEncode(login)+
-        '&C='+UrlEncode(clientInfo)+
+     HTTPRequest(server+'/login?A='+inttostr(userID)+'&B='+String8(login).UrlEncode+
+        '&C='+String8(clientInfo).UrlEncode+
         '&D='+ShortMD5(inttostr(userID)+login+clientInfo+MD5pwd),'','HTTP_Event');
     end;
 
@@ -503,13 +503,13 @@ procedure TMainThread.Execute;
     sleep(mainLoopDelay);
     HandleSignals;
    until terminated;
-   LogMessage('NW3: Session terminated '+inttostr(activePollRequest)+':'+inttostr(activePostRequest));
+   Log.Msg('HGC: Session terminated '+inttostr(activePollRequest)+':'+inttostr(activePostRequest));
    if activePollRequest<>0 then CancelRequest(activePollRequest);
    if activePostRequest<>0 then CancelRequest(activePostRequest);
 
    // Logout
    if (UserID>0) and (userID<10000) and (state=csLogged) then begin
-    if logoutInfo<>'' then logoutInfo:='&C='+EncodeHex(logoutInfo);
+    if logoutInfo<>'' then logoutInfo:='&C='+Conv.EncodeHex(String8(logoutInfo));
     HTTPRequest(server+'/logout?A='+IntToStr(userID)+'&B='+ShortMD5(inttostr(userID)+MD5pwd)+logoutInfo,'','HTTP_Event');
     sleep(200); // wait some time so the notification request at least sent
    end;
@@ -519,14 +519,13 @@ procedure TMainThread.Execute;
   except
    on e:exception do begin
     state:=csDisconnected;
-    ForceLogMessage('NET3 Error: '+ExceptionMsg(e));
-    NW3ErrorMessage:=ExceptionMsg(e);
+    Log.Force('HGC Error: '+ExceptionMsg(e));
+    HGCErrorMessage:=ExceptionMsg(e);
     Signal('NET\Conn3\Error');
    end;
   end;
   mainThread:=nil; // no need to free, just to inform
-  LogMessage('NW3: net thread done');
-  UnregisterThread;
+  Log.Msg('HGC: net thread done');
  end;
 
 procedure TerminateIfNeeded;
@@ -534,14 +533,14 @@ procedure TerminateIfNeeded;
   c:integer;
  begin
   if mainThread<>nil then begin
-   ForceLogMessage('Enforced disconnect');
+   Log.Force('Enforced disconnect');
    Disconnect;
    c:=1000;
    repeat
     sleep(1);
     dec(c);
    until (mainThread=nil) or (c=0);
-   if c=0 then ForceLogMessage('NW3: Fatal - mainThread<>nil!');
+   if c=0 then Log.Force('HGC: Fatal - mainThread<>nil!');
    sleep(1);
   end;
   RemoveEventHandler(EventHandler);
@@ -570,20 +569,20 @@ procedure EventHandler2(event:TEventStr;tag:TTag);
  begin
   code:=GetRequestResult(tag,response);
   if code<>httpStatusCompleted then begin
-   ForceLogMessage('NW3 HTTP failure: '+response);
+   Log.Force('HGC HTTP failure: '+response);
    Signal('NET\Conn3\ConnectionFailed');
   end else begin
    // Success
    if pos('OK',response)=1 then begin
-    LogMessage('NW3: account created!');
+    Log.Msg('HGC: account created!');
     Signal('NET\Conn3\AccountCreated');
    end else
    if pos('ERROR:',response)=1 then begin
-    LogMessage('NW3: account failed - '+response);
-    NW3ErrorMessage:=copy(response,8,length(response));
+    Log.Msg('HGC: account failed - '+response);
+    HGCErrorMessage:=copy(response,8,length(response));
     Signal('NET\Conn3\AccountFailed');
    end else
-    LogMessage('NW3: unrecognized response - '+response);
+    Log.Msg('HGC: unrecognized response - '+response);
   end; // Success
  end;
 
@@ -610,7 +609,7 @@ procedure Disconnect(extraInfo:string='');
  begin
   critSect.Enter;
   try
-  ForceLogMessage('NW3: Disconnect');
+  Log.Force('HGC: Disconnect');
   if mainThread<>nil then begin
 //    state:=csDisconnecting;
     mainThread.logoutInfo:=extraInfo;
@@ -629,19 +628,19 @@ function Connected:boolean;
 procedure SendData(data:array of const);
  var
   i:integer;
-  sa:StringArr;
+  sa:Strings8;
  begin
-//  if not connected then raise EWarning.Create('NW3: not connected');
+//  if not connected then raise EWarning.Create('HGC: not connected');
   if not (state in [csConnected,csLogged]) then exit;
   critSect.Enter;
   try
    if (outFree+1) and 255=outStart then
-    raise EWarning.Create('NW3 outbox queue overflow!');
+    raise EWarning.Create('HGC outbox queue overflow!');
    SetLength(sa,length(data));
    for i:=0 to length(data)-1 do
-    sa[i]:=VarToStr(data[i]);
-   LogMessage('Send: '+copy(join(sa,'|'),1,200));
-   outQueue[outFree]:=combine(sa,'~','_');
+    sa[i]:=VarRecToStr(data[i]);
+   Log.Msg('Send: '+copy(sa.Join('|'),1,200));
+   outQueue[outFree]:=sa.JoinEscaped('~','_');
    outFree:=(outFree+1) and 255;
   finally
    critSect.Leave;
@@ -650,12 +649,12 @@ procedure SendData(data:array of const);
 
 procedure GetNetMessage(handle:integer;var msg:TNetMessage);
  var
-  i,idx:integer;
+  idx:integer;
  begin
   idx:=handle mod 1000;
   if (idx>=length(inQueue)) or (inQueueTag[idx]<>handle) then
    raise EWarning.Create('Invaid handle: '+inttostr(handle));
-  StringArr(msg.values):=Split('~',inQueue[idx],'_');
+  msg.values:=String8(inQueue[idx]).SplitEscaped('~','_');
   msg.index:=0;
  end;
 
@@ -689,8 +688,8 @@ function TNetMessage.NextStr: string;
  end;
 
 initialization
- InitCritSect(critSect,'Netw3',40);
+ critSect.Init('Netw3',40);
 finalization
  TerminateIfNeeded;
- DeleteCritSect(critSect);
+ critSect.Cleanup;
 end.

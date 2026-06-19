@@ -80,7 +80,7 @@
         <IsPartOfProject Value="True"/>
       </Unit12>
       <Unit13>
-        <Filename Value="..\..\Apus.Engine.Networking3.pas"/>
+        <Filename Value="..\..\Apus.Engine.HttpGameClient.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit13>
       <Unit14>

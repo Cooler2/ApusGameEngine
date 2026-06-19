@@ -1,7 +1,7 @@
 program nw3test;
 {$APPTYPE CONSOLE}
 uses
-  SysUtils,MyServis,EventMan,httpRequests,Networking3;
+  SysUtils,MyServis,EventMan,httpRequests,Apus.Engine.HttpGameClient;
 
  const
   server='127.0.0.1:8888';

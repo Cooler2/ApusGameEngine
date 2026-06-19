@@ -86,6 +86,7 @@ Invoke-FpcTarget 'tests/PlatformTest.dpr' -CompileOnly
 Invoke-FpcTarget 'tests/OpenGL.dpr' -CompileOnly
 Invoke-FpcTarget 'tests/TestStyle.dpr'
 Invoke-FpcTarget 'tests/TestGpuLayout.dpr'
+Invoke-FpcTarget 'tests/TestHttpGameClient.dpr'
 Invoke-FpcTarget 'tests/TestMesh3D.dpr'
 Invoke-FpcTarget 'tests/TestMeshOps.dpr'
 Invoke-FpcTarget 'tests/TestObjMesh.dpr'

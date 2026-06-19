@@ -191,7 +191,7 @@
         <DCCReference Include="..\..\Apus.Engine.IOSgame.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Game.pas"/>
         <DCCReference Include="..\..\Apus.Engine.TweakScene.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.Networking3.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.HttpGameClient.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UDict.pas"/>
         <DCCReference Include="..\..\Apus.Engine.CustomStyle.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Objects.pas"/>
