@@ -35,7 +35,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-19 | Mesh Representation Unification & Rework | done | 100% | — |
 | R-20 | Mesh Shape Generators (Procedural Primitives) | done | 100% | — |
 | R-21 | Mesh Editing Operations (Stateful Wrapper) | idea | 0% | Design-now / build-on-demand; first heavy consumer gates implementation |
-| R-22 | Toast Notifications (Implement + Extend `FireMessage`) | idea | 0% | `FireMessage` is a stub; implement timed pop-up + config (position/timeout) + stacking |
+| R-22 | Toast Notifications (Implement + Extend `FireMessage`) | implemented | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
 | R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | implemented | 95% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Pending: runtime sign-off |
 
 ## 2) Strategic Directions
@@ -330,7 +330,10 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Note: detailed design deferred to a `Work/reports/R-21_*` doc when promoted to a real card. Background: discussed 2026-06-17 alongside R-06/R-19.
 
 ### [R-22] Toast Notifications (Implement + Extend `FireMessage`)
-- Status: idea | Priority: P2 | Area: UI / Core Runtime
+- Status: **implemented** (2026-06-20, commit `d489ef8` on engine5) | Priority: P2 | Area: UI / Core Runtime
+- GOT: `Apus.Engine.Notifications` as a scene-less overlay provider (sibling of debug overlays, NOT a scene — non-modal/transient fits the overlay slot, not MessageScene). `ShowToast` overloads + `TToastKind`/`TToastAnchor` (4: BottomRight default/BottomCenter/BottomLeft/Center) + `toastConfig` + `TToastOptions`. Auto duration `clamp(2,len/25,5)`. Themed via R-05 `Styles` (`toast.<kind>` blocks, translucent fill+border, opaque text, app-overridable). SML text + author breaks + plain word-wrap. Stacking with reflow lerp, dissolve in/out, hover-freezes countdown, click-dismiss; thread-safe ingest (`TLock`). `FireMessage`→`ShowToast`; `DrawOverlays`→`DrawNotifications`; screenshot save + Alt+F11 VSync toggle are the live callers. Design: `Work/reports/R-22_notifications_design.md`.
+- Deferred (not built, "по мелочам"/future): cross-line SML spans in wrap, R-05 9-patch/icon look, top/edge anchors, OS-native/tray, history, sound, in-toast buttons. No headless test (render/timing-bound).
+- TODO: replace manual lerp/alpha animation in `Notifications` with `TAnimatedValue` or `Tweenings` primitives — dissolve in/out and stack reflow are currently hand-rolled delta-time math; should use the engine animation layer for consistency and curve support.
 - Value: A lightweight, non-blocking way to surface transient info to the user (screenshot saved, connected, error, achievement) — the toast/flyout pattern from Windows and Telegram. Distinct from a modal dialog that demands an answer.
 - Existing baseline — **this is the surface to build on, not a new one**:
   - `IGame.FireMessage(st:String8)` (`Apus.Engine.API.pas:861`), commented *"Show message in engine-driven pop-up (3 sec)"* — the intended engine-driven toast entry point.
