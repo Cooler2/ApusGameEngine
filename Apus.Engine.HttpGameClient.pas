@@ -75,7 +75,7 @@ var
 
 
 implementation
- uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Apus.CrossPlatform,Sockets,BaseUnix,{$ENDIF}
+ uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
       {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,
       Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Strings,Apus.Threads;
 
