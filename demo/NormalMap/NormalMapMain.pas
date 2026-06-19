@@ -44,6 +44,7 @@ type
     objectID,materialID:integer;
     normalEnabled:boolean;
     computedNT:boolean; // true = MeshOps normals+tangents, false = analytic
+    fillKind:integer;   // material kind currently being generated (context for the Fill callbacks)
     constructor Create;
     destructor Destroy; override;
     procedure InitGfx; override;
@@ -53,6 +54,9 @@ type
     procedure HandleKey(keyCode:integer);
   private
     function LightDir:TVec3;
+    procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
+    function ColorPixel(tex:TTexture;x,y:integer):cardinal;  // Fill callback: albedo for fillKind
+    function NormalPixel(tex:TTexture;x,y:integer):cardinal; // Fill callback: tangent-space normal for fillKind
     procedure RebuildMesh(id:integer);
     procedure DrawGrid;
     procedure DrawObject;
@@ -160,39 +164,40 @@ begin
   end;
 end;
 
-procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
+// Albedo for the current material (fillKind), derived from the procedural height field.
+function TMainScene.ColorPixel(tex:TTexture;x,y:integer):cardinal;
 var
-  x,y:integer;
-  colorRow,normalRow:PCardinalRow;
-  h,dx,dy:single;
-  c:cardinal;
+  h:single;
+begin
+  h:=HeightAt(fillKind,x,y);
+  case fillKind of
+    0:if h<0.2 then result:=Color.RGB(58,55,52)
+      else result:=Color.RGB(135+round(35*Noise2(x div 5,y div 5)),55+round(18*h),42);
+    1:result:=Color.RGB(82+round(80*h),88+round(75*h),84+round(70*h));
+  else
+    result:=Color.RGB(48+round(50*h),96+round(110*h),135+round(80*h));
+  end;
+end;
+
+// Tangent-space normal for the current material, derived from the height field's gradient.
+function TMainScene.NormalPixel(tex:TTexture;x,y:integer):cardinal;
+var
+  dx,dy:single;
+begin
+  // central difference gradient; negate because slope toward +X tilts normal toward -X
+  dx:=HeightAt(fillKind,(x+1) mod TEX_SIZE,y)-HeightAt(fillKind,(x+TEX_SIZE-1) mod TEX_SIZE,y);
+  dy:=HeightAt(fillKind,x,(y+1) mod TEX_SIZE)-HeightAt(fillKind,x,(y+TEX_SIZE-1) mod TEX_SIZE);
+  result:=NormalColor(-dx*3.0,-dy*3.0,1.0); // tangent-space normal encoded as RGB
+end;
+
+procedure TMainScene.FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
 begin
   mat.name:=name;
+  fillKind:=kind; // pass the material kind to ColorPixel/NormalPixel (callbacks can't capture)
   mat.colorMap:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_color');
   mat.normalMap:=AllocImage(TEX_SIZE,TEX_SIZE,TImagePixelFormat.ipfARGB,aiTexture,'NM_'+name+'_normal');
-  mat.colorMap.Lock;
-  mat.normalMap.Lock;
-  for y:=0 to TEX_SIZE-1 do begin
-    colorRow:=PCardinalRow(mat.colorMap.ScanLine(y));
-    normalRow:=PCardinalRow(mat.normalMap.ScanLine(y));
-    for x:=0 to TEX_SIZE-1 do begin
-      h:=HeightAt(kind,x,y);
-      case kind of
-        0:if h<0.2 then c:=Color.RGB(58,55,52)
-          else c:=Color.RGB(135+round(35*Noise2(x div 5,y div 5)),55+round(18*h),42);
-        1:c:=Color.RGB(82+round(80*h),88+round(75*h),84+round(70*h));
-      else
-        c:=Color.RGB(48+round(50*h),96+round(110*h),135+round(80*h));
-      end;
-      colorRow^[x]:=c;
-      // central difference gradient; negate because slope toward +X tilts normal toward -X
-      dx:=HeightAt(kind,(x+1) mod TEX_SIZE,y)-HeightAt(kind,(x+TEX_SIZE-1) mod TEX_SIZE,y);
-      dy:=HeightAt(kind,x,(y+1) mod TEX_SIZE)-HeightAt(kind,x,(y+TEX_SIZE-1) mod TEX_SIZE);
-      normalRow^[x]:=NormalColor(-dx*3.0,-dy*3.0,1.0); // tangent-space normal encoded as RGB
-    end;
-  end;
-  mat.colorMap.Unlock;
-  mat.normalMap.Unlock;
+  mat.colorMap.Fill(ColorPixel);
+  mat.normalMap.Fill(NormalPixel);
 end;
 
 procedure NormalMapKeyHandler(event:TEventStr;tag:TTag);
