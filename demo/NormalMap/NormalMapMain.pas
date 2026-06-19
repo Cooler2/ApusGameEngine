@@ -128,10 +128,10 @@ begin
       if not computed then begin
         n:=Vec3(cv*cu,cv*su,sv);
         n.Normalize;
-        t:=Vec3(su,-cu,0); // dP/du direction (ensures cross(T,N)=dP/dv)
+        t:=Vec3(-su,cu,0); // +dP/du direction (tangent along +U, the uv.x gradient)
         t.Normalize;
         result.normals[idx]:=n;
-        result.tangents[idx]:=Vec4(t,1.0);
+        result.tangents[idx]:=Vec4(t,-1.0); // shader B=cross(T,N)*w aligns +V (dP/dv) with w=-1
       end;
       inc(idx);
     end;

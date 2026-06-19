@@ -39,6 +39,47 @@ function AllUVInRange(m:TMesh):boolean;
    if (m.uv0[i].x<0) or (m.uv0[i].x>1) or (m.uv0[i].y<0) or (m.uv0[i].y>1) then exit(false);
  end;
 
+// Verify a generator's stored tangent frame matches the stock mesh shader's TBN
+// convention: T points along the +U (uv.x) world gradient, and the reconstructed
+// bitangent B=cross(T,N)*w points along the +V (uv.y) world gradient. Derives the
+// gradients per triangle (same formula as MeshOps.ComputeTangents) and checks the
+// first non-degenerate triangle referencing each vertex. One boolean per mesh.
+function TangentFrameMatchesShader(m:TMesh):boolean;
+ var
+  i,vi,a,b,c:integer;
+  e1,e2,udir,vdir,t,n,bt:TVec3;
+  du1,dv1,du2,dv2,det,r:single;
+  tested:array of boolean;
+ begin
+  result:=true;
+  SetLength(tested,m.VertexCount);
+  if m.VertexCount>0 then FillChar(tested[0],m.VertexCount,0);
+  i:=0;
+  while i+2<=high(m.indices) do begin
+   a:=m.indices[i]; b:=m.indices[i+1]; c:=m.indices[i+2];
+   e1:=m.positions[b]-m.positions[a];
+   e2:=m.positions[c]-m.positions[a];
+   du1:=m.uv0[b].x-m.uv0[a].x; dv1:=m.uv0[b].y-m.uv0[a].y;
+   du2:=m.uv0[c].x-m.uv0[a].x; dv2:=m.uv0[c].y-m.uv0[a].y;
+   det:=du1*dv2-dv1*du2;
+   if abs(det)<1e-6 then begin inc(i,3); continue; end; // degenerate UV island
+   r:=1.0/det;
+   // world-space +U and +V gradient directions
+   udir.x:=(e1.x*dv2-e2.x*dv1)*r; udir.y:=(e1.y*dv2-e2.y*dv1)*r; udir.z:=(e1.z*dv2-e2.z*dv1)*r;
+   vdir.x:=(e2.x*du1-e1.x*du2)*r; vdir.y:=(e2.y*du1-e1.y*du2)*r; vdir.z:=(e2.z*du1-e1.z*du2)*r;
+   for vi:=i to i+2 do
+    if not tested[m.indices[vi]] then begin
+     tested[m.indices[vi]]:=true;
+     t:=m.tangents[m.indices[vi]].xyz;
+     n:=m.normals[m.indices[vi]];
+     if t.Dot(udir)<=0 then exit(false); // T must point along +U
+     bt:=t.Cross(n)*m.tangents[m.indices[vi]].w; // shader: B=cross(T,N)*w
+     if bt.Dot(vdir)<=0 then exit(false); // B must point along +V
+    end;
+   inc(i,3);
+  end;
+ end;
+
 procedure TestBox;
  var
   m:TMesh;
@@ -54,6 +95,7 @@ procedure TestBox;
   Check(AllNormalsUnitAxisAligned(m),'all normals unit & axis-aligned');
   Check(AllUVInRange(m),'all uv in [0,1]');
   Check((m.bounds.Size.x=2) and (m.bounds.Size.y=4) and (m.bounds.Size.z=6),'bounds = size');
+  Check(TangentFrameMatchesShader(m),'box tangent frame matches shader convention');
   m.Free;
   // scalar overload
   m:=MeshShapes.Box(2);
@@ -126,6 +168,7 @@ procedure TestCylinder;
   Check(m.VertexCount=4*(segments+1),'cylinder vertex count');
   Check(m.IndexCount=12*segments,'cylinder index count');
   Check(SideVertsAtRadius(m,segments,1,1),'cylinder side verts at radius 1');
+  Check(TangentFrameMatchesShader(m),'cylinder tangent frame matches shader convention');
   m.Free;
   // cone (r2=0): same counts, top ring collapses to apex
   m:=MeshShapes.Cylinder(1,0,2,segments,true);
@@ -183,7 +226,8 @@ procedure TestPlane;
   Check(m.IndexCount=24,'flat plane index count');
   Check(m.TriangleCount=8,'flat plane triangle count');
   Check(AllNormalsEqual(m,Vec3(0,0,1)),'flat plane normals = +Z');
-  Check(AllTangentsEqual(m,Vec4(1,0,0,1)),'flat plane tangents along +X, w=1');
+  Check(AllTangentsEqual(m,Vec4(1,0,0,-1)),'flat plane tangents along +X, w=-1');
+  Check(TangentFrameMatchesShader(m),'plane tangent frame matches shader convention');
   m.Free;
   // deformed plane: constant-slope heightFn -> constant tilted normal everywhere
   m:=MeshShapes.Plane(2,2,1,1,@TiltHeightFn);
@@ -284,6 +328,7 @@ procedure TestUVSphere;
   Check((m.uv0[0].x=0) and (m.uv0[0].y=0),'uv origin = (0,0)');
   Check((m.uv0[high(m.uv0)].x=1) and (m.uv0[high(m.uv0)].y=1),'uv far corner = (1,1)');
   Check(UVMonotone(m,segments,rings),'uv monotone in lon/lat');
+  Check(TangentFrameMatchesShader(m),'uvsphere tangent frame matches shader convention');
   m.Free;
   // radius scaling
   m:=MeshShapes.UVSphere(segments,rings,2);

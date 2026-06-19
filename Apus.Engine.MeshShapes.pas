@@ -11,7 +11,9 @@
 //    lies in XY, facing +Z (= up)
 //  - winding: CCW = front face (outward-facing)
 //  - size params are full extents, not half
-//  - tangent stored along +U, bitangent = cross(N,T) in shader
+//  - tangent stored along +U; the stock mesh shader reconstructs the bitangent
+//    as B=cross(T,N)*w and expects it to point along +V (= the uv.y gradient),
+//    so handedness w is chosen to satisfy that (see MeshOps.ComputeTangents)
 //
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -98,20 +100,23 @@ class function MeshShapes.Box(s:single):TMesh;
 
 class function MeshShapes.Box(const size:TVec3):TMesh;
  const
-  // Per-face axes: N (outward normal), U (+U tangent direction), V (= cross(N,T)
-  // bitangent direction). Chosen so N=Cross(U,V) -> CCW (0,0),(1,0),(1,1),(0,1)
-  // winding is outward-facing and handedness w=+1 for every face.
+  // Per-face axes: N (outward normal), U (+U tangent direction), V (+V direction).
+  // N=Cross(U,V) for every face -> the (0,0),(1,0),(1,1),(0,1) winding is
+  // outward-facing CCW. With this right-handed (U,V,N) frame cross(T,N)=-V, so
+  // the shader's B=cross(T,N)*w points along +V only when w=-1 (set below).
+  // The four side faces (+-X,+-Y) use V=+Z so the texture stands upright in the
+  // Z-up world (e.g. brick courses stack along Z); top/bottom use V=+Y.
   faceN:array[0..5] of TVec3=(
    (x:1; y:0; z:0),(x:-1;y:0; z:0),
    (x:0; y:1; z:0),(x:0; y:-1;z:0),
    (x:0; y:0; z:1),(x:0; y:0; z:-1));
   faceU:array[0..5] of TVec3=(
-   (x:0; y:0; z:-1),(x:0;y:0; z:1),
-   (x:1; y:0; z:0), (x:1;y:0; z:0),
-   (x:1; y:0; z:0), (x:-1;y:0;z:0));
+   (x:0; y:1; z:0), (x:0; y:-1;z:0),
+   (x:-1;y:0; z:0), (x:1; y:0; z:0),
+   (x:1; y:0; z:0), (x:-1;y:0; z:0));
   faceV:array[0..5] of TVec3=(
-   (x:0; y:1; z:0),(x:0;y:1; z:0),
-   (x:0; y:0; z:-1),(x:0;y:0;z:1),
+   (x:0; y:0; z:1),(x:0;y:0; z:1),
+   (x:0; y:0; z:1),(x:0;y:0; z:1),
    (x:0; y:1; z:0),(x:0;y:1; z:0));
   cornerUV:array[0..3] of TVec2=((x:0;y:0),(x:1;y:0),(x:1;y:1),(x:0;y:1));
  var
@@ -133,7 +138,7 @@ class function MeshShapes.Box(const size:TVec3):TMesh;
     result.positions[vi]:=n*halfN+u*((cornerUV[i].x-0.5)*sizeU)+v*((cornerUV[i].y-0.5)*sizeV);
     result.normals[vi]:=n;
     result.uv0[vi]:=cornerUV[i];
-    result.tangents[vi]:=Vec4(u,1);
+    result.tangents[vi]:=Vec4(u,-1); // w=-1: shader B=cross(T,N)*w must point along +V (here cross(U,N)=-V)
    end;
    result.AddTriangle(f*4+0,f*4+1,f*4+2);
    result.AddTriangle(f*4+0,f*4+2,f*4+3);
@@ -165,12 +170,12 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
    result.positions[vi]:=Vec3(r1*cosA,-r1*sinA,-halfH);
    result.normals[vi]:=nDir;
    result.uv0[vi]:=Vec2(i/segments,0);
-   result.tangents[vi]:=Vec4(-sinA,-cosA,0,-1);
+   result.tangents[vi]:=Vec4(-sinA,-cosA,0,1); // w=+1: left-handed (U,V,N) here, cross(T,N)=+V (=+Z)
    vi:=2*i+1;
    result.positions[vi]:=Vec3(r2*cosA,-r2*sinA,halfH);
    result.normals[vi]:=nDir;
    result.uv0[vi]:=Vec2(i/segments,1);
-   result.tangents[vi]:=Vec4(-sinA,-cosA,0,-1);
+   result.tangents[vi]:=Vec4(-sinA,-cosA,0,1);
   end;
   for i:=0 to segments-1 do begin
    bi0:=2*i; ti0:=2*i+1; bi1:=2*(i+1); ti1:=2*(i+1)+1;
@@ -184,7 +189,7 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
    result.positions[capCenter]:=Vec3(0,0,-halfH);
    result.normals[capCenter]:=Vec3(0,0,-1);
    result.uv0[capCenter]:=Vec2(0.5,0.5);
-   result.tangents[capCenter]:=Vec4(1,0,0,1);
+   result.tangents[capCenter]:=Vec4(1,0,0,-1); // bottom cap N=-Z: cross(T,N)=+Y, +V=-Y -> w=-1
    for i:=0 to segments-1 do begin
     angle:=i*dAngle;
     cosA:=cos(angle); sinA:=sin(angle);
@@ -192,7 +197,7 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
     result.positions[vi]:=Vec3(r1*cosA,-r1*sinA,-halfH);
     result.normals[vi]:=Vec3(0,0,-1);
     result.uv0[vi]:=Vec2(0.5+0.5*cosA,0.5+0.5*sinA);
-    result.tangents[vi]:=Vec4(1,0,0,1);
+    result.tangents[vi]:=Vec4(1,0,0,-1);
    end;
    for i:=0 to segments-1 do
     result.AddTriangle(capCenter,capRing+i,capRing+((i+1) mod segments));
@@ -202,7 +207,7 @@ class function MeshShapes.Cylinder(r1,r2,height:single;segments:integer;caps:boo
    result.positions[capCenter]:=Vec3(0,0,halfH);
    result.normals[capCenter]:=Vec3(0,0,1);
    result.uv0[capCenter]:=Vec2(0.5,0.5);
-   result.tangents[capCenter]:=Vec4(1,0,0,1);
+   result.tangents[capCenter]:=Vec4(1,0,0,1); // top cap N=+Z: cross(T,N)=-Y, +V=-Y -> w=+1
    for i:=0 to segments-1 do begin
     angle:=i*dAngle;
     cosA:=cos(angle); sinA:=sin(angle);
@@ -255,8 +260,8 @@ class function MeshShapes.Plane(w,h:single;segX,segY:integer;heightFn:THeightFn=
     tng:=dPdx;
     tng.Normalize;
     result.normals[idx]:=nrm;
-    // bitangent=cross(N,T) is parallel to dPdy (the +V direction) -> w=+1
-    result.tangents[idx]:=Vec4(tng,1);
+    // shader B=cross(T,N)*w must align dPdy (+V); cross(T,N)=-dPdy here -> w=-1
+    result.tangents[idx]:=Vec4(tng,-1);
    end;
   // triangles: (i,j),(i+1,j),(i+1,j+1) and (i,j),(i+1,j+1),(i,j+1) -> +Z outward
   for j:=0 to segY-1 do
@@ -444,7 +449,7 @@ class function MeshShapes.UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,
     result.positions[idx]:=p;
     result.normals[idx]:=n;
     result.uv0[idx]:=Vec2(u,v);
-    result.tangents[idx]:=Vec4(t,1);
+    result.tangents[idx]:=Vec4(t,-1); // shader B=cross(T,N)*w aligns +V (dlat) only with w=-1
    end;
   end;
   // quad grid split into 2 triangles each, both outward-CCW: (a,b,c) and
