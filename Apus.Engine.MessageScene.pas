@@ -125,16 +125,16 @@ var
     exit;
    end;
 
+   // Enter/Escape are handled via button hotkeys (see TMessageScene.Create), which fire
+   // these OnClick events — no separate keyboard signal needed.
    close:=false;
-   if (event.Same('Scene\MessageScene\KEYDOWN') and (TKey(tag and $FF)=TKey.Enter)) or
-      (event.Same('UI\Message\OK\OnClick') or
-       event.Same('UI\Message\YES\OnClick')) then begin
+   if event.Same('UI\Message\OK\OnClick') or
+      event.Same('UI\Message\YES\OnClick') then begin
     if curMsg.event1<>'' then Signal(curMsg.event1);
     close:=true;
    end;
 
-   if (event.Same('Scene\MessageScene\KEYDOWN') and (TKey(tag and $FF)=TKey.Escape)) or
-       event.Same('UI\Message\NO\OnClick') then begin
+   if event.Same('UI\Message\NO\OnClick') then begin
     if curMsg.event2<>'' then Signal(curMsg.event2);
     close:=true;
    end;
@@ -166,7 +166,6 @@ constructor TMessageScene.Create;
   frequency:=20;
   zOrder:=100;
   SetEventHandler('UI\Message',EventHandler,emQueued);
-  SetEventHandler('Scene\MessageScene',EventHandler,emMixed);
 
   wnd:=TUIElement.Create(400,200,ui,'Message\Wnd');
   wnd.SetPos(window.renderWidth/2,window.renderHeight/2,pivotCenter);
@@ -182,6 +181,13 @@ constructor TMessageScene.Create;
 
   btnNo:=TUIButton.Create(90,35,wnd,'Message\NO').Setup('No');
   btnNo.SetPos(200+70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
+
+  // Enter activates the affirmative button, Escape the negative one. ProcessHotKey only
+  // fires hotkeys of visible buttons, so this works across MSG/ASK/CONFIRM modes.
+  btnOk.SetHotKey(ord(TKey.Enter));
+  btnOk.SetHotKey(ord(TKey.Escape));
+  btnYes.SetHotKey(ord(TKey.Enter));
+  btnNo.SetHotKey(ord(TKey.Escape));
  end;
 
 // Update scene with new text and buttons
