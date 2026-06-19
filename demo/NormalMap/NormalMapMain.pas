@@ -31,6 +31,8 @@ const
   MATERIAL_COUNT = 3;
   TORUS_SEGMENTS = 64;
   TORUS_SIDES = 24;
+  OBJ_Z = 1.45; // object center height
+
 
 type
   TDemoMaterial=record
@@ -59,6 +61,7 @@ type
     procedure ToggleNormal;
     procedure ToggleComputed;
   private
+    lightTip:TVec3;
     function LightDir:TVec3;
     procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
     function ColorPixel(tex:TTexture;x,y:integer):cardinal;  // Fill callback: albedo for fillKind
@@ -67,6 +70,7 @@ type
     procedure DrawGrid;
     procedure DrawObject;
     procedure DrawOverlay;
+    procedure DrawGizmo;
   end;
 
 var
@@ -303,12 +307,9 @@ begin
 end;
 
 procedure TMainScene.DrawGrid;
-const
-  OBJ_Z = 1.45; // object center height
 var
-  ld,tip,proj:TVec3;
+  ld:TVec3;
   scale:single;
-  lightDragging:boolean;
 begin
   DebugDraw.SetupRender(true);
   DebugDraw.Grid(20,20,$FF2D3440,TGridPlane.XY);
@@ -317,16 +318,8 @@ begin
   // light direction arrow from object center toward the light source
   ld:=LightDir;
   scale:=4.5;
-  tip:=Vec3(ld.x*scale,ld.y*scale,OBJ_Z+ld.z*scale);
-  DebugDraw.Arrow2D(Vec3(0,0,OBJ_Z),tip,$FFFFCC00);
-  lightDragging:=((window.mouseButtons and mbRight)>0) or
-                 (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0));
-  if lightDragging then begin
-    gfx.target.SetDepthMode(TDepthTest.Keep,TDepthWrite.Off); // translucent gizmo: keep test, don't pollute depth
-    proj:=Vec3(tip.x,tip.y,OBJ_Z);
-    draw.Triangle(Vec3(0,0,OBJ_Z),proj,tip,$28FFEE88);
-    gfx.target.SetDepthMode(TDepthTest.Keep,TDepthWrite.On); // restore depth writes
-  end;
+  lightTip:=Vec3(ld.x*scale,ld.y*scale,OBJ_Z+ld.z*scale);
+  DebugDraw.Arrow2D(Vec3(0,0,OBJ_Z),lightTip,$FFFFCC00);
   DebugDraw.Flush;
   draw.SetZ(0);
 end;
@@ -342,6 +335,24 @@ begin
   transform.SetObj(0,0,1.45,1.35,0,0,0);
   meshes[objectID].Draw(materials[materialID].colorMap);
   shader.NormalMapOff;
+  transform.ResetObj;
+end;
+
+procedure TMainScene.DrawGizmo;
+var
+  lightDragging:boolean;
+  proj:TVec3;
+begin
+  lightDragging:=((window.mouseButtons and mbRight)>0) or
+                 (((window.mouseButtons and mbLeft)>0) and ((window.shiftState and sscCtrl)>0));
+  if lightDragging then begin
+    proj:=Vec3(lightTip.x,lightTip.y,OBJ_Z);
+    gfx.SetCullMode(TCullMode.DrawAll);
+    shader.Reset;
+    shader.LightOff;
+    shader.DefaultTexMode;
+    draw.Triangle(Vec3(0,0,OBJ_Z),proj,lightTip,$38FFEE88);
+  end;
 end;
 
 procedure TMainScene.DrawOverlay;
@@ -386,12 +397,11 @@ begin
   transform.Perspective(0.95,0.2,100);
   transform.SetCamera(eye,target,Vec3(0,0,1000));
   gfx.SetCullMode(TCullMode.DrawAll);
-  gfx.clip.Nothing;
   DrawGrid;
   gfx.target.SetDepthMode(TDepthTest.Less);
   gfx.SetCullMode(TCullMode.DrawCCW);
   DrawObject;
-  gfx.clip.Restore;
+  DrawGizmo;
   gfx.SetCullMode(TCullMode.DrawAll);
   DrawOverlay;
   inherited;
