@@ -175,7 +175,7 @@ are not intended to enumerate every live `Base/Apus.*.pas` unit.
 - `Base/*.pas` has **no** `Apus.Common` dependency outside `Base/Deprecated`.
 - Active compatibility unit is only `Base/Deprecated/Apus.Common.pas`.
 - Remaining non-deprecated references are outside Base:
-  - **Engine:** 20 files
+  - **Engine:** 19 files
   - **Demo:** 8 files
   - **Base demo:** 1 file
   - **Root tests:** 2 files
@@ -186,12 +186,11 @@ are not intended to enumerate every live `Base/Apus.*.pas` unit.
 Generated with `rg "Apus\.Common"` over `*.pas`, `*.dpr`, `*.lpr`, and `*.inc`,
 excluding `tmp/**` and `Base/Deprecated/**`.
 
-**Engine (20):** `Apus.Engine.AEMLoader.pas`, `Apus.Engine.AndroidGame.pas`,
+**Engine (19):** `Apus.Engine.AEMLoader.pas`, `Apus.Engine.AndroidGame.pas`,
 `Apus.Engine.BitmapStyle.pas`, `Apus.Engine.ComplexText.pas`,
 `Apus.Engine.DxImages8.pas`, `Apus.Engine.IOSgame.pas`,
 `Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`,
-`Apus.Engine.Networking2.pas`, `Apus.Engine.Networking3.pas`,
-`Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`,
+`Apus.Engine.Networking2.pas`, `Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`,
 `Apus.Engine.PainterGL.pas`, `Apus.Engine.PainterGL2.pas`,
 `Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`,
 `Apus.Engine.SoundSDL.pas`, `Apus.Engine.SpritePacker.pas`,

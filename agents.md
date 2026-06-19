@@ -110,7 +110,8 @@ Level 5:
 - `Apus.Network.pas` в†’ use `Apus.Socket` (marked deprecated 2023)
 - `PainterGL.pas` в†’ use `PainterGL2` (fixed-function legacy)
 - `DxImages8.pas` в†’ Direct3D 8 legacy
-- `Networking2.pas` в†’ use Networking3
+- `Apus.Engine.Networking2.pas` - legacy name; migrate to `Apus.Engine.UdpTransport`
+- `Apus.Engine.Networking3.pas` - renamed to `Apus.Engine.HttpGameClient`; no compatibility facade
 - `deprecated/` folders in Base and root
 - `bin/`, `bin64/` DLL files (moved/removed in git status)
 
