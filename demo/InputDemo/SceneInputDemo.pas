@@ -84,6 +84,8 @@ type
     procedure Load; override;
     procedure ProcessInputBuffers;
     procedure Render; override;
+    function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
+    function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; override;
 
     procedure UpdateMetrics;
     procedure RebuildFonts;
@@ -143,17 +145,11 @@ begin
   result:=Bits.HasAll(window.mouseButtons,mbLeft) and not Bits.HasAll(window.oldMouseButtons,mbLeft);
 end;
 
-function SafeScan(tag:TTag):integer;
-begin
-  result:=Bits.GetByte(cardinal(tag),3);
-end;
-
 procedure InputEventHandler(event:TEventStr;tag:TTag);
 var
-  x,y,scan,keyCode:integer;
+  x,y:integer;
   sub:TEventStr;
   t:double;
-  info:string;
 begin
   if sceneMain=nil then exit;
   t:=CoreTime.Ticks*0.001;
@@ -187,34 +183,30 @@ begin
     end;
   end;
 
-  if EventOfClass(event,'SCENE\MAIN',sub) then begin
-    if sub='KEYDOWN' then begin
-      keyCode:=Bits.GetWord(cardinal(tag),0);
-      scan:=SafeScan(tag);
-      inc(sceneMain.keyDownEvents);
-      inc(sceneMain.secKeyEvents);
-      info:=Format('key=%d scan=%d',[keyCode,scan]);
-      sceneMain.PushLog('KD',info);
-      if (window.shiftState=0) and (keyCode>=ord(TKey.F1)) and (keyCode<=ord(TKey.F6)) then
-        sceneMain.currentScreen:=keyCode-ord(TKey.F1);
-      if scan=TRACKED_SCANS[0] then inc(sceneMain.eventKeyDownCnt[0]);
-      if scan=TRACKED_SCANS[1] then inc(sceneMain.eventKeyDownCnt[1]);
-      if scan=TRACKED_SCANS[2] then inc(sceneMain.eventKeyDownCnt[2]);
-      if scan=TRACKED_SCANS[3] then inc(sceneMain.eventKeyDownCnt[3]);
-      if scan=TRACKED_SCANS[4] then inc(sceneMain.eventKeyDownCnt[4]);
-      if scan=TRACKED_SCANS[5] then inc(sceneMain.eventKeyDownCnt[5]);
-      if scan=TRACKED_SCANS[6] then inc(sceneMain.eventKeyDownCnt[6]);
-      if scan=TRACKED_SCANS[7] then inc(sceneMain.eventKeyDownCnt[7]);
-      exit;
-    end;
-    if sub='KEYUP' then begin
-      scan:=SafeScan(tag);
-      inc(sceneMain.keyUpEvents);
-      info:=Format('key=%d scan=%d',[Bits.GetWord(cardinal(tag),0),scan]);
-      sceneMain.PushLog('KU',info);
-      exit;
-    end;
-  end;
+end;
+
+// Key events now arrive through the synchronous callback pipeline (R-23) instead of
+// the removed SCENE\Main\KeyDown/KeyUp signal — see onKeyDown/onKeyUp below.
+function TMainScene.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
+var
+  i,keyCode:integer;
+begin
+  keyCode:=ord(key);
+  inc(keyDownEvents);
+  inc(secKeyEvents);
+  PushLog('KD',Format('key=%d scan=%d',[keyCode,scancode]));
+  if (window.shiftState=0) and (keyCode>=ord(TKey.F1)) and (keyCode<=ord(TKey.F6)) then
+    currentScreen:=keyCode-ord(TKey.F1);
+  for i:=0 to high(TRACKED_SCANS) do
+    if scancode=TRACKED_SCANS[i] then inc(eventKeyDownCnt[i]);
+  result:=false; // diagnostic scene: observe but don't consume
+end;
+
+function TMainScene.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
+begin
+  inc(keyUpEvents);
+  PushLog('KU',Format('key=%d scan=%d',[ord(key),scancode]));
+  result:=false;
 end;
 
 constructor TMainApp.Create;
@@ -255,7 +247,6 @@ begin
   UpdateMetrics;
   RebuildFonts;
   SetEventHandler('MOUSE\',InputEventHandler,emInstant);
-  SetEventHandler('SCENE\MAIN\KEYDOWN,SCENE\MAIN\KEYUP',InputEventHandler,emInstant);
   loaded:=true;
 end;
 
@@ -536,7 +527,7 @@ var
 begin
   r:=Rect(contentRect.Left+10,contentRect.Top+screenTopOffset,contentRect.Right-10,contentRect.Bottom-20);
   draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,$FF202D3D,10);
-  DrawTag(r.Left+20,r.Top+24,'Buffered Key Stream (scene.ReadKey + SCENE\\Main\\KeyDown/KeyUp)');
+  DrawTag(r.Left+20,r.Top+24,'Buffered Char Stream (scene.ReadKey) + onKeyDown/onKeyUp callbacks');
 
   txt.Write(bodyFont,r.Left+20,r.Top+52,$FFE5EDF7,
     Format('Totals: keyDown=%d keyUp=%d char=%d',[keyDownEvents,keyUpEvents,charEvents]),taLeft,toAddBaseline);
@@ -722,7 +713,7 @@ var
 begin
   r:=Rect(contentRect.Left+10,contentRect.Top+screenTopOffset,contentRect.Right-10,contentRect.Bottom-20);
   draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,$FF202D3D,10);
-  DrawTag(r.Left+20,r.Top+24,'Polling(IsKeyPressed) vs Event(SCENE\\Main\\KeyDown)');
+  DrawTag(r.Left+20,r.Top+24,'Polling(IsKeyPressed) vs Callback(onKeyDown)');
 
   y:=r.Top+56;
   for i:=0 to high(TRACKED_SCANS) do begin

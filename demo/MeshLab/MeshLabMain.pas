@@ -73,7 +73,7 @@ type
     procedure DrawDebugShowcase;
     procedure onMouseMove(x,y:integer); override;
     procedure onMouseWheel(delta:integer); override;
-    procedure HandleKey(keyCode:integer);
+    function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
     function GridPos(c,r:integer):TVec3;
     function FindItem(c,r:integer):integer;
     procedure AddItem(const name:String8;m:TMesh;kind:TItemKind;c,r:integer);
@@ -87,15 +87,6 @@ var
 function RippleFn(x,y:single):single;
  begin
   result:=0.3*sin(x*2)*cos(y*2);
- end;
-
-procedure MeshLabKeyHandler(event:TEventStr;tag:TTag);
- var
-  keyCode:integer;
- begin
-  if sceneMain=nil then exit;
-  keyCode:=WordFromTag(tag,0);
-  sceneMain.HandleKey(keyCode);
  end;
 
 // A flat-shaded, vertex-coloured cube: 24 verts (4 per face, per-face normal),
@@ -260,14 +251,12 @@ constructor TMainScene.Create;
   overview:=true;
   showDebug:=true;
   debugLightYaw:=0;
-  SetEventHandler('SCENE\MAIN\KEYDOWN',MeshLabKeyHandler,emInstant);
  end;
 
 destructor TMainScene.Destroy;
  var
   i:integer;
  begin
-  RemoveEventHandler(MeshLabKeyHandler);
   floorGpu.Free;
   floorMesh.Free;
   for i:=0 to high(items) do begin
@@ -366,21 +355,24 @@ procedure TMainScene.onMouseWheel(delta:integer);
   end;
  end;
 
-procedure TMainScene.HandleKey(keyCode:integer);
+function TMainScene.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
  begin
-  case keyCode of
-   ord(TKey.Tab),ord(TKey.Escape):overview:=not overview;
-   ord(TKey.Left):if not overview then selCol:=(selCol-1+GRID_COLS) mod GRID_COLS;
-   ord(TKey.Right):if not overview then selCol:=(selCol+1) mod GRID_COLS;
+  result:=true;
+  case key of
+   TKey.Tab,TKey.Escape:overview:=not overview;
+   TKey.Left:if not overview then selCol:=(selCol-1+GRID_COLS) mod GRID_COLS;
+   TKey.Right:if not overview then selCol:=(selCol+1) mod GRID_COLS;
    // camera looks along -Y (north): +Y is farther away -> appears higher on
    // screen, so Up = row+1 (away), Down = row-1 (closer)
-   ord(TKey.Up):if not overview then selRow:=(selRow+1) mod GRID_ROWS;
-   ord(TKey.Down):if not overview then selRow:=(selRow-1+GRID_ROWS) mod GRID_ROWS;
-   ord(TKey.B):showDebug:=not showDebug;
-   ord(TKey.L):begin // rotate the DebugDraw light around Z to read the shading on solids
+   TKey.Up:if not overview then selRow:=(selRow+1) mod GRID_ROWS;
+   TKey.Down:if not overview then selRow:=(selRow-1+GRID_ROWS) mod GRID_ROWS;
+   TKey.B:showDebug:=not showDebug;
+   TKey.L:begin // rotate the DebugDraw light around Z to read the shading on solids
      debugLightYaw:=debugLightYaw+0.4;
      DebugDraw.SetLight($303838,Vec3(cos(0.6)*cos(debugLightYaw),cos(0.6)*sin(debugLightYaw),sin(0.6)),1.0,$FFFFFF);
     end;
+  else
+   result:=false; // key not handled by this scene
   end;
  end;
 

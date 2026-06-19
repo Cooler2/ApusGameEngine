@@ -29,6 +29,8 @@ const
   OBJ_TORUS = 1;
   OBJECT_COUNT = 2;
   MATERIAL_COUNT = 3;
+  TORUS_SEGMENTS = 64;
+  TORUS_SIDES = 24;
 
 type
   TDemoMaterial=record
@@ -51,7 +53,11 @@ type
     procedure Render; override;
     procedure onMouseMove(x,y:integer); override;
     procedure onMouseWheel(delta:integer); override;
-    procedure HandleKey(keyCode:integer);
+    // scene hotkey handlers (registered via RegisterHotKey)
+    procedure CycleObject(key:TKey;shift:byte);
+    procedure CycleMaterial(key:TKey;shift:byte);
+    procedure ToggleNormal(key:TKey;shift:byte);
+    procedure ToggleComputed(key:TKey;shift:byte);
   private
     function LightDir:TVec3;
     procedure FillMaterial(var mat:TDemoMaterial;kind:integer;const name:String8);
@@ -82,51 +88,6 @@ begin
   if computed then begin
     MeshOps.ComputeNormals(result);
     MeshOps.ComputeTangents(result);
-  end;
-end;
-
-// Geometry comes from MeshShapes.Torus (analytic normals/tangents built in).
-// computed=true: discard those and let MeshOps re-derive them from positions+UV,
-// then weld the duplicated periodic seams so the recomputed frame stays smooth
-// (the weld is the R-21 Weld op, still hand-rolled here).
-function BuildTorus(computed:boolean):TMesh;
-const
-  U_SEG = 64;
-  V_SEG = 24;
-var
-  i,j:integer;
-  tw:single;
-  n,t:TVec3;
-  m:TMesh;
-  function VIdx(a,b:integer):integer; inline;
-  begin
-    result:=a*(V_SEG+1)+b;
-  end;
-begin
-  result:=MeshShapes.Torus(1.25,0.38,U_SEG,V_SEG);
-  // tile the canonical [0,1] torus UV 4x2 for denser brick coverage
-  for i:=0 to high(result.uv0) do
-    result.uv0[i]:=Vec2(result.uv0[i].x*4,result.uv0[i].y*2);
-  if computed then begin
-    MeshOps.ComputeNormals(result);
-    MeshOps.ComputeTangents(result);
-    m:=result;
-    // weld periodic u-seam: VIdx(0,j) and VIdx(U_SEG,j) share the same position
-    for j:=0 to V_SEG do begin
-      n:=m.normals[VIdx(0,j)]+m.normals[VIdx(U_SEG,j)]; n.Normalize;
-      m.normals[VIdx(0,j)]:=n; m.normals[VIdx(U_SEG,j)]:=n;
-      t:=m.tangents[VIdx(0,j)].ToVec3+m.tangents[VIdx(U_SEG,j)].ToVec3; t.Normalize;
-      tw:=m.tangents[VIdx(0,j)].w;
-      m.tangents[VIdx(0,j)]:=Vec4(t,tw); m.tangents[VIdx(U_SEG,j)]:=Vec4(t,tw);
-    end;
-    // weld periodic v-seam: VIdx(i,0) and VIdx(i,V_SEG) share the same position
-    for i:=0 to U_SEG do begin
-      n:=m.normals[VIdx(i,0)]+m.normals[VIdx(i,V_SEG)]; n.Normalize;
-      m.normals[VIdx(i,0)]:=n; m.normals[VIdx(i,V_SEG)]:=n;
-      t:=m.tangents[VIdx(i,0)].ToVec3+m.tangents[VIdx(i,V_SEG)].ToVec3; t.Normalize;
-      tw:=m.tangents[VIdx(i,0)].w;
-      m.tangents[VIdx(i,0)]:=Vec4(t,tw); m.tangents[VIdx(i,V_SEG)]:=Vec4(t,tw);
-    end;
   end;
 end;
 
@@ -194,15 +155,6 @@ begin
   FreeImage(heightTex);
 end;
 
-procedure NormalMapKeyHandler(event:TEventStr;tag:TTag);
-var
-  keyCode:integer;
-begin
-  if sceneMain=nil then exit;
-  keyCode:=WordFromTag(tag,0);
-  sceneMain.HandleKey(keyCode);
-end;
-
 constructor TMainApp.Create;
 begin
   inherited;
@@ -235,13 +187,21 @@ begin
   materialID:=0;
   normalEnabled:=true;
   computedNT:=false;
+  // declarative scene hotkeys — no event-handler plumbing, fired via the engine input pipeline
+  RegisterHotKey(TKey.D1,0,CycleObject);
+  RegisterHotKey(TKey.Num1,0,CycleObject);
+  RegisterHotKey(TKey.D2,0,CycleMaterial);
+  RegisterHotKey(TKey.Num2,0,CycleMaterial);
+  RegisterHotKey(TKey.D3,0,ToggleNormal);
+  RegisterHotKey(TKey.Num3,0,ToggleNormal);
+  RegisterHotKey(TKey.N,0,ToggleNormal);
+  RegisterHotKey(TKey.C,0,ToggleComputed);
 end;
 
 destructor TMainScene.Destroy;
 var
   i:integer;
 begin
-  RemoveEventHandler(NormalMapKeyHandler);
   for i:=0 to high(meshes) do
     meshes[i].Free;
   for i:=0 to high(materials) do begin
@@ -253,11 +213,20 @@ end;
 
 procedure TMainScene.RebuildMesh(id:integer);
 var
+  i:integer;
   m:TMesh;
 begin
   meshes[id].Free;
   if id=OBJ_CUBE then m:=BuildCube(computedNT)
-   else m:=BuildTorus(computedNT);
+   else begin
+    m:=MeshShapes.Torus(1.25,0.38,TORUS_SEGMENTS,TORUS_SIDES);
+    for i:=0 to high(m.uv0) do
+      m.uv0[i]:=Vec2(m.uv0[i].x*4,m.uv0[i].y*2);
+    if computedNT then begin
+      MeshOps.ComputeNormals(m);
+      MeshOps.ComputeTangents(m);
+    end;
+   end;
   meshes[id]:=TGpuMesh.Create(m);
   meshes[id].Upload;
   m.Free;
@@ -271,14 +240,10 @@ begin
   meshes[OBJ_CUBE]:=TGpuMesh.Create(m);
   meshes[OBJ_CUBE].Upload;
   m.Free;
-  m:=BuildTorus(computedNT);
-  meshes[OBJ_TORUS]:=TGpuMesh.Create(m);
-  meshes[OBJ_TORUS].Upload;
-  m.Free;
+  RebuildMesh(OBJ_TORUS);
   FillMaterial(materials[0],0,'Bricks');
   FillMaterial(materials[1],1,'StoneNoise');
   FillMaterial(materials[2],2,'Waves');
-  SetEventHandler('SCENE\MAIN\KEYDOWN',NormalMapKeyHandler,emInstant);
 end;
 
 function TMainScene.LightDir:TVec3;
@@ -314,19 +279,27 @@ begin
   cameraDist:=Clamp(cameraDist,3.2,18);
 end;
 
-procedure TMainScene.HandleKey(keyCode:integer);
+procedure TMainScene.CycleObject(key:TKey;shift:byte);
+begin
+  objectID:=(objectID+1) mod OBJECT_COUNT;
+end;
+
+procedure TMainScene.CycleMaterial(key:TKey;shift:byte);
+begin
+  materialID:=(materialID+1) mod MATERIAL_COUNT;
+end;
+
+procedure TMainScene.ToggleNormal(key:TKey;shift:byte);
+begin
+  normalEnabled:=not normalEnabled;
+end;
+
+procedure TMainScene.ToggleComputed(key:TKey;shift:byte);
 var
   i:integer;
 begin
-  case keyCode of
-    ord(TKey.D1),ord(TKey.Num1):objectID:=(objectID+1) mod OBJECT_COUNT;
-    ord(TKey.D2),ord(TKey.Num2):materialID:=(materialID+1) mod MATERIAL_COUNT;
-    ord(TKey.D3),ord(TKey.Num3),ord(TKey.N):normalEnabled:=not normalEnabled;
-    ord(TKey.C): begin
-      computedNT:=not computedNT;
-      for i:=0 to OBJECT_COUNT-1 do RebuildMesh(i);
-    end;
-  end;
+  computedNT:=not computedNT;
+  for i:=0 to OBJECT_COUNT-1 do RebuildMesh(i);
 end;
 
 procedure TMainScene.DrawGrid;
