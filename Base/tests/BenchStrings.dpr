@@ -210,6 +210,26 @@ begin
   EndBench;
 end;
 
+procedure BenchString8_Split_Quoted;
+var i:integer; s:String8; arr:Strings8;
+begin
+  StartBench('String8.Split(quoted)',N_DEF);
+  s:='"a","b","c","d","e"'; // quoted tokens -> stripped + concat-built
+  for i:=1 to N_DEF do
+    arr:=s.Split(',','"');
+  EndBench;
+end;
+
+procedure BenchString8_SplitEscaped;
+var i:integer; s:String8; arr:Strings8;
+begin
+  StartBench('String8.SplitEscaped',N_DEF);
+  s:='a,b,c,d,e'; // same shape as Split, no escapes -> pure concat vs Copy
+  for i:=1 to N_DEF do
+    arr:=s.SplitEscaped(',');
+  EndBench;
+end;
+
 procedure BenchString8_Join;
 var i:integer; arr:Strings8; result:String8;
 begin
@@ -458,6 +478,16 @@ begin
   EndBench;
 end;
 
+procedure BenchString32_Split_Quoted;
+var i:integer; s:String32; arr:Strings32;
+begin
+  StartBench('String32.Split(quoted)',N_DEF);
+  s:=UTF8.Decode('"a","b","c","d","e"'); // quoted tokens -> stripped via Copy fast-path
+  for i:=1 to N_DEF do
+    arr:=s.Split(UTF8.Decode(','),UCS4Char('"'));
+  EndBench;
+end;
+
 procedure BenchString32_Join;
 var i:integer; arr:Strings32; delim,result:String32;
 begin
@@ -547,6 +577,8 @@ begin
   BenchString8_ReplaceAll;
   BenchString8_ReplaceAll_Many;
   BenchString8_Split;
+  BenchString8_Split_Quoted;
+  BenchString8_SplitEscaped;
   BenchString8_Join;
   BenchString8_Quote;
   BenchString8_Escape;
@@ -577,6 +609,7 @@ begin
   BenchString32_Replace;
   BenchString32_ReplaceAll;
   BenchString32_Split;
+  BenchString32_Split_Quoted;
   BenchString32_Join;
   BenchWriteln;
 
