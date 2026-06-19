@@ -90,82 +90,47 @@ begin
   end;
 end;
 
-// computed=true: let MeshOps derive normals+tangents; false: analytic per-vertex values.
+// Geometry comes from MeshShapes.Torus (analytic normals/tangents built in).
+// computed=true: discard those and let MeshOps re-derive them from positions+UV,
+// then weld the duplicated periodic seams so the recomputed frame stays smooth
+// (the weld is the R-21 Weld op, still hand-rolled here).
 function BuildTorus(computed:boolean):TMesh;
 const
   U_SEG = 64;
   V_SEG = 24;
 var
-  i,j,idx:integer;
-  u,v,cu,su,cv,sv,tw:single;
-  p,n,t:TVec3;
-  r0,r1:single;
-  attrs:TMeshAttributes;
+  i,j:integer;
+  tw:single;
+  n,t:TVec3;
+  m:TMesh;
   function VIdx(a,b:integer):integer; inline;
   begin
     result:=a*(V_SEG+1)+b;
   end;
 begin
-  result:=TMesh.Create('Torus');
-  r0:=1.25;
-  r1:=0.38;
-  if computed then
-    attrs:=[TMeshAttribute.Color,TMeshAttribute.UV0]
-  else
-    attrs:=[TMeshAttribute.Normal,TMeshAttribute.Color,TMeshAttribute.UV0,TMeshAttribute.Tangent];
-  result.SetVertexCount((U_SEG+1)*(V_SEG+1),attrs);
-  idx:=0;
-  for i:=0 to U_SEG do begin
-    u:=2*Pi*i/U_SEG;
-    cu:=cos(u); su:=sin(u);
-    for j:=0 to V_SEG do begin
-      v:=2*Pi*j/V_SEG;
-      cv:=cos(v); sv:=sin(v);
-      p:=Vec3((r0+r1*cv)*cu,(r0+r1*cv)*su,r1*sv);
-      result.positions[idx]:=p;
-      result.colors[idx]:=$FFFFFFFF;
-      result.uv0[idx]:=Vec2(i*4/U_SEG,j*2/V_SEG);
-      if not computed then begin
-        n:=Vec3(cv*cu,cv*su,sv);
-        n.Normalize;
-        t:=Vec3(-su,cu,0); // +dP/du direction (tangent along +U, the uv.x gradient)
-        t.Normalize;
-        result.normals[idx]:=n;
-        result.tangents[idx]:=Vec4(t,-1.0); // shader B=cross(T,N)*w aligns +V (dP/dv) with w=-1
-      end;
-      inc(idx);
-    end;
-  end;
-  SetLength(result.indices,U_SEG*V_SEG*6);
-  idx:=0;
-  for i:=0 to U_SEG-1 do
-    for j:=0 to V_SEG-1 do begin
-      result.indices[idx]  :=VIdx(i,j);
-      result.indices[idx+1]:=VIdx(i+1,j);
-      result.indices[idx+2]:=VIdx(i+1,j+1);
-      result.indices[idx+3]:=VIdx(i,j);
-      result.indices[idx+4]:=VIdx(i+1,j+1);
-      result.indices[idx+5]:=VIdx(i,j+1);
-      inc(idx,6);
-    end;
+  result:=MeshShapes.Torus(1.25,0.38,U_SEG,V_SEG);
+  // tile the canonical [0,1] torus UV 4x2 for denser brick coverage
+  for i:=0 to high(result.uv0) do
+    result.uv0[i]:=Vec2(result.uv0[i].x*4,result.uv0[i].y*2);
   if computed then begin
     MeshOps.ComputeNormals(result);
     MeshOps.ComputeTangents(result);
+    m:=result;
     // weld periodic u-seam: VIdx(0,j) and VIdx(U_SEG,j) share the same position
     for j:=0 to V_SEG do begin
-      n:=result.normals[VIdx(0,j)]+result.normals[VIdx(U_SEG,j)]; n.Normalize;
-      result.normals[VIdx(0,j)]:=n; result.normals[VIdx(U_SEG,j)]:=n;
-      t:=result.tangents[VIdx(0,j)].ToVec3+result.tangents[VIdx(U_SEG,j)].ToVec3; t.Normalize;
-      tw:=result.tangents[VIdx(0,j)].w;
-      result.tangents[VIdx(0,j)]:=Vec4(t,tw); result.tangents[VIdx(U_SEG,j)]:=Vec4(t,tw);
+      n:=m.normals[VIdx(0,j)]+m.normals[VIdx(U_SEG,j)]; n.Normalize;
+      m.normals[VIdx(0,j)]:=n; m.normals[VIdx(U_SEG,j)]:=n;
+      t:=m.tangents[VIdx(0,j)].ToVec3+m.tangents[VIdx(U_SEG,j)].ToVec3; t.Normalize;
+      tw:=m.tangents[VIdx(0,j)].w;
+      m.tangents[VIdx(0,j)]:=Vec4(t,tw); m.tangents[VIdx(U_SEG,j)]:=Vec4(t,tw);
     end;
     // weld periodic v-seam: VIdx(i,0) and VIdx(i,V_SEG) share the same position
     for i:=0 to U_SEG do begin
-      n:=result.normals[VIdx(i,0)]+result.normals[VIdx(i,V_SEG)]; n.Normalize;
-      result.normals[VIdx(i,0)]:=n; result.normals[VIdx(i,V_SEG)]:=n;
-      t:=result.tangents[VIdx(i,0)].ToVec3+result.tangents[VIdx(i,V_SEG)].ToVec3; t.Normalize;
-      tw:=result.tangents[VIdx(i,0)].w;
-      result.tangents[VIdx(i,0)]:=Vec4(t,tw); result.tangents[VIdx(i,V_SEG)]:=Vec4(t,tw);
+      n:=m.normals[VIdx(i,0)]+m.normals[VIdx(i,V_SEG)]; n.Normalize;
+      m.normals[VIdx(i,0)]:=n; m.normals[VIdx(i,V_SEG)]:=n;
+      t:=m.tangents[VIdx(i,0)].ToVec3+m.tangents[VIdx(i,V_SEG)].ToVec3; t.Normalize;
+      tw:=m.tangents[VIdx(i,0)].w;
+      m.tangents[VIdx(i,0)]:=Vec4(t,tw); m.tangents[VIdx(i,V_SEG)]:=Vec4(t,tw);
     end;
   end;
 end;

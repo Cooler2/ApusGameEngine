@@ -350,6 +350,52 @@ procedure TestUVSphere;
   EndTest;
  end;
 
+function AllNormalsUnit(m:TMesh;eps:single=0.001):boolean;
+ var
+  i:integer;
+ begin
+  result:=true;
+  for i:=0 to high(m.normals) do
+   if abs(m.normals[i].Length-1)>eps then exit(false);
+ end;
+
+// Every vertex satisfies the torus implicit equation:
+// (sqrt(x^2+y^2) - majorR)^2 + z^2 = minorR^2.
+function AllVertsOnTorus(m:TMesh;majorR,minorR:single;eps:single=0.001):boolean;
+ var
+  i:integer;
+  rxy,d:single;
+  p:TVec3;
+ begin
+  result:=true;
+  for i:=0 to high(m.positions) do begin
+   p:=m.positions[i];
+   rxy:=sqrt(p.x*p.x+p.y*p.y);
+   d:=sqrt((rxy-majorR)*(rxy-majorR)+p.z*p.z);
+   if abs(d-minorR)>eps then exit(false);
+  end;
+ end;
+
+procedure TestTorus;
+ var
+  m:TMesh;
+  segments,sides:integer;
+ begin
+  StartTest('MeshShapes.Torus');
+  segments:=24; sides:=12;
+  m:=MeshShapes.Torus(1.25,0.38,segments,sides);
+  Check(m.VertexCount=(segments+1)*(sides+1),'torus vertex count');
+  Check(m.TriangleCount=segments*sides*2,'torus triangle count');
+  Check(length(m.normals)=m.VertexCount,'normals present');
+  Check(length(m.tangents)=m.VertexCount,'tangents present');
+  Check(AllVertsOnTorus(m,1.25,0.38),'all verts on torus surface');
+  Check(AllNormalsUnit(m),'all normals unit');
+  Check(AllUVInRange(m),'all uv in [0,1]');
+  Check(TangentFrameMatchesShader(m),'torus tangent frame matches shader convention');
+  m.Free;
+  EndTest;
+ end;
+
 begin
   writeln('=== TestMeshShapes ===');
   TestBox;
@@ -358,6 +404,7 @@ begin
   TestPlane;
   TestOctasphere;
   TestUVSphere;
+  TestTorus;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

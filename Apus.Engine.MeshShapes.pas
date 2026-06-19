@@ -87,6 +87,14 @@ type
   // instead of two.
   class function UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,latTo:single;
     radius:single=1;normalizeUV:boolean=false):TMesh; overload; static;
+
+  // Torus in the XY plane (hole along Z), centered at origin. majorR = ring
+  // radius (origin to tube center), minorR = tube radius. segments = steps
+  // around the ring (major, +U), sides = steps around the tube (minor, +V).
+  // Seam columns are duplicated (u=0/u=1, v=0/v=1) for clean UV wrap, so per-
+  // vertex analytic normals/tangents are seam-consistent. (segments+1)*(sides+1)
+  // verts, segments*sides*2 tris. pos+normal+uv(0,1 each way)+tangent.
+  class function Torus(majorR,minorR:single;segments,sides:integer):TMesh; static;
  end;
 
 implementation
@@ -463,6 +471,46 @@ class function MeshShapes.UVSphere(segments,rings:integer;lonFrom,lonTo,latFrom,
     d:=c+1;
     if abs(sin(latFrom+(latTo-latFrom)*j/rings))>eps then result.AddTriangle(a,b,c);
     if abs(sin(latFrom+(latTo-latFrom)*(j+1)/rings))>eps then result.AddTriangle(b,d,c);
+   end;
+  result.Finish;
+ end;
+
+class function MeshShapes.Torus(majorR,minorR:single;segments,sides:integer):TMesh;
+ var
+  i,j,idx,a,b,c,d:integer;
+  u,v,cu,su,cv,sv:single;
+  p,n,t:TVec3;
+ begin
+  ASSERT(segments>=3,'Torus: segments must be >=3');
+  ASSERT(sides>=3,'Torus: sides must be >=3');
+  result:=TMesh.Create('torus');
+  result.SetVertexCount((segments+1)*(sides+1),
+    [TMeshAttribute.Normal,TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  idx:=0;
+  for i:=0 to segments do begin
+   u:=2*Pi*i/segments;
+   cu:=cos(u); su:=sin(u);
+   for j:=0 to sides do begin
+    v:=2*Pi*j/sides;
+    cv:=cos(v); sv:=sin(v);
+    p:=Vec3((majorR+minorR*cv)*cu,(majorR+minorR*cv)*su,minorR*sv);
+    n:=Vec3(cv*cu,cv*su,sv); // outward, already unit
+    t:=Vec3(-su,cu,0);       // +dP/du direction (tangent along +U)
+    result.positions[idx]:=p;
+    result.normals[idx]:=n;
+    result.uv0[idx]:=Vec2(i/segments,j/sides);
+    result.tangents[idx]:=Vec4(t,-1); // cross(T,N)=-dP/dv -> w=-1 so shader B=cross(T,N)*w aligns +V
+    inc(idx);
+   end;
+  end;
+  for i:=0 to segments-1 do
+   for j:=0 to sides-1 do begin
+    a:=i*(sides+1)+j;
+    b:=a+1;
+    c:=a+(sides+1);
+    d:=c+1;
+    result.AddTriangle(a,c,d); // outward-CCW
+    result.AddTriangle(a,d,b);
    end;
   result.Finish;
  end;
