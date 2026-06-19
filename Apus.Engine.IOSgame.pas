@@ -28,7 +28,7 @@ interface
 implementation
 (* uses SysUtils,{$IFDEF IOS}gles11,{$ENDIF}Apus.Engine.CmdProc{$IFDEF DELPHI},graphics{$ENDIF},
      GLImages,EventMan,UIClasses,UIScene,gfxformats,
-     Console,PainterGL; *)
+     Console; *)
 
 (*
 { TGlGame }

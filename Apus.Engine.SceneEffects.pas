@@ -93,7 +93,7 @@ type
 implementation
  uses Apus.Images, Apus.Geom2D, Apus.Geom3D,
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
-      {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
+      {$IFDEF ANDROID}gles20, {$ENDIF}
       Apus.Colors,Apus.Engine.UI,Apus.Engine.UITypes,Apus.Engine.UIRender,
       Apus.Engine.Window,
       Apus.Lib, Apus.Utils;

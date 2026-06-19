@@ -100,7 +100,7 @@ Level 5:
 **Core**: GameApp, Game, API, Types
 **Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene
 **UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, DefaultStyle
-**Graphics**: Graphics, OpenGL, PainterGL2, ResManGL, ShadersGL, Draw, TextDraw
+**Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, Draw, TextDraw
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: WindowsPlatform, SDLplatform, AndroidGame, IOSgame
 **3D**: Model3D, Mesh, OBJLoader, IQMloader, AEMLoader
@@ -118,7 +118,7 @@ Level 5:
 
 **To remove/replace:**
 - `Apus.Network.pas` → use `Apus.Socket` (marked deprecated 2023)
-- `PainterGL.pas` → use `PainterGL2` (fixed-function legacy)
+- `Apus.Engine.PainterGL.pas` / `Apus.Engine.PainterGL2.pas` - removed legacy painter backends
 - `DxImages8.pas` → Direct3D 8 legacy
 - `Apus.Engine.UdpTransport.pas` - symmetric UDP transport (legacy name: `Apus.Engine.Networking2`)
 - `Apus.Engine.Networking3.pas` - renamed to `Apus.Engine.HttpGameClient`; no compatibility facade

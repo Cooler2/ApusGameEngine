@@ -18,9 +18,9 @@ type
  protected
   procedure ApplySettings; override;
 
-  // Эти методы используются при смене режима работы (вызов только из главного потока)
-  procedure InitGraph; override; // Инициализация графической части (переключить режим и все такое прочее)
-  procedure DoneGraph; override; // Финализация графической части
+  // These methods are used when switching graphics mode (main thread only)
+  procedure InitGraph; override; // initialize graphics
+  procedure DoneGraph; override; // finalize graphics
 
   procedure PresentFrame; override;
   procedure CalcPixelFormats(needMem:integer); override;
@@ -42,7 +42,7 @@ type
 
 implementation
  uses Apus.Android, SysUtils, Apus.Engine.CmdProc, Apus.EventMan, Apus.Engine.CommonUI, Apus.GfxFormats,
-     Apus.Engine.Console, GLES20, Apus.Engine.GLImages, Apus.Engine.PainterGL2;
+     Apus.Engine.Console, GLES20, Apus.Engine.GLImages;
 
 { TAndroidGame }
 
@@ -57,7 +57,6 @@ begin
  if running then begin
   InitGraph;
   //if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
-  if painter<>nil then (painter as TGLPainter2).Reset;
   for i:=1 to length(scenes) do
    if scenes[i]<>nil then scenes[i].ModeChanged;
  end;
@@ -87,15 +86,13 @@ end;
 
 procedure TAndroidGame.InitObjects;
 begin
-  texman:=TGLTextureMan.Create(1024*BestVidMem);
-  painter:=TGLPainter2.Create(texman);
+  raise Exception.Create('Android graphics backend used removed PainterGL2; '+
+    'migrate it to IGraphicsSystem/TOpenGL before enabling Android builds');
 end;
 
 procedure TAndroidGame.SetupRenderArea;
 begin
   inherited;
-  TGLPainter2(painter).SetDefaultRenderArea(0,0,displayWidth,displayHeight,
-      displayWidth,displayHeight);
 end;
 
 procedure TAndroidGame.ScreenToGame(var p:TPoint);
@@ -157,8 +154,6 @@ begin
      UpdateVirtualKeyboard(android.mainView,lastCursorPos,lastCursorPos);}
  end;
 
- TGLPainter2(painter).SetDefaultRenderArea(0,screenOffsetY.IntValue,
-   displayWidth,displayHeight,displayWidth,displayHeight);
 end;
 
 procedure TAndroidGame.CalcPixelFormats(needMem:integer);

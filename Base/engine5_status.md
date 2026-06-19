@@ -71,6 +71,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-06-09):** Replaced ~25 global color functions in `Apus.Colors` with static methods on a new `Color` record type (`Color.RGB`, `Color.Blend`, `Color.Add`, etc.); `BilinearMixF` and pointer-based `BilinearMix(PCardinal)` kept as free functions; `Color`/`TARGBColor`/`InvalidColor` re-exported via `Apus.Lib`.
 **Recent wins (2026-06-09):** Added shared typed row-pointer helpers in `Apus.Core` (`PByteRow`, `PWordRow`, `PIntRow`, `PCardinalRow`, `PSingleRow`) plus `TTexture.ScanLine(y)` and `TTexture.PixelPtr(x,y)` in `Apus.Engine.Resources`, so locked texture code can use explicit casts like `PCardinalRow(tex.ScanLine(y))` and direct pixel addressing without repeating raw `data+pitch` arithmetic.
 **Recent wins (2026-06-19):** Renamed engine networking modules to descriptive names: `Apus.Engine.Networking3` is now `Apus.Engine.HttpGameClient`, and `Apus.Engine.Networking2` is now `Apus.Engine.UdpTransport`.
+**Recent wins (2026-06-19):** Removed legacy `Apus.Engine.PainterGL` and `Apus.Engine.PainterGL2`; active rendering goes through `Apus.Engine.OpenGL` and the `IGraphicsSystem`/`IDrawer` stack.
 
 ## Live module inventory (2026-05-29)
 
@@ -192,7 +193,6 @@ excluding `tmp/**` and `Base/Deprecated/**`.
 `Apus.Engine.DxImages8.pas`, `Apus.Engine.IOSgame.pas`,
 `Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`,
 `Apus.Engine.UdpTransport.pas`, `Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`,
-`Apus.Engine.PainterGL.pas`, `Apus.Engine.PainterGL2.pas`,
 `Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`,
 `Apus.Engine.SoundSDL.pas`, `Apus.Engine.SpritePacker.pas`,
 `Apus.Engine.SteamAPI.pas`, `Apus.Engine.UDict.pas`.

@@ -853,3 +853,9 @@ Do not treat it as a list of functions to reintroduce under the old names.
 - New **`IRenderTarget.DepthMode:TDepthMode`** getter (record `{test;write}`) + tracked `curDepth` threadvar state — enables save/restore and keep-current. No state stack (deliberate).
 - Fixed latent bug: write mask was skipped when test=`dbDisabled`; now `glDepthMask` always reflects tracked state.
 - No compatibility alias. Upgrader rules added to `tools/engine5.upgrade`.
+
+## 2026-06-19 — Removed legacy OpenGL painters
+
+- Removed `Apus.Engine.PainterGL.pas` and `Apus.Engine.PainterGL2.pas`.
+- Current desktop rendering uses `Apus.Engine.OpenGL` with `IGraphicsSystem`, `IRenderTarget`, `IShader`, `IDrawer`, and `ITextDrawer`.
+- The old Android backend still needs migration to the current graphics-system architecture before Android builds can be re-enabled.
