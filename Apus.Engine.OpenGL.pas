@@ -200,7 +200,7 @@ type
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); override;
   procedure ClearDepth(zbuf:single=0;stencil:integer=-1); override;
   procedure Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
-  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
+  procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep); override;
   procedure BlendMode(blend:TBlendingMode); override;
   procedure Clip(x,y,w,h:integer); override;
   procedure ApplyMask; override;
@@ -1452,22 +1452,23 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
   scissor:=false;
  end;
 
-procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean);
+procedure TGLRenderTargetAPI.SetDepthMode(test:TDepthTest;write:TDepthWrite);
  begin
   EnsureThreadState;
-  if test=dbDisabled then begin
+  inherited; // resolve keep-current into curDepth
+  if curDepth.test=TDepthTest.Disabled then begin
    glDisable(GL_DEPTH_TEST)
   end else begin
    glEnable(GL_DEPTH_TEST);
-   case test of
-    dbPass:glDepthFunc(GL_ALWAYS);
-    dbPassLess:glDepthFunc(GL_LESS);
-    dbPassLessEqual:glDepthFunc(GL_LEQUAL);
-    dbPassGreater:glDepthFunc(GL_GREATER);
-    dbNever:glDepthFunc(GL_NEVER);
+   case curDepth.test of
+    TDepthTest.Pass:glDepthFunc(GL_ALWAYS);
+    TDepthTest.Less:glDepthFunc(GL_LESS);
+    TDepthTest.LessEqual:glDepthFunc(GL_LEQUAL);
+    TDepthTest.Greater:glDepthFunc(GL_GREATER);
+    TDepthTest.Never:glDepthFunc(GL_NEVER);
    end;
-   glDepthMask(writeEnable);
   end;
+  glDepthMask(curDepth.write=TDepthWrite.On); // mask is independent of the test; always reflect tracked state
  end;
 
 procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);

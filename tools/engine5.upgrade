@@ -253,3 +253,14 @@ ColorDiff -> Color.Diff [Apus.Colors]
 cullCCW -> TCullMode.DrawCW [Apus.Engine.API]
 cullCW -> TCullMode.DrawCCW [Apus.Engine.API]
 cullNone -> TCullMode.DrawAll [Apus.Engine.API]
+
+// === Apus.Engine.API: depth state — UseDepthBuffer renamed to SetDepthMode, TDepthBufferTest -> TDepthTest (scoped) ===
+// Order matters: longer dbPass* before dbPass (substring). Second arg writeEnable -> TDepthWrite is manual (see note).
+UseDepthBuffer -> SetDepthMode [Apus.Engine.API]
+dbPassLessEqual -> TDepthTest.LessEqual [Apus.Engine.API]
+dbPassGreater -> TDepthTest.Greater [Apus.Engine.API]
+dbPassLess -> TDepthTest.Less [Apus.Engine.API]
+dbPass -> TDepthTest.Pass [Apus.Engine.API]
+dbDisabled -> TDepthTest.Disabled [Apus.Engine.API]
+dbNever -> TDepthTest.Never [Apus.Engine.API]
+// SetDepthMode(test,false) → SetDepthMode(test,TDepthWrite.Off); ,true → ,TDepthWrite.On  [2nd arg type changed boolean→TDepthWrite — manual]

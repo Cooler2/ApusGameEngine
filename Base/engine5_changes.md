@@ -844,3 +844,12 @@ Do not treat it as a list of functions to reintroduce under the old names.
 - Fixed defects found by tests:
   - `TBitStream`: proper buffer zeroing size, safe bit mask for bit 31 under range/overflow checks, correct resize rounding, correct bit-write path in `Put(var buf;...)`.
   - `TNameValueList.Init(st,...)`: constructor now assigns delegated constructor result to `self`.
+
+## 2026-06-19 — Depth state API (Apus.Engine.API)
+
+- `IRenderTarget.UseDepthBuffer(test;writeEnable:boolean)` → **`SetDepthMode(test:TDepthTest=Keep; write:TDepthWrite=Keep)`**. The misleading "buffer" name dropped; test and write mask are now independent axes, each with a keep-current sentinel.
+- `TDepthBufferTest` → **`TDepthTest`** (scoped enum): `dbDisabled/dbPass/dbPassLess/dbPassLessEqual/dbPassGreater/dbNever` → `TDepthTest.Disabled/Pass/Less/LessEqual/Greater/Never` + new `TDepthTest.Keep`.
+- New **`TDepthWrite`** scoped enum (`Keep/Off/On`) for the write mask (was a bare `boolean`). `,false`→`,TDepthWrite.Off`, `,true`→`,TDepthWrite.On`.
+- New **`IRenderTarget.DepthMode:TDepthMode`** getter (record `{test;write}`) + tracked `curDepth` threadvar state — enables save/restore and keep-current. No state stack (deliberate).
+- Fixed latent bug: write mask was skipped when test=`dbDisabled`; now `glDepthMask` always reflects tracked state.
+- No compatibility alias. Upgrader rules added to `tools/engine5.upgrade`.

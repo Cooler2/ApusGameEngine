@@ -272,14 +272,27 @@ type
   function CreateWindow(title:string):TWindow;
  end;
 
- // Depth buffer mode
- TDepthBufferTest=(
-   dbDisabled, // disable depth test
-   dbPass,       // always pass depth test
-   dbPassLess,   // pass lesser values
-   dbPassLessEqual,  // pass lesser or equal values
-   dbPassGreater, // pass greater values
-   dbNever); // never pass depth test
+{$SCOPEDENUMS ON}
+ // Depth test comparison mode
+ TDepthTest=(
+   Disabled,  // disable depth test
+   Pass,      // always pass depth test
+   Less,      // pass lesser values
+   LessEqual, // pass lesser or equal values
+   Greater,   // pass greater values
+   Never,     // never pass depth test
+   Keep);     // leave the current test unchanged
+ // Depth write mask control
+ TDepthWrite=(
+   Keep, // leave the current write mask unchanged
+   Off,  // disable depth writes
+   On);  // enable depth writes
+{$SCOPEDENUMS OFF}
+ // Snapshot of the depth state (returned by IRenderTarget.DepthMode)
+ TDepthMode=record
+   test:TDepthTest;
+   write:TDepthWrite;
+ end;
 
 {$SCOPEDENUMS ON}
  // Which faces to draw. The engine assumes front=CCW (set via glFrontFace at init);
@@ -305,8 +318,10 @@ type
   // Setup viewport (output position) for the current render target
   // After viewport change don't forget to update projection and clipping
   procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0);
-  // Enable/setup depth test
-  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true);
+  // Setup depth test and/or write mask. TDepthTest.Keep / TDepthWrite.Keep leave that axis unchanged.
+  procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep);
+  // Current depth state (test mode + write mask)
+  function DepthMode:TDepthMode;
   // Set blending mode
   procedure BlendMode(blend:TBlendingMode);
   // Set write mask (push previous mask)

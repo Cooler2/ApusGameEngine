@@ -167,7 +167,8 @@ type
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); virtual; abstract;
   procedure ClearDepth(zbuf:single=0;stencil:integer=-1); virtual; abstract;
   procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0); virtual;
-  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); virtual;
+  procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep); virtual;
+  function DepthMode:TDepthMode;
   procedure BlendMode(blend:TBlendingMode); virtual; abstract;
   procedure Mask(rgb:boolean;alpha:boolean); virtual;
   procedure UnMask; virtual;
@@ -185,6 +186,7 @@ type
    renderWidth,renderHeight:integer; //< size in virtual pixels
    realWidth,realHeight:integer; //< size of the whole target surface in real pixels
    curBlend:TBlendingMode;
+   curDepth:TDepthMode; // tracked depth state (backs keep-current and the DepthMode getter)
    curTarget:TTexture;
    // saved stack of render targets
    stack:array[1..10] of TTexture;
@@ -622,6 +624,8 @@ procedure TRenderTargetAPI.EnsureThreadState;
   realWidth:=0;
   realHeight:=0;
   curBlend:=blNone;
+  curDepth.test:=TDepthTest.Disabled; // GL default: depth test off, writes on
+  curDepth.write:=TDepthWrite.On;
   curTarget:=nil;
   stackCnt:=0;
   maskStackPos:=0;
@@ -716,9 +720,16 @@ procedure TRenderTargetAPI.Backbuffer;
   curTarget:=nil;
  end;
 
-procedure TRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
-  writeEnable: boolean);
+procedure TRenderTargetAPI.SetDepthMode(test:TDepthTest;write:TDepthWrite);
  begin
+  // resolve keep-current here so every backend shares one source of truth
+  if test<>TDepthTest.Keep then curDepth.test:=test;
+  if write<>TDepthWrite.Keep then curDepth.write:=write;
+ end;
+
+function TRenderTargetAPI.DepthMode:TDepthMode;
+ begin
+  result:=curDepth;
  end;
 
 procedure TRenderTargetAPI.Texture(tex: TTexture);

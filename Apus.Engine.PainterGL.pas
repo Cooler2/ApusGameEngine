@@ -41,7 +41,7 @@ type
   procedure SetMask(rgb:boolean;alpha:boolean); override;
   procedure ResetMask; override; // вернуть маску на ту, которая была до предыдущего SetMask
 
-  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
+  procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep); override;
 
   // Set camera (view) matrix
   procedure Set3DView(view:TMat4d); override;
@@ -1030,21 +1030,21 @@ begin
  end;
 end;
 
-procedure TGLPainter.UseDepthBuffer(test:TDepthBufferTest; writeEnable:boolean);
+procedure TGLPainter.SetDepthMode(test:TDepthTest; write:TDepthWrite);
 begin
- if test=dbDisabled then begin
-  glDisable(GL_DEPTH_TEST)
- end else begin
-  glEnable(GL_DEPTH_TEST);
-  case test of
-   dbPass:glDepthFunc(GL_ALWAYS);
-   dbPassLess:glDepthFunc(GL_LESS);
-   dbPassLessEqual:glDepthFunc(GL_LEQUAL);
-   dbPassGreater:glDepthFunc(GL_GREATER);
-   dbNever:glDepthFunc(GL_NEVER);
+ if test<>TDepthTest.Keep then
+  if test=TDepthTest.Disabled then glDisable(GL_DEPTH_TEST)
+  else begin
+   glEnable(GL_DEPTH_TEST);
+   case test of
+    TDepthTest.Pass:glDepthFunc(GL_ALWAYS);
+    TDepthTest.Less:glDepthFunc(GL_LESS);
+    TDepthTest.LessEqual:glDepthFunc(GL_LEQUAL);
+    TDepthTest.Greater:glDepthFunc(GL_GREATER);
+    TDepthTest.Never:glDepthFunc(GL_NEVER);
+   end;
   end;
-  glDepthMask(writeEnable);
- end;
+ if write<>TDepthWrite.Keep then glDepthMask(write=TDepthWrite.On);
 end;
 
 procedure TGLPainter.UseTexture(tex: TTexture;stage:integer=0);
