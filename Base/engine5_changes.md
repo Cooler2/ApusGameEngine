@@ -16,6 +16,12 @@ Use it as the primary reference when updating old code.
 
 ## Recent API fixes (2026-05-29)
 
+### Engine networking module names
+
+- Renamed `Apus.Engine.Networking2` to `Apus.Engine.UdpTransport`.
+- The module is the symmetric UDP transport layer: packets/sessions/ping/LAN discovery with `Connect` and `Accept`.
+- Updated EngineTest project references and signal inventory docs to use the new name.
+
 ### Apus.Core typed row-pointer helpers
 
 - Added shared zero-based row-pointer helper types in `Apus.Core` for typed raw-buffer indexing:

@@ -140,18 +140,18 @@
 
 | Канонический сигнал | Тип | Кто посылает | `tag` | Назначение / детали |
 |---|---|---|---|---|
-| `NET\CONN\*` (NW2: `CONNECTED`, `CONNECTIONREJECTED`, `USERMSG`, `CONNECTIONCLOSED`, `CONNECTIONBROKEN`) | нотификация | Networking2 subsystem | connId/ptr | События legacy Networking2. |
-| `NET\ERROR\{message}` (NW2) | нотификация | Networking2 subsystem | `0` | Ошибки legacy Networking2 (имя включает текст ошибки). |
-| `NET\CONN3\CONNECTIONFAILED` | нотификация | Networking3 subsystem | `0` | Ошибка подключения/HTTP запроса. |
-| `NET\CONN3\CONNECTIONREJECTED` | нотификация | Networking3 subsystem | `0` | Сервер отверг подключение/логин. |
-| `NET\CONN3\CONNECTED` | нотификация | Networking3 subsystem | `0` | Подключение установлено. |
-| `NET\CONN3\LOGGED` | нотификация | Networking3 subsystem | `userId` | Успешная авторизация. |
-| `NET\CONN3\ACCESSDENIED` | нотификация | Networking3 subsystem | `0` | Авторизация отклонена с причиной в `NW3ErrorMessage`. |
-| `NET\CONN3\DATARECEIVED` | нотификация | Networking3 subsystem | `msgTag` | Поступило входящее сообщение в очередь NW3. |
-| `NET\CONN3\CONNECTIONBROKEN` | нотификация | Networking3 subsystem | `1/2/3` | Обрыв соединения с кодом причины (ветки отказа в NW3). |
-| `NET\CONN3\ERROR` | нотификация | Networking3 subsystem | `0` | Фатальная ошибка net-thread. |
-| `NET\CONN3\ACCOUNTCREATED` / `NET\CONN3\ACCOUNTFAILED` | нотификация | Networking3 subsystem | `0` | Результат регистрации аккаунта. |
-| `HTTP_EVENT\RESENDPOST` (`DelayedSignal`) | команда | Networking3 subsystem | `0` | Повторная отправка POST через таймер retriable-delivery. |
+| `NET\CONN\*` (UdpTransport/NW2: `CONNECTED`, `CONNECTIONREJECTED`, `USERMSG`, `CONNECTIONCLOSED`, `CONNECTIONBROKEN`) | нотификация | UdpTransport subsystem | connId/ptr | События UDP transport. |
+| `NET\ERROR\{message}` (UdpTransport/NW2) | нотификация | UdpTransport subsystem | `0` | Ошибки UDP transport (имя включает текст ошибки). |
+| `NET\CONN3\CONNECTIONFAILED` | нотификация | HttpGameClient subsystem | `0` | Ошибка подключения/HTTP запроса. |
+| `NET\CONN3\CONNECTIONREJECTED` | нотификация | HttpGameClient subsystem | `0` | Сервер отверг подключение/логин. |
+| `NET\CONN3\CONNECTED` | нотификация | HttpGameClient subsystem | `0` | Подключение установлено. |
+| `NET\CONN3\LOGGED` | нотификация | HttpGameClient subsystem | `userId` | Успешная авторизация. |
+| `NET\CONN3\ACCESSDENIED` | нотификация | HttpGameClient subsystem | `0` | Авторизация отклонена с причиной в `NW3ErrorMessage`. |
+| `NET\CONN3\DATARECEIVED` | нотификация | HttpGameClient subsystem | `msgTag` | Поступило входящее сообщение в очередь NW3. |
+| `NET\CONN3\CONNECTIONBROKEN` | нотификация | HttpGameClient subsystem | `1/2/3` | Обрыв соединения с кодом причины (ветки отказа в NW3). |
+| `NET\CONN3\ERROR` | нотификация | HttpGameClient subsystem | `0` | Фатальная ошибка net-thread. |
+| `NET\CONN3\ACCOUNTCREATED` / `NET\CONN3\ACCOUNTFAILED` | нотификация | HttpGameClient subsystem | `0` | Результат регистрации аккаунта. |
+| `HTTP_EVENT\RESENDPOST` (`DelayedSignal`) | команда | HttpGameClient subsystem | `0` | Повторная отправка POST через таймер retriable-delivery. |
 | `HTTP requests[*].event` (динамически) | нотификация | HTTP subsystem (`THTTPThread`, iOS delegate) | `requestId` | Универсальный callback завершения HTTP-запроса для вызывающего кода. |
 
 ## GLIMAGES\* и STEAM\*
@@ -182,5 +182,5 @@
   - `MOUSE\MOVED` = агрегированный сигнал “для кадра”.
 
 ### Кандидаты на удаление/сужение контракта
-- Публичное использование legacy-семейства `NET\CONN\*` (Networking2) после окончательной миграции на Networking3.
+- Публичное использование legacy-семейства `NET\CONN\*` (UdpTransport/NW2) после окончательной миграции на HttpGameClient.
 - Свободные пользовательские динамические пути (`event:<name>`, универсальный `SIGNAL`) в production-контуре без валидации источника/имени.

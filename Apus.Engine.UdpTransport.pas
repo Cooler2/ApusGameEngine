@@ -1,85 +1,85 @@
-﻿// Network engine layer, ver 2
+﻿// UDP network transport layer
 //
 // Copyright (C) 2007 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
 {$R-}
-unit Apus.Engine.Networking2;
+unit Apus.Engine.UdpTransport;
 interface
  const
-  MAX_PACKET = 1200; // 512;//1400; // сокращённый размер пакета
-  MaxSendTick:integer=8192; // макс. 8K исходящего трафика за итерацию
-  HistoryMsgSize:integer=512; // размер данных в хистори
+  MAX_PACKET = 1200; // 512;//1400; // reduced packet size
+  MaxSendTick:integer=8192; // max 8K outgoing traffic per iteration
+  HistoryMsgSize:integer=512; // history data size
  type
   TConnection=class;
   TDataPacket=class
    next:TDataPacket;
    num:word;
-   created:cardinal; // значение maintimer на момент создания (затем может изменяться)
-   counter:integer; // универсальный счетчик
+   created:cardinal; // MainTimer value at creation, can be changed later
+   counter:integer; // generic counter
    src:TConnection;
    data:array of byte;
-   ticks:cardinal;  // значение getTickCount на момент создания
+   ticks:cardinal;  // Time.Ticks value at creation
    constructor Create;
   end;
-  // обработка получения пакета
+  // received packet handler
   TUserMsgProc=procedure(con:TConnection;buf:pointer;size:integer;ip:cardinal;port:word);
 
   TConnection=class
    connected:boolean;
    remIP:cardinal;
    remPort:word;
-   ping,avgping:single; // Время доставки последнего пакета (сек.)
-   sessID,remID:cardinal; // используется также в качестве хэша для поиска соединений в массиве
-   history:array of byte; // журнал сообщений (очередь)
-   hPos,hSize:integer; // указатели очереди
+   ping,avgping:single; // last packet delivery time, seconds
+   sessID,remID:cardinal; // also used as a hash for connection array lookup
+   history:array of byte; // message log queue
+   hPos,hSize:integer; // queue pointers
 
    constructor Create(accept:boolean=false);
    destructor Destroy; override;
-   // Подключиться к указанной системе
-   // (если target=0 - искать систему в LAN и если найдем - подключиться)
+   // Connect to the specified system.
+   // If target=0, search LAN and connect if a system is found.
    procedure Connect(target:cardinal;port:word);
-   // Отключиться (с уведомлением)
+   // Disconnect with notification.
    procedure Disconnect(freeObject:boolean=false);
-   // Послать блок данных
+   // Send data block.
    procedure SendData(buf:pointer;size:integer;maxlatency:integer=20);
-   procedure Accept(wait:boolean=true); // переводит соединение в режим ожидания подключения
+   procedure Accept(wait:boolean=true); // puts connection into accept-wait mode
    function DumpHistory(hexMode:boolean=true):string;
   protected
    accepting,deleting:boolean;
    status:integer;
-   // очередь отправки данных
+   // send queue
    firstSend,lastSend:TDataPacket;
-   // очередь получения данных
+   // receive queue
    firstRecv,lastRecv:TDataPacket;
-   lastSentTime:cardinal; // момент последней отправки пакета
-   lastRecvID:word; // ID последнего пакета данных (чтобы не обрабатывать снова)
-   fetchPos:integer; // выборка очередного сообщения начиная с этой позиции в первом пакете
+   lastSentTime:cardinal; // last packet send time
+   lastRecvID:word; // last data packet ID to avoid duplicate processing
+   fetchPos:integer; // next message fetch starts at this position in the first packet
    procedure FreeAll;
    procedure PutToHistory(data:pointer;size:integer;msgtype:byte);
   end;
 
  var
-  // если установлен этот обработчик, то он будет вызываться из сетевого потока
-  // вместо сигнала, после обработки сообщение будет удалено из хранилища
+  // If this handler is set, it is called from the network thread instead of
+  // sending a signal. The message is removed from storage after processing.
   onUserMsg:TUserMsgProc;
-  conCnt:integer; // кол-во соединений
+  conCnt:integer; // connection count
 
-  avgTime1,avgTime2,avgTime3,avgTime4:double; // измерение производительности
+  avgTime1,avgTime2,avgTime3,avgTime4:double; // performance measurements
 
  procedure NetInit(port:word);
  procedure NetDone;
  // ind: 1-sent, 2-received, 3-sentBytes, 4-receivedBytes
  function GetNetStat(ind:integer):int64;
 
- // получить указатель на полученный блок данных (и его размер)
- // handle передается в параметре события Net\onData
+ // Get received data block pointer and size.
+ // handle is passed in the Net\onData event parameter.
  function GetMsg(handle:cardinal;var data:pointer):integer;
  procedure GetMsgOrigin(handle:integer;var ip:cardinal;var port:word);
 
- // парсит и ресолвит (если необходимо) адрес, заданный в виде строки
- // Внимание!!! Может занять много времени! Возвращает 0 или код ошибки
+ // Parse and resolve an address string when needed.
+ // Warning: this can take a long time. Returns 0 or an error code.
  procedure GetInternetAddress(adr:string;var ip:cardinal;var port:word);
 
  // Is internet connection available? positive - yes, negative - no
@@ -87,19 +87,19 @@ interface
 
 implementation
  uses {$IFDEF MSWINDOWS}windows,winsock,{$ELSE}Apus.CrossPlatform,Sockets,BaseUnix,{$ENDIF}
-      {$IFDEF IOS}CFBase,{$ENDIF}Apus.Common,SysUtils,Apus.Network,Classes,Apus.EventMan;
+      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Apus.Network,Classes,Apus.EventMan,Apus.Core,Apus.Conv,Apus.Log,Apus.Threads;
  const
-  // Статусы соединений
-  csIdle = 1; // не подключено, ничего делать не нужно
-  csRejected = 2; // не подключено, попытка подключения была отклонена
-  csDisconnected = 3; // не подключено, соединение закрыто локальной стороной
-  csClosed = 4; // не подключено, соединение разорвано удаленной стороной
-  csBroken = 5; // не подключено, соединение разорвано по техническим причинам
-  csDestroying = 7; // необходимо удалить объект соединения
-  csConnecting = 20; // был вызван коннект
-  csConnWait = 21; // ждём ответа на запрос подключения
-  csConnected = 30; // соединение успешно установлено
-  csDisconnecting = 40; // был вызван дисконнект
+  // Connection statuses
+  csIdle = 1; // not connected, no action needed
+  csRejected = 2; // not connected, connection attempt was rejected
+  csDisconnected = 3; // not connected, connection was closed locally
+  csClosed = 4; // not connected, connection was closed remotely
+  csBroken = 5; // not connected, connection was broken by a technical failure
+  csDestroying = 7; // connection object must be deleted
+  csConnecting = 20; // Connect was called
+  csConnWait = 21; // waiting for connection request response
+  csConnected = 30; // connection established
+  csDisconnecting = 40; // Disconnect was called
 
  type
   TNetThread=class(TThread)
@@ -109,7 +109,7 @@ implementation
    msgtype,reserved:byte;
    storedsize:word;
    size:integer;
-   time:cardinal; // время (мс)
+   time:cardinal; // time, ms
   end;
 
  var
@@ -117,21 +117,21 @@ implementation
   initialized:integer;
   initport:word;
   thread:TNetThread;
-  critSect,threadSect:TMyCriticalSection;
-  MainTimer:cardinal=10000; // смещение чтобы обеспечить некоторый запас "в прошлое"
+  critSect,threadSect:TLock;
+  MainTimer:cardinal=10000; // offset to leave some room in the past
 
   lastPacketID:cardinal;
 
-  // Определение адреса
+  // Address resolution
   resolveAdr:string;
   resolvedIP:cardinal;
   resolvedPort:word;
 
 
   connections:array[0..4095] of TConnection;
-  processingFlag:boolean; // флаг того, что какое-то соединение находится в состоянии, требующем обработки
+  processingFlag:boolean; // some connection is in a state that needs processing
 
-  storageFirst,storageLast:TDataPacket; // хранилище принятых сообщений (очередь)
+  storageFirst,storageLast:TDataPacket; // received message storage queue
 
  {$IFDEF IOS}
  type
@@ -181,7 +181,7 @@ implementation
    if initialized>0 then begin
     inc(initialized); exit;
    end;
-   EnterCriticalSection(threadSect);
+   threadSect.Enter;
    try
     initport:=port;
     thread:=TNetThread.Create(true);
@@ -189,7 +189,7 @@ implementation
     thread.Resume;
     initialized:=1;
    finally
-    LeaveCriticalSection(threadSect);
+    threadSect.Leave;
    end;
   end;
 
@@ -197,14 +197,14 @@ implementation
   begin
    dec(initialized);
    if initialized>0 then exit;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     if thread<>nil then thread.Terminate;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
-   EnterCriticalSection(threadSect);
-   LeaveCriticalSection(threadSect);
+   threadSect.Enter;
+   threadSect.Leave;
   end;
 
 function GetNetStat(ind:integer):int64;
@@ -276,8 +276,8 @@ procedure ResolveAddress;
      ip:=inet_addr(@address[1]);
     end else begin
      address:=address+#0;
-     LogMessage('Resolving host address: '+address);
-     // ожидание инициализации сокета
+     Log.Msg('Resolving host address: '+address);
+     // wait for socket initialization
      for i:=1 to 50 do if udp=nil then sleep(5);
      sleep(10);
      h:=GetHostByName(@address[1]);
@@ -285,7 +285,7 @@ procedure ResolveAddress;
       ip:=0;
      end else
       move(h^.h_addr^[0],ip,4);
-     LogMessage('Resolved IP: '+iptostr(ip));
+     Log.Msg('Resolved IP: '+Conv.FormatIp(ip));
     end;
    end else
     ip:=$FFFFFFFF;
@@ -308,21 +308,21 @@ procedure ResolveAddress;
 
 procedure TConnection.Accept(wait:boolean=true);
 begin
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   if connected and not wait then exit;
   if status<>csDisconnecting then Disconnect;
   accepting:=true;
-  LogMessage('Connection accepting '+inttostr(sessID and $FFF));
+  Log.Msg('Connection accepting '+inttostr(sessID and $FFF));
  finally
-  LeaveCriticalSection(critsect);
+  critSect.Leave;
  end;
 end;
 
 procedure TConnection.Connect(target: cardinal; port: word);
 begin
  if connected then exit;
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   remIP:=target;
   remPort:=port;
@@ -330,14 +330,14 @@ begin
   processingFlag:=true;
   accepting:=false;
  finally
-  LeaveCriticalSection(critsect);
+  critSect.Leave;
  end;
 end;
 
 constructor TConnection.Create(accept:boolean=false);
 begin
  if concnt>4000 then exit;
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   status:=csIdle;
   accepting:=accept;
@@ -347,43 +347,43 @@ begin
   until connections[sessID and $FFF]=nil;
   connections[sessID and $FFF]:=self;
   inc(conCnt);
-  ping:=0.15; avgping:=0.15; // дефолтный пинг
-  LogMessage('Connection created: '+inttostr(sessID and $FFF)+
+  ping:=0.15; avgping:=0.15; // default ping
+  Log.Msg('Connection created: '+inttostr(sessID and $FFF)+
     ' count='+inttostr(concnt)+' accept: '+booltostr(accepting));
   firstSend:=nil; lastSend:=nil;
   hSize:=0; hPos:=0;
  finally
-  LeaveCriticalSection(critsect);
+  critSect.Leave;
  end;
 end;
 
 destructor TConnection.Destroy;
 begin
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   connections[sessID and $FFF]:=nil;
   dec(conCnt);
-  LogMessage('Connection destroyed: '+inttostr(sessID and $FFF)+' count='+inttostr(concnt));
+  Log.Msg('Connection destroyed: '+inttostr(sessID and $FFF)+' count='+inttostr(concnt));
   FreeAll;
  finally
-  LeaveCriticalSection(critsect);
+  critSect.Leave;
  end;
 end;
 
 procedure TConnection.Disconnect(freeObject:boolean=false);
 begin
- LogMessage('Disconnect called for '+inttostr(sessID and $FFF));
+ Log.Msg('Disconnect called for '+inttostr(sessID and $FFF));
  if not connected then begin
   if Freeobject then Destroy;
   exit;
  end;
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   status:=csDisconnecting;
   processingFlag:=true;
   deleting:=freeObject;
  finally
-  LeaveCriticalSection(critsect);
+  critSect.Leave;
  end;
 end;
 
@@ -400,8 +400,8 @@ begin
   result:='Empty'#13#10;
   exit;
  end;
- i:=hPos; // позиция чтения
- s:=hSize; // размер данных для чтения
+ i:=hPos; // read position
+ s:=hSize; // data size to read
  if s>length(history) then s:=length(history);
  while s>sizeof(hdr) do begin
   dec(i,sizeof(hdr));
@@ -431,9 +431,9 @@ begin
   if hdr.msgtype=1 then st:=st+'send '
    else st:=st+'recv ';
   if hexmode then
-   st:=st+inttostr(hdr.size)+#13#10+HexDump(@data[0],hdr.storedsize)+#13#10
+   st:=st+inttostr(hdr.size)+#13#10+Conv.HexDump(@data[0],hdr.storedsize)+#13#10
   else
-   st:=st+inttostr(hdr.size)+#13#10+DecDump(@data[0],hdr.storedsize)+#13#10;
+   st:=st+inttostr(hdr.size)+#13#10+Conv.DecDump(@data[0],hdr.storedsize)+#13#10;
   result:=st+result;
  end;
  result:='History for connection '+inttostr(sessID and $FFF)+'/'+inttostr(remID and $FFF)+#13#10+result;
@@ -451,7 +451,7 @@ begin
  if size>HistoryMsgSize then size:=HistoryMsgSize;
  hdr.msgtype:=msgtype;
  hdr.storedsize:=size;
- hdr.time:=getTickCount;
+ hdr.time:=cardinal(Time.Ticks);
  pb:=data;
  for i:=1 to size do begin
   history[hPos]:=pb^;
@@ -470,7 +470,7 @@ begin
  end;
 end;
 
-procedure TConnection.FreeAll; // вызывать только внутри критсекции!
+procedure TConnection.FreeAll; // call only inside critical section
 var
  d:TDataPacket;
 begin
@@ -488,9 +488,9 @@ begin
  end;
  lastRecv:=nil;
  except
-  on e:Exception do ForceLogMessage('FATAL error in net2:FreeAll: '+ExceptionMsg(e));
+  on e:Exception do Log.Force('FATAL error in net2:FreeAll: '+ExceptionMsg(e));
  end;
-// LogMessage('FreeAll: '+inttostr(was)+'->'+inttostr());
+// Log.Msg('FreeAll: '+inttostr(was)+'->'+inttostr());
 end;
 
 procedure TConnection.SendData(buf: pointer; size: integer;maxlatency:integer=20);
@@ -503,45 +503,45 @@ begin
   raise EError.Create('Net: connection is nil!');
  if not connected then
   raise EWarning.Create('Can''t send data: not connected '+inttostr(sessID)+' status='+inttostr(ord(status)));
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   try
-  LogMessage('NET: outgoing message, conn '+inttostr(sessID and $FFF)+' size '+inttostr(size)+
-   #13#10+HexDump(buf,min2(size,32)),6);
-  // поместим сообщение в исходящий буфер соединения
-  if firstSend=nil then begin // если в очереди нет вообще пакетов - создадим один
+  Log.Msg('NET: outgoing message, conn '+inttostr(sessID and $FFF)+' size '+inttostr(size)+
+   #13#10+Conv.HexDump(buf,Min(size,32)),6);
+  // put the message into the connection outgoing buffer
+  if firstSend=nil then begin // create the first packet if the queue is empty
    d:=TDataPacket.Create;
    inc(d.created,maxlatency div 10);
    firstSend:=d;
    lastSend:=d;
-   LogMessage('NET: new packet created '+inttostr(d.num)+', time: '+inttostr(d.created),6);
+   Log.Msg('NET: new packet created '+inttostr(d.num)+', time: '+inttostr(d.created),6);
   end;
   if length(history)>0 then PutToHistory(buf,size,1);
   except
-   on e:exception do ForceLogMessage('SendData E1');
+   on e:exception do Log.Force('SendData E1');
   end;
-  // можно ли поместить какие-либо данные в последний из пакетов, или начинать новый
-  // Важно! Нельзя дописывать в пакет, который уже хотя бы раз отсылался!
-  // Также не дописываем в пакет, который уже хотя бы наполовину заполнен
+  // Try to append to the last packet, or start a new one.
+  // Important: never append to a packet that has already been sent.
+  // Also avoid appending to a packet that is already at least half full.
   try
   if (length(lastSend.data)<MAX_PACKET div 2) and (lastSend.counter=0) then begin
-   j:=length(lastSend.data); // Позиция, начиная с которой можно писать данные
-   i:=j+4+size; // в i будет новый размер пакета
+   j:=length(lastSend.data); // position where new data can be written
+   i:=j+4+size; // new packet size
    if i>MAX_PACKET then i:=MAX_PACKET;
    setLength(lastSend.data,i);
-   LogMessage('NET: appending to packet '+inttostr(lastsend.num),6);
+   Log.Msg('NET: appending to packet '+inttostr(lastsend.num),6);
   end else begin
-   d:=TDataPacket.Create; // Создаем новый пакет и прицепляем его к очереди
+   d:=TDataPacket.Create; // create a new packet and append it to the queue
    inc(d.created,maxlatency div 10);
    if size+4>MAX_PACKET then i:=MAX_PACKET else i:=size+4;
    SetLength(d.data,i);
    lastSend.next:=d;
    lastSend:=d;
-   j:=0; // позиция записи в новый пакет
-   LogMessage('NET: new packet created(2) '+inttostr(d.num)+', time '+inttostr(d.created),6);
+   j:=0; // write position in the new packet
+   Log.Msg('NET: new packet created(2) '+inttostr(d.num)+', time '+inttostr(d.created),6);
   end;
   except
-   on e:exception do ForceLogMessage('SendData E2');
+   on e:exception do Log.Force('SendData E2');
   end;
 
   try
@@ -549,15 +549,15 @@ begin
   inc(j,4);
   pb:=buf;
   while size>0 do begin
-   // сколько еще данных можно поместить в последний пакет?
+   // how much more data fits into the last packet?
    i:=length(lastsend.data)-j;
    move(pb^,lastsend.data[j],i);
    dec(size,i);
    inc(pb,i);
    if size>0 then begin
-    // нужен еще пакет
+    // need another packet
     d:=TDataPacket.Create;
-    LogMessage('NET: creating additional packet for data: '+inttostr(d.num),6);
+    Log.Msg('NET: creating additional packet for data: '+inttostr(d.num),6);
     if size>MAX_PACKET then i:=MAX_PACKET else i:=size;
     setLength(d.data,i);
     lastSend.next:=d;
@@ -566,11 +566,11 @@ begin
    end;
   end;
   except
-   on e:exception do ForceLogMessage('SendData E1');
+   on e:exception do Log.Force('SendData E1');
   end;
 
  finally
-  LeaveCriticalSection(critsect);
+  critSect.Leave;
  end;
 end;
 
@@ -595,35 +595,35 @@ var
  d,dd:TDataPacket;
  t:cardinal;
 begin
- EnterCriticalSection(threadSect); // секция захвачена всегда, когда выполняется поток
+ threadSect.Enter; // section is locked whenever the thread is running
  try
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
-  // инициализация
-  RegisterThread('Netwrk2');
-  LogMessage(TimeStamp+' NET: Initializing, threadID='+inttostr(cardinal(GetCurrentThreadID)));
+  // initialization
+  Apus.Threads.Thread.Register('Netwrk2');
+  Log.Msg(Time.Stamp+' NET: Initializing, threadID='+inttostr(cardinal(GetCurrentThreadID)));
   randomize;
   try
    udp:=UDPSocket2.Create(initport,true);
   except
    udp:=UDPSocket2.Create(initport+100,true);
   end;
-  Priority:=tpHigher; // повышенный приоритет потока
+  Priority:=tpHigher; // elevated thread priority
  finally
-  LeaveCriticalSection(critSect);
+  critSect.Leave;
  end;
 
- // Главный цикл, частота не более 100 Гц
+ // Main loop, no more than 100 Hz
  // ------------------------------------------------------
  repeat
   inc(MainTimer);
-  if MainTimer and $F=0 then PingThread;
+  if MainTimer and $F=0 then Apus.Threads.Thread.Ping;
 
-  // Этап 1: обработка входящих пакетов
-  EnterCriticalSection(critSect);
+  // Stage 1: process incoming packets
+  critSect.Enter;
   try
-   t:=getTickCount;
-   // Обработка входящих пакетов
+   t:=cardinal(Time.Ticks);
+   // Process incoming packets
    size:=16500;
    count:=0;
    try
@@ -640,24 +640,23 @@ begin
       con:=connections[SID and $FFF];
      if (con<>nil) and (con.sessID<>SID) then con:=nil;
      if (cmd in [2,3,5,6]) and (con=nil) then begin
-      LogMessage('NET: no connection '+inttostr(SID and $FFF)+' for packet '+
-       inttostr(pnum)+' size '+inttostr(size)+' from '+IpToStr(rem_adr)+':'+inttostr(rem_port)
-       +#13#10+HexDump(@recvbuf,min2(size,32)));
+      Log.Msg('NET: no connection '+inttostr(SID and $FFF)+' for packet '+
+       inttostr(pnum)+' size '+inttostr(size)+' from '+Conv.FormatIp(rem_adr)+':'+inttostr(rem_port)
+       +#13#10+Conv.HexDump(@recvbuf,Min(size,32)));
       size:=16500;
       continue;
      end else
       if (cmd>1) and (con<>nil) and (con.connected) and
          ((con.remIP<>rem_adr) or (con.remPort<>rem_port)) then begin
-       LogMessage('NET: remote address changed, conn: '+inttostr(con.sessID and $FFF)+
-         ' ip: '+iptostr(rem_adr)+' port: '+inttostr(rem_port));
+       Log.Msg('NET: remote address changed, conn: '+inttostr(con.sessID and $FFF)+
+         ' ip: '+Conv.FormatIp(rem_adr)+' port: '+inttostr(rem_port));
        con.remIP:=rem_adr;
        con.remPort:=rem_port;
       end;
      case cmd of
       1:begin
-       // Запрос на установку соединения.
-       // сперва проверим не свой ли это запрос
-       // и не установлено ли уже такое соединение
+       // Connection request.
+       // First check whether it is our own request or such a connection already exists.
        fl:=false;
        for i:=0 to 4095 do
         if (connections[i]<>nil) then
@@ -668,23 +667,23 @@ begin
         end;
        if fl then begin
         if connections[i].status=csConnected then begin
-         LogMessage('NET: Already connected, repeat confirmation '+inttostr(SID and $FFF));
+         Log.Msg('NET: Already connected, repeat confirmation '+inttostr(SID and $FFF));
          move(connections[j].sessID,recvbuf[8],4);
          recvbuf[6]:=2; // accepted
          try
           udp.Send(rem_adr,rem_port,recvbuf,12);
          except
           on e:exception do begin
-           ForceLogMessage('NET: send error #2: '+e.message);
+           Log.Force('NET: send error #2: '+e.message);
            sleep(10);
           end;
          end;
         end else
-         LogMessage('NET: Wrong connection attempt ignored '+inttostr(SID and $FFF));
+         Log.Msg('NET: Wrong connection attempt ignored '+inttostr(SID and $FFF));
         size:=16500;
         continue;
        end;
-       //Найти ожидающее соединение и соединить его
+       // Find a waiting connection and attach it.
        fl:=false;
        for i:=0 to 4095 do
         if (connections[i]<>nil) {and (connections[i].status=csIdle)} and
@@ -697,7 +696,7 @@ begin
          connections[i].hPos:=0;
          connections[i].hSize:=0;
          connections[i].accepting:=false;
-         LogMessage('NET: connection '+inttostr(i)+'/'+inttostr(SID and $FFF)+' established with '+iptostr(rem_adr)+':'+inttostr(rem_port));
+         Log.Msg('NET: connection '+inttostr(i)+'/'+inttostr(SID and $FFF)+' established with '+Conv.FormatIp(rem_adr)+':'+inttostr(rem_port));
          inc(count);
          list[count]:=cardinal(connections[i]);
          info[count]:=1;
@@ -710,10 +709,10 @@ begin
         recvbuf[6]:=2; // accepted
         try
          udp.Send(rem_adr,rem_port,recvbuf,12);
-         LogMessage('NET: acceptance to '+IpToStr(rem_adr)+':'+inttostr(rem_port)+' conn '+inttostr(j)+' sessID='+inttostr(connections[j].sessID));
+         Log.Msg('NET: acceptance to '+Conv.FormatIp(rem_adr)+':'+inttostr(rem_port)+' conn '+inttostr(j)+' sessID='+inttostr(connections[j].sessID));
         except
          on e:exception do begin
-          ForceLogMessage('NET: send error #2: '+e.message);
+          Log.Force('NET: send error #2: '+e.message);
           sleep(10);
          end;
         end;
@@ -725,10 +724,10 @@ begin
         recvbuf[3]:=0;
         try
          udp.Send(rem_adr,rem_port,recvbuf,8);
-         LogMessage('NET: rejection to '+iptostr(rem_adr)+':'+inttostr(rem_port));
+         Log.Msg('NET: rejection to '+Conv.FormatIp(rem_adr)+':'+inttostr(rem_port));
         except
          on e:exception do begin
-          ForceLogMessage('NET: send error #3: '+e.message);
+          Log.Force('NET: send error #3: '+e.message);
           sleep(10);
          end;
         end;
@@ -736,16 +735,16 @@ begin
       end; // cmd=1
 
       2:begin
-       LogMessage('Acceptance');
+       Log.Msg('Acceptance');
        if (size<>12) or (con.connected) then begin
         if con.connected then
-         LogMessage('NET: already connected (duplicated acceptance?)')
+         Log.Msg('NET: already connected (duplicated acceptance?)')
         else
-         LogMessage('NET: Incorrect acceptance');
+         Log.Msg('NET: Incorrect acceptance');
         size:=16500;
         continue;
        end;
-       // соединение успешно установлено
+       // connection established successfully
        con.remIP:=rem_adr;
        con.remPort:=rem_port;
        con.connected:=true;
@@ -753,34 +752,34 @@ begin
        con.hPos:=0;
        con.hSize:=0;
        move(recvbuf[8],con.remID,4);
-       LogMessage('NET: accepted, sessID='+inttostr(con.sessID)+', remID='+inttostr(con.remID));
+       Log.Msg('NET: accepted, sessID='+inttostr(con.sessID)+', remID='+inttostr(con.remID));
        inc(count);
        list[count]:=cardinal(con);
        info[count]:=1;
       end;
 
       3:begin
-       // отказано в соединении
+       // connection rejected
        con.status:=csIdle;
        con.connected:=false;
        con.FreeAll;
-       LogMessage('NET: connection rejected');
+       Log.Msg('NET: connection rejected');
        inc(count);
        list[count]:=i;
        info[count]:=2;
       end;
 
       4:begin
-       // разрыв соединения, тут всё непросто...
-       if con=nil then // поискать соединение
+       // connection close, slightly tricky
+       if con=nil then // search for the connection
         for i:=0 to 4095 do
          if (connections[i]<>nil) and (connections[i].remID=SID) then begin
           con:=connections[i]; break;
          end;
        if (con<>nil) and (con.connected) then begin
-        // запрос на разрыв указанного соединения
-        LogMessage('NET: connection '+inttostr(con.sessID and $FFF)+' ('+
-         ipToStr(con.remIP)+':'+inttostr(con.remPort)+') closed by remote side');
+        // request to close this connection
+        Log.Msg('NET: connection '+inttostr(con.sessID and $FFF)+' ('+
+         Conv.FormatIp(con.remIP)+':'+inttostr(con.remPort)+') closed by remote side');
         con.connected:=false;
         con.status:=csClosed;
         con.FreeAll;
@@ -791,28 +790,28 @@ begin
       end;
 
       5:begin
-       // пакет с данными, вышлем подтверждение
+       // data packet, send confirmation
        try
         move(con.remID,recvbuf[0],4);
         recvbuf[6]:=6;
         udp.Send(rem_adr,rem_port,recvBuf,8);
-        LogMessage('NET: packet '+inttostr(pnum)+' received from conn: '+
+        Log.Msg('NET: packet '+inttostr(pnum)+' received from conn: '+
          inttostr(con.sessID and $FFF)+' size '+inttostr(size-8)+#13#10+
-         hexDump(@recvbuf[8],min2(size-8,64)),6);
+         Conv.HexDump(@recvbuf[8],Min(size-8,64)),6);
        except
-        on e:exception do ForceLogMessage('NET: error in packet confirmation - '+e.message);
+        on e:exception do Log.Force('NET: error in packet confirmation - '+e.message);
        end;
-       // Ахтунг!
+       // Attention!
        j:=pnum-con.lastRecvID;
        if j<-50000 then j:=j+65536;
        if (size<=8) or (j<=0) then begin
-        LogMessage('NET: packet ignored: '+inttostr(pnum)+' last: '+inttostr(con.lastRecvID)+
+        Log.Msg('NET: packet ignored: '+inttostr(pnum)+' last: '+inttostr(con.lastRecvID)+
         ', j='+inttostr(j)+' size: '+inttostr(size),6);
         size:=16500;
         continue;
        end;
        con.lastRecvID:=pnum;
-       // добавим пакет в очередь
+       // add packet to the queue
        d:=TDataPacket.Create;
        d.num:=pnum;
        SetLength(d.data,size-8);
@@ -825,11 +824,11 @@ begin
         con.lastRecv:=d;
         con.fetchPos:=0;
        end;
-       // проверим не пора ли принимать сообщение
+       // check whether a message is ready to be received
        repeat
         fl:=false;
         k:=con.fetchPos;
-        // проверим наличие сообщения целиком
+        // check whether the whole message is present
         move(con.firstRecv.data[k],j,4);
         inc(k,4);
         d:=con.firstRecv;
@@ -843,15 +842,15 @@ begin
         if (i>0) and (d<>nil) and (length(d.data)-k>=i) then fl:=true;
 
         if fl then begin
-         // если сообщение присутствует полностью - перенести его в хранилище,
-         // а ненужные пакеты - удалить
+         // If the message is complete, move it to storage
+         // and delete unused packets.
          d:=TDataPacket.Create;
          d.src:=con;
          SetLength(d.data,j);
-         i:=0; // позиция в приёмнике
-         inc(con.fetchPos,4); // позиция в источнике
+         i:=0; // destination position
+         inc(con.fetchPos,4); // source position
          k:=con.fetchPos;
-         while (con.firstRecv<>nil) and (length(con.firstRecv.data)-k<=j) do begin // содержимое пакета копировать целиком
+         while (con.firstRecv<>nil) and (length(con.firstRecv.data)-k<=j) do begin // copy whole packet content
           l:=length(con.firstRecv.data)-k;
           move(con.firstRecv.data[k],d.data[i],l);
           dec(j,l);
@@ -864,17 +863,17 @@ begin
          end;
          if con.firstRecv=nil then con.lastRecv:=nil;
 
-         if j>0 then begin // Осталось еще забрать часть из пакета
+         if j>0 then begin // still need to take part of the packet
           move(con.firstRecv.data[con.fetchPos],d.data[i],j);
           inc(con.fetchPos,j);
          end;
 
-         if logGroups[6] then LogMessage('NET: message received from conn '+inttostr(con.sessID and $FFF)+', '+
-           IpToStr(con.remIP)+':'+inttostr(con.remPort)+' size '+inttostr(length(d.data))+#13#10+
-           hexDump(@d.data[0],min2(length(d.data),32)),6);
+         Log.Msg('NET: message received from conn '+inttostr(con.sessID and $FFF)+', '+
+           Conv.FormatIp(con.remIP)+':'+inttostr(con.remPort)+' size '+inttostr(length(d.data))+#13#10+
+           Conv.HexDump(@d.data[0],Min(length(d.data),32)),6);
          if length(con.history)>0 then con.PutToHistory(d.data,length(d.data),2);
 
-         // добавим в хранилище
+         // add to storage
          if storageLast<>nil then begin
           storageLast.next:=d;
           storageLast:=d;
@@ -890,18 +889,18 @@ begin
       end;
 
       6:begin
-       // подтверждение получения данных
+       // data receipt confirmation
        if (con.firstSend<>nil) and (con.firstSend.num=pnum) then begin
-        c:=GetTickCount;
+        c:=cardinal(Time.Ticks);
         if (c>con.firstSend.ticks) then
          con.ping:=(c-con.firstSend.ticks)/1000;
         con.avgping:=con.avgping*0.8+con.ping*0.2;
         d:=con.firstSend;
         con.firstSend:=con.firstSend.next;
-        d.Free; // освобождение памяти
+        d.Free; // free memory
        end;
        if con.firstSend=nil then con.lastSend:=nil;
-       LogMessage('NET: conn: '+inttostr(con.sessID and $FFF)+', packet '+
+       Log.Msg('NET: conn: '+inttostr(con.sessID and $FFF)+', packet '+
         inttostr(pnum)+' confirmed, avg ping: '+inttostr(round(con.avgping*1000)),6);
       end;
 
@@ -911,13 +910,13 @@ begin
     on e:Exception do Signal('Net\Error\'+e.Message,0);
    end;
   finally
-   LeaveCriticalSection(critSect);
-   t:=GetTickCount-t;
+   critSect.Leave;
+   t:=cardinal(Time.Ticks)-t;
    avgTime1:=avgTime1*0.99+t*0.01;
   end;
 
-  t:=getTickCount;
-  // уведомления
+  t:=cardinal(Time.Ticks);
+  // notifications
   for i:=1 to count do begin
    if info[i]=1 then
     Signal('NET\Conn\Connected',list[i]);
@@ -927,33 +926,33 @@ begin
     if @onUserMsg<>nil then begin
      d:=TDataPacket(pointer(list[i]));
      onUserMsg(d.src,@d.data[0],length(d.data),d.src.remIP,d.src.remPort);
-     d.created:=0; // отметка как старое - для удаления
+     d.created:=0; // mark as old for deletion
     end else
      Signal('NET\Conn\UserMsg',list[i]);
    if info[i]=4 then
     Signal('Net\Conn\ConnectionClosed',list[i]);
   end;
-  t:=GetTickCount-t;
+  t:=cardinal(Time.Ticks)-t;
   avgTime2:=avgTime2*0.99+t*0.01;
 
-  // Этап 2: формирование и отправка исходящих пакетов
-  EnterCriticalSection(critSect);
+  // Stage 2: build and send outgoing packets
+  critSect.Enter;
   try
-  t:=getTickCount;
+  t:=cardinal(Time.Ticks);
   count:=0;
-  sentCount:=0; // Ограничение трафика за итерацию
-  c:=GetTickCount;
+  sentCount:=0; // traffic limit per iteration
+  c:=cardinal(Time.Ticks);
   for i:=0 to 4095 do
    if (connections[i]<>nil) and (connections[i].connected) and
       (connections[i].firstSend<>nil) then with connections[i] do begin
 
     if firstSend.created<=MainTimer then begin
      inc(firstSend.counter);
-     // если состоялось 8 неудачных попыток доставки
-     // или прошло более 30 секунд
+     // if there were 8 failed delivery attempts
+     // or more than 30 seconds have passed
      if (firstSend.counter=11) or (c>firstsend.ticks+30000) then begin
-      LogMessage('NET: cannot deliver pkt '+inttostr(firstsend.num)+' to '+
-        IpToStr(remIP)+':'+inttostr(remPort)+' ('+inttostr(firstSend.counter)+
+      Log.Msg('NET: cannot deliver pkt '+inttostr(firstsend.num)+' to '+
+        Conv.FormatIp(remIP)+':'+inttostr(remPort)+' ('+inttostr(firstSend.counter)+
         '), connection broken: '+inttostr(sessID and $FFF));
       FreeAll;
       connected:=false;
@@ -972,39 +971,39 @@ begin
        udp.Send(remIP,remPort,sendBuf,8+j);
       except
        on e:exception do begin
-        ForceLogMessage('Send error: '+e.message);
+        Log.Force('Send error: '+e.message);
         sleep(10);
         break;
        end;
       end;
       inc(sentCount,60+j);
-      // задержка до перепосылки зависит от размера пакета и качества связи
+      // resend delay depends on packet size and link quality
       inc(firstSend.created,sqr(1+firstSend.counter)*5+
         round(avgping*75)+
         (60+j) div 40);
       lastSentTime:=MainTimer;
-      LogMessage('NET: Sending with conn: '+inttostr(i)+' ('+IpToStr(remIP)+':'+
+      Log.Msg('NET: Sending with conn: '+inttostr(i)+' ('+Conv.FormatIp(remIP)+':'+
         inttostr(remPort)+') size: '+inttostr(j)+', pkt: '+inttostr(firstsend.num)+
         ' timer: '+inttostr(MainTimer)+#13#10+
-        hexDump(@sendbuf[8],min2(j,32)),6);
-      if sentCount>MaxSendTick then break; // не более указанного объема за итерацию
+        Conv.HexDump(@sendbuf[8],Min(j,32)),6);
+      if sentCount>MaxSendTick then break; // do not exceed the per-iteration limit
      end;
     end;
    end;
   finally
-   LeaveCriticalSection(critSect);
+   critSect.Leave;
   end;
-  // Уведомление о разорванных соединениях
+  // Notify about broken connections
   for i:=1 to count do
    Signal('NET\Conn\ConnectionBroken',cardinal(connections[list[i]]));
-  t:=GetTickCount-t;
+  t:=cardinal(Time.Ticks)-t;
   avgTime3:=avgTime3*0.99+t*0.01;
 
-  // Этап 3: обработка соединений, таймаутов, структур данных, состояний соединений
-  EnterCriticalSection(critSect);
+  // Stage 3: process connections, timeouts, data structures, and connection states
+  critSect.Enter;
   try
-   t:=getTickCount;
-   j:=MainTimer-1500; // удаление сообщений, хранившихся не менее 15 секунд
+   t:=cardinal(Time.Ticks);
+   j:=MainTimer-1500; // delete messages stored for at least 15 seconds
    while (storageFirst<>nil) and (storageFirst.created<j) do begin
     d:=storageFirst;
     StorageFirst:=d.next;
@@ -1012,16 +1011,16 @@ begin
    end;
    if storageFirst=nil then storageLast:=nil;
 
-   // обработка пинга
-   c:=GetTickCount;
+   // ping processing
+   c:=cardinal(Time.Ticks);
    j:=(maintimer and 3)*1024;
    for i:=j to j+1023 do
     if (connections[i]<>nil) and (connections[i].firstSend<>nil) then begin
      if c-connections[i].firstSend.ticks>connections[i].ping*1000 then
       connections[i].ping:=(c-connections[i].firstSend.ticks)/1000;
     end;
-   // периодическая отсылка пинговых пакетов (раз в 2.5 секунд,
-   // но только в те соединения, где нет pending packets)
+   // Periodically send ping packets, once per 2.5 seconds,
+   // but only to connections without pending packets.
    if concnt>2000 then begin
     j:=maintimer mod 512;
     k:=8;
@@ -1035,7 +1034,7 @@ begin
      d:=TDataPacket.Create;
      connections[i].firstSend:=d;
      connections[i].lastSend:=d;
-     LogMessage('NET: ping packet '+inttostr(d.num)+' created for conn '+inttostr(i),6);
+     Log.Msg('NET: ping packet '+inttostr(d.num)+' created for conn '+inttostr(i),6);
     end;
 
    if processingFlag then begin
@@ -1043,7 +1042,7 @@ begin
     for i:=0 to 4095 do
      if (connections[i]<>nil) then begin
       if connections[i].status=csConnecting then with connections[i] do begin
-       // послать запрос на установку соединения
+       // send connection request
        move(sessID,sendbuf[0],4);
        sendbuf[4]:=random(256);
        sendbuf[5]:=random(256);
@@ -1051,33 +1050,33 @@ begin
        if remIP=0 then remIP:=$FFFFFFFF;
        try
         udp.Send(remIP,remPort,sendbuf,8);
-        LogMessage('NET: sending conn '+inttostr(i)+' request to '+ipToStr(remIP)+':'+inttostr(remPort));
+        Log.Msg('NET: sending conn '+inttostr(i)+' request to '+Conv.FormatIp(remIP)+':'+inttostr(remPort));
         status:=csConnWait;
        except
         on e:exception do begin
-         ForceLogMessage('NET: send error #1: '+e.message);
+         Log.Force('NET: send error #1: '+e.message);
          sleep(10);
         end;
        end;
       end;
       if connections[i].status=csDisconnecting then with connections[i] do begin
-       // послать запрос на разрыв соединения
+       // send disconnect request
        try
         move(remID,sendbuf[0],4);
         sendbuf[4]:=0;
         sendbuf[5]:=0;
         sendbuf[6]:=4;
         udp.Send(remIP,remPort,sendbuf,8);
-        LogMessage('NET: sending conn '+inttostr(i)+' disconnect to '+ipToStr(remIP)+':'+inttostr(remPort));
+        Log.Msg('NET: sending conn '+inttostr(i)+' disconnect to '+Conv.FormatIp(remIP)+':'+inttostr(remPort));
        except
-        on E:Exception do ForceLogMessage('Error in disconnection: '+e.message);
+        on E:Exception do Log.Force('Error in disconnection: '+e.message);
        end;
        status:=csDisconnected;
        connected:=false;
        FreeAll;
        if accepting then begin
         status:=csIdle;
-        LogMessage('Disconnected, ready to accept');
+        Log.Msg('Disconnected, ready to accept');
        end;
        if deleting then Destroy;
       end;
@@ -1085,35 +1084,35 @@ begin
    end;
 
   finally
-   LeaveCriticalSection(critSect);
-   t:=GetTickCount-t;
+   critSect.Leave;
+   t:=cardinal(Time.Ticks)-t;
    avgTime4:=avgTime4*0.99+t*0.01;
   end;
 
   sleep(10);
  until terminated;
- // Конец главного цикла
+ // End of main loop
  // ------------------------------------------------------
 
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
-  // финализация
-  LogMessage('NET: thread stopping '+inttostr(GetTickCount));
+  // finalization
+  Log.Msg('NET: thread stopping '+inttostr(cardinal(Time.Ticks)));
   FreeAndNil(udp);
 
-  // Нужно подчистить все структуры
-  LogMessage('NET: thread done '+inttostr(GetTickCount));
+  // Clean up all structures
+  Log.Msg('NET: thread done '+inttostr(cardinal(Time.Ticks)));
  finally
-  LeaveCriticalSection(critSect);
+  critSect.Leave;
  end;
 
  except
   on e:Exception do begin
-   ForceLogMessage('NET: error in NET thread - '+e.Message);
+   Log.Force('NET: error in NET thread - '+e.Message);
   end;
  end;
- LeaveCriticalSection(threadSect);
- UnregisterThread;
+ threadSect.Leave;
+ Apus.Threads.Thread.Unregister;
 end;
 
 { TDataPacket }
@@ -1123,20 +1122,20 @@ begin
  created:=MainTimer;
  inc(LastPacketID);
  num:=LastPacketID;
- ticks:=GetTickCount;
+ ticks:=cardinal(Time.Ticks);
 end;
 
 function GetMsg(handle:cardinal;var data:pointer):integer;
 var
  d:TDataPacket;
 begin
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   d:=pointer(handle);
   result:=length(d.data);
   data:=@d.data[0];
  finally
-  LeaveCriticalSection(critSect);
+  critSect.Leave;
  end;
 end;
 
@@ -1144,22 +1143,22 @@ procedure GetMsgOrigin(handle:integer;var ip:cardinal;var port:word);
 var
  d:TDataPacket;
 begin
- EnterCriticalSection(critSect);
+ critSect.Enter;
  try
   d:=pointer(handle);
   ip:=d.src.remIP;
   port:=d.src.remPort;
  finally
-  LeaveCriticalSection(critSect);
+  critSect.Leave;
  end;
 end;
 
 initialization
- InitCritSect(critSect,'Netwrk2',50);
- InitCritSect(threadSect,'Netwrk2Thr',10);
+ critSect.Init('Netwrk2',50);
+ threadSect.Init('Netwrk2Thr',10);
  randomize;
- LastPacketID:=getTickCount;
+ LastPacketID:=cardinal(Time.Ticks);
 finalization
- DeleteCritSect(critSect);
- DeleteCritSect(threadSect);
+ critSect.Cleanup;
+ threadSect.Cleanup;
 end.

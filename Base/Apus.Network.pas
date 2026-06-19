@@ -13,7 +13,7 @@
 unit Apus.Network;
 
 interface
- uses Classes, Apus.Core;
+ uses Classes, Apus.Core, Apus.Conv, Apus.Log;
 
 const
 {$IFDEF USE_DP}
@@ -31,7 +31,7 @@ type
   data:pointer;  // message itself
  end;
 
- // улучшенный вариант: использует non-blocking socket, поддерживает broadcast
+ // Improved version: uses a non-blocking socket and supports broadcast.
  UDPSocket2=class
   sent,received,sentBytes,receivedBytes:cardinal;
   constructor Create(port:word;broadcast:boolean=true;ip:cardinal=0);
