@@ -5,10 +5,20 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Scene;
 interface
-uses Apus.Core, Apus.Classes, Apus.Containers;
+uses Apus.Core, Apus.Classes, Apus.Containers, Apus.Engine.Keys;
 
 type
  TGameScene=class;
+
+ // Scene-level hotkey handler (see TGameScene.RegisterHotKey)
+ TKeyHandler=procedure(key:TKey;shift:byte) of object;
+
+ // One entry in a scene's declarative hotkey table
+ TSceneHotKey=record
+  vKey:TKey;
+  shiftState:byte;
+  handler:TKeyHandler;
+ end;
 
  // Базовый эффект для background-сцены
  TSceneEffect=class
@@ -96,14 +106,31 @@ TGameScene=class(TNamedObject)
   // рисовалку UI для его отображения
   procedure Render; virtual;
 
-  // Check if there are any key events in the keys buffer
+  // --- Keyboard callbacks (synchronous; dispatched by the engine once per frame) ---
+  // Final receivers: override in scenes to handle keys not consumed by UI focus or
+  // hotkeys. Return true if the key was consumed. Symmetric with onMouseDown/onMouseUp.
+  function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; virtual;
+  function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; virtual;
+  // Dispatcher seam, invoked per buffered key by PumpInput. Default runs the RegisterHotKey
+  // table (on press) then the onKeyDown/onKeyUp receivers. UI scenes override it to run
+  // focus/hotkey logic first and fall through to inherited for gameplay.
+  function DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean; virtual;
+  // Declarative scene-level hotkeys, matched by the default DispatchKey before onKeyDown.
+  procedure RegisterHotKey(key:TKey;shift:byte;handler:TKeyHandler);
+  procedure UnregisterHotKeys;
+  // Drain the key buffer and dispatch each event. Called by the engine before Process.
+  procedure PumpInput(shift:byte);
+
+  // Check if there are any buffered text-input chars (polling channel, see ReadKey)
   function KeyPressed:boolean; virtual;
-  // Read buffered key event: 0xAAAABBCC or 0 if no any keys were pressed
+  // Read buffered text char: 0xAAAABBCC or 0 if none.
   // AAAA - unicode char, BB - scancode, CC - ansi char
   function ReadKey:cardinal; virtual;
-  // Записать клавишу в буфер
+  // Записать клавишу (нажатие/отпускание) в буфер клавиш (упаковка: keyCode|scancode<<16|pressed<<24)
   procedure WriteKey(key:cardinal); virtual;
-  // Очистить буфер нажатий
+  // Записать введённый символ в буфер текста (для polling через ReadKey)
+  procedure WriteChar(ch:cardinal); virtual;
+  // Очистить буферы ввода
   procedure ClearKeyBuf; virtual;
 
   // Смена режима (что именно изменилось - можно узнать косвенно)
@@ -132,7 +159,9 @@ TGameScene=class(TNamedObject)
 
  private
    // Keyboard input
-   keyBuffer:TQueue;
+   keyBuffer:TQueue;  // key down/up events (dispatched via PumpInput → DispatchKey)
+   charBuffer:TQueue; // text chars (polling channel via ReadKey)
+   sceneHotKeys:array of TSceneHotKey;
  end;
 
 implementation
@@ -173,6 +202,7 @@ uses SysUtils,
  procedure TGameScene.ClearKeyBuf;
   begin
    keyBuffer.Clear;
+   charBuffer.Clear;
   end;
 
 constructor TGameScene.Create(fullScreen:boolean=true);
@@ -182,6 +212,7 @@ constructor TGameScene.Create(fullScreen:boolean=true);
    self.fullscreen:=fullscreen;
    frequency:=0;
    keyBuffer.Init(64);
+   charBuffer.Init(64);
    zorder:=0;
    activated:=false;
    effect:=nil;
@@ -301,25 +332,16 @@ class procedure TGameScene.LoadAllScenes;
 
  function TGameScene.KeyPressed:boolean;
   begin
-   result:=not keyBuffer.Empty;
+   result:=not charBuffer.Empty;
   end;
 
  function TGameScene.ReadKey:cardinal;
   var
-   item,next:TDataItem;
+   item:TDataItem;
   begin
-   if keyBuffer.Get(item) then begin
-    result:=cardinal(item.data);
-    if not keyBuffer.Empty then begin
-     // It's possible that one keystroke event is logged twice: once for KEY event and then for CHAR event
-     // So check this out: if this event is for KEY and there is another for CHAR - drop this one and return the second one.
-     keyBuffer.Get(next);
-     if (next.data) and $FF00=(item.data) and $FF00 then // same scancode — return CHAR event
-      result:=cardinal(next.data)
-     else
-      keyBuffer.Add(next); // put back (although order may change)
-    end;
-   end else
+   if charBuffer.Get(item) then
+    result:=cardinal(item.data)
+   else
     result:=0;
   end;
 
@@ -329,6 +351,71 @@ class procedure TGameScene.LoadAllScenes;
   begin
    item.data:=integer(key);
    keyBuffer.Add(item);
+  end;
+
+ procedure TGameScene.WriteChar(ch:cardinal);
+  var
+   item:TDataItem;
+  begin
+   item.data:=integer(ch);
+   charBuffer.Add(item);
+  end;
+
+ function TGameScene.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
+  begin
+   result:=false;
+  end;
+
+ function TGameScene.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
+  begin
+   result:=false;
+  end;
+
+ function TGameScene.DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean;
+  var
+   i:integer;
+   reg:byte;
+  begin
+   if pressed then begin
+    // declarative scene hotkeys take priority over the onKeyDown receiver
+    for i:=0 to high(sceneHotKeys) do
+     if sceneHotKeys[i].vKey=key then begin
+      reg:=sceneHotKeys[i].shiftState;
+      if (reg=shift) or ((reg>0) and (reg and shift=reg)) then begin
+       sceneHotKeys[i].handler(key,shift);
+       exit(true);
+      end;
+     end;
+    result:=onKeyDown(key,scancode,shift);
+   end else
+    result:=onKeyUp(key,scancode,shift);
+  end;
+
+ procedure TGameScene.RegisterHotKey(key:TKey;shift:byte;handler:TKeyHandler);
+  var
+   n:integer;
+  begin
+   n:=length(sceneHotKeys);
+   SetLength(sceneHotKeys,n+1);
+   sceneHotKeys[n].vKey:=key;
+   sceneHotKeys[n].shiftState:=shift;
+   sceneHotKeys[n].handler:=handler;
+  end;
+
+ procedure TGameScene.UnregisterHotKeys;
+  begin
+   SetLength(sceneHotKeys,0);
+  end;
+
+ procedure TGameScene.PumpInput(shift:byte);
+  var
+   item:TDataItem;
+   k:cardinal;
+  begin
+   while keyBuffer.Get(item) do begin
+    k:=cardinal(item.data);
+    DispatchKey(TKey(k and $FFFF),(k shr 16) and $FF,shift,(k shr 24) and 1<>0);
+   end;
   end;
 
  procedure TGameScene.Render;
@@ -346,7 +433,10 @@ class procedure TGameScene.LoadAllScenes;
    if st=ssActive then onShow; // make sure to call this BEFORE the scene become active
    status:=st;
    activated:=st=ssActive;
-   if wasActive and (status<>ssActive) then onHide;
+   if wasActive and (status<>ssActive) then begin
+    ClearKeyBuf; // drop any buffered input so it isn't dispatched on reactivation
+    onHide;
+   end;
   end;
 
  { TSceneEffect }

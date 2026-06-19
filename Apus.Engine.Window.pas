@@ -663,6 +663,13 @@ begin
   Unlock;
  end;
 
+ // Drain keyboard buffers and dispatch synchronously, before Process.
+ // Only the kbd-topmost scene ever has buffered keys (see TGame.KeyPressed),
+ // so iterating active scenes naturally respects single-scene keyboard routing.
+ for i:=low(scenes) to high(scenes) do
+  if scenes[i].IsActive then
+   scenes[i].PumpInput(shiftState);
+
  deltaTime:=integer(frameDeltaMs);
  result:=ProcessScenes(deltaTime);
 end;

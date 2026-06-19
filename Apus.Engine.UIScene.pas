@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScene;
 interface
- uses Apus.Core, Apus.Engine.Scene, Apus.Engine.UITypes, Apus.Engine.Window;
+ uses Apus.Core, Apus.Engine.Scene, Apus.Engine.UITypes, Apus.Engine.Window, Apus.Engine.Keys;
 
 var
  defaultScale:single=1.0;
@@ -28,7 +28,8 @@ type
   procedure Render; override;
   procedure onResize; override;
   function GetArea:TRect; override; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
-  procedure WriteKey(key:cardinal); override;
+  function DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean; override;
+  procedure WriteChar(ch:cardinal); override;
   procedure onMouseMove(x,y:integer); override;
   procedure onMouseBtn(btn:byte;pressed:boolean); override;
   procedure onMouseWheel(delta:integer); override;
@@ -174,41 +175,6 @@ function UIScene(name:String8):TUIScene;
    st:=st+' Modal element: ';
    if window.modal.Root<>nil then st:=st+window.modal.Root.name else st:=st+'none';
    Log.Force('UI state'#13#10+st);
-  end;
-
- procedure KbdEventHandler(event:TEventStr;tag:TTag);
-  var
-   c:TUIElement;
-   shift:byte;
-   key:integer;
-  begin
-   window.Lock;
-   try
-    shift:=window.shiftState;
-    key:=GetKeyEventVirtualCode(tag); // virtual key code
-    event:=UpperCase {TODO: use st.ToUpper}(copy(event,5,length(event)-4));
-    if event='KEYDOWN' then // Win+Ctrl+S
-     if (key=ord('S')) and (shift=8+2) then PrintUILog;
-
-    c:=FocusedElement;
-    // No focused element - handle hotkey for all elements
-    if (event='KEYDOWN') and (c=nil) then begin
-     ProcessHotKey(key,shift);
-     exit;
-    end;
-    if c=nil then exit;
-
-    if c.IsEnabled then begin
-     if event='KEYDOWN' then
-      if c.onKey(key,true,shift) then
-       ProcessHotKey(key,shift); // hotkey processing is allowed by onKey handler
-     if event='KEYUP' then
-      if not FocusedElement.onKey(key,false,shift) then exit;
-    end;
-
-   finally
-    window.Unlock;
-   end;
   end;
 
  procedure onSimulateClick(event:TEventStr;tag:TTag); forward;
@@ -643,7 +609,8 @@ function UIScene(name:String8):TUIScene;
   begin
    if initialized then exit;
    SetEventHandler('Mouse',MouseEventHandler,emInstant);
-   SetEventHandler('Kbd',KbdEventHandler,emInstant);
+   // Keyboard is no longer consumed here: TGame buffers KBD\* into the kbd-topmost scene
+   // and the engine drains it via TGameScene.PumpInput → TUIScene.DispatchKey (see below).
    SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
    SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
    initialized:=true;
@@ -674,17 +641,56 @@ function UIScene(name:String8):TUIScene;
    end;
   end;
 
- procedure TUIScene.WriteKey(key:cardinal);
+ // UI scene keyboard routing: focused element / hotkeys first, then gameplay (onKeyDown/Up).
+ // Gameplay keys fire only when no UI element holds focus — so typing into a (modal) field
+ // never leaks a gameplay key like [C] to the scene logic.
+ function TUIScene.DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean;
+  var
+   c:TUIElement;
+   keyc:integer;
+   uiConsumed,hasFocus:boolean;
+  begin
+   uiConsumed:=false;
+   hasFocus:=false;
+   keyc:=ord(key);
+   window.Lock;
+   try
+    if (UI<>nil) and UI.flags.enabled then begin
+     if pressed and (keyc=ord('S')) and (shift=8+2) then PrintUILog; // Win+Ctrl+S
+     c:=FocusedElement;
+     if c<>nil then begin
+      hasFocus:=true;
+      if c.IsEnabled then
+       if pressed then begin
+        if c.onKey(keyc,true,shift) then
+         uiConsumed:=ProcessHotKey(keyc,shift) // onKey allowed hotkey processing
+        else
+         uiConsumed:=true;                     // focus consumed the key
+       end else
+        if not c.onKey(keyc,false,shift) then uiConsumed:=true;
+     end else
+      // no focus — UI hotkeys may still claim the key
+      if pressed then uiConsumed:=ProcessHotKey(keyc,shift);
+    end;
+   finally
+    window.Unlock;
+   end;
+   if uiConsumed then exit(true);
+   if hasFocus then exit(false); // a focused element captures input → gameplay is suppressed
+   result:=inherited DispatchKey(key,scancode,shift,pressed); // scene hotkeys + onKeyDown/Up
+  end;
+
+ procedure TUIScene.WriteChar(ch:cardinal);
   var
    scanCode:byte;
    charCode:integer;
   begin
    if (UI<>nil) and (not UI.flags.enabled) then exit;
-   inherited;
+   inherited; // buffer for polling (ReadKey)
 
    if (FocusedElement<>nil) and (FocusedElement.HasParent(UI)) then begin
-    charCode:=key shr 16;
-    scanCode:=(key shr 8) and $FF;
+    charCode:=ch shr 16;
+    scanCode:=(ch shr 8) and $FF;
     FocusedElement.onUniChar(Char32(charCode),scanCode);
    end;
   end;

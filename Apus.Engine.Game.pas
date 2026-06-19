@@ -468,31 +468,26 @@ begin
    ast:=AnsiString(wst);
    if length(ast)=0 then exit;
    key:=byte(ast[1])+(scancode and $FF) shl 8+(charcode and $FFFF) shl 16;
-   scene.WriteKey(key);
+   scene.WriteChar(key);
   end;
 end;
 
 procedure TGame.KeyPressed(keyCode,scanCode:integer;pressed:boolean=true);
 var
  scene:TGameScene;
- uCode:cardinal;
 begin
   ASSERT(scancode in [0..255]);
-  uCode:=keyCode and $FFFF+scanCode shl 24;
+  // Buffer the key event (down or up) into the kbd-topmost scene.
+  // The engine drains it before Process via TGameScene.PumpInput → DispatchKey.
   scene:=TopmostSceneForKbd;
-  if pressed and (scene<>nil) then
-   scene.WriteKey(scancode shl 8+keyCode);
+  if scene<>nil then
+   scene.WriteKey(cardinal(keyCode and $FFFF) or (cardinal(scanCode and $FF) shl 16) or (cardinal(ord(pressed)) shl 24));
   HandleInternalHotkeys(keyCode,pressed);
 
-  if pressed then begin
-    window.keyState[scanCode]:=window.keyState[scanCode] or 1;
-    //Log.Msg('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,window.keystate[scanCode]]);
-    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',uCode);
-  end else begin
+  if pressed then
+    window.keyState[scanCode]:=window.keyState[scanCode] or 1
+  else
     window.keyState[scanCode]:=window.keyState[scanCode] and $FE;
-    //Log.Msg('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,window.keystate[scanCode]]);
-    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',uCode);
-  end;
 end;
 
 procedure TGame.SizeChanged(newWidth,newHeight:integer);

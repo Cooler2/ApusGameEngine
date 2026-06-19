@@ -332,7 +332,8 @@ function FocusedElement:TUIElement;
 procedure SetFocusTo(control:TUIElement);
 
  // Keycode - virtual key
- procedure ProcessHotKey(keycode:integer;shiftstate:byte);
+ // Returns true if a hotkey matched and consumed the key
+ function ProcessHotKey(keycode:integer;shiftstate:byte):boolean;
  // Destroy elements queued by SafeDestroy
  procedure DestroyQueuedElements;
 
@@ -363,12 +364,13 @@ threadvar
 
   toDelete:TObjectList; // List of elements marked for deletion
 
- procedure ProcessHotKey(keycode:integer;shiftstate:byte);
+ function ProcessHotKey(keycode:integer;shiftstate:byte):boolean;
   var
    i:integer;
    c,modal:TUIElement;
    wnd:TWindow;
   begin
+   result:=false;
    for i:=0 to high(hotKeys) do
     if (hotKeys[i].vKey=keycode) then
       if (HotKeys[i].shiftstate=shiftstate) or
@@ -381,7 +383,7 @@ threadvar
          wnd:=c.GetWindow;
          if wnd<>nil then modal:=wnd.modal.Root else modal:=nil;
          if (modal=nil) or (c=modal) or (c.HasParent(modal)) then
-          if c.onHotKey(keycode,shiftstate) then exit;
+          if c.onHotKey(keycode,shiftstate) then exit(true);
         end;
        end;
   end;
