@@ -596,27 +596,39 @@ end;
 // to a single literal one. Whitespace is never trimmed.
 function String8Helper.Split(const delimiters:String8;quoteChar:AnsiChar):Strings8;
 var
-  i,len,start,cnt:integer;
+  i,k,len,start,cnt:integer;
+  doubled:boolean;
   token:String8;
 begin
   len:=System.Length(self);
   SetLength(result,16); cnt:=0; start:=1;
   while true do begin
     if (start<=len) and (quoteChar<>#0) and (self[start]=quoteChar) then begin
-      // quoted token: strip outer quotes, collapse doubled quoteChar
-      token:='';
+      // quoted token: locate closing quote (skipping doubled pairs), then build content
+      doubled:=false;
       i:=start+1;
       while i<=len do begin
         if self[i]=quoteChar then begin
           if (i<len) and (self[i+1]=quoteChar) then begin
-            token:=token+quoteChar; inc(i,2); // doubled quote -> one literal
+            doubled:=true; inc(i,2); // doubled quote
           end else break; // closing quote
-        end else begin
-          token:=token+self[i]; inc(i);
-        end;
+        end else inc(i);
       end;
+      // content is self[start+1 .. i-1], with enclosing quotes stripped
       if cnt>=System.Length(result) then SetLength(result,cnt*2);
-      result[cnt]:=token; inc(cnt);
+      if not doubled then
+        result[cnt]:=System.Copy(self,start+1,i-start-1) // fast path: contiguous content
+      else begin
+        token:='';
+        k:=start+1;
+        while k<i do begin
+          token:=token+self[k]; // collapse each doubled quoteChar to one literal
+          if (self[k]=quoteChar) and (k+1<i) and (self[k+1]=quoteChar) then inc(k,2)
+            else inc(k);
+        end;
+        result[cnt]:=token;
+      end;
+      inc(cnt);
       if i>len then break; // unterminated, or string ends at closing quote
       inc(i); // skip closing quote
       while (i<=len) and (System.Pos(self[i],delimiters)=0) do inc(i); // discard up to next delimiter
