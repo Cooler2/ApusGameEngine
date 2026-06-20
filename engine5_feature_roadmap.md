@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-06-17
+Last updated: 2026-06-20
 
 Language policy: this roadmap is maintained in English.
 
@@ -37,6 +37,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-21 | Mesh Editing Operations (Stateful Wrapper) | idea | 0% | Design-now / build-on-demand; first heavy consumer gates implementation |
 | R-22 | Toast Notifications (Implement + Extend `FireMessage`) | implemented | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
 | R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | implemented | 95% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Pending: runtime sign-off |
+| R-24 | Android Platform Revival | idea | 0% | Restore Android/GLES build and runtime path on the current Engine5 platform/graphics/input/resource architecture |
 
 ## 2) Strategic Directions
 
@@ -64,6 +65,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - [ ] E1. Unify build scripts for engine/demo/tests
 - [ ] E2. CI smoke pipeline for key demos
 - [ ] E3. Close known FPC/Linux compatibility gaps
+- [ ] E4. Restore Android as a supported mobile target
 
 ### F. Core Runtime & Scenes
 - [ ] F2. Safe scene transitions (including async loading)
@@ -333,7 +335,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Status: **implemented** (2026-06-20, commit `d489ef8` on engine5) | Priority: P2 | Area: UI / Core Runtime
 - GOT: `Apus.Engine.Notifications` as a scene-less overlay provider (sibling of debug overlays, NOT a scene — non-modal/transient fits the overlay slot, not MessageScene). `ShowToast` overloads + `TToastKind`/`TToastAnchor` (4: BottomRight default/BottomCenter/BottomLeft/Center) + `toastConfig` + `TToastOptions`. Auto duration `clamp(2,len/25,5)`. Themed via R-05 `Styles` (`toast.<kind>` blocks, translucent fill+border, opaque text, app-overridable). SML text + author breaks + plain word-wrap. Stacking with reflow lerp, dissolve in/out, hover-freezes countdown, click-dismiss; thread-safe ingest (`TLock`). `FireMessage`→`ShowToast`; `DrawOverlays`→`DrawNotifications`; screenshot save + Alt+F11 VSync toggle are the live callers. Design: `Work/reports/R-22_notifications_design.md`.
 - Deferred (not built, "по мелочам"/future): cross-line SML spans in wrap, R-05 9-patch/icon look, top/edge anchors, OS-native/tray, history, sound, in-toast buttons. No headless test (render/timing-bound).
-- TODO: replace manual lerp/alpha animation in `Notifications` with `TAnimatedValue` or `Tweenings` primitives — dissolve in/out and stack reflow are currently hand-rolled delta-time math; should use the engine animation layer for consistency and curve support.
+- TODO: replace manual delta-time math in `Notifications` with `TTweening` (`Apus.Tweenings`) — use `anim.Animate(0/1, ms)` for dissolve in/out and `y.Animate(targetY, 150)` for stack reflow; TTweening handles smooth interruption (compensating function) which is exactly what reflow needs when a new toast arrives mid-animation. Phase detection becomes `anim.FinalValue + not anim.IsAnimating`. FPC note: call `anim.Free; y.Free` before `Delete(toasts,i,1)` — no Finalize operator in FPC. This will be the first real TTweening consumer — a good opportunity to validate the API and discover any gaps.
 - Value: A lightweight, non-blocking way to surface transient info to the user (screenshot saved, connected, error, achievement) — the toast/flyout pattern from Windows and Telegram. Distinct from a modal dialog that demands an answer.
 - Existing baseline — **this is the surface to build on, not a new one**:
   - `IGame.FireMessage(st:String8)` (`Apus.Engine.API.pas:861`), commented *"Show message in engine-driven pop-up (3 sec)"* — the intended engine-driven toast entry point.
@@ -364,3 +366,17 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Out of scope (deliberate): `ConsoleScene`/`TweakScene` stay on raw `KBD\KeyDown` (global debug overlays, like `HandleInternalHotkeys`); full hotkey-mechanism unification = architecture-review #6. `ReadKey`/`KeyPressed` polling kept (orthogonal channel); no separate `onChar` hook this pass.
 - Pending: runtime/visual sign-off (input now deferred ~1 frame, frame-synced like mouse) + commit.
 - Design doc: `Work/reports/scene_onkeydown_design.md`.
+
+### [R-24] Android Platform Revival
+- Status: idea | Priority: P1 | Area: Platform / Build / Mobile
+- Value: Restore Android as a real supported Engine5 target instead of legacy code behind stale project metadata. A working Android path proves the platform layer, GLES renderer, resource loading, touch/input, and mobile audio abstractions are not desktop-only assumptions.
+- Restoration spike, not a full mobile port. Five staged layers: bootstrap/lifecycle, window/GLES context, GLES renderer, input, resources/audio. Leaning SDL-first (Android as "just another SDL target") to reuse the existing platform/graphics/audio abstractions; native JNI bridge kept as a documented follow-up. `Apus.Engine.AndroidGame.pas` (blocked in `InitObjects`, references removed `PainterGL2`) is the explicit restoration seam.
+- Out of scope for MVP: iOS revival, store packaging polish, push, background services, full gamepad coverage, Android UI skins.
+- Acceptance Criteria:
+  - [ ] A minimal Engine5 demo builds for Android64 from documented steps.
+  - [ ] The demo starts, creates a GLES context, renders a textured/UI scene, and exits cleanly.
+  - [ ] Assets load from APK/package resources and writable app storage is documented.
+  - [ ] Touch input and text input reach the unified Engine5 input/UI path.
+  - [ ] At least one baseline sound/media playback path is verified or explicitly deferred.
+  - [ ] Android code paths compile without deprecated `PainterGL`/`PainterGL2`.
+- Design / options / staging / build process: `Work/reports/R-24_android_revival.md`.

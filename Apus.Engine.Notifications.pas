@@ -24,7 +24,7 @@ interface
   TToastOptions=record
    kind:TToastKind;        // severity / color set
    anchor:TToastAnchor;    // placement
-   duration:single;        // seconds; 0 => auto from text length; <0 => sticky (until click)
+   duration:single;        // seconds to stay Visible; 0 => auto from text length; <0 => sticky (until click)
    style:String8;          // explicit style-block name, overrides kind (optional)
    class function ForKind(k:TToastKind):TToastOptions; static;
   end;
@@ -59,7 +59,7 @@ interface
  procedure DrawNotifications;
 
 implementation
- uses Apus.Strings, Apus.Threads, Apus.Engine.Window, Apus.Engine.Style;
+ uses Apus.Strings, Apus.Threads, Apus.Tweenings, Apus.Engine.Window, Apus.Engine.Style;
 
  type
   TToastPhase=(Entering,Visible,Leaving);
@@ -73,10 +73,10 @@ implementation
    duration:single;       // seconds to stay Visible; <0 => sticky
    age:single;            // seconds spent Visible (frozen while hovered)
    phase:TToastPhase;
-   anim:single;           // 0..1 dissolve progress (alpha)
+   anim:TTweening;        // 0..1 dissolve progress (alpha)
    width,height:single;   // box size, px
-   y:single;              // current stack offset from anchor edge (lerped)
-   targetY:single;        // desired stack offset
+   y:TTweening;           // current stack offset from anchor edge
+   targetY:single;        // desired stack offset (compared to y.FinalValue to avoid redundant Animate)
    placed:boolean;        // false until first laid out (snap, don't animate, on entry)
    rect:TRect;            // last drawn screen rect (for hit-test)
   end;
@@ -227,8 +227,10 @@ procedure ClearToasts;
   i:integer;
  begin
   for i:=0 to high(toasts) do
-   if toasts[i].phase<>TToastPhase.Leaving then
-    toasts[i].phase:=TToastPhase.Leaving;  // anim keeps current value, fades from there
+   if toasts[i].phase<>TToastPhase.Leaving then begin
+    toasts[i].phase:=TToastPhase.Leaving;
+    toasts[i].anim.Animate(0,round(toastConfig.fadeOut*1000));
+   end;
  end;
 
 { Layout / construction (render thread) }
@@ -283,7 +285,7 @@ function BuildToast(const text:String8;const opt:TToastOptions):TToast;
   para,line:String8;
   maxTextWidth,lw,maxLW,lh:integer;
  begin
-  result:=Default(TToast); // zero-init (age/y/placed/rect), managed fields cleared
+  result:=Default(TToast); // zero-init (age/placed/rect), managed fields cleared
   result.text:=text;
   result.kind:=opt.kind;
   result.anchor:=opt.anchor;
@@ -295,7 +297,10 @@ function BuildToast(const text:String8;const opt:TToastOptions):TToast;
    result.duration:=Clamp(PlainLen(text)/toastConfig.readingSpeed,
                           toastConfig.minDuration,toastConfig.maxDuration);
   result.phase:=TToastPhase.Entering;
-  result.anim:=0;
+  // Start fade-in: Assign initializes TTweening (count=1), then Animate drives 0→1
+  result.anim.Assign(0.0);
+  result.anim.Animate(1.0,round(toastConfig.fadeIn*1000));
+  result.y.Assign(0.0); // value set on first Layout call via placed=false
 
   font:=ResolveFont;
   maxTextWidth:=toastConfig.maxWidth-2*padX;
@@ -360,11 +365,13 @@ procedure DrainPending;
 
 // Compute the on-screen rect of a toast given its current stack offset.
 // Position is purely by stack offset y; the animation is a dissolve (alpha only).
-function ToastRect(const t:TToast):TRect;
+function ToastRect(var t:TToast):TRect;
  var
   rw,rh,bx,by:integer;
   left,top:integer;
+  yVal:single;
  begin
+  yVal:=t.y.Value;
   rw:=window.renderWidth;
   rh:=window.renderHeight;
   case t.anchor of
@@ -375,38 +382,38 @@ function ToastRect(const t:TToast):TRect;
   end;
   if t.anchor=TToastAnchor.Center then begin
    by:=rh div 2;                    // stack downward from center
-   top:=by+round(t.y);
+   top:=by+round(yVal);
   end else begin
    by:=rh-toastConfig.margin.y;     // bottom edge
-   top:=by-round(t.y)-round(t.height);
+   top:=by-round(yVal)-round(t.height);
   end;
   bx:=left;
   result:=Rect(bx,top,bx+round(t.width),top+round(t.height));
  end;
 
-// Recompute target stack offsets and animate y toward them.
-procedure Layout(dt:single);
+// Recompute target stack offsets and drive y toward them via TTweening.
+procedure Layout;
  var
   a:TToastAnchor;
   i:integer;
-  off:single;
+  off,newTarget:single;
  begin
   for a:=Low(TToastAnchor) to High(TToastAnchor) do begin
    off:=0;
    // newest (end of list) sits nearest the anchor edge
    for i:=high(toasts) downto 0 do
     if toasts[i].anchor=a then begin
-     toasts[i].targetY:=off;
+     newTarget:=off;
+     toasts[i].targetY:=newTarget;
+     if not toasts[i].placed then begin
+      toasts[i].y.Assign(newTarget); // snap on first placement
+      toasts[i].placed:=true;
+     end else
+     if abs(toasts[i].y.FinalValue-newTarget)>0.5 then
+      toasts[i].y.Animate(newTarget,150); // smooth reflow with interruption compensation
      off:=off+toasts[i].height+toastConfig.gap;
     end;
   end;
-  for i:=0 to high(toasts) do
-   with toasts[i] do begin
-    if not placed then begin
-     y:=targetY; placed:=true; // first placement: snap to slot, then animate reflow
-    end else
-     y:=y+(targetY-y)*Clamp(dt*12,0.0,1.0);
-   end;
  end;
 
 procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit-test
@@ -417,6 +424,7 @@ procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit
   font:TFontHandle;
   r:TRect;
   i,lh,baseLine:integer;
+  animVal:single;
  begin
   block:=Styles.Block(t.styleName);
   fill:=ResolveBlockColor(block,'fill',$E0303840);
@@ -424,15 +432,16 @@ procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit
   textCol:=ResolveBlockColor(block,'color',$FFFFFFFF);
   radius:=ResolveBlockNumber(block,'radius',8);
   font:=ResolveFont;
+  animVal:=t.anim.Value; // cache: avoids repeated spinlock + FinalizeEffect calls
 
   r:=ToastRect(t);
   t.rect:=r;
   // Background + border (alpha follows fade)
   draw.RoundRect(r.Left,r.Top,r.Right,r.Bottom,radius,1.5,
-                 ScaleAlpha(border,t.anim),ScaleAlpha(fill,t.anim));
+                 ScaleAlpha(border,animVal),ScaleAlpha(fill,animVal));
   // Text lines
   lh:=round(txt.Height(font)*1.7);
-  textCol:=ScaleAlpha(textCol,t.anim);
+  textCol:=ScaleAlpha(textCol,animVal);
   baseLine:=r.Top+padTop+txt.Height(font);
   for i:=0 to high(t.lines) do begin
    txt.Write(font,r.Left+padX,baseLine,textCol,t.lines[i],TTextAlignment.taLeft,toComplexText);
@@ -469,32 +478,37 @@ procedure DrawNotifications;
     hovered:=window.MouseInRect(rect);
     case phase of
      TToastPhase.Entering:begin
-      anim:=anim+dt/Max(toastConfig.fadeIn,0.001);
-      if anim>=1 then begin anim:=1; phase:=TToastPhase.Visible; end;
+      if not anim.IsAnimating then phase:=TToastPhase.Visible;
      end;
      TToastPhase.Visible:begin
-      if hovered and clicked then phase:=TToastPhase.Leaving  // click-to-dismiss
-      else
+      if hovered and clicked then begin
+       phase:=TToastPhase.Leaving;
+       anim.Animate(0,round(toastConfig.fadeOut*1000)); // click-to-dismiss
+      end else
       if not hovered and (duration>=0) then begin  // hover freezes the countdown
        age:=age+dt;
-       if age>=duration then phase:=TToastPhase.Leaving;
+       if age>=duration then begin
+        phase:=TToastPhase.Leaving;
+        anim.Animate(0,round(toastConfig.fadeOut*1000));
+       end;
       end;
      end;
      TToastPhase.Leaving:begin
-      anim:=anim-dt/Max(toastConfig.fadeOut,0.001);
-      if anim<=0 then anim:=0;
+      // TTweening drives the fade-out; nothing to do here
      end;
     end;
    end;
 
-  // Reap fully-faded toasts (Delete finalizes managed fields — no manual free)
+  // Reap fully-faded toasts; Free TTweening effects before Delete (FPC has no Finalize operator)
   i:=0;
   while i<=high(toasts) do
-   if (toasts[i].phase=TToastPhase.Leaving) and (toasts[i].anim<=0) then
-    Delete(toasts,i,1)
-   else inc(i);
+   if (toasts[i].phase=TToastPhase.Leaving) and not toasts[i].anim.IsAnimating then begin
+    toasts[i].anim.Free;
+    toasts[i].y.Free;
+    Delete(toasts,i,1);
+   end else inc(i);
 
-  Layout(dt);
+  Layout;
   for i:=0 to high(toasts) do DrawToast(toasts[i]);
 
   prevLeftDown:=leftDown;
