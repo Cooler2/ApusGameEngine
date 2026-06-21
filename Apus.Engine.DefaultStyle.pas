@@ -548,7 +548,9 @@ implementation
       r.y2:=Lerp(y1,y2,element.sliderEnd);
      end;
      // col
-     if element.sliderUnder then
+     if hooked=element then
+      col:=element.GetStyleColor('active-col',Color.Add(col,$404040)) // pressed/dragging
+     else if element.sliderUnder then
       col:=element.style.GetStateColor('hover','col',Color.Add(col,$202020)); // hover col
      if sliderRadius=0 then
       draw.FillRect(r.left,r.top,r.right,r.bottom,col)
