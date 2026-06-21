@@ -27,11 +27,13 @@ uses
   Apus.Colors,
   Apus.Engine.Keys,
   Apus.Engine.Types,
+  Apus.Engine.NinePatch,
   Apus.Engine.UI;
 
 type
   TMainScene=class(TUIScene)
     checkerTex,helperTex,atlasTex:TTexture;
+    stretchPatch,tiledPatch:TNinePatch;
     particles:array[0..47] of TParticle;
     bandParts:array[0..15] of TParticle;
     titleFont,menuFont,hintFont,bodyFont:TFontHandle;
@@ -47,6 +49,9 @@ type
     procedure BuildCheckerTexture;
     procedure BuildHelperTexture;
     procedure BuildAtlasTexture;
+    procedure BuildNinePatches;
+    function BuildMarkedPatch(size:integer;tileMode:boolean;
+      topCol,botCol,rimCol,accentCol:cardinal;const name:string):TNinePatch;
     procedure InitParticles;
     procedure UpdateMetrics;
     procedure RebuildFonts;
@@ -66,11 +71,13 @@ type
     procedure DrawScreenCombo(const contentRect:TRect);
     procedure DrawScreenImageOps(const contentRect:TRect);
     procedure DrawScreenParticles(const contentRect:TRect);
+    procedure DrawScreenNinePatch(const contentRect:TRect);
+    procedure DrawScreenClipBlend(const contentRect:TRect);
     procedure UpdateAnimTime;
   end;
 
 const
-  SCREEN_COUNT=8;
+  SCREEN_COUNT=10;
   MENU_WIDTH=360;
   MENU_TOP=76;
   MENU_ITEM_HEIGHT=58;
@@ -87,7 +94,9 @@ SCREEN_TITLES:array[0..SCREEN_COUNT-1] of string=(
   'TexturedRect && UV',
   'Combined Playground',
   'Image Helpers',
-  'Particles && Band'
+  'Particles && Band',
+  'NinePatch',
+  'Clipping && Blend'
 );
 
 SCREEN_HINTS:array[0..SCREEN_COUNT-1] of string=(
@@ -98,7 +107,9 @@ SCREEN_HINTS:array[0..SCREEN_COUNT-1] of string=(
   'TexturedRect overloads / RotScaled',
   'Mixed static + animated cases',
   'Image / Centered / ImagePart / Scaled / Cover / DoubleTex',
-  'Particles / Band'
+  'Particles / Band',
+  'TNinePatch stretch / tiled / animated resize',
+  'gfx.clip rect / BlendMode add vs alpha'
 );
 
 var
@@ -185,7 +196,7 @@ begin
       dist:=sqrt(dx*dx+dy*dy);
       alpha:=Clamp((58-dist)*0.08,0,1);
       col:=Color.Mix($FF3D6EA8,$FF9DD2F0,Clamp((x+y)/(w+h),0,1));
-      row^[x]:=(SRound(alpha*255) shl 24) or (col and $FFFFFF);
+      row^[x]:=Color.SetAlpha(col,alpha);
     end;
   end;
   helperTex.Unlock;
@@ -224,6 +235,80 @@ begin
     end;
   end;
   atlasTex.Unlock;
+end;
+
+// Build a marked image and turn it into a 9-patch.
+// Markers live on the top edge (horizontal ranges) and left edge (vertical ranges):
+//   transparent = fixed corner, black = stretched, green = tiled.
+// Corners are rounded; since corner regions are fixed, the rounding survives any resize.
+function TMainScene.BuildMarkedPatch(size:integer;tileMode:boolean;
+  topCol,botCol,rimCol,accentCol:cardinal;const name:string):TNinePatch;
+var
+  img:TTexture;
+  x,y,corner,cxRef,cyRef,pos:integer;
+  row:PCardinalRow;
+  col:cardinal;
+  fixed:boolean;
+  ty:single;
+const
+  MARK_STRETCH=$FF000000; // black
+  MARK_TILE   =$FF00FF00; // green
+  MARK_FIXED  =$00000000; // transparent
+begin
+  corner:=size div 4;
+  img:=AllocImage(size,size,ipfARGB,aiTexture,name);
+  img.Lock;
+  for y:=0 to size-1 do begin
+    row:=PCardinalRow(img.ScanLine(y));
+    for x:=0 to size-1 do begin
+      if (y=0) and (x>=1) and (x<=size-2) then begin
+        // top edge marker (horizontal range), pos along X
+        pos:=x;
+        fixed:=(pos<corner) or (pos>=size-corner);
+        if fixed then col:=MARK_FIXED
+        else if tileMode then col:=MARK_TILE
+        else col:=MARK_STRETCH;
+      end else
+      if (x=0) and (y>=1) and (y<=size-2) then begin
+        // left edge marker (vertical range), pos along Y
+        pos:=y;
+        fixed:=(pos<corner) or (pos>=size-corner);
+        if fixed then col:=MARK_FIXED
+        else if tileMode then col:=MARK_TILE
+        else col:=MARK_STRETCH;
+      end else
+      if (x=0) or (y=0) or (x=size-1) or (y=size-1) then
+        col:=MARK_FIXED // unused border (bottom/right), cleared later anyway
+      else begin
+        // interior content
+        ty:=(y-1)/(size-3);
+        col:=Color.Mix(topCol,botCol,ty);
+        // outermost interior ring as a light rim
+        if (x=1) or (y=1) or (x=size-2) or (y=size-2) then
+          col:=rimCol;
+        // tiled accent so repetition is visible when stretched as tiles
+        if tileMode and ((x mod 6) in [2,3]) and ((y mod 6) in [2,3]) then
+          col:=accentCol;
+        // round the four (fixed) corners
+        cxRef:=x; if size-1-x<cxRef then cxRef:=size-1-x;
+        cyRef:=y; if size-1-y<cyRef then cyRef:=size-1-y;
+        if (cxRef<corner) and (cyRef<corner) then
+          if sqrt(sqr(corner-cxRef)+sqr(corner-cyRef))>corner then
+            col:=$00000000; // outside rounded corner
+      end;
+      row^[x]:=col;
+    end;
+  end;
+  img.Unlock;
+  result:=TCustomNinePatch.Create(img);
+end;
+
+procedure TMainScene.BuildNinePatches;
+begin
+  // bluish stretchable patch
+  stretchPatch:=BuildMarkedPatch(40,false,$FF5E86C8,$FF2C4A78,$FFAFD0F4,$FFFFFFFF,'Draw2DPatchStretch');
+  // greenish tiled patch with a dotted accent
+  tiledPatch:=BuildMarkedPatch(40,true,$FF4F9E72,$FF234B36,$FFB6ECCB,$FFEFF8C0,'Draw2DPatchTiled');
 end;
 
 procedure TMainScene.InitParticles;
@@ -267,6 +352,7 @@ begin
   BuildCheckerTexture;
   BuildHelperTexture;
   BuildAtlasTexture;
+  BuildNinePatches;
   InitParticles;
   loaded:=true;
 end;
@@ -313,8 +399,8 @@ procedure TMainScene.HandleInput;
 var
   i,item:integer;
 const
-  SC_DIGIT:array[0..7] of integer=(2,3,4,5,6,7,8,9); // row keys 1..8
-  SC_NUM:array[0..7] of integer=(79,80,81,75,76,77,71,72); // numpad 1..8
+  SC_DIGIT:array[0..9] of integer=(2,3,4,5,6,7,8,9,10,11); // row keys 1..9,0
+  SC_NUM:array[0..9] of integer=(79,80,81,75,76,77,71,72,73,82); // numpad 1..9,0
 begin
   for i:=0 to SCREEN_COUNT-1 do begin
     if (window.shiftState=0) and (IsKeyPressed(SC_DIGIT[i]) or IsKeyPressed(SC_NUM[i])) then
@@ -340,7 +426,7 @@ begin
   draw.Rect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF3B4B60);
 
   txt.Write(titleFont,20,30,$FFE8F0FA,'Draw2D Screens',taLeft,toWithShadow);
-  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [1..8]',taLeft,0);
+  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [1..9,0]',taLeft,0);
 
   for i:=0 to SCREEN_COUNT-1 do begin
     top:=menuTop+i*menuItemHeight;
@@ -809,6 +895,97 @@ begin
   draw.Band(0,0,@bandParts[0],length(bandParts),atlasTex,Rect(0,0,31,31));
 end;
 
+// screen 8: NinePatch — stretch / tiled / animated resize (3 blocks in a row)
+procedure TMainScene.DrawScreenNinePatch(const contentRect:TRect);
+var
+  area,r,innerR:TRect;
+  t,k:single;
+  dw,dh:integer;
+  procedure Patch(p:TNinePatch;x,y,w,h:integer);
+  begin
+    if p=nil then exit;
+    draw.Rect(x-1,y-1,x+w,y+h,$50FFFFFF);
+    p.Draw(x,y,w,h);
+  end;
+begin
+  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
+    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  t:=animTime;
+
+  // block 0: stretched patch at several fixed sizes
+  r:=GridCell(area,0,0,3,1,BLOCK_GAP);
+  DrawBlock(r,'patch.Draw  [stretched]',innerR);
+  Patch(stretchPatch,innerR.Left+16,innerR.Top+14,60,40);
+  Patch(stretchPatch,innerR.Left+16,innerR.Top+70,innerR.Right-innerR.Left-32,46);
+  Patch(stretchPatch,innerR.Left+16,innerR.Top+130,120,innerR.Bottom-innerR.Top-150);
+
+  // block 1: tiled patch at several fixed sizes
+  r:=GridCell(area,1,0,3,1,BLOCK_GAP);
+  DrawBlock(r,'patch.Draw  [tiled]',innerR);
+  Patch(tiledPatch,innerR.Left+16,innerR.Top+14,70,50);
+  Patch(tiledPatch,innerR.Left+16,innerR.Top+78,innerR.Right-innerR.Left-32,52);
+  Patch(tiledPatch,innerR.Left+16,innerR.Top+144,150,innerR.Bottom-innerR.Top-164);
+
+  // block 2: animated resize of both patches
+  r:=GridCell(area,2,0,3,1,BLOCK_GAP);
+  DrawBlock(r,'patch.Draw  [animated resize]',innerR);
+  k:=0.5+0.5*sin(t*1.6);
+  dw:=SRound(k*(innerR.Right-innerR.Left-130));
+  dh:=SRound((0.5+0.5*sin(t*1.1))*120);
+  Patch(stretchPatch,innerR.Left+16,innerR.Top+16,70+dw,46+(dh div 3));
+  Patch(tiledPatch,innerR.Left+16,innerR.Top+90,90+dw,60+dh);
+end;
+
+// screen 9: Clipping && Blend — absorbs EngineTest clip + blend-mode 2D cases (2 blocks)
+procedure TMainScene.DrawScreenClipBlend(const contentRect:TRect);
+var
+  area,r,innerR,clipR:TRect;
+  t:single;
+  i,x,y,cx,cy:integer;
+begin
+  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
+    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  t:=animTime;
+
+  // block 0: gfx.clip — moving box clipped to a window (nested under the block clip)
+  r:=GridCell(area,0,0,2,1,BLOCK_GAP);
+  DrawBlock(r,'gfx.clip.Rect  [animated]',innerR);
+  clipR:=Rect(innerR.Left+30,innerR.Top+30,innerR.Left+230,innerR.Top+230);
+  draw.Rect(clipR.Left-1,clipR.Top-1,clipR.Right,clipR.Bottom,$FFF0C080);
+  gfx.clip.Rect(clipR);
+  x:=(clipR.Left+clipR.Right) div 2+SRound(70*cos(t*1.3));
+  y:=(clipR.Top+clipR.Bottom) div 2-SRound(70*sin(t*1.3));
+  draw.FillRRect(x-40,y-40,x+40,y+40,$FF3080C0,8);
+  draw.FillRRect(x-16,y-16,x+16,y+16,$FFEAF6FF,5);
+  gfx.clip.Restore; // back to the block clip
+  txt.Write(bodyFont,clipR.Left,clipR.Bottom+16,$FFB7C8DC,'box is clipped to the framed window',taLeft,0);
+
+  // block 1: BlendMode — same translucent stack drawn with alpha vs additive
+  r:=GridCell(area,1,0,2,1,BLOCK_GAP);
+  DrawBlock(r,'gfx.target.BlendMode  [alpha vs add]',innerR);
+  cx:=innerR.Left+(innerR.Right-innerR.Left) div 4;
+  cy:=(innerR.Top+innerR.Bottom) div 2;
+  // left: alpha blending
+  draw.FillRect(innerR.Left+10,innerR.Top+10,(innerR.Left+innerR.Right) div 2-6,innerR.Bottom-30,$FF101822);
+  for i:=0 to 5 do begin
+    x:=cx+SRound(34*cos(t*0.7+i*1.05));
+    y:=cy+SRound(34*sin(t*0.7+i*1.05));
+    draw.FillRRect(x-40,y-40,x+40,y+40,$60FF8060+(i shl 18),16);
+  end;
+  txt.Write(bodyFont,innerR.Left+14,innerR.Bottom-12,$FFB7C8DC,'blAlpha',taLeft,0);
+  // right: additive blending
+  cx:=innerR.Left+3*(innerR.Right-innerR.Left) div 4;
+  draw.FillRect((innerR.Left+innerR.Right) div 2+6,innerR.Top+10,innerR.Right-10,innerR.Bottom-30,$FF101822);
+  gfx.target.BlendMode(blAdd);
+  for i:=0 to 5 do begin
+    x:=cx+SRound(34*cos(t*0.7+i*1.05));
+    y:=cy+SRound(34*sin(t*0.7+i*1.05));
+    draw.FillRRect(x-40,y-40,x+40,y+40,$60FF8060+(i shl 18),16);
+  end;
+  gfx.target.BlendMode(blAlpha);
+  txt.Write(bodyFont,(innerR.Left+innerR.Right) div 2+10,innerR.Bottom-12,$FFB7C8DC,'blAdd',taLeft,0);
+end;
+
 procedure TMainScene.Render;
 var
   menuRect,contentRect:TRect;
@@ -840,11 +1017,13 @@ begin
     5:DrawScreenCombo(contentRect);
     6:DrawScreenImageOps(contentRect);
     7:DrawScreenParticles(contentRect);
+    8:DrawScreenNinePatch(contentRect);
+    9:DrawScreenClipBlend(contentRect);
   end;
   FinishBlockClipping;
 
   txt.Write(hintFont,contentRect.Left+12,contentRect.Bottom-18,$FF9BB0C8,
-    'Tip: switch screens with mouse or numeric keys [1..8]',taLeft,0);
+    'Tip: switch screens with mouse or numeric keys [1..9,0]',taLeft,0);
   inherited;
 end;
 

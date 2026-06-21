@@ -36,7 +36,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-20 | Mesh Shape Generators (Procedural Primitives) | done | 100% | — |
 | R-21 | Mesh Editing Operations (Stateful Wrapper) | idea | 0% | Design-now / build-on-demand; first heavy consumer gates implementation |
 | R-22 | Toast Notifications (Implement + Extend `FireMessage`) | implemented | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
-| R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | implemented | 95% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Pending: runtime sign-off |
+| R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | done | 100% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Committed (`f811e93`..`361bb9a`) on engine5 |
 | R-24 | Android Platform Revival | idea | 0% | Restore Android/GLES build and runtime path on the current Engine5 platform/graphics/input/resource architecture |
 
 ## 2) Strategic Directions
@@ -254,7 +254,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Directory structure → `1-start/`, `2-features/`, `3-advanced/`
   - [ ] HelloEngine demo (replaces SimpleDemo)
   - [ ] Text demo with font/Unicode/formatting showcase
-  - [ ] Draw2D absorbs NinePatch and EngineTest cases
+  - [x] Draw2D absorbs NinePatch and EngineTest cases — NinePatch (procedural stretch/tiled/animated) + clip/blend screens added (10 screens); compiles FPC x64; old `demo/NinePatch` removed. Remaining EngineTest 2D cases covered (mesh image-deform left for AdvancedGfx)
   - [ ] Input demo merges keyboard/mouse + gamepad (ControllerDemo)
   - [ ] Platform demo merges multi-window/DPI/borderless
   - [ ] AdvancedGfx demo merges AdvTex + ShadowMap
@@ -332,27 +332,9 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Note: detailed design deferred to a `Work/reports/R-21_*` doc when promoted to a real card. Background: discussed 2026-06-17 alongside R-06/R-19.
 
 ### [R-22] Toast Notifications (Implement + Extend `FireMessage`)
-- Status: **implemented** (2026-06-20, commit `d489ef8` on engine5) | Priority: P2 | Area: UI / Core Runtime
-- GOT: `Apus.Engine.Notifications` as a scene-less overlay provider (sibling of debug overlays, NOT a scene — non-modal/transient fits the overlay slot, not MessageScene). `ShowToast` overloads + `TToastKind`/`TToastAnchor` (4: BottomRight default/BottomCenter/BottomLeft/Center) + `toastConfig` + `TToastOptions`. Auto duration `clamp(2,len/25,5)`. Themed via R-05 `Styles` (`toast.<kind>` blocks, translucent fill+border, opaque text, app-overridable). SML text + author breaks + plain word-wrap. Stacking with reflow lerp, dissolve in/out, hover-freezes countdown, click-dismiss; thread-safe ingest (`TLock`). `FireMessage`→`ShowToast`; `DrawOverlays`→`DrawNotifications`; screenshot save + Alt+F11 VSync toggle are the live callers. Design: `Work/reports/R-22_notifications_design.md`.
-- Deferred (not built, "по мелочам"/future): cross-line SML spans in wrap, R-05 9-patch/icon look, top/edge anchors, OS-native/tray, history, sound, in-toast buttons. No headless test (render/timing-bound).
-- TODO: replace manual delta-time math in `Notifications` with `TTweening` (`Apus.Tweenings`) — use `anim.Animate(0/1, ms)` for dissolve in/out and `y.Animate(targetY, 150)` for stack reflow; TTweening handles smooth interruption (compensating function) which is exactly what reflow needs when a new toast arrives mid-animation. Phase detection becomes `anim.FinalValue + not anim.IsAnimating`. FPC note: call `anim.Free; y.Free` before `Delete(toasts,i,1)` — no Finalize operator in FPC. This will be the first real TTweening consumer — a good opportunity to validate the API and discover any gaps.
-- Value: A lightweight, non-blocking way to surface transient info to the user (screenshot saved, connected, error, achievement) — the toast/flyout pattern from Windows and Telegram. Distinct from a modal dialog that demands an answer.
-- Existing baseline — **this is the surface to build on, not a new one**:
-  - `IGame.FireMessage(st:String8)` (`Apus.Engine.API.pas:861`), commented *"Show message in engine-driven pop-up (3 sec)"* — the intended engine-driven toast entry point.
-  - The implementation in `Apus.Engine.Game.pas:1538` is an **empty stub with a TODO**; it has been empty since the initial commit (a working version existed in engine4 but was never ported in this refactor). The screenshot hotkey (`RequestScreenshot`, F12/PrintScreen) is the canonical caller that should surface a "saved as …" toast.
-  - NOT the same as `Apus.Engine.MessageScene` — that is the **modal** path (`ShowMessage`/`Ask`/`Confirm`, blocking, one-at-a-time queue, Ok/Yes/No, `sweShowModal`). Leave it untouched.
-- Scope (implement the stub, then extend it):
-  - **Implement `FireMessage`** as a real non-modal timed pop-up (the 3-sec default the comment promises), and wire the screenshot path to call it.
-  - **Configuration:** position presets — a 9-anchor grid (center, 4 corners, 4 edge midpoints); default duration; max concurrent/stack count; default fade in/out timing.
-  - **Stacking:** multiple toasts visible at once, stacked like OS/Telegram notifications — newest enters, others shift, auto-reflow when one dismisses. (`FireMessage` today is single-shot by contract; stacking is the main extension.)
-  - **Auto-dismiss:** per-toast timeout (with sensible default), plus manual dismiss (click/close). Optional persist-until-clicked for important messages.
-  - **Per-toast overrides:** duration, position, and optionally severity/icon — overriding the global config. May need a richer overload beyond the bare `FireMessage(st:String8)` signature.
-- Open design questions (settle before building):
-  - Where the implementation lives: directly in `TGame` vs. a dedicated overlay (new module `Apus.Engine.Notifications` / a non-modal scene) that `FireMessage` delegates to. Leaning toward a delegated overlay — the lifecycle (concurrent + timed) wants its own home.
-  - Reuse `TUIScene` + `SceneEffects` for entry/exit animation and the toast container layout; reuse the style system (R-05) for appearance/severity.
-  - Coexistence with the modal path: shared z-order discipline so toasts sit above content but below true modal `MessageScene` dialogs.
-- Out of scope (until needed): OS-native notification integration (taskbar/tray), notification history/center, sound hooks, action buttons inside a toast.
-- Note: discussed 2026-06-17 (author pointed to `FireMessage`/screenshot path as the real baseline). Detailed design deferred to a `Work/reports/R-22_*` doc when promoted to a real card.
+- Status: **done** (2026-06-20) | commits `d489ef8`, `eef94aa` on engine5
+- `Apus.Engine.Notifications` overlay: `ShowToast`/kinds/4 anchors/`toastConfig`, R-05-themed, SML, stacking+dissolve via `TTweening`, hover-freeze, click-dismiss, thread-safe ingest. `FireMessage`→`ShowToast`. Design: `Work/reports/R-22_notifications_design.md`.
+- Deferred: cross-line SML spans, 9-patch/icon look, top/edge anchors, OS-native/tray, history, sound, in-toast buttons.
 
 ### [R-23] Keyboard Input Pipeline Unification (Callbacks over Signals)
 - Status: implemented (runtime sign-off + commit pending) | Priority: P1 | Area: Core Runtime / Input
