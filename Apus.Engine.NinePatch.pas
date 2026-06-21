@@ -509,15 +509,30 @@ procedure TCustomNinePatch.BuildTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
   // Fill mesh
   for pass:=0 to 2 do
    for i:=0 to nH-1 do begin
-     v1:=vRanges[i].pFrom*dv+dv/2;
-     v2:=vRanges[i].pTo*dv+dv/2;
-     tileHeight:=vRanges[i].pTo-vRanges[i].pFrom;
+     // Fixed rows: a single quad covering the whole cell with edge-aligned UV
+     // (texels pFrom..pTo). Tiled/stretched rows: tile-centered UV so repeated
+     // tiles don't double-sample edge texels.
+     if vRanges[i].rType=rtFixed then begin
+       v1:=vRanges[i].pFrom*dv;
+       v2:=(vRanges[i].pTo+1)*dv;
+       tileHeight:=y2[i]-y1[i];
+     end else begin
+       v1:=vRanges[i].pFrom*dv+dv/2;
+       v2:=vRanges[i].pTo*dv+dv/2;
+       tileHeight:=vRanges[i].pTo-vRanges[i].pFrom;
+     end;
      for j:=0 to nW-1 do
       if Bits.Get(usedCells[i],j) then begin
        if pass<>PassForCell(i,j) then continue;
-       u1:=hRanges[j].pFrom*du+du/2;
-       u2:=hRanges[j].pTo*du+du/2;
-       tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
+       if hRanges[j].rType=rtFixed then begin
+        u1:=hRanges[j].pFrom*du;
+        u2:=(hRanges[j].pTo+1)*du;
+        tileWidth:=x2[j]-x1[j];
+       end else begin
+        u1:=hRanges[j].pFrom*du+du/2;
+        u2:=hRanges[j].pTo*du+du/2;
+        tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
+       end;
        FillCellMesh(x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
      end;
    end;
