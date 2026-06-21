@@ -585,7 +585,7 @@ begin
   r:=GridCell(area,1,1,2,2,BLOCK_GAP);
   DrawBlock(r,'draw.RoundRect  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
-  cy:=innerR.Top+(innerR.Bottom-innerR.Top)*0.38;
+  cy:=innerR.Top+(innerR.Bottom-innerR.Top)*0.28;
   draw.RoundRect(TVec2.Init(cx,cy),
     (innerR.Right-innerR.Left-60)*0.5+sin(t)*((innerR.Right-innerR.Left-60)*0.25),
     (innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08),
@@ -786,7 +786,7 @@ var
   area,r,innerR:TRect;
   uvRect:TRect;
   cScale,iScale:single;
-  cx:integer;
+  cx,cy:integer;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
     contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
@@ -819,11 +819,21 @@ begin
   // row 1, col 0: draw.SetZ
   r:=GridCell(area,0,1,3,2,BLOCK_GAP);
   DrawBlock(r,'draw.SetZ',innerR);
-  draw.SetZ(-40);
-  draw.FillRRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$90274A74,12);
-  draw.SetZ(40);
-  draw.FillRRect(innerR.Left+30,innerR.Top+30,innerR.Right-30,innerR.Bottom-30,$C0A7D8FF,10);
+  cx:=(innerR.Left+innerR.Right) div 2;
+  cy:=(innerR.Top+innerR.Bottom) div 2;
+  // Valid Z range in 2D default view: NDC_z = -z, so z must be in [-1..1].
+  // With depth test: inner rect (z=0.5, closer) drawn first, stays visible
+  // even though outer rect (z=-0.5, farther) is drawn second.
+  gfx.target.ClearDepth(1.0);
+  gfx.target.SetDepthMode(TDepthTest.Less,TDepthWrite.On);
+  draw.SetZ(0.5);  // closer to camera
+  draw.FillRRect(cx-38,cy-38,cx+38,cy+38,$FFE8F4FF,10);
+  draw.SetZ(-0.5); // farther from camera — drawn 2nd but can't cover the closer rect
+  draw.FillRRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$FF1E3655,12);
+  gfx.target.SetDepthMode(TDepthTest.Disabled,TDepthWrite.Off);
   draw.SetZ(0);
+  txt.Write(bodyFont,innerR.Left+8,innerR.Bottom-8,$FF8AABCF,
+    'inner Z=0.5 > outer Z=-0.5 (both drawn, depth wins)',taLeft,0);
 
   // row 1, col 1: draw.Cover / draw.Inside
   r:=GridCell(area,1,1,3,2,BLOCK_GAP);
@@ -838,12 +848,15 @@ begin
     'Inside='+FormatFloat('0.00',iScale),taLeft,0);
 
   // row 1, col 2: draw.DoubleTex / draw.DoubleRotScaled
+  // DoubleTex requires caller to enable stage 1 via shader.TexMode before drawing.
   r:=GridCell(area,2,1,3,2,BLOCK_GAP);
   DrawBlock(r,'draw.DoubleTex / draw.DoubleRotScaled',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
-  draw.DoubleTex(cx,innerR.Top+60,checkerTex,helperTex,$FFE8F8FF);
+  shader.TexMode(1,tblModulate,tblModulate);
+  draw.DoubleTex(cx-48,innerR.Top+10,checkerTex,helperTex,$FFE8F8FF);
   draw.DoubleRotScaled(cx,(innerR.Top+innerR.Bottom) div 2+60,
     1.0,1.0,1.2,0.8,animTime*1.8,checkerTex,helperTex,$FFE8F8FF);
+  shader.DefaultTexMode;
 end;
 
 // screen 7: Particles / Band — 2 blocks side by side
@@ -1016,7 +1029,7 @@ begin
   end;
   FinishBlockClipping;
 
-  txt.Write(hintFont,contentRect.Left+12,contentRect.Bottom-18,$FF9BB0C8,
+  txt.Write(hintFont,contentRect.Left+12,window.renderHeight-8,$FF9BB0C8,
     'Tip: switch screens with mouse or numeric keys [1..9,0]',taLeft,0);
   inherited;
 end;
