@@ -25,9 +25,12 @@ type
    procedure Assign(const v;count:integer); overload;
    // Animate to new value over duration (ms), optional spline and delay
    procedure Animate(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
-      delay:integer=0); overload;
-   procedure Animate(const newValues; duration:cardinal; spline:TSplineFunc=nil;
-      delay:integer=0); overload;
+      delay:integer=0);
+   // Animate 2..4 packed components (point/vector/color) synchronously.
+   // Separate name (not an overload): an untyped const overload is ambiguous
+   // with the scalar version under Delphi and silently captures scalar calls.
+   procedure AnimateVec(const newValues; duration:cardinal; spline:TSplineFunc=nil;
+      delay:integer=0);
    // Get current value(s)
    function Value:single;
    function IntValue:integer; inline;
@@ -289,7 +292,7 @@ begin
  finally lock:=0; end;
 end;
 
-procedure TTweening.Animate(const newValues; duration:cardinal;
+procedure TTweening.AnimateVec(const newValues; duration:cardinal;
   spline:TSplineFunc; delay:integer);
 begin
  AnimateInternal(newValues,duration,spline,delay);

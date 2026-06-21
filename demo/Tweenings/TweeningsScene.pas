@@ -54,7 +54,7 @@ var
 begin
  if pressed then begin
   pnt.Init(window.mousePos.x,window.mousePos.y);
-  pos.Animate(pnt,500,splines.easeOut);
+  pos.AnimateVec(pnt,500,splines.easeOut);
  end;
 end;
 

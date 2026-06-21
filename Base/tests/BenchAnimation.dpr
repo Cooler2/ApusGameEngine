@@ -243,7 +243,7 @@ begin
   p1.x:=0; p1.y:=100;
   p2.x:=500; p2.y:=250;
   tw.Assign(p1,2);
-  tw.Animate(p2,1000000,splines.easeInOut);
+  tw.AnimateVec(p2,1000000,splines.easeInOut);
   base:=CoreTime.Ticks;
   sum:=0;
   StartBench('Tweening vec2 read (no AV pair)',N_VECREAD);

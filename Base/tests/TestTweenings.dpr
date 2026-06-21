@@ -118,7 +118,7 @@ begin
     p1.x:=0; p1.y:=100;
     p2.x:=200; p2.y:=50;
     tw.Assign(p1,2);
-    tw.Animate(p2,100,splines.linear);
+    tw.AnimateVec(p2,100,splines.linear);
 
     AdvanceTestTime(30);
     tw.GetValue(p,CoreTime.Ticks);
@@ -230,7 +230,7 @@ begin
     p1.x:=2; p1.y:=3;
     p2.x:=7; p2.y:=11;
     tw.Assign(p1,2);
-    tw.Animate(p2,0,splines.easeOut,0);
+    tw.AnimateVec(p2,0,splines.easeOut,0);
     tw.GetValue(p,CoreTime.Ticks);
     CheckNear(p.x,7,0.0001,'Vector instant animate sets x');
     CheckNear(p.y,11,0.0001,'Vector instant animate sets y');
