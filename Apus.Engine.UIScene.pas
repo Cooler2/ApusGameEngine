@@ -312,9 +312,10 @@ function UIScene(name:String8):TUIScene;
      if Y>=bottom then y:=bottom-1;
      if (clipMouse in [cmReal,cmLimited]) and ((curMouseX<>x) or (curMouseY<>y)) then
       if clipMouse=cmReal then exit;
-     if clipMouse=cmVirtual then begin
-      curMouseX:=x; curMouseY:=y;
-     end;
+     // NB: do NOT assign curMouseX:=x here for cmVirtual — x,y are already clamped
+     // above and curMouseX is set below. Assigning early made oldMouseX==curMouseX,
+     // so the move was always swallowed by the equality check → cmVirtual drags
+     // (scrollbar slider etc.) never received onMouseMove.
     end;
     oldMouseX:=curMouseX; oldMouseY:=curMouseY;
     curMouseX:=x; curMouseY:=y;
