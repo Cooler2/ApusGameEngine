@@ -337,28 +337,38 @@ function AnchorLoad(anchor:TToastAnchor):integer;
    if (toasts[i].anchor=anchor) and (toasts[i].phase<>TToastPhase.Leaving) then inc(result);
  end;
 
-// Move pending toasts into the active list, respecting per-anchor maxVisible.
+// Dismiss the oldest non-leaving toast at the given anchor to free a slot.
+procedure EvictOldest(anchor:TToastAnchor);
+ var
+  i:integer;
+ begin
+  for i:=0 to high(toasts) do
+   if (toasts[i].anchor=anchor) and (toasts[i].phase<>TToastPhase.Leaving) then begin
+    toasts[i].phase:=TToastPhase.Leaving;
+    toasts[i].anim.Animate(0,round(toastConfig.fadeOut*500)); // half-speed: visually quick
+    exit;
+   end;
+ end;
+
+// Move pending toasts into the active list.
+// Each notification appears immediately: if at maxVisible capacity, the oldest is evicted.
 procedure DrainPending;
  var
   i,n:integer;
-  kept:TPendingToasts;
   item:TPendingToast;
  begin
   lock.Enter;
   try
    if length(pending)=0 then exit;
-   kept:=nil;
    for i:=0 to high(pending) do begin
     item:=pending[i];
-    if AnchorLoad(item.opt.anchor)>=toastConfig.maxVisible then begin
-     n:=length(kept); SetLength(kept,n+1); kept[n]:=item; // overflow stays queued
-     continue;
-    end;
+    if AnchorLoad(item.opt.anchor)>=toastConfig.maxVisible then
+     EvictOldest(item.opt.anchor);
     // Build directly into toasts[n] to avoid copying a TToast with live TTweening fields.
     n:=length(toasts); SetLength(toasts,n+1);
     BuildToast(item.text,item.opt,toasts[n]);
    end;
-   pending:=kept;
+   pending:=nil;
   finally
    lock.Leave;
   end;
