@@ -759,6 +759,7 @@ destructor TUIElement.Destroy;
      fControl:=nil;
     end;
     if underMouse=self then underMouse:=parent;
+    if hooked=self then hooked:=nil; // drop mouse capture so we never deref a freed element
     if parent<>nil then
      Detach(false);
     DeleteChildren;
