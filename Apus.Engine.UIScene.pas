@@ -250,6 +250,16 @@ function UIScene(name:String8):TUIScene;
     curMouseX:=window.mousePos.x;
     curMouseY:=window.mousePos.y;
     e:=FindElementAt(curMouseX,curMouseY,c);
+    // A mouse-captured element (e.g. a scrollbar slider being dragged) must keep
+    // receiving button events — above all the release that ends the capture. The
+    // captor sets cmVirtual clipping, so the real mouse pos used here can be off
+    // the (thin) element; without this redirect the release goes elsewhere via
+    // FindElementAt, the capture (hooked/clipMouse) never clears, and input for
+    // that subtree stays frozen.
+    if hooked<>nil then begin
+     c:=hooked;
+     e:=true;
+    end;
     if pressed then begin
      if e and (c<>nil) then
       c.onMouseButtons(btn,true)
