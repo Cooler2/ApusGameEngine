@@ -522,7 +522,9 @@ implementation
  procedure TUIToggleButton.SetToggled(v:boolean);
   begin
    toggled:=v;
-   pressed:=v; // keep pressed in sync for visual rendering
+   // NB: do NOT mirror into `pressed` — rendering reads `toggled`/`checked`
+   // (DrawUICheckbox, TContext), and TUIButton.onMouseMove clears `pressed` on
+   // mouse-out, which would silently untoggle this element (via SetPressed override).
    if linkedToggled<>nil then linkedToggled^:=toggled;
    if sendSignals<>ssNone then begin
     Signal('UI\Button\Toggle\'+name,UIntPtr(self));
