@@ -1,9 +1,9 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 Language policy: this roadmap is maintained in English.
 
-This file captures what remains to be done. Completed stage notes live in Work/reports/.
+This file captures what remains to be done. Completed stage notes live in Work/.
 
 ## 1) Vision
 - [ ] Engine5 as a stable cross-platform foundation for 2D/3D projects.
@@ -38,6 +38,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 | R-22 | Toast Notifications (Implement + Extend `FireMessage`) | implemented | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
 | R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | done | 100% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Committed (`f811e93`..`361bb9a`) on engine5 |
 | R-24 | Android Platform Revival | idea | 0% | Restore Android/GLES build and runtime path on the current Engine5 platform/graphics/input/resource architecture |
+| R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
 
 ## 2) Strategic Directions
 
@@ -75,6 +76,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - [ ] G1. Core widgets with consistent behavior
 - [ ] G2. Layout engine (adaptive behavior, alignment, spacing)
 - [ ] G3. Testability of UI logic and events
+- [ ] G4. Immediate-mode API wrapper for fast developer/debug UI on top of retained widgets
 
 ### H. Graphics / Render
 - [ ] H1. Shader pipeline stability and diagnostics
@@ -116,7 +118,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Window placement and fullscreen behavior validated on multiple monitors.
   - [ ] Runtime DPI change triggers correct viewport/UI scaling without restart.
   - Known open bug: main-window debug overlay refresh incorrect in multi-window mode (secondary updates fine).
-- Plan: `Work/reports/R-02_multiwindow_plan.md`
+- Plan: `Work/R-02_multiwindow_plan.md`
 
 ### [R-03] Native AEM Pipeline + Blender Export
 - Status: planned (~15%) | Priority: P1 | Area: Resources
@@ -127,7 +129,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Runtime supports AEM model + animation for at least one production-like asset.
   - [ ] Ultra-compact encoding mode documented and loadable.
   - [ ] Blender plugin exports valid AEM without manual conversion.
-- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). Plan: `Work/reports/R-03_aem_pipeline_notes.md`.
+- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). Plan: `Work/R-03_aem_pipeline_notes.md`.
 
 ### [R-04] Robot Interaction Layer
 - Status: **done**
@@ -144,7 +146,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Resolver performance profiled; caching added if needed.
   - [ ] Visual regression tests via Robot API `pixel` command.
   - Deferred: `$varName` substitution via `Apus.Publics`.
-- Design: `Work/reports/R-05_notes.md`
+- Design: `Work/R-05_notes.md`
 
 ### [R-06] 3D Material Pipeline: Normal Mapping
 - Status: done | Priority: P1 | Area: Render
@@ -159,7 +161,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [x] `demo/NormalMap` ported onto stock shader + ComputeTangents (TMesh SoA + MeshShapes.Box + MeshShapes.Torus).
   - [x] Tangent handedness validated on real surface — algebraically covered by TestMeshOps + guard test `TangentFrameMatchesShader`; visual sign-off passed (generated/computed paths identical, 2026-06-19).
   - [x] `TestMeshOps` wired into engine CI smoke (`tests/linux_smoke.sh` + `tests/windows_smoke.ps1`) — runs Win+Linux.
-- Plan: `Work/reports/R-06_normal_mapping_plan.md`
+- Plan: `Work/R-06_normal_mapping_plan.md`
 
 ### [R-07] Geometry Library Overhaul (Single-First + Spatial)
 - Status: in-progress (~88%) | Priority: P1 | Area: Core
@@ -172,11 +174,11 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Benchmarks executed; baseline deltas recorded.
   - [ ] Highest-impact functions get SSE optimization (with pure Pascal fallback).
   - [ ] Remaining modules (including SDL paths) migrated to current foundation APIs.
-- Plan: `Work/reports/R-07_geometry_library_plan.md`
+- Plan: `Work/R-07_geometry_library_plan.md`
 
 ### [R-08] UI Hit-Test for Out-of-Bounds Children
 - Status: **done**
-- Clip-threaded `FindElementAt` with `escapingOnly` mode for deep `noParentClip` descendants. Details: `Work/reports/R-08_hittest_overlay_notes.md`.
+- Clip-threaded `FindElementAt` with `escapingOnly` mode for deep `noParentClip` descendants. Details: `Work/R-08_hittest_overlay_notes.md`.
 
 ### [R-09] GL Performance Modernization (Diagnose-First)
 - Status: in-progress (~40%) | Priority: P1 | Area: Render
@@ -186,11 +188,11 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - **A — Telemetry** (done): per-frame draw/shader/texture/scissor counters in debug overlay.
   - **B — Cheap state wins** (done): redundant `glBindBuffer`/`glVertexAttribPointer`/`glUseProgram` eliminated.
   - **C — Opt-in batch API** (pending): `draw.Batching(on/off)` coalesces same-signature primitives; flushes on type/texture/state change. Target: tilemaps, sprite fields; integration seam for R-18 DebugDraw.
-  - **D — GL 4.x research** (drafted): `Work/reports/R-09_gl4x_research.md`.
+  - **D — GL 4.x research** (drafted): `Work/R-09_gl4x_research.md`.
 - Remaining:
   - [ ] NSight baseline on a representative real scene; bottleneck documented.
   - [ ] Track C `draw.Batching` implemented if real use case warrants it.
-- Journal: `Work/reports/R-09_notes.md`
+- Journal: `Work/R-09_notes.md`
 
 ### [R-10] UI Widget System Refactor
 - Status: **done**
@@ -212,7 +214,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
 - Value: Reduce CPU overhead in text-heavy UI and dynamic geometry updates.
 - Scope: persistent text-draw cache (reuse vertex buffers for static labels); ring-buffer transient streaming path (`IRingBuffer`); deterministic invalidation on glyph atlas change.
 - Out of scope: text layout/shaping rewrite; replacing glyph cache.
-- Notes: gated on NSight baseline from R-09 Track A. Targets the 2D/text painter path (R-19 §15 COEXIST left it untouched). GL 4.4 persistent-mapped-buffer option tracked in `Work/reports/R-09_gl4x_research.md`.
+- Notes: gated on NSight baseline from R-09 Track A. Targets the 2D/text painter path (R-19 §15 COEXIST left it untouched). GL 4.4 persistent-mapped-buffer option tracked in `Work/R-09_gl4x_research.md`.
 - Acceptance Criteria:
   - [ ] Repeated persistent labels reuse geometry (no per-frame rebuild in steady state).
   - [ ] Glyph cache invalidation reliably invalidates dependent text buffers.
@@ -272,7 +274,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Scroll rework: sticky-bottom + `ScrollToEnd` unit fix
   - [ ] SDL: editbox Enter key
   - [ ] Build-GUI-mode: window title-bar DPI; editbox Enter
-- Plan: `Work/reports/R-16_console_modernization.md`
+- Plan: `Work/R-16_console_modernization.md`
 
 ### [R-17] 3D Game Architecture Probe (Skeleton-First)
 - Status: idea | Priority: P1 | Area: Render/Core
@@ -303,16 +305,16 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] `demo/NormalMap` `DrawGrid` ported onto `DebugDraw` with equivalent visuals.
   - [ ] `demo/MeshLab` showcases all primitives.
   - [ ] Compiles FPC+Delphi, Win/Linux.
-- Implementation plan (T1–T5): `Work/reports/R-18_implementation_plan.md`. Design: `Work/reports/R-18_debug_shapes.md`.
+- Implementation plan (T1–T5): `Work/R-18_implementation_plan.md`. Design: `Work/R-18_debug_shapes.md`.
 
 ### [R-19] Mesh Representation Unification & Rework
 - Status: **done** (geometry level, 2026-06-12)
-- `TGpuLayout` + SoA `TMesh` + `TGpuMesh` + geometry-only OBJ loader. Headless gates pass; MeshLab author-validated. Design: `Work/reports/R-19_mesh_design.md`.
+- `TGpuLayout` + SoA `TMesh` + `TGpuMesh` + geometry-only OBJ loader. Headless gates pass; MeshLab author-validated. Design: `Work/R-19_mesh_design.md`.
 - Moved OUT: `TModel`/AEM + GPU-skin/instancing → R-03; legacy migration (`Mesh3D`→`Mesh` rename, IQM drop) → deferred.
 
 ### [R-20] Mesh Shape Generators (Procedural Primitives)
 - Status: **done** (2026-06-13)
-- 5 generators (Box/Cylinder/Plane/Octasphere/UVSphere) + `TMesh.Append`. 59 tests pass Win32/Win64. Design: `Work/reports/R-20_meshshapes_design.md`.
+- 5 generators (Box/Cylinder/Plane/Octasphere/UVSphere) + `TMesh.Append`. 59 tests pass Win32/Win64. Design: `Work/R-20_meshshapes_design.md`.
 - Note: Plane uses XY/+Z orientation (author decision; differs from design doc's XZ/+Y).
 
 ### [R-21] Mesh Editing Operations (Stateful Wrapper)
@@ -329,11 +331,11 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - Lifetime owned by the holder: can be passed into the editor (reuse), detached and kept after editing (e.g. an octree surviving as a runtime accelerator), or dropped. The editor coordinates + invalidates them while editing; once detached, a structure is a snapshot whose validity is the holder's contract.
 - Orientation op: **bridge** — join two loops/polylines with a surface (the join itself only; boundary/loop *selection* is a separate subtask). Reveals that even one op splits across the hybrid: bridging two raw polylines is pure construction (one-pass/generator), bridging two boundary loops of a live mesh needs adjacency (editor).
 - Out of scope (until a driver appears): concrete heavy ops, the editor's public API shape, structure internals (half-edge layout, BVH vs octree).
-- Note: detailed design deferred to a `Work/reports/R-21_*` doc when promoted to a real card. Background: discussed 2026-06-17 alongside R-06/R-19.
+- Note: detailed design deferred to a `Work/R-21_*` doc when promoted to a real card. Background: discussed 2026-06-17 alongside R-06/R-19.
 
 ### [R-22] Toast Notifications (Implement + Extend `FireMessage`)
 - Status: **done** (2026-06-20) | commits `d489ef8`, `eef94aa` on engine5
-- `Apus.Engine.Notifications` overlay: `ShowToast`/kinds/4 anchors/`toastConfig`, R-05-themed, SML, stacking+dissolve via `TTweening`, hover-freeze, click-dismiss, thread-safe ingest. `FireMessage`→`ShowToast`. Design: `Work/reports/R-22_notifications_design.md`.
+- `Apus.Engine.Notifications` overlay: `ShowToast`/kinds/4 anchors/`toastConfig`, R-05-themed, SML, stacking+dissolve via `TTweening`, hover-freeze, click-dismiss, thread-safe ingest. `FireMessage`→`ShowToast`. Design: `Work/R-22_notifications_design.md`.
 - Deferred: cross-line SML spans, 9-patch/icon look, top/edge anchors, OS-native/tray, history, sound, in-toast buttons.
 
 ### [R-23] Keyboard Input Pipeline Unification (Callbacks over Signals)
@@ -347,7 +349,7 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - Demos: NormalMap (`RegisterHotKey` showcase), MeshLab (`onKeyDown` override), InputDemo (`onKeyDown`/`onKeyUp` + char via `ReadKey`) — all drop `SetEventHandler`/`WordFromTag`/`RemoveEventHandler`.
 - Out of scope (deliberate): `ConsoleScene`/`TweakScene` stay on raw `KBD\KeyDown` (global debug overlays, like `HandleInternalHotkeys`); full hotkey-mechanism unification = architecture-review #6. `ReadKey`/`KeyPressed` polling kept (orthogonal channel); no separate `onChar` hook this pass.
 - Pending: runtime/visual sign-off (input now deferred ~1 frame, frame-synced like mouse) + commit.
-- Design doc: `Work/reports/scene_onkeydown_design.md`.
+- Design doc: `Work/scene_onkeydown_design.md`.
 
 ### [R-24] Android Platform Revival
 - Status: idea | Priority: P1 | Area: Platform / Build / Mobile
@@ -361,4 +363,25 @@ This file captures what remains to be done. Completed stage notes live in Work/r
   - [ ] Touch input and text input reach the unified Engine5 input/UI path.
   - [ ] At least one baseline sound/media playback path is verified or explicitly deferred.
   - [ ] Android code paths compile without deprecated `PainterGL`/`PainterGL2`.
-- Design / options / staging / build process: `Work/reports/R-24_android_revival.md`.
+- Design / options / staging / build process: `Work/R-24_android_revival.md`.
+
+### [R-25] Immediate Mode GUI API Wrapper
+- Status: idea | Priority: P2 | Area: UI / Tooling
+- Goal: add an ImGui-like API wrapper for quickly declaring developer-facing UI each frame, without replacing the existing retained UI system.
+- Value: make debug panels, runtime tuning controls, demo knobs, lightweight inspectors, and future `TweakScene`-style tools cheap to write and easy to remove, while keeping the engine's current input, focus, style, DPI, Robot API, and widget rendering path.
+- Direction: **hybrid immediate-over-retained**. User code calls `BeginFrame`/`BeginWindow`/`Button`/`SliderFloat`/`Checkbox` each frame; the implementation keeps a stable cache of `TUIElement`/`TUIButton`/`TUIEditBox`/`TUIWindow` instances keyed by immediate IDs and updates/hides them at `EndFrame`.
+- First scope:
+  - [ ] `Apus.Engine.ImUI` context with `BeginFrame(root)` / `EndFrame`.
+  - [ ] window/panel stack, vertical cursor layout, stable ID stack (`PushID`/`PopID`).
+  - [ ] MVP widgets: `Text`, `Button`, `Checkbox`, `SliderFloat`, `InputText`, separator/spacer.
+  - [ ] optional overlay scene for debug tools, plus direct use over any `TUIScene`.
+  - [ ] demo or UI Lab section showing a stats/tuning panel and at least one editable value.
+- Out of scope for MVP: docking, tables, complex popups/menus, custom skin editor, a second independent hit-test/input/rendering system, replacing production retained UI screens.
+- Acceptance Criteria:
+  - [ ] A demo panel can be rebuilt every frame from immediate calls without leaking UI elements or losing stable interactive state.
+  - [ ] Button click, checkbox toggle, float slider, and text edit round-trip through caller-owned variables.
+  - [ ] Controls use existing `TUIScene` input/focus/style/rendering behavior and appear in Robot API UI tree diagnostics.
+  - [ ] Duplicate labels can be disambiguated with `PushID` or explicit IDs.
+  - [ ] The retained widget tree is pruned/hidden predictably when immediate calls disappear.
+  - [ ] The first implementation compiles on Delphi/FPC and does not require new external libraries.
+- Design note: `Work/R-25_immediate_mode_gui.md`.
