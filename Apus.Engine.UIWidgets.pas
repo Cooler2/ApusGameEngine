@@ -313,6 +313,7 @@ interface
    procedure SelectLine(line:integer); virtual;
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
+   procedure SetupScrollers; override; // recompute range from line count, not children bound
    procedure UpdateScroller;
   end;
 
@@ -1349,6 +1350,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    inherited;
    globalRect:=GetPosOnScreen;
    CalcSliderPos;
+   if max<=min then exit; // empty range: bar is not interactive
    // Mouse pressed over the slider - hook it!
    if state and (hooked=nil) and sliderUnder then begin
     hooked:=self;
@@ -1389,6 +1391,10 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    v:integer;
   begin
    inherited;
+   if max<=min then begin // empty range: nothing to scroll, slider fills the track
+    sliderUnder:=false;
+    exit;
+   end;
    if delta=-1 then begin
     p1:=(value-min)/(max-min);
     if p1<0 then p1:=0;
@@ -1432,7 +1438,9 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   begin
    inherited;
    if linkedControl<>nil then
-    linkedControl.onMouseScroll(value);
+    linkedControl.onMouseScroll(value)
+   else
+    MoveRel(-step*value/100,true); // free scrollbar: same wheel scaling as TUIScrollable (value~100/notch)
   end;
 
 procedure TUIScrollBar.onTimer;
@@ -1651,6 +1659,15 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    end;
    if selectedLine>=length(lines) then selectedLine:=length(lines)-1;
    UpdateScroller;
+  end;
+
+ procedure TUIListBox.SetupScrollers;
+  begin
+   // A listbox draws its lines directly (they are not child elements), so the
+   // generic children-bound range from TUIScrollable would be wrong. Recompute
+   // from the line count instead — this also runs when a layout resizes us.
+   // Guard against the early call during construction (before scrollerV exists).
+   if scrollerV<>nil then UpdateScroller;
   end;
 
  procedure TUIListBox.UpdateScroller;
