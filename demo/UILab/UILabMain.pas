@@ -1,4 +1,4 @@
-// UI Lab — interactive demo for the Apus Game Engine UI subsystem.
+﻿// UI Lab — interactive demo for the Apus Game Engine UI subsystem.
 //
 // Focus: behaviour of widgets and layouters (NOT visual styling).
 // Styles/themes are intentionally left at engine defaults; the only theme
@@ -39,6 +39,11 @@ implementation
   scene:TUILabScene;
   content:TUIElement;       // page area below the top bar; rebuilt per tab
   btnTarget:TUIButton;      // States page: button toggled on/off by a checkbox
+  dynList:TUIListBox;       // Scroll page: list grown/shrunk by Add/Remove buttons
+  dynCount:integer;         // Scroll page: current item count of dynList
+  dynCountLabel:TUILabel;   // Scroll page: shows dynCount
+  freeSlider:TUIScrollBar;  // Scroll page: standalone scrollbar used as a slider
+  sliderValLabel:TUILabel;  // Scroll page: live readout of freeSlider.value
   darkTheme:boolean=true;
   themeBg:cardinal;         // single source of truth for the background color
 
@@ -66,6 +71,14 @@ implementation
   begin
    result:=TUILabel.Create(content.clientWidth-32,18,content);
    result.Setup(text).SetPos(16,y);
+   result.SetAnchors(anchorTop);
+  end;
+
+ // Narrow caption at an explicit (x,y); used for side-by-side column titles.
+ function AddCaption(const text:String8;x,y,w:single):TUILabel;
+  begin
+   result:=TUILabel.Create(w,18,content);
+   result.Setup(text).SetPos(x,y);
    result.SetAnchors(anchorTop);
   end;
 
@@ -126,8 +139,11 @@ implementation
    AddTitle('Hover / press the controls. Some states are driven dynamically.',8);
 
    // Left column: dynamic enable/disable + independent toggle.
+   // Titles flow inside the container (no absolute SetPos) so they can't collide
+   // with the page title or with the controls as the layout shifts.
    col:=CreateVerticalContainer(220,content,0,8,false,'');
    col.SetPos(16,40);
+   TUILabel.Create(200,18,col).Setup('Dynamic enable & toggle:');
    btnTarget:=TUIButton.Create(200,30,col,'Lab\Target').Setup('Target button');
    TUICheckBox.Create(200,24,col,'Lab\EnableChk').Setup('Target enabled',true).onClick:=@EnableTargetClick;
    TUISplitter.CreateH(2,col,$60808080).SetPaddings(0,4,0,4);
@@ -138,7 +154,7 @@ implementation
    col:=CreateVerticalContainer(220,content,0,8,false,'');
    col.SetPos(260,40);
 
-   AddTitle('Radio group (one of many):',0).SetPos(260,16);
+   TUILabel.Create(200,18,col).Setup('Radio group (one of many):');
    group:=TUIGroupBox.Create(200,0,col);
    group.layout:=TRowLayout.CreateVertical(2,true);
    TUIRadioButton.Create(180,22,group,'').Setup('Option A',true);
@@ -157,6 +173,8 @@ implementation
    TUISplitter.CreateH(8,col);
    TUICheckBox.Create(200,22,col,'').Setup('Independent A',true);
    TUICheckBox.Create(200,22,col,'').Setup('Independent B');
+   TUICheckBox.Create(200,22,col,'').Setup('Disabled checkbox',true).Disable;
+   TUIRadioButton.Create(200,22,col,'').Setup('Disabled radio').Disable;
   end;
 
 // --- Page: Input & focus -----------------------------------------------------
@@ -185,42 +203,71 @@ implementation
    edit:=TUIEditBox.Create(260,26,col,'Lab\EditComplete');
    edit.completion:=Str32('autocompletion');       // ghost text, accepted on Enter
 
-   // Selection widgets on the right.
+   // Selection widgets on the right. Titles are flowing children of the column,
+   // so they track the real layout instead of being pinned at guessed Y offsets
+   // (which used to land the combobox caption on top of the combobox).
    col:=CreateVerticalContainer(220,content,0,8,false,'');
    col.SetPos(320,40);
-   AddTitle('ListBox (single select):',0).SetPos(320,16);
+   TUILabel.Create(200,18,col).Setup('ListBox (single select):');
    TUIListBox.Create(200,120,col,'Lab\List',20).SetLines(
      ['Apple','Banana','Cherry','Date','Elderberry','Fig','Grape','Kiwi']);
 
    TUISplitter.CreateH(6,col);
-   AddTitle('ComboBox (popup):',0).SetPos(320,176);
+   TUILabel.Create(200,18,col).Setup('ComboBox (popup):');
    TUIComboBox.Create(200,24,col,'Lab\Combo',['Low','Medium','High','Ultra']);
   end;
 
 // --- Page: Scroll & clipping -------------------------------------------------
 
+ // Rebuild dynList from scratch with dynCount generated items (SetLines is the
+ // only public bulk setter; for a demo rebuilding the whole list is fine).
+ procedure RebuildDynList;
+  var
+   i:integer;
+   items:Strings8;
+  begin
+   if dynList=nil then exit;
+   SetLength(items,dynCount);
+   for i:=0 to dynCount-1 do
+    items[i]:='Item '+IntToStr(i+1);
+   dynList.SetLines(items);
+   if dynCountLabel<>nil then dynCountLabel.Setup('Items: '+IntToStr(dynCount));
+  end;
+
+ procedure AddItemClick;    begin inc(dynCount); RebuildDynList; end;
+ procedure RemoveItemClick; begin if dynCount>0 then dec(dynCount); RebuildDynList; end;
+
  procedure PageScroll;
   var
    panel,inner:TUIElement;
-   list:TUIListBox;
-   i:integer;
+   slider:TUIScrollBar;
+   btn:TUIButton;
   begin
-   AddTitle('TUIListBox scrolls itself; the panel clips overflowing children.',8);
+   AddTitle('Add/remove items to watch the built-in scrollbar appear and hide.',8);
 
-   // TUIListBox owns its scrollbar (created internally) and reacts to the mouse
-   // wheel — no external scrollbar needed. Linking one would just fight the
-   // built-in scroller, so we let the list manage itself.
-   AddTitle('List (mouse wheel or built-in scrollbar):',36);
-   list:=TUIListBox.Create(240,180,content,'Lab\ScrollList',20);
-   list.SetPos(16,58);
-   for i:=1 to 40 do
-    list.AddLine('Line '+IntToStr(i));
+   // Dynamic list: starts below the scroll threshold (no bar); the Add/Remove
+   // buttons grow/shrink it across the threshold so the scrollbar shows/hides.
+   AddCaption('Dynamic list — Add/Remove items:',16,34,260);
+   dynList:=TUIListBox.Create(220,140,content,'Lab\DynList',20);
+   dynList.SetPos(16,56);
+
+   btn:=TUIButton.Create(70,26,content,'Lab\AddItem');
+   btn.Setup('+ Add').SetPos(16,204);
+   btn.onClick:=@AddItemClick;
+   btn:=TUIButton.Create(90,26,content,'Lab\RemoveItem');
+   btn.Setup('- Remove').SetPos(92,204);
+   btn.onClick:=@RemoveItemClick;
+   dynCountLabel:=TUILabel.Create(120,18,content);
+   dynCountLabel.SetPos(192,208);
+
+   dynCount:=5;            // below threshold (140/20=7 visible) → no scrollbar yet
+   RebuildDynList;
 
    // Clipping demonstration: a panel that clips its overflowing child,
    // plus a sibling marked noParentClip that escapes the clip rect.
-   AddTitle('Clipping (gray clipped, orange escapes):',0).SetPos(300,36);
+   AddCaption('Clipping (gray clipped, orange escapes):',470,34,260);
    panel:=TUIElement.Create(240,150,content,'Lab\ClipPanel');
-   panel.SetPos(300,58);
+   panel.SetPos(470,56);
    panel.style.SetAttr('fill','$FF405068');
    panel.style.SetAttr('border','$FFFFFFFF');
    panel.shape:=TUIShape.shapeFull;
@@ -238,6 +285,19 @@ implementation
    inner.style.SetAttr('border','$FFFFFFFF');
    inner.shape:=TUIShape.shapeFull;
    TUILabel.Create(-1,20,inner).Centered('noParentClip');
+
+   // Standalone scrollbar used as a value slider: drag the thumb or use the
+   // wheel over it. The live value is shown by sliderValLabel, refreshed each
+   // frame in TUILabScene.Render.
+   AddCaption('Free scrollbar as a slider (drag the thumb or use the wheel):',16,250,440);
+   slider:=TUIScrollBar.CreateH(360,18,content,'Lab\Slider');
+   slider.SetPos(16,274);
+   slider.SetRange(0,100,8);
+   slider.step:=5;
+   slider.MoveTo(30);
+   freeSlider:=slider;
+   sliderValLabel:=TUILabel.Create(120,18,content);
+   sliderValLabel.Setup('Value: 30').SetPos(386,276);
   end;
 
 // --- Page: Out-of-order elements ---------------------------------------------
@@ -251,7 +311,10 @@ implementation
    AddTitle('Below: 5 buttons are arranged by TRowLayout; "Pinned" is pulled out.',30);
 
    // Managed children: laid out vertically by the panel's row layout.
-   panel:=CreateVerticalContainer(220,content,8,6,false,'Lab\OOOPanel');
+   // Explicit height (8+8 padding + 5*28 + 4*6 spacing = 180) so clientHeight is
+   // valid immediately — the auto-height overload reports 0 until the first
+   // reflow, which made the pinned button below land at the top of the panel.
+   panel:=CreateVerticalContainer(220,180,content,8,6,false,'Lab\OOOPanel');
    panel.SetPos(16,60);
    panel.style.SetAttr('fill','$FF304058');
    panel.style.SetAttr('border','$FF90A0C0');
@@ -274,8 +337,12 @@ implementation
 
  procedure ShowPage(index:integer);
   begin
-   content.DeleteChildren;
+   content.DeleteChildren;          // frees page widgets; clear dangling globals below
    btnTarget:=nil;
+   dynList:=nil;
+   dynCountLabel:=nil;
+   freeSlider:=nil;
+   sliderValLabel:=nil;
    case index of
     0: PageLayouts;
     1: PageStates;
@@ -349,6 +416,8 @@ procedure TUILabScene.InitGfx;
 procedure TUILabScene.Render;
  begin
   gfx.target.Clear(themeBg);
+  if (freeSlider<>nil) and (sliderValLabel<>nil) then
+   sliderValLabel.Setup('Value: '+IntToStr(round(freeSlider.value)));
   inherited;
  end;
 
