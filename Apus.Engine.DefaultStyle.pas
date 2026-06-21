@@ -865,6 +865,11 @@ implementation
    if element is TUICheckbox then
     DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
    else
+   // Toggle button (tabs, segmented controls): drawn as a button, toggled=pressed.
+   // Checkbox/radio are caught above; combo descends from TUIButton, not from toggle.
+   if element is TUIToggleButton then
+    DrawUIButton(element as TUIButton,x1,y1,x2,y2,context)
+   else
    // Рамка
    if element.ClassType=TUIFrame then
     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
