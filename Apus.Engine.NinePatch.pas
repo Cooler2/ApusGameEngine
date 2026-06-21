@@ -16,6 +16,11 @@ type
  // * Green - resizeable part (tiled)
  TCustomNinePatch=class(TNinePatch)
   constructor Create(fromImage:TTexture); // create a 9-patch from a marked image
+  // Create a 3x3 patch from a plain (unmarked) image by specifying the fixed
+  // corner margins directly. Intended for procedurally generated content where
+  // a 1px marker border would be pointless. The whole image is content; the
+  // middle band is stretched (tile=false) or tiled (tile=true).
+  constructor CreateMargins(content:TTexture;left,top,right,bottom:integer;tile:boolean=false);
   procedure Draw(x,y,width,height:single;scale:single=1.0); override;
  protected
   meshWidth,meshHeight:single;
@@ -366,13 +371,16 @@ procedure TCustomNinePatch.BuildSimpleMesh(nH,nW:integer;du,dv:single);
   u,v:single;
  begin
    ResetGeom((nW+1)*(nH+1),numCells*6);
-   // Fill vertices
+   // Fill vertices. The trailing edge UV uses the last range's (pTo+1) rather
+   // than a hardcoded 1-du: for marked images pTo=size-2 so it equals 1-du, but
+   // for markup-free patches (ranges span the whole texture) pTo=size-1 -> 1.0,
+   // so the last texel row/column is not cropped.
    for i:=0 to nH do begin
      if i<nH then v:=vRanges[i].pFrom*dv
-             else v:=1-dv;
+             else v:=(vRanges[nH-1].pTo+1)*dv;
      for j:=0 to nW do begin
       if j<nW then u:=hRanges[j].pFrom*du
-              else u:=1-du;
+              else u:=(hRanges[nW-1].pTo+1)*du;
       vrt.Init(0,0,0,u,v,$FF808080); // position will be filled later
       AddVertex(vrt);
      end;
@@ -695,6 +703,55 @@ constructor TCustomNinePatch.Create(fromImage: TTexture);
    CheckCells;
    CalcWeights;
    ClearBorder(tex);   // Clear border pixels
+  finally
+   tex.Unlock;
+  end;
+  CalcSizes;
+ end;
+
+constructor TCustomNinePatch.CreateMargins(content:TTexture;left,top,right,bottom:integer;tile:boolean);
+ // Build the range list for one axis: [0..lo-1] fixed, middle resizeable, [size-hi..size-1] fixed
+ procedure BuildAxis(var ranges:array of TPatchRange;var count:integer;size,lo,hi:integer;midType:TRangeType);
+  procedure Emit(pFrom,pTo:integer;rType:TRangeType);
+   begin
+    ranges[count].pFrom:=pFrom;
+    ranges[count].pTo:=pTo;
+    ranges[count].rType:=rType;
+    ranges[count].overlap1:=0;
+    ranges[count].overlap2:=0;
+    inc(count);
+   end;
+  begin
+   count:=0;
+   if lo>0 then Emit(0,lo-1,rtFixed);
+   Emit(lo,size-1-hi,midType); // middle must be non-empty (asserted by caller)
+   if hi>0 then Emit(size-hi,size-1,rtFixed);
+  end;
+ var
+  midType:TRangeType;
+  nH,nV:integer;
+ begin
+  ASSERT((content.width>=3) and (content.height>=3));
+  ASSERT((left>=0) and (right>=0) and (top>=0) and (bottom>=0));
+  ASSERT(left+right<content.width,'Horizontal margins leave no resizeable middle');
+  ASSERT(top+bottom<content.height,'Vertical margins leave no resizeable middle');
+  scaleFactor:=1;
+  tex:=content;
+  name:=tex.name;
+  overlapped:=false;
+  tiled:=tile;
+  if tile then midType:=rtTiled else midType:=rtStretched;
+  // ranges span the whole texture (no marker border, nothing to clear)
+  SetLength(hRanges,3);
+  SetLength(vRanges,3);
+  BuildAxis(hRanges,nH,content.width,left,right,midType);
+  BuildAxis(vRanges,nV,content.height,top,bottom,midType);
+  SetLength(hRanges,nH);
+  SetLength(vRanges,nV);
+  EditImage(tex);
+  try
+   CheckCells;   // mark fully transparent cells to be skipped
+   CalcWeights;
   finally
    tex.Unlock;
   end;
