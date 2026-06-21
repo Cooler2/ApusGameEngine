@@ -278,50 +278,53 @@ procedure WrapLine(font:TFontHandle;const line:String8;maxTextWidth:integer;var 
  end;
 
 // Build a TToast from raw text+options: resolve style/duration, split+wrap, measure.
-function BuildToast(const text:String8;const opt:TToastOptions):TToast;
+// Uses an out parameter to build directly into the destination, avoiding TTweening
+// copy + double-free that occurs in Delphi when assigning a function-result record
+// containing managed fields (Finalize releases the shared effect pointer).
+procedure BuildToast(const text:String8;const opt:TToastOptions; out toast:TToast);
  var
   font:TFontHandle;
   paras:Strings8;
   para,line:String8;
   maxTextWidth,lw,maxLW,lh:integer;
  begin
-  result:=Default(TToast); // zero-init (age/placed/rect), managed fields cleared
-  result.text:=text;
-  result.kind:=opt.kind;
-  result.anchor:=opt.anchor;
-  if opt.style<>'' then result.styleName:=opt.style
-   else result.styleName:=toastConfig.stylePrefix+KindName(opt.kind);
+  toast:=Default(TToast); // zero-init (age/placed/rect)
+  toast.text:=text;
+  toast.kind:=opt.kind;
+  toast.anchor:=opt.anchor;
+  if opt.style<>'' then toast.styleName:=opt.style
+   else toast.styleName:=toastConfig.stylePrefix+KindName(opt.kind);
   // Duration
-  if opt.duration<>0 then result.duration:=opt.duration
+  if opt.duration<>0 then toast.duration:=opt.duration
   else
-   result.duration:=Clamp(PlainLen(text)/toastConfig.readingSpeed,
-                          toastConfig.minDuration,toastConfig.maxDuration);
-  result.phase:=TToastPhase.Entering;
+   toast.duration:=Clamp(PlainLen(text)/toastConfig.readingSpeed,
+                         toastConfig.minDuration,toastConfig.maxDuration);
+  toast.phase:=TToastPhase.Entering;
   // Start fade-in: Assign initializes TTweening (count=1), then Animate drives 0→1
-  result.anim.Assign(0.0);
-  result.anim.Animate(1.0,round(toastConfig.fadeIn*1000));
-  result.y.Assign(0.0); // value set on first Layout call via placed=false
+  toast.anim.Assign(0.0);
+  toast.anim.Animate(1.0,round(toastConfig.fadeIn*1000));
+  toast.y.Assign(0.0); // value set on first Layout call via placed=false
 
   font:=ResolveFont;
   maxTextWidth:=toastConfig.maxWidth-2*padX;
   // Honor author line breaks ('~', CR, LF), then word-wrap plain lines.
-  result.lines:=nil;
+  toast.lines:=nil;
   para:=text.ReplaceAll(#13#10,#10).ReplaceAll(#13,#10).ReplaceAll('~',#10);
   paras:=para.Split(#10);
   for line in paras do
-   WrapLine(font,line,maxTextWidth,result.lines);
-  if length(result.lines)=0 then result.lines.Add('');
+   WrapLine(font,line,maxTextWidth,toast.lines);
+  if length(toast.lines)=0 then toast.lines.Add('');
 
   // Measure box
   maxLW:=0;
-  for line in result.lines do begin
+  for line in toast.lines do begin
    lw:=LineWidth(font,line);
    if lw>maxLW then maxLW:=lw;
   end;
   if maxLW>maxTextWidth then maxLW:=maxTextWidth;
   lh:=round(txt.Height(font)*1.7);
-  result.width:=maxLW+2*padX;
-  result.height:=padTop+padBottom+length(result.lines)*lh;
+  toast.width:=maxLW+2*padX;
+  toast.height:=padTop+padBottom+length(toast.lines)*lh;
  end;
 
 // Count active (non-leaving) toasts at an anchor.
@@ -340,7 +343,6 @@ procedure DrainPending;
   i,n:integer;
   kept:TPendingToasts;
   item:TPendingToast;
-  t:TToast;
  begin
   lock.Enter;
   try
@@ -352,8 +354,9 @@ procedure DrainPending;
      n:=length(kept); SetLength(kept,n+1); kept[n]:=item; // overflow stays queued
      continue;
     end;
-    t:=BuildToast(item.text,item.opt);
-    n:=length(toasts); SetLength(toasts,n+1); toasts[n]:=t;
+    // Build directly into toasts[n] to avoid copying a TToast with live TTweening fields.
+    n:=length(toasts); SetLength(toasts,n+1);
+    BuildToast(item.text,item.opt,toasts[n]);
    end;
    pending:=kept;
   finally

@@ -20,6 +20,17 @@ uses Apus.Utils;
 
 type
  TTweening=record
+   type
+     // Visible here only because `effect` field type must be known at the declaration site.
+     // Treat as internal: access only via TTweening methods.
+     TEffect=record
+       startTime,endTime:int64;
+       duration:cardinal;
+       spline:TSplineFunc;
+       startValue:array[0..3] of single;
+       endValue:array[0..3] of single;
+       compensation:array[0..3] of single; // deltaSpeed*duration per component
+     end;
    // Set value immediately (cancel any animation)
    procedure Assign(value:single); overload;
    procedure Assign(const v;count:integer); overload;
@@ -37,63 +48,32 @@ type
    procedure GetValue(out v; time:int64=0);
    function FinalValue:single;
    function IsAnimating(time:int64=0):boolean;
-   procedure Free; // release effect object
-   {$IFDEF DELPHI}
-   class operator Initialize(out dest:TTweening);
-   class operator Finalize(var dest:TTweening);
-   {$ENDIF}
+   procedure Free; // release effect (also called automatically when going out of scope)
  private
    lock:integer;
    count:integer; // number of components (1..4)
    curValues:array[0..3] of single;
-   effect:pointer; // TTweeningEffect
+   // length=0: idle; length=1: animating.
+   // Dynamic array: ref-counted in both Delphi and FPC — no custom Initialize/Finalize needed.
+   effect:array of TEffect;
    procedure AnimateInternal(const newValues; duration:cardinal;
      spline:TSplineFunc; delay:integer);
    function CalcValue(index:integer; time:int64):single;
+   function CalcValueFromEffect(const eff:TEffect; index:integer; time:int64):single;
    procedure FinalizeEffect(time:int64);
  end;
 
 implementation
 uses SysUtils, Apus.Core;
 
-type
- TTweeningEffect=class
-  startTime,endTime:int64;
-  duration:cardinal;
-  spline:TSplineFunc;
-  startValue:array[0..3] of single;
-  endValue:array[0..3] of single;
-  compensation:array[0..3] of single; // deltaSpeed * duration for each component
- end;
-
 { TTweening }
 
-{$IFDEF DELPHI}
-class operator TTweening.Initialize(out dest:TTweening);
-begin
- dest.lock:=0;
- dest.count:=0;
- dest.effect:=nil;
-end;
-
-class operator TTweening.Finalize(var dest:TTweening);
-begin
- ASSERT(dest.lock=0);
- if dest.effect<>nil then begin
-  TTweeningEffect(dest.effect).Free;
-  dest.effect:=nil;
- end;
-end;
-{$ENDIF}
 
 procedure TTweening.Free;
 begin
  SpinLock(lock);
  try
-  if effect<>nil then begin
-   TTweeningEffect(effect).Free;
-   effect:=nil;
-  end;
+  SetLength(effect,0);
  finally lock:=0; end;
 end;
 
@@ -103,10 +83,7 @@ begin
  try
   count:=1;
   curValues[0]:=value;
-  if effect<>nil then begin
-   TTweeningEffect(effect).Free;
-   effect:=nil;
-  end;
+  SetLength(effect,0);
  finally lock:=0; end;
 end;
 
@@ -124,20 +101,14 @@ begin
    curValues[i]:=src^;
    inc(src);
   end;
-  if effect<>nil then begin
-   TTweeningEffect(effect).Free;
-   effect:=nil;
-  end;
+  SetLength(effect,0);
  finally lock:=0; end;
 end;
 
-function TTweening.CalcValue(index:integer; time:int64):single;
+function TTweening.CalcValueFromEffect(const eff:TEffect; index:integer; time:int64):single;
 var
- eff:TTweeningEffect;
  u,s,comp:single;
 begin
- eff:=TTweeningEffect(effect);
- if eff=nil then exit(curValues[index]);
  if time<=eff.startTime then exit(eff.startValue[index]);
  if time>=eff.endTime then exit(eff.endValue[index]);
  // normalize time to [0,1] using int64 arithmetic to avoid single precision loss
@@ -149,18 +120,20 @@ begin
  result:=s+comp;
 end;
 
-procedure TTweening.FinalizeEffect(time:int64);
-var
- eff:TTweeningEffect;
- i:integer;
+function TTweening.CalcValue(index:integer; time:int64):single;
 begin
- eff:=TTweeningEffect(effect);
- if eff=nil then exit;
- if time>=eff.endTime then begin
+ if length(effect)=0 then exit(curValues[index]);
+ result:=CalcValueFromEffect(effect[0],index,time);
+end;
+
+procedure TTweening.FinalizeEffect(time:int64);
+var i:integer;
+begin
+ if length(effect)=0 then exit;
+ if time>=effect[0].endTime then begin
   for i:=0 to count-1 do
-   curValues[i]:=eff.endValue[i];
-  eff.Free;
-  effect:=nil;
+   curValues[i]:=effect[0].endValue[i];
+  SetLength(effect,0);
  end;
 end;
 
@@ -199,29 +172,23 @@ begin
 end;
 
 function TTweening.FinalValue:single;
-var
- eff:TTweeningEffect;
 begin
  SpinLock(lock);
  try
-  eff:=TTweeningEffect(effect);
-  if eff<>nil then
-   result:=eff.endValue[0]
+  if length(effect)>0 then
+   result:=effect[0].endValue[0]
   else
    result:=curValues[0];
  finally lock:=0; end;
 end;
 
 function TTweening.IsAnimating(time:int64):boolean;
-var
- eff:TTweeningEffect;
 begin
  SpinLock(lock);
  try
-  eff:=TTweeningEffect(effect);
-  if eff<>nil then begin
+  if length(effect)>0 then begin
    if time<=0 then time:=CoreTime.Ticks;
-   result:=time<eff.endTime;
+   result:=time<effect[0].endTime;
   end else
    result:=false;
  finally lock:=0; end;
@@ -231,7 +198,8 @@ procedure TTweening.AnimateInternal(const newValues; duration:cardinal;
   spline:TSplineFunc; delay:integer);
 var
  i:integer;
- eff,oldEff:TTweeningEffect;
+ saved:TEffect; // snapshot of old effect; plain record — safe to copy
+ hasOldEff:boolean;
  time:int64;
  curSpeed,splineSpeed:single;
  src:PSingle;
@@ -242,12 +210,11 @@ begin
  SpinLock(lock);
  try
   time:=CoreTime.Ticks;
-  // capture current values and speed from running animation
+  hasOldEff:=length(effect)>0;
   hasSpeed:=false;
-  oldEff:=TTweeningEffect(effect);
-  if oldEff<>nil then begin
-   hasSpeed:=(time>oldEff.startTime) and (time<oldEff.endTime);
-   oldEff:=TTweeningEffect(effect); // save ref before clearing
+  if hasOldEff then begin
+   saved:=effect[0]; // snapshot before any modification
+   hasSpeed:=(time>saved.startTime) and (time<saved.endTime);
   end;
   if (duration=0) and (delay=0) then begin
    // instant assignment
@@ -256,39 +223,36 @@ begin
     curValues[i]:=src^;
     inc(src);
    end;
-   if oldEff<>nil then begin oldEff.Free; effect:=nil; end;
+   SetLength(effect,0);
    exit;
   end;
-  // sample current state from old effect
-  if oldEff<>nil then begin
+  // sample current position from old effect into curValues
+  if hasOldEff then
    for i:=0 to count-1 do
-    curValues[i]:=CalcValue(i,time);
-  end;
-  // create new effect
-  eff:=TTweeningEffect.Create;
-  eff.startTime:=time+delay;
-  eff.duration:=duration;
-  eff.endTime:=eff.startTime+duration;
-  eff.spline:=spline;
+    curValues[i]:=CalcValueFromEffect(saved,i,time);
+  // write new effect directly into effect[0] — no intermediate array needed.
+  // SetLength triggers COW if the array is shared, so copies are unaffected.
+  SetLength(effect,1);
+  effect[0].startTime:=time+delay;
+  effect[0].duration:=duration;
+  effect[0].endTime:=effect[0].startTime+duration;
+  effect[0].spline:=spline;
   src:=@newValues;
   for i:=0 to count-1 do begin
-   eff.startValue[i]:=curValues[i];
-   eff.endValue[i]:=src^;
+   effect[0].startValue[i]:=curValues[i];
+   effect[0].endValue[i]:=src^;
    // compute compensation = deltaSpeed * duration
    if hasSpeed and (duration>0) then begin
-    // current speed (value/ms) via finite difference
-    curSpeed:=CalcValue(i,time)-CalcValue(i,time-1);
+    // current speed (value/ms) via finite difference — reads saved (old snapshot)
+    curSpeed:=CalcValueFromEffect(saved,i,time)-CalcValueFromEffect(saved,i,time-1);
     // spline's own initial speed (value/ms): evaluate at u=1/duration
     splineSpeed:=spline(1.0/duration,0,1,
-      eff.startValue[i],eff.endValue[i])-eff.startValue[i];
-    eff.compensation[i]:=(curSpeed-splineSpeed)*duration;
+      effect[0].startValue[i],effect[0].endValue[i])-effect[0].startValue[i];
+    effect[0].compensation[i]:=(curSpeed-splineSpeed)*duration;
    end else
-    eff.compensation[i]:=0;
+    effect[0].compensation[i]:=0;
    inc(src);
   end;
-  // release old effect after we're done reading from it
-  if oldEff<>nil then oldEff.Free;
-  effect:=eff;
  finally lock:=0; end;
 end;
 
