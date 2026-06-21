@@ -249,7 +249,7 @@ var
   row:PCardinalRow;
   col:cardinal;
   fixed:boolean;
-  ty:single;
+  ty,d:single;
 const
   MARK_STRETCH=$FF000000; // black
   MARK_TILE   =$FF00FF00; // green
@@ -283,18 +283,22 @@ begin
         // interior content
         ty:=(y-1)/(size-3);
         col:=Color.Mix(topCol,botCol,ty);
-        // outermost interior ring as a light rim
-        if (x=1) or (y=1) or (x=size-2) or (y=size-2) then
-          col:=rimCol;
         // tiled accent so repetition is visible when stretched as tiles
         if tileMode and ((x mod 6) in [2,3]) and ((y mod 6) in [2,3]) then
           col:=accentCol;
-        // round the four (fixed) corners
+        // distance to nearest corner center (full-image coords)
         cxRef:=x; if size-1-x<cxRef then cxRef:=size-1-x;
         cyRef:=y; if size-1-y<cyRef then cyRef:=size-1-y;
-        if (cxRef<corner) and (cyRef<corner) then
-          if sqrt(sqr(corner-cxRef)+sqr(corner-cyRef))>corner then
-            col:=$00000000; // outside rounded corner
+        if (cxRef<corner) and (cyRef<corner) then begin
+          // rounded corner: rim follows the arc, transparent beyond it
+          d:=sqrt(sqr(corner-cxRef)+sqr(corner-cyRef));
+          if d>corner then col:=$00000000 // outside rounded corner
+          else if d>corner-1.5 then col:=rimCol; // rim along the rounded edge
+        end else begin
+          // straight edges: outermost interior ring as a 1px rim
+          if (x=1) or (y=1) or (x=size-2) or (y=size-2) then
+            col:=rimCol;
+        end;
       end;
       row^[x]:=col;
     end;
@@ -451,7 +455,9 @@ begin
 
     draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,bg,8);
     draw.RRect(r.Left,r.Top,r.Right,r.Bottom,1,8,border);
-    txt.Write(menuFont,r.Left+12,r.Top+18,txtCol,IntToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,0);
+    // vertically center the single text line within the item box (y is the baseline)
+    txt.Write(menuFont,r.Left+12,(r.Top+r.Bottom+txt.Height(menuFont)) div 2,txtCol,
+      IntToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,0);
   end;
 end;
 
@@ -900,7 +906,7 @@ procedure TMainScene.DrawScreenNinePatch(const contentRect:TRect);
 var
   area,r,innerR:TRect;
   t,k:single;
-  dw,dh:integer;
+  dw,dh,by2,bh2:integer;
   procedure Patch(p:TNinePatch;x,y,w,h:integer);
   begin
     if p=nil then exit;
@@ -932,8 +938,13 @@ begin
   k:=0.5+0.5*sin(t*1.6);
   dw:=SRound(k*(innerR.Right-innerR.Left-130));
   dh:=SRound((0.5+0.5*sin(t*1.1))*120);
+  // upper band: stretched patch (max height = 46 + 120 div 3 = 86)
   Patch(stretchPatch,innerR.Left+16,innerR.Top+16,70+dw,46+(dh div 3));
-  Patch(tiledPatch,innerR.Left+16,innerR.Top+90,90+dw,60+dh);
+  // lower band: tiled patch, placed below the stretch band so they never overlap
+  by2:=innerR.Top+16+86+20;
+  bh2:=60+dh;
+  if by2+bh2>innerR.Bottom-8 then bh2:=innerR.Bottom-8-by2;
+  if bh2>0 then Patch(tiledPatch,innerR.Left+16,by2,90+dw,bh2);
 end;
 
 // screen 9: Clipping && Blend — absorbs EngineTest clip + blend-mode 2D cases (2 blocks)
