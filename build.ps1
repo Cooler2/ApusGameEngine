@@ -15,6 +15,7 @@ function Get-Aliases {
     "simpledemo"     = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL","SDL") }
     "simpledemo-win" = @{ dpr = "demo\SimpleDemo\SimpleDemo.dpr"; defines = @("OPENGL") }
     "meshlab"        = @{ dpr = "demo\MeshLab\MeshLab.dpr"; defines = @("OPENGL") }
+    "uilab"          = @{ dpr = "demo\UILab\UILab.dpr"; defines = @("OPENGL") }
   }
 }
 
