@@ -50,7 +50,7 @@ type
     procedure BuildHelperTexture;
     procedure BuildAtlasTexture;
     procedure BuildNinePatches;
-    function BuildMarkedPatch(size:integer;tileMode:boolean;
+    function BuildPatch(size:integer;tileMode:boolean;
       topCol,botCol,rimCol,accentCol:cardinal;const name:string):TNinePatch;
     procedure InitParticles;
     procedure UpdateMetrics;
@@ -241,19 +241,17 @@ end;
 // Markers live on the top edge (horizontal ranges) and left edge (vertical ranges):
 //   transparent = fixed corner, black = stretched, green = tiled.
 // Corners are rounded; since corner regions are fixed, the rounding survives any resize.
-function TMainScene.BuildMarkedPatch(size:integer;tileMode:boolean;
+// Build a 9-patch procedurally: a rounded panel with a rim, vertical gradient
+// and (for tiled patches) a dotted accent. No pixel markup — the content fills
+// the whole texture and TCustomNinePatch.CreateMargins defines the fixed corners.
+function TMainScene.BuildPatch(size:integer;tileMode:boolean;
   topCol,botCol,rimCol,accentCol:cardinal;const name:string):TNinePatch;
 var
   img:TTexture;
-  x,y,corner,cxRef,cyRef,pos:integer;
+  x,y,corner,margin,cxRef,cyRef:integer;
   row:PCardinalRow;
   col:cardinal;
-  fixed:boolean;
   ty,d:single;
-const
-  MARK_STRETCH=$FF000000; // black
-  MARK_TILE   =$FF00FF00; // green
-  MARK_FIXED  =$00000000; // transparent
 begin
   corner:=size div 4;
   img:=AllocImage(size,size,ipfARGB,aiTexture,name);
@@ -261,58 +259,43 @@ begin
   for y:=0 to size-1 do begin
     row:=PCardinalRow(img.ScanLine(y));
     for x:=0 to size-1 do begin
-      if (y=0) and (x>=1) and (x<=size-2) then begin
-        // top edge marker (horizontal range), pos along X
-        pos:=x;
-        fixed:=(pos<corner) or (pos>=size-corner);
-        if fixed then col:=MARK_FIXED
-        else if tileMode then col:=MARK_TILE
-        else col:=MARK_STRETCH;
-      end else
-      if (x=0) and (y>=1) and (y<=size-2) then begin
-        // left edge marker (vertical range), pos along Y
-        pos:=y;
-        fixed:=(pos<corner) or (pos>=size-corner);
-        if fixed then col:=MARK_FIXED
-        else if tileMode then col:=MARK_TILE
-        else col:=MARK_STRETCH;
-      end else
-      if (x=0) or (y=0) or (x=size-1) or (y=size-1) then
-        col:=MARK_FIXED // unused border (bottom/right), cleared later anyway
-      else begin
-        // interior content
-        ty:=(y-1)/(size-3);
-        col:=Color.Mix(topCol,botCol,ty);
-        // tiled accent so repetition is visible when stretched as tiles
-        if tileMode and ((x mod 6) in [2,3]) and ((y mod 6) in [2,3]) then
-          col:=accentCol;
-        // distance to nearest corner center (full-image coords)
-        cxRef:=x; if size-1-x<cxRef then cxRef:=size-1-x;
-        cyRef:=y; if size-1-y<cyRef then cyRef:=size-1-y;
-        if (cxRef<corner) and (cyRef<corner) then begin
-          // rounded corner: rim follows the arc, transparent beyond it
-          d:=sqrt(sqr(corner-cxRef)+sqr(corner-cyRef));
-          if d>corner then col:=$00000000 // outside rounded corner
-          else if d>corner-1.5 then col:=rimCol; // rim along the rounded edge
-        end else begin
-          // straight edges: outermost interior ring as a 1px rim
-          if (x=1) or (y=1) or (x=size-2) or (y=size-2) then
-            col:=rimCol;
-        end;
+      // vertical gradient interior
+      ty:=y/(size-1);
+      col:=Color.Mix(topCol,botCol,ty);
+      // tiled accent so repetition is visible when drawn as tiles
+      if tileMode and ((x mod 6) in [2,3]) and ((y mod 6) in [2,3]) then
+        col:=accentCol;
+      // distance to the nearest corner center (for rounded corners)
+      cxRef:=x; if size-1-x<cxRef then cxRef:=size-1-x;
+      cyRef:=y; if size-1-y<cyRef then cyRef:=size-1-y;
+      if (cxRef<corner) and (cyRef<corner) then begin
+        // rounded corner: rim follows the arc, transparent beyond it
+        d:=sqrt(sqr(corner-cxRef)+sqr(corner-cyRef));
+        if d>corner then col:=$00000000 // outside rounded corner
+        else if d>corner-1.5 then col:=rimCol; // rim along the rounded edge
+      end else begin
+        // straight edges: outermost row/column is a 1px rim
+        if (x=0) or (y=0) or (x=size-1) or (y=size-1) then
+          col:=rimCol;
       end;
       row^[x]:=col;
     end;
   end;
   img.Unlock;
-  result:=TCustomNinePatch.Create(img);
+  // Widen the fixed corners by 1px for the stretched patch: under bilinear the
+  // stretched middle would otherwise sample the corner's rounded AA rim at the
+  // seam and leak it inward. The tiled path clamps per tile, so it doesn't.
+  margin:=corner;
+  if not tileMode then inc(margin);
+  result:=TCustomNinePatch.CreateMargins(img,margin,margin,margin,margin,tileMode);
 end;
 
 procedure TMainScene.BuildNinePatches;
 begin
   // bluish stretchable patch
-  stretchPatch:=BuildMarkedPatch(40,false,$FF5E86C8,$FF2C4A78,$FFAFD0F4,$FFFFFFFF,'Draw2DPatchStretch');
+  stretchPatch:=BuildPatch(40,false,$FF5E86C8,$FF2C4A78,$FFAFD0F4,$FFFFFFFF,'Draw2DPatchStretch');
   // greenish tiled patch with a dotted accent
-  tiledPatch:=BuildMarkedPatch(40,true,$FF4F9E72,$FF234B36,$FFB6ECCB,$FFEFF8C0,'Draw2DPatchTiled');
+  tiledPatch:=BuildPatch(40,true,$FF4F9E72,$FF234B36,$FFB6ECCB,$FFEFF8C0,'Draw2DPatchTiled');
 end;
 
 procedure TMainScene.InitParticles;
