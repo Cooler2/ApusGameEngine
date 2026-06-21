@@ -203,26 +203,24 @@ implementation
   var
    panel,inner:TUIElement;
    list:TUIListBox;
-   bar:TUIScrollBar;
    i:integer;
   begin
-   AddTitle('Scrollbar drives a scrollable. Children outside the panel are clipped.',8);
+   AddTitle('TUIListBox scrolls itself; the panel clips overflowing children.',8);
 
-   // Scrollable list controlled by an explicit vertical scrollbar.
-   AddTitle('ListBox + linked TUIScrollBar:',36);
+   // TUIListBox owns its scrollbar (created internally) and reacts to the mouse
+   // wheel — no external scrollbar needed. Linking one would just fight the
+   // built-in scroller, so we let the list manage itself.
+   AddTitle('List (mouse wheel or built-in scrollbar):',36);
    list:=TUIListBox.Create(240,180,content,'Lab\ScrollList',20);
-   list.SetPos(16,56);
+   list.SetPos(16,58);
    for i:=1 to 40 do
     list.AddLine('Line '+IntToStr(i));
-   bar:=TUIScrollBar.CreateV(16,180,content,'Lab\VBar');
-   bar.SetPos(262,56);
-   bar.Link(list);
 
    // Clipping demonstration: a panel that clips its overflowing child,
    // plus a sibling marked noParentClip that escapes the clip rect.
-   AddTitle('Clipping: gray child is clipped, orange popup escapes (noParentClip).',36);
+   AddTitle('Clipping (gray clipped, orange escapes):',0).SetPos(300,36);
    panel:=TUIElement.Create(240,150,content,'Lab\ClipPanel');
-   panel.SetPos(320,56);
+   panel.SetPos(300,58);
    panel.style.SetAttr('fill','$FF405068');
    panel.style.SetAttr('border','$FFFFFFFF');
    panel.shape:=TUIShape.shapeFull;
