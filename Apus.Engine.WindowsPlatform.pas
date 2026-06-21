@@ -96,6 +96,10 @@ const
 var
  noPenAPI:boolean=false;
  classRegistered:boolean=false;
+ // Last cursor handle applied via TWindowsPlatform.SetCursor. The window class has
+ // no cursor (hCursor=0), so we re-assert this one on WM_SETCURSOR/HTCLIENT to undo
+ // the sizing cursor that DefWindowProc sets while hovering a resize border.
+ currentCursor:THandle=0;
  // WGL entry-point cache obtained on primary context and reused by secondary
  // windows when creating shared modern contexts in other threads.
  cachedWglCreateContextAttribs:TwglCreateContextAttribsFn=nil;
@@ -163,6 +167,8 @@ var
  i,charCode,scanCode,keyCode:integer;
  isExtended:boolean;
  vkCode:cardinal;
+ rc:TRect;
+ pt:TPoint;
 begin
  try
  result:=0;
@@ -316,8 +322,31 @@ begin
   end;
 
   WM_NCHITTEST: begin
-    result := HTCLIENT;
-    exit;
+    // The OS sends WM_NCHITTEST at mouse-poll rate. Fast-path the common case —
+    // cursor inside the client area — straight to HTCLIENT, skipping DefWindowProc's
+    // non-client hit-test (this was the original FPS optimization). Only when the
+    // cursor is over a border or the caption do we fall through to DefWindowProc, so
+    // native resizing (WS_SIZEBOX) and window dragging still work there.
+    pt.x:=smallint(loword(cardinal(lParam))); // screen coords, may be negative on multi-monitor
+    pt.y:=smallint(hiword(cardinal(lParam)));
+    ScreenToClient(Window,pt);
+    GetClientRect(Window,rc);
+    if (pt.x>=0) and (pt.y>=0) and (pt.x<rc.right) and (pt.y<rc.bottom) then begin
+      result:=HTCLIENT;
+      exit;
+    end;
+    // else fall through to DefWindowProc -> HTLEFT/HTCAPTION/HTBOTTOMRIGHT/...
+  end;
+
+  WM_SETCURSOR: begin
+    // Class cursor is 0, so re-assert the engine's current cursor over the client
+    // area (game cursor system: arrow/custom/hidden=0). This undoes the sizing
+    // cursor DefWindowProc set on the resize border. Non-client (borders/caption)
+    // falls through so native sizing cursors keep working.
+    if word(lParam)=HTCLIENT then begin
+      windows.SetCursor(currentCursor);
+      exit(1);
+    end;
   end;
 
   WM_PAINT:begin
@@ -513,6 +542,7 @@ function TWindowsPlatform.LoadCursor(filename:string):THandle;
 
 procedure TWindowsPlatform.SetCursor(cur:THandle);
  begin
+  currentCursor:=cur; // remembered so WM_SETCURSOR can re-assert the engine's choice
   windows.SetCursor(cur);
  end;
 
