@@ -1370,8 +1370,14 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
 
     Clamp(p,0,1);
     MoveTo(min+ (max-min-pagesize)*p {round((max-min-pagesize)*p)});
+    // jumped the slider to the click — now grab it for dragging.
+    // (was: recursive onMouseButtons, which span forever if the slider never
+    //  ended up under the cursor — degenerate geometry → stack overflow)
+    hooked:=self;
+    delta:=-1;
+    clipMouse:=cmVirtual;
+    clipMouseRect:=globalrect;
     onMouseMove;
-    onMouseButtons(button,true);
    end;
   end;
 
