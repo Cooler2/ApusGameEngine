@@ -101,8 +101,8 @@ implementation
 
  procedure BuildSimpleHint(hnt:TUIHint);
   var
-   wsa:Strings32;
-   i,h,iWidth,iHeight,dw:integer;
+   lines:Strings8;
+   i,h,iWidth,iHeight,dw,lw:integer;
    font:TFontHandle;
   begin
    font:=StyleFont(hnt);
@@ -110,19 +110,17 @@ implementation
    if font=0 then font:=txt.GetFont('Default',7);
    with hnt do begin
     // line breaks: '~' or a literal '\n' sequence -> a real newline char.
-    // NB: String32.Split treats its argument as a SET of delimiter chars, so we
-    // must split on the single #10, not on the 2-char "\n" (that would also break
-    // on every '\' and 'n' in the text and swallow them).
     hnt.simpleText:=StringReplace(hnt.simpleText,'\n',#10,[rfReplaceAll]);
     hnt.simpleText:=StringReplace(hnt.simpleText,'~',#10,[rfReplaceAll]);
-    wsa:=UTF8.Decode(hnt.simpleText).Split(UCS4Char(10));
+    lines:=hnt.simpleText.Split(#10);
     h:=round(txt.Height(font)*1.5);
-    iHeight:=h*length(wsa)+9;
+    iHeight:=h*length(lines)+9;
     iWidth:=0;
-    for i:=1 to length(wsa) do
-     if iWidth<txt.WidthW(font,wsa[i-1]) then
-      iWidth:=txt.WidthW(font,wsa[i-1]);
-    dw:=txt.WidthW(font,[Char32('M')]);
+    for i:=0 to high(lines) do begin
+     lw:=txt.Measure(font,lines[i],toComplexText).Width; // SML-aware width via the real layout path
+     if iWidth<lw then iWidth:=lw;
+    end;
+    dw:=txt.Width(font,'M');
     inc(iWidth,4+dw);
     if (hintImage=nil) or (hintImage.width<>iWidth) or (hintImage.height<>iHeight) then begin
      Log.Msg('[Re]alloc hint image');
@@ -144,8 +142,9 @@ implementation
      draw.Line(2,iHeight-1,iwidth-1,iheight-1,$28000000);
      draw.Line(iwidth-1,iheight-2,iwidth-1,1.5,$28000000);
      gfx.target.UnMask;
-     for i:=0 to length(wsa)-1 do
-      txt.WriteW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
+     // rich text: SML markup ({B}, {C=...}, ...) is honored; default color $D0000000 unless overridden by {C=...}
+     for i:=0 to high(lines) do
+      txt.Write(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,lines[i],taLeft,toComplexText);
     finally
      gfx.EndPaint;
     end;
