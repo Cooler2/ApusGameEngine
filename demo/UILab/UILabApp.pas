@@ -44,16 +44,30 @@ implementation
   dynCountLabel:TUILabel;   // Scroll page: shows dynCount
   freeSlider:TUIScrollBar;  // Scroll page: standalone scrollbar used as a slider
   sliderValLabel:TUILabel;  // Scroll page: live readout of freeSlider.value
+  tabsPanel:TUIGroupBox;    // left sidebar tab stack; used as a geometry anchor
+  themeBtn:TUIButton;       // bottom sidebar button; used as a geometry anchor
   darkTheme:boolean=true;
   themeBg:cardinal;         // single source of truth for the background color
+  sideBarBgTop:cardinal;    // dedicated sidebar gradient top color
+  sideBarBgBottom:cardinal; // dedicated sidebar gradient bottom color
+  sideBarBorder:cardinal;   // separator line between sidebar and content
 
 // --- Theme -------------------------------------------------------------------
 
  // The ONLY place that knows theme colors. A future engine theme hooks in here.
  procedure ApplyTheme;
   begin
-   if darkTheme then themeBg:=$FF202830
-    else themeBg:=$FFC8D0D8;
+   if darkTheme then begin
+    themeBg:=$FF202830;
+    sideBarBgTop:=$FF20323E;
+    sideBarBgBottom:=$FF2C4054;
+    sideBarBorder:=$A0C8D8E8;
+   end else begin
+    themeBg:=$FFC8D0D8;
+    sideBarBgTop:=$FFF3E7D2;
+    sideBarBgBottom:=$FFD7C2A7;
+    sideBarBorder:=$90A07854;
+   end;
   end;
 
  procedure ThemeToggleClick;
@@ -90,6 +104,15 @@ implementation
    result.SetAnchors(anchorTop);
   end;
 
+ function AddTile(parent:TUIElement;width,height:single;const text:String8):TUILabel;
+  begin
+   result:=TUILabel.Create(width,height,parent);
+   result.Centered(text);
+   result.style.SetAttr('fill','$384E6A84');
+   result.style.SetAttr('border','$90D8E6F2');
+   result.style.SetAttr('radius','4');
+  end;
+
 // --- Page: Layouts -----------------------------------------------------------
 
  procedure PageLayouts;
@@ -104,15 +127,15 @@ implementation
    row:=CreateHorizontalContainer(32,content,0,8,'');
    row.SetPos(16,56);
    for i:=1 to 4 do
-    TUIButton.Create(90,30,row,'').Setup('Item '+IntToStr(i));
+    AddTile(row,90,30,'Item '+IntToStr(i));
 
    // TFlexboxLayout: middle child has weight=1, so it absorbs free space.
    AddTitle('TFlexboxLayout (middle item has weight=1, grows with width):',100);
    flex:=AddRow(120,32);
    flex.layout:=TFlexboxLayout.Create(8);
-   TUIButton.Create(110,30,flex,'').Setup('Fixed');
-   TUIButton.Create(110,30,flex,'').Setup('Stretch').layoutData:=1;
-   TUIButton.Create(110,30,flex,'').Setup('Fixed');
+   AddTile(flex,110,30,'Fixed');
+   AddTile(flex,110,30,'Stretch').layoutData:=1;
+   AddTile(flex,110,30,'Fixed');
 
    // TGridLayout (resizeable): column count derived from width → items reflow.
    AddTitle('TGridLayout (resizeable, ~120px cells, columns reflow):',168);
@@ -120,7 +143,7 @@ implementation
    grid.SetAnchors(anchorAll);
    grid.layout:=TGridLayout.CreateResizeable(8,8,0,0,120);
    for i:=1 to 12 do
-    TUIButton.Create(120,40,grid,'').Setup('Cell '+IntToStr(i));
+    AddTile(grid,120,40,'Cell '+IntToStr(i));
   end;
 
 // --- Page: Widget states -----------------------------------------------------
@@ -311,7 +334,7 @@ implementation
    i:integer;
   begin
    AddTitle('An out-of-order element ignores the layouter and parent clipping.',8);
-   AddTitle('Below: 5 buttons are arranged by TRowLayout; "Pinned" is pulled out.',30);
+   AddTitle('Below: 5 tiles are arranged by TRowLayout; "Pinned" is pulled out.',30);
 
    // Managed children: laid out vertically by the panel's row layout.
    // Explicit height (8+8 padding + 5*28 + 4*6 spacing = 180) so clientHeight is
@@ -323,16 +346,16 @@ implementation
    panel.style.SetAttr('border','$FF90A0C0');
    panel.shape:=TUIShape.shapeFull;
    for i:=1 to 5 do
-    TUIButton.Create(200,28,panel,'').Setup('Row item '+IntToStr(i));
+    AddTile(panel,200,28,'Row item '+IntToStr(i));
 
    // Out-of-order child: order>=$10000 makes IsOutOfOrder true, so the layouter
    // skips it and it stays where we put it; noParentClip lets it cross the edge.
-   pinned:=TUIButton(TUIButton.Create(140,30,panel,'Lab\Pinned').Setup('Pinned'));
+   pinned:=AddTile(panel,140,30,'Pinned');
    pinned.SetPos(panel.clientWidth-50,panel.clientHeight-15);
    pinned.order:=$10000;             // stay-on-top + excluded from layout
    pinned.flags.noParentClip:=true;  // not clipped by the panel
 
-   AddTitle('The "Pinned" button keeps its manual position and overhangs the panel.',
+   AddTitle('The "Pinned" tile keeps its manual position and overhangs the panel.',
      content.clientHeight-30).SetAnchors(anchorBottom);
   end;
 
@@ -350,26 +373,26 @@ implementation
    col:TUIElement;
    b:TUIElement;
   begin
-   AddTitle('Hints support rich SML markup. Hover the buttons, or trigger one manually.',8);
+   AddTitle('Hints support rich SML markup. Hover the tiles, or trigger one manually.',8);
 
    // Hover hints: set TUIElement.hint with SML; the hover pipeline shows them after a short delay.
    col:=CreateVerticalContainer(280,content,0,8,false,'');
    col.SetPos(16,40);
    TUILabel.Create(260,18,col).Setup('Hover these (rich .hint):');
 
-   b:=TUIButton.Create(260,30,col,'').Setup('Bold in hint');
+   b:=AddTile(col,260,30,'Bold in hint');
    b.hint:='This hint contains {B}bold{/B} text.';
 
-   b:=TUIButton.Create(260,30,col,'').Setup('Colored words');
+   b:=AddTile(col,260,30,'Colored words');
    b.hint:='{C=ff8080}Red{/C}, {C=80ff80}green{/C} and {C=8cd0ff}blue{/C} words.';
 
-   b:=TUIButton.Create(260,30,col,'').Setup('Italic + underline');
+   b:=AddTile(col,260,30,'Italic + underline');
    b.hint:='Mix of {I}italic{/I} and {U}underline{/U} styles.';
 
-   b:=TUIButton.Create(260,30,col,'').Setup('Multi-line hint');
+   b:=AddTile(col,260,30,'Multi-line hint');
    b.hint:='First line~{B}Second{/B} line~Third {C=ffd080}line{/C}';
 
-   b:=TUIButton.Create(260,30,col,'').Setup('Literal brace');
+   b:=AddTile(col,260,30,'Literal brace');
    b.hint:='Use {{ to show a literal brace: {{tag}.'; // {{ escapes the opening brace
 
    // Manual hint: shown on demand at the cursor.
@@ -434,23 +457,20 @@ procedure TUILabApp.CreateScenes;
 // --- Scene -------------------------------------------------------------------
 
 procedure TUILabScene.InitGfx;
- var
-  tabs:TUIGroupBox;
-  themeBtn:TUIButton;
  begin
   ApplyTheme;
 
   // Left sidebar: vertical tab stack. Scales to many tabs without crowding a top bar.
-  tabs:=TUIGroupBox.Create(sideBarWidth-12,UI.clientHeight-48,UI,'Lab\Tabs');
-  tabs.SetPos(6,6);
-  tabs.SetAnchors(anchorLeft); // left/top fixed, bottom follows window height
-  tabs.layout:=TRowLayout.CreateVertical(4);
-  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Layouts',true).onClick:=@TabLayouts;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('States').onClick:=@TabStates;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Input').onClick:=@TabInput;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Scroll').onClick:=@TabScroll;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Hints').onClick:=@TabHints;
+  tabsPanel:=TUIGroupBox.Create(sideBarWidth-12,UI.clientHeight-48,UI,'Lab\Tabs');
+  tabsPanel.SetPos(12,6);
+  tabsPanel.SetAnchors(anchorLeft); // left/top fixed, bottom follows window height
+  tabsPanel.layout:=TRowLayout.CreateVertical(6);
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Layouts',true).onClick:=@TabLayouts;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('States').onClick:=@TabStates;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Input').onClick:=@TabInput;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Scroll').onClick:=@TabScroll;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Hints').onClick:=@TabHints;
 
   // Theme toggle pinned to the bottom of the sidebar.
   themeBtn:=TUIButton.Create(sideBarWidth-12,30,UI,'Lab\Theme').Setup('Theme: Dark');
@@ -466,8 +486,12 @@ procedure TUILabScene.InitGfx;
  end;
 
 procedure TUILabScene.Render;
+ var
+  xPos:integer;
  begin
   gfx.target.Clear(themeBg);
+  xPos:=content.globalRect.Left;
+  draw.FillGradrect(0,0,xPos-1,window.renderHeight-1,sideBarBgTop,sideBarBgBottom,false);
   if (freeSlider<>nil) and (sliderValLabel<>nil) then
    sliderValLabel.Setup('Value: '+IntToStr(round(freeSlider.value)));
   inherited;
