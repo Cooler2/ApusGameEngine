@@ -1,8 +1,6 @@
-program CharAnimation;
+program NinePatch;
  uses
-  CharAnimationApp in 'CharAnimationApp.pas';
-
-{$R *.res}
+  NinePatchApp in 'NinePatchApp.pas';
 
 begin
  application:=TMainApp.Create;

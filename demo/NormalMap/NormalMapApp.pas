@@ -2,7 +2,7 @@
 // Mesh builders produce TMesh with positions/normals/uv0/tangents (w=handedness);
 // TGpuMesh uploads them and draws via shader.NormalMap / shader.NormalMapOff.
 
-unit NormalMapMain;
+unit NormalMapApp;
 interface
 uses Apus.Engine.GameApp, Apus.Engine.API;
 

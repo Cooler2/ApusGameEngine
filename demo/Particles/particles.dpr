@@ -1,6 +1,6 @@
 program particles;
  uses
-  ParticlesMain in 'ParticlesMain.pas';
+  ParticlesApp in 'ParticlesApp.pas';
 
 {$R *.res}
 

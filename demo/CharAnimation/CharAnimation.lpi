@@ -30,7 +30,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="CharAnimationMain.pas"/>
+        <Filename Value="CharAnimationApp.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>

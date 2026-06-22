@@ -136,7 +136,7 @@
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
-        <Filename Value="ShadowMapMain.pas"/>
+        <Filename Value="ShadowMapApp.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit1>
     </Units>

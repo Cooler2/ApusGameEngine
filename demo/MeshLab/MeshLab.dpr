@@ -1,7 +1,7 @@
 program MeshLab;
 uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  MeshLabMain in 'MeshLabMain.pas';
+  MeshLabApp in 'MeshLabApp.pas';
 
 begin
   application:=TMainApp.Create;

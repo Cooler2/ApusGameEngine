@@ -11,7 +11,7 @@
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="ControllerDemo"/>
+      <Title Value="NinePatch"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -28,11 +28,11 @@
     </RunParams>
     <Units Count="2">
       <Unit0>
-        <Filename Value="ControllerDemo.dpr"/>
+        <Filename Value="NinePatch.dpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
-        <Filename Value="ControllerDemoApp.pas"/>
+        <Filename Value="NinePatchApp.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit1>
     </Units>
@@ -41,7 +41,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\..\bin64\ControllerDemo_fpc"/>
+      <Filename Value="..\..\bin64\NinePatch_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

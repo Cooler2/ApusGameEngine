@@ -1,7 +1,7 @@
 program UILab;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  UILabMain in 'UILabMain.pas';
+  UILabApp in 'UILabApp.pas';
 
 begin
  application:=TUILabApp.Create;

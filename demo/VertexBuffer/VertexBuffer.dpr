@@ -1,7 +1,7 @@
 program VertexBuffer;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  VertexBufferMain in 'VertexBufferMain.pas';
+  VertexBufferApp in 'VertexBufferApp.pas';
 
 {$R *.res}
 

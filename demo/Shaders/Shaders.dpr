@@ -1,6 +1,6 @@
 program Shaders;
  uses
-  ShadersMain in 'ShadersMain.pas';
+  ShadersApp in 'ShadersApp.pas';
 
 begin
  application:=TMainApp.Create;

@@ -1,7 +1,7 @@
 program Draw2D;
   uses
     {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-    SceneDraw2D in 'SceneDraw2D.pas';
+    Draw2DApp in 'Draw2DApp.pas';
 
 begin
   application:=TMainApp.Create;

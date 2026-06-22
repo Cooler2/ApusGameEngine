@@ -1,6 +1,6 @@
 program Billboards;
  uses
-  ScBillboards in 'ScBillboards.pas';
+  BillboardsApp in 'BillboardsApp.pas';
 
 {$R *.res}
 

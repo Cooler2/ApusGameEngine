@@ -15,7 +15,7 @@
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
-unit MeshLabMain;
+unit MeshLabApp;
 interface
 uses Apus.Engine.GameApp, Apus.Engine.API;
 

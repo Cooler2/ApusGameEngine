@@ -33,6 +33,9 @@
         <Projects Include="MeshLab\MeshLab.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="UILab\UILab.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -131,14 +134,23 @@
     <Target Name="MeshLab:Make">
         <MSBuild Projects="MeshLab\MeshLab.dproj" Targets="Make"/>
     </Target>
+    <Target Name="UILab">
+        <MSBuild Projects="UILab\UILab.dproj"/>
+    </Target>
+    <Target Name="UILab:Clean">
+        <MSBuild Projects="UILab\UILab.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="UILab:Make">
+        <MSBuild Projects="UILab\UILab.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;ShadowMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab"/>
+        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;ShadowMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab;UILab"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;ShadowMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;ShadowMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean;UILab:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;ShadowMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;ShadowMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make;UILab:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

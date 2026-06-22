@@ -1,7 +1,7 @@
 program UI;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  UIDemoMain in 'UIDemoMain.pas';
+  UIApp in 'UIApp.pas';
 
 begin
  application:=TMainApp.Create;

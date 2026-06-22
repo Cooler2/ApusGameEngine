@@ -1,7 +1,7 @@
 program Tweenings;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  TweeningsScene in 'TweeningsScene.pas';
+  TweeningsApp in 'TweeningsApp.pas';
 
 {$IFDEF DELPHI}{$R *.res}{$ENDIF}
 

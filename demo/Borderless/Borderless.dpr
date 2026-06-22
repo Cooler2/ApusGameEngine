@@ -1,6 +1,6 @@
 program Borderless;
  uses
-  BorderlessMain in 'BorderlessMain.pas';
+  BorderlessApp in 'BorderlessApp.pas';
 
 {$R *.res}
 

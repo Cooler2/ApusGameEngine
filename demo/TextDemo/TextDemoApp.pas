@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-unit SceneTextDemo;
+unit TextDemoApp;
 interface
 uses
   Apus.Engine.GameApp,
@@ -98,7 +98,7 @@ const
     'txt.Write / WriteW / WriteR / WriteC',
     'left/center/right/justify and top-vs-baseline',
     'bold/italic/underline/shadow/hinting/spacing',
-    'toMeasure, MeasuredRect, hyperlinks and query point',
+    'toMeasure, hyperlinks, query point and SML align modes',
     'BeginBlock/EndBlock usage and MAGIC_TEXTCACHE preview',
     'multiline Unicode + complex markup + align',
     'Width/WidthW/Height, ScaleFont, font options'
@@ -611,12 +611,19 @@ begin
     'Text with {L=1}link one{/L}, {L=2}link two{/L}, {L=3}link three{/L}.',
     taLeft,toAddBaseline or toComplexText or toMeasure,0,query);
   lastLink:=txt.Link;
-  linkR:=txt.LinkRect; // keep in a dedicated var; lr gets reused by the Measure block below
+  linkR:=txt.LinkRect; // keep in a dedicated var for the hover readout below
   if lastLink>0 then begin
     draw.Rect(linkR.Left,linkR.Top,linkR.Right,linkR.Bottom,$FFD8F090);
     txt.Write(bodyFont,innerR.Left+12,innerR.Top+66,$FFF0E8A0,'Hovered link id='+Conv.ToStr(lastLink),taLeft,toAddBaseline);
   end else
     txt.Write(bodyFont,innerR.Left+12,innerR.Top+66,$FF90C0E8,'Hovered link id=0',taLeft,toAddBaseline);
+  txt.Write(monoFont,innerR.Left+12,innerR.Top+92,$FFD8E7F8,
+    UTF8.Format('mouse = %d, %d',[window.mousePos.x,window.mousePos.y]),taLeft,toAddBaseline);
+  if lastLink>0 then
+    txt.Write(monoFont,innerR.Left+12,innerR.Top+114,$FFF0E8A0,
+      UTF8.Format('link rect [%d,%d .. %d,%d]',[linkR.Left,linkR.Top,linkR.Right,linkR.Bottom]),taLeft,toAddBaseline)
+  else
+    txt.Write(bodyFont,innerR.Left+12,innerR.Top+114,$FF90C0E8,'hover a link in the line above',taLeft,toAddBaseline);
 
   r:=GridCell(area,0,1,2,2,BLOCK_GAP);
   DrawBlock(r,'Measure() bounding rect (multi-line + SML)',innerR);
@@ -631,19 +638,22 @@ begin
   txt.Write(bodyFont,innerR.Left+16,innerR.Top+44,$FFE5EDF7,measureStr,taLeft,toComplexText);
 
   r:=GridCell(area,1,1,2,2,BLOCK_GAP);
-  DrawBlock(r,'Query point',innerR);
-  // The "query" arg of txt.Write is just the mouse position (packed via PackW); the
-  // drawer hit-tests it against glyph rects and reports the link under it. This block
-  // shows that live result for the links in the block above.
-  txt.Write(bodyFont,innerR.Left+12,innerR.Top+30,$FFE5EDF7,'query = mouse position passed to txt.Write;',taLeft,toAddBaseline);
-  txt.Write(bodyFont,innerR.Left+12,innerR.Top+50,$FFE5EDF7,'the drawer hit-tests it against glyphs.',taLeft,toAddBaseline);
-  txt.Write(monoFont,innerR.Left+12,innerR.Top+80,$FFD8E7F8,
-    UTF8.Format('mouse = %d, %d',[window.mousePos.x,window.mousePos.y]),taLeft,toAddBaseline);
-  if lastLink>0 then
-    txt.Write(monoFont,innerR.Left+12,innerR.Top+102,$FFF0E8A0,
-      UTF8.Format('hovered link #%d  rect [%d,%d .. %d,%d]',[lastLink,linkR.Left,linkR.Top,linkR.Right,linkR.Bottom]),taLeft,toAddBaseline)
-  else
-    txt.Write(bodyFont,innerR.Left+12,innerR.Top+102,$FF90C0E8,'hover a link in the block above',taLeft,toAddBaseline);
+  DrawBlock(r,'SML alignment modes',innerR);
+  draw.FillRect(innerR.Left+10,innerR.Top+18,innerR.Right-10,innerR.Bottom-10,$24223240);
+  draw.Line(innerR.Left+12,innerR.Top+26,innerR.Right-12,innerR.Top+26,$30FFFFFF);
+  draw.Line(innerR.Left+12,innerR.Top+58,innerR.Right-12,innerR.Top+58,$30FFFFFF);
+  draw.Line(innerR.Left+12,innerR.Top+90,innerR.Right-12,innerR.Top+90,$30FFFFFF);
+  draw.Line(innerR.Left+12,innerR.Top+122,innerR.Right-12,innerR.Top+122,$30FFFFFF);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+24,$FFE5EDF7,
+    'Same SML string rendered with different alignments and a fixed width.',taLeft,toAddBaseline);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+46,$FF90C0E8,
+    'Left:  {b}measure{/b} this line of text.',taLeft,toAddBaseline or toComplexText,innerR.Right-innerR.Left-24);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+78,$FF90C0E8,
+    'Center: {b}measure{/b} this line of text.',taCenter,toAddBaseline or toComplexText,innerR.Right-innerR.Left-24);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+110,$FFEBD6A2,
+    'Right: {b}measure{/b} this line of text.',taRight,toAddBaseline or toComplexText,innerR.Right-innerR.Left-24);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+142,$FFF0E8A0,
+    'Justify: {b}measure{/b} this line of text for a wider row.',taJustify,toAddBaseline or toComplexText,innerR.Right-innerR.Left-24);
 end;
 
 procedure TMainScene.DrawBlockAndCache(const contentRect:TRect);

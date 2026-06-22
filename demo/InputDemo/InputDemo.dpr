@@ -2,7 +2,7 @@
 {$APPTYPE GUI}
   uses
     {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-    SceneInputDemo in 'SceneInputDemo.pas';
+  InputDemoApp in 'InputDemoApp.pas';
 
 begin
   application:=TMainApp.Create;

@@ -1,7 +1,7 @@
 program ProjectTemplate;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  ProjectTemplateMain in 'ProjectTemplateMain.pas';
+  ProjectTemplateApp in 'ProjectTemplateApp.pas';
 
 {$R *.res}
 

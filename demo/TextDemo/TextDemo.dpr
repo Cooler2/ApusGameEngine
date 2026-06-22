@@ -2,7 +2,7 @@ program TextDemo;
 {$APPTYPE GUI}
   uses
     {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-    SceneTextDemo in 'SceneTextDemo.pas';
+  TextDemoApp in 'TextDemoApp.pas';
 
 begin
   application:=TMainApp.Create;

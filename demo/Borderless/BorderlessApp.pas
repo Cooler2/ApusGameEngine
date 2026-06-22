@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-unit ProjectTemplateMain;
+unit BorderlessApp;
 interface
  uses Apus.Engine.GameApp,Apus.Engine.API;
  type
@@ -33,23 +33,29 @@ implementation
 
 constructor TMainApp.Create;
  begin
+  usedPlatform:=spDefault;
+  //usedPlatform:=spSDL;   // alternative cross-platform solution
   inherited;
   // Alter some global settings
   gameTitle:='Apus Game Engine'; // app window title
   //configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;   // alternative cross-platform solution
+  windowBorderless:=true;
+  windowSizeable:=true;
   //directRenderOnly:=true; // draw to backbuffer (instead of a screen-size RT-texture for post-processing)
   //windowedMode:=false;
  end;
 
 // Most app initialization is here. Default spinner is running
 procedure TMainApp.CreateScenes;
+ var
+  scale:single;
  begin
   inherited;
+  scale:=window.screenDPI/96;
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
+  sceneMain.UI.SetScale(scale);
   // switch to the main scene using fade transition effect
   // (this will wait in a separate thread until scene's Load() is executed
   game.SwitchToScene('Main');  
@@ -62,7 +68,8 @@ procedure TMainScene.Load; // This is called from the launch thread, no draw cal
  begin
   // Create a button
   btn:=TUIButton.Create(100,32,UI,'Main\Close').Setup('Exit');
-  btn.SetPos(UI.width/2,UI.height/2,pivotCenter);
+  btn.SetPos(UI.clientWidth/2,UI.clientHeight/2,pivotCenter);
+  btn.SetAnchors(anchorCenter);
   btn.hint:='Press this button to exit';
 
   // Link the button click signal to the engine termination signal

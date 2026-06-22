@@ -1,7 +1,7 @@
 program UIScaleDPI;
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  SceneDPIScale in 'SceneDPIScale.pas';
+  UIScaleDPIApp in 'UIScaleDPIApp.pas';
 
 {$R *.res}
 
