@@ -190,6 +190,143 @@ begin
   EndTest;
 end;
 
+procedure TestTokenStore;
+begin
+  StartTest('Token store round-trip');
+  ClearTokens;
+  SetToken('accent','$FF112233');
+  Check(GetToken('accent')='$FF112233','SetToken/GetToken round-trip');
+  Check(HasToken('Accent'),'HasToken case-insensitive');
+  SetToken('accent','$FF445566'); // overwrite
+  Check(GetToken('accent')='$FF445566','overwrite value');
+  RemoveToken('accent');
+  Check(not HasToken('accent'),'RemoveToken');
+  SetToken('x','1'); SetToken('y','2');
+  ClearTokens;
+  Check((not HasToken('x')) and (not HasToken('y')),'ClearTokens');
+  Check(GetToken('absent','def')='def','GetToken defVal');
+  EndTest;
+end;
+
+procedure TestSetTokenColor;
+begin
+  StartTest('SetTokenColor format');
+  ClearTokens;
+  SetTokenColor('c',$FF12ABCD);
+  Check(GetToken('c')='$FF12ABCD','formats as $AARRGGBB');
+  Check(ParseStyleColor(GetToken('c'))=$FF12ABCD,'parses back to same cardinal');
+  EndTest;
+end;
+
+procedure TestTokenSubstitution;
+var
+  b:TStyleBlock;
+begin
+  StartTest('Token substitution in resolve');
+  ClearTokens;
+  SetToken('accent','$FF112233');
+  b:=TStyleBlock.Create;
+  b.ParseText('fill:&accent;');
+  Check(ResolveBlockColor(b,'fill',0)=$FF112233,'local attr token expands');
+  b.Free;
+  EndTest;
+end;
+
+procedure TestTokenInStateAndRef;
+var
+  b:TStyleBlock;
+begin
+  StartTest('Token substitution from state and @ref');
+  ClearTokens;
+  SetToken('accent','$FF112233');
+  // state-block path
+  b:=TStyleBlock.Create;
+  b.ParseText('color:$FF000000; :hover { color:&accent; }');
+  b.SetState('hover',true);
+  Check(ResolveBlockColor(b,'color',0)=$FF112233,'token from active state');
+  b.Free;
+  // @ref path
+  Styles['ref']:='color:&accent;';
+  b:=TStyleBlock.Create;
+  b.ParseText('@ref;');
+  Check(ResolveBlockColor(b,'color',0)=$FF112233,'token from @ref');
+  b.Free;
+  Styles.Clear;
+  EndTest;
+end;
+
+procedure TestTokenChainAndCycle;
+var
+  b:TStyleBlock;
+begin
+  StartTest('Token chain and cycle guard');
+  ClearTokens;
+  SetToken('a','&b'); SetToken('b','$FF010203');
+  b:=TStyleBlock.Create;
+  b.ParseText('x:&a;');
+  Check(ResolveBlockColor(b,'x',0)=$FF010203,'chain &a->&b->literal');
+  b.Free;
+  // cycle must not hang and must fall back to default
+  ClearTokens;
+  SetToken('c','&d'); SetToken('d','&c');
+  b:=TStyleBlock.Create;
+  b.ParseText('x:&c;');
+  Check(ResolveBlockColor(b,'x',$FF00FF00)=$FF00FF00,'cycle returns default, no hang');
+  b.Free;
+  EndTest;
+end;
+
+procedure TestUnknownToken;
+var
+  b:TStyleBlock;
+begin
+  StartTest('Unknown token falls back');
+  ClearTokens;
+  b:=TStyleBlock.Create;
+  b.ParseText('x:&nope;');
+  Check(ResolveBlockColor(b,'x',$FF00FF00)=$FF00FF00,'unknown token -> defVal');
+  b.Free;
+  EndTest;
+end;
+
+procedure TestTokenInNumbers;
+var
+  b:TStyleBlock;
+begin
+  StartTest('Token expands before number parse');
+  ClearTokens;
+  SetToken('size','24'); SetToken('pct','50%');
+  b:=TStyleBlock.Create;
+  b.ParseText('gap:&size; w:&pct;');
+  Check(round(ResolveBlockNumber(b,'gap',0))=24,'number token');
+  Check(abs(ResolveBlockNumber(b,'w',0)-0.5)<0.001,'percent token');
+  b.Free;
+  EndTest;
+end;
+
+procedure TestThemeSwap;
+var
+  b:TStyleBlock;
+  r0,r1:cardinal;
+begin
+  StartTest('Theme swap and revision');
+  b:=TStyleBlock.Create;
+  b.ParseText('color:&surface;');
+  ApplyTheme('dark');
+  Check(ResolveBlockColor(b,'color',0)=$FF303038,'dark surface');
+  ApplyTheme('light');
+  Check(ResolveBlockColor(b,'color',0)=$FFB0B0C0,'light surface');
+  b.Free;
+  r0:=stylesRevision;
+  SetToken('z','1');
+  Check(stylesRevision>r0,'SetToken bumps revision');
+  r1:=stylesRevision;
+  ApplyTheme('dark');
+  Check(stylesRevision>r1,'ApplyTheme bumps revision');
+  ApplyTheme('light'); // restore default
+  EndTest;
+end;
+
 // --- Main ---
 begin
   writeln('=== TestStyle ===');
@@ -204,6 +341,14 @@ begin
   TestPatchRemove;
   TestGetNumber;
   TestGetText;
+  TestTokenStore;
+  TestSetTokenColor;
+  TestTokenSubstitution;
+  TestTokenInStateAndRef;
+  TestTokenChainAndCycle;
+  TestUnknownToken;
+  TestTokenInNumbers;
+  TestThemeSwap;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

@@ -136,8 +136,33 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
 // Returns 0 on failure
 function ParseStyleColor(const s:String8):cardinal;
 
+// --- R-05 token foundation (palette tokens + themes) ---
+// A value of the form '&name' in any style attribute is replaced by the token's
+// value before color/number parsing. Tokens are the theme swap point.
+
+// SetToken is the SOLE mutation entry — writes the value and bumps stylesRevision.
+procedure SetToken(const name,value:String8);
+// Convenience for the editor: stores color as '$AARRGGBB'.
+procedure SetTokenColor(const name:String8; color:cardinal);
+// Raw token value (NO &-expansion); defVal if not defined.
+function GetToken(const name:String8; const defVal:String8=''):String8;
+function HasToken(const name:String8):boolean;
+procedure RemoveToken(const name:String8);
+procedure ClearTokens;
+
+// Themes are named, complete token sets. pairs = [name,value, name,value, ...].
+procedure DefineTheme(const name:String8; const pairs:array of String8);
+// Swap the active palette: clears tokens, applies the theme, bumps stylesRevision.
+procedure ApplyTheme(const name:String8);
+function ActiveTheme:String8;
+
+var
+ // Monotonic dirty counter, bumped on any token/theme mutation. A hook for future
+ // resolve caches and baked-state rebuilds; resolve itself is per-call (no cache yet).
+ stylesRevision:cardinal=0;
+
 implementation
-uses Apus.Conv, Apus.Strings;
+uses Apus.Conv, Apus.Strings, Apus.Log;
 
 const
  MAX_NAMED_STYLES = 128;
@@ -151,6 +176,29 @@ type
 var
  namedStyles:array[0..MAX_NAMED_STYLES-1] of TNamedStyle;
  namedStyleCount:integer;
+
+const
+ MAX_TOKENS = 128;
+ MAX_THEMES = 16;
+ MAX_TOKEN_DEPTH = 8; // &a -> &b -> ... cycle/depth guard
+
+type
+ TToken=record
+  name:String8;  // without '&' prefix, lowercase
+  value:String8; // literal ($AARRGGBB / number / any string) OR reference '&other'
+ end;
+ TTheme=record
+  name:String8;   // lowercase
+  pairs:Strings8; // flat [name,value, name,value, ...]
+ end;
+
+var
+ tokens:array[0..MAX_TOKENS-1] of TToken;
+ tokenCount:integer;
+ themes:array[0..MAX_THEMES-1] of TTheme;
+ themeCount:integer;
+ activeThemeName:String8;
+ warnedTokens:String8; // ';name;name;' — to warn about each unknown token once
 
 { Utility }
 
@@ -748,9 +796,168 @@ procedure TStyleCatalog.Clear;
   namedStyleCount:=0;
  end;
 
+{ Token store }
+
+function FindTokenIndex(const name:String8):integer;
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  for i:=0 to tokenCount-1 do
+   if tokens[i].name=n then exit(i);
+  result:=-1;
+ end;
+
+procedure SetToken(const name,value:String8);
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  if n='' then exit;
+  inc(stylesRevision); // sole mutation point — any change bumps the dirty counter
+  i:=FindTokenIndex(n);
+  if i>=0 then begin
+   tokens[i].value:=value;
+   exit;
+  end;
+  if tokenCount>=MAX_TOKENS then begin
+   Log.Warn('Style: token table full, ignoring &%s',[n]);
+   exit;
+  end;
+  tokens[tokenCount].name:=n;
+  tokens[tokenCount].value:=value;
+  inc(tokenCount);
+ end;
+
+procedure SetTokenColor(const name:String8; color:cardinal);
+ begin
+  SetToken(name,'$'+Conv.ToHex(color,8)); // store as $AARRGGBB
+ end;
+
+function GetToken(const name:String8; const defVal:String8):String8;
+ var
+  i:integer;
+ begin
+  i:=FindTokenIndex(name);
+  if i>=0 then result:=tokens[i].value
+   else result:=defVal;
+ end;
+
+function HasToken(const name:String8):boolean;
+ begin
+  result:=FindTokenIndex(name)>=0;
+ end;
+
+procedure RemoveToken(const name:String8);
+ var
+  i:integer;
+ begin
+  i:=FindTokenIndex(name);
+  if i<0 then exit;
+  tokens[i]:=tokens[tokenCount-1];
+  dec(tokenCount);
+  inc(stylesRevision);
+ end;
+
+procedure ClearTokens;
+ begin
+  tokenCount:=0;
+  inc(stylesRevision);
+ end;
+
+// Expand a value: if it is exactly '&name', substitute the token recursively.
+// Otherwise return as-is. Unknown token -> '' (caller falls back to defVal).
+function ExpandToken(const value:String8; depth:integer=0):String8;
+ var
+  s,n,v:String8;
+ begin
+  s:=value.Trim;
+  if (s='') or (s[1]<>'&') then exit(value); // not a token reference
+  if depth>=MAX_TOKEN_DEPTH then begin
+   Log.Warn('Style: token cycle at %s',[s]);
+   exit('');
+  end;
+  n:=Copy(s,2,length(s)-1).ToLower; // whole value is one token name (v1: no inline)
+  v:=GetToken(n,'');
+  if v='' then begin
+   if warnedTokens.IndexOf(';'+n+';',1)<=0 then begin
+    warnedTokens:=warnedTokens+';'+n+';';
+    Log.Warn('Style: unknown token &%s',[n]);
+   end;
+   exit('');
+  end;
+  result:=ExpandToken(v,depth+1); // value may itself be another '&ref'
+ end;
+
+{ Themes }
+
+function FindThemeIndex(const name:String8):integer;
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  for i:=0 to themeCount-1 do
+   if themes[i].name=n then exit(i);
+  result:=-1;
+ end;
+
+procedure DefineTheme(const name:String8; const pairs:array of String8);
+ var
+  i,idx:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  if n='' then exit;
+  if odd(length(pairs)) then begin
+   Log.Warn('Style: theme "%s" has odd pair count, ignored',[n]);
+   exit;
+  end;
+  idx:=FindThemeIndex(n);
+  if idx<0 then begin
+   if themeCount>=MAX_THEMES then begin
+    Log.Warn('Style: theme table full, ignoring "%s"',[n]);
+    exit;
+   end;
+   idx:=themeCount;
+   inc(themeCount);
+   themes[idx].name:=n;
+  end;
+  SetLength(themes[idx].pairs,length(pairs));
+  for i:=0 to high(pairs) do
+   themes[idx].pairs[i]:=pairs[i];
+ end;
+
+procedure ApplyTheme(const name:String8);
+ var
+  idx,i:integer;
+ begin
+  idx:=FindThemeIndex(name);
+  if idx<0 then begin
+   Log.Warn('Style: unknown theme "%s"',[name]);
+   exit;
+  end;
+  ClearTokens; // v1 themes are complete sets — start clean
+  i:=0;
+  while i+1<length(themes[idx].pairs) do begin
+   SetToken(themes[idx].pairs[i],themes[idx].pairs[i+1]);
+   inc(i,2);
+  end;
+  activeThemeName:=themes[idx].name;
+  inc(stylesRevision); // explicit bump in case the theme was empty
+ end;
+
+function ActiveTheme:String8;
+ begin
+  result:=activeThemeName;
+ end;
+
 { Resolver with @refs }
 
-function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+// Raw resolve: local + active states + @refs, no token expansion (recursion stays raw).
+function ResolveBlockAttrRaw(block:TStyleBlock; const key:String8; const defVal:String8):String8;
  var
   i:integer;
   refBlock:TStyleBlock;
@@ -763,10 +970,17 @@ function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:Str
   for i:=high(block.refs) downto 0 do begin
    refBlock:=FindStyleBlock(block.refs[i]);
    if refBlock=nil then continue;
-   refVal:=ResolveBlockAttr(refBlock,key,'');
+   refVal:=ResolveBlockAttrRaw(refBlock,key,'');
    if refVal<>'' then exit(refVal);
   end;
   result:=defVal;
+ end;
+
+function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+ begin
+  // expand token exactly once, after the raw value is fully resolved
+  result:=ExpandToken(ResolveBlockAttrRaw(block,key,defVal));
+  if result='' then result:=defVal; // unknown/empty token -> fall back
  end;
 
 function ResolveBlockColor(block:TStyleBlock; const key:String8; defVal:cardinal):cardinal;
@@ -790,7 +1004,8 @@ function ResolveBlockNumber(block:TStyleBlock; const key:String8; defVal:single)
 
 { Base resolvers: local attrs+refs only, state overrides ignored }
 
-function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+// Raw base resolve: local attrs + @refs only, no state overrides, no token expansion.
+function ResolveBlockAttrBaseRaw(block:TStyleBlock; const key:String8; const defVal:String8):String8;
  var
   i:integer;
   refBlock:TStyleBlock;
@@ -803,10 +1018,16 @@ function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal
   for i:=high(block.refs) downto 0 do begin
    refBlock:=FindStyleBlock(block.refs[i]);
    if refBlock=nil then continue;
-   refVal:=ResolveBlockAttrBase(refBlock,key,'');
+   refVal:=ResolveBlockAttrBaseRaw(refBlock,key,'');
    if refVal<>'' then exit(refVal);
   end;
   result:=defVal;
+ end;
+
+function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+ begin
+  result:=ExpandToken(ResolveBlockAttrBaseRaw(block,key,defVal));
+  if result='' then result:=defVal;
  end;
 
 function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:cardinal):cardinal;
@@ -819,8 +1040,38 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
   if (result=0) and (s<>'0') then result:=defVal;
  end;
 
+{ Built-in themes — draft palettes from design doc §3.
+  Both themes are complete sets; they differ only in the palette values.
+  The precise literal-by-literal mapping is a later design step. }
+
+procedure RegisterBuiltinThemes;
+ begin
+  DefineTheme('light',[
+   'surface','$FFB0B0C0', 'surface-alt','$FFC8C8D0', 'overlay','$FFE0E0DC',
+   'text','$FF202020', 'text-muted','$FF808080', 'text-on-accent','$FFFFFFFF',
+   'border','$FF000000', 'border-light','$FFE8E8E8', 'border-dark','$FF606060',
+   'control','$FFB0A0C0',
+   'accent','$FF3060C0', 'accent-text','$FFFFFFFF',
+   'danger','$FFC04040', 'danger-text','$FFFFFFFF',
+   'success','$FF40A040', 'success-text','$FFFFFFFF',
+   'warning','$FFD0A030', 'warning-text','$FF202020',
+   'focus','$80FFFF80']);
+  DefineTheme('dark',[
+   'surface','$FF303038', 'surface-alt','$FF383840', 'overlay','$FF404048',
+   'text','$FFE0E0E0', 'text-muted','$FF909090', 'text-on-accent','$FFFFFFFF',
+   'border','$FF101010', 'border-light','$FF606068', 'border-dark','$FF101014',
+   'control','$FF505060',
+   'accent','$FF5080E0', 'accent-text','$FFFFFFFF',
+   'danger','$FFD05050', 'danger-text','$FFFFFFFF',
+   'success','$FF50B050', 'success-text','$FFFFFFFF',
+   'warning','$FFE0B040', 'warning-text','$FF202020',
+   'focus','$80FFFF80']);
+ end;
+
 initialization
  Styles:=TStyleCatalog.Create;
+ RegisterBuiltinThemes;
+ ApplyTheme('light'); // sensible default; no existing UI references tokens yet
 
 finalization
  Styles.Free;
