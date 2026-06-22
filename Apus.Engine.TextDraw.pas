@@ -35,6 +35,7 @@ interface
   TTextDrawer=class(TInterfacedObject,ITextDrawer)
    class threadvar
     textMetrics:array of TRect; // results of text measurement (if requested)
+    measuredText:TRect; // bounding rect of the whole (possibly multi-line) text (if toMeasure was set)
 
     textCaching:boolean;  // cache draw operations
     textBlockOptions:cardinal; // block-level options to add
@@ -76,6 +77,8 @@ interface
    function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
    function MeasuredCnt:integer;
    function MeasuredRect(idx:integer):TRect;
+   function MeasuredBounds:TRect; // bounding rect of the last measured text (relative to its pen position)
+   function Measure(font:TFontHandle;st:String8;options:cardinal=0):TRect; // measure text extent without drawing
    // Hyperlinks
    procedure ClearLink; // Clear current link (call before text render)
    function Link:integer; // get hyperlink under mouse (filled during text render)
@@ -539,6 +542,19 @@ function TTextDrawer.MeasuredCnt:integer;
 function TTextDrawer.MeasuredRect(idx:integer):TRect;
  begin
   result:=textMetrics[clamp(idx,0,high(textMetrics))];
+ end;
+
+function TTextDrawer.MeasuredBounds:TRect;
+ begin
+  result:=measuredText;
+ end;
+
+function TTextDrawer.Measure(font:cardinal;st:String8;options:cardinal):TRect;
+ begin
+  measuredText:=types.Rect(0,0,0,0);
+  if length(st)=0 then exit(measuredText);
+  WriteW(font,0,0,0,Str32(st),taLeft,options or toMeasure or toDontDraw); // pure geometry: toDontDraw skips clipping/rasterization
+  result:=measuredText;
  end;
 
 function TTextDrawer.Width(font:cardinal;st:string8):integer;
@@ -1224,6 +1240,8 @@ var
       curTextLinkRect.Top:=y-fHeight;
       curTextLinkRect.Bottom:=y+fHeight shr 1;
     end;
+    // whole-line bounding rect (top=ascent line, bottom=baseline), relative to pen position
+    measuredText:=types.Rect(round(x),y-fHeight,round(x)+width,y);
    end;
 
     if (curTextLinkRect.Left>=0) and (curTextLinkRect.Right<0) then curTextLinkRect.Right:=round(x)+width;
@@ -1283,24 +1301,48 @@ var
    end;
   end;
 
+  // Render/measure a string broken by '\r\n', '\n' or '\r' into separate lines.
+  // Each line goes through the single-line WriteW path; in toMeasure mode the
+  // per-line bounding rects are unioned into measuredText (relative to pen position).
   procedure DrawMultiline;
    var
-    i,j,lineHeight:integer;
-    drawOptions:integer;
+    i,j,lineHeight,fHeight,emptyTop,emptyBottom:integer;
+    drawOptions:cardinal;
+    measuring,firstLine:boolean;
+    acc,lineRect:TRect;
+   procedure EmitLine(lineStart,lineEnd:integer); // [lineStart,lineEnd)
+    begin
+     if lineEnd>lineStart then begin
+      WriteW(font,x,y,color,copy(st,lineStart,lineEnd-lineStart),align,drawOptions,targetWidth,query);
+      lineRect:=measuredText; // set by the single-line call above (toMeasure path)
+     end else
+      lineRect:=types.Rect(round(x),y+emptyTop,round(x),y+emptyBottom); // empty line: zero width, full height
+     if measuring then begin
+      if firstLine then acc:=lineRect
+       else UnionRect(acc,acc,lineRect);
+      firstLine:=false;
+     end;
+     inc(y,lineHeight);
+    end;
   begin
-   i:=0;
-   j:=0;
+   measuring:=Bits.HasAny(options,toMeasure);
+   fHeight:=round(Height(font)*1.1);
+   emptyTop:=-fHeight; emptyBottom:=0;
    lineHeight:=round(Height(font)*1.65);
    drawOptions:=options or toDontTranslate;
-   while j<length(st)-1 do
-    if (st[j]=13) and (st[j+1]=10) then begin
-     WriteW(font,x,y,color,copy(st,i,j-i),align,drawOptions,targetWidth,query);
-     inc(y,lineHeight);
-     inc(j,2);
+   acc:=types.Rect(round(x),y,round(x),y);
+   firstLine:=true;
+   i:=0; j:=0;
+   while j<length(st) do
+    if (st[j]=13) or (st[j]=10) then begin
+     EmitLine(i,j);
+     if (st[j]=13) and (j+1<length(st)) and (st[j+1]=10) then inc(j,2) // CRLF
+      else inc(j);
      i:=j;
     end else
      inc(j);
-   WriteW(font,x,y,color,copy(st,i,length(st)-i),align,drawOptions,targetWidth,query);
+   EmitLine(i,length(st)); // trailing line (after the last break)
+   if measuring then measuredText:=acc;
   end;
 
  procedure DrawTextCache;
@@ -1336,8 +1378,8 @@ begin // -----------------------------------------------------------
  if not Bits.HasAny(font,fhDontTranslate) and not Bits.HasAny(options,toDontTranslate) then
   st:=translate32(st);
 
- // Multiline?
- if st.Contains([13,10]) then begin
+ // Multiline? (any of CRLF, bare LF or bare CR acts as a line break)
+ if st.Contains(UCS4Char(10)) or st.Contains(UCS4Char(13)) then begin
   DrawMultiline;
   exit;
  end;

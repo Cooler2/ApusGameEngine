@@ -633,6 +633,8 @@ type
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
   function MeasuredCnt:integer; // length of the measured rects array
   function MeasuredRect(idx:integer):TRect; // rect[idx] of text measurement command
+  function MeasuredBounds:TRect; // bounding rect of the last measured text (relative to its pen position)
+  function Measure(font:TFontHandle;st:String8;options:cardinal=0):TRect; // measure text extent (no drawing); supports '\n' and toComplexText
   // Hyperlinks
   procedure ClearLink; // Clear current link (call before text render)
   function Link:integer; // get hyperlink under mouse (filled during text render)
