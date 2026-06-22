@@ -255,11 +255,10 @@ function UIScale:single;
    else result:=1.0;
  end;
 
-// Measure a single (possibly SML) line width in pixels.
+// Measure a single (possibly SML) line width in pixels via the real text-layout path.
 function LineWidth(font:TFontHandle;const line:String8):integer;
  begin
-  if Pos('{',line)>0 then result:=txt.Width(font,StripSML(line)) // approx (ignores bold widen)
-   else result:=txt.Width(font,line);
+  result:=txt.Measure(font,line,toComplexText).Width;
  end;
 
 // Word-wrap a plain line to maxTextWidth. SML lines are kept intact (tag-safe).
