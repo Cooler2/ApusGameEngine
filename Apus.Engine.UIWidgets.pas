@@ -336,12 +336,15 @@ interface
    procedure OpenPopup; virtual;
    procedure ClosePopup(commit:boolean); virtual; // commit=true applies the hovered/selected line
    procedure onMouseButtons(button:byte;state:boolean); override;
+   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onTimer; override; // safety net: close when focus leaves the combo+popup
    procedure SetCurItem(item:integer); virtual;
    procedure SetCurItemByText(value:String8); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;
   protected
    function GetText:String8;
+   procedure NotifySelect; // emit ONSELECT signals for the current item
+   procedure EnsureHoverVisible; // scroll the open popup so hoverLine is visible
   public
    property curItem:integer read fCurItem write SetCurItem;
    property curTag:integer read fCurTag write SetCurItemByTag;
@@ -1852,10 +1855,26 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    frame.AttachTo(self);
    timer:=0;
    if comboPop=self then comboPop:=nil;
-   if curItem<>oldItem then begin
-    Signal('UI\'+name+'\ONSELECT',curItem);
-    Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
-   end;
+   if curItem<>oldItem then NotifySelect;
+  end;
+
+ procedure TUIComboBox.NotifySelect;
+  begin
+   Signal('UI\'+name+'\ONSELECT',curItem);
+   Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
+  end;
+
+ procedure TUIComboBox.EnsureHoverVisible;
+  var
+   top,bottom,v,ph:single;
+  begin
+   if (popup.scrollerV=nil) or (popup.hoverLine<0) then exit;
+   top:=popup.hoverLine*popup.lineHeight;
+   bottom:=top+popup.lineHeight;
+   v:=popup.scrollerV.GetValue;
+   ph:=popup.clientHeight;
+   if top<v then popup.scrollerV.SetValue(top)
+    else if bottom>v+ph then popup.scrollerV.SetValue(bottom-ph);
   end;
 
  procedure TUIComboBox.onMouseButtons(button:byte;state:boolean);
@@ -1865,6 +1884,54 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
     Signal('UI\ComboBox\DropDown',PtrUInt(self));
     onDropDown;
    end;
+  end;
+
+ function TUIComboBox.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+  var
+   n:integer;
+  begin
+   if pressed then
+    case TKey(keycode) of
+     TKey.Up,TKey.Down:begin
+      if frame.flags.visible then begin
+       // open popup: move the highlighted line
+       n:=popup.hoverLine;
+       if n<0 then n:=curItem;
+       if TKey(keycode)=TKey.Up then dec(n) else inc(n);
+       if n<0 then n:=0;
+       if n>high(items) then n:=high(items);
+       if (n>=0) and (n<=high(items)) then begin
+        popup.hoverLine:=n;
+        EnsureHoverVisible;
+       end;
+      end else begin
+       // closed popup: change the current item directly (Windows-style)
+       n:=curItem;
+       if TKey(keycode)=TKey.Up then dec(n) else inc(n);
+       if n<0 then n:=0;
+       if n>high(items) then n:=high(items);
+       if (n<>curItem) and (n>=0) and (n<=high(items)) then begin
+        curItem:=n; // updates caption via setter
+        NotifySelect;
+       end;
+      end;
+      exit(false);
+     end;
+     TKey.Enter,TKey.Space:begin
+      if frame.flags.visible then begin
+       if popup.hoverLine>=0 then popup.selectedLine:=popup.hoverLine;
+       ClosePopup(true);
+      end else
+       OpenPopup;
+      exit(false);
+     end;
+     TKey.Escape:
+      if frame.flags.visible then begin
+       ClosePopup(false);
+       exit(false);
+      end;
+    end;
+   result:=inherited onKey(keycode,pressed,shiftstate);
   end;
 
  procedure TUIComboBox.onTimer;
