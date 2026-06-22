@@ -585,13 +585,14 @@ end;
 
 procedure TMainScene.DrawMeasureLinks(const contentRect:TRect);
 var
-  area,r,innerR,lr:TRect;
+  area,r,innerR,lr,linkR:TRect;
   query:cardinal;
   i:integer;
+  measureStr:String8;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
 
-  r:=GridCell(area,0,0,2,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,2,2,BLOCK_GAP);
   DrawBlock(r,'toMeasure + MeasuredRect()',innerR);
   query:=Bits.PackW(window.mousePos.x,window.mousePos.y);
   txt.ClearLink;
@@ -603,39 +604,46 @@ begin
   end;
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+66,$FF90C0E8,'MeasuredCnt='+Conv.ToStr(txt.MeasuredCnt),taLeft,toAddBaseline);
 
-  r:=GridCell(area,1,0,2,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,2,2,BLOCK_GAP);
   DrawBlock(r,'Hyperlinks + query point',innerR);
   txt.ClearLink;
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+34,$FFE5EDF7,
     'Text with {L=1}link one{/L}, {L=2}link two{/L}, {L=3}link three{/L}.',
     taLeft,toAddBaseline or toComplexText or toMeasure,0,query);
   lastLink:=txt.Link;
-  lr:=txt.LinkRect;
+  linkR:=txt.LinkRect; // keep in a dedicated var; lr gets reused by the Measure block below
   if lastLink>0 then begin
-    draw.Rect(lr.Left,lr.Top,lr.Right,lr.Bottom,$FFD8F090);
+    draw.Rect(linkR.Left,linkR.Top,linkR.Right,linkR.Bottom,$FFD8F090);
     txt.Write(bodyFont,innerR.Left+12,innerR.Top+66,$FFF0E8A0,'Hovered link id='+Conv.ToStr(lastLink),taLeft,toAddBaseline);
   end else
     txt.Write(bodyFont,innerR.Left+12,innerR.Top+66,$FF90C0E8,'Hovered link id=0',taLeft,toAddBaseline);
 
-  r:=GridCell(area,0,1,2,1,BLOCK_GAP);
-  DrawBlock(r,'toDontDraw (measure only)',innerR);
+  r:=GridCell(area,0,1,2,2,BLOCK_GAP);
+  DrawBlock(r,'Measure() bounding rect (multi-line + SML)',innerR);
   txt.ClearLink;
-  txt.Write(bodyFont,innerR.Left+12,innerR.Top+34,$FFFFFFFF,'Invisible text, metrics only',taLeft,
-    toAddBaseline or toMeasure or toDontDraw);
-  if txt.MeasuredCnt>0 then begin
-    lr:=txt.MeasuredRect(txt.MeasuredCnt);
-    draw.FillRect(innerR.Left+12,innerR.Top+48,lr.Left,innerR.Top+56,$FF7098D0);
-  end;
-  txt.Write(bodyFont,innerR.Left+12,innerR.Top+74,$FFE5EDF7,
-    'Blue bar width is measured advance (glyphs were not rendered).',taLeft,toAddBaseline);
+  // Measure() returns the full extent of a multi-line, SML-marked-up string in one
+  // call (no manual line splitting). The rect is relative to the pen point and is
+  // produced by the same layout path that draws the text, so it tracks it exactly.
+  measureStr:='Multi-line {b}bold{/b} and'#10'{C=8cd0ff}colored{/C} text,'#10'measured as one {i}rect{/i}.';
+  lr:=txt.Measure(bodyFont,measureStr,toComplexText);
+  draw.Rect(innerR.Left+16+lr.Left-2,innerR.Top+44+lr.Top-2,
+            innerR.Left+16+lr.Right+2,innerR.Top+44+lr.Bottom+2,$FF80C0F0);
+  txt.Write(bodyFont,innerR.Left+16,innerR.Top+44,$FFE5EDF7,measureStr,taLeft,toComplexText);
 
-  r:=GridCell(area,1,1,2,1,BLOCK_GAP);
-  DrawBlock(r,'Query source and safety',innerR);
-  txt.Write(monoFont,innerR.Left+12,innerR.Top+32,$FFD8E7F8,
-    UTF8.Format('query=(x:%d y:%d) packed=%u',[window.mousePos.x,window.mousePos.y,query]),taLeft,toAddBaseline);
-  txt.Write(monoFont,innerR.Left+12,innerR.Top+54,$FFD8E7F8,
-    UTF8.Format('linkRect=[%d,%d..%d,%d]',[lr.Left,lr.Top,lr.Right,lr.Bottom]),taLeft,toAddBaseline);
-  txt.Write(bodyFont,innerR.Left+12,innerR.Top+84,$FF90C0E8,'Move cursor over links in upper-right block.',taLeft,toAddBaseline);
+  r:=GridCell(area,1,1,2,2,BLOCK_GAP);
+  DrawBlock(r,'Query point',innerR);
+  // The "query" arg of txt.Write is just the mouse position (packed via PackW); the
+  // drawer hit-tests it against glyph rects and reports the link under it. This block
+  // shows that live result for the links in the block above.
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+30,$FFE5EDF7,'query = mouse position passed to txt.Write;',taLeft,toAddBaseline);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+50,$FFE5EDF7,'the drawer hit-tests it against glyphs.',taLeft,toAddBaseline);
+  txt.Write(monoFont,innerR.Left+12,innerR.Top+80,$FFD8E7F8,
+    UTF8.Format('mouse = %d, %d',[window.mousePos.x,window.mousePos.y]),taLeft,toAddBaseline);
+  if lastLink>0 then
+    txt.Write(monoFont,innerR.Left+12,innerR.Top+102,$FFF0E8A0,
+      UTF8.Format('hovered link #%d  rect [%d,%d .. %d,%d]',[lastLink,linkR.Left,linkR.Top,linkR.Right,linkR.Bottom]),taLeft,toAddBaseline)
+  else
+    txt.Write(bodyFont,innerR.Left+12,innerR.Top+102,$FF90C0E8,'hover a link in the block above',taLeft,toAddBaseline);
 end;
 
 procedure TMainScene.DrawBlockAndCache(const contentRect:TRect);
