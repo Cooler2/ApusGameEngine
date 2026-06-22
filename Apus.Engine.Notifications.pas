@@ -235,14 +235,24 @@ procedure ClearToasts;
 
 { Layout / construction (render thread) }
 
-// Resolve the font used for toast text.
+// Resolve the font used for toast text. Falls back to the engine's DPI-scaled
+// UI font (game.defaultFont) so toasts match the rest of the UI on high-DPI.
 function ResolveFont:TFontHandle;
  begin
   result:=toastConfig.font;
-  if result=0 then begin
-   if defFont=0 then defFont:=txt.GetFont('Default',7);
+  if result=0 then result:=game.largerFont; // DPI-scaled, a bit larger than body UI font
+  if result=0 then begin // very early call, before InitDefaultResources
+   if defFont=0 then defFont:=txt.GetFont('Default',9);
    result:=defFont;
   end;
+ end;
+
+// DPI scale for layout metrics. The px constants below are authored at 96 DPI
+// (screenScale=1.0); multiply by this so the box grows with the font.
+function UIScale:single;
+ begin
+  if game<>nil then result:=game.screenScale
+   else result:=1.0;
  end;
 
 // Measure a single (possibly SML) line width in pixels.
@@ -287,6 +297,7 @@ procedure BuildToast(const text:String8;const opt:TToastOptions; out toast:TToas
   paras:Strings8;
   para,line:String8;
   maxTextWidth,lw,maxLW,lh:integer;
+  s:single;
  begin
   toast:=Default(TToast); // zero-init (age/placed/rect)
   toast.text:=text;
@@ -306,7 +317,8 @@ procedure BuildToast(const text:String8;const opt:TToastOptions; out toast:TToas
   toast.y.Assign(0.0); // value set on first Layout call via placed=false
 
   font:=ResolveFont;
-  maxTextWidth:=toastConfig.maxWidth-2*padX;
+  s:=UIScale;
+  maxTextWidth:=round(toastConfig.maxWidth*s)-2*round(padX*s);
   // Honor author line breaks ('~', CR, LF), then word-wrap plain lines.
   toast.lines:=nil;
   para:=text.ReplaceAll(#13#10,#10).ReplaceAll(#13,#10).ReplaceAll('~',#10);
@@ -322,9 +334,9 @@ procedure BuildToast(const text:String8;const opt:TToastOptions; out toast:TToas
    if lw>maxLW then maxLW:=lw;
   end;
   if maxLW>maxTextWidth then maxLW:=maxTextWidth;
-  lh:=round(txt.Height(font)*1.7);
-  toast.width:=maxLW+2*padX;
-  toast.height:=padTop+padBottom+length(toast.lines)*lh;
+  lh:=round(txt.Height(font)*1.7); // font is DPI-scaled, so line height is too
+  toast.width:=maxLW+2*round(padX*s);
+  toast.height:=round(padTop*s)+round(padBottom*s)+length(toast.lines)*lh;
  end;
 
 // Count active (non-leaving) toasts at an anchor.
@@ -381,23 +393,25 @@ procedure DrainPending;
 function ToastRect(var t:TToast):TRect;
  var
   rw,rh,bx,by:integer;
-  left,top:integer;
+  left,top,mx,my:integer;
   yVal:single;
  begin
   yVal:=t.y.Value;
   rw:=window.renderWidth;
   rh:=window.renderHeight;
+  mx:=round(toastConfig.margin.x*UIScale);
+  my:=round(toastConfig.margin.y*UIScale);
   case t.anchor of
-   TToastAnchor.BottomLeft:   left:=toastConfig.margin.x;
+   TToastAnchor.BottomLeft:   left:=mx;
    TToastAnchor.BottomCenter: left:=(rw-round(t.width)) div 2;
    TToastAnchor.Center:       left:=(rw-round(t.width)) div 2;
-   else {BottomRight}         left:=rw-toastConfig.margin.x-round(t.width);
+   else {BottomRight}         left:=rw-mx-round(t.width);
   end;
   if t.anchor=TToastAnchor.Center then begin
    by:=rh div 2;                    // stack downward from center
    top:=by+round(yVal);
   end else begin
-   by:=rh-toastConfig.margin.y;     // bottom edge
+   by:=rh-my;                       // bottom edge
    top:=by-round(yVal)-round(t.height);
   end;
   bx:=left;
@@ -424,7 +438,7 @@ procedure Layout;
      end else
      if abs(toasts[i].y.FinalValue-newTarget)>0.5 then
       toasts[i].y.Animate(newTarget,150); // smooth reflow with interruption compensation
-     off:=off+toasts[i].height+toastConfig.gap;
+     off:=off+toasts[i].height+round(toastConfig.gap*UIScale);
     end;
   end;
  end;
@@ -437,7 +451,7 @@ procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit
   font:TFontHandle;
   r:TRect;
   i,lh,baseLine:integer;
-  animVal:single;
+  animVal,s:single;
  begin
   block:=Styles.Block(t.styleName);
   fill:=ResolveBlockColor(block,'fill',$E0303840);
@@ -445,19 +459,20 @@ procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit
   textCol:=ResolveBlockColor(block,'color',$FFFFFFFF);
   radius:=ResolveBlockNumber(block,'radius',8);
   font:=ResolveFont;
+  s:=UIScale;
   animVal:=t.anim.Value; // cache: avoids repeated spinlock + FinalizeEffect calls
 
   r:=ToastRect(t);
   t.rect:=r;
   // Background + border (alpha follows fade)
-  draw.RoundRect(r.Left,r.Top,r.Right,r.Bottom,radius,1.5,
+  draw.RoundRect(r.Left,r.Top,r.Right,r.Bottom,radius*s,1.5*s,
                  ScaleAlpha(border,animVal),ScaleAlpha(fill,animVal));
   // Text lines
   lh:=round(txt.Height(font)*1.7);
   textCol:=ScaleAlpha(textCol,animVal);
-  baseLine:=r.Top+padTop+txt.Height(font);
+  baseLine:=r.Top+round(padTop*s)+txt.Height(font);
   for i:=0 to high(t.lines) do begin
-   txt.Write(font,r.Left+padX,baseLine,textCol,t.lines[i],TTextAlignment.taLeft,toComplexText);
+   txt.Write(font,r.Left+round(padX*s),baseLine,textCol,t.lines[i],TTextAlignment.taLeft,toComplexText);
    inc(baseLine,lh);
   end;
  end;

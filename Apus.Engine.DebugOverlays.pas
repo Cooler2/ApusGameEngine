@@ -406,15 +406,7 @@ var
     dfShowNavigationPoints:; // rendered in Game.pas (needs protected field)
    end;
 
-  // Capture screenshot notification
-  if (window.capture.capturedTime>0) and (CoreTime.Ticks<window.capture.capturedTime+3000) and (gfx<>nil) then begin
-    x:=settings.width div 2;
-    y:=settings.height div 2;
-    draw.FillRect(x-200*game.screenScale,y-40*game.screenScale,x+200*game.screenScale,y+40*game.screenScale,$60000000);
-    draw.Rect(x-200*game.screenScale,y-40*game.screenScale,x+200*game.screenScale,y+40*game.screenScale,$A0FFFFFF);
-    txt.Write(game.largerFont,x,y-16*game.screenScale,$FFFFFFFF,'Screen captured to:',taCenter);
-    txt.Write(game.defaultFont,x,y+8*game.screenScale,$FFFFFFFF,window.capture.capturedName,taCenter);
-  end;
+  // Screenshot confirmation is now a toast (see Window screenshot path -> ShowToast).
 
  finally
   game.Unlock;
