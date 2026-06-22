@@ -166,10 +166,11 @@ procedure TMainScene.Render;
   gfx.target.SetDepthMode(TDepthTest.Disabled);
   inherited;
   // Text overlays
-  txt.Write(0,10,20,clWhite,'Mesh triangles: '+IntToStr(trgCount div 1000)+'K');
-  txt.Write(0,10,40,clWhite,'Total triangles: '+IntToStr(trgCount*21 div 1000)+'K');
-  txt.Write(0,10,window.renderHeight-30,clWhite,'[Alt]+[F11] - toggle VSync');
-  txt.Write(0,10,window.renderHeight-10,clWhite,'[Alt]+[Enter] - toggle Fullscreen');
+  txt.Write(game.largerFont,Dp(10),Dp(20),clWhite,
+    'Mesh triangles: '+IntToStr(trgCount div 1000)+'K'#10+
+    'Total triangles: '+IntToStr(trgCount*21 div 1000)+'K');
+  txt.Write(0,Dp(10),window.renderHeight-Dp(30),clWhite,'[Alt]+[F11] - toggle VSync');
+  txt.Write(0,Dp(10),window.renderHeight-Dp(10),clWhite,'[Alt]+[Enter] - toggle Fullscreen');
  end;
 
 end.
