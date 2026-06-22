@@ -1018,6 +1018,9 @@ var
 
  // Returns value of the Animated Value sampled at the current frame time
  function CurValue(var av:TAnimatedValue):single; inline;
+ // Convert device-independent pixels (DIP, 96 DPI baseline) to current window units.
+ function Dp(v:single):single; overload; inline;
+ function Dp(v:integer):integer; overload; inline;
 
  // Utility functions
  function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
@@ -1220,6 +1223,18 @@ procedure Delay(time:integer);
 function CurValue(var av:TAnimatedValue):single;
  begin
   result:=av.ValueAt(window.frameStartMs);
+ end;
+
+function Dp(v:single):single; overload;
+ begin
+  ASSERT(window<>nil);
+  result:=v*window.screenDPI/96;
+ end;
+
+function Dp(v:integer):integer; overload;
+ begin
+  ASSERT(window<>nil);
+  result:=round(v*window.screenDPI/96);
  end;
 
 function IsMouseBtn(btn:integer):boolean;
