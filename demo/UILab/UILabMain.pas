@@ -33,7 +33,7 @@ implementation
   end;
 
  const
-  topBarHeight=40;
+  sideBarWidth=140;
 
  var
   scene:TUILabScene;
@@ -336,6 +336,50 @@ implementation
      content.clientHeight-30).SetAnchors(anchorBottom);
   end;
 
+// --- Page: Hints -------------------------------------------------------------
+
+ // Manual hint at the cursor; rich SML markup is honoured by BuildSimpleHint.
+ procedure ShowManualHint;
+  begin
+   ShowSimpleHint('{B}Manual hint{/B} via {C=8cd0ff}ShowSimpleHint{/C}.~'+
+     'Stays a few seconds, supports {I}markup{/I}.',nil,-1,-1,4000);
+  end;
+
+ procedure PageHints;
+  var
+   col:TUIElement;
+   b:TUIElement;
+  begin
+   AddTitle('Hints support rich SML markup. Hover the buttons, or trigger one manually.',8);
+
+   // Hover hints: set TUIElement.hint with SML; the hover pipeline shows them after a short delay.
+   col:=CreateVerticalContainer(280,content,0,8,false,'');
+   col.SetPos(16,40);
+   TUILabel.Create(260,18,col).Setup('Hover these (rich .hint):');
+
+   b:=TUIButton.Create(260,30,col,'').Setup('Bold in hint');
+   b.hint:='This hint contains {B}bold{/B} text.';
+
+   b:=TUIButton.Create(260,30,col,'').Setup('Colored words');
+   b.hint:='{C=ff8080}Red{/C}, {C=80ff80}green{/C} and {C=8cd0ff}blue{/C} words.';
+
+   b:=TUIButton.Create(260,30,col,'').Setup('Italic + underline');
+   b.hint:='Mix of {I}italic{/I} and {U}underline{/U} styles.';
+
+   b:=TUIButton.Create(260,30,col,'').Setup('Multi-line hint');
+   b.hint:='First line~{B}Second{/B} line~Third {C=ffd080}line{/C}';
+
+   b:=TUIButton.Create(260,30,col,'').Setup('Literal brace');
+   b.hint:='Use {{ to show a literal brace: {{tag}.'; // {{ escapes the opening brace
+
+   // Manual hint: shown on demand at the cursor.
+   col:=CreateVerticalContainer(280,content,0,8,false,'');
+   col.SetPos(320,40);
+   TUILabel.Create(260,18,col).Setup('Manual hint (ShowSimpleHint):');
+   TUIButton.Create(260,30,col,'').Setup('Show hint now').onClick:=@ShowManualHint;
+   TUILabel.Create(260,36,col).Setup('Appears at the cursor, fades out.');
+  end;
+
 // --- Navigation --------------------------------------------------------------
 
  procedure ShowPage(index:integer);
@@ -352,6 +396,7 @@ implementation
     2: PageInput;
     3: PageScroll;
     4: PageOutOfOrder;
+    5: PageHints;
    end;
   end;
 
@@ -360,6 +405,7 @@ implementation
  procedure TabInput;    begin ShowPage(2); end;
  procedure TabScroll;   begin ShowPage(3); end;
  procedure TabOutOfOrder; begin ShowPage(4); end;
+ procedure TabHints;    begin ShowPage(5); end;
 
 // --- Application -------------------------------------------------------------
 
@@ -394,23 +440,26 @@ procedure TUILabScene.InitGfx;
  begin
   ApplyTheme;
 
-  // Top bar: tab group on the left, theme toggle pinned to the right.
-  tabs:=TUIGroupBox.Create(700,topBarHeight-6,UI,'Lab\Tabs');
-  tabs.SetPos(6,3);
-  tabs.layout:=TRowLayout.CreateHorizontal(4,true,true);
-  TUIToggleButton.Create(90,30,tabs,'').Setup('Layouts',true).onClick:=@TabLayouts;
-  TUIToggleButton.Create(90,30,tabs,'').Setup('States').onClick:=@TabStates;
-  TUIToggleButton.Create(90,30,tabs,'').Setup('Input').onClick:=@TabInput;
-  TUIToggleButton.Create(90,30,tabs,'').Setup('Scroll').onClick:=@TabScroll;
-  TUIToggleButton.Create(110,30,tabs,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
+  // Left sidebar: vertical tab stack. Scales to many tabs without crowding a top bar.
+  tabs:=TUIGroupBox.Create(sideBarWidth-12,UI.clientHeight-48,UI,'Lab\Tabs');
+  tabs.SetPos(6,6);
+  tabs.SetAnchors(anchorLeft); // left/top fixed, bottom follows window height
+  tabs.layout:=TRowLayout.CreateVertical(4);
+  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Layouts',true).onClick:=@TabLayouts;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('States').onClick:=@TabStates;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Input').onClick:=@TabInput;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Scroll').onClick:=@TabScroll;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabs,'').Setup('Hints').onClick:=@TabHints;
 
-  themeBtn:=TUIButton.Create(110,30,UI,'Lab\Theme').Setup('Theme: Dark');
-  themeBtn.SetPos(UI.clientWidth-6,3,pivotTopRight).SetAnchors(anchorTopRight);
+  // Theme toggle pinned to the bottom of the sidebar.
+  themeBtn:=TUIButton.Create(sideBarWidth-12,30,UI,'Lab\Theme').Setup('Theme: Dark');
+  themeBtn.SetPos(6,UI.clientHeight-36).SetAnchors(anchorBottomLeft);
   themeBtn.onClick:=@ThemeToggleClick;
 
-  // Content area fills everything below the top bar and follows the window.
-  content:=TUIElement.Create(UI.clientWidth,UI.clientHeight-topBarHeight,UI,'Lab\Content');
-  content.SetPos(0,topBarHeight);
+  // Content area fills everything to the right of the sidebar and follows the window.
+  content:=TUIElement.Create(UI.clientWidth-sideBarWidth,UI.clientHeight,UI,'Lab\Content');
+  content.SetPos(sideBarWidth,0);
   content.SetAnchors(anchorAll);
 
   ShowPage(0);
