@@ -124,6 +124,12 @@ const
  foUpscaleFactor   = 2;
  foGlobalScale     = 3;
 
+ // FireMessage severity (mirrors TToastKind in Apus.Engine.Notifications)
+ msgInfo    = 0;
+ msgSuccess = 1;
+ msgWarning = 2;
+ msgError   = 3;
+
  // Keyboard shift state codes
  sscShift = 1;
  sscCtrl  = 2;
@@ -876,8 +882,8 @@ type
   // Добавляет строку в "кадровый лог" - невидимый лог, который обнуляется каждый кадр, но может быть сохранен в случае какой-либо аварийной ситуации
   procedure FLog(st:string); virtual; abstract;
   function GetStatus(n:integer):string; virtual; abstract;
-  // Show message in engine-driven pop-up (3 sec)
-  procedure FireMessage(st:String8); virtual; abstract;
+  // Show message in engine-driven pop-up toast. severity: msgInfo/Success/Warning/Error.
+  procedure FireMessage(st:String8;severity:integer=msgInfo); virtual; abstract;
   // Enable/disable debug overlays
   procedure DebugFeature(feature:TDebugFeature;enabled:boolean); virtual; abstract;
 

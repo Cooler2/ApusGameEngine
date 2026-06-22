@@ -56,7 +56,7 @@ type
 
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
-  procedure FireMessage(st:string8); override;
+  procedure FireMessage(st:string8;severity:integer=msgInfo); override;
   procedure DebugFeature(feature:TDebugFeature;enable:boolean); override;
   procedure ToggleDebugFeature(feature:TDebugFeature);
 
@@ -1534,9 +1534,17 @@ procedure TGame.Minimize;
   window.Minimize;
  end;
 
-procedure TGame.FireMessage(st: string8);
+procedure TGame.FireMessage(st: string8;severity:integer);
+ var
+  kind:TToastKind;
  begin
-  ShowToast(st); // engine-driven non-modal toast (Info, auto duration)
+  case severity of
+   msgSuccess:kind:=TToastKind.Success;
+   msgWarning:kind:=TToastKind.Warning;
+   msgError:kind:=TToastKind.Error;
+   else kind:=TToastKind.Info;
+  end;
+  ShowToast(st,kind); // engine-driven non-modal toast (auto duration)
  end;
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter
