@@ -18,13 +18,17 @@ interface
   application:TMainApp;
 
 implementation
- uses SysUtils, Apus.Types, Apus.Colors, Apus.Engine.UI, Apus.Geom3D;
+ uses
+  SysUtils,
+  Apus.Colors, Apus.Geom3D,
+  Apus.Engine.UI, Apus.Engine.Mesh, Apus.Engine.GpuMesh;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
+   destructor Destroy; override;
    procedure Load; override;
-   procedure Initialize; override;
+   procedure InitGfx; override;
    procedure Render; override;
   end;
 
@@ -33,8 +37,9 @@ implementation
   MESH_SECTIONS = 240;
 
  var
-  sceneMain:TMainScene;
+ sceneMain:TMainScene;
   mesh:TMesh;
+  gpuMesh:TGpuMesh;
   trgCount:integer;
 
 constructor TMainApp.Create;
@@ -75,8 +80,8 @@ procedure BuildMesh;
   var
    v1,v2:TVec3;
   begin
-   v1:=Vector3s(CalcSurface(u-0.001,v),CalcSurface(u+0.001,v));
-   v2:=Vector3s(CalcSurface(u,v-0.001),CalcSurface(u,v+0.001));
+   v1:=CalcSurface(u+0.001,v)-CalcSurface(u-0.001,v);
+   v2:=CalcSurface(u,v+0.001)-CalcSurface(u,v-0.001);
    result:=v1.Cross(v2);
    result.Normalize;
   end;
@@ -87,34 +92,38 @@ procedure BuildMesh;
  var
   i,j:integer;
   u,v:single;
-  vertex:TVertex3D;
  begin
   // Create mesh
   trgCount:=MESH_SECTIONS*MESH_SEGMENTS*2;
-  mesh:=TMesh.Create(TVertex3D.Layout(false),MESH_SEGMENTS*(MESH_SECTIONS+1),trgCount*3);
+  mesh:=TMesh.Create('surface');
   // Add vertices
   for i:=0 to MESH_SECTIONS do
    for j:=0 to MESH_SEGMENTS-1 do begin
     u:=j/MESH_SEGMENTS;
     v:=i/MESH_SECTIONS;
-    vertex.SetPos(CalcSurface(u,v));
-    vertex.SetNormal(CalcNormal(u,v));
-    vertex.color:=$FF808080;
-    mesh.AddVertex(vertex);
+    mesh.AddVertex(CalcSurface(u,v),CalcNormal(u,v),$FF808080);
    end;
   // Add triangles
   for i:=0 to MESH_SECTIONS-1 do
    for j:=0 to MESH_SEGMENTS-1 do
     if i mod 2=0 then begin
-     mesh.AddTrg(GetVertex(j,i),GetVertex(j,i+1),GetVertex(j+1,i));
-     mesh.AddTrg(GetVertex(j,i+1),GetVertex(j+1,i+1),GetVertex(j+1,i));
+     mesh.AddTriangle(GetVertex(j,i),GetVertex(j,i+1),GetVertex(j+1,i));
+     mesh.AddTriangle(GetVertex(j,i+1),GetVertex(j+1,i+1),GetVertex(j+1,i));
     end else begin
-     mesh.AddTrg(GetVertex(j,i),GetVertex(j,i+1),GetVertex(j+1,i+1));
-     mesh.AddTrg(GetVertex(j,i),GetVertex(j+1,i+1),GetVertex(j+1,i));
+     mesh.AddTriangle(GetVertex(j,i),GetVertex(j,i+1),GetVertex(j+1,i+1));
+     mesh.AddTriangle(GetVertex(j,i),GetVertex(j+1,i+1),GetVertex(j+1,i));
     end;
+  mesh.Finish;
  end;
 
 { TMainScene }
+destructor TMainScene.Destroy;
+ begin
+  gpuMesh.Free;
+  mesh.Free;
+  inherited;
+ end;
+
 procedure TMainScene.Load;
  begin
   BuildMesh;
@@ -122,10 +131,12 @@ procedure TMainScene.Load;
   game.SwitchToScene('Main');
  end;
 
-procedure TMainScene.Initialize;
+procedure TMainScene.InitGfx;
  begin
-  // Create buffers and upload mesh data to VRAM - must be called from the main thread
-  mesh.UseBuffers;
+  inherited;
+  if mesh=nil then exit;
+  gpuMesh:=TGpuMesh.Create(mesh);
+  gpuMesh.Upload;
  end;
 
 procedure TMainScene.Render;
@@ -134,20 +145,20 @@ procedure TMainScene.Render;
  begin
   gfx.target.Clear($204030,1);
   transform.Perspective(1,1,1000);
-  transform.SetCamera(Point3s(0,30,10),Point3s(0,0,2),Point3s(0,0,1000));
+  transform.SetCamera(Vec3(0,30,10),Vec3(0,0,2),Vec3(0,0,1000));
   gfx.target.SetDepthMode(TDepthTest.Less);
 
   shader.AmbientLight($404030);
-  shader.DirectLight(Vector3(1,1,1),2,$907060);
+  shader.DirectLight(Vec3(1,1,1),2,$907060);
   transform.SetObj(0,3,3,3, 1, window.frameStartMs/1000,-0.6);
-  mesh.Draw;
+  if gpuMesh<>nil then gpuMesh.Draw;
 
   shader.AmbientLight($202020);
-  shader.DirectLight(Vector3(1,1,1),1,$808090);
+  shader.DirectLight(Vec3(1,1,1),1,$808090);
   for j:=0 to 3 do
    for i:=-2 to 2 do begin
     transform.SetObj(i*12,-20-j*10,j*6-12, 3, j, window.frameStartMs/1000,i);
-    mesh.Draw;
+    if gpuMesh<>nil then gpuMesh.Draw;
    end;
 
   shader.LightOff;
