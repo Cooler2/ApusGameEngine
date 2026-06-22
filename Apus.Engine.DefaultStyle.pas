@@ -109,8 +109,13 @@ implementation
    if font=0 then font:=defaultHintFont;
    if font=0 then font:=txt.GetFont('Default',7);
    with hnt do begin
-    hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
-    wsa:=UTF8.Decode(hnt.simpleText).Split(Str32('\n'));
+    // line breaks: '~' or a literal '\n' sequence -> a real newline char.
+    // NB: String32.Split treats its argument as a SET of delimiter chars, so we
+    // must split on the single #10, not on the 2-char "\n" (that would also break
+    // on every '\' and 'n' in the text and swallow them).
+    hnt.simpleText:=StringReplace(hnt.simpleText,'\n',#10,[rfReplaceAll]);
+    hnt.simpleText:=StringReplace(hnt.simpleText,'~',#10,[rfReplaceAll]);
+    wsa:=UTF8.Decode(hnt.simpleText).Split(UCS4Char(10));
     h:=round(txt.Height(font)*1.5);
     iHeight:=h*length(wsa)+9;
     iWidth:=0;
