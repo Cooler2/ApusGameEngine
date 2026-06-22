@@ -183,6 +183,7 @@ implementation
   var
    col:TUIElement;
    edit:TUIEditBox;
+   combo:TUIComboBox;
   begin
    AddTitle('Tab moves focus between fields. Click to focus, type to edit.',8);
 
@@ -214,7 +215,9 @@ implementation
 
    TUISplitter.CreateH(6,col);
    TUILabel.Create(200,18,col).Setup('ComboBox (popup):');
-   TUIComboBox.Create(200,24,col,'Lab\Combo',['Low','Medium','High','Ultra']);
+   combo:=TUIComboBox.Create(200,24,col,'Lab\Combo',['Low','Medium','High','Ultra']);
+   combo.defaultText:='Select quality...'; // placeholder shown while nothing is picked
+   combo.curItem:=-1;                       // refresh caption to the placeholder
   end;
 
 // --- Page: Scroll & clipping -------------------------------------------------

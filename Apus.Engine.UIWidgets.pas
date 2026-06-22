@@ -332,9 +332,11 @@ interface
    procedure AddItem(item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure SetItem(index:integer;item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure ClearItems;
-   procedure onDropDown; virtual;
+   procedure onDropDown; virtual; // toggle: open if closed, close (no commit) if open
+   procedure OpenPopup; virtual;
+   procedure ClosePopup(commit:boolean); virtual; // commit=true applies the hovered/selected line
    procedure onMouseButtons(button:byte;state:boolean); override;
-   procedure onTimer; override; // tracks popup list state without using signals
+   procedure onTimer; override; // safety net: close when focus leaves the combo+popup
    procedure SetCurItem(item:integer); virtual;
    procedure SetCurItemByText(value:String8); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;
@@ -1719,12 +1721,20 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
  procedure ComboEventHandler(event:TEventStr;tag:TTag);
   var
    e:TUIElement;
+   onHeader,onFrame:boolean;
   begin
+   if comboPop=nil then exit;
+   if event.StartsWith('UI\LISTBOX\ONSELECT\',true) then begin
+    comboPop.ClosePopup(true); // a popup line was clicked -> commit and close
+    exit;
+   end;
    if event.StartsWith('MOUSE\BTNDOWN',true) then begin
-    // if clicked on an element which is not child of the active combobox - hide it
     e:=underMouse;
-    if (comboPop<>nil) and (e<>nil) and
-      not (e.HasParent(comboPop) or e.HasParent(comboPop.frame)) then comboPop.onDropDown;
+    onHeader:=(e=comboPop) or ((e<>nil) and e.HasParent(comboPop));
+    onFrame:=(e=comboPop.frame) or ((e<>nil) and e.HasParent(comboPop.frame));
+    // header click is toggled by its own onMouseButtons; popup click selects a
+    // line; anything else (including empty space, underMouse=nil) closes w/o commit
+    if not onHeader and not onFrame then comboPop.ClosePopup(false);
    end;
   end;
 
@@ -1757,10 +1767,10 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
      end;
     end;
    end;
-   curItem:=-1;
    flags.canHaveFocus:=true;
    maxlines:=15;
    if defaultText='' then defaultText:=GetClassAttribute('defaultText');
+   curItem:=-1; // after defaultText so the empty caption shows the placeholder
 
    // Default properties for child controls
    frame:=TUIFrame.Create(size.x,2,self,1,0);
@@ -1777,9 +1787,16 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    popUp.selTextColor:=$FFFFFFFF;
 
    SetEventHandler('MOUSE\BTNDOWN',ComboEventHandler,emInstant);
+   SetEventHandler('UI\ListBox\onSelect\_ComboBoxPopUp',ComboEventHandler,emInstant); // commit on line click
   end;
 
  procedure TUIComboBox.onDropDown;
+  begin
+   if frame.flags.visible then ClosePopup(false) // header click while open -> just close
+    else OpenPopup;
+  end;
+
+ procedure TUIComboBox.OpenPopup;
   var
    r:TRect2;
    lCount,lHeight,i:integer;
@@ -1787,55 +1804,57 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    tag:cardinal;
    root:TUIElement;
   begin
-   if not frame.flags.visible then begin
-    // Show combo pop
-    Signal('UI\COMBOBOX\ONDROP\'+name,TTag(self));
-    if comboPop<>nil then comboPop.onDropDown;
-    // Attach drop-down list to the root element
-    root:=GetRoot;
-  {  r:=GetRect;
-    r.MoveBy(0,r.y2);}
-    r:=TransformTo(GetRect,root);
-    frame.position:=Vec2(r.x1, r.y2+1);
-    frame.size.x:=size.x;
-    frame.AttachTo(root);
+   if frame.flags.visible then exit;
+   Signal('UI\COMBOBOX\ONDROP\'+name,TTag(self));
+   if (comboPop<>nil) and (comboPop<>self) then comboPop.ClosePopup(false); // only one combo open at a time
+   // Attach drop-down list to the root element
+   root:=GetRoot;
+   r:=TransformTo(GetRect,root);
+   frame.position:=Vec2(r.x1, r.y2+1);
+   frame.size.x:=size.x;
+   frame.AttachTo(root);
 
-    lCount:=length(items);
-    if lCount>=maxlines then lCount:=round(maxLines*0.75);
-    // size and position
-    /// TODO: simplify and rework this
-    lHeight:=round(popup.lineHeight);
-    popup.size.y:=lHeight*lcount;
-    popup.size.x:=frame.size.x-2*frame.borderWidth;
-    frame.size.y:=popup.size.y+frame.borderWidth*2;
-    if frame.GetPosOnScreen.bottom>=root.height then
-     frame.position.y:=r.y1-1-frame.height;
-    // Content
-    popUp.ClearLines;
-    for i:=0 to high(items) do begin
-     if i<=high(hints) then hint:=hints[i]   // !!!
-      else hint:='';
-     if i<=high(tags) then tag:=tags[i]
-      else tag:=i;
-     popUp.AddLine(items[i],tag,hint);
-    end;
-    frame.flags.visible:=true;
-    popup.hoverLine:=curItem;
-    timer:=1;
-    comboPop:=self;
-   end else begin
-    // Hide combo pop
-    Signal('UI\COMBOBOX\ONHIDE\'+name,TTag(self));
-    comboPop:=nil;
-    i:=curItem;
-    if popup.selectedLine>=0 then curItem:=popup.selectedLine;
-    if curItem<>i then begin
-     Signal('UI\'+name+'\ONSELECT',i);
-     Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
-    end;
-    frame.flags.visible:=false;
-    frame.AttachTo(self);
-    timer:=0;
+   lCount:=length(items);
+   if lCount>=maxlines then lCount:=round(maxLines*0.75);
+   // size and position
+   /// TODO: simplify and rework this
+   lHeight:=round(popup.lineHeight);
+   popup.size.y:=lHeight*lcount;
+   popup.size.x:=frame.size.x-2*frame.borderWidth;
+   frame.size.y:=popup.size.y+frame.borderWidth*2;
+   if frame.GetPosOnScreen.bottom>=root.height then
+    frame.position.y:=r.y1-1-frame.height;
+   // Content
+   popUp.ClearLines;
+   for i:=0 to high(items) do begin
+    if i<=high(hints) then hint:=hints[i]
+     else hint:='';
+    if i<=high(tags) then tag:=tags[i]
+     else tag:=i;
+    popUp.AddLine(items[i],tag,hint);
+   end;
+   frame.flags.visible:=true;
+   popup.hoverLine:=curItem;
+   popup.selectedLine:=-1; // fresh: a selection only happens by an explicit click
+   timer:=1;
+   comboPop:=self;
+  end;
+
+ procedure TUIComboBox.ClosePopup(commit:boolean);
+  var
+   oldItem:integer;
+  begin
+   if not frame.flags.visible then exit;
+   Signal('UI\COMBOBOX\ONHIDE\'+name,TTag(self));
+   oldItem:=curItem;
+   if commit and (popup.selectedLine>=0) then curItem:=popup.selectedLine; // updates caption via setter
+   frame.flags.visible:=false;
+   frame.AttachTo(self);
+   timer:=0;
+   if comboPop=self then comboPop:=nil;
+   if curItem<>oldItem then begin
+    Signal('UI\'+name+'\ONSELECT',curItem);
+    Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
    end;
   end;
 
@@ -1849,12 +1868,17 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
   end;
 
  procedure TUIComboBox.onTimer;
+  var
+   f:TUIElement;
   begin
-   // не вызывать inherited, т.к. там поведение другое
-   if frame.flags.visible then begin
-    timer:=1;
-    if (popup.selectedLine>=0) or (FocusedElement<>self) then onDropDown;
-   end;
+   // Selection commits via the popup's SELECTED signal and click-outside closes
+   // via the global MOUSE\BTNDOWN handler. The timer is only a safety net that
+   // closes the popup once focus leaves the combo and its drop-down subtree.
+   if not frame.flags.visible then exit;
+   timer:=1;
+   f:=FocusedElement;
+   if (f=self) or (f=frame) or ((f<>nil) and (f.HasParent(self) or f.HasParent(frame))) then exit;
+   ClosePopup(false);
   end;
 
  procedure TUIComboBox.SetCurItem(item:integer);
