@@ -20,11 +20,10 @@ interface
    procedure Render; override;
   private
    wnd:TUIWindow;
-   tokenList,styleList,attrList:TUIListBox;
+   tokenList,styleList,attrList,themeList:TUIListBox;
    valueEdit:TUIEditBox;
    swatch:TUIElement;
    rSlider,gSlider,bSlider:TUIScrollBar;
-   darkCheck:TUICheckBox;
    tokenValue,styleValue,attrValue:TUILabel;
    selectedToken,selectedStyle,selectedAttr:integer;
    lastColor:cardinal;
@@ -124,13 +123,17 @@ procedure TStyleThemeEditorScene.CreateUI;
   LabelAt(wnd,184,158,16,'B');
   bSlider:=MakeSlider(wnd,158,'StyleDemo\SliderB');
 
-  darkCheck:=TUICheckBox.Create(180,24,wnd,'StyleDemo\DarkTheme');
-  darkCheck.Setup('Dark theme',editorTheme='dark');
-  darkCheck.SetPos(184,208,pivotTopLeft);
-  darkCheck.style.Assign('@demo-check;');
+  LabelAt(wnd,184,206,70,'Theme');
+  themeList:=TUIListBox.Create(110,46,wnd,'StyleDemo\ThemeList',22);
+  themeList.SetPos(244,206,pivotTopLeft);
+  themeList.style.Assign('@demo-list;');
+  themeList.AddLine('light');
+  themeList.AddLine('dark');
+  if editorTheme='dark' then themeList.SelectLine(1)
+   else themeList.SelectLine(0);
 
   LabelAt(wnd,184,250,290,'Drag RGB sliders to retune selected token live.');
-  LabelAt(wnd,184,272,290,'Theme switch reloads current token values.');
+  LabelAt(wnd,184,272,290,'Theme list swaps the whole palette.');
 
   LabelAt(wnd,14,314,130,'Style blocks');
   styleList:=TUIListBox.Create(145,112,wnd,'StyleDemo\StyleList',22);
@@ -240,7 +243,7 @@ function TStyleThemeEditorScene.Process:boolean;
   result:=inherited Process;
   if tokenList=nil then exit;
 
-  if darkCheck.checked then want:='dark' else want:='light';
+  if themeList.selectedLine=1 then want:='dark' else want:='light';
   if want<>editorTheme then begin
    ApplyTheme(want);
    editorTheme:=want;
