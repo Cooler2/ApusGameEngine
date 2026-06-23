@@ -10,7 +10,6 @@ interface
  type
   TStyleDemoApp=class(TGameApplication)
    constructor Create;
-   procedure LoadOptions; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -47,10 +46,6 @@ constructor TStyleDemoApp.Create;
   usedPlatform:=spDefault;
   {$ENDIF}
   inherited;
-  windowWidth:=1280;
-  windowHeight:=560;
-  windowSizeable:=true;
-  scaleWindowSize:=false;
   st:=ExtractFileDir(ParamStr(0));
   SetCurrentDir(st);
   if DirectoryExists('../demo/StyleDemo') then
@@ -58,25 +53,17 @@ constructor TStyleDemoApp.Create;
 
   gameTitle:='R-05 Style System Demo';
   usedAPI:=gaOpenGL2;
- end;
-
-procedure TStyleDemoApp.LoadOptions;
- begin
-  inherited;
-  // Keep the showcase wide enough for the separate editor scene even if an old
-  // local config contains a smaller StyleDemo window size.
-  windowWidth:=1280;
-  windowHeight:=560;
-  windowSizeable:=true;
+  useRealDPI:=false;
+  windowWidth:=1520;
+  windowHeight:=860;
+  windowSizeable:=false;
   scaleWindowSize:=false;
  end;
 
 procedure TStyleDemoApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.width:=1280;
-  settings.height:=560;
-  settings.mode.displayMode:=dmWindow;
+  settings.mode.displayMode:=dmFixedWindow;
   settings.mode.displayFitMode:=dfmFullSize;
   settings.mode.displayScaleMode:=dsmDontScale;
  end;
@@ -107,14 +94,13 @@ procedure TStyleDemoApp.CreateScenes;
 
   mainScene:=TStyleDemoScene.Create('StyleDemo');
   mainScene.CreateUI;
-  mainScene.SetStatus(TSceneStatus.ssActive);
+
+  Sleep(250);
+  TTransitionEffect.Create(mainScene,250);
 
   editorScene:=TStyleThemeEditorScene.Create;
   editorScene.CreateUI;
   editorScene.SetStatus(TSceneStatus.ssActive);
-
-  Sleep(250);
-  TTransitionEffect.Create(mainScene,250);
  end;
 
 { TStyleDemoScene }
