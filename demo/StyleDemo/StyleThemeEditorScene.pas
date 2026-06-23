@@ -16,23 +16,27 @@ interface
    constructor Create(sceneName:string='StyleThemeEditor');
    procedure CreateUI;
    procedure SetStatus(st:TSceneStatus); override;
+   procedure onMouseBtn(btn:byte;pressed:boolean); override;
    function Process:boolean; override;
    procedure Render; override;
+   procedure BindElement(element:TUIElement);
   private
    wnd:TUIWindow;
    tokenList,styleList,attrList,themeList:TUIListBox;
-   valueEdit:TUIEditBox;
+   valueEdit,elementStyleEdit:TUIEditBox;
    swatch:TUIElement;
    rSlider,gSlider,bSlider:TUIScrollBar;
-   tokenValue,styleValue,attrValue:TUILabel;
+   tokenValue,styleValue,attrValue,elementValue:TUILabel;
+   selectedElement:TUIElement;
    selectedToken,selectedStyle,selectedAttr:integer;
    lastColor:cardinal;
-   lastValue:String8;
+   lastValue,lastElementStyle:String8;
    editorTheme:String8;
    procedure LoadToken(index:integer);
    procedure LoadStyle(index:integer);
    procedure LoadAttr(index:integer);
    procedure ApplyAttrValue;
+   procedure ApplyElementStyle;
   end;
 
  const
@@ -94,15 +98,15 @@ procedure TStyleThemeEditorScene.CreateUI;
  var
   i:integer;
  begin
-  wnd:=TUIWindow.Create(500,500,true,UI,'StyleDemo\EditorWindow','Runtime UI style editor');
+  wnd:=TUIWindow.Create(500,590,true,UI,'StyleDemo\EditorWindow','Runtime UI style editor');
   wnd.SetPos(760,18,pivotTopLeft);
   wnd.minW:=500;
-  wnd.minH:=440;
+  wnd.minH:=540;
   wnd.style.Assign('@demo-panel; color:&surface-alt;');
   wnd.moveable:=true;
 
   LabelAt(wnd,14,16,160,'Palette tokens');
-  tokenList:=TUIListBox.Create(150,252,wnd,'StyleDemo\TokenList',22);
+  tokenList:=TUIListBox.Create(150,258,wnd,'StyleDemo\TokenList',22);
   tokenList.SetPos(14,38,pivotTopLeft);
   tokenList.style.Assign('@demo-list;');
   for i:=0 to high(STYLEDEMO_PALETTE) do
@@ -124,7 +128,7 @@ procedure TStyleThemeEditorScene.CreateUI;
   bSlider:=MakeSlider(wnd,158,'StyleDemo\SliderB');
 
   LabelAt(wnd,184,206,70,'Theme');
-  themeList:=TUIListBox.Create(110,46,wnd,'StyleDemo\ThemeList',22);
+  themeList:=TUIListBox.Create(110,52,wnd,'StyleDemo\ThemeList',22);
   themeList.SetPos(244,206,pivotTopLeft);
   themeList.style.Assign('@demo-list;');
   themeList.AddLine('light');
@@ -136,7 +140,7 @@ procedure TStyleThemeEditorScene.CreateUI;
   LabelAt(wnd,184,272,290,'Theme list swaps the whole palette.');
 
   LabelAt(wnd,14,314,130,'Style blocks');
-  styleList:=TUIListBox.Create(145,112,wnd,'StyleDemo\StyleList',22);
+  styleList:=TUIListBox.Create(145,118,wnd,'StyleDemo\StyleList',22);
   styleList.SetPos(14,336,pivotTopLeft);
   styleList.style.Assign('@demo-list;');
   for i:=0 to high(STYLEDEMO_STYLE_NAMES) do
@@ -144,7 +148,7 @@ procedure TStyleThemeEditorScene.CreateUI;
   styleList.SelectLine(1);
 
   LabelAt(wnd,172,314,130,'Parameters');
-  attrList:=TUIListBox.Create(145,112,wnd,'StyleDemo\AttrList',22);
+  attrList:=TUIListBox.Create(145,118,wnd,'StyleDemo\AttrList',22);
   attrList.SetPos(172,336,pivotTopLeft);
   attrList.style.Assign('@demo-list;');
   for i:=0 to high(STYLEDEMO_STYLE_KEYS) do
@@ -165,6 +169,18 @@ procedure TStyleThemeEditorScene.CreateUI;
   attrValue.style.Assign('@demo-label;');
 
   LabelAt(wnd,330,426,150,'&token, color, number, percent.');
+
+  LabelAt(wnd,14,462,450,'RMB/MMB any visible element: inspect and edit its local style');
+  elementValue:=TUILabel.Create(466,18,wnd);
+  elementValue.Setup('selected: (none)').SetPos(14,484,pivotTopLeft);
+  elementValue.style.Assign('@demo-label;');
+
+  elementStyleEdit:=TUIEditBox.Create(466,26,wnd,'StyleDemo\ElementStyleEdit');
+  elementStyleEdit.SetPos(14,510,pivotTopLeft);
+  elementStyleEdit.style.Assign('@demo-input;');
+  elementStyleEdit.maxLength:=1200;
+
+  LabelAt(wnd,14,542,466,'This field replaces element.style.Text live; use @refs or key:value pairs.');
 
   LoadToken(tokenList.selectedLine);
   LoadStyle(styleList.selectedLine);
@@ -190,6 +206,26 @@ procedure TStyleThemeEditorScene.SetStatus(st:TSceneStatus);
   inherited;
   if (st=TSceneStatus.ssActive) and (wnd<>nil) then
    wnd.SetFocus;
+ end;
+
+procedure TStyleThemeEditorScene.BindElement(element:TUIElement);
+ begin
+  if element=nil then exit;
+  selectedElement:=element;
+  lastElementStyle:=element.style.GetText;
+  elementStyleEdit.text:=lastElementStyle;
+  elementValue.caption:='selected: '+element.ClassName+' '+element.name;
+ end;
+
+procedure TStyleThemeEditorScene.onMouseBtn(btn:byte;pressed:boolean);
+ var
+  c:TUIElement;
+ begin
+  inherited;
+  if not pressed then exit;
+  if (btn<>2) and (btn<>3) then exit;
+  if (UI<>nil) and UI.FindAnyElementAt(curMouseX,curMouseY,c) then
+   if c<>elementStyleEdit then BindElement(c);
  end;
 
 procedure TStyleThemeEditorScene.LoadStyle(index:integer);
@@ -234,6 +270,14 @@ procedure TStyleThemeEditorScene.ApplyAttrValue;
   attrValue.caption:=STYLEDEMO_STYLE_KEYS[selectedAttr]+': '+lastValue;
  end;
 
+procedure TStyleThemeEditorScene.ApplyElementStyle;
+ begin
+  if (selectedElement=nil) or (elementStyleEdit=nil) then exit;
+  if elementStyleEdit.text=lastElementStyle then exit;
+  lastElementStyle:=elementStyleEdit.text;
+  selectedElement.style.Assign(lastElementStyle);
+ end;
+
 function TStyleThemeEditorScene.Process:boolean;
  var
   want:String8;
@@ -269,6 +313,8 @@ function TStyleThemeEditorScene.Process:boolean;
   if attrList.selectedLine<>selectedAttr then
    LoadAttr(attrList.selectedLine);
   ApplyAttrValue;
+  ApplyElementStyle;
+  ignoreKeyboardEvents:=not ((FocusedElement<>nil) and FocusedElement.HasParent(UI));
  end;
 
 procedure TStyleThemeEditorScene.Render;

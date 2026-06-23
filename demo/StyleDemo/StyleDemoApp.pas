@@ -20,12 +20,13 @@ interface
 implementation
  uses SysUtils, Apus.Core, Apus.Strings, Apus.EventMan,
    Apus.Engine.Types, Apus.Engine.Scene, Apus.Engine.SceneEffects,
-   Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.Style,
+   Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.Style,
    StyleThemeEditorScene;
 
  type
   TStyleDemoScene=class(TUIScene)
    procedure CreateUI;
+   procedure onMouseBtn(btn:byte;pressed:boolean); override;
    procedure Render; override;
   end;
 
@@ -165,6 +166,7 @@ procedure TStyleDemoScene.CreateUI;
   panel1,panel2,panel3,panel4:TUIElement;
   group:TUIGroupBox;
   btn:TUIButton;
+  chk:TUICheckBox;
   edit:TUIEditBox;
   list:TUIListBox;
   scroll:TUIScrollBar;
@@ -205,16 +207,17 @@ procedure TStyleDemoScene.CreateUI;
   edit.SetPos(12,74,pivotTopLeft);
   edit.style.Assign('@demo-input;');
 
-  group:=TUIGroupBox.Create(140,74,panel2,'StyleDemo\RadioGroup');
-  group.SetPos(228,70,pivotTopLeft);
-  TUICheckBox.Create(130,24,group,'StyleDemo\Check').Setup('Checkbox',true).
-    SetPos(0,0,pivotTopLeft).style.Assign('@demo-check;');
+  chk:=TUICheckBox.Create(130,24,panel2,'StyleDemo\Check').Setup('Checkbox',true);
+  chk.SetPos(228,74,pivotTopLeft);
+  chk.style.Assign('@demo-check;');
+  group:=TUIGroupBox.Create(140,52,panel2,'StyleDemo\RadioGroup');
+  group.SetPos(228,104,pivotTopLeft);
   TUIRadioButton.Create(130,24,group,'StyleDemo\Radio1').Setup('Radio A',true).
-    SetPos(0,26,pivotTopLeft).style.Assign('@demo-check;');
+    SetPos(0,0,pivotTopLeft).style.Assign('@demo-check;');
   TUIRadioButton.Create(130,24,group,'StyleDemo\Radio2').Setup('Radio B',false).
-    SetPos(0,52,pivotTopLeft).style.Assign('@demo-check;');
+    SetPos(0,26,pivotTopLeft).style.Assign('@demo-check;');
 
-  list:=TUIListBox.Create(210,74,panel2,'StyleDemo\SampleList',22);
+  list:=TUIListBox.Create(210,82,panel2,'StyleDemo\SampleList',22);
   list.SetPos(12,122,pivotTopLeft);
   list.style.Assign('@demo-list;');
   list.AddLine('ListBox item: surface');
@@ -244,6 +247,17 @@ procedure TStyleDemoScene.CreateUI;
   btn.SetPos(12,188,pivotTopLeft);
   StyleButton(btn);
   Link('UI\StyleDemo\Exit\OnClick','Engine\Cmd\Exit');
+ end;
+
+procedure TStyleDemoScene.onMouseBtn(btn:byte;pressed:boolean);
+ var
+  c:TUIElement;
+ begin
+  inherited;
+  if not pressed then exit;
+  if (btn<>2) and (btn<>3) then exit;
+  if (editorScene<>nil) and (UI<>nil) and UI.FindAnyElementAt(curMouseX,curMouseY,c) then
+   editorScene.BindElement(c);
  end;
 
 procedure TStyleDemoScene.Render;
