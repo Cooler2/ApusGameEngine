@@ -101,7 +101,7 @@ procedure RegisterDemoStyles;
     'fill:0; border-color:0; border-width:0; inner-fill:0; inner-border:0;'+
     'track-width:0.25; slider-width:0.72; min-size:0.35; radius:0;';
   Styles['demo-check']:='fill:0; border-color:0; border-width:0; radius:0;'+
-    'inner-fill:0; inner-border:0; color:&control; text-color:&text;';
+    'inner-fill:0; inner-border:0; color:&control; col:&text; tick-col:&accent; text-color:&text;';
   Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text;';
  end;
 

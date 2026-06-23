@@ -489,6 +489,7 @@ begin
  wnd.moveable:=true;
  wnd.minW:=120; wnd.minH:=160;
  wnd.style.SetAttr('color','$80202020');
+ wnd.style.SetAttr('col','$80202020');
  zorder:=$FF0000;
 
  // View-control toolbar across the top of the client area.

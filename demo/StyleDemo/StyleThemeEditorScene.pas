@@ -90,7 +90,7 @@ constructor TStyleThemeEditorScene.Create(sceneName:string);
   selectedStyle:=-1;
   selectedAttr:=-1;
   editorTheme:=ActiveTheme;
-  zorder:=$FF0000;
+  zorder:=$FE0000;
   frequency:=12;
  end;
 

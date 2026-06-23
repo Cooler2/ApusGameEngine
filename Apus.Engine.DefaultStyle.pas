@@ -212,10 +212,9 @@ implementation
      else begin
       v:=256-(CoreTime.Ticks-created) div 2;
       if v<=0 then begin
-        Log.Msg('Hide expired hint '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
         {FreeImage(HintImage);
         HintImage:=nil;}
-        control.Hide;
+        control.flags.visible:=false;
         exit;
       end;
      end;
