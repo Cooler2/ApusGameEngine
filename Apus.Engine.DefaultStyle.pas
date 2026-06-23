@@ -466,7 +466,7 @@ implementation
    col:cardinal;
    font:TFontHandle;
   begin
-   col:=element.GetStyleColor('col',$FFB0B0C0);
+   col:=element.GetStyleColor('color',element.GetStyleColor('col',$FFB0B0C0));
    font:=StyleFont(element);
    with element do begin
     draw.FillRect(x1,y1,x2,y2,col);
