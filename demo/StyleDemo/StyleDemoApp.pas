@@ -18,43 +18,21 @@ interface
   application:TStyleDemoApp;
 
 implementation
- uses SysUtils, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Colors,
-   Apus.Engine.Types, Apus.Engine.SceneEffects, Apus.Engine.UI, Apus.Engine.UIWidgets,
-   Apus.Engine.Style;
+ uses SysUtils, Apus.Core, Apus.Strings, Apus.EventMan,
+   Apus.Engine.Types, Apus.Engine.Scene, Apus.Engine.SceneEffects,
+   Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.Style,
+   StyleThemeEditorScene;
 
  type
   TStyleDemoScene=class(TUIScene)
    procedure CreateUI;
-   procedure CreateEditor(parent:TUIElement);
-   function Process:boolean; override;
    procedure Render; override;
   end;
 
- const
-  // Full palette, in the same order as the built-in themes (Apus.Engine.Style).
-  // The editor lets you tune any of these live; demo widgets bind to a subset.
-  PALETTE:array[0..18] of String8=(
-   'surface','surface-alt','overlay',
-   'text','text-muted','text-on-accent',
-   'border','border-light','border-dark',
-   'control',
-   'accent','accent-text',
-   'danger','danger-text',
-   'success','success-text',
-   'warning','warning-text',
-   'focus');
-
  var
   mainScene:TStyleDemoScene;
+  editorScene:TStyleThemeEditorScene;
   styleRefToggle:boolean; // for the @ref update button demo
-  // --- editor widgets + state ---
-  edCombo:TUIComboBox;          // token selector
-  edSwatch:TUIElement;          // shows the selected token color (fill:&<token>)
-  edR,edG,edB:TUIScrollBar;     // R/G/B channel sliders (0..255)
-  edDark:TUICheckBox;           // dark/light theme toggle
-  edSel:integer;                // currently loaded token index (-1 = force reload)
-  edLastColor:cardinal;         // last color loaded/written (avoids redundant SetToken)
-  edTheme:String8;              // theme name currently driven by the checkbox
 
 { TStyleDemoApp }
 
@@ -80,207 +58,177 @@ constructor TStyleDemoApp.Create;
 procedure TStyleDemoApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
+  settings.width:=1280;
+  settings.height:=560;
   settings.mode.displayMode:=dmWindow;
   settings.mode.displayFitMode:=dfmFullSize;
   settings.mode.displayScaleMode:=dsmDontScale;
  end;
 
+procedure RegisterDemoStyles;
+ begin
+  Styles['demo-label']:='text-color:&text; color:&text; font-size:9;';
+  Styles['demo-muted-label']:='text-color:&text-muted; color:&text-muted; font-size:8;';
+  Styles['demo-panel']:='fill:&surface; border-color:&border; border-width:1; radius:8;';
+  Styles['demo-showcase']:='fill:&surface-alt; border-color:&border-light; border-width:1; radius:6;';
+  Styles['demo-button']:='color:&control; text-color:&text; border-width:1; border-color:&border; radius:5;'+
+    ':hover { color:&accent; text-color:&accent-text; }'+
+    ':pressed { color:&danger; text-color:&danger-text; }';
+  Styles['demo-input']:='fill:&overlay; text-color:&text; border-color:&border; border-width:1; radius:4;'+
+    ':focused { border-color:&focus; }';
+  Styles['demo-list']:='fill:&overlay; text-color:&text; sel-bg:&accent; sel-text-color:&accent-text;'+
+    'border-color:&border; border-width:1; radius:4;';
+  Styles['demo-slider']:='col:&control; track-col:&border-dark; active-col:&accent;'+
+    'track-width:0.35; slider-width:0.82; min-size:0.4; radius:0.18;';
+  Styles['demo-check']:='color:&control; text-color:&text; border-color:&border; radius:4;';
+  Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text;';
+ end;
+
 procedure TStyleDemoApp.CreateScenes;
  begin
   inherited;
+  RegisterDemoStyles;
+
   mainScene:=TStyleDemoScene.Create('StyleDemo');
   mainScene.CreateUI;
-  Sleep(500);
-  TTransitionEffect.Create(mainScene, 250);
+  mainScene.SetStatus(TSceneStatus.ssActive);
+
+  editorScene:=TStyleThemeEditorScene.Create;
+  editorScene.CreateUI;
+  editorScene.SetStatus(TSceneStatus.ssActive);
+
+  Sleep(250);
+  TTransitionEffect.Create(mainScene,250);
  end;
 
 { TStyleDemoScene }
 
-// Toggle @demo-btn named style between two semantic tokens → Btn3 updates too
 procedure StyleDemoUpdateRef;
  begin
   styleRefToggle:=not styleRefToggle;
   if styleRefToggle then
-   Styles['demo-btn']:='color:&danger; text-color:&danger-text;'
+   Styles['demo-btn']:='@demo-button; color:&danger; text-color:&danger-text; radius:12;'
   else
-   Styles['demo-btn']:='color:&accent; text-color:&accent-text;';
+   Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text; radius:5;';
  end;
 
-// Left panel: the "test subjects". Their styles bind to palette tokens, so editing
-// a token in the right-hand editor recolors them live.
-//   Btn1: no style — default drawer (baseline, ignores tokens)
-//   Btn2: color:&control
-//   Btn3: @demo-btn → color:&accent  (toggled to &danger by Btn6)
-//   Btn4: states — base &control, :hover &accent, :pressed &danger
-//   Btn5: disabled — :disabled text-color:&text-muted
-//   Btn6: toggles @demo-btn between &accent and &danger
-procedure TStyleDemoScene.CreateUI;
+function Panel(parent:TUIElement;x,y,w,h:single;const name,title:String8):TUIElement;
  var
-  panel,editor:TUIElement;
-  btn:TUIButton;
   lbl:TUILabel;
  begin
-  // Named style reused by Btn3 and the @ref toggle demo
-  Styles['demo-btn']:='color:&accent; text-color:&accent-text;';
+  result:=TUIElement.Create(w,h,parent,'StyleDemo\'+name);
+  result.SetPos(x,y,pivotTopLeft);
+  result.style.Assign('@demo-panel;');
+  lbl:=TUILabel.Create(w-24,20,result,'StyleDemo\'+name+'Title');
+  lbl.Setup(title);
+  lbl.SetPos(12,10,pivotTopLeft);
+  lbl.style.Assign('@demo-label; font-size:10;');
+ end;
 
-  // --- Left panel: test subjects (280×330 at 10,10) ---
-  panel:=TUIElement.Create(280, 330, UI, 'StyleDemo\Panel');
-  panel.SetPos(10, 10, pivotTopLeft);
-  panel.styleinfo:='fill:&surface; border-width:1; border-color:&border;';
-  lbl:=TUILabel.Create(260, 20, panel, 'StyleDemo\Title');
-  lbl.Centered('Test subjects (bound to tokens)').SetPos(140, 18, pivotCenter);
-  lbl.style.SetAttr('color','&text');
+procedure MakeLabel(parent:TUIElement;x,y,w:single;const text:String8;muted:boolean=false);
+ var
+  lbl:TUILabel;
+ begin
+  lbl:=TUILabel.Create(w,18,parent);
+  lbl.Setup(text);
+  lbl.SetPos(x,y,pivotTopLeft);
+  if muted then lbl.style.Assign('@demo-muted-label;')
+   else lbl.style.Assign('@demo-label;');
+ end;
 
-  // Btn1: no custom style — default drawer (baseline)
-  TUIButton.Create(250, 30, panel, 'StyleDemo\Btn1').Setup('Default style').
-    SetPos(140, 55, pivotCenter);
+procedure StyleButton(btn:TUIButton;const styleText:String8='@demo-button;');
+ begin
+  btn.style.Assign(styleText);
+ end;
 
-  // Btn2: face color from &control token
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn2').Setup('color:&control');
-  btn.SetPos(140, 93, pivotCenter);
-  btn.style.Assign('color:&control; text-color:&text;');
+procedure TStyleDemoScene.CreateUI;
+ var
+  panel1,panel2,panel3,panel4:TUIElement;
+  group:TUIGroupBox;
+  btn:TUIButton;
+  edit:TUIEditBox;
+  list:TUIListBox;
+  scroll:TUIScrollBar;
+ begin
+  panel1:=Panel(UI,18,18,370,250,'Buttons','Buttons and states');
+  MakeLabel(panel1,12,40,320,'Buttons demonstrate @refs, hover, pressed and disabled states.',true);
 
-  // Btn3: @ref to a token-based named style
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn3').Setup('@demo-btn (accent)');
-  btn.SetPos(140, 131, pivotCenter);
-  btn.style.Assign('@demo-btn;');
+  btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnDefault').Setup('Default drawer');
+  btn.SetPos(12,74,pivotTopLeft);
 
-  // Btn4: state blocks reference tokens too
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn4').Setup('States: hover/pressed');
-  btn.SetPos(140, 169, pivotCenter);
-  btn.style.Assign(
-    'color:&control; text-color:&text;'+
-    ':hover { color:&accent; text-color:&accent-text; }'+
-    ':pressed { color:&danger; text-color:&danger-text; }');
+  btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnToken').Setup('Token button');
+  btn.SetPos(190,74,pivotTopLeft);
+  StyleButton(btn);
 
-  // Btn5: disabled — :disabled overrides text-color with &text-muted
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn5').Setup('Disabled button');
-  btn.SetPos(140, 207, pivotCenter);
-  btn.style.Assign(
-    'color:&control; text-color:&text;'+
-    ':disabled { text-color:&text-muted; }');
-  btn.flags.enabled:=false;
+  btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnRef').Setup('@demo-btn');
+  btn.SetPos(12,118,pivotTopLeft);
+  StyleButton(btn,'@demo-btn;');
 
-  // Btn6: click toggles @demo-btn → Btn3 updates (cascade demo)
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn6').Setup('Toggle @demo-btn (accent/danger)');
-  btn.SetPos(140, 245, pivotCenter);
+  btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnToggleRef').Setup('Toggle @demo-btn');
+  btn.SetPos(190,118,pivotTopLeft);
+  StyleButton(btn);
   btn.onClickAsync:=@StyleDemoUpdateRef;
 
-  // --- Right panel: live token editor ---
-  editor:=TUIElement.Create(380, 330, UI, 'StyleDemo\Editor');
-  editor.SetPos(320, 10, pivotTopLeft);
-  editor.styleinfo:='fill:&surface; border-width:1; border-color:&border;';
-  CreateEditor(editor);
+  btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnDisabled').Setup('Disabled');
+  btn.SetPos(12,162,pivotTopLeft);
+  StyleButton(btn);
+  btn.flags.enabled:=false;
 
-  // Exit button outside the panels
-  btn:=TUIButton.Create(120, 30, UI, 'StyleDemo\Exit').Setup('Exit');
-  btn.SetPos(10, 355, pivotTopLeft);
-  Link('UI\StyleDemo\Exit\OnClick', 'Engine\Cmd\Exit');
- end;
+  btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnDanger').Setup('Danger override');
+  btn.SetPos(190,162,pivotTopLeft);
+  StyleButton(btn,'@demo-button; color:&danger; text-color:&danger-text; radius:12;');
 
-procedure TStyleDemoScene.CreateEditor(parent:TUIElement);
- var
-  i:integer;
+  panel2:=Panel(UI,18,286,370,226,'Inputs','Inputs and selection');
+  MakeLabel(panel2,12,40,330,'These widgets use editable named style blocks.',true);
 
-  function MakeSlider(y:single; nm:String8):TUIScrollBar;
-   begin
-    result:=TUIScrollBar.CreateH(240, 18, parent, 'StyleDemo\'+nm);
-    result.SetPos(40, y, pivotTopLeft);
-    result.isInteger:=true;
-    result.SetRange(0, 255+18, 18); // value range becomes 0..255 (max-pageSize)
-   end;
+  edit:=TUIEditBox.Create(210,26,panel2,'StyleDemo\SampleEdit');
+  edit.text:='Editable text';
+  edit.SetPos(12,74,pivotTopLeft);
+  edit.style.Assign('@demo-input;');
 
- begin
-  // Token selector (all palette entries)
-  edCombo:=TUIComboBox.Create(215, 26, parent, 'StyleDemo\TokenCombo');
-  edCombo.SetPos(70, 42, pivotTopLeft);
-  for i:=0 to high(PALETTE) do
-   edCombo.AddItem(PALETTE[i], i);
-  edCombo.curItem:=10; // 'accent' — a token used by several test buttons
+  group:=TUIGroupBox.Create(140,74,panel2,'StyleDemo\RadioGroup');
+  group.SetPos(228,70,pivotTopLeft);
+  TUICheckBox.Create(130,24,group,'StyleDemo\Check').Setup('Checkbox',true).
+    SetPos(0,0,pivotTopLeft).style.Assign('@demo-check;');
+  TUIRadioButton.Create(130,24,group,'StyleDemo\Radio1').Setup('Radio A',true).
+    SetPos(0,26,pivotTopLeft).style.Assign('@demo-check;');
+  TUIRadioButton.Create(130,24,group,'StyleDemo\Radio2').Setup('Radio B',false).
+    SetPos(0,52,pivotTopLeft).style.Assign('@demo-check;');
 
-  // Swatch: bound to the selected token via fill, so it tracks live edits + theme swaps
-  edSwatch:=TUIElement.Create(72, 54, parent, 'StyleDemo\Swatch');
-  edSwatch.SetPos(295, 40, pivotTopLeft);
+  list:=TUIListBox.Create(210,74,panel2,'StyleDemo\SampleList',22);
+  list.SetPos(12,122,pivotTopLeft);
+  list.style.Assign('@demo-list;');
+  list.AddLine('ListBox item: surface');
+  list.AddLine('ListBox item: accent');
+  list.AddLine('ListBox item: warning');
+  list.SelectLine(1);
 
-  // R/G/B channel sliders
-  edR:=MakeSlider(108, 'SliderR');
-  edG:=MakeSlider(146, 'SliderG');
-  edB:=MakeSlider(184, 'SliderB');
+  panel3:=Panel(UI,410,286,330,226,'Metrics','Non-color style parameters');
+  MakeLabel(panel3,12,40,290,'Try radius, border-width, font-size and slider metrics.',true);
+  MakeLabel(panel3,12,78,80,'Scrollbar');
+  scroll:=TUIScrollBar.CreateH(230,20,panel3,'StyleDemo\SampleScroll');
+  scroll.SetPos(86,78,pivotTopLeft);
+  scroll.SetRange(0,100,20);
+  scroll.value:=45;
+  scroll.style.Assign('@demo-slider;');
 
-  // Theme toggle
-  edDark:=TUICheckBox.Create(200, 24, parent, 'StyleDemo\DarkChk');
-  edDark.Setup('Dark theme', false);
-  edDark.SetPos(40, 226, pivotTopLeft);
+  MakeLabel(panel3,12,118,295,'The editor window is a separate scene layered above this one.',true);
+  MakeLabel(panel3,12,142,290,'Later it can become an engine module for runtime UI tuning.',true);
 
-  edSel:=-1;       // force first-frame load
-  edTheme:='light';
- end;
+  panel4:=Panel(UI,410,18,330,250,'Theme coverage','Styled containers');
+  MakeLabel(panel4,12,40,286,'Panels, labels, inputs, lists, toggles and sliders all bind to tokens.',true);
+  MakeLabel(panel4,12,82,286,'Edit named styles in the right window to affect whole widget groups.',false);
+  MakeLabel(panel4,12,112,286,'Palette edits change every style that uses &token references.',false);
 
-function TStyleDemoScene.Process:boolean;
- var
-  ti,r,g,b:integer;
-  col:cardinal;
-  want:String8;
- begin
-  result:=inherited Process;
-  if edCombo=nil then exit; // UI not built yet
-
-  // 1. Theme swap (checkbox is the source of truth, polled each frame)
-  if edDark.checked then want:='dark' else want:='light';
-  if want<>edTheme then begin
-   ApplyTheme(want);
-   edTheme:=want;
-   edSel:=-1; // token values changed → reload sliders for the current token
-  end;
-
-  ti:=edCombo.curItem;
-  if (ti<0) or (ti>high(PALETTE)) then exit;
-
-  if ti<>edSel then begin
-   // selection changed → load the token's color into the sliders (no write-back)
-   edSel:=ti;
-   col:=ParseStyleColor(GetToken(PALETTE[ti]));
-   edR.value:=(col shr 16) and $FF;
-   edG.value:=(col shr 8) and $FF;
-   edB.value:=col and $FF;
-   edLastColor:=col;
-   edSwatch.styleinfo:='fill:&'+PALETTE[ti]+'; border-width:1; border-color:&border;';
-  end else begin
-   // same token → apply slider edits to the token (only when actually changed)
-   r:=round(edR.value); g:=round(edG.value); b:=round(edB.value);
-   col:=cardinal($FF000000) or cardinal(r shl 16) or cardinal(g shl 8) or cardinal(b);
-   if col<>edLastColor then begin
-    SetTokenColor(PALETTE[ti], col);
-    edLastColor:=col;
-   end;
-  end;
+  btn:=TUIButton.Create(120,30,panel4,'StyleDemo\Exit').Setup('Exit');
+  btn.SetPos(12,188,pivotTopLeft);
+  StyleButton(btn);
+  Link('UI\StyleDemo\Exit\OnClick','Engine\Cmd\Exit');
  end;
 
 procedure TStyleDemoScene.Render;
- var
-  font:cardinal;
-  px,py,r,g,b:integer;
  begin
   gfx.target.Clear($FF101014);
-  font:=txt.GetFont('Default', 7);
-  px:=320; py:=10; // editor panel origin
-
-  txt.Write(font, px+14, py+14, $FFFFFFFF, 'Live token editor');
-  txt.Write(font, px+14, py+48, $FFE0E0E0, 'Token:');
-
-  r:=round(edR.value); g:=round(edG.value); b:=round(edB.value);
-  txt.Write(font, px+18, py+108, $FFFF8080, 'R');
-  txt.Write(font, px+18, py+146, $FF80FF80, 'G');
-  txt.Write(font, px+18, py+184, $FF8080FF, 'B');
-  txt.Write(font, px+286, py+108, $FFFFFFFF, IntToStr(r));
-  txt.Write(font, px+286, py+146, $FFFFFFFF, IntToStr(g));
-  txt.Write(font, px+286, py+184, $FFFFFFFF, IntToStr(b));
-  if (edSel>=0) and (edSel<=high(PALETTE)) then
-   txt.Write(font, px+14, py+264, $FFD0D0D0,
-    Format('%s = #%.6x', [PALETTE[edSel], (r shl 16) or (g shl 8) or b]));
-
-  txt.Write(font, 10, 400, $FFB0B0B0, 'Pick a token, drag R/G/B to retune the palette live.');
-  txt.Write(font, 10, 418, $FFB0B0B0, 'Toggle "Dark theme" to swap the whole palette at once.');
   inherited;
  end;
 
