@@ -6,7 +6,8 @@
 
 unit StyleThemeEditorScene;
 interface
- uses Apus.Core, Apus.Engine.UIScene, Apus.Engine.UITypes, Apus.Engine.UIWidgets;
+ uses Apus.Core, Apus.Engine.Scene, Apus.Engine.UIScene, Apus.Engine.UITypes,
+   Apus.Engine.UIWidgets;
 
  type
   // Windowed overlay scene. Kept demo-local for now, but the public shape is
@@ -14,6 +15,7 @@ interface
   TStyleThemeEditorScene=class(TUIScene)
    constructor Create(sceneName:string='StyleThemeEditor');
    procedure CreateUI;
+   procedure SetStatus(st:TSceneStatus); override;
    function Process:boolean; override;
    procedure Render; override;
   private
@@ -85,6 +87,8 @@ constructor TStyleThemeEditorScene.Create(sceneName:string);
   selectedStyle:=-1;
   selectedAttr:=-1;
   editorTheme:=ActiveTheme;
+  zorder:=$FF0000;
+  frequency:=12;
  end;
 
 procedure TStyleThemeEditorScene.CreateUI;
@@ -96,6 +100,7 @@ procedure TStyleThemeEditorScene.CreateUI;
   wnd.minW:=500;
   wnd.minH:=440;
   wnd.style.Assign('@demo-panel; color:&surface-alt;');
+  wnd.moveable:=true;
 
   LabelAt(wnd,14,16,160,'Palette tokens');
   tokenList:=TUIListBox.Create(150,252,wnd,'StyleDemo\TokenList',22);
@@ -174,7 +179,14 @@ procedure TStyleThemeEditorScene.LoadToken(index:integer);
   gSlider.value:=(col shr 8) and $FF;
   bSlider.value:=col and $FF;
   lastColor:=col;
-  swatch.style.Assign('fill:&'+STYLEDEMO_PALETTE[index]+'; border-width:1; border-color:&border; radius:4;');
+  swatch.style.Assign('fill:&'+STYLEDEMO_PALETTE[index]+'; border-width:1; border-color:&border;');
+ end;
+
+procedure TStyleThemeEditorScene.SetStatus(st:TSceneStatus);
+ begin
+  inherited;
+  if (st=TSceneStatus.ssActive) and (wnd<>nil) then
+   wnd.SetFocus;
  end;
 
 procedure TStyleThemeEditorScene.LoadStyle(index:integer);

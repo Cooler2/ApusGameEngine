@@ -70,20 +70,25 @@ procedure TStyleDemoApp.SetupGameSettings(var settings:TGameSettings);
 
 procedure RegisterDemoStyles;
  begin
-  Styles['demo-label']:='text-color:&text; color:&text; font-size:9;';
-  Styles['demo-muted-label']:='text-color:&text-muted; color:&text-muted; font-size:8;';
-  Styles['demo-panel']:='fill:&surface; border-color:&border; border-width:1; radius:8;';
-  Styles['demo-showcase']:='fill:&surface-alt; border-color:&border-light; border-width:1; radius:6;';
-  Styles['demo-button']:='color:&control; text-color:&text; border-width:1; border-color:&border; radius:5;'+
+  Styles['demo-label']:='fill:0; border-color:0; border-width:0; radius:0;'+
+    'inner-fill:0; inner-border:0; text-color:&text; color:&text; font-size:9;';
+  Styles['demo-muted-label']:='fill:0; border-color:0; border-width:0; radius:0;'+
+    'inner-fill:0; inner-border:0; text-color:&text-muted; color:&text-muted; font-size:8;';
+  Styles['demo-panel']:='fill:&surface; border-color:&border; border-width:1;';
+  Styles['demo-showcase']:='fill:&surface-alt; border-color:&border-light; border-width:1;';
+  Styles['demo-button']:='fill:0; border-color:0; border-width:0; radius:0;'+
+    'inner-fill:0; inner-border:0; color:&control; text-color:&text;'+
     ':hover { color:&accent; text-color:&accent-text; }'+
     ':pressed { color:&danger; text-color:&danger-text; }';
-  Styles['demo-input']:='fill:&overlay; text-color:&text; border-color:&border; border-width:1; radius:4;'+
+  Styles['demo-input']:='fill:&overlay; text-color:&text; border-color:&border; border-width:1;'+
     ':focused { border-color:&focus; }';
   Styles['demo-list']:='fill:&overlay; text-color:&text; sel-bg:&accent; sel-text-color:&accent-text;'+
-    'border-color:&border; border-width:1; radius:4;';
+    'border-color:&border; border-width:1;';
   Styles['demo-slider']:='col:&control; track-col:&border-dark; active-col:&accent;'+
-    'track-width:0.35; slider-width:0.82; min-size:0.4; radius:0.18;';
-  Styles['demo-check']:='color:&control; text-color:&text; border-color:&border; radius:4;';
+    'fill:0; border-color:0; border-width:0; inner-fill:0; inner-border:0;'+
+    'track-width:0.25; slider-width:0.72; min-size:0.35; radius:0;';
+  Styles['demo-check']:='fill:0; border-color:0; border-width:0; radius:0;'+
+    'inner-fill:0; inner-border:0; color:&control; text-color:&text;';
   Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text;';
  end;
 
@@ -109,9 +114,9 @@ procedure StyleDemoUpdateRef;
  begin
   styleRefToggle:=not styleRefToggle;
   if styleRefToggle then
-   Styles['demo-btn']:='@demo-button; color:&danger; text-color:&danger-text; radius:12;'
+   Styles['demo-btn']:='@demo-button; color:&danger; text-color:&danger-text;'
   else
-   Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text; radius:5;';
+   Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text;';
  end;
 
 function Panel(parent:TUIElement;x,y,w,h:single;const name,title:String8):TUIElement;
@@ -178,7 +183,7 @@ procedure TStyleDemoScene.CreateUI;
 
   btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnDanger').Setup('Danger override');
   btn.SetPos(190,162,pivotTopLeft);
-  StyleButton(btn,'@demo-button; color:&danger; text-color:&danger-text; radius:12;');
+  StyleButton(btn,'@demo-button; color:&danger; text-color:&danger-text;');
 
   panel2:=Panel(UI,18,286,370,226,'Inputs','Inputs and selection');
   MakeLabel(panel2,12,40,330,'These widgets use editable named style blocks.',true);
