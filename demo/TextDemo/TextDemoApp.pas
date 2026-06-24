@@ -673,34 +673,41 @@ end;
 procedure TMainScene.DrawBlockAndCache(const contentRect:TRect);
 var
   area,r,innerR:TRect;
-  i,y:integer;
+  leftR,rightR:TRect;
+  i,y,splitX,row1,row2:integer;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
 
-  r:=GridCell(area,0,0,2,1,BLOCK_GAP);
+  splitX:=area.Left+(area.Right-area.Left)*44 div 100;
+  leftR:=Rect(area.Left,area.Top,splitX-BLOCK_GAP div 2,area.Bottom);
+  rightR:=Rect(splitX+BLOCK_GAP div 2,area.Top,area.Right,area.Bottom);
+  row1:=leftR.Top+(leftR.Bottom-leftR.Top)*42 div 100;
+  row2:=leftR.Top+(leftR.Bottom-leftR.Top)*81 div 100;
+
+  r:=Rect(leftR.Left,leftR.Top,leftR.Right,row1-BLOCK_GAP div 2);
   DrawBlock(r,'BeginBlock/EndBlock batch',innerR);
   y:=innerR.Top+26;
-  for i:=0 to 22 do begin
+  for i:=0 to 8 do begin
     txt.Write(bodyFont,innerR.Left+12,y,$FFE5EDF7,'Line '+Conv.ToStr(i+1)+' in shared text block.',taLeft,toAddBaseline);
     inc(y,18);
   end;
   txt.Write(bodyFont,innerR.Left+12,innerR.Bottom-10,$FF90C0E8,'All these writes are batched in current frame.',taLeft,toAddBaseline);
 
-  r:=GridCell(area,1,0,2,1,BLOCK_GAP);
+  r:=rightR;
   DrawBlock(r,'MAGIC_TEXTCACHE preview',innerR);
   draw.FillRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$FFFFFFFF);
   txt.Write(MAGIC_TEXTCACHE,innerR.Left+10,innerR.Top+10,$FFFFFFFF,'',taLeft,0);
   draw.Rect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$FF4D6684);
   txt.Write(bodyFont,innerR.Left+12,innerR.Bottom-10,$FF1C2430,'Glyph cache atlas snapshot',taLeft,toAddBaseline);
 
-  r:=GridCell(area,0,1,2,1,BLOCK_GAP);
+  r:=Rect(leftR.Left,row1+BLOCK_GAP div 2,leftR.Right,row2-BLOCK_GAP div 2);
   DrawBlock(r,'Stress line (cache churn)',innerR);
-  for i:=0 to 90 do
-    txt.Write(bodyFont,innerR.Left+12+(i mod 5)*90,innerR.Top+24+(i div 5)*18,$FFDDE8F8,
+  for i:=0 to 39 do
+    txt.Write(bodyFont,innerR.Left+12+(i mod 4)*86,innerR.Top+24+(i div 4)*18,$FFDDE8F8,
       'g'+Conv.ToStr((window.frameNum+i) mod 997),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+12,innerR.Bottom-12,$FF90C0E8,'Useful for spotting unexpected cache flush artifacts.',taLeft,toAddBaseline);
 
-  r:=GridCell(area,1,1,2,1,BLOCK_GAP);
+  r:=Rect(leftR.Left,row2+BLOCK_GAP div 2,leftR.Right,leftR.Bottom);
   DrawBlock(r,'Status',innerR);
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+30,$FFE5EDF7,
     UTF8.Format('frame=%d  fps=%.1f',[window.frameNum,window.smoothFPS]),taLeft,toAddBaseline);
