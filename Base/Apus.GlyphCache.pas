@@ -51,6 +51,10 @@ type
  // если места не хватает - выделяется новая полоса, удаление происходит только целыми полосами.
  // Поэтому Keep() гарантирует, что значительная часть кэша свободна, чтобы не пришлось удалять полосы с нужными элементами.
  // Максимальный размер элемента - 63x63
+ // KNOWN ISSUE: Keep() frees old bands eagerly by FIFO, so a glyph still needed this frame can be evicted while
+ // new ones are added (only the 25% headroom guards against it - not a hard guarantee; harmless in practice).
+ // FIX IDEA: track a per-band lastUsed timestamp (bump on Alloc/Find-hit) and free lazily from Alloc, never
+ // touching bands used since the Keep() barrier.
  TDynamicGlyphCache=class(TGlyphCache)
   constructor Create(width,height:integer);
   destructor Destroy; override;
