@@ -24,13 +24,13 @@ type
   dx,dy:shortint; // offset relative to the cursor point (-128..127)
  end;
 
- // Абстрактный интерфейс для кэширования глифов или других мелких картинок в одной большой текстуре
+ // Abstract interface for caching glyphs or other small images inside one large texture
  TGlyphCache=class
   lastTimeStamp:cardinal;
-  relX,relY:integer; // положение, относительно которого возвращаются результаты
-  // находит положение в текстуре, соответствующее символу, либо -1,-1 - если его нет
+  relX,relY:integer; // origin the returned positions are relative to
+  // returns the texture position for the given char, or -1,-1 if absent
   function Find(chardata:cardinal):TGlyphInfoRec; virtual; abstract;
-  // выделяет блок заданного размера для заданного символа, возвращает его положение
+  // allocates a block of the given size for the char and returns its position
   function Alloc(width,height,dx,dy:integer;chardata:cardinal):TPoint; virtual; abstract;
   // Keep all blocks found from this moment from deletion
   procedure Keep; virtual; abstract;
@@ -39,18 +39,18 @@ type
  end;
 
  TBandData=record
-  y,height:integer; // положение полосы (height=0 - free)
-  next:integer; // номер следующей полосы
-  freeSpace:integer; // сколько свободно
+  y,height:integer; // band position (height=0 - free)
+  next:integer; // index of the next band
+  freeSpace:integer; // remaining free space
   keys:array of cardinal; // chardata of glyphs placed in this band (for eviction)
   keyCount:integer;
  end;
 
- // ПРИНЦИП РАБОТЫ: все пространство (размером от 512x512 до 2048x2048) представляет собой кэш из кэшей т.е. набор полос,
- // где каждая полоса работает как отдельный кэш. Ключевая особенность: элементы добавляются только в конец полосы,
- // если места не хватает - выделяется новая полоса, удаление происходит только целыми полосами.
- // Поэтому Keep() гарантирует, что значительная часть кэша свободна, чтобы не пришлось удалять полосы с нужными элементами.
- // Максимальный размер элемента - 63x63
+ // HOW IT WORKS: the whole space (512x512 to 2048x2048) is a cache of caches, i.e. a set of bands, where each band
+ // works as a separate cache. Key property: items are only appended to the end of a band; if there is not enough room
+ // a new band is allocated, and deletion happens only by whole bands.
+ // That is why Keep() ensures a sizable part of the cache stays free, so that bands with needed items are not deleted.
+ // Maximum item size - 63x63
  // KNOWN ISSUE: Keep() frees old bands eagerly by FIFO, so a glyph still needed this frame can be evicted while
  // new ones are added (only the 25% headroom guards against it - not a hard guarantee; harmless in practice).
  // FIX IDEA: track a per-band lastUsed timestamp (bump on Alloc/Find-hit) and free lazily from Alloc, never
@@ -58,9 +58,9 @@ type
  TDynamicGlyphCache=class(TGlyphCache)
   constructor Create(width,height:integer);
   destructor Destroy; override;
-  // находит положение в текстуре, соответствующее символу, либо -1,-1 - если его нет
+  // returns the texture position for the given char, or -1,-1 if absent
   function Find(chardata:cardinal):TGlyphInfoRec; override;
-  // выделяет блок заданного размера для заданного символа, возвращает его положение
+  // allocates a block of the given size for the char and returns its position
   function Alloc(width,height,dx,dy:integer;chardata:cardinal):TPoint; override;
   // Keep all blocks found from this moment from deletion
   procedure Keep; override;
@@ -69,9 +69,9 @@ type
   // How efficient space is used (0..1)
   function Usage:single;
  private
-  aWidth,aHeight:integer; // Общий размер пространства кэша
-  freeMin,freeMax:integer; // границы свободной области (freeMax может ыть больше aHeight, что означает разрывную область)
-  // Полосы (список)
+  aWidth,aHeight:integer; // total cache space size
+  freeMin,freeMax:integer; // free area bounds (freeMax may exceed aHeight, meaning a wrapped/discontiguous area)
+  // Bands (list)
   bands:array[0..99] of TBandData;
   bCount:integer;
   firstBand,lastBand:integer;
@@ -115,16 +115,16 @@ begin
   i:=bands[i].next;
  end;
  // 2 cases when we should create a new band:
- // а) there is no suitable band
+ // a) there is no suitable band
  if best<0 then begin
-  // Полоса должна быть хотя бы на 25% толще, чем существующая более-менее свободная полоса
+  // a band should be at least 25% taller than an existing reasonably free band
   bandHeight:=Max(height, bandHeight+1+bandHeight div 4);
  end;
- // б) suitable band is too high and we have much free space -> create a more suitable band
+ // b) suitable band is too high and we have much free space -> create a more suitable band
  if (best>=0) and
     (spareHeight>1+bands[best].height shr 2) and
     CanCreateBand(height*3) then begin
-  best:=-1; // Вот тут стоит избегать создания полос, которые "чуть-чуть" больше имеющихся свободных
+  best:=-1; // here we should avoid creating bands that are only slightly taller than the existing ones
   bandHeight:=Max(height,bandHeight+1+bandHeight div 4);
  end;
  // New band required?
