@@ -45,6 +45,30 @@ type
     procedure Remove(const key:String8);
   end;
 
+  // Numeric-keyed open-addressing hash map (int64 key -> typed value T).
+  // Backward-shift deletion (no tombstones), thread-safe via SpinLock.
+  // Prefer over TSimpleHash when the value is a typed record rather than a bare int64.
+  THashMapNum<T> = record
+  private
+    fLock:integer;
+    fMask:cardinal;
+    fUsed:array of boolean; // slot occupancy (no tombstones thanks to backward-shift deletion)
+    fKeys:array of int64;
+    fValues:array of T;
+    procedure DoResize;
+    function FindSlot(key:int64):integer; // returns index or -1, no locking
+    class function HashKey(key:int64):cardinal; static;
+  public
+    count:integer;
+    procedure Init(estimatedCount:integer=16);
+    procedure Clear;
+    procedure Put(key:int64; const value:T);
+    function Get(key:int64; out value:T):boolean;
+    function GetDef(key:int64; const defValue:T):T;
+    function HasKey(key:int64):boolean;
+    procedure Remove(key:int64);
+  end;
+
   // Legacy status enum kept for backward compatibility with old hash APIs
   TErrorState=(
     esNoError       =  0,
@@ -437,6 +461,217 @@ begin
       h:=HashKey(oldKeys[i]) and fMask;
       while fKeys[h]<>'' do
         h:=(h+1) and fMask;
+      fKeys[h]:=oldKeys[i];
+      fValues[h]:=oldValues[i];
+      inc(count);
+    end;
+end;
+
+{ THashMapNum<T> }
+
+class function THashMapNum<T>.HashKey(key:int64):cardinal;
+var
+  v:QWord;
+begin
+  // murmur3-style 64-bit finalizer for good distribution of sequential keys
+  v:=QWord(key);
+  v:=v xor (v shr 33);
+  v:=v*QWord($FF51AFD7ED558CCD);
+  v:=v xor (v shr 33);
+  v:=v*QWord($C4CEB9FE1A85EC53);
+  v:=v xor (v shr 33);
+  result:=cardinal(v);
+end;
+
+function THashMapNum<T>.FindSlot(key:int64):integer;
+var
+  h:cardinal;
+begin
+  if fUsed=nil then exit(-1);
+  h:=HashKey(key) and fMask;
+  while fUsed[h] do begin
+    if fKeys[h]=key then exit(integer(h));
+    h:=(h+1) and fMask;
+  end;
+  result:=-1;
+end;
+
+procedure THashMapNum<T>.Init(estimatedCount:integer=16);
+var
+  cap:integer;
+begin
+  count:=0;
+  fLock:=0;
+  cap:=16;
+  while cap<estimatedCount*2 do cap:=cap*2;
+  fMask:=cardinal(cap-1);
+  fUsed:=nil; fKeys:=nil; fValues:=nil;
+  SetLength(fUsed,cap);
+  SetLength(fKeys,cap);
+  SetLength(fValues,cap);
+end;
+
+procedure THashMapNum<T>.Clear;
+var
+  cap:integer;
+begin
+  if fUsed=nil then exit;
+  SpinLock(fLock);
+  try
+    cap:=length(fUsed);
+    fUsed:=nil; fKeys:=nil; fValues:=nil;
+    SetLength(fUsed,cap);
+    SetLength(fKeys,cap);
+    SetLength(fValues,cap);
+    count:=0;
+  finally
+    fLock:=0;
+  end;
+end;
+
+procedure THashMapNum<T>.Put(key:int64; const value:T);
+var
+  h:cardinal;
+  found:boolean;
+begin
+  if fUsed=nil then Init;
+  SpinLock(fLock);
+  try
+    h:=HashKey(key) and fMask;
+    found:=false;
+    while fUsed[h] do begin
+      if fKeys[h]=key then begin
+        fValues[h]:=value;
+        found:=true;
+        break;
+      end;
+      h:=(h+1) and fMask;
+    end;
+    if not found then begin
+      fUsed[h]:=true;
+      fKeys[h]:=key;
+      fValues[h]:=value;
+      inc(count);
+      if count*2>integer(fMask) then DoResize;
+    end;
+  finally
+    fLock:=0;
+  end;
+end;
+
+function THashMapNum<T>.Get(key:int64; out value:T):boolean;
+var
+  idx:integer;
+begin
+  if fUsed=nil then begin
+    value:=Default(T);
+    exit(false);
+  end;
+  SpinLock(fLock);
+  try
+    idx:=FindSlot(key);
+    if idx>=0 then begin
+      value:=fValues[idx];
+      result:=true;
+    end else begin
+      value:=Default(T);
+      result:=false;
+    end;
+  finally
+    fLock:=0;
+  end;
+end;
+
+function THashMapNum<T>.GetDef(key:int64; const defValue:T):T;
+var
+  idx:integer;
+begin
+  if fUsed=nil then exit(defValue);
+  SpinLock(fLock);
+  try
+    idx:=FindSlot(key);
+    if idx>=0 then
+      result:=fValues[idx]
+    else
+      result:=defValue;
+  finally
+    fLock:=0;
+  end;
+end;
+
+function THashMapNum<T>.HasKey(key:int64):boolean;
+begin
+  if fUsed=nil then exit(false);
+  SpinLock(fLock);
+  try
+    result:=FindSlot(key)>=0;
+  finally
+    fLock:=0;
+  end;
+end;
+
+procedure THashMapNum<T>.Remove(key:int64);
+var
+  i,j,k:cardinal;
+begin
+  if fUsed=nil then exit;
+  SpinLock(fLock);
+  try
+    i:=HashKey(key) and fMask;
+    while fUsed[i] do begin
+      if fKeys[i]=key then begin
+        dec(count);
+        // backward-shift deletion
+        j:=i;
+        while true do begin
+          j:=(j+1) and fMask;
+          if not fUsed[j] then break;
+          k:=HashKey(fKeys[j]) and fMask;
+          if i<=j then begin
+            if (i<k) and (k<=j) then continue;
+          end else begin // wrapped around
+            if (i<k) or (k<=j) then continue;
+          end;
+          fKeys[i]:=fKeys[j];
+          fValues[i]:=fValues[j];
+          i:=j;
+        end;
+        fUsed[i]:=false;
+        fKeys[i]:=0;
+        fValues[i]:=Default(T);
+        break;
+      end;
+      i:=(i+1) and fMask;
+    end;
+  finally
+    fLock:=0;
+  end;
+end;
+
+procedure THashMapNum<T>.DoResize;
+var
+  oldUsed:array of boolean;
+  oldKeys:array of int64;
+  oldValues:array of T;
+  i,newCap:integer;
+  h:cardinal;
+begin
+  oldUsed:=fUsed;
+  oldKeys:=fKeys;
+  oldValues:=fValues;
+  newCap:=(integer(fMask)+1)*2;
+  fMask:=cardinal(newCap-1);
+  count:=0;
+  fUsed:=nil; fKeys:=nil; fValues:=nil;
+  SetLength(fUsed,newCap);
+  SetLength(fKeys,newCap);
+  SetLength(fValues,newCap);
+  for i:=0 to high(oldUsed) do
+    if oldUsed[i] then begin
+      h:=HashKey(oldKeys[i]) and fMask;
+      while fUsed[h] do
+        h:=(h+1) and fMask;
+      fUsed[h]:=true;
       fKeys[h]:=oldKeys[i];
       fValues[h]:=oldValues[i];
       inc(count);

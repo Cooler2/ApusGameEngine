@@ -22,6 +22,14 @@ type
   TStrDblMap = THashMap<double>;
   TStrPointMap = THashMap<TPoint>;
 
+  TGlyphRec = record
+    x,y:smallint;
+    w,h:shortint;
+    dx,dy:shortint;
+  end;
+  TNumIntMap = THashMapNum<integer>;
+  TNumGlyphMap = THashMapNum<TGlyphRec>;
+
   TTestNamedObject=class(TNamedObject)
   end;
 
@@ -555,6 +563,184 @@ begin
   EndTest;
 end;
 
+{ --- THashMapNum<T> tests --- }
+
+procedure TestNumBasicOps;
+var
+  m:TNumIntMap;
+  v:integer;
+begin
+  StartTest('NumHash.BasicOps');
+  m.Init;
+  Check(m.count=0, 'empty count');
+  Check(not m.HasKey(1), 'empty haskey');
+  Check(not m.Get(1,v), 'empty get');
+  m.Put(100,1);
+  m.Put(200,2);
+  m.Put(300,3);
+  Check(m.count=3, 'count=3');
+  Check(m.Get(100,v) and (v=1), 'get 100');
+  Check(m.Get(200,v) and (v=2), 'get 200');
+  Check(m.Get(300,v) and (v=3), 'get 300');
+  m.Put(200,20);
+  Check(m.Get(200,v) and (v=20), 'updated 200');
+  Check(m.count=3, 'count still 3');
+  m.Remove(200);
+  Check(not m.HasKey(200), '200 removed');
+  Check(m.count=2, 'count=2');
+  Check(m.Get(100,v) and (v=1), '100 intact');
+  Check(m.Get(300,v) and (v=3), '300 intact');
+  m.Remove(999);
+  Check(m.count=2, 'count unchanged');
+  Check(m.GetDef(100,-1)=1, 'getdef existing');
+  Check(m.GetDef(999,-1)=-1, 'getdef missing');
+  EndTest;
+end;
+
+procedure TestNumZeroAndNegKeys;
+var
+  m:TNumIntMap;
+  v:integer;
+begin
+  StartTest('NumHash.ZeroAndNegKeys');
+  m.Init;
+  // key 0 must be a valid, storable key (no sentinel reliance)
+  m.Put(0,42);
+  Check(m.HasKey(0), 'has key 0');
+  Check(m.Get(0,v) and (v=42), 'get key 0');
+  m.Put(-1,7);
+  m.Put(int64($7FFFFFFFFFFFFFFF),9); // max int64
+  Check(m.Get(-1,v) and (v=7), 'get negative key');
+  Check(m.Get(int64($7FFFFFFFFFFFFFFF),v) and (v=9), 'get max int64 key');
+  Check(m.count=3, 'count=3');
+  m.Remove(0);
+  Check(not m.HasKey(0), 'key 0 removed');
+  Check(m.Get(-1,v) and (v=7), 'negative key intact after removing 0');
+  EndTest;
+end;
+
+procedure TestNumAutoInit;
+var
+  m:TNumIntMap;
+  v:integer;
+begin
+  StartTest('NumHash.AutoInit');
+  FillChar(m,SizeOf(m),0);
+  Check(not m.HasKey(5), 'uninit haskey');
+  Check(not m.Get(5,v), 'uninit get');
+  m.Remove(5); // no crash on uninit
+  m.Put(5,42);
+  Check(m.Get(5,v) and (v=42), 'auto-init put/get');
+  Check(m.count=1, 'count=1');
+  EndTest;
+end;
+
+procedure TestNumRecordValues;
+var
+  m:TNumGlyphMap;
+  g:TGlyphRec;
+begin
+  StartTest('NumHash.RecordValues');
+  Check(SizeOf(TGlyphRec)=8, 'TGlyphRec is 8 bytes');
+  m.Init;
+  g.x:=300; g.y:=200; g.w:=12; g.h:=16; g.dx:=-5; g.dy:=3;
+  m.Put($410041,g); // chardata-like key
+  g.x:=10; g.y:=20; g.w:=8; g.h:=8; g.dx:=0; g.dy:=-1;
+  m.Put($420042,g);
+  Check(m.Get($410041,g) and (g.x=300) and (g.y=200) and (g.w=12) and (g.h=16)
+        and (g.dx=-5) and (g.dy=3), 'first glyph round-trip');
+  Check(m.Get($420042,g) and (g.x=10) and (g.dy=-1), 'second glyph round-trip');
+  g.x:=999; g.y:=888; g.w:=1; g.h:=1; g.dx:=1; g.dy:=1;
+  m.Put($410041,g);
+  Check(m.Get($410041,g) and (g.x=999) and (g.y=888), 'updated glyph');
+  EndTest;
+end;
+
+procedure TestNumResize;
+var
+  m:TNumIntMap;
+  v,i:integer;
+  allOk:boolean;
+  failMsg:String8;
+begin
+  StartTest('NumHash.Resize');
+  m.Init(4);
+  for i:=0 to 999 do
+    m.Put(i*7+1, i);
+  Check(m.count=1000, 'count=1000');
+  allOk:=true;
+  failMsg:='';
+  for i:=0 to 999 do
+    if not (m.Get(i*7+1,v) and (v=i)) then begin
+      allOk:=false;
+      failMsg:='key '+IntToStr(i*7+1)+' expected='+IntToStr(i)+' got='+IntToStr(v);
+      break;
+    end;
+  Check(allOk,'NumHash.Resize all 1000 values correct; '+failMsg);
+  EndTest;
+end;
+
+procedure TestNumRemoveChain;
+var
+  m:TNumIntMap;
+  v,i:integer;
+  oddOk,evenOk,reinsertOk:boolean;
+  failMsg:String8;
+begin
+  StartTest('NumHash.RemoveChain');
+  m.Init(4);
+  for i:=0 to 49 do
+    m.Put(i, i*10);
+  Check(m.count=50, 'count=50');
+  for i:=0 to 24 do
+    m.Remove(i*2);
+  Check(m.count=25, 'count=25 after remove');
+  oddOk:=true; failMsg:='';
+  for i:=0 to 24 do
+    if not (m.Get(i*2+1,v) and (v=(i*2+1)*10)) then begin
+      oddOk:=false; failMsg:='odd '+IntToStr(i*2+1)+' mismatch'; break;
+    end;
+  Check(oddOk,'NumHash.RemoveChain odd items intact; '+failMsg);
+  evenOk:=true; failMsg:='';
+  for i:=0 to 24 do
+    if m.HasKey(i*2) then begin
+      evenOk:=false; failMsg:='even '+IntToStr(i*2)+' not removed'; break;
+    end;
+  Check(evenOk,'NumHash.RemoveChain even items removed; '+failMsg);
+  for i:=0 to 24 do
+    m.Put(i*2, i*200);
+  Check(m.count=50, 'count=50 after reinsert');
+  reinsertOk:=true; failMsg:='';
+  for i:=0 to 24 do begin
+    if not (m.Get(i*2,v) and (v=i*200)) then begin
+      reinsertOk:=false; failMsg:='reinserted even '+IntToStr(i*2)+' mismatch'; break;
+    end;
+    if not (m.Get(i*2+1,v) and (v=(i*2+1)*10)) then begin
+      reinsertOk:=false; failMsg:='still odd '+IntToStr(i*2+1)+' mismatch'; break;
+    end;
+  end;
+  Check(reinsertOk,'NumHash.RemoveChain reinsert verification; '+failMsg);
+  EndTest;
+end;
+
+procedure TestNumClear;
+var
+  m:TNumIntMap;
+  v:integer;
+begin
+  StartTest('NumHash.Clear');
+  m.Init;
+  m.Put(1,1); m.Put(2,2); m.Put(3,3);
+  m.Clear;
+  Check(m.count=0, 'count=0 after clear');
+  Check(not m.HasKey(1), '1 gone');
+  Check(not m.HasKey(2), '2 gone');
+  m.Put(4,4);
+  Check(m.count=1, 'count=1 after reuse');
+  Check(m.Get(4,v) and (v=4), 'get 4');
+  EndTest;
+end;
+
 begin
   try
     TestBasicOps;
@@ -567,6 +753,14 @@ begin
     TestRemoveChain;
     TestClear;
     TestGenericEdgeCases;
+
+    TestNumBasicOps;
+    TestNumZeroAndNegKeys;
+    TestNumAutoInit;
+    TestNumRecordValues;
+    TestNumResize;
+    TestNumRemoveChain;
+    TestNumClear;
 
     TestLegacyStrHash;
     TestTHashSingle;
