@@ -26,7 +26,7 @@ interface
    themeLight,themeDark:TUIRadioButton;
    valueEdit,elementStyleEdit:TUIEditBox;
    swatch:TUIElement;
-   rSlider,gSlider,bSlider:TUIScrollBar;
+   rSlider,gSlider,bSlider,aSlider:TUIScrollBar;
    tokenValue,styleValue,attrValue,elementValue:TUILabel;
    selectedElement:TUIElement;
    selectedToken,selectedStyle,selectedAttr:integer;
@@ -76,7 +76,7 @@ procedure LabelAt(parent:TUIElement;x,y,w:single;const text:String8);
 
 function MakeSlider(parent:TUIElement;y:single;const name:String8):TUIScrollBar;
  begin
-  result:=TUIScrollBar.CreateH(180,18,parent,name);
+  result:=TUIScrollBar.CreateH(160,18,parent,name);
   result.SetPos(214,y,pivotTopLeft);
   result.isInteger:=true;
   result.SetRange(0,255+18,18);
@@ -120,8 +120,8 @@ procedure TStyleThemeEditorScene.CreateUI;
 
   LabelAt(wnd,184,94,16,'R');
   rSlider:=MakeSlider(wnd,94,'StyleDemo\SliderR');
-  tokenValue:=TUILabel.Create(50,18,wnd);
-  tokenValue.Right('').SetPos(424,94,pivotTopLeft);
+  tokenValue:=TUILabel.Create(96,18,wnd);
+  tokenValue.Right('').SetPos(384,94,pivotTopLeft);
   tokenValue.style.Assign('@demo-label;');
 
   LabelAt(wnd,184,126,16,'G');
@@ -129,9 +129,12 @@ procedure TStyleThemeEditorScene.CreateUI;
   LabelAt(wnd,184,158,16,'B');
   bSlider:=MakeSlider(wnd,158,'StyleDemo\SliderB');
 
-  LabelAt(wnd,184,206,70,'Theme');
+  LabelAt(wnd,184,190,16,'A');
+  aSlider:=MakeSlider(wnd,190,'StyleDemo\SliderA');
+
+  LabelAt(wnd,184,226,70,'Theme');
   themeGroup:=TUIGroupBox.Create(150,24,wnd,'StyleDemo\ThemeGroup');
-  themeGroup.SetPos(244,204,pivotTopLeft);
+  themeGroup.SetPos(244,224,pivotTopLeft);
   themeGroup.style.Assign('fill:0; border-color:0; border-width:0; radius:0; inner-fill:0; inner-border:0;');
   themeLight:=TUIRadioButton.Create(72,24,themeGroup,'StyleDemo\ThemeLight').Setup('light',editorTheme<>'dark');
   themeLight.SetPos(0,0,pivotTopLeft);
@@ -140,8 +143,8 @@ procedure TStyleThemeEditorScene.CreateUI;
   themeDark.SetPos(74,0,pivotTopLeft);
   themeDark.style.Assign('@demo-check;');
 
-  LabelAt(wnd,184,250,290,'Drag RGB sliders to retune selected token live.');
-  LabelAt(wnd,184,272,290,'Theme buttons swap the whole palette.');
+  LabelAt(wnd,184,258,290,'Drag RGBA sliders to retune selected token live.');
+  LabelAt(wnd,184,280,290,'Theme buttons swap the whole palette.');
 
   LabelAt(wnd,14,314,130,'Style blocks');
   styleList:=TUIListBox.Create(145,118,wnd,'StyleDemo\StyleList',22);
@@ -198,6 +201,7 @@ procedure TStyleThemeEditorScene.LoadToken(index:integer);
   if (index<0) or (index>high(STYLEDEMO_PALETTE)) then exit;
   selectedToken:=index;
   col:=ParseStyleColor(GetToken(STYLEDEMO_PALETTE[index]));
+  aSlider.value:=(col shr 24) and $FF;
   rSlider.value:=(col shr 16) and $FF;
   gSlider.value:=(col shr 8) and $FF;
   bSlider.value:=col and $FF;
@@ -285,7 +289,7 @@ procedure TStyleThemeEditorScene.ApplyElementStyle;
 function TStyleThemeEditorScene.Process:boolean;
  var
   want:String8;
-  r,g,b:integer;
+  a,r,g,b:integer;
   col:cardinal;
  begin
   result:=inherited Process;
@@ -303,15 +307,16 @@ function TStyleThemeEditorScene.Process:boolean;
   if tokenList.selectedLine<>selectedToken then
    LoadToken(tokenList.selectedLine)
   else begin
+   a:=round(aSlider.value);
    r:=round(rSlider.value);
    g:=round(gSlider.value);
    b:=round(bSlider.value);
-   col:=cardinal($FF000000) or cardinal(r shl 16) or cardinal(g shl 8) or cardinal(b);
+   col:=cardinal(a shl 24) or cardinal(r shl 16) or cardinal(g shl 8) or cardinal(b);
    if col<>lastColor then begin
     SetTokenColor(STYLEDEMO_PALETTE[selectedToken],col);
     lastColor:=col;
    end;
-   tokenValue.caption:='#'+Conv.ToHex((r shl 16) or (g shl 8) or b,6);
+   tokenValue.caption:='$'+Conv.ToHex(col,8);
   end;
 
   if styleList.selectedLine<>selectedStyle then
