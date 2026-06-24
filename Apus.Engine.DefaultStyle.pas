@@ -270,7 +270,7 @@ implementation
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
    duration:integer;
-   col,vColor:cardinal;
+   col,vColor,captionColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
    v,ss,tt,alpha:single;
@@ -280,6 +280,7 @@ implementation
    context:=element.styleContext as TContext;
 
    col:=element.GetStyleColor('col',$FF808080);
+   captionColor:=element.GetStyleColor('text-color',col);
    font:=StyleFont(element);
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
@@ -326,14 +327,14 @@ implementation
        v:=size*(0.24+tt*0.2);
       end;
      end;
-     vColor:=Color.Scale(col,alpha);
+     vColor:=Color.Scale(element.GetStyleColor('tick-col',col),alpha);
      draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,vColor,vColor);
     end;
    end;
    // Caption
    inc(x1,round(size*1.5));
    gfx.clip.Rect(Rect(x1,y1,x2,y2));
-   txt.Write(font,x1,y,col,element.caption);
+   txt.Write(font,x1,y,captionColor,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
      draw.Rect(x1,y1,x2,y2,col xor $808080);

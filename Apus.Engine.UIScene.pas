@@ -261,6 +261,10 @@ function UIScene(name:String8):TUIScene;
      c:=hooked;
      e:=true;
     end;
+    if (c<>nil) and (c.GetRoot<>UI) then begin
+     c:=nil;
+     e:=false;
+    end;
     if pressed then begin
      if e and (c<>nil) then
       c.onMouseButtons(btn,true)
