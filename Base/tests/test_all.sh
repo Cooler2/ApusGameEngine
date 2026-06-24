@@ -17,6 +17,7 @@ TESTS=(
   Strings
   Containers
   HashMaps
+  GlyphCache
   Files
   EventMan
   Threads
