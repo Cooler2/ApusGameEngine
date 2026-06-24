@@ -99,7 +99,7 @@ const
     'left/center/right/justify and top-vs-baseline',
     'bold/italic/underline/shadow/hinting/spacing',
     'toMeasure, hyperlinks, query point and SML align modes',
-    'BeginBlock/EndBlock usage and MAGIC_TEXTCACHE preview',
+    'BeginBlock/EndBlock, toDontCache and MAGIC_TEXTCACHE preview',
     'multiline Unicode + complex markup + align',
     'Width/WidthW/Height, ScaleFont, font options'
   );
@@ -675,6 +675,7 @@ var
   area,r,innerR:TRect;
   leftR,rightR:TRect;
   i,y,splitX,row1,row2:integer;
+  scale:single;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
 
@@ -701,11 +702,17 @@ begin
   txt.Write(bodyFont,innerR.Left+12,innerR.Bottom-10,$FF1C2430,'Glyph cache atlas snapshot',taLeft,toAddBaseline);
 
   r:=Rect(leftR.Left,row1+BLOCK_GAP div 2,leftR.Right,row2-BLOCK_GAP div 2);
-  DrawBlock(r,'Stress line (cache churn)',innerR);
-  for i:=0 to 39 do
-    txt.Write(bodyFont,innerR.Left+12+(i mod 4)*86,innerR.Top+24+(i div 4)*18,$FFDDE8F8,
-      'g'+Conv.ToStr((window.frameNum+i) mod 997),taLeft,toAddBaseline);
-  txt.Write(bodyFont,innerR.Left+12,innerR.Bottom-12,$FF90C0E8,'Useful for spotting unexpected cache flush artifacts.',taLeft,toAddBaseline);
+  DrawBlock(r,'Temporary glyph cache',innerR);
+  txt.Write(bodyFont,innerR.Left+12,innerR.Top+24,$FFE5EDF7,
+    'toDontCache keeps animated glyphs out of the main atlas.',taLeft,toAddBaseline);
+  for i:=0 to 17 do begin
+    scale:=0.78+0.025*((window.frameNum+i*7) mod 24);
+    txt.Write(txt.ScaleFont(vectorFont,scale),innerR.Left+12+(i mod 3)*112,
+      innerR.Top+58+(i div 3)*24,$FFDDE8F8,'temp '+Conv.ToStr(i+1),
+      taLeft,toAddBaseline or toDontCache);
+  end;
+  txt.Write(bodyFont,innerR.Left+12,innerR.Bottom-12,$FF90C0E8,
+    'Changing sizes use the side cache; stable text stays in the main cache.',taLeft,toAddBaseline);
 
   r:=Rect(leftR.Left,row2+BLOCK_GAP div 2,leftR.Right,leftR.Bottom);
   DrawBlock(r,'Status',innerR);

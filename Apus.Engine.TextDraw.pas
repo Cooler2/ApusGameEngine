@@ -660,6 +660,7 @@ var
  link:cardinal;
  linkStart:integer; // x position for link rect
  queryX,queryY:integer;
+ activeGlyphCache:TGlyphCache;
 
  // For complex text
  stack:array[0..7,0..31] of cardinal; // стек текущих атрибутов (0 - дефолтное значение)
@@ -966,7 +967,7 @@ var
    r:TRect;
   begin
    // 1 transparent pixel in padding
-   result:=glyphCache.Alloc(imageWidth+2+byte(boldStyle),imageHeight+2,dX,dY,chardata);
+   result:=activeGlyphCache.Alloc(imageWidth+2+byte(boldStyle),imageHeight+2,dX,dY,chardata);
    if not textCache.IsLocked then textCache.Lock(0,TLockMode.lmCustomUpdate);
    UnpackGlyph(result.x,result.Y,imageWidth,imageHeight,data,glyphType=1);
    if boldStyle then MakeItBold(result.x,result.Y,imageWidth,imageHeight);
@@ -1122,7 +1123,7 @@ var
    dx:=0; dy:=0;
    {$ENDIF}
    try
-   glyphCache.Keep;
+   activeGlyphCache.Keep;
    stepU:=textCache.stepU*2;
    stepV:=textCache.stepV*2;
    oldUL:=false; oldColor:=color;
@@ -1188,7 +1189,7 @@ var
      with unifont.chars[idx] do
       if imageWidth>0 then begin // char has glyph image
        chardata:=cardinal(st[i] and $FFFF)+font shl 16;
-       gl:=glyphCache.Find(chardata);
+       gl:=activeGlyphCache.Find(chardata);
        inc(gl.x); inc(gl.y); // padding
        if gl.x=0 then
         pnt:=AllocGlyph(charData,imageWidth,imageHeight,0,0,1,@unifont.glyphs[offset],0)
@@ -1203,7 +1204,7 @@ var
      fl:=false; // does glyph exist for this symbol?
      // find glyph image location in cache
      chardata:=cardinal(st[i]) xor ((font and $3F) shl 16) xor ((font and $FF0F00) shl 8) xor (cardinal(byte(boldStyle)) shl 23);
-     gl:=glyphCache.Find(chardata);
+     gl:=activeGlyphCache.Find(chardata);
      inc(gl.x); inc(gl.y); // padding
      if gl.x=0 then begin // glyph is not cached
       pb:=ftFont.RenderGlyph(st[i],size,ftHintMode,dx,dy,imgW,imgH,pitch);
@@ -1257,7 +1258,7 @@ var
     textCache.AddDirtyRect(updList[i]);
 
    finally
-    glyphCache.Release;
+    activeGlyphCache.Release;
     if textCache.IsLocked then textCache.Unlock;
    end;
    inc(txtVertCount,4*cnt);
@@ -1392,6 +1393,10 @@ begin // -----------------------------------------------------------
   WriteW(font,x,y,color,st,align,options or toInternalNoBlock,targetWidth);
   exit;
  end;
+
+ activeGlyphCache:=glyphCache;
+ if Bits.HasAny(options,toDontCache) then
+  activeGlyphCache:=altGlyphCache; // keep dynamic glyph sizes out of the main atlas
 
  // Установка переменных, коррекция параметров, выравнивание
  Initialize;

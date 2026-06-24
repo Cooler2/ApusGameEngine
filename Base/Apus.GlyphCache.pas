@@ -202,6 +202,8 @@ begin
  blocks[block].timestamp:=lastTimeStamp;
  inc(lastTimeStamp);
  result:=GetBlockPos(block);
+ inc(result.x,relX);
+ inc(result.y,relY);
 end;
 
 constructor TFixedGlyphCache.Create(width:integer);
@@ -503,6 +505,8 @@ begin
  hash1.Put(chardata,r);
  r:=Bits.PackW(result.x,result.y);
  hash2.Put(chardata,r);
+ inc(result.x,relX);
+ inc(result.y,relY);
  except
   on e:Exception do
    raise EWarning.Create('GC.Alloc(%d,%d) failed'+ExceptionMsg(e),[width,height]);
