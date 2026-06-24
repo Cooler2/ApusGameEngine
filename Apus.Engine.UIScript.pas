@@ -582,7 +582,10 @@ class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string8);
 
 function GetVarTypeFor(typeName:string8):TVarClass;
  begin
-  if SameText(typeName,'TTextAlignment') then result:=TVarTypeAlignment;
+   result:=nil;
+   if SameText(typeName,'TTextAlignment') then result:=TVarTypeAlignment
+   else
+   if SameText(typeName,'TUIElement') then result:=TVarTypeUIElement;
  end;
 
 { TVarTypeElementName }

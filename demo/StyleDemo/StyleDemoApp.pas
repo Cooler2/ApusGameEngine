@@ -101,7 +101,7 @@ procedure RegisterDemoStyles;
     'fill:0; border-color:0; border-width:0; inner-fill:0; inner-border:0;'+
     'track-width:0.25; slider-width:0.72; min-size:0.35; radius:0;';
   Styles['demo-check']:='fill:0; border-color:0; border-width:0; radius:0;'+
-    'inner-fill:0; inner-border:0; color:&control; col:&text; tick-col:&accent; text-color:&text;';
+    'inner-fill:0; inner-border:0; color:&control; col:&control; tick-col:&accent; text-color:&text;';
   Styles['demo-btn']:='@demo-button; color:&accent; text-color:&accent-text;';
  end;
 
@@ -238,7 +238,7 @@ procedure TStyleDemoScene.CreateUI;
   MakeLabel(panel3,12,142,290,'Later it can become an engine module for runtime UI tuning.',true);
   MakeLabel(panel3,12,178,290,'Launch with -HIDPI for crisp DPI-aware rendering.',true);
 
-  panel4:=Panel(UI,410,18,330,250,'Theme coverage','Styled containers');
+  panel4:=Panel(UI,410,18,330,250,'ThemeCoverage','Styled containers');
   MakeLabel(panel4,12,40,286,'Panels, labels, inputs, lists, toggles and sliders all bind to tokens.',true);
   MakeLabel(panel4,12,82,286,'Edit named styles in the right window to affect whole widget groups.',false);
   MakeLabel(panel4,12,112,286,'Palette edits change every style that uses &token references.',false);

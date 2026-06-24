@@ -289,8 +289,8 @@ implementation
    //
    inTransition:=context.active.IsAnimating(window.frameStartMs);
    if element.classType=TUICheckBox then begin
-    vColor:=element.GetStyleColor('tick-col',col);
-    draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);
+    vColor:=element.GetStyleColor('tick-col',Color.Add(col,$808080));
+    draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,col,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
      alpha:=1; ss:=1.1;

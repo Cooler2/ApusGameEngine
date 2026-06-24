@@ -58,6 +58,7 @@ implementation
  uses SysUtils, Apus.Lib, Types,
    Apus.EventMan, Apus.Publics,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
+   Apus.Engine.UIScript,
    Apus.Engine.CmdProc, Apus.Engine.API,
   Apus.Engine.RobotAPI,
   Apus.Engine.UILayout,
@@ -972,5 +973,4 @@ initialization
  RegisterRobotCommand('ui.tree',@RobotCmdUITree);
  RegisterRobotCommand('ui.element',@RobotCmdUIElement);
  RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);
-end.
-
+ end.

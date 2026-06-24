@@ -22,7 +22,8 @@ interface
    procedure BindElement(element:TUIElement);
   private
    wnd:TUIWindow;
-   tokenList,styleList,attrList,themeList:TUIListBox;
+   tokenList,styleList,attrList:TUIListBox;
+   themeLight,themeDark:TUIRadioButton;
    valueEdit,elementStyleEdit:TUIEditBox;
    swatch:TUIElement;
    rSlider,gSlider,bSlider:TUIScrollBar;
@@ -97,6 +98,7 @@ constructor TStyleThemeEditorScene.Create(sceneName:string);
 procedure TStyleThemeEditorScene.CreateUI;
  var
   i:integer;
+  themeGroup:TUIGroupBox;
  begin
   wnd:=TUIWindow.Create(500,590,true,UI,'StyleDemo\EditorWindow','Runtime UI style editor');
   wnd.SetPos(760,18,pivotTopLeft);
@@ -128,16 +130,18 @@ procedure TStyleThemeEditorScene.CreateUI;
   bSlider:=MakeSlider(wnd,158,'StyleDemo\SliderB');
 
   LabelAt(wnd,184,206,70,'Theme');
-  themeList:=TUIListBox.Create(110,52,wnd,'StyleDemo\ThemeList',22);
-  themeList.SetPos(244,206,pivotTopLeft);
-  themeList.style.Assign('@demo-list;');
-  themeList.AddLine('light');
-  themeList.AddLine('dark');
-  if editorTheme='dark' then themeList.SelectLine(1)
-   else themeList.SelectLine(0);
+  themeGroup:=TUIGroupBox.Create(150,24,wnd,'StyleDemo\ThemeGroup');
+  themeGroup.SetPos(244,204,pivotTopLeft);
+  themeGroup.style.Assign('fill:0; border-color:0; border-width:0; radius:0; inner-fill:0; inner-border:0;');
+  themeLight:=TUIRadioButton.Create(72,24,themeGroup,'StyleDemo\ThemeLight').Setup('light',editorTheme<>'dark');
+  themeLight.SetPos(0,0,pivotTopLeft);
+  themeLight.style.Assign('@demo-check;');
+  themeDark:=TUIRadioButton.Create(72,24,themeGroup,'StyleDemo\ThemeDark').Setup('dark',editorTheme='dark');
+  themeDark.SetPos(74,0,pivotTopLeft);
+  themeDark.style.Assign('@demo-check;');
 
   LabelAt(wnd,184,250,290,'Drag RGB sliders to retune selected token live.');
-  LabelAt(wnd,184,272,290,'Theme list swaps the whole palette.');
+  LabelAt(wnd,184,272,290,'Theme buttons swap the whole palette.');
 
   LabelAt(wnd,14,314,130,'Style blocks');
   styleList:=TUIListBox.Create(145,118,wnd,'StyleDemo\StyleList',22);
@@ -287,10 +291,12 @@ function TStyleThemeEditorScene.Process:boolean;
   result:=inherited Process;
   if tokenList=nil then exit;
 
-  if themeList.selectedLine=1 then want:='dark' else want:='light';
+  if themeDark.checked then want:='dark' else want:='light';
   if want<>editorTheme then begin
    ApplyTheme(want);
    editorTheme:=want;
+   themeLight.checked:=want='light';
+   themeDark.checked:=want='dark';
    LoadToken(tokenList.selectedLine);
   end;
 
