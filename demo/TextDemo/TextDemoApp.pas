@@ -373,29 +373,41 @@ procedure TMainScene.DrawOverview(const contentRect:TRect);
 var
   area,r,innerR:TRect;
   srcV,srcR:string;
-  c:integer;
+  c,leftX,rightX,anchorX:integer;
 begin
   area:=Rect(contentRect.Left+10,contentRect.Top+screenTopOffset,contentRect.Right-10,contentRect.Bottom-20);
 
   // 0) Raster baseline/align
   r:=GridCell(area,0,0,3,2,BLOCK_GAP);
   DrawBlock(r,'Raster: Baseline && Align',innerR);
+  leftX:=innerR.Left+12;
+  rightX:=innerR.Right-12;
+  anchorX:=rightX-1;
+  draw.Line(leftX,innerR.Top+14,leftX,innerR.Bottom-24,$4060B080);
+  draw.Line(rightX,innerR.Top+14,rightX,innerR.Bottom-24,$70FFFFFF);
   draw.Line(innerR.Left+10,innerR.Top+16,innerR.Right-10,innerR.Top+16,$50FFFFFF);
-  draw.Line((innerR.Left+innerR.Right) div 2,innerR.Top+16,(innerR.Left+innerR.Right) div 2,innerR.Bottom-10,$30FFFFFF);
-  txt.Write(rasterFont,innerR.Left+12,innerR.Top+16,$FFE5EDF7,'baseline (no top flag)',taLeft,0);
-  txt.Write(rasterFont,innerR.Left+12,innerR.Top+44,$FF9CD0FF,'top (toAddBaseline)',taLeft,toAddBaseline);
+  draw.Line((innerR.Left+innerR.Right) div 2,innerR.Top+16,(innerR.Left+innerR.Right) div 2,innerR.Bottom-24,$30FFFFFF);
+  txt.Write(rasterFont,leftX,innerR.Top+16,$FFE5EDF7,'baseline (no top flag)',taLeft,0);
+  txt.Write(rasterFont,leftX,innerR.Top+44,$FF9CD0FF,'top (toAddBaseline)',taLeft,toAddBaseline);
   txt.Write(rasterFont,(innerR.Left+innerR.Right) div 2,innerR.Top+76,$FFE5EDF7,'centered label',taCenter,toAddBaseline);
-  txt.Write(rasterFont,innerR.Right-12,innerR.Top+104,$FFE6CFA0,'right label',taRight,toAddBaseline);
+  txt.Write(rasterFont,anchorX,innerR.Top+104,$FFE6CFA0,'right label',taRight,toAddBaseline);
+  txt.Write(monoFont,leftX,innerR.Bottom-8,$FF90C0E8,'bounds: [left, right), right line is exclusive',taLeft,toAddBaseline);
 
   // 1) Vector baseline/align
   r:=GridCell(area,1,0,3,2,BLOCK_GAP);
   DrawBlock(r,'Vector: Baseline && Align',innerR);
+  leftX:=innerR.Left+12;
+  rightX:=innerR.Right-12;
+  anchorX:=rightX-1;
+  draw.Line(leftX,innerR.Top+14,leftX,innerR.Bottom-24,$4060B080);
+  draw.Line(rightX,innerR.Top+14,rightX,innerR.Bottom-24,$70FFFFFF);
   draw.Line(innerR.Left+10,innerR.Top+16,innerR.Right-10,innerR.Top+16,$50FFFFFF);
-  draw.Line((innerR.Left+innerR.Right) div 2,innerR.Top+16,(innerR.Left+innerR.Right) div 2,innerR.Bottom-10,$30FFFFFF);
-  txt.Write(vectorFont,innerR.Left+12,innerR.Top+16,$FFE5EDF7,'baseline (vector)',taLeft,0);
-  txt.Write(vectorFont,innerR.Left+12,innerR.Top+44,$FF9CD0FF,'top (toAddBaseline)',taLeft,toAddBaseline);
+  draw.Line((innerR.Left+innerR.Right) div 2,innerR.Top+16,(innerR.Left+innerR.Right) div 2,innerR.Bottom-24,$30FFFFFF);
+  txt.Write(vectorFont,leftX,innerR.Top+16,$FFE5EDF7,'baseline (vector)',taLeft,0);
+  txt.Write(vectorFont,leftX,innerR.Top+44,$FF9CD0FF,'top (toAddBaseline)',taLeft,toAddBaseline);
   txt.Write(vectorFont,(innerR.Left+innerR.Right) div 2,innerR.Top+76,$FFE5EDF7,'centered label',taCenter,toAddBaseline);
-  txt.Write(vectorFont,innerR.Right-12,innerR.Top+104,$FFE6CFA0,'right label',taRight,toAddBaseline);
+  txt.Write(vectorFont,anchorX,innerR.Top+104,$FFE6CFA0,'right label',taRight,toAddBaseline);
+  txt.Write(monoFont,leftX,innerR.Bottom-8,$FF90C0E8,'bounds: [left, right), right line is exclusive',taLeft,toAddBaseline);
 
   // 2) Center proof with guides and symmetric lines
   r:=GridCell(area,2,0,3,2,BLOCK_GAP);
@@ -456,6 +468,7 @@ end;
 procedure TMainScene.DrawWriteFamily(const contentRect:TRect);
 var
   area,r,innerR:TRect;
+  boundaryX,anchorX:integer;
   wst:String32;
   vfLabel:string;
 begin
@@ -480,10 +493,12 @@ begin
 
   r:=GridCell(area,0,1,2,2,BLOCK_GAP);
   DrawBlock(r,'txt.WriteR (right anchor)',innerR);
-  draw.Line(innerR.Right-12,innerR.Top+8,innerR.Right-12,innerR.Bottom-8,$70FFFFFF);
-  txt.WriteR(bodyFont,innerR.Right-12,innerR.Top+34,$FFE5EDF7,'R1: right-aligned',toAddBaseline);
-  txt.WriteR(bodyFont,innerR.Right-12,innerR.Top+62,$FF90D8FF,'R2: anchor is at right edge',toAddBaseline);
-  txt.WriteR(bodyFont,innerR.Right-12,innerR.Top+90,$FFE8D8A0,'R3: useful for stats columns',toAddBaseline);
+  boundaryX:=innerR.Right-12;
+  anchorX:=boundaryX-1;
+  draw.Line(boundaryX,innerR.Top+8,boundaryX,innerR.Bottom-8,$70FFFFFF);
+  txt.WriteR(bodyFont,anchorX,innerR.Top+34,$FFE5EDF7,'R1: right-aligned',toAddBaseline);
+  txt.WriteR(bodyFont,anchorX,innerR.Top+62,$FF90D8FF,'R2: text stays before the guide',toAddBaseline);
+  txt.WriteR(bodyFont,anchorX,innerR.Top+90,$FFE8D8A0,'R3: useful for stats columns',toAddBaseline);
 
   r:=GridCell(area,1,1,2,2,BLOCK_GAP);
   DrawBlock(r,'txt.WriteC (center anchor)',innerR);
@@ -496,19 +511,22 @@ end;
 procedure TMainScene.DrawAlignment(const contentRect:TRect);
 var
   area,r,innerR:TRect;
+  boundaryX,anchorX:integer;
   st:string;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
 
   r:=GridCell(area,0,0,2,2,BLOCK_GAP);
   DrawBlock(r,'taLeft / taCenter / taRight',innerR);
+  boundaryX:=innerR.Right-10;
+  anchorX:=boundaryX-1;
   draw.Line(innerR.Left+10,innerR.Top+18,innerR.Right-10,innerR.Top+18,$50FFFFFF);
   draw.Line((innerR.Left+innerR.Right) div 2,innerR.Top+18,(innerR.Left+innerR.Right) div 2,innerR.Bottom-10,$30FFFFFF);
-  draw.Line(innerR.Right-10,innerR.Top+18,innerR.Right-10,innerR.Bottom-10,$50FFFFFF);
-  st:='Anchor line';
+  draw.Line(boundaryX,innerR.Top+18,boundaryX,innerR.Bottom-10,$50FFFFFF);
+  st:='Boundary guide';
   txt.Write(bodyFont,innerR.Left+10,innerR.Top+18,$FF90C0E8,st,taLeft,toAddBaseline);
   txt.Write(bodyFont,(innerR.Left+innerR.Right) div 2,innerR.Top+54,$FFE5EDF7,'taCenter',taCenter,toAddBaseline);
-  txt.Write(bodyFont,innerR.Right-10,innerR.Top+90,$FFEBD6A2,'taRight',taRight,toAddBaseline);
+  txt.Write(bodyFont,anchorX,innerR.Top+90,$FFEBD6A2,'taRight',taRight,toAddBaseline);
 
   r:=GridCell(area,1,0,2,2,BLOCK_GAP);
   DrawBlock(r,'taJustify + targetWidth',innerR);

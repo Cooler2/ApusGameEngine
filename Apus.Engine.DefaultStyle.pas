@@ -253,7 +253,7 @@ implementation
      if align=taLeft then
       txt.WriteW(font,r.left,mY,color,wst);
      if align=taRight then
-      txt.WriteW(font,r.Right,mY,color,wst,taRight);
+      txt.WriteW(font,r.Right-1,mY,color,wst,taRight);
      if align=taCenter then
       txt.WriteW(font,(r.left+r.right)/2,mY,color,wst,taCenter);
      if align=taJustify then

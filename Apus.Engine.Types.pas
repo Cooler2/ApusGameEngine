@@ -51,7 +51,7 @@ type
 
  TTextAlignment=(taLeft,      // normal output
                  taCenter,    // output point indicates the text center
-                 taRight,     // output point indicates the right edge
+                 taRight,     // output point indicates the right edge; use boundary-1 to keep ink before a guide/border line
                  taJustify);  // output point indicates the left edge, while spacing is the line width
                               // (falls back to left-aligned output when actual width is too small or the line ends with #10/#13)
 

@@ -618,12 +618,14 @@ type
   function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   // Change option on a font handle
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
-  // Text output (use handle 0 for default font)
+  // Text output (use handle 0 for default font).
+  // Alignment follows half-open bounds: left-aligned ink may start at x;
+  // right-aligned ink must stay before x, so use rect.Right as an exclusive edge.
   procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
   procedure WriteW(font:TFontHandle;x,y:single;color:cardinal;st:String32;align:TTextAlignment=taLeft;
      options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
-  // Right-aligned: x is the right edge
+  // Right-aligned: x is the exclusive right edge.
   procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
   // Centered: x is the center
   procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
