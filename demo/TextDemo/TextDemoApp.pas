@@ -454,11 +454,7 @@ begin
     txt.Write(bodyFont,r.Left+10,r.Top+12,$FFFF8080,'ALERT: FREETYPE is NOT compiled in this build!',taLeft,toAddBaseline or toWithShadow);
     txt.Write(bodyFont,r.Left+10,r.Top+34,$FFFFB0B0,'Vector text path is unavailable.',taLeft,toAddBaseline);
   {$ELSE}
-  if not vectorFontLoaded then begin
-    txt.Write(bodyFont,innerR.Left+10,innerR.Top+82,$FFF3D39C,
-      'FreeType compiled, but no demo TTF found (using raster fallback).',taLeft,toAddBaseline);
-  end else
-    txt.Write(bodyFont,innerR.Left+10,innerR.Top+82,$FF9DE0B0,'FreeType path is active.',taLeft,toAddBaseline);
+    txt.Write(bodyFont,innerR.Left+10,innerR.Top+82,$FF9DE0B0,'FreeType support: compiled',taLeft,toAddBaseline);
   {$ENDIF}
   txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-54,$FFE5EDF7,UTF8.Format('DPI=%d scale=%.2f',[window.screenDPI,layoutScale]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-32,$FFE5EDF7,UTF8.Format('FPS=%.1f smooth=%.1f',[window.FPS,window.smoothFPS]),taLeft,toAddBaseline);
