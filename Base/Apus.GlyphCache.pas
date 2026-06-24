@@ -157,7 +157,7 @@ begin
  aHeight:=height;
  freeMin:=0;
  freeMax:=height-1;
- index.Init(4000);
+ index.Init(512); // seed only; the map auto-resizes as more glyphs are cached
  bCount:=0;
  firstBand:=-1; lastBand:=-1;
  relX:=0; relY:=0;
