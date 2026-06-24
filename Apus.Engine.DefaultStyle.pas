@@ -719,23 +719,23 @@ implementation
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
       else scrollPos:=0;
-     gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
-     lineH:=lineHeight*globalScale;
-     for i:=0 to length(lines)-1 do begin
-      lY:=y1+round(i*lineH-scrollPos); /// TODO: check
-      if lY+lineH<y1 then continue;
-      if lY>y2 then break;
-      if i=selectedLine then begin
-       draw.FillRect(x1,lY,x2,round(lY+lineH),bgSelColor);
-       c:=selTextColor;
-      end else
-      if i=hoverLine then begin
-       draw.FillRect(x1,lY,x2,round(lY+lineH),bgHoverColor);
-       c:=hoverTextColor;
-      end else
-       c:=textColor;
-      txt.Write(font,x1+4,lY+round(lineH*0.73),c,lines[i],taLeft,toComplexText);
-     end;
+      gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
+      lineH:=lineHeight*globalScale;
+      for i:=0 to length(lines)-1 do begin
+       lY:=y1+round(i*lineH-scrollPos); /// TODO: check
+       if lY+lineH<y1 then continue;
+       if lY>y2 then break;
+       if i=selectedLine then begin
+        draw.FillRect(x1,lY,x2,round(lY+lineH),bgSelColor);
+        c:=selTextColor;
+       end else
+       if i=hoverLine then begin
+        draw.FillRect(x1,lY,x2,round(lY+lineH),bgHoverColor);
+        c:=hoverTextColor;
+       end else
+        c:=textColor;
+       txt.Write(font,x1+4,lY+round(lineH*0.73),c,lines[i],taLeft,toComplexText);
+      end;
      gfx.clip.Restore;
     end;
   end;
@@ -774,7 +774,7 @@ implementation
    end;
   end;
 
- procedure DrawCommonStyle(element:TUIElement;context:TContext);
+ procedure DrawCommonStyle(element:TUIElement;context:TContext;outerBorder:boolean=false);
   var
    fillColor,borderColor:cardinal;
    radius,bWidth,scale:single;
@@ -790,17 +790,30 @@ implementation
    end;
   procedure DrawBlock;
    var
-    i:integer;
+    i,bw:integer;
    begin
-    if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.GetStyleColor('color',clDefault);
+     if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.GetStyleColor('color',clDefault);
     if radius>1 then begin
-     draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
+     if outerBorder then begin
+      if fillColor<>0 then
+       draw.RoundRect(x1,y1,x2,y2,radius*scale,0,0,fillColor);
+      if (borderColor<>0) and (bWidth>0) then
+       draw.RoundRect(x1-bWidth*scale,y1-bWidth*scale,x2+bWidth*scale,y2+bWidth*scale,
+         (radius+bWidth)*scale,bWidth*scale,borderColor,0);
+     end else
+      draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
     end else begin
      if fillColor<>0 then
       draw.FillRect(x1,y1,x2,y2,fillColor);
      if borderColor<>0 then begin
-      for i:=0 to round(bWidth*scale)-1 do
-       draw.Rect(x1+i,y1+i,x2-i,y2-i,borderColor)
+      bw:=round(bWidth*scale);
+      if outerBorder then begin
+       for i:=0 to bw-1 do
+        draw.Rect(x1-1-i,y1-1-i,x2+1+i,y2+1+i,borderColor)
+      end else begin
+       for i:=0 to bw-1 do
+        draw.Rect(x1+i,y1+i,x2-i,y2-i,borderColor)
+      end;
      end;
     end;
    end;
@@ -831,6 +844,7 @@ implementation
    RestoreBlendMode;
 
    // Inner (client) block
+   outerBorder:=false;
    fillColor:=element.GetBaseStyleColor('inner-fill');
    borderColor:=element.GetBaseStyleColor('inner-border');
    radius:=element.GetBaseStyleNumber('inner-radius',radius);
@@ -849,7 +863,7 @@ implementation
   begin
    context:=PrepareContext(element);
    context.Update(element);
-   DrawCommonStyle(element,context);
+   DrawCommonStyle(element,context,element is TUIListBox);
 
    with element.globalrect do begin
     x1:=Left; x2:=right-1;

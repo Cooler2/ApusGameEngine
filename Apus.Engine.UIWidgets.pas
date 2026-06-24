@@ -1573,8 +1573,8 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    flags.canHaveFocus:=true;
    sendSignals:=ssMajor;
 
-   scrollBar:=TUIScrollBar.CreateV(8,clientHeight-2,self,listName+'_scroll');
-   scrollBar.SetPos(clientWidth,1,pivotTopRight).SetAnchors(1,0,1,1);
+   scrollBar:=TUIScrollBar.CreateV(8,clientHeight,self,listName+'_scroll');
+   scrollBar.SetPos(clientWidth,0,pivotTopRight).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
    scrollBar.flags.noParentClip:=true;
    scrollerV:=scrollBar.GetScroller;
@@ -1613,9 +1613,9 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    gScale:single;
   begin
    inherited;
-   cx:=curMouseX-(globalRect.Left+1);
-   cy:=curMouseY-(globalRect.Top+1);
-   if (cx>=0) and (cy>=0) and (cx<globalRect.width-1) and (cy<globalRect.height-1) then begin
+   cx:=curMouseX-globalRect.Left;
+   cy:=curMouseY-globalRect.Top;
+   if (cx>=0) and (cy>=0) and (cx<globalRect.width) and (cy<globalRect.height) then begin
     gScale:=globalScale;
     n:=trunc((cy+scrollerV.GetValue*gScale)/(lineHeight*gScale));
     if (n>=0) and (n<length(lines)) then hoverLine:=n
@@ -1675,17 +1675,18 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    if scrollerV<>nil then UpdateScroller;
   end;
 
- procedure TUIListBox.UpdateScroller;
-  var
-   max:single;
-  begin
-   max:=length(lines)*lineHeight;
-   scrollerV.SetRange(0,max);
-   scrollerV.SetStep(lineHeight*(round(clientHeight/2) div round(lineHeight)));
-   scrollerV.SetPageSize(clientHeight);
-   scrollerV.GetElement.size.y:=clientHeight;
-   scrollerV.GetElement.flags.visible:=max>clientHeight;
-  end;
+  procedure TUIListBox.UpdateScroller;
+   var
+    max:single;
+   begin
+    max:=length(lines)*lineHeight;
+    scrollerV.SetRange(0,max);
+    scrollerV.SetStep(lineHeight*(round(clientHeight/2) div round(lineHeight)));
+    scrollerV.SetPageSize(clientHeight);
+    scrollerV.GetElement.SetPos(clientWidth,0,pivotTopRight);
+    scrollerV.GetElement.size.y:=clientHeight;
+    scrollerV.GetElement.flags.visible:=max>clientHeight;
+   end;
 
   { TUIFrame }
 
