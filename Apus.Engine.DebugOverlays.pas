@@ -166,34 +166,112 @@ var
  const
   timingLabels:array[0..4] of String8=('msgs','frame','rend','pres','total');
 
- procedure DrawHelp;
-  const
-   lines:array[1..13] of String8=(
-    'Hotkeys:',
-    '[Alt+F1] - show/hide debug overlays',
-    '  [Alt+1] this help page (hold modifier)',
-    '  [Alt+2] glyphs cache',
-    '  [Alt+3] scenes',
-    '  [Alt+5] render stats',
-    '',
-    '[Shift+Alt+F1] - dump debug logs',
-    '[Alt+F3] - toggle magnifier',
-    '[Win+~] - show console',
-    '[Alt+F11] - toggle VSync',
-    '[F12] - take a screenshot (JPEG)',
-    '[Alt+F12] - take a screenshot (PNG)');
-  var
-   i,y:integer;
-  begin
-   draw.FillRect(0,0,320*game.screenScale,(length(lines)+0.4)*18*game.screenScale,$80000000);
-   txt.BeginBlock;
-   y:=0;
-   for i:=1 to high(lines) do begin
-    inc(y,round(18*game.screenScale));
-    txt.Write(game.defaultFont,5,y,$FFFFFFFF,lines[i],taLeft,toDontTranslate);
+  procedure DrawHelp;
+   const
+    lines:array[1..12] of String8=(
+     '[Alt+F1] - show/hide debug overlays',
+     '  [Alt+1] this help page (hold modifier)',
+     '  [Alt+2] glyphs cache',
+     '  [Alt+3] scenes',
+     '  [Alt+5] render stats',
+     '',
+     '[Shift+Alt+F1] - dump debug logs',
+     '[Alt+F3] - toggle magnifier',
+     '[Win+~] - show console',
+     '[Alt+F11] - toggle VSync',
+     '[F12] - take a screenshot (JPEG)',
+     '[Alt+F12] - take a screenshot (PNG)');
+   var
+    i,y,lineCount:integer;
+    platformName:String8;
+
+   function FlagText(enabled:boolean):String8;
+    begin
+     if enabled then result:='on'
+      else result:='off';
+    end;
+
+   function BuildModeText:String8;
+    begin
+     {$IFDEF DEBUG}
+     result:='Debug';
+     {$ELSE}
+     result:='Release';
+     {$ENDIF}
+    end;
+
+   function CompilerText:String8;
+    begin
+     {$IFDEF FPC}
+     result:='FPC';
+     {$ELSE}
+     result:='Delphi';
+     {$ENDIF}
+    end;
+
+   function OSText:String8;
+    begin
+     {$IFDEF MSWINDOWS}
+     result:='Windows';
+     {$ELSE}
+     {$IFDEF LINUX}
+     result:='Linux';
+     {$ELSE}
+     {$IFDEF DARWIN}
+     result:='macOS';
+     {$ELSE}
+     result:='unknown';
+     {$ENDIF}
+     {$ENDIF}
+     {$ENDIF}
+    end;
+
+   function CPUText:String8;
+    begin
+     {$IF Defined(CPUX64) or Defined(CPUX86_64)}
+     result:='x64';
+     {$ELSE}
+     {$IFDEF CPU386}
+     result:='x86';
+     {$ELSE}
+     {$IF Defined(CPUARM64) or Defined(CPUAARCH64)}
+     result:='ARM64';
+     {$ELSE}
+     {$IFDEF CPUARM}
+     result:='ARM';
+     {$ELSE}
+     result:='unknown';
+     {$ENDIF}
+     {$ENDIF}
+     {$ENDIF}
+     {$ENDIF}
+    end;
+
+   procedure WriteLine(text:String8;color:cardinal=$FFFFFFFF);
+    begin
+     inc(y,round(18*game.screenScale));
+     txt.Write(game.defaultFont,5,y,color,text,taLeft,toDontTranslate);
+    end;
+   begin
+    lineCount:=length(lines)+7;
+    draw.FillRect(0,0,320*game.screenScale,(lineCount+0.4)*18*game.screenScale,$A0000000);
+    txt.BeginBlock;
+    y:=0;
+    for i:=1 to high(lines) do begin
+     WriteLine(lines[i]);
+    end;
+    if systemPlatform<>nil then platformName:=String8(systemPlatform.GetPlatformName)
+     else platformName:='none';
+    inc(y,round(8*game.screenScale));
+    WriteLine('Platform: '+platformName);
+    WriteLine('Build: '+BuildModeText+' / '+CompilerText+' / '+OSText+' '+CPUText);
+    WriteLine('SDL: '+{$IFDEF SDL}'compiled'{$ELSE}'not compiled'{$ENDIF});
+    WriteLine('FREETYPE: '+{$IFDEF FREETYPE}'on'{$ELSE}'off'{$ENDIF});
+    WriteLine('LODEPNG: '+{$IFDEF LODEPNG}'on'{$ELSE}'off'{$ENDIF}+
+      ', OPENGL: '+{$IFDEF OPENGL}'on'{$ELSE}'off'{$ENDIF});
+    WriteLine('VSync: '+FlagText(settings.VSync>0)+', DPI: '+Conv.ToStr(window.screenDPI));
+    txt.EndBlock;
    end;
-   txt.EndBlock;
-  end;
 
  procedure ListScenes;
  var
