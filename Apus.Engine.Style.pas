@@ -150,7 +150,7 @@ function HasToken(const name:String8):boolean;
 procedure RemoveToken(const name:String8);
 procedure ClearTokens;
 
-// Themes are named, complete token sets. pairs = [name,value, name,value, ...].
+// Themes are named, complete token sets. Each pair is a 'name=value' string.
 procedure DefineTheme(const name:String8; const pairs:array of String8);
 // Swap the active palette: clears tokens, applies the theme, bumps stylesRevision.
 procedure ApplyTheme(const name:String8);
@@ -162,7 +162,7 @@ var
  stylesRevision:cardinal=0;
 
 implementation
-uses Apus.Conv, Apus.Strings, Apus.Log;
+uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Types;
 
 const
  MAX_NAMED_STYLES = 128;
@@ -188,8 +188,8 @@ type
   value:String8; // literal ($AARRGGBB / number / any string) OR reference '&other'
  end;
  TTheme=record
-  name:String8;   // lowercase
-  pairs:Strings8; // flat [name,value, name,value, ...]
+  name:String8;        // lowercase
+  pairs:TNameValueList; // token name→value palette
  end;
 
 var
@@ -908,13 +908,10 @@ procedure DefineTheme(const name:String8; const pairs:array of String8);
  var
   i,idx:integer;
   n:String8;
+  list:Strings8;
  begin
   n:=name.Trim.ToLower;
   if n='' then exit;
-  if odd(length(pairs)) then begin
-   Log.Warn('Style: theme "%s" has odd pair count, ignored',[n]);
-   exit;
-  end;
   idx:=FindThemeIndex(n);
   if idx<0 then begin
    if themeCount>=MAX_THEMES then begin
@@ -925,9 +922,9 @@ procedure DefineTheme(const name:String8; const pairs:array of String8);
    inc(themeCount);
    themes[idx].name:=n;
   end;
-  SetLength(themes[idx].pairs,length(pairs));
-  for i:=0 to high(pairs) do
-   themes[idx].pairs[i]:=pairs[i];
+  SetLength(list,length(pairs));
+  for i:=0 to high(pairs) do list[i]:=pairs[i];
+  themes[idx].pairs:=TNameValueList.Init(list); // splits each 'name=value'
  end;
 
 procedure ApplyTheme(const name:String8);
@@ -940,11 +937,8 @@ procedure ApplyTheme(const name:String8);
    exit;
   end;
   ClearTokens; // v1 themes are complete sets — start clean
-  i:=0;
-  while i+1<length(themes[idx].pairs) do begin
-   SetToken(themes[idx].pairs[i],themes[idx].pairs[i+1]);
-   inc(i,2);
-  end;
+  for i:=0 to themes[idx].pairs.Count-1 do
+   SetToken(themes[idx].pairs.items[i].name,themes[idx].pairs.items[i].value);
   activeThemeName:=themes[idx].name;
   inc(stylesRevision); // explicit bump in case the theme was empty
  end;
@@ -1047,25 +1041,25 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
 procedure RegisterBuiltinThemes;
  begin
   DefineTheme('light',[
-   'surface','$FFB0B0C0', 'surface-alt','$FFC8C8D0', 'overlay','$FFE0E0DC',
-   'text','$FF202020', 'text-muted','$FF808080', 'text-on-accent','$FFFFFFFF',
-   'border','$FF000000', 'border-light','$FFE8E8E8', 'border-dark','$FF606060',
-   'control','$FFB0A0C0',
-   'accent','$FF3060C0', 'accent-text','$FFFFFFFF',
-   'danger','$FFC04040', 'danger-text','$FFFFFFFF',
-   'success','$FF40A040', 'success-text','$FFFFFFFF',
-   'warning','$FFD0A030', 'warning-text','$FF202020',
-   'focus','$80FFFF80']);
+   'surface=$FFB0B0C0', 'surface-alt=$FFC8C8D0', 'overlay=$FFE0E0DC',
+   'text=$FF202020', 'text-muted=$FF808080', 'text-on-accent=$FFFFFFFF',
+   'border=$FF000000', 'border-light=$FFE8E8E8', 'border-dark=$FF606060',
+   'control=$FFB0A0C0',
+   'accent=$FF3060C0', 'accent-text=$FFFFFFFF',
+   'danger=$FFC04040', 'danger-text=$FFFFFFFF',
+   'success=$FF40A040', 'success-text=$FFFFFFFF',
+   'warning=$FFD0A030', 'warning-text=$FF202020',
+   'focus=$80FFFF80']);
   DefineTheme('dark',[
-   'surface','$FF303038', 'surface-alt','$FF383840', 'overlay','$FF404048',
-   'text','$FFE0E0E0', 'text-muted','$FF909090', 'text-on-accent','$FFFFFFFF',
-   'border','$FF101010', 'border-light','$FF606068', 'border-dark','$FF101014',
-   'control','$FF505060',
-   'accent','$FF5080E0', 'accent-text','$FFFFFFFF',
-   'danger','$FFD05050', 'danger-text','$FFFFFFFF',
-   'success','$FF50B050', 'success-text','$FFFFFFFF',
-   'warning','$FFE0B040', 'warning-text','$FF202020',
-   'focus','$80FFFF80']);
+   'surface=$FF303038', 'surface-alt=$FF383840', 'overlay=$FF404048',
+   'text=$FFE0E0E0', 'text-muted=$FF909090', 'text-on-accent=$FFFFFFFF',
+   'border=$FF101010', 'border-light=$FF606068', 'border-dark=$FF101014',
+   'control=$FF505060',
+   'accent=$FF5080E0', 'accent-text=$FFFFFFFF',
+   'danger=$FFD05050', 'danger-text=$FFFFFFFF',
+   'success=$FF50B050', 'success-text=$FFFFFFFF',
+   'warning=$FFE0B040', 'warning-text=$FF202020',
+   'focus=$80FFFF80']);
  end;
 
 initialization
