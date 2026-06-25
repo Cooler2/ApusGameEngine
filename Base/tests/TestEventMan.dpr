@@ -114,11 +114,19 @@ begin
   mtQueuedLock.Enter;
   try
     mtThreadIDs[idx]:=GetCurrentThreadID;
-    inc(mtQueuedReadyCount);
   finally
     mtQueuedLock.Leave;
   end;
   SetEventHandler('MT\QueuedPerThread',MTQueuedSharedHandler,emQueued);
+  // mark ready only AFTER the handler is registered, otherwise the main thread
+  // may Signal before this thread's queued handler exists (race), so the
+  // event would never be enqueued for this thread
+  mtQueuedLock.Enter;
+  try
+    inc(mtQueuedReadyCount);
+  finally
+    mtQueuedLock.Leave;
+  end;
   while not mtQueuedStart do
     CoreTime.Sleep(1);
   for k:=1 to 300 do begin
