@@ -167,6 +167,12 @@ procedure TSDLGLWindow.SamplePointer;
  var
   pnt:TPoint;
  begin
+  // TODO: match WindowsPlatform.SamplePointer (deferred until SDL-on-Windows, see
+  // Work/engine_work_ahead.md P1):
+  //  1) gate on SDL_GetMouseFocus<>wnd → off-screen sentinel (clears stale hover when
+  //     our window is covered, fixes cross-read between app windows);
+  //  2) while a button is held, report raw continuous coords (SDL_CaptureMouse /
+  //     relative mode) so a camera-drag does not jump to the sentinel off-window.
   SDL_GetMouseState(@pnt.x,@pnt.y); // already client-relative to focused window
   if (pnt.x<0) or (pnt.y<0) or
      (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
