@@ -497,9 +497,9 @@ function UIScene(name:String8):TUIScene;
    result:=true;
    Signal('Scenes\ProcessScene\'+name);
    window.Lock;
-   // отложенное удаление элементов
+   // deferred removal of UI elements
 
-   // Размер корневого эл-та - полный экран
+   // Root UI element covers the whole screen.
   { if (UI.ClassType=TUIControl) and (UI.x=0) and (UI.y=0) then begin
     UI.width:=areaWidth;
     UI.height:=areaHeight;
@@ -509,21 +509,21 @@ function UIScene(name:String8):TUIScene;
     // NB: underMouse / hover transitions are owned by DispatchMouseMove (called once
     // per window every frame) — Process no longer touches it silently.
 
-    // Обработка фокуса: если элемент с фокусом невидим или недоступен - убрать с него фокус
-    // Исключение: корневой UI-элемент (при закрытии сцены фокус должен убрать эффект перехода)
+    // Focus handling: if focused element is hidden or disabled, clear focus.
+    // Exception: root UI element, because scene close effects must clear it.
     c:=FocusedElement;
     if c<>nil then begin
      repeat
       if not (c.flags.visible and c.flags.enabled) or
        ((window.modal.Root<>nil) and (c.parent=nil) and (c<>window.modal.Root)) then begin
        SetFocusTo(nil);
-       Log.Msg(UI.name);
+       Log.Debug('Focus removed from: '+UI.name);
        break;
       end;
       c:=c.parent;
      until (c=nil) or (c.parent=nil);
     end;
-    // Обработка захвата: если элемент, захвативший мышь, невидим или недоступен - убрать захват и фокус
+    // Capture handling: if mouse captor is hidden or disabled, clear capture and focus.
     if hooked<>nil then begin
      if not (hooked.IsVisible and hooked.IsEnabled) or
       ((window.modal.Root<>nil) and (hooked.GetRoot<>window.modal.Root)) then begin
