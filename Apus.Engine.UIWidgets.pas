@@ -707,7 +707,7 @@ function TUILabel.Right(text:String8):TUILabel;
 
    shape:=shapeFull;
    caption:=wndCaption;
-   header:=wcTitleHeight;
+   header:=round(Dp(wcTitleHeight));
    autoBringToFront:=true;
    flags.canhavefocus:=false;
    moveable:=true;

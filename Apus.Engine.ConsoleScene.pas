@@ -73,7 +73,7 @@ implementation
   conTotal:int64;       // monotonic count of all lines ever added (auto-scroll trigger)
   conCaptureLevel:TSeverity=TSeverity.Normal; // min severity captured from the log
   lastShownTotal:int64; // last conTotal observed by DrawContent
-  showTimestamps:boolean=false; // Win+1: prepend per-line capture time (toggled via overlay)
+  showTimestamps:boolean=false; // Ctrl+Alt+1: prepend per-line capture time (toggled via overlay)
   visibleSeverity:TSeverity=TSeverity.Normal; // display threshold for diagnostic lines
 
  // Rendered console line height in pixels at the given UI scale.
@@ -333,8 +333,8 @@ begin
     (focusedElement=nil) then
      SetFocusTo(consoleScene.editbox);
 
- // Console view hotkeys: Win+1..3, so function keys stay available to demos.
- if (consoleScene.activated) and ((window.shiftState and sscBaseMask)=sscWin) then begin
+ // Console view hotkeys: Ctrl+Alt+1..3, so function keys stay available to demos.
+ if (consoleScene.activated) and ((window.shiftState and sscBaseMask)=(sscCtrl+sscAlt)) then begin
   case TKey(tag and $FF) of
    TKey.D1:begin
     showTimestamps:=not showTimestamps;
@@ -546,9 +546,9 @@ begin
  filterPanel.order:=1000;
  btn:=TUIToggleButton.Create(38,CON_OVERLAY_H,filterPanel,'ConsoleTimeBtn');
  btn.Setup('Time');
- StyleConsoleButton(btn,'Show timestamps for console lines (Win+1)');
+ StyleConsoleButton(btn,'Show timestamps for console lines (Ctrl+Alt+1)');
  btn.SetPos(0,0,pivotTopLeft);
- btn.linkedToggled:=@showTimestamps; // Win+1: toggle per-line timestamps
+ btn.linkedToggled:=@showTimestamps; // Ctrl+Alt+1: toggle per-line timestamps
 
  severityBox:=TUIComboBox.Create(116,CON_OVERLAY_H,filterPanel,'ConsoleSeverity');
  severityBox.AddItem('Debug',ord(TSeverity.Debug),'Show debug and above');
@@ -558,7 +558,7 @@ begin
  severityBox.AddItem('Error',ord(TSeverity.Error),'Show errors and fatal only');
  severityBox.AddItem('Fatal',ord(TSeverity.Fatal),'Show fatal only');
  severityBox.SetCurItemByTag(ord(visibleSeverity));
- StyleConsoleButton(severityBox,'Minimum severity shown (Win+2/Win+3)');
+ StyleConsoleButton(severityBox,'Minimum severity shown (Ctrl+Alt+2/Ctrl+Alt+3)');
  severityBox.SetPos(42,0,pivotTopLeft);
  severityBox.maxlines:=6;
 
