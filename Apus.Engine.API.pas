@@ -186,6 +186,11 @@ const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
  DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout:$4300; stride:6*4;);
 
+ // Mouse-move kinds (see TMoveKind) re-exported so gameplay scenes can test window.moveKind
+ mkLeave = Apus.Engine.Types.mkLeave;
+ mkMove  = Apus.Engine.Types.mkMove;
+ mkEnter = Apus.Engine.Types.mkEnter;
+
 type
  TImagePixelFormat = Apus.Images.TImagePixelFormat;
 
@@ -241,6 +246,9 @@ type
 
  // Text alignment
  TTextAlignment = Apus.Engine.Types.TTextAlignment;
+
+ // Mouse-move kind delivered to gameplay scenes (read via window.moveKind)
+ TMoveKind = Apus.Engine.Types.TMoveKind;
 
  // Nine Patch: resizable image
  TNinePatch=class(TNamedObject)

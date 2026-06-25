@@ -399,6 +399,9 @@ implementation
    CollectUIRoots(roots,zOrders,true);
    // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
    for i:=0 to high(roots) do begin
+    // a disabled root (e.g. a scene fading out via SceneEffects) blocks input —
+    // this replaces the old per-scene "if not UI.flags.enabled then exit" guard.
+    if not roots[i].flags.enabled then continue;
     if any then enabl:=roots[i].FindAnyElementAt(x,y,ct)
      else enabl:=roots[i].FindElementAt(x,y,ct);
     if ct<>nil then begin

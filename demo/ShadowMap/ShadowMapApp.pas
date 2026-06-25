@@ -102,8 +102,8 @@ procedure TMainScene.InitGfx;
 procedure TMainScene.onMouseMove(x, y: integer);
  begin
   inherited;
-  // If element under mouse doesn't belong to this scene - ignore movement!
-  if underMouse.GetRoot<>UI then exit;
+  // Only react to real in-world movement (UI consumes the rest)
+  if window.moveKind<>mkMove then exit;
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then begin
    cameraAngleX:=cameraAngleX-(x-window.oldMousePos.x)*0.01;

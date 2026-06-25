@@ -30,9 +30,6 @@ type
   function GetArea:TRect; override; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
   function DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean; override;
   procedure WriteChar(ch:cardinal); override;
-  procedure onMouseMove(x,y:integer); override;
-  procedure onMouseBtn(btn:byte;pressed:boolean); override;
-  procedure onMouseWheel(delta:integer); override;
   function GetUIRoot:TObject; override;
 
   // These are markers for drawing scenes background to properly handle alpha channel of the render target to avoid wrong alpha blending
@@ -48,6 +45,14 @@ type
  // Get scene by name
  function UIScene(name:String8):TUIScene;
 
+ // Window-level mouse dispatch (called once per window per event from TWindow,
+ // NOT per active scene). They run the global UI hit-test once — so the topmost
+ // UI element receives its event exactly once even with several active UIScene —
+ // then forward raw events to gameplay scenes.
+ procedure DispatchMouseMove(wnd:TWindow);
+ procedure DispatchMouseButton(wnd:TWindow;btn:byte;pressed:boolean);
+ procedure DispatchMouseWheel(wnd:TWindow;delta:integer);
+
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
 
@@ -56,6 +61,7 @@ type
 
 implementation
  uses SysUtils, Apus.Lib, Types,
+   Apus.Engine.Types,
    Apus.EventMan, Apus.Publics,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
    Apus.Engine.UIScript,
@@ -111,7 +117,7 @@ function UIScene(name:String8):TUIScene;
    hint:TUIHint;
    i:integer;
   begin
-   Log.Msg('ShowHint: '+msg);
+    Log.Debug('ShowHint: '+msg);
    msg:=Translate(msg);
    if (x=-1) or (y=-1) then begin
     x:=curMouseX; y:=curMouseY;
@@ -129,7 +135,7 @@ function UIScene(name:String8):TUIScene;
    end;
    if parent=nil then exit;
    if curhint<>nil then begin
-    Log.Msg('Free previous hint');
+     Log.Debug('Free previous hint');
     curHint.Free;
     curHint:=nil;
    end;
@@ -139,7 +145,7 @@ function UIScene(name:String8):TUIScene;
    hint.timer:=time;
    hint.order:=10000; // Top
    curhint:=hint;
-   Log.Msg('Hint created '+inttohex(UIntPtr(hint),16));
+    Log.Debug('Hint created '+inttohex(UIntPtr(hint),16));
   end;
 
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
@@ -237,19 +243,21 @@ function UIScene(name:String8):TUIScene;
    OffsetRect(result,round(UI.position.x),round(UI.position.y)); // actually, UI root shouldn't be displaced, but...
   end;
 
- procedure TUIScene.onMouseBtn(btn:byte;pressed:boolean);
+ // Window-level UI button dispatch: run the global hit-test once, deliver the
+ // button to the topmost UI element exactly once (so several active UIScene can't
+ // each toggle the same element), then forward the raw event to gameplay scenes.
+ procedure DispatchMouseButton(wnd:TWindow;btn:byte;pressed:boolean);
   var
    c,c2:TUIElement;
    e:boolean;
    st:String8;
+   i:integer;
   begin
-   if (UI<>nil) and (not UI.flags.enabled) then exit;
-   inherited;
-   window.Lock;
+   wnd.Lock;
    try
     // sync UI coords from window — button events arrive before FlushMouseInput
-    curMouseX:=window.mousePos.x;
-    curMouseY:=window.mousePos.y;
+    curMouseX:=wnd.mousePos.x;
+    curMouseY:=wnd.mousePos.y;
     e:=FindElementAt(curMouseX,curMouseY,c);
     // A mouse-captured element (e.g. a scrollbar slider being dragged) must keep
     // receiving button events — above all the release that ends the capture. The
@@ -261,10 +269,6 @@ function UIScene(name:String8):TUIScene;
      c:=hooked;
      e:=true;
     end;
-    if (c<>nil) and (c.GetRoot<>UI) then begin
-     c:=nil;
-     e:=false;
-    end;
     if pressed then begin
      if e and (c<>nil) then
       c.onMouseButtons(btn,true)
@@ -272,9 +276,9 @@ function UIScene(name:String8):TUIScene;
       if (not c.flags.enabled) and c.GetClassAttribute('handleMouseIfDisabled') then
        c.onMouseButtons(btn,true);
      // design mode: drag element with Ctrl+RMB
-     if (btn=2) and (designMode or Bits.HasAll(window.shiftState,sscCtrl)) then hookedItem:=c;
+     if (btn=2) and (designMode or Bits.HasAll(wnd.shiftState,sscCtrl)) then hookedItem:=c;
      // debug: Ctrl+MMB shows element info
-     if (btn=3) and Bits.HasAll(window.shiftState,sscCtrl) then begin
+     if (btn=3) and Bits.HasAll(wnd.shiftState,sscCtrl) then begin
       if c<>nil then begin
        st:=c.name;
        c2:=c;
@@ -286,7 +290,7 @@ function UIScene(name:String8):TUIScene;
        Log.Msg(Format('%s: pos: %.1f,%.1f pivot: %.1f %.1f size: %.1f,%.1f gRect: (%d %d %d %d) ',
         [c.name,c.position.x,c.position.y,c.pivot.x,c.pivot.y,c.size.x,c.size.y,
          c.globalRect.Left,c.globalRect.top,c.globalRect.right,c.globalRect.bottom]));
-       if (window.shiftState and 2>0) and (c.name<>'') then
+       if (wnd.shiftState and 2>0) and (c.name<>'') then
         ExecCmd('use '+c.name);
       end else begin
        st:='No opaque item here';
@@ -303,28 +307,41 @@ function UIScene(name:String8):TUIScene;
      if e and (c<>nil) then c.onMouseButtons(btn,false);
     end;
    finally
-    window.Unlock;
+    wnd.Unlock;
    end;
+   // forward the raw button to gameplay scenes (custom onMouseBtn overrides).
+   // The UI element above already got its onMouseButtons exactly once, so this
+   // never produces a double toggle even with several active UIScene.
+   for i:=low(wnd.scenes) to high(wnd.scenes) do
+    if wnd.scenes[i].IsActive then
+     wnd.scenes[i].onMouseBtn(btn,pressed);
   end;
 
- procedure TUIScene.onMouseMove(x,y:integer);
+ // Window-level UI move dispatch: tracks the hovered element (enter/leave/move),
+ // cursor and hints once per window, then decides whether the world (gameplay
+ // scenes) sees the move. While the cursor sits over a consuming UI control the
+ // world stays idle (the prior consumer got a single mkLeave); a fullscreen scene
+ // root is NOT a consumer, so empty areas still feed gameplay moves.
+ procedure DispatchMouseMove(wnd:TWindow);
   var
-   c,c2:TUIElement;
-   e1,e2:boolean;
+   x,y:integer;
+   prevUnder,curUnder:TUIElement;
+   moved,overUI,wasOverUI,deliver:boolean;
    time:int64;
    st:String8;
+   i:integer;
   begin
-   if (UI<>nil) and (not UI.flags.enabled) then exit;
-   inherited;
-   window.Lock;
+   deliver:=false;
+   wnd.Lock;
    time:=CoreTime.Ticks;
    try
+    x:=wnd.mousePos.x; y:=wnd.mousePos.y;
     // apply mouse clipping
     if ClipMouse<>cmNo then with clipMouseRect do begin
-     if X<left then x:=left;
-     if X>=right then x:=right-1;
-     if Y<top then y:=top;
-     if Y>=bottom then y:=bottom-1;
+     if x<left then x:=left;
+     if x>=right then x:=right-1;
+     if y<top then y:=top;
+     if y>=bottom then y:=bottom-1;
      if (clipMouse in [cmReal,cmLimited]) and ((curMouseX<>x) or (curMouseY<>y)) then
       if clipMouse=cmReal then exit;
      // NB: do NOT assign curMouseX:=x here for cmVirtual — x,y are already clamped
@@ -334,58 +351,63 @@ function UIScene(name:String8):TUIScene;
     end;
     oldMouseX:=curMouseX; oldMouseY:=curMouseY;
     curMouseX:=x; curMouseY:=y;
-    if (curMouseX=oldMouseX) and (curMouseY=oldMouseY) then exit;
+    moved:=(curMouseX<>oldMouseX) or (curMouseY<>oldMouseY);
 
     // hide hint if mouse left hint rect
     {$IFNDEF IOS}
-    if (curHint<>nil) and curHint.flags.visible and
+    if moved and (curHint<>nil) and curHint.flags.visible and
        not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curHint.Hide;
     {$ENDIF}
 
     // design mode drag
-    if hookedItem<>nil then
+    if moved and (hookedItem<>nil) then
      hookedItem.MoveBy(curMouseX-oldMouseX,curMouseY-oldMouseY);
 
-    // hit-test
-    e1:=FindElementAt(oldMouseX,oldMouseY,c);
-    e2:=FindElementAt(curMouseX,curMouseY,c2);
-    if e2 then SetUnderMouse(c2) else SetUnderMouse(nil);
-    if e1 then c.onMouseMove;
-    if e2 and (c2<>c) then c2.onMouseMove;
-    e2:=FindElementAt(curMouseX,curMouseY,c2);
+    // hit-test current point; track enter/leave against the previously hovered
+    // element so geometry changes under a still cursor also fire properly.
+    prevUnder:=underMouse;
+    FindElementAt(curMouseX,curMouseY,curUnder);
+    if hooked<>nil then curUnder:=hooked; // a captured element keeps the hover
+    SetUnderMouse(curUnder);
+    if prevUnder<>curUnder then begin
+     if prevUnder<>nil then prevUnder.onMouseMove; // leave the old element
+     if curUnder<>nil then curUnder.onMouseMove;   // enter the new one
+    end else
+     if moved and (curUnder<>nil) then curUnder.onMouseMove; // move within the same one
 
     // update cursor
-    if e2 and (c2.cursor<>curCursor) then begin
+    if (curUnder<>nil) and (curUnder.cursor<>curCursor) then begin
      if curCursor<>CursorID.Default then begin
       game.ToggleCursor(curCursor,false);
       Signal('UI\Cursor\OFF',curCursor);
      end;
-     curCursor:=c2.cursor;
+     curCursor:=curUnder.cursor;
      game.ToggleCursor(curCursor,true);
      Signal('UI\Cursor\ON',curCursor);
     end;
-    if not e2 and (curCursor<>CursorID.Default) then begin
+    if (curUnder=nil) and (curCursor<>CursorID.Default) then begin
      Signal('UI\Cursor\OFF',curCursor);
      game.ToggleCursor(curCursor,false);
      curCursor:=CursorID.Default;
      game.ToggleCursor(curCursor);
     end;
 
-    if c<>c2 then begin
-     if c<>nil then Signal('UI\onMouseOut\'+c.ClassName+'\'+c.name);
-     if c2<>nil then Signal('UI\onMouseOver\'+c2.ClassName+'\'+c2.name);
+    // hover signals
+    if prevUnder<>curUnder then begin
+     if prevUnder<>nil then Signal('UI\onMouseOut\'+prevUnder.ClassName+'\'+prevUnder.name);
+     if curUnder<>nil then Signal('UI\onMouseOver\'+curUnder.ClassName+'\'+curUnder.name);
     end;
 
     // hint timing
-    if (c2<>nil) and (c2.flags.enabled and (c2.hint<>'') or
-       not c2.flags.enabled and (c2.attributes.Item['hintIfDisabled']<>'')) then begin
-     if c2.flags.enabled then st:=c2.hint
-      else st:=c2.attributes.Item['hintIfDisabled'];
+    if (curUnder<>nil) and (curUnder.flags.enabled and (curUnder.hint<>'') or
+       not curUnder.flags.enabled and (curUnder.attributes.Item['hintIfDisabled']<>'')) then begin
+     if curUnder.flags.enabled then st:=curUnder.hint
+      else st:=curUnder.attributes.Item['hintIfDisabled'];
      if st<>lastHint then begin
       if st='' then itemShowHintTime:=0
       else begin
        if time<hintMode then itemShowHintTime:=time+250
-        else itemShowHintTime:=time+Conv.ToInt(c2.attributes.Item['hintDelay'],1000);
+        else itemShowHintTime:=time+Conv.ToInt(curUnder.attributes.Item['hintDelay'],1000);
       end;
      end;
      lastHint:=st;
@@ -394,32 +416,53 @@ function UIScene(name:String8):TUIScene;
      lastHint:='';
     end;
 
-    if clipMouse=cmLimited then begin
-     curMouseX:=x; curMouseY:=y;
+    // consumer model: a real control (not a fullscreen root) consumes the move;
+    // decide what the world sees and which transition kind to tag it with.
+    overUI:=(curUnder<>nil) and (curUnder.parent<>nil);
+    wasOverUI:=wnd.mouseOverUI;
+    if overUI then begin
+     if not wasOverUI then begin wnd.moveKind:=mkLeave; deliver:=true; end
+     // staying over UI → consumed, world stays idle
+    end else begin
+     if wasOverUI then wnd.moveKind:=mkEnter else wnd.moveKind:=mkMove;
+     deliver:=moved or wasOverUI; // real movement, or the cursor just returned to the world
     end;
+    wnd.mouseOverUI:=overUI;
    finally
-    window.Unlock;
+    wnd.Unlock;
    end;
+   // forward the move to gameplay scenes (they read wnd.moveKind to know the kind)
+   if deliver then
+    for i:=low(wnd.scenes) to high(wnd.scenes) do
+     if wnd.scenes[i].IsActive then
+      wnd.scenes[i].onMouseMove(curMouseX,curMouseY);
   end;
 
- procedure TUIScene.onMouseWheel(delta:integer);
+ // Window-level UI wheel dispatch: the topmost UI element gets the wheel once; a
+ // real control consumes it (gameplay doesn't see it), an empty area passes through.
+ procedure DispatchMouseWheel(wnd:TWindow;delta:integer);
   var
    c:TUIElement;
+   consumed:boolean;
+   i:integer;
   begin
-   if (UI<>nil) and (not UI.flags.enabled) then exit;
-   inherited;
-   window.Lock;
+   consumed:=false;
+   wnd.Lock;
    try
     // sync UI coords from window — wheel events arrive before FlushMouseInput
-    curMouseX:=window.mousePos.x;
-    curMouseY:=window.mousePos.y;
-    if FindElementAt(curMouseX,curMouseY,c) then
+    curMouseX:=wnd.mousePos.x;
+    curMouseY:=wnd.mousePos.y;
+    if FindElementAt(curMouseX,curMouseY,c) then begin
      c.onMouseScroll(delta);
+     consumed:=c.parent<>nil; // a real control swallowed the wheel
+    end;
    finally
-    window.Unlock;
+    wnd.Unlock;
    end;
-   if (window.modal.Root=nil) or (window.modal.Root=UI) then
-    Signal('UI\'+name+'\MouseWheel',delta);
+   if not consumed then
+    for i:=low(wnd.scenes) to high(wnd.scenes) do
+     if wnd.scenes[i].IsActive then
+      wnd.scenes[i].onMouseWheel(delta);
   end;
 
  procedure TUIScene.onResize;
@@ -463,8 +506,8 @@ function UIScene(name:String8):TUIScene;
    end;}
 
    try
-    FindElementAt(curMouseX,curMouseY,c);
-    SetUnderMouse(c);
+    // NB: underMouse / hover transitions are owned by DispatchMouseMove (called once
+    // per window every frame) — Process no longer touches it silently.
 
     // Обработка фокуса: если элемент с фокусом невидим или недоступен - убрать с него фокус
     // Исключение: корневой UI-элемент (при закрытии сцены фокус должен убрать эффект перехода)

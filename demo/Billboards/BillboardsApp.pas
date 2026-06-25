@@ -158,7 +158,7 @@ procedure TMainScene.Load;
 procedure TMainScene.onMouseMove(x, y: integer);
  begin
   inherited;
-  if underMouse<>UI then exit; // don't turn camera if mouse is over any UI
+  if window.moveKind<>mkMove then exit; // only react to in-world movement (UI consumes the rest)
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then
    cameraAngle:=cameraAngle-(x-window.oldMousePos.x)/(cameraDist.Value+30);

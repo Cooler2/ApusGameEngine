@@ -333,6 +333,7 @@ procedure TMainScene.onMouseMove(x,y:integer);
   dx,dy:single;
  begin
   inherited;
+  if window.moveKind<>mkMove then exit; // only react to in-world movement (UI consumes the rest)
   if (window.mouseButtons and mbLeft)>0 then begin
    dx:=x-window.oldMousePos.x;
    dy:=y-window.oldMousePos.y;

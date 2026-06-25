@@ -49,6 +49,13 @@ type
 
  TIndices=WordArray;
 
+ // Kind of a mouse-move event delivered to a gameplay scene, set by the UI dispatcher
+ // before calling the scene handler (read it via window.moveKind):
+ //  mkLeave - cursor just moved from the world onto a consuming UI element (act: stop/hide world cursor)
+ //  mkMove  - cursor moved within the world (no UI consuming it) — the only kind that carries a real delta
+ //  mkEnter - cursor just returned to the world from UI (no delta — don't apply movement)
+ TMoveKind=(mkLeave,mkMove,mkEnter);
+
  TTextAlignment=(taLeft,      // normal output
                  taCenter,    // output point indicates the text center
                  taRight,     // output point indicates the right edge; use boundary-1 to keep ink before a guide/border line

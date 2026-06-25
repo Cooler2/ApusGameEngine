@@ -113,6 +113,7 @@ procedure TMainScene.InitGfx;
 procedure TMainScene.onMouseMove(x, y: integer);
  begin
   inherited;
+  if window.moveKind<>mkMove then exit; // only react to in-world movement (UI consumes the rest)
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then
    cameraAngle:=cameraAngle-0.5*(x-window.oldMousePos.x)/window.screenDPI;

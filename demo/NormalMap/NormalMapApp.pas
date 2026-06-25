@@ -262,6 +262,7 @@ var
   dx,dy:single;
 begin
   inherited;
+  if window.moveKind<>mkMove then exit; // only react to in-world movement (UI consumes the rest)
   dx:=x-window.oldMousePos.x;
   dy:=y-window.oldMousePos.y;
   if ((window.mouseButtons and mbRight)>0) or

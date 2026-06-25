@@ -121,6 +121,9 @@ public
   mousePos:TPoint; // mouse position in game coordinates
   oldMousePos:TPoint; // previous mouse position
   mouseMovedTime:int64; // when mouse position last changed
+  // UI-dispatch bookkeeping (kept next to mousePos as it's positional state):
+  moveKind:TMoveKind; // set by the UI dispatcher before each gameplay onMouseMove call
+  mouseOverUI:boolean; // true while the cursor sits over a consuming UI element (prev-frame state)
   mouseButtons:byte; // button flags (bit 0=left, 1=right, 2=middle)
   oldMouseButtons:byte; // previous button state
   shiftState:byte; // shift keys: aggregate (sscBaseMask) + right-side bits (sscRightMask)
@@ -555,40 +558,36 @@ procedure TWindow.NotifyScenesModeChanged;
  end;
 
 procedure TWindow.NotifyScenesMouseMove(mouseX,mouseY:integer);
- var
-  i:integer;
  begin
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].IsActive then
-    scenes[i].onMouseMove(mouseX,mouseY);
+  // UI dispatch + gameplay forwarding happen once per window (not per scene)
+  DispatchMouseMove(self);
  end;
 
 procedure TWindow.NotifyScenesMouseBtn(c:byte;pressed:boolean);
- var
-  i:integer;
  begin
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].IsActive then
-    scenes[i].onMouseBtn(c,pressed);
+  DispatchMouseButton(self,c,pressed);
  end;
 
 procedure TWindow.NotifyScenesMouseWheel(value:integer);
- var
-  i:integer;
  begin
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].IsActive then
-    scenes[i].onMouseWheel(value);
+  DispatchMouseWheel(self,value);
  end;
 
 procedure TWindow.FlushMouseInput;
+ var
+  changed:boolean;
  begin
-  if mousePos.Equals(oldMousePos) then exit;
-  mouseMovedTime:=CoreTime.Ticks;
-  Signal('MOUSE\MOVE',Bits.PackW(word(mousePos.x),word(mousePos.y)));
-  NotifyScenesMouseMove(mousePos.x,mousePos.y);
-  screenChanged:=true; // needed if cursor is rendered manually
-  oldMousePos:=mousePos;
+  changed:=not mousePos.Equals(oldMousePos);
+  if changed then begin
+   mouseMovedTime:=CoreTime.Ticks;
+   Signal('MOUSE\MOVE',Bits.PackW(word(mousePos.x),word(mousePos.y)));
+   screenChanged:=true; // needed if cursor is rendered manually
+  end;
+  // Run the UI move dispatch every frame, not only on cursor movement: this lets
+  // hover transitions fire when UI geometry changes under a still cursor.
+  // Must run BEFORE advancing oldMousePos — gameplay scenes read it for the delta.
+  DispatchMouseMove(self);
+  if changed then oldMousePos:=mousePos;
  end;
 
 procedure TWindow.NotifyScenesResize;
