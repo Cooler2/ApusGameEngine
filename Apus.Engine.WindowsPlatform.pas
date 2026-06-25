@@ -439,6 +439,13 @@ procedure TWinGLWindow.SamplePointer;
   pnt:TPoint;
  begin
   Windows.GetCursorPos(pnt);
+  // cursor over another (overlapping/topmost) window → not ours, use off-screen sentinel.
+  // GetCursorPos polls the global pointer, so without this guard motion leaks through
+  // whatever window sits on top of ours. GA_ROOT collapses a child GL canvas to its top-level.
+  if GetAncestor(WindowFromPoint(pnt),GA_ROOT)<>self.window then begin
+   mousePos:=Types.Point($3FFF,$3FFF);
+   exit;
+  end;
   Windows.ScreenToClient(self.window,pnt);
   // pointer outside client area → use off-screen sentinel
   if (pnt.x<0) or (pnt.y<0) or
