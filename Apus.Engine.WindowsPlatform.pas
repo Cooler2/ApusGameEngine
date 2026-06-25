@@ -437,22 +437,29 @@ procedure TWinGLWindow.ScreenToClient(var p: TPoint);
 procedure TWinGLWindow.SamplePointer;
  var
   pnt:TPoint;
+  captured:boolean;
  begin
   Windows.GetCursorPos(pnt);
-  // cursor over another (overlapping/topmost) window → not ours, use off-screen sentinel.
+  // a held button keeps the OS pointer capture (SetCapture on btn-down), so a drag must
+  // report raw continuous coords even outside our window — otherwise the sentinel below
+  // injects a one-frame jump that throws camera-drag demos to an extreme.
+  captured:=GetCapture=self.window;
+  // not dragging: cursor over another (overlapping/topmost) window → not ours, use sentinel.
   // GetCursorPos polls the global pointer, so without this guard motion leaks through
   // whatever window sits on top of ours. GA_ROOT collapses a child GL canvas to its top-level.
-  if GetAncestor(WindowFromPoint(pnt),GA_ROOT)<>self.window then begin
-   mousePos:=Types.Point($3FFF,$3FFF);
-   exit;
-  end;
+  if not captured then
+   if GetAncestor(WindowFromPoint(pnt),GA_ROOT)<>self.window then begin
+    mousePos:=Types.Point($3FFF,$3FFF);
+    exit;
+   end;
   Windows.ScreenToClient(self.window,pnt);
-  // pointer outside client area → use off-screen sentinel
-  if (pnt.x<0) or (pnt.y<0) or
-     (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
-   mousePos:=Types.Point($3FFF,$3FFF);
-   exit;
-  end;
+  // not dragging: pointer outside client area → use off-screen sentinel
+  if not captured then
+   if (pnt.x<0) or (pnt.y<0) or
+      (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
+    mousePos:=Types.Point($3FFF,$3FFF);
+    exit;
+   end;
   ClientToGame(pnt);
   mousePos:=pnt;
  end;
