@@ -793,7 +793,7 @@ function TUILabel.Right(text:String8):TUILabel;
  procedure TUIWindow.onMouseMove;
   var
    iScale:single;
-   dx,dy:single;
+   dx,dy,oldSize:single;
   begin
    if hooked then begin
     iScale:=scale/globalScale; // pixels to parent's space scale
@@ -806,8 +806,16 @@ function TUILabel.Right(text:String8):TUILabel;
     // Resize
     if area and wcRightFrame>0 then Resize(size.x+dx,-1);
     if area and wcBottomFrame>0 then Resize(-1,size.y+dy);
-    if area and wcLeftFrame>0 then begin Resize(size.x-dx,-1); position.x:=position.x-dx; end;
-    if area and wcTopFrame>0 then begin Resize(-1,size.y-dy); position.y:=position.y-dy; end;
+    if area and wcLeftFrame>0 then begin
+     oldSize:=size.x;
+     Resize(size.x-dx,-1);
+     position.x:=position.x+oldSize-size.x;
+    end;
+    if area and wcTopFrame>0 then begin
+     oldSize:=size.y;
+     Resize(-1,size.y-dy);
+     position.y:=position.y+oldSize-size.y;
+    end;
     inherited;
     exit;
    end;
