@@ -1294,7 +1294,10 @@ var
  lab:String8;
 begin
  begin
-  Log.Msg(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[tex.width,tex.height,flags,tex.name]));
+   if tex.name='UI_HintImage' then
+    Log.Debug(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[tex.width,tex.height,flags,tex.name]))
+   else
+    Log.Msg(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[tex.width,tex.height,flags,tex.name]));
   if Max(tex.width,tex.height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
   {$IFDEF GLES}
   {$IFDEF GLES11}

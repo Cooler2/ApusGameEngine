@@ -71,7 +71,7 @@ implementation
   conCount:integer;     // lines currently stored (<=CON_BUFFER_SIZE)
   conHead:integer;      // index where the next line will be written
   conTotal:int64;       // monotonic count of all lines ever added (auto-scroll trigger)
-  conCaptureLevel:TSeverity=TSeverity.Info; // tier-1: min severity captured from the log
+  conCaptureLevel:TSeverity=TSeverity.Normal; // min severity captured from the log
   lastShownTotal:int64; // last conTotal observed by DrawContent
   showTimestamps:boolean=false; // Win+1: prepend per-line capture time (toggled via overlay)
   visibleSeverity:TSeverity=TSeverity.Normal; // display threshold for diagnostic lines
@@ -99,6 +99,7 @@ implementation
  procedure SetVisibleSeverity(sev:TSeverity);
   begin
    visibleSeverity:=sev;
+   conCaptureLevel:=sev;
    if (consoleScene<>nil) and (consoleScene.severityBox<>nil) then
     consoleScene.severityBox.SetCurItemByTag(ord(sev));
   end;
@@ -180,8 +181,8 @@ implementation
    else result:=false;
   end;
 
- // F5: `loglevel [sev]` reads or sets the tier-1 capture threshold (non-retrospective:
- // controls which new log lines enter the bounded ring; does not re-filter old ones).
+ // `loglevel [sev]` reads or sets the console severity threshold (non-retrospective:
+ // hidden low-severity lines are not stored in the bounded ring).
  procedure LogLevelCmd(cmd:string8);
   var
    arg:String8;
@@ -193,13 +194,13 @@ implementation
    if p=0 then arg:='' else delete(arg,1,p); // drop the operator word
    arg:=arg.Trim.ToLower;
    if arg='' then begin
-    CmdOutput('Console capture level: '+SeverityName(conCaptureLevel),TConsoleKind.Command);
+    CmdOutput('Console severity level: '+SeverityName(conCaptureLevel),TConsoleKind.Command);
     exit;
    end;
    if not ParseSeverity(arg,sev) then
     raise EWarning.Create('Unknown severity: '+arg+' (debug|info|normal|warn|error|fatal)');
-   conCaptureLevel:=sev;
-   CmdOutput('Console capture level set to '+SeverityName(sev),TConsoleKind.Command);
+   SetVisibleSeverity(sev);
+   CmdOutput('Console severity level set to '+SeverityName(sev),TConsoleKind.Command);
   end;
 
  // Resolve a line color from its kind and severity.
@@ -223,7 +224,7 @@ implementation
    end;
   end;
 
- // Tier-2 display filter: is this line visible under the active category toggles?
+ // Display filter: command I/O is always visible, diagnostics use the active severity.
  function ConsoleLineVisible(const line:TConsoleLine):boolean;
   begin
    case line.kind of
@@ -236,7 +237,7 @@ implementation
    end;
   end;
 
- // Count lines currently visible under the active category toggles (thread-safe).
+ // Count lines currently visible under the active severity (thread-safe).
  function ConsoleVisibleCount:integer;
   var
    i,idx:integer;
@@ -467,20 +468,21 @@ begin
  consoleScene.scroll.max:=vcnt*lineHeight+lineHeight*0.6;
  consolescene.scroll.pagesize:=r.height;
  ll:=round(lineHeight*0.75);
- with item do begin
-  if vcnt*lineHeight-scroll.Y<r.height-ll then
-   scroll.Y:=vcnt*lineHeight-(r.height-ll);
-  if (vcnt*lineHeight-scroll.Y>r.height-ll) and (scroll.Y<0) then
-   scroll.Y:=scroll.Y+vcnt*lineHeight-scroll.Y-r.height+ll;
-  consolescene.scroll.value:=scroll.Y;
- end;
 
- // Auto-scroll to the newest line. TODO (post-merge R-16): make this sticky-bottom and fix the
- // scroll unit mismatch (ScrollToEnd uses logical img.size.y, DrawContent uses screen r.height)
- // so wheel/scrollbar work and the view holds position while new lines arrive.
  if total<>lastShownTotal then begin
-  consoleScene.ScrollToEnd;
+  if vcnt*lineHeight>r.height-ll then consoleScene.ScrollToEnd
+   else item.scroll.Y:=0;
   lastShownTotal:=total;
+ end;
+ with item do begin
+  if vcnt*lineHeight<=r.height-ll then
+   scroll.Y:=0
+  else begin
+   if vcnt*lineHeight-scroll.Y<r.height-ll then
+    scroll.Y:=vcnt*lineHeight-(r.height-ll);
+   if scroll.Y<0 then scroll.Y:=0;
+  end;
+  consolescene.scroll.value:=scroll.Y;
  end;
  ypos:=vcnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
  font:=txt.GetFont('Default',round(CON_TEXT_SIZE*item.globalScale),fsIgnoreScale); // scale glyphs with the line height (DPI-aware)
@@ -538,17 +540,17 @@ begin
  zorder:=$FF0000;
 
  // View controls float over the text area in the top-right corner.
- filterPanel:=TUIElement.Create(160,CON_OVERLAY_H,wnd,'Console\Filter');
+ filterPanel:=TUIElement.Create(160,CON_OVERLAY_H,wnd,'ConsoleFilter');
  filterPanel.SetPos(456,4,pivotTopRight);
  filterPanel.SetAnchors(1,0,1,0);
  filterPanel.order:=1000;
- btn:=TUIToggleButton.Create(38,CON_OVERLAY_H,filterPanel,'Console\TimeBtn');
+ btn:=TUIToggleButton.Create(38,CON_OVERLAY_H,filterPanel,'ConsoleTimeBtn');
  btn.Setup('Time');
  StyleConsoleButton(btn,'Show timestamps for console lines (Win+1)');
  btn.SetPos(0,0,pivotTopLeft);
  btn.linkedToggled:=@showTimestamps; // Win+1: toggle per-line timestamps
 
- severityBox:=TUIComboBox.Create(116,CON_OVERLAY_H,filterPanel,'Console\Severity');
+ severityBox:=TUIComboBox.Create(116,CON_OVERLAY_H,filterPanel,'ConsoleSeverity');
  severityBox.AddItem('Debug',ord(TSeverity.Debug),'Show debug and above');
  severityBox.AddItem('Info',ord(TSeverity.Info),'Show info and above');
  severityBox.AddItem('Normal',ord(TSeverity.Normal),'Show normal and above');
@@ -582,7 +584,7 @@ begin
  img.scrollerV:=scroll.GetScroller;
 
  SetEventHandler('UI\Console\Input\Enter',ConsoleOnEnter);
- SetEventHandler('UI\Console\Severity\ONSELECT',SeveritySelectHandler);
+ SetEventHandler('UI\ConsoleSeverity\ONSELECT',SeveritySelectHandler);
 end;
 
 function TConsoleScene.Process:boolean;
@@ -598,6 +600,7 @@ begin
  lineHeight:=ConLineHeight(img.globalScale);
  cnt:=ConsoleVisibleCount; // end position depends on visible lines
  img.scroll.Y:=cnt*lineHeight-round(img.size.y-12);
+ if img.scroll.Y<0 then img.scroll.Y:=0;
 end;
 
 // Safety net: TUIWindow move/resize can leave the window off-screen or at an unusable size

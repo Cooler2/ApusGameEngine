@@ -123,7 +123,7 @@ implementation
     dw:=txt.Width(font,'M');
     inc(iWidth,4+dw);
     if (hintImage=nil) or (hintImage.width<>iWidth) or (hintImage.height<>iHeight) then begin
-     Log.Msg('[Re]alloc hint image');
+     Log.Debug('[Re]alloc hint image');
      if HintImage<>nil then FreeImage(HintImage);
      hintImage:=AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
      if hintImage=nil then
@@ -186,8 +186,8 @@ implementation
     with control as TUIHint do begin
      if pfRenderTargetAlpha=ipfNone then exit;
      if not adjusted then begin
-      // нужно провести инициализацию
-      Log.Force('InitHint '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
+      // initialize hint contents before the first draw
+      Log.Debug('InitHint '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
       if not active then try
        BuildSimpleHint(control as TUIHint);
       except
