@@ -764,6 +764,7 @@ function TUILabel.Right(text:String8):TUILabel;
 
  procedure TUIWindow.onLostFocus;
   begin
+   if Apus.Engine.UITypes.hooked=self then Apus.Engine.UITypes.hooked:=nil;
    hooked:=false;
   end;
 
@@ -772,10 +773,16 @@ function TUILabel.Right(text:String8):TUILabel;
    pnt:TPoint;
   begin
    inherited;
+   if (button=1) and state and not hooked then
+    area:=GetAreaType(curMouseX,curMouseY,cursor);
    if (button=1) and not (area in [0,wcClient]) then begin
-    if not hooked and state then hooked:=true;
+    if not hooked and state then begin
+     hooked:=true;
+     Apus.Engine.UITypes.hooked:=self;
+    end;
     if hooked and not state then begin
      hooked:=false;
+     if Apus.Engine.UITypes.hooked=self then Apus.Engine.UITypes.hooked:=nil;
      // Don't allow window center to be moved outside screen
      pnt:=GetPosOnScreen.CenterPoint;
      /// TODO: implement action
@@ -801,6 +808,8 @@ function TUILabel.Right(text:String8):TUILabel;
     if area and wcBottomFrame>0 then Resize(-1,size.y+dy);
     if area and wcLeftFrame>0 then begin Resize(size.x-dx,-1); position.x:=position.x-dx; end;
     if area and wcTopFrame>0 then begin Resize(-1,size.y-dy); position.y:=position.y-dy; end;
+    inherited;
+    exit;
    end;
 
    inherited;
