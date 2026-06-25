@@ -1503,7 +1503,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
  procedure TUIHint.Hide;
   begin
    if not hiding then begin
-    Log.Msg('UIHint Hide');
+    Log.Debug('UIHint Hide');
     hiding:=true;
     created:=CoreTime.Ticks;
    end;

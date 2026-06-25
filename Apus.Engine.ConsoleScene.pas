@@ -17,6 +17,7 @@ type
   scroll:TUIScrollBar;
   img:TUIImage;
   wnd:TUIWindow;
+  severityBox:TUIComboBox;
   defWidth,defHeight:integer; // default window size, for the reset-on-show safety net
   procedure ResetWindowIfOffscreen;
  end;
@@ -29,19 +30,21 @@ var
 implementation
  uses SysUtils, Classes, Types, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Lib, Apus.Log,
   Apus.Clipboard,
+  Apus.Engine.Types,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc;
 
  const
   CON_BUFFER_SIZE=2048; // max console lines kept in memory
-  CON_LINE_HEIGHT=16;   // base rendered line height (px) before UI scale
-  CON_TOOLBAR_H=18;     // view-control toolbar row height (px) at top of client area
+  CON_LINE_HEIGHT=19;   // base rendered line height (px) before UI scale
+  CON_TEXT_SIZE=8.5;    // base console font size before UI scale
+  CON_OVERLAY_H=22;     // filter button height (px) at top of the text area
   // Line colors: color = f(kind, level). Two families by source:
   //  - log/diagnostics: neutral->warm severity ramp (minor grey ... hot red);
   //  - command I/O: cool/vivid (clearly not a log line).
-  CON_COLOR_DEBUG:cardinal =$FF6E7A8A; // diag Debug  - dim slate (least important)
-  CON_COLOR_INFO:cardinal  =$FF98A4B0; // diag Info   - muted grey-blue
-  CON_COLOR_NORMAL:cardinal=$FFCFD6DC; // diag Normal - neutral light grey (default)
+  CON_COLOR_DEBUG:cardinal =$FF7896B8; // diag Debug  - dim blue (least important)
+  CON_COLOR_INFO:cardinal  =$FF9FCBFF; // diag Info   - clear blue
+  CON_COLOR_NORMAL:cardinal=$FFC6E8FF; // diag Normal - readable cyan (default)
   CON_COLOR_FORCED:cardinal=$FFF2F2F2; // diag Forced - bright white (important, not a problem)
   CON_COLOR_WARN:cardinal  =$FFF2C24E; // diag Warn   - amber
   CON_COLOR_ERROR:cardinal =$FFFF6A4D; // diag Error  - red-orange
@@ -70,13 +73,43 @@ implementation
   conTotal:int64;       // monotonic count of all lines ever added (auto-scroll trigger)
   conCaptureLevel:TSeverity=TSeverity.Info; // tier-1: min severity captured from the log
   lastShownTotal:int64; // last conTotal observed by DrawContent
-  showTimestamps:boolean=false; // F1: prepend per-line capture time (toggled via toolbar)
-  filterGroup:TUIGroupBox;      // F2: display-filter radio group (0=All,1=Err,2=Warn,3=Cmd)
+  showTimestamps:boolean=false; // Win+1: prepend per-line capture time (toggled via overlay)
+  visibleSeverity:TSeverity=TSeverity.Normal; // display threshold for diagnostic lines
 
  // Rendered console line height in pixels at the given UI scale.
  function ConLineHeight(scale:single):integer;
   begin
    result:=round(CON_LINE_HEIGHT*scale);
+  end;
+
+ procedure StyleConsoleButton(btn:TUIButton;const hint:String8);
+  begin
+   btn.hint:=hint;
+   btn.style.SetAttr('font-size','7.5');
+   btn.style.SetAttr('color','$D0303A46');
+   btn.style.SetAttr('text-color','$FFE8F7FF');
+   btn.style.SetAttr('hover.color','$F0445668');
+   btn.style.SetAttr('hover.text-color','$FFFFFFFF');
+   btn.style.SetAttr('pressed.color','$F05A6F84');
+   btn.style.SetAttr('pressed.text-color','$FFFFFFFF');
+   btn.style.SetAttr('border-light','$90FFFFFF');
+   btn.style.SetAttr('border-dark','$B0000000');
+  end;
+
+ procedure SetVisibleSeverity(sev:TSeverity);
+  begin
+   visibleSeverity:=sev;
+   if (consoleScene<>nil) and (consoleScene.severityBox<>nil) then
+    consoleScene.severityBox.SetCurItemByTag(ord(sev));
+  end;
+
+ procedure ChangeVisibleSeverity(delta:integer);
+  var
+   n:integer;
+  begin
+   n:=ord(visibleSeverity)+delta;
+   n:=Clamp(n,ord(TSeverity.Debug),ord(TSeverity.Fatal));
+   SetVisibleSeverity(TSeverity(n));
   end;
 
  // Short capture-time prefix for the timestamp toggle.
@@ -190,43 +223,31 @@ implementation
    end;
   end;
 
- // Tier-2 display filter: is this line visible under the given filter index?
- // 0=All, 1=Errors, 2=Warnings+, 3=Commands.
- function ConsoleLineVisible(const line:TConsoleLine;filter:integer):boolean;
+ // Tier-2 display filter: is this line visible under the active category toggles?
+ function ConsoleLineVisible(const line:TConsoleLine):boolean;
   begin
-   case filter of
-    1:result:=((line.kind=TConsoleKind.Diag) and (line.level>=TSeverity.Error)) or
-              (line.kind=TConsoleKind.CmdError);
-    2:result:=((line.kind=TConsoleKind.Diag) and (line.level>=TSeverity.Warn)) or
-              (line.kind=TConsoleKind.CmdError);
-    3:result:=line.kind in [TConsoleKind.Command,TConsoleKind.CmdError,TConsoleKind.Echo];
-    else result:=true; // All
+   case line.kind of
+    TConsoleKind.Command,
+    TConsoleKind.Echo,
+    TConsoleKind.CmdError:result:=true;
+    else begin // Diag
+     result:=line.level>=visibleSeverity;
+    end;
    end;
   end;
 
- // Active display-filter index from the toolbar radio group (0=All if none/unset).
- function CurrentFilter:integer;
-  begin
-   result:=0;
-   if filterGroup<>nil then begin
-    result:=TUIToggleButton.GetSwitchIndex(filterGroup);
-    if result<0 then result:=0;
-   end;
-  end;
-
- // Count lines currently visible under the given filter (thread-safe).
- function ConsoleVisibleCount(filter:integer):integer;
+ // Count lines currently visible under the active category toggles (thread-safe).
+ function ConsoleVisibleCount:integer;
   var
    i,idx:integer;
   begin
    conLock.Enter;
    try
-    if filter=0 then begin result:=conCount; exit; end;
     result:=0;
     for i:=0 to conCount-1 do begin
      idx:=conHead-1-i;
      while idx<0 do inc(idx,CON_BUFFER_SIZE);
-     if ConsoleLineVisible(conBuf[idx],filter) then inc(result);
+     if ConsoleLineVisible(conBuf[idx]) then inc(result);
     end;
    finally
     conLock.Leave;
@@ -237,11 +258,10 @@ implementation
  // text, oldest first. The buffer is held only to snapshot line references.
  procedure ConsoleCopyToClipboard;
   var
-   i,idx,filter,n:integer;
+   i,idx,n:integer;
    lines:array of String8;
    s:String8;
   begin
-   filter:=CurrentFilter;
    conLock.Enter;
    try
     setLength(lines,conCount);
@@ -249,7 +269,7 @@ implementation
     for i:=conCount-1 downto 0 do begin // oldest -> newest
      idx:=conHead-1-i;
      while idx<0 do inc(idx,CON_BUFFER_SIZE);
-     if not ConsoleLineVisible(conBuf[idx],filter) then continue;
+     if not ConsoleLineVisible(conBuf[idx]) then continue;
      if showTimestamps then lines[n]:=StampStr(conBuf[idx].stamp)+conBuf[idx].text
       else lines[n]:=conBuf[idx].text;
      inc(n);
@@ -283,9 +303,16 @@ implementation
    ConsoleAddLine(line,level,kind);
   end;
 
-procedure KbdHandler(event:TEventStr;tag:TTag);
-var
- c:TUIElement;
+ procedure SeveritySelectHandler(event:TEventStr;tag:TTag);
+  begin
+   if (consoleScene=nil) or (consoleScene.severityBox=nil) then exit;
+   SetVisibleSeverity(TSeverity(consoleScene.severityBox.curTag));
+   consoleScene.ScrollToEnd;
+  end;
+
+ procedure KbdHandler(event:TEventStr;tag:TTag);
+ var
+  c:TUIElement;
 begin
  // Win+[~] - show/hide console window
  if (TKey(tag and 255)=TKey.Tilde) and (window.shiftState and sscWin>0) then begin
@@ -303,7 +330,30 @@ begin
  // When console is active and nothing is focused, focus the edit box.
  if (consoleScene.Activated) and
     (focusedElement=nil) then
-    SetFocusTo(consoleScene.editbox);
+     SetFocusTo(consoleScene.editbox);
+
+ // Console view hotkeys: Win+1..3, so function keys stay available to demos.
+ if (consoleScene.activated) and ((window.shiftState and sscBaseMask)=sscWin) then begin
+  case TKey(tag and $FF) of
+   TKey.D1:begin
+    showTimestamps:=not showTimestamps;
+    game.SuppressKbdEvent;
+    exit;
+   end;
+   TKey.D2:begin
+    ChangeVisibleSeverity(-1);
+    consoleScene.ScrollToEnd;
+    game.SuppressKbdEvent;
+    exit;
+   end;
+   TKey.D3:begin
+    ChangeVisibleSeverity(1);
+    consoleScene.ScrollToEnd;
+    game.SuppressKbdEvent;
+    exit;
+   end;
+  end;
+ end;
 
  // Ctrl+C with an empty input line - copy the visible console lines to the clipboard
  // (a non-empty input keeps the edit box's own copy behavior).
@@ -394,26 +444,22 @@ end;
 procedure DrawContent(item:TUIImage);
 var
  r:TRect;
- i,cnt,vcnt,ypos,lineHeight,ll,idx,filter:integer;
+ i,cnt,vcnt,ypos,lineHeight,ll,idx:integer;
  total:int64;
  col,font:cardinal;
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
  lineHeight:=ConLineHeight(item.globalScale);
- filter:=CurrentFilter;
  conLock.Enter;
  try
   cnt:=conCount;
   total:=conTotal;
-  if filter=0 then vcnt:=cnt
-  else begin
-   vcnt:=0; // only visible lines occupy rows / drive the scroll range
-   for i:=0 to cnt-1 do begin
-    idx:=conHead-1-i;
-    while idx<0 do inc(idx,CON_BUFFER_SIZE);
-    if ConsoleLineVisible(conBuf[idx],filter) then inc(vcnt);
-   end;
+  vcnt:=0; // only visible lines occupy rows / drive the scroll range
+  for i:=0 to cnt-1 do begin
+   idx:=conHead-1-i;
+   while idx<0 do inc(idx,CON_BUFFER_SIZE);
+   if ConsoleLineVisible(conBuf[idx]) then inc(vcnt);
   end;
  finally
   conLock.Leave;
@@ -437,7 +483,7 @@ begin
   lastShownTotal:=total;
  end;
  ypos:=vcnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
- font:=txt.GetFont('Default',round(7*item.globalScale),fsIgnoreScale); // scale glyphs with the line height (DPI-aware)
+ font:=txt.GetFont('Default',round(CON_TEXT_SIZE*item.globalScale),fsIgnoreScale); // scale glyphs with the line height (DPI-aware)
  txt.BeginBlock;
  conLock.Enter;
  try
@@ -445,14 +491,14 @@ begin
   for i:=0 to cnt-1 do begin
    idx:=conHead-1-i;
    while idx<0 do inc(idx,CON_BUFFER_SIZE);
-   if not ConsoleLineVisible(conBuf[idx],filter) then continue; // hidden: no row
+   if not ConsoleLineVisible(conBuf[idx]) then continue; // hidden: no row
    dec(ypos,lineHeight);
    if (ypos<-lineHeight) or (ypos>=r.height+8) then continue;   // offscreen: skip draw
    col:=ConsoleColor(conBuf[idx]);
    if showTimestamps then
-    txt.Write(font,r.left+2,r.top+yPos,col,StampStr(conBuf[idx].stamp)+conBuf[idx].text)
+    txt.Write(font,r.left+2,r.top+yPos,col,StampStr(conBuf[idx].stamp)+conBuf[idx].text,taLeft,toWithShadow)
    else
-    txt.Write(font,r.left+2,r.top+yPos,col,conBuf[idx].text);
+    txt.Write(font,r.left+2,r.top+yPos,col,conBuf[idx].text,taLeft,toWithShadow);
   end;
  finally
   conLock.Leave;
@@ -466,7 +512,8 @@ end;
 constructor TConsoleScene.Create;
 var
  wndRef:TWindow;
- font:cardinal;
+ btn:TUIToggleButton;
+ filterPanel:TUIElement;
  h:integer;
  dpi:integer;
 begin
@@ -481,33 +528,40 @@ begin
  status:=TSceneStatus.ssFrozen;
  frequency:=12;
 
- font:=txt.GetFont('Default',7*ui.scale,fsIgnoreScale);
  h:=round(ui.clientHeight*0.7);
  defWidth:=480; defHeight:=h; // remembered for ResetWindowIfOffscreen
  wnd:=TUIWindow.Create(480,h,true,UI,'ConsoleWnd','Console');
  wnd.SetPos(10,10,pivotTopLeft);
  wnd.moveable:=true;
  wnd.minW:=120; wnd.minH:=160;
- wnd.style.SetAttr('color','$80202020');
+ wnd.style.SetAttr('color','$D0202020');
  zorder:=$FF0000;
 
- // View-control toolbar across the top of the client area.
- with TUIToggleButton.Create(44,CON_TOOLBAR_H-2,wnd,'Console\TimeBtn') do begin
-  Setup('Time');
-  SetPos(2,1,pivotTopLeft);
-  linkedToggled:=@showTimestamps; // F1: toggle per-line timestamps
- end;
+ // View controls float over the text area in the top-right corner.
+ filterPanel:=TUIElement.Create(160,CON_OVERLAY_H,wnd,'Console\Filter');
+ filterPanel.SetPos(456,4,pivotTopRight);
+ filterPanel.SetAnchors(1,0,1,0);
+ filterPanel.order:=1000;
+ btn:=TUIToggleButton.Create(38,CON_OVERLAY_H,filterPanel,'Console\TimeBtn');
+ btn.Setup('Time');
+ StyleConsoleButton(btn,'Show timestamps for console lines (Win+1)');
+ btn.SetPos(0,0,pivotTopLeft);
+ btn.linkedToggled:=@showTimestamps; // Win+1: toggle per-line timestamps
 
- // F2: display-filter radio group (TUIGroupBox parent → exactly one active).
- filterGroup:=TUIGroupBox.Create(168,CON_TOOLBAR_H-2,wnd,'Console\Filter');
- filterGroup.SetPos(52,1,pivotTopLeft);
- TUIToggleButton.Create(36,CON_TOOLBAR_H-2,filterGroup,'Console\FltAll').Setup('All',true).SetPos(0,0,pivotTopLeft);
- TUIToggleButton.Create(36,CON_TOOLBAR_H-2,filterGroup,'Console\FltErr').Setup('Err').SetPos(40,0,pivotTopLeft);
- TUIToggleButton.Create(40,CON_TOOLBAR_H-2,filterGroup,'Console\FltWarn').Setup('Warn').SetPos(80,0,pivotTopLeft);
- TUIToggleButton.Create(40,CON_TOOLBAR_H-2,filterGroup,'Console\FltCmd').Setup('Cmd').SetPos(124,0,pivotTopLeft);
+ severityBox:=TUIComboBox.Create(116,CON_OVERLAY_H,filterPanel,'Console\Severity');
+ severityBox.AddItem('Debug',ord(TSeverity.Debug),'Show debug and above');
+ severityBox.AddItem('Info',ord(TSeverity.Info),'Show info and above');
+ severityBox.AddItem('Normal',ord(TSeverity.Normal),'Show normal and above');
+ severityBox.AddItem('Warn',ord(TSeverity.Warn),'Show warnings and above');
+ severityBox.AddItem('Error',ord(TSeverity.Error),'Show errors and fatal only');
+ severityBox.AddItem('Fatal',ord(TSeverity.Fatal),'Show fatal only');
+ severityBox.SetCurItemByTag(ord(visibleSeverity));
+ StyleConsoleButton(severityBox,'Minimum severity shown (Win+2/Win+3)');
+ severityBox.SetPos(42,0,pivotTopLeft);
+ severityBox.maxlines:=6;
 
- img:=TUIImage.Create(462,h-18-CON_TOOLBAR_H,wnd,'ConsoleMain');
- img.SetPos(0,CON_TOOLBAR_H,pivotTopLeft);
+ img:=TUIImage.Create(462,h-18,wnd,'ConsoleMain');
+ img.SetPos(0,0,pivotTopLeft);
  img.SetAnchors(0,0,1,1);
  img.src:='proc:'+Conv.ToStr(@DrawContent);
 
@@ -519,8 +573,8 @@ begin
  TUIButton.Create(20,18,wnd,'Console\Enter').Setup('>').SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\OnClick','UI\Console\Input\Enter');
 
- scroll:=TUIScrollBar.CreateV(18,h-19-CON_TOOLBAR_H,wnd,'Console\Scroll');
- scroll.SetPos(480,CON_TOOLBAR_H,pivotTopRight);
+ scroll:=TUIScrollBar.CreateV(18,h-19,wnd,'Console\Scroll');
+ scroll.SetPos(480,0,pivotTopRight);
  scroll.style.SetAttr('color','$90808090');
  scroll.step:=32;
  scroll.SetAnchors(1,0,1,1);
@@ -528,6 +582,7 @@ begin
  img.scrollerV:=scroll.GetScroller;
 
  SetEventHandler('UI\Console\Input\Enter',ConsoleOnEnter);
+ SetEventHandler('UI\Console\Severity\ONSELECT',SeveritySelectHandler);
 end;
 
 function TConsoleScene.Process:boolean;
@@ -541,7 +596,7 @@ var
  lineHeight,cnt:integer;
 begin
  lineHeight:=ConLineHeight(img.globalScale);
- cnt:=ConsoleVisibleCount(CurrentFilter); // end position depends on visible lines
+ cnt:=ConsoleVisibleCount; // end position depends on visible lines
  img.scroll.Y:=cnt*lineHeight-round(img.size.y-12);
 end;
 
