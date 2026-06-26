@@ -282,6 +282,7 @@ type
     client.AllowRedirect:=true;
    end;
    req.status:=httpStatusSent;
+   client.RequestHeaders.Clear; // pooled client: drop headers left over from a previous request
    client.AddHeader('X-Dont-Compress','1');
    try
    SS:=TStringStream.Create('');
@@ -338,27 +339,29 @@ type
 
    critSect.Enter;
    try
-    client:=nil;
+    client:=nil; n:=-1;
     for i:=0 to high(postClients) do
      if not postClients[i].busy then begin
       postClients[i].busy:=true;
       client:=postClients[i].client;
+      n:=i;
+      break;
      end;
     if client=nil then begin
      n:=length(postClients);
      SetLength(postClients,n+1);
-     with postClients[n] do begin
-      Log.Msg('Creating a HTTP client');
-      client:=TFPHTTPClient.Create(nil);
-      client.KeepConnection:=true;
-      client.AllowRedirect:=true;
-      busy:=true;
-     end;
+     Log.Msg('Creating a HTTP client');
+     client:=TFPHTTPClient.Create(nil);
+     client.KeepConnection:=true;
+     client.AllowRedirect:=true;
+     postClients[n].client:=client; // must set the local var too (with-block would only touch the field)
+     postClients[n].busy:=true;
     end;
    finally
     critSect.Leave;
    end;
 
+   client.RequestHeaders.Clear; // pooled client: drop headers left over from a previous request
    client.AddHeader('Accept','*.*');
    client.AddHeader('Content-Length',Conv.ToStr(length(req.postdata)));
    client.AddHeader('X-Dont-Compress','1');
