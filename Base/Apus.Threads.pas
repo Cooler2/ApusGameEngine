@@ -1183,6 +1183,8 @@ begin
       end;
     except
       on e:Exception do begin // catch unhandled exceptions to prevent process termination
+        Log.Force('Unhandled exception in thread %s (%s): %s',
+          [data^.uniqueName,e.ClassName,e.Message]);
         if data^.implPtr<>nil then
           TThreadImpl(data^.implPtr).IntSetError(e.Message);
       end;

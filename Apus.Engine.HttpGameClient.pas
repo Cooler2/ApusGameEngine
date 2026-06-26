@@ -67,14 +67,14 @@ var
 
 implementation
  uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
-      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,
+      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Apus.EventMan,DCPmd5a,
       Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Threads;
 
  type
-  TMainThread=class(TThread)
+  TMainWorker=class
    server,login,password,clientInfo:string;
    logoutInfo:string;
-   procedure Execute; override;
+   procedure Execute;
   end;
 
   TConnectionState=(csNone,           // до инициализации
@@ -86,7 +86,8 @@ implementation
                     csDisconnected);  // соединение завершено (нормально или же по ошибке)
 
  var
-  mainThread:TMainThread;
+  mainThread:IThread;
+  mainWorker:TMainWorker;
   critSect:TLock;
   state:TConnectionState; // current state
   userID:integer; // current UserID
@@ -451,8 +452,8 @@ procedure PollRequest(server:string);
   activePollRequest:=HTTPRequest(lastPollURL,'','HTTP_Event');
  end;
 
-{ TMainThread }
-procedure TMainThread.Execute;
+{ TMainWorker }
+procedure TMainWorker.Execute;
  begin
   userID:=0;
   activePollRequest:=0;
@@ -493,7 +494,7 @@ procedure TMainThread.Execute;
 
     sleep(mainLoopDelay);
     HandleSignals;
-   until terminated;
+   until CurrentThread.Terminating;
    Log.Msg('HGC: Session terminated '+inttostr(activePollRequest)+':'+inttostr(activePostRequest));
    if activePollRequest<>0 then CancelRequest(activePollRequest);
    if activePostRequest<>0 then CancelRequest(activePostRequest);
@@ -515,8 +516,15 @@ procedure TMainThread.Execute;
     Signal('NET\Conn3\Error');
    end;
   end;
-  mainThread:=nil; // no need to free, just to inform
+  critSect.Enter;
+  try
+   mainThread:=nil;
+   mainWorker:=nil;
+  finally
+   critSect.Leave;
+  end;
   Log.Msg('HGC: net thread done');
+  Free;
  end;
 
 procedure TerminateIfNeeded;
@@ -543,13 +551,17 @@ procedure Connect(server,login,password,clientinfo:string);
   outStart:=0; outFree:=0;
   inPos:=0; lastTag:=1;
   failedRequests:=0;
-  mainThread:=TMainThread.Create(true);
-  mainThread.server:=server;
-  mainThread.login:=login;
-  mainThread.password:=password;
-  mainThread.clientInfo:=clientInfo;
-  mainThread.FreeOnTerminate:=true;
-  mainThread.Resume;
+  critSect.Enter;
+  try
+   mainWorker:=TMainWorker.Create;
+   mainWorker.server:=server;
+   mainWorker.login:=login;
+   mainWorker.password:=password;
+   mainWorker.clientInfo:=clientInfo;
+   mainThread:=Thread.Start('HttpGameClient',mainWorker.Execute);
+  finally
+   critSect.Leave;
+  end;
  end;
 
 // Account creation
@@ -603,7 +615,7 @@ procedure Disconnect(extraInfo:string='');
   Log.Force('HGC: Disconnect');
   if mainThread<>nil then begin
 //    state:=csDisconnecting;
-    mainThread.logoutInfo:=extraInfo;
+    mainWorker.logoutInfo:=extraInfo;
     mainThread.Terminate;
   end;
   finally

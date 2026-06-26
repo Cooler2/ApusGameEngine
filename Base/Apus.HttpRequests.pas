@@ -72,7 +72,7 @@ type
    errorCode:integer;
    timeout:integer;
    contentType:TContentType;
-   thread:TThread;
+   thread:IThread;
    httpStatus:integer; // В случае получения ответа - здесь HTTP-код
    {$IFDEF IOS}
    con:id;
@@ -89,9 +89,9 @@ type
    free:boolean; // используется ли в данный момент для запроса?
   end;
   {$ENDIF}
-  THTTPThread=class(TThread)
+  THTTPWorker=class
    req:^TRequest;
-   procedure Execute; override;
+   procedure Execute;
    procedure ExecuteGetRequest;
    procedure ExecutePostRequest;
   end;
@@ -118,12 +118,11 @@ type
 
   procedure SendRequest(var r:TRequest);
    var
-    thread:THTTPThread;
+    worker:THTTPWorker;
    begin
-    thread:=THTTPThread.Create(true);
-    thread.FreeOnTerminate:=true;
-    thread.req:=@r;
-    thread.Resume;
+    worker:=THTTPWorker.Create;
+    worker.req:=@r;
+    r.thread:=Thread.Start('HTTP-'+Conv.ToStr(r.ID),worker.Execute);
    end;
 
   {$IFDEF IOS}
@@ -238,7 +237,7 @@ type
   getClient:THTTPClient;
   postClients:array of THTTPClient;
 
- { THTTPThread }
+ { THTTPWorker }
 
  procedure SaveRequestResult(var req:TRequest;client:TFPHTTPClient);
   begin
@@ -253,7 +252,7 @@ type
    end;
   end;
 
- procedure THTTPThread.ExecuteGetRequest;
+ procedure THTTPWorker.ExecuteGetRequest;
   var
    client:TFPHTTPClient;
    ss:TStringStream;
@@ -307,7 +306,7 @@ type
     client.Free;
   end;
 
- procedure THTTPThread.ExecutePostRequest;
+ procedure THTTPWorker.ExecutePostRequest;
   var
     i,port,n:integer;
     request,serverName:string;
@@ -570,7 +569,7 @@ function HTTPSyncRequestGet(url:string;var response:String8;timeout:integer=0):b
 
 {$IFDEF DELPHI}
 { THTTPThread }
-procedure THTTPThread.ExecuteGetRequest;
+procedure THTTPWorker.ExecuteGetRequest;
  var
   handle:HInternet;
   error:integer;
@@ -689,7 +688,7 @@ procedure DeleteConnection(handle:HInternet);
   end;
  end;
 
-procedure THTTPThread.ExecutePostRequest;
+procedure THTTPWorker.ExecutePostRequest;
  var
   i,error,port,conIdx:integer;
   code,httpCode,size,downloaded:cardinal;
@@ -874,33 +873,34 @@ procedure THTTPThread.ExecutePostRequest;
  end;
 {$ENDIF}
 
-procedure THTTPThread.Execute;
+procedure THTTPWorker.Execute;
  var
   time:int64;
  begin
-  Thread.Register('HTTP-'+Conv.ToStr(req.ID));
-  req.thread:=self;
-  time:=CoreTime.Ticks;
-  if req.postdata='' then ExecuteGetRequest
-   else ExecutePostRequest;
-  time:=CoreTime.Ticks-time;
-  if req.status=httpStatusCompleted then begin
-   inc(requestsSucceed);
-   if (req.timeout>0) and (time>maxResponseTime) then maxResponseTime:=time;
-   Log.Msg(Format('Request %d status %d, %.3f s, %d bytes: %s',
-     [req.ID,req.httpStatus,time/1000,req.receivedBytes,copy(req.response,1,60)]));
-   if (req.timeout>0) then begin
-    inc(requestsTime,time);
-    inc(requestsTimeCount);
-    avgResponseTime:=round(requestsTime/requestsTimeCount);
-   end;
-  end else
-   inc(requestsFailed);
+  try
+   time:=CoreTime.Ticks;
+   if req.postdata='' then ExecuteGetRequest
+    else ExecutePostRequest;
+   time:=CoreTime.Ticks-time;
+   if req.status=httpStatusCompleted then begin
+    inc(requestsSucceed);
+    if (req.timeout>0) and (time>maxResponseTime) then maxResponseTime:=time;
+    Log.Msg(Format('Request %d status %d, %.3f s, %d bytes: %s',
+      [req.ID,req.httpStatus,time/1000,req.receivedBytes,copy(req.response,1,60)]));
+    if (req.timeout>0) then begin
+     inc(requestsTime,time);
+     inc(requestsTimeCount);
+     avgResponseTime:=round(requestsTime/requestsTimeCount);
+    end;
+   end else
+    inc(requestsFailed);
 
-  Signal(req.event,req.ID);
-  if CoreTime.Ticks>lastLogTime+60000 then LogStats; // Раз в минуту писать статистику по запросам в лог
-  req.thread:=nil;
-  Thread.Unregister;
+   Signal(req.event,req.ID);
+   if CoreTime.Ticks>lastLogTime+60000 then LogStats; // log statistics once per minute
+   req.thread:=nil;
+  finally
+   Free;
+  end;
  end;
 
  // not required to call

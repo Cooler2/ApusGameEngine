@@ -3,6 +3,15 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Thread lifecycle changes (2026-06-27)
+
+- `Apus.HttpRequests` now launches request workers through
+  `Apus.Threads.Thread.Start` and tracks them as `IThread`; the legacy
+  `Classes.TThread` subclass and `Resume` lifecycle are gone.
+- Unhandled exceptions escaping a `Thread.Start` callback are now written with
+  `Log.Force`, including the thread name, exception class, and message, before
+  the corresponding `IThread` enters the error state.
+
 ## Status note (2026-03-22)
 
 - R-07 is confirmed working and merged into `engine5`.
