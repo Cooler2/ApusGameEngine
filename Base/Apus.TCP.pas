@@ -17,7 +17,7 @@ type
   remotePort:word;
   created:TDateTime; // when this object was created
   lastData:TDateTime; // when last data was received
-  constructor Create;
+  constructor Create; virtual; // virtual: enables polymorphic userClass.Create
   destructor Destroy; override;
   procedure SendData(const buf:TBuffer); // use this to send response
   procedure Disconnect;
@@ -42,7 +42,9 @@ type
  // TCP Server instance
  TTCPServer=class
   users:array of TTCPServerUser;
-  constructor Create(listenPort:word;userClass:TTCPServerUserClass);
+  // bindAll=false binds to localhost only (safe default, correct behind a reverse proxy);
+  // bindAll=true binds INADDR_ANY to accept connections from any interface (production).
+  constructor Create(listenPort:word;userClass:TTCPServerUserClass;bindAll:boolean=false);
   destructor Destroy; override;
   procedure Poll; // Call this periodically to keep the server running
  protected
@@ -116,7 +118,7 @@ begin
 end;
 
 { TTCPServer }
-constructor TTCPServer.Create(listenPort:word; userClass:TTCPServerUserClass);
+constructor TTCPServer.Create(listenPort:word; userClass:TTCPServerUserClass; bindAll:boolean=false);
 var
   addr:SOCKADDR_IN;
   res:integer;
@@ -131,7 +133,10 @@ begin
   // bind
   addr.sin_family:=PF_INET;
   addr.sin_port:=htons(listenPort);
-  addr.sin_addr.S_addr:=htonl(local_IP);
+  if bindAll then
+    addr.sin_addr.S_addr:=htonl(0) // INADDR_ANY: accept on all interfaces
+  else
+    addr.sin_addr.S_addr:=htonl(local_IP);
 
   res:=bind(sock,PSockAddr(@addr),sizeof(addr));
   if res<>0 then raise EError.Create('Bind failed: '+Conv.ToStr(WSAGetLastError));
