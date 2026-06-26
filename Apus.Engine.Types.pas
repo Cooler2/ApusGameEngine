@@ -147,7 +147,7 @@ uses Apus.Utils;
 
  {$EXCESSPRECISION OFF}
  // TODO: trim this unit to engine-specific types only and move Base-type re-exports
- // to explicit imports or a dedicated facade, as documented in engine_work_ahead.md.
+ // to explicit imports or a dedicated facade, as documented in Work/engine_work_ahead.md.
 
 { TGradient }
  const

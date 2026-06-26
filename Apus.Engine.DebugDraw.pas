@@ -183,7 +183,7 @@ end;
 
 // Emit one world-space line. Callers reset the object matrix to identity once
 // per line group (solids leave their own matrix); the eventual push/pop
-// replacement is in Work/reports/transform_api_relative_matrix_design.md.
+// replacement is in Work/transform_api_relative_matrix_design.md.
 procedure EmitLine(const p0,p1:TVec3;color:cardinal);
 begin
   EnterLines;
