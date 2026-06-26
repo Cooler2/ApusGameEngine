@@ -7,16 +7,7 @@
 {$R+}
 unit Apus.Engine.HttpGameClient;
 interface
-uses Apus.Core;
-type
- TNetMessage=record
-  values:Strings8;
-  index:integer;
-  function NextInt:integer;
-  function NextStr:string;
-  function Empty:boolean;
-  function Int(idx:integer):integer;
- end;
+uses Apus.Core, Apus.Strings;
 
 var
  HGCErrorMessage:string; // текст последней ошибки (если был сигнал Net\Conn3\Error)
@@ -55,7 +46,7 @@ var
  function Connected:boolean;
 
  // Получить содержимое поступившего сообщения (хэндл передается в тэге сигнала Net\Conn3\UserMsg)
- procedure GetNetMessage(handle:integer;var msg:TNetMessage);
+ procedure GetNetMessage(handle:integer;var msg:TStringsReader);
 
  // Форматирует строку сообщения из массива значений
 // function FormatMessage(data:array of const):string;
@@ -77,7 +68,7 @@ var
 implementation
  uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
       {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,
-      Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Strings,Apus.Threads;
+      Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Threads;
 
  type
   TMainThread=class(TThread)
@@ -647,7 +638,7 @@ procedure SendData(data:array of const);
   end;
  end;
 
-procedure GetNetMessage(handle:integer;var msg:TNetMessage);
+procedure GetNetMessage(handle:integer;var msg:TStringsReader);
  var
   idx:integer;
  begin
@@ -656,35 +647,6 @@ procedure GetNetMessage(handle:integer;var msg:TNetMessage);
    raise EWarning.Create('Invaid handle: '+inttostr(handle));
   msg.values:=String8(inQueue[idx]).SplitEscaped('~','_');
   msg.index:=0;
- end;
-
-{ TMessage }
-
-function TNetMessage.Int(idx: integer): integer;
- begin
-  if (idx>=0) and (idx<length(values)) then
-   result:=StrToIntDef(values[idx],0)
-  else
-   result:=0;
- end;
-
-function TNetMessage.Empty:boolean;
-begin
- result:=index>=length(values);
-end;
-
-function TNetMessage.NextInt: integer;
- begin
-  if index<length(values) then result:=StrToIntDef(values[index],-1)
-   else result:=-1;
-  inc(index);
- end;
-
-function TNetMessage.NextStr: string;
- begin
-  if index<length(values) then result:=values[index]
-   else result:='';
-  inc(index);
  end;
 
 initialization

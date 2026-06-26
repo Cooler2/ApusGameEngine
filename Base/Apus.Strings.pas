@@ -243,6 +243,18 @@ type
     class function Format(const fmt:String8; const args:array of const):String8; static;
   end;
 
+  // Forward cursor over a list of String8 values with typed sequential reads.
+  // A lightweight reader for decoded messages / field lists: fill `values`
+  // (e.g. via SplitEscaped), reset `index` to 0, then pull fields with Next*.
+  TStringsReader = record
+    values:Strings8;
+    index:integer;                     // read cursor for the Next* accessors
+    function NextInt:integer;          // next value as int (-1 if past end), advances cursor
+    function NextStr:String8;          // next value ('' if past end), advances cursor
+    function Empty:boolean;            // cursor past the last value?
+    function Int(idx:integer):integer; // value[idx] as int (0 if out of range), cursor unchanged
+  end;
+
 // === String type conversion ===
 // Convert any string type to String8 (UTF-8)
 function Str8(const st:UnicodeString):String8; overload; inline;
@@ -2051,6 +2063,35 @@ begin
     end;
     inc(i);
   end;
+end;
+
+{ TStringsReader }
+
+function TStringsReader.Int(idx:integer):integer;
+begin
+  if (idx>=0) and (idx<System.Length(values)) then
+    result:=Conv.ToInt(values[idx],0)
+  else
+    result:=0;
+end;
+
+function TStringsReader.Empty:boolean;
+begin
+  result:=index>=System.Length(values);
+end;
+
+function TStringsReader.NextInt:integer;
+begin
+  if index<System.Length(values) then result:=Conv.ToInt(values[index],-1)
+  else result:=-1;
+  inc(index);
+end;
+
+function TStringsReader.NextStr:String8;
+begin
+  if index<System.Length(values) then result:=values[index]
+  else result:='';
+  inc(index);
 end;
 
 end.

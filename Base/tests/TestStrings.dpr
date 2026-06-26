@@ -786,6 +786,41 @@ begin
   EndTest;
 end;
 
+procedure TestStringsReader;
+var
+  reader:TStringsReader;
+begin
+  StartTest('TStringsReader');
+  SetLength(reader.values,0);
+  reader.index:=0;
+  Check(reader.Empty,'Empty with no values');
+  Check(reader.NextStr='','NextStr past end');
+  Check(reader.NextInt=-1,'NextInt past end');
+  Check(reader.Int(0)=0,'Int(0) past end');
+
+  SetLength(reader.values,0);
+  reader.values.Add('10');
+  reader.values.Add('abc');
+  reader.values.Add('-5');
+  reader.index:=0;
+  Check(not reader.Empty,'not Empty with values');
+  Check(reader.Int(0)=10,'Int(0)');
+  Check(reader.Int(1)=0,'Int(1) non-numeric');
+  Check(reader.Int(2)=-5,'Int(2)');
+  Check(reader.Int(3)=0,'Int(3) out of range');
+  Check(reader.Int(-1)=0,'Int(-1) out of range');
+  Check(reader.NextInt=10,'NextInt first');
+  Check(reader.index=1,'index after NextInt');
+  Check(reader.NextStr='abc','NextStr second');
+  Check(reader.index=2,'index after NextStr');
+  Check(not reader.Empty,'not Empty before last item');
+  Check(reader.NextInt=-5,'NextInt third');
+  Check(reader.Empty,'Empty after last item');
+  Check(reader.NextStr='','NextStr after exhausted');
+  Check(reader.index=4,'index keeps advancing');
+  EndTest;
+end;
+
 // ============================================================================
 // Strings32Helper tests
 // ============================================================================
@@ -1027,6 +1062,7 @@ begin
 
     // Array helpers
     TestStrings8Helper;
+    TestStringsReader;
     TestStrings32Helper;
 
     // UTF8
