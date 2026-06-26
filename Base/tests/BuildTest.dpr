@@ -53,6 +53,7 @@ uses
 
   // Level 7: High-level network
   Apus.HttpRequests,
+  Apus.HttpServer,
   Apus.GfxFormats,
 
   // Level 8: Text and data
