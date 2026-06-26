@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-06-21
+Last updated: 2026-06-26
 
 Language policy: this roadmap is maintained in English.
 
@@ -18,7 +18,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Multi-monitor placement, per-window DPI flow, overlay refresh bug |
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | AEM v1 spec, runtime loader alignment, Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | — |
-| R-05 | CSS-Like UI Style System | in-progress | ~75% | Real-screen validation, resolver perf/caching, $varName support, visual regression tests |
+| R-05 | CSS-Like UI Style System | in-progress | ~80% | Token/theme foundation landed; remaining: migrate hardcoded widget colors into themed styles, distinct `selected` state, selective-inheritance fix, real-screen validation, visual regression tests |
 | R-06 | 3D Material: Normal Mapping | done | 100% | Shipped: ComputeTangents/Normals, stock-shader TBN, demo port, CI smoke; visual handedness sign-off passed |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Linux validation, benchmark pass, SSE hot paths, remaining module migration |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | — |
@@ -29,7 +29,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-13 | Robot API Input Simulation | idea | 0% | `ui.click`/`ui.type`/`ui.focus` commands |
 | R-14 | UI Widget Expansion | idea | 0% | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Directory restructure, HelloEngine, Text demo, merged demos, EngineTest distribution |
-| R-16 | Console Modernization | in-progress | ~70% | Scroll rework, SDL editbox Enter, build-GUI-mode fixes |
+| R-16 | Console Modernization | in-progress | ~90% | Scroll rework (sticky-bottom/ScrollToEnd), SDL editbox Enter |
 | R-17 | 3D Game Architecture Probe | idea | 0% | Top-down 3D skeleton to expose architecture white spots |
 | R-18 | Debug Draw Primitives (3D Gizmos) | planned | ~10% | `materialColor` tint uniform; solid/line sets; MeshLab showcase; NormalMap port |
 | R-19 | Mesh Representation Unification & Rework | done | 100% | — |
@@ -39,6 +39,9 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | done | 100% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Committed (`f811e93`..`361bb9a`) on engine5 |
 | R-24 | Android Platform Revival | idea | 0% | Restore Android/GLES build and runtime path on the current Engine5 platform/graphics/input/resource architecture |
 | R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
+| R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
+| R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
+| R-28 | Audio Subsystem Activation | idea | 0% | Get one backend reliably playing/streaming + GUI SoundDemo; backend choice open (incl. platform-specific), NOT SDL-anchored; full J1–J3 unification deferred |
 
 ## 2) Strategic Directions
 
@@ -129,7 +132,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - [ ] Runtime supports AEM model + animation for at least one production-like asset.
   - [ ] Ultra-compact encoding mode documented and loadable.
   - [ ] Blender plugin exports valid AEM without manual conversion.
-- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). Plan: `Work/R-03_aem_pipeline_notes.md`.
+- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). This is also the home of the **3D preview vertical slice** (work-ahead Do-Next #2) — and the **`demo/CharAnimation` revival is its showcase target**: CharAnimation currently runs on the legacy `TModel3D`+`IQMloader` path (IQM was dropped by R-19), so do NOT revive it on legacy IQM — bring it back on the new `TModel`/`TModelInstance`+animation-runtime path as the skeletal-animation showcase that closes the "Engine5 looks weaker than Engine4's skeletal/shadow demos" gap. Plan: `Work/R-03_aem_pipeline_notes.md`.
 
 ### [R-04] Robot Interaction Layer
 - Status: **done**
@@ -349,6 +352,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - Demos: NormalMap (`RegisterHotKey` showcase), MeshLab (`onKeyDown` override), InputDemo (`onKeyDown`/`onKeyUp` + char via `ReadKey`) — all drop `SetEventHandler`/`WordFromTag`/`RemoveEventHandler`.
 - Out of scope (deliberate): `ConsoleScene`/`TweakScene` stay on raw `KBD\KeyDown` (global debug overlays, like `HandleInternalHotkeys`); full hotkey-mechanism unification = architecture-review #6. `ReadKey`/`KeyPressed` polling kept (orthogonal channel); no separate `onChar` hook this pass.
 - Pending: runtime/visual sign-off (input now deferred ~1 frame, frame-synced like mouse) + commit.
+- Mouse-side analogue: see **R-26** (window-level mouse dispatch); same "callbacks/single dispatch over per-scene loops" direction.
 - Design doc: `Work/scene_onkeydown_design.md`.
 
 ### [R-24] Android Platform Revival
@@ -385,3 +389,45 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - [ ] The retained widget tree is pruned/hidden predictably when immediate calls disappear.
   - [ ] The first implementation compiles on Delphi/FPC and does not require new external libraries.
 - Design note: `Work/R-25_immediate_mode_gui.md`.
+
+### [R-26] Mouse/Pointer Input Pipeline Unification (Window-Level Dispatch)
+- Status: **done** (2026-06-25) | Priority: P1 | Area: Core Runtime / Input
+- Value: mouse input used to run a per-scene `NotifyScenesMouse*` loop — every active `TUIScene` re-ran the same hit-test, causing double-toggle when scenes overlapped, and button release could miss a capturing element. The mouse-side analogue of R-23 (keyboard): one ordered window-level dispatch instead of parallel per-scene consumers.
+- Implemented (committed on `engine5`, `1083666f` + capture/drag fixes `e20e4f18`/`c3ceaa48`/`f87c8413`/`ac8e0385`):
+  - `DispatchMouseMove/Button/Wheel` in `UIScene`: hit-test + UI delivery happen once per window per frame (fixes double-toggle on overlapping active scenes).
+  - `TMoveKind` (`mkLeave/mkMove/mkEnter`) on move events so a gameplay scene distinguishes in-world motion from the cursor crossing onto/off a consuming UI element; dispatcher tracks prev-frame `overUI` on the window. Demos/tools moved from `underMouse.GetRoot` guards to `window.moveKind=mkMove`.
+  - Capture-aware button delivery: while an element holds the mouse (`hooked`/`cmVirtual`), button events go to it so it can end the capture (fixes frozen subtree after a slider drag); `onMouseMove` reaches `cmVirtual`-captured elements during drag.
+  - Wheel consumed by a real control; buttons still forwarded to all active scenes (TweakScene/StyleDemo right-click bind rely on it); disabled UI roots skipped so fading scenes stop receiving input.
+- Out of scope: full pointer-occlusion/capture parity on SDL (tracked in `Work/engine_work_ahead.md` release-tail).
+
+### [R-27] Networking Demo + Server-Side Code (Astral Heroes server as base)
+- Status: planned (~5%) | Priority: P1 | Area: Networking / Tooling
+- Value: `Apus.Engine.HttpGameClient` (former `Networking3`) is a client of an online game service (accounts/auth, long-poll + batched POST over HTTP) that currently has **no server to talk to** — it is effectively dead, untestable code. The original counterpart it was written against is the **Astral Heroes server** (author-owned, external to this repo). Base it on that instead of building a server from scratch.
+- Direction: take the AH server as the reference/starting point; build a demo where the engine client talks to a running server; **assess which parts of the server code are generic enough to extract into the engine/Base** (candidate: an `Apus.HttpServer` over `Apus.Socket`/`Apus.TCP`, reusing `Apus.HttpRequests` parsing and/or `Apus.SCGI`) versus what stays game-specific demo code. The extraction scope is itself part of the task — decide, don't assume.
+- Existing building blocks: `Apus.Socket` → `Apus.TCP` → `Apus.HttpRequests` (client-side parse), `Apus.SCGI` (server protocol). No HTTP server class yet.
+- Scope:
+  - Stand up the AH server (or a trimmed slice of it) as the demo backend.
+  - A demo where `HttpGameClient` performs a real session against it (account/auth, message round-trip).
+  - Extract reusable server pieces into the engine/Base where it clearly pays off; keep game-specific logic demo-local.
+  - Add loopback integration tests for the networking stack (`Socket`→`TCP`→`HttpRequests`→`HttpGameClient`) runnable in CI.
+- Out of scope: a general-purpose production web server; full AH server feature parity; replacing the existing AH backend.
+- Open assessment (decide during the task): how much of the AH server is generic vs game-specific; whether `Apus.SCGI`/`Apus.TCP` already cover the listener/accept needs or a new `Apus.HttpServer` is warranted; licensing/dependency footprint of the server code.
+- Acceptance Criteria:
+  - [ ] A demo runs the engine client against the server over loopback (auth + message round-trip).
+  - [ ] At least one networking integration test runs in CI (Win+Linux) on the loopback path.
+  - [ ] A recorded decision on what (if anything) moves into the engine/Base, and where.
+
+### [R-28] Audio Subsystem Activation
+- Status: idea | Priority: P2 | Area: Audio
+- Value: Strategic direction J is entirely untouched — `Apus.Engine.Sound`/`SoundBass`/`SoundSDL`/`SoundImx` have had no feature/validation work since the bulk migration, and there is no validated audio path on Engine5. An engine preview with zero working audio is an obvious gap.
+- Direction: **do NOT anchor on SDL** (author: SDL audio is not great). Keep the backend choice open — including platform-specific backends — and pick per platform rather than forcing one cross-platform default early. Start with a bounded slice (one backend playing reliably) before any J1–J3 backend unification.
+- Scope (bounded first slice):
+  - One backend playing + streaming reliably (sound effects + music/streaming).
+  - GUI `SoundDemo` (also an R-15 item) exercising playback/volume/streaming/looping.
+  - Basic playback/streaming diagnostics.
+- Out of scope (deferred): full BASS/SDL/IMX backend unification (J1); spatial/3D audio; effects/DSP; a final canonical cross-platform backend decision.
+- Open assessment (decide during the task): which backend(s) to support and the platform mapping; licensing/dependency footprint (BASS is proprietary, Windows-leaning); whether a thin backend-selection layer is worth it now or later.
+- Acceptance Criteria:
+  - [ ] One backend reliably plays effects and streams music on its target platform.
+  - [ ] A GUI `SoundDemo` exercises the baseline audio use cases.
+  - [ ] The backend/platform decision and its limits are documented.

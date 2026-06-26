@@ -3,7 +3,7 @@
 // Each generator is a pure fresh producer: it returns a new TMesh through the
 // public fill-API (Apus.Engine.Mesh) with a sensible default attribute set.
 // Generators do NOT take a target/transform - composition and merging is done
-// via TMesh.Append. See Work/reports/R-20_meshshapes_design.md for the design.
+// via TMesh.Append. See Work/R-20_meshshapes_design.md for the design.
 //
 // Conventions (apply to every generator):
 //  - shapes are centered at origin (Box/sphere/cylinder centered; Plane on XY)
