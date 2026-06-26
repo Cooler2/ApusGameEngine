@@ -117,6 +117,13 @@ type
 
  TFontHandle=cardinal;
 
+ TColorVector=record
+  red,green,blue,alpha:single;
+  constructor Init(red,green,blue,alpha:single);
+  class function FromColor(color:cardinal;scale:single=1):TColorVector; static;
+  function ToQuat:TQuat; inline;
+ end;
+
  TMonoGradient=record
   base,dx,dy:single;
   procedure Init(v1,v2,angle,scale:single);
@@ -127,6 +134,13 @@ type
   red,green,blue,alpha:TMonoGradient;
   procedure Init(color1,color2:cardinal;angle,scale:single);
   function ColorAt(x,y:single):cardinal;
+ end;
+
+ PRoundRectExtParams=^TRoundRectExtParams;
+ TRoundRectExtParams=record
+  origin:TVec2; // normalized local coords: (0,0)=center, (-1,-1)..(1,1)=corners
+  fillDx,fillDy:TColorVector; // signed color delta per normalized local axis
+  constructor Init(const fillDx,fillDy:TColorVector;const origin:TVec2);
  end;
 
  TDisplayModeHelper = record helper for TDisplayMode
@@ -178,6 +192,36 @@ function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
  begin
   result:=Sqr(self.x-x)+Sqr(self.y-y)<=sqr(radius);
  end;
+
+{ TColorVector }
+ constructor TColorVector.Init(red,green,blue,alpha:single);
+  begin
+   self.red:=red;
+   self.green:=green;
+   self.blue:=blue;
+   self.alpha:=alpha;
+  end;
+
+ class function TColorVector.FromColor(color:cardinal;scale:single):TColorVector;
+  begin
+   result.red:=PARGBColor(@color).r*k255*scale;
+   result.green:=PARGBColor(@color).g*k255*scale;
+   result.blue:=PARGBColor(@color).b*k255*scale;
+   result.alpha:=PARGBColor(@color).a*k255*scale;
+  end;
+
+ function TColorVector.ToQuat:TQuat;
+  begin
+   result:=TQuat.Init(red,green,blue,alpha);
+  end;
+
+{ TRoundRectExtParams }
+ constructor TRoundRectExtParams.Init(const fillDx,fillDy:TColorVector;const origin:TVec2);
+  begin
+   self.origin:=origin;
+   self.fillDx:=fillDx;
+   self.fillDy:=fillDy;
+  end;
 
  function TColorGradient.ColorAt(x,y:single):cardinal;
   begin

@@ -54,8 +54,10 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
-  procedure RoundRect(center:TVec2;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
-  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
+  procedure RoundRect(center:TVec2;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
+    ext:PRoundRectExtParams=nil); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
+    ext:PRoundRectExtParams=nil); overload;
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;
@@ -866,21 +868,29 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.RoundRect(center:TVec2;width,height,radius,borderWidth:single;
-  borderColor,fillColor:cardinal);
+procedure TDrawer.RoundRect(center:TVec2;width,height,radius,borderWidth:single;borderColor,fillColor:cardinal;
+  ext:PRoundRectExtParams);
 const
  rShader=
    ' uniform vec4 bColor;'#13#10+
+   ' uniform vec2 halfSize;'#13#10+
    ' uniform vec2 offset;'#13#10+
-   ' uniform vec4 tresh;'#0+
+   ' uniform vec4 tresh;'#13#10+
+   ' uniform vec2 gradOrigin;'#13#10+
+   ' uniform vec4 fillDx;'#13#10+
+   ' uniform vec4 fillDy;'#0+
    ' vec2 rr = max(abs(vTexCoord)-offset,0.0);'#13#10+
    ' float r = dot(rr,rr);'#13#10+
    ' float alpha=1.0-smoothstep(tresh.x, tresh.y, r);'#13#10+
-   ' vec4 color = mix(vColor.bgra,bColor,smoothstep(tresh.z,tresh.w,r)); '#13#10+
+   ' vec2 gradPos = vTexCoord/halfSize-gradOrigin;'#13#10+
+   ' vec4 fill = clamp(vColor.bgra+fillDx*gradPos.x+fillDy*gradPos.y,0.0,1.0);'#13#10+
+   ' vec4 color = mix(fill,bColor,smoothstep(tresh.z,tresh.w,r)); '#13#10+
    ' fragColor = vec4(color.rgb, color.a*alpha); ';
  var
   vrt:array[0..3] of TVertex;
   sx1,sy1,sx2,sy2,w,h:single;
+  gradOrigin:TVec2;
+  fillDx,fillDy:TColorVector;
  begin
   w:=(width+1)/2; h:=(height+1)/2;
   sx1:=center.x-w; sx2:=center.x+w;
@@ -891,8 +901,21 @@ const
   if fillColor=0 then fillColor:=borderColor and $FFFFFF;
   shader.UseCustomized(rShader,0);
   shader.SetUniform('bColor',TShader.VectorFromColor(borderColor));
+  shader.SetUniform('halfSize',TVec2.Init(w,h));
   shader.SetUniform('offset',TVec2.Init(w-radius,h-radius));
   shader.SetUniform('tresh',TQuat.Init(sqr(radius-1),sqr(radius),sqr(radius-borderWidth-1),sqr(radius-borderWidth)));
+  if ext<>nil then begin
+   gradOrigin:=ext^.origin;
+   fillDx:=ext^.fillDx;
+   fillDy:=ext^.fillDy;
+  end else begin
+   gradOrigin:=TVec2.Init(0,0);
+   fillDx:=TColorVector.Init(0,0,0,0);
+   fillDy:=TColorVector.Init(0,0,0,0);
+  end;
+  shader.SetUniform('gradOrigin',gradOrigin);
+  shader.SetUniform('fillDx',fillDx.ToQuat);
+  shader.SetUniform('fillDy',fillDy.ToQuat);
   vrt[0].Init(sx1,sy1,0,-w,-h,fillColor);
   vrt[1].Init(sx2,sy1,0,w,-h,fillColor);
   vrt[2].Init(sx2,sy2,0,w,h,fillColor);
@@ -901,9 +924,10 @@ const
   shader.Reset;
 end;
 
-procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal);
+procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
+  ext:PRoundRectExtParams);
 begin
- RoundRect(TVec2.Init((x1+x2)*0.5,(y1+y2)*0.5),abs(x2-x1+1),abs(y2-y1+1),radius,borderWidth,borderColor,fillColor);
+ RoundRect(TVec2.Init((x1+x2)*0.5,(y1+y2)*0.5),abs(x2-x1+1),abs(y2-y1+1),radius,borderWidth,borderColor,fillColor,ext);
 end;
 
 procedure TDrawer.Scaled(x1, y1, x2, y2: single; image: TTexture;

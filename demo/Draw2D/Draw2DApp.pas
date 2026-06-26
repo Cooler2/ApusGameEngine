@@ -549,6 +549,7 @@ var
   area,r,innerR:TRect;
   t:single;
   cx,cy:single;
+  ext,glass:TRoundRectExtParams;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
     contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
@@ -590,10 +591,21 @@ begin
     (innerR.Right-innerR.Left-60)*0.5+sin(t)*((innerR.Right-innerR.Left-60)*0.25),
     (innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08),
     20+sin(t*1.5)*7,3,$FFBFD8F7,$704F6FA4);
-  draw.RoundRect(innerR.Left+20,innerR.Top+(innerR.Bottom-innerR.Top) div 2+10,
-    innerR.Right-20,innerR.Bottom-20,18,0,$00000000,$A05295C0);
-  draw.RoundRect(innerR.Left+36,innerR.Top+(innerR.Bottom-innerR.Top) div 2+26,
-    innerR.Right-36,innerR.Bottom-36,12,1,$FFEAF6FF,$80435A73);
+
+  ext:=TRoundRectExtParams.Init(TColorVector.Init(0.12,0.04,-0.10,0),
+    TColorVector.Init(-0.05,-0.08,-0.12,0),TVec2.Init(0,0));
+  draw.RoundRect(innerR.Left+20,innerR.Top+(innerR.Bottom-innerR.Top) div 2+8,
+    innerR.Left+(innerR.Right-innerR.Left) div 2-8,innerR.Bottom-18,16,1,$FFEAF6FF,$90538EBD,@ext);
+
+  ext:=TRoundRectExtParams.Init(TColorVector.Init(0.05,0.12,0.18,0),
+    TColorVector.Init(-0.16,-0.06,0.04,0),TVec2.Init(-0.45,-0.35));
+  draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+8,innerR.Top+(innerR.Bottom-innerR.Top) div 2+8,
+    innerR.Right-20,innerR.Bottom-18,16,1,$FFFFF4C0,$90686A8D,@ext);
+
+  glass:=TRoundRectExtParams.Init(TColorVector.Init(0,0,0,0),
+    TColorVector.Init(0,0,0,-0.22),TVec2.Init(0,-0.35));
+  draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+18,innerR.Top+(innerR.Bottom-innerR.Top) div 2+18,
+    innerR.Right-30,innerR.Top+(innerR.Bottom-innerR.Top) div 2+54,12,0,$00000000,$45FFFFFF,@glass);
 end;
 
 // screen 2: FillRect / FillGradrect / WithGradient — 3 blocks
