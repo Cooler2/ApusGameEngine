@@ -149,6 +149,9 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="NetCommon.pas"/>
+        <DCCReference Include="NetServerScene.pas"/>
+        <DCCReference Include="NetClientScene.pas"/>
         <DCCReference Include="NetworkingApp.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
