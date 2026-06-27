@@ -4,10 +4,13 @@
 //   Apus.Engine.HttpGameClient  <-- HTTP -->  Apus.Engine.HttpGameServer
 //          (worker thread)                          (Poll-driven)
 // The server runs in the SAME process on a loopback port, so a single window
-// shows both sides of a real authenticated session (login + batched POST +
-// long-poll comet). Type a line and press Enter: it travels client -> server,
-// the server broadcasts it back to every connected user, and it reappears in
-// the chat as a received message — proving the round trip visually.
+// shows BOTH sides of a real authenticated session. The right panel is the
+// human-readable chat; the left panel is a live protocol log so you can watch
+// the actual network events (login, POST send, comet poll, broadcast).
+//
+// Type a line and press Enter: it travels client -> server, the server
+// broadcasts it back to every connected user, and it reappears in the chat —
+// proving the round trip visually.
 //
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -49,14 +52,40 @@ const
   LOGIN        = 'player';
   PASSWORD     = 'demo';
   CLIENT_INFO  = 'NetworkingDemo';
-  MAX_LINES    = 256;       // chat history ring-buffer size
+  MAX_CHAT     = 256;       // chat history ring-buffer size
+  MAX_LOG      = 256;       // protocol log ring-buffer size
   MAX_INPUT    = 200;       // max characters in the input line
 
+  // colours
+  COL_BG       = $FF11151D;
+  COL_HEADER   = $FF1B2740;
+  COL_STATUS   = $FF15202F;
+  COL_PANEL    = $FF1A2230;
+  COL_PANELHDR = $FF253449;
+  COL_BORDER   = $FF34465F;
+  COL_INPUT    = $FF202C40;
+  COL_INPUTBRD = $FF3E5273;
+  COL_WHITE    = $FFEFF4FC;
+  COL_DIM      = $FF8FA6C4;
+  COL_OK       = $FF9BE08C;
+  COL_WARN     = $FFFFC080;
+  COL_CHAT_SYS = $FF8FA6C4;
+  COL_CHAT_OWN = $FFFFE7A0;
+  COL_CHAT_PEER= $FF9CD2FF;
+  COL_LOG_CLI  = $FF7FE0FF;  // client-side events (cyan)
+  COL_LOG_SRV  = $FFFFD27A;  // server-side events (amber)
+  COL_LOG_INFO = $FF99A6B8;  // neutral info
+
 type
-  // One rendered chat line. kind drives the colour: own/peer/system.
-  TChatKind=(ckSystem,ckPeer,ckOwn,ckLocal);
+  TChatKind=(ckSystem,ckPeer,ckOwn);
   TChatLine=record
     kind:TChatKind;
+    text:String8;
+  end;
+
+  TLogSide=(lsClient,lsServer,lsInfo);
+  TLogLine=record
+    side:TLogSide;
     text:String8;
   end;
 
@@ -68,14 +97,17 @@ type
   end;
 
   TChatScene=class(TGameScene)
-    titleFont,statusFont,chatFont,inputFont:TFontHandle;
+    titleFont,smallFont,chatFont,logFont:TFontHandle;
     server:TGameServer;
     accounts:IAccountProvider;
     // server-side userID -> login map (populated by the login callback)
     srvUsers:array of record id:integer; name:String8; end;
 
-    lines:array[0..MAX_LINES-1] of TChatLine;
-    lineHead,lineCount:integer;
+    chat:array[0..MAX_CHAT-1] of TChatLine;
+    chatHead,chatCount:integer;
+    log:array[0..MAX_LOG-1] of TLogLine;
+    logHead,logCount:integer;
+
     input:String8;
     connState:String8;        // human-readable client state for the status bar
     myUserID:integer;
@@ -88,8 +120,10 @@ type
     function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
     function GetArea:TRect; override;
 
-    procedure AddLine(kind:TChatKind;const text:String8);
+    procedure AddChat(kind:TChatKind;const text:String8);
+    procedure AddLog(side:TLogSide;const text:String8);
     procedure SendInput;
+    function DrawPanel(const r:TRect;const title:String8):TRect; // returns inner content rect
     // server-side callbacks (run on the main thread during server.Poll — safe to touch state)
     procedure SrvUserLogin(userID:integer; const login:String8);
     procedure SrvUserLogout(userID:integer; const login:String8);
@@ -116,6 +150,34 @@ begin
   else
     s:=s+AnsiChar($E0 or (cp shr 12))+AnsiChar($80 or ((cp shr 6) and $3F))+
          AnsiChar($80 or (cp and $3F));
+end;
+
+// Delete the last whole UTF-8 codepoint (backspace must not split a multibyte char).
+procedure DeleteLastUtf8(var s:String8);
+var i:integer;
+begin
+  i:=length(s);
+  if i=0 then exit;
+  while (i>1) and ((byte(s[i]) and $C0)=$80) do dec(i); // skip continuation bytes
+  setLength(s,i-1);
+end;
+
+// Truncate the END of a string so it fits maxW pixels (keeps the start, adds an ellipsis).
+function FitWidth(font:TFontHandle;const s:String8;maxW:integer):String8;
+begin
+  if txt.Width(font,s)<=maxW then exit(s);
+  result:=s;
+  while (result<>'') and (txt.Width(font,result+'...')>maxW) do
+    delete(result,length(result),1);
+  result:=result+'...';
+end;
+
+// Keep the TAIL of the input that fits maxW pixels (so the caret stays visible while typing).
+function FitTail(font:TFontHandle;const prefix,s,suffix:String8;maxW:integer):String8;
+begin
+  result:=s;
+  while (result<>'') and (txt.Width(font,prefix+result+suffix)>maxW) do
+    delete(result,1,1);
 end;
 
 { TDemoAccounts }
@@ -154,27 +216,29 @@ begin
 
   if sub='CONNECTED' then begin
     chatScene.connState:='connected (authorizing...)';
+    chatScene.AddLog(lsClient,'connected, got temporary id');
     exit;
   end;
   if sub='LOGGED' then begin
     chatScene.myUserID:=integer(tag);
     chatScene.connState:='logged in as '+LOGIN+' (uid '+IntToStr(integer(tag))+')';
-    chatScene.AddLine(ckSystem,'Connected to server. Say hello!');
+    chatScene.AddLog(lsClient,'authorized -> uid '+IntToStr(integer(tag))+'; polling (comet)');
+    chatScene.AddChat(ckSystem,'Connected. Type a message and press Enter.');
     exit;
   end;
   if sub='ACCESSDENIED' then begin
     chatScene.connState:='access denied: '+HGCErrorMessage;
-    chatScene.AddLine(ckSystem,'Login failed: '+HGCErrorMessage);
+    chatScene.AddLog(lsClient,'access denied: '+HGCErrorMessage);
     exit;
   end;
   if (sub='CONNECTIONFAILED') or (sub='CONNECTIONREJECTED') then begin
     chatScene.connState:='connection failed';
-    chatScene.AddLine(ckSystem,'Could not reach the server.');
+    chatScene.AddLog(lsClient,'connection failed');
     exit;
   end;
   if (sub='CONNECTIONBROKEN') or (sub='CONNECTIONCLOSED') then begin
     chatScene.connState:='disconnected';
-    chatScene.AddLine(ckSystem,'Connection closed.');
+    chatScene.AddLog(lsClient,'connection closed');
     exit;
   end;
   if sub='DATARECEIVED' then begin
@@ -183,13 +247,17 @@ begin
     if kind='msg' then begin
       who:=reader.NextStr;
       text:=reader.NextStr;
+      chatScene.AddLog(lsClient,'comet <- "'+text+'" from '+who);
       if who.Same(LOGIN) then
-        chatScene.AddLine(ckOwn,who+': '+text)        // our own line, echoed by the server
+        chatScene.AddChat(ckOwn,who+': '+text)        // our own line, echoed by the server
       else
-        chatScene.AddLine(ckPeer,who+': '+text);
+        chatScene.AddChat(ckPeer,who+': '+text);
     end else
-    if kind='sys' then
-      chatScene.AddLine(ckSystem,reader.NextStr);
+    if kind='sys' then begin
+      text:=reader.NextStr;
+      chatScene.AddLog(lsClient,'comet <- system message');
+      chatScene.AddChat(ckSystem,text);
+    end;
     exit;
   end;
 end;
@@ -213,10 +281,10 @@ end;
 
 procedure TChatScene.Load;
 begin
-  titleFont:=txt.GetFont('Default',14);
-  statusFont:=txt.GetFont('Default',9);
-  chatFont:=txt.GetFont('Default',10);
-  inputFont:=txt.GetFont('Default',11);
+  titleFont:=txt.GetFont('Default',16);
+  smallFont:=txt.GetFont('Default',9);
+  chatFont:=txt.GetFont('Default',11);
+  logFont:=txt.GetFont('Default',9);
 
   accounts:=TDemoAccounts.Create;
   server:=TGameServer.Create(SERVER_PORT,accounts);  // loopback by default
@@ -224,13 +292,14 @@ begin
   server.onUserLogout:=SrvUserLogout;
   server.onUserMessage:=SrvUserMessage;
 
-  AddLine(ckSystem,'Server listening on 127.0.0.1:'+IntToStr(SERVER_PORT));
+  AddLog(lsServer,'listening on 127.0.0.1:'+IntToStr(SERVER_PORT));
 
   // client signals -> main-thread queue (the engine drains it each frame)
   SetEventHandler('NET\Conn3\',NetHandler,emQueued);
 
   // kick off the asynchronous advanced login; the worker thread drives it,
   // Process() pumps the server so the handshake can complete.
+  AddLog(lsClient,'connecting to 127.0.0.1:'+IntToStr(SERVER_PORT)+' as '+LOGIN);
   Connect('127.0.0.1:'+IntToStr(SERVER_PORT),LOGIN,PASSWORD,CLIENT_INFO);
   connState:='connecting...';
 
@@ -242,21 +311,30 @@ begin
   result:=Rect(0,0,window.renderWidth,window.renderHeight);
 end;
 
-procedure TChatScene.AddLine(kind:TChatKind;const text:String8);
+procedure TChatScene.AddChat(kind:TChatKind;const text:String8);
 begin
-  lines[lineHead].kind:=kind;
-  lines[lineHead].text:=text;
-  lineHead:=(lineHead+1) mod MAX_LINES;
-  if lineCount<MAX_LINES then inc(lineCount);
+  chat[chatHead].kind:=kind;
+  chat[chatHead].text:=text;
+  chatHead:=(chatHead+1) mod MAX_CHAT;
+  if chatCount<MAX_CHAT then inc(chatCount);
+end;
+
+procedure TChatScene.AddLog(side:TLogSide;const text:String8);
+begin
+  log[logHead].side:=side;
+  log[logHead].text:=text;
+  logHead:=(logHead+1) mod MAX_LOG;
+  if logCount<MAX_LOG then inc(logCount);
 end;
 
 procedure TChatScene.SendInput;
 begin
   if input='' then exit;
   if Connected then begin
-    SendData(['msg',input]);   // server echoes it back, so we DON'T add it locally
+    AddLog(lsClient,'POST -> "'+input+'"');
+    SendData(['msg',input]);   // server echoes it back, so we DON'T add it to the chat locally
   end else
-    AddLine(ckLocal,'(not connected) '+input);
+    AddChat(ckSystem,'(not connected) '+input);
   input:='';
 end;
 
@@ -273,6 +351,7 @@ begin
   SetLength(srvUsers,length(srvUsers)+1);
   srvUsers[high(srvUsers)].id:=userID;
   srvUsers[high(srvUsers)].name:=login;
+  AddLog(lsServer,'login '+login+' -> uid '+IntToStr(userID));
   server.SendToUser(userID,['sys','Welcome to the Apus chat demo!']);
   server.Broadcast(['sys',login+' joined ('+IntToStr(server.OnlineCount)+' online)']);
 end;
@@ -286,6 +365,7 @@ begin
       SetLength(srvUsers,length(srvUsers)-1);
       break;
     end;
+  AddLog(lsServer,'logout uid '+IntToStr(userID));
   server.Broadcast(['sys',login+' left']);
 end;
 
@@ -295,6 +375,7 @@ begin
   kind:=msg.NextStr;
   if kind='msg' then begin
     text:=msg.NextStr;
+    AddLog(lsServer,'recv "'+text+'" from '+SrvNameOf(userID)+'; broadcast to '+IntToStr(server.OnlineCount));
     server.Broadcast(['msg',SrvNameOf(userID),text]);  // fan out to all (incl. sender)
   end;
 end;
@@ -323,63 +404,102 @@ begin
   result:=true;
   case key of
     TKey.Enter:     SendInput;
-    TKey.Backspace: if input<>'' then input:=copy(input,1,length(input)-1);
+    TKey.Backspace: DeleteLastUtf8(input);
     TKey.Escape:    input:='';
   else
     result:=false;
   end;
 end;
 
+// Draw a titled panel; returns the inner content rectangle (below the header bar, padded).
+function TChatScene.DrawPanel(const r:TRect;const title:String8):TRect;
+const HDR=26;
+begin
+  draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,COL_PANEL,8);
+  draw.FillRect(r.Left+1,r.Top+1,r.Right-1,r.Top+HDR,COL_PANELHDR);
+  draw.RRect(r.Left,r.Top,r.Right,r.Bottom,1,8,COL_BORDER);
+  txt.Write(smallFont,r.Left+12,r.Top+8,COL_WHITE,title,taLeft,toAddBaseline);
+  result:=Rect(r.Left+12,r.Top+HDR+8,r.Right-12,r.Bottom-10);
+end;
+
 procedure TChatScene.Render;
 var
-  w,h,top,bottom,inputTop,y,i,idx:integer;
+  w,h,top,inputTop,leftW,y,rowH,i,idx:integer;
   col:cardinal;
-  caret:String8;
+  inner,leftRect,rightRect:TRect;
+  caret,vis:String8;
 begin
   w:=window.renderWidth;
   h:=window.renderHeight;
 
-  gfx.target.Clear($FF12161F);
+  gfx.target.Clear(COL_BG);
 
-  // --- title bar ---
-  draw.FillRect(0,0,w,46,$FF1B2740);
-  txt.Write(titleFont,18,30,$FFE8F0FA,'Apus Engine — Networking Demo (in-process client + server)',taLeft,toAddBaseline);
+  // --- header ---
+  draw.FillRect(0,0,w,58,COL_HEADER);
+  txt.Write(titleFont,16,12,COL_WHITE,'Apus Engine — Networking Demo',taLeft,toAddBaseline);
+  txt.Write(smallFont,16,40,COL_DIM,
+    'One process runs a game server AND a client over loopback HTTP. '+
+    'Type a line + Enter: it round-trips client -> server -> broadcast -> client.',
+    taLeft,toAddBaseline);
 
-  // --- status bar ---
-  draw.FillRect(0,46,w,72,$FF15202F);
-  col:=$FFFFC080;
-  if connState.Contains('logged') then col:=$FF9BE08C;
-  txt.Write(statusFont,18,64,col,'Status: '+connState+'   |   online: '+
-    IntToStr(server.OnlineCount),taLeft,toAddBaseline);
+  // --- status strip ---
+  draw.FillRect(0,58,w,82,COL_STATUS);
+  if connState.Contains('logged') then col:=COL_OK else col:=COL_WARN;
+  txt.Write(smallFont,16,65,col,
+    'Client: '+connState+'      Server: 127.0.0.1:'+IntToStr(SERVER_PORT)+
+    '   online: '+IntToStr(server.OnlineCount),
+    taLeft,toAddBaseline);
 
-  // --- chat area ---
-  top:=84;
-  inputTop:=h-52;
-  bottom:=inputTop-10;
-  draw.FillRRect(12,top,w-12,bottom,$FF1A2230,8);
-  draw.RRect(12,top,w-12,bottom,1,8,$FF31415A);
+  // --- panels layout ---
+  top:=92;
+  inputTop:=h-12-40;
+  leftW:=round(w*0.46);
+  leftRect:=Rect(12,top,12+leftW,inputTop-10);
+  rightRect:=Rect(12+leftW+10,top,w-12,inputTop-10);
 
-  // newest line at the bottom, older lines above
-  y:=bottom-14;
-  for i:=0 to lineCount-1 do begin
-    if y<top+18 then break;
-    idx:=(lineHead-1-i+MAX_LINES) mod MAX_LINES;
-    case lines[idx].kind of
-      ckSystem: col:=$FF8FA6C4;
-      ckPeer:   col:=$FF9CD2FF;
-      ckOwn:    col:=$FFFFE7A0;
+  // left: protocol log (oldest at top, newest at bottom)
+  inner:=DrawPanel(leftRect,'Network Activity  (live protocol events)');
+  rowH:=txt.Height(logFont)+9;
+  y:=inner.Bottom-rowH;
+  for i:=0 to logCount-1 do begin
+    if y<inner.Top then break;
+    idx:=(logHead-1-i+MAX_LOG) mod MAX_LOG;
+    case log[idx].side of
+      lsClient: begin col:=COL_LOG_CLI; vis:='client  '; end;
+      lsServer: begin col:=COL_LOG_SRV; vis:='server  '; end;
     else
-      col:=$FFB0B8C4;
+      col:=COL_LOG_INFO; vis:='        ';
     end;
-    txt.Write(chatFont,26,y,col,lines[idx].text,taLeft,toAddBaseline);
-    dec(y,20);
+    txt.Write(logFont,inner.Left,y,col,
+      FitWidth(logFont,vis+log[idx].text,inner.Right-inner.Left),taLeft,toAddBaseline);
+    dec(y,rowH);
   end;
 
-  // --- input line ---
-  draw.FillRRect(12,inputTop,w-12,h-8,$FF202C40,8);
-  draw.RRect(12,inputTop,w-12,h-8,1,8,$FF3E5273);
+  // right: chat (oldest at top, newest at bottom)
+  inner:=DrawPanel(rightRect,'Chat');
+  rowH:=txt.Height(chatFont)+10;
+  y:=inner.Bottom-rowH;
+  for i:=0 to chatCount-1 do begin
+    if y<inner.Top then break;
+    idx:=(chatHead-1-i+MAX_CHAT) mod MAX_CHAT;
+    case chat[idx].kind of
+      ckSystem: col:=COL_CHAT_SYS;
+      ckOwn:    col:=COL_CHAT_OWN;
+    else
+      col:=COL_CHAT_PEER;
+    end;
+    txt.Write(chatFont,inner.Left,y,col,
+      FitWidth(chatFont,chat[idx].text,inner.Right-inner.Left),taLeft,toAddBaseline);
+    dec(y,rowH);
+  end;
+
+  // --- input line (full width) ---
+  draw.FillRRect(12,inputTop,w-12,h-12,COL_INPUT,8);
+  draw.RRect(12,inputTop,w-12,h-12,1,8,COL_INPUTBRD);
   if (CoreTime.Ticks div 500) and 1=0 then caret:='_' else caret:=' ';
-  txt.Write(inputFont,26,inputTop+30,$FFEFF4FC,'> '+input+caret,taLeft,toAddBaseline);
+  vis:=FitTail(chatFont,'> ',input,caret,(w-24)-24);
+  txt.Write(chatFont,24,inputTop+(40-txt.Height(chatFont)) div 2,COL_WHITE,
+    '> '+vis+caret,taLeft,toAddBaseline);
 
   inherited;
 end;
@@ -393,15 +513,17 @@ begin
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
   useRealDPI:=false;
-  windowWidth:=1000;
-  windowHeight:=680;
-  windowSizeable:=true;
+  windowWidth:=1100;
+  windowHeight:=700;
+  windowSizeable:=false;
 end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
 begin
   inherited;
-  settings.mode.displayMode:=dmWindow;
+  settings.mode.displayMode:=dmFixedWindow;
+  settings.mode.displayFitMode:=dfmFullSize;
+  settings.mode.displayScaleMode:=dsmDontScale;  // 1:1 pixels, predictable layout
 end;
 
 procedure TMainApp.CreateScenes;
