@@ -1,6 +1,7 @@
 ﻿{$APPTYPE CONSOLE}
 program TestTCP;
 uses
+  {$IFDEF UNIX}cthreads,{$ENDIF}
   SysUtils,
   Classes,
   Apus.Core,

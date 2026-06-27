@@ -27,6 +27,8 @@ TESTS=(
   Geom3D
   Spatial
   Compress
+  TCP
+  HttpServer
 )
 
 rm -f "$LOG" "$TMP"
