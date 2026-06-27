@@ -46,6 +46,10 @@ type
  // Обработать сигналы синхронно (если поток регистрирует синхронные обработчики, то он обязан регулярно вызывать эту функцию)
  procedure HandleSignals;
 
+ // Called by Apus.Threads when a registered thread exits.
+ // Removes queued/mixed handlers and discards events which can no longer be handled.
+ procedure ThreadFinished(threadID:TThreadID;const threadName:String8);
+
  // Связать событие с другим событием (тэг при этом может быть новым, но если это -1, то сохраняется старый)
  // Если redirect=true - при наличии линка отменет обработку сигнала на более общих уровнях
  procedure Link(event,newEvent:TEventStr;tag:TTag=-1;redirect:boolean=false);
@@ -295,6 +299,68 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    finally
     CritSect.Leave;
    end;
+  end;
+
+ procedure ThreadFinished(threadID:TThreadID;const threadName:String8);
+  var
+   i,n,last,removed,queued,delayed:integer;
+   ph,prev,next:PHandler;
+   handlerList:TEventStr;
+  begin
+   removed:=0;
+   queued:=0;
+   delayed:=0;
+   handlerList:='';
+   CritSect.Enter;
+   try
+    n:=-1;
+    for i:=0 to threadCnt-1 do
+     if threads[i].threadID=threadID then begin
+      n:=i;
+      break;
+     end;
+    if n<0 then exit;
+
+    for i:=0 to high(handlers) do begin
+     ph:=handlers[i];
+     prev:=nil;
+     while ph<>nil do
+      if ph.threadNum=n then begin
+       if handlerList<>'' then handlerList:=handlerList+', ';
+       handlerList:=handlerList+ph.event+' -> '+Conv.ToStr(@ph.handler);
+       inc(removed);
+       next:=ph.next;
+       if prev=nil then handlers[i]:=next else prev.next:=next;
+       dispose(ph);
+       ph:=next;
+      end else begin
+       prev:=ph;
+       ph:=ph.next;
+      end;
+    end;
+
+    queued:=(threads[n].last-threads[n].first) and queueMask;
+    delayed:=threads[n].delcnt;
+    last:=threadCnt-1;
+    if n<>last then begin
+     threads[n]:=threads[last];
+     // Handler affinity is stored as an array index, so follow the moved slot.
+     for i:=0 to high(handlers) do begin
+      ph:=handlers[i];
+      while ph<>nil do begin
+       if ph.threadNum=last then ph.threadNum:=n;
+       ph:=ph.next;
+      end;
+     end;
+    end;
+    dec(threadCnt);
+    SetLength(threads,threadCnt);
+   finally
+    CritSect.Leave;
+   end;
+   if (removed>0) or (queued>0) or (delayed>0) then
+    Log.Warn('EventMan: thread %s (%d) exited with %d registered handler(s): %s; discarded %d queued and %d delayed event(s)',
+     [threadName,threadID,removed,handlerList,queued,delayed]);
   end;
 
  // Для внутреннего использования

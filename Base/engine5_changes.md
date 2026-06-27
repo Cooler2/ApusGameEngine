@@ -11,6 +11,10 @@ Use it as the primary reference when updating old code.
 - Unhandled exceptions escaping a `Thread.Start` callback are now written with
   `Log.Force`, including the thread name, exception class, and message, before
   the corresponding `IThread` enters the error state.
+- `Apus.Threads` now notifies `Apus.EventMan` when a thread exits. Any queued or
+  mixed handlers still owned by that thread are removed, its pending events are
+  discarded, and a warning lists each dangling event registration together with
+  its handler address.
 
 ## Status note (2026-03-22)
 

@@ -248,7 +248,7 @@ threadvar
 
 // Configuration
 implementation
-uses Classes, Apus.Strings, Apus.Conv, Apus.Log
+uses Classes, Apus.Strings, Apus.Conv, Apus.Log, Apus.EventMan
     {$IFDEF UNIX}, unixtype, BaseUnix, Syscall{$ENDIF}
     {$IFDEF IOS}, iphoneAll{$ENDIF}
     {$IFDEF ANDROID}, Apus.Android{$ENDIF};
@@ -1100,6 +1100,7 @@ begin
 
   // Cleanup outside lock (Dispose + Log can be slow)
   if data<>nil then begin
+    Apus.EventMan.ThreadFinished(id,threadName);
     Log.Msg('Thread %s unregistered',[threadName]);
     {$IFDEF ANDROID}
     AndroidDoneThread;

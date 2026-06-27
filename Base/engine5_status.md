@@ -9,6 +9,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
 - ✅ Threading and Logging blockers solved
 - ✅ Managed threads force-log unhandled callback exceptions before reporting `Error`
+- ✅ EventMan removes and warns about dangling thread-affine handlers on thread exit
 - ✅ Classes migrated and legacy Structs split completed (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes

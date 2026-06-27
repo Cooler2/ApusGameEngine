@@ -4,6 +4,7 @@ uses
   {$IFDEF UNIX}cthreads,{$ENDIF}
   SysUtils,
   Apus.Core,
+  Apus.Log,
   Apus.Threads,
   Apus.EventMan;
 
@@ -27,6 +28,7 @@ var
   mtThreadIDs:array[1..MTHandlerCount] of TThreadID;
   mtQueuedHitByThread:array[1..MTHandlerCount] of boolean;
   mtQueuedLock:TLock;
+  danglingWarning:boolean;
 
 procedure ResetCounters;
 begin
@@ -47,6 +49,18 @@ begin
   eventReceived:=event;
   tagReceived:=tag;
   inc(eventCount);
+end;
+
+procedure DanglingLogHandler(msg:String8;category:byte;level:TSeverity);
+begin
+  if (level=TSeverity.Warn) and
+     (Pos('mt\dangling -> ',LowerCase(string(msg)))>0) then
+    danglingWarning:=true;
+end;
+
+procedure RegisterDanglingWorker;
+begin
+  SetEventHandler('MT\Dangling',TestHandlerQueued,emQueued);
 end;
 
 procedure MTHandler1(event:TEventStr;tag:TTag); begin inc(mtHitCount); mtHitMask:=mtHitMask or 1; end;
@@ -347,6 +361,23 @@ begin
   EndTest;
 end;
 
+procedure TestDanglingHandlerCleanup;
+var
+  th:IThread;
+begin
+  StartTest('Dangling handler cleanup');
+  danglingWarning:=false;
+  Logger.SetCustomHandler(DanglingLogHandler);
+  try
+    th:=Thread.Start('EVDangling',TThreadProc(@RegisterDanglingWorker));
+    th.Wait(2000);
+    Check(danglingWarning,'thread exit should warn about dangling handlers');
+  finally
+    Logger.SetCustomHandler(nil);
+  end;
+  EndTest;
+end;
+
 begin
   writeln('=== EventMan Basic Tests ===');
   writeln;
@@ -361,6 +392,7 @@ begin
     TestConcurrentSetEventHandler;
     TestConcurrentDuplicateRegistration;
     TestQueuedSameHandlerInManyThreads;
+    TestDanglingHandlerCleanup;
 
     writeln;
     if testsFailed=0 then
