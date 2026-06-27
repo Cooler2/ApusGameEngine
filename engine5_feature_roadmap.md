@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-06-26
+Last updated: 2026-06-27
 
 Language policy: this roadmap is maintained in English.
 
@@ -42,6 +42,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
 | R-28 | Audio Subsystem Activation | idea | 0% | Get one backend reliably playing/streaming + GUI SoundDemo; backend choice open (incl. platform-specific), NOT SDL-anchored; full J1–J3 unification deferred |
+| R-29 | Apple Platform Support (macOS + iOS) | idea | 0% | Stage-0 recon (FPC arm64-darwin/iOS toolchain go/no-go, GL 4.1 ceiling, SDL iOS path); cheap win = macOS in `base-tests` CI; later split into Darwin-portability / macOS-SDL-runtime / iOS-shell / Apple-graphics-backend cards |
 
 ## 2) Strategic Directions
 
@@ -70,6 +71,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 - [ ] E2. CI smoke pipeline for key demos
 - [ ] E3. Close known FPC/Linux compatibility gaps
 - [ ] E4. Restore Android as a supported mobile target
+- [ ] E5. Add Apple (macOS desktop + iOS) as supported targets
 
 ### F. Core Runtime & Scenes
 - [ ] F2. Safe scene transitions (including async loading)
@@ -431,3 +433,22 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - [ ] One backend reliably plays effects and streams music on its target platform.
   - [ ] A GUI `SoundDemo` exercises the baseline audio use cases.
   - [ ] The backend/platform decision and its limits are documented.
+
+### [R-29] Apple Platform Support (macOS + iOS)
+- Status: idea | Priority: P2 | Area: Platform / Build / Mobile
+- Value: bring Apple platforms back as real Engine5 targets — macOS arm64 as a working desktop platform (and a portability proof for Darwin/Apple-Silicon/native-libs), iOS arm64 as the primary Apple mobile target with its own lifecycle/view/input/graphics/packaging. The existing iOS code (`Apus.Engine.IOSgame.pas`, `EAGLViewU.pas`) is near-fully commented-out OpenGL ES 1.1 legacy — historical hints, not a backend.
+- Umbrella card. This stays a single low-priority entry until **Stage-0 recon** produces a go/no-go; per the doc's step 5 it then splits into separate cards: Darwin portability, macOS SDL runtime, iOS platform shell, Apple graphics backend.
+- Direction / open assessments (decide during recon, do NOT assume):
+  - **SDL-first for BOTH macOS and iOS.** Unix already runs through `TSDLPlatform`; macOS-via-SDL2 is cheap. SDL2 also ships a maintained iOS UIKit backend (lifecycle/touch/orientation/safe-areas/GL-ES/Metal-view) — evaluate reusing it as option 0 **before** committing to a hand-written native iOS shell. Native Objective-Pascal (`objcclass`) shell stays a documented fallback.
+  - **FPC toolchain viability is gate-zero.** Confirm FPC arm64-darwin (macOS) and especially the iOS device target produce a signable, Xcode-integrable binary — this is the riskiest, least-trodden part and must be settled before any hardware spend or hardware-purchase decision (the latter lives in the design doc, not here).
+  - **macOS GL ceiling = 4.1** (deprecated, frozen): no compute/SSBO/DSA, and **no GL 4.4 persistent-mapped buffers** — this constrains R-12 (streaming buffers) and the R-09 Track D / `Work/R-09_gl4x_research.md` GL-4.x path. OpenGL is transitional on Apple only.
+  - **Metal backend = long-term + an architecture probe.** A real Metal backend doubles as a stress-test of whether `IGraphicsSystem` is a true abstraction or GL-in-disguise (kin to R-17); likely its own large card, not a sub-bullet of an iOS MVP.
+  - **SDL3 / `SDL_GPU` — evaluate, but parked to a major-version boundary (engine5.1 / engine6), NOT engine5.** Attractive because `SDL_GPU` (Vulkan/Metal/D3D12) could give a Metal path without hand-writing Metal, and SDL3 main-callbacks (`SDL_AppInit/AppIterate/AppEvent`) fit iOS/Web lifecycle where the loop is system-owned. Against, for now: SDL2→SDL3 is a migration (not drop-in) touching platform layer + shader pipeline + graphics abstraction at once; FPC SDL3 bindings are immature vs the settled `sdl2` unit; `SDL_GPU` needs precompiled shaders (SPIR-V/MSL via `SDL_shadercross`), breaking the current runtime-GLSL workflow in `ShadersGL.pas`. So Apple MVP stays SDL2/GL; SDL3 is a candidate for the renderer-decision recon and a future major version.
+- Cheapest independent win (can start now, decoupled from mobile): add `macos-latest` to the `base-tests` CI matrix (FPC via Homebrew) — catches Darwin/case-sensitive-path/pointer-size issues and backs the cross-platform claim in CLAUDE.md.
+- Out of scope (until recon unblocks): full Metal renderer, App Store/TestFlight packaging polish, Intel/universal binaries (add only if proven needed), Simulator-as-primary, hardware-purchase recommendation (stays in the design doc).
+- Acceptance Criteria (umbrella — refined when split):
+  - [ ] Stage-0 recon report with FPC macOS+iOS toolchain go/no-go and a chosen iOS renderer (revive GL ES for an arch probe vs. go straight to Metal).
+  - [ ] Base builds and tests pass on macOS arm64 in CI.
+  - [ ] Selected engine units/demos compile on macOS; SimpleDemo runs via SDL2/OpenGL with a Robot-API smoke.
+  - [ ] A minimal scene launches and exits cleanly on a physical iPhone.
+- Design / staging / infra / hardware notes: `Work/macos_ios_support_plan_ru.md`.
