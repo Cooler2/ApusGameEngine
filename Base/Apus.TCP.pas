@@ -453,7 +453,7 @@ begin
   res:=SocketConnect(sock,TSockAddr(addr),sizeof(addr));
   if (res<>0) then begin
    res:=WSAGetLastError;
-   if res<>WSAEWOULDBLOCK then begin
+   if (res<>WSAEWOULDBLOCK) and (res<>WSAEINPROGRESS) then begin
     connecting:=false;
     CloseSocket(sock);
     sock:=0;
