@@ -39,6 +39,9 @@
         <Projects Include="StyleDemo\StyleDemo.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="Networking\Networking.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -155,14 +158,23 @@
     <Target Name="StyleDemo:Make">
         <MSBuild Projects="StyleDemo\StyleDemo.dproj" Targets="Make"/>
     </Target>
+    <Target Name="Networking">
+        <MSBuild Projects="Networking\Networking.dproj"/>
+    </Target>
+    <Target Name="Networking:Clean">
+        <MSBuild Projects="Networking\Networking.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Networking:Make">
+        <MSBuild Projects="Networking\Networking.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;ShadowMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab;UILab;StyleDemo"/>
+        <CallTarget Targets="SimpleDemo;Simple3D;NormalMap;ShadowMap;VertexBuffer;MultiWindow;Draw2D;InputDemo;TextDemo;MeshLab;UILab;StyleDemo;Networking"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;ShadowMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean;UILab:Clean;StyleDemo:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;Simple3D:Clean;NormalMap:Clean;ShadowMap:Clean;VertexBuffer:Clean;MultiWindow:Clean;Draw2D:Clean;InputDemo:Clean;TextDemo:Clean;MeshLab:Clean;UILab:Clean;StyleDemo:Clean;Networking:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;ShadowMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make;UILab:Make;StyleDemo:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;Simple3D:Make;NormalMap:Make;ShadowMap:Make;VertexBuffer:Make;MultiWindow:Make;Draw2D:Make;InputDemo:Make;TextDemo:Make;MeshLab:Make;UILab:Make;StyleDemo:Make;Networking:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

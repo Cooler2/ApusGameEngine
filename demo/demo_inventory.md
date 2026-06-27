@@ -20,6 +20,7 @@ Relevance categories:
 | `NormalMap` | R-06 prototype: local tangent-space normal-map shader, generated materials, orbit camera/light diagnostics. | `engine5` |
 | `Draw2D` | Full gallery of 2D primitive drawing (`Line/Polyline/Polygon/Rect/RRect/RoundRect/Fill*/Gradient/TexturedRect`) in a standalone modern demo. | `engine5` |
 | `InputDemo` | Input diagnostics in low-level style: overview, keyboard/mouse deep views, high-rate mouse trace, polling vs events, stress counters. | `engine5` |
+| `Networking` | R-27 chat demo: `HttpGameClient` against an in-process `HttpGameServer` over loopback. Advanced login, batched POST send, long-poll comet receive; typed lines round-trip client→server→broadcast→client. | `engine5` |
 
 ## 2. UI and Gameplay Framework Demos
 
