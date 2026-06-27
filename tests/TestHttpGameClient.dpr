@@ -7,6 +7,7 @@
 program TestHttpGameClient;
 
 uses
+  {$IFDEF UNIX}cthreads,{$ENDIF}
   SysUtils,
   Apus.Core,
   Apus.Strings,
