@@ -108,7 +108,7 @@ type
     log:array[0..MAX_LOG-1] of TLogLine;
     logHead,logCount:integer;
 
-    input:String8;
+    input:String32;           // edit buffer as UCS-4 codepoints (1 element = 1 char)
     connState:String8;        // human-readable client state for the status bar
     myUserID:integer;
 
@@ -138,28 +138,6 @@ var
 function ShortMD5(const st:String8):String8;
 begin
   result:=copy(DCPmd5a.MD5(st),1,10);
-end;
-
-// Append a Unicode codepoint to a UTF-8 String8 (the input line is UTF-8).
-procedure AppendUtf8(var s:String8;cp:integer);
-begin
-  if cp<$80 then
-    s:=s+AnsiChar(cp)
-  else if cp<$800 then
-    s:=s+AnsiChar($C0 or (cp shr 6))+AnsiChar($80 or (cp and $3F))
-  else
-    s:=s+AnsiChar($E0 or (cp shr 12))+AnsiChar($80 or ((cp shr 6) and $3F))+
-         AnsiChar($80 or (cp and $3F));
-end;
-
-// Delete the last whole UTF-8 codepoint (backspace must not split a multibyte char).
-procedure DeleteLastUtf8(var s:String8);
-var i:integer;
-begin
-  i:=length(s);
-  if i=0 then exit;
-  while (i>1) and ((byte(s[i]) and $C0)=$80) do dec(i); // skip continuation bytes
-  setLength(s,i-1);
 end;
 
 // Truncate the END of a string so it fits maxW pixels (keeps the start, adds an ellipsis).
@@ -328,14 +306,16 @@ begin
 end;
 
 procedure TChatScene.SendInput;
+var text:String8;
 begin
-  if input='' then exit;
+  if System.Length(input)=0 then exit;
+  text:=UTF8.Encode(input);    // codepoints -> UTF-8 only at the boundary
   if Connected then begin
-    AddLog(lsClient,'POST -> "'+input+'"');
-    SendData(['msg',input]);   // server echoes it back, so we DON'T add it to the chat locally
+    AddLog(lsClient,'POST -> "'+text+'"');
+    SendData(['msg',text]);     // server echoes it back, so we DON'T add it to the chat locally
   end else
-    AddChat(ckSystem,'(not connected) '+input);
-  input:='';
+    AddChat(ckSystem,'(not connected) '+text);
+  SetLength(input,0);
 end;
 
 function TChatScene.SrvNameOf(userID:integer):String8;
@@ -392,8 +372,10 @@ begin
     key:=ReadKey;
     if key=0 then break;
     uCode:=Bits.GetWord(key,1);       // AAAA = unicode codepoint
-    if (uCode>=32) and (length(input)<MAX_INPUT) then
-      AppendUtf8(input,uCode);
+    if (uCode>=32) and (System.Length(input)<MAX_INPUT) then begin
+      SetLength(input,System.Length(input)+1);
+      input[high(input)]:=uCode;
+    end;
   until false;
 
   result:=true;
@@ -404,8 +386,8 @@ begin
   result:=true;
   case key of
     TKey.Enter:     SendInput;
-    TKey.Backspace: DeleteLastUtf8(input);
-    TKey.Escape:    input:='';
+    TKey.Backspace: if System.Length(input)>0 then SetLength(input,System.Length(input)-1);
+    TKey.Escape:    SetLength(input,0);
   else
     result:=false;
   end;
@@ -497,7 +479,7 @@ begin
   draw.FillRRect(12,inputTop,w-12,h-12,COL_INPUT,8);
   draw.RRect(12,inputTop,w-12,h-12,1,8,COL_INPUTBRD);
   if (CoreTime.Ticks div 500) and 1=0 then caret:='_' else caret:=' ';
-  vis:=FitTail(chatFont,'> ',input,caret,(w-24)-24);
+  vis:=FitTail(chatFont,'> ',UTF8.Encode(input),caret,(w-24)-24);
   txt.Write(chatFont,24,inputTop+(40-txt.Height(chatFont)) div 2,COL_WHITE,
     '> '+vis+caret,taLeft,toAddBaseline);
 
