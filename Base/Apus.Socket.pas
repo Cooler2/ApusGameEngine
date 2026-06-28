@@ -1,5 +1,10 @@
 ﻿// Socket wrapper and cross-platform compatibility layer for Delphi and FPC
 
+// Provides a common low-level facade over Windows WinSock2 and FPC Unix
+// sockets: address/descriptor types, BSD-style operations, IPv4 resolution,
+// byte-order helpers, and a small non-blocking TSocket record. On Windows the
+// module also owns WinSock initialization and cleanup.
+
 // Copyright (C) 2023 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/)
@@ -72,12 +77,12 @@ function socket(domain, xtype, protocol: LongInt): TNativeSocket;
 function bind(s: TNativeSocket; name: PSockAddr; namelen: LongInt): LongInt;
 function listen(s: TNativeSocket; backlog: LongInt): LongInt;
 function accept(s: TNativeSocket; addr: PSockAddr; addrlen: PLongInt): TNativeSocket;
-function recv(s: TNativeSocket; var buf; len: SizeUInt; flags: LongInt): LongInt;
-function send(s: TNativeSocket; const buf; len: SizeUInt; flags: LongInt): LongInt;
+function recv(s: TNativeSocket; var buf; len: NativeUInt; flags: LongInt): LongInt;
+function send(s: TNativeSocket; const buf; len: NativeUInt; flags: LongInt): LongInt;
 function ioctlsocket(s: TNativeSocket; cmd: LongInt; var arg: Cardinal): LongInt;
 function select(nfds: LongInt; readfds, writefds, exceptfds: PFDSet; timeout: PTimeVal): LongInt;
 function WSAGetLastError: LongInt;
-function WSAAccept(s: TNativeSocket; addr: PSockAddr; addrlen: PLongInt; lpfnCondition: Pointer; dwCallbackData: PtrUInt): TNativeSocket;
+function WSAAccept(s: TNativeSocket; addr: PSockAddr; addrlen: PLongInt; lpfnCondition: Pointer; dwCallbackData: UIntPtr): TNativeSocket;
 function SocketConnect(s: TNativeSocket; const addr: TSockAddr; namelen: LongInt): LongInt;
 function CloseSocket(s: TNativeSocket): LongInt;
 function htons(value: Word): Word;
@@ -92,7 +97,7 @@ uses Apus.Core, Apus.Conv;
 // many routines have different declaration in different WinSock2 import units
 function _bind(s:TNativeSocket; name:PSockAddr; namelen:Integer): Integer; stdcall; external 'ws2_32.dll' name 'bind';
 function _connect(s:TNativeSocket; name:PSockAddr; namelen:Integer): Integer; stdcall; external 'ws2_32.dll' name 'connect';
-function _WSAAccept(s:TNativeSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:Pointer; dwCallbackData:PtrUInt):TNativeSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
+function _WSAAccept(s:TNativeSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:Pointer; dwCallbackData:UIntPtr):TNativeSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
 {$ENDIF}
 
 function socket(domain, xtype, protocol: LongInt): TNativeSocket;
@@ -129,7 +134,7 @@ var
 {$ENDIF}
 begin
   {$IFDEF MSWINDOWS}
-  result:=WinSock2.accept(s,addr,addrlen);
+  result:=WinSock2.accept(s,addr,PInt(addrlen));
   {$ELSE}
   len:=addrlen^;
   result:=fpAccept(s,addr,@len);
@@ -137,7 +142,7 @@ begin
   {$ENDIF}
 end;
 
-function recv(s: TNativeSocket; var buf; len: SizeUInt; flags: LongInt): LongInt;
+function recv(s: TNativeSocket; var buf; len: NativeUInt; flags: LongInt): LongInt;
 begin
   {$IFDEF MSWINDOWS}
   result:=WinSock2.recv(s,buf,len,flags);
@@ -146,7 +151,7 @@ begin
   {$ENDIF}
 end;
 
-function send(s: TNativeSocket; const buf; len: SizeUInt; flags: LongInt): LongInt;
+function send(s: TNativeSocket; const buf; len: NativeUInt; flags: LongInt): LongInt;
 begin
   {$IFDEF MSWINDOWS}
   result:=WinSock2.send(s,buf,len,flags);
@@ -251,7 +256,7 @@ begin
   {$ENDIF}
 end;
 
-function WSAAccept(s: TNativeSocket; addr: PSockAddr; addrlen: PLongInt; lpfnCondition: Pointer; dwCallbackData: PtrUInt): TNativeSocket;
+function WSAAccept(s: TNativeSocket; addr: PSockAddr; addrlen: PLongInt; lpfnCondition: Pointer; dwCallbackData: UIntPtr): TNativeSocket;
 begin
   {$IFDEF MSWINDOWS}
   result:=_WSAAccept(s,addr,addrlen,lpfnCondition,dwCallbackData);
