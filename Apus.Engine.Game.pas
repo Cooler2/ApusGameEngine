@@ -1808,6 +1808,11 @@ procedure TGame.RenderAndPresentFrame;
   phaseTimer:int64;
   onFrameUs,renderUs,presentUs,sleepUs:integer;
  begin
+   // Never nest a frame: WM_PAINT renders synchronously to keep the window live during
+   // the OS modal move/resize loop, and that loop may pump messages re-entrantly.
+   if renderingFrame then exit;
+   renderingFrame:=true;
+  try
    onFrameUs:=0;
    renderUs:=0;
    presentUs:=0;
@@ -1899,6 +1904,9 @@ procedure TGame.RenderAndPresentFrame;
    end;
 
    game.Flog('LEnd');
+  finally
+   renderingFrame:=false;
+  end;
  end;
 
 procedure TGame.MainThreadLoop;

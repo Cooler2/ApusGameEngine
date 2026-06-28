@@ -169,6 +169,7 @@ var
  vkCode:cardinal;
  rc:TRect;
  pt:TPoint;
+ ps:TPaintStruct;
 begin
  try
  result:=0;
@@ -350,7 +351,15 @@ begin
   end;
 
   WM_PAINT:begin
-    Signal('ENGINE\REDRAW');
+    // Validate the update region BEFORE rendering: a frame is drawn synchronously via
+    // ENGINE\REDRAW to keep the window live during the OS modal move/resize loop (the
+    // engine main loop is stalled meanwhile). That loop may pump messages re-entrantly,
+    // so the region must be clean first, and we must not nest RenderAndPresentFrame.
+    BeginPaint(Window,ps);
+    EndPaint(Window,ps);
+    if (game<>nil) and not game.renderingFrame then
+      Signal('ENGINE\REDRAW');
+    exit(0);
   end;
 
   WM_ACTIVATE:begin
