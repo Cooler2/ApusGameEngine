@@ -828,6 +828,7 @@ type
   // Global state
   running:boolean;     // true when main loop is running
   terminated:boolean;   // true when main loop is finished
+  renderingFrame:boolean; // true while RenderAndPresentFrame is on the stack (guards against re-entrant WM_PAINT redraw)
   screenWidth,screenHeight:integer; // real full screen size in pixels
 
   // Default (built-in) font handles (for debug overlays etc)
