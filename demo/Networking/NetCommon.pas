@@ -82,6 +82,8 @@ procedure LaunchSelf(const arg:String8);
 function HasSwitch(const name:String8):boolean;
 // Slot index from '-client N' (default 1 if missing/non-numeric).
 function GetClientSlot:integer;
+// Per-process log name so concurrently running server/client logs never mix.
+function GetNetworkingLogFileName:string;
 
 implementation
 uses SysUtils,
@@ -135,6 +137,14 @@ begin
   if result<1 then result:=1;
 end;
 
+function GetNetworkingLogFileName:string;
+begin
+  if HasSwitch('client') then
+    result:='networking-client-'+IntToStr(GetClientSlot)+'.log'
+  else
+    result:='networking-server.log';
+end;
+
 { TNetSceneBase }
 
 constructor TNetSceneBase.Create(const sceneName:string;wnd:TWindow);
@@ -147,9 +157,10 @@ procedure TNetSceneBase.Load;
 begin
   sc:=game.screenScale;
   if sc<1 then sc:=1.0;
-  titleFont:=txt.GetFont('Default',round(18*sc));
-  smallFont:=txt.GetFont('Default',round(11*sc));
-  uiFont:=txt.GetFont('Default',round(13*sc));
+  // GetFont applies the global device scale set by TGameApplication.SetupHighDPI.
+  titleFont:=txt.GetFont('Default',18);
+  smallFont:=txt.GetFont('Default',11);
+  uiFont:=txt.GetFont('Default',13);
   loaded:=true;
 end;
 
