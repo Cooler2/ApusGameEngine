@@ -980,10 +980,11 @@ var
      break;
     end;
    if fl then begin
+    if updCount>=High(updList) then
+     raise EWarning.Create('Too many glyph-cache update rows at once');
     inc(updCount);
     updList[updCount]:=r;
    end;
-   if updCount>=High(updList) then raise EWarning.Create('Too many glyphs at once');
    inc(result.X); inc(result.Y); // padding
   end;
 

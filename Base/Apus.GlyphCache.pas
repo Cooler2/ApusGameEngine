@@ -50,7 +50,9 @@ type
  // works as a separate cache. Key property: items are only appended to the end of a band; if there is not enough room
  // a new band is allocated, and deletion happens only by whole bands.
  // That is why Keep() ensures a sizable part of the cache stays free, so that bands with needed items are not deleted.
- // Maximum item size - 63x63
+ // Packed metadata permits items up to 255x255; an item must also fit the
+ // dimensions of this cache region. Atlas exhaustion means that no contiguous
+ // horizontal band remains for the requested item height.
  // KNOWN ISSUE: Keep() frees old bands eagerly by FIFO, so a glyph still needed this frame can be evicted while
  // new ones are added (only the 25% headroom guards against it - not a hard guarantee; harmless in practice).
  // FIX IDEA: track a per-band lastUsed timestamp (bump on Alloc/Find-hit) and free lazily from Alloc, never
@@ -96,7 +98,10 @@ var
 begin
  try
  if (width<0) or (width>255) or (height<0) or (height>255) then
-  raise EWarning.Create('GlyphCache metadata overflow: %dx%d is out of packed range',[width,height]);
+   raise EWarning.Create('GlyphCache metadata overflow: %dx%d is out of packed range',[width,height]);
+  if (width>aWidth) or (height>aHeight) then
+   raise EWarning.Create('GlyphCache item %dx%d does not fit the %dx%d atlas region',
+     [width,height,aWidth,aHeight]);
  if (dx<-128) or (dx>127) or (dy<-128) or (dy>127) then
   raise EWarning.Create('GlyphCache offset overflow: dx=%d dy=%d is out of packed range',[dx,dy]);
  // 1. Find the most suitable band
@@ -146,8 +151,9 @@ begin
  inc(result.x,relX);
  inc(result.y,relY);
  except
-  on e:Exception do
-   raise EWarning.Create('GC.Alloc(%d,%d) failed'+ExceptionMsg(e),[width,height]);
+   on e:Exception do
+    raise EWarning.Create('GlyphCache.Alloc(%d,%d) failed: %s',
+      [width,height,ExceptionMsg(e)]);
  end;
 end;
 
@@ -236,9 +242,13 @@ begin
  // get new band position
  if (freeMin+height<=aHeight) then y:=freeMin else
   if (aHeight+height-1<=freeMax) then y:=aHeight else
-   raise EWarning.Create('DGC: cache overflow 1: '+GetState);
+   raise EWarning.CreateFmt(
+     'GlyphCache atlas exhausted: cannot place a %dpx band in a %dx%d atlas (free ring %d-%d). State: %s',
+     [height,aWidth,aHeight,freeMin,freeMax,GetState]);
  if freeMin+height>freeMax then
-  raise EWarning.Create('DGC: cache overflow 3: '+GetState);
+  raise EWarning.CreateFmt(
+    'GlyphCache atlas exhausted: no contiguous space for a %dpx band in a %dx%d atlas (free ring %d-%d). State: %s',
+    [height,aWidth,aHeight,freeMin,freeMax,GetState]);
  // Find free band record
  b:=-1;
  for i:=0 to bCount-1 do
@@ -247,8 +257,10 @@ begin
   end;
  // Add band record if needed
  if b=-1 then begin
-  if bCount>=99 then
-   raise EWarning.Create('DGC: cache overflow 2: '+GetState);
+  if bCount>=length(bands) then
+   raise EWarning.CreateFmt(
+     'GlyphCache band table exhausted (%d descriptors). State: %s',
+     [length(bands),GetState]);
   b:=bCount;
   inc(bCount);
  end;

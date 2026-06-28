@@ -122,12 +122,45 @@ begin
   EndTest;
 end;
 
+procedure TestCapacityErrors;
+var
+  c:TDynamicGlyphCache;
+  msg:string;
+begin
+  StartTest('GlyphCache.CapacityErrors');
+  c:=TDynamicGlyphCache.Create(64,64);
+  try
+    msg:='';
+    try
+      c.Alloc(65,10,0,0,$2001);
+    except
+      on e:Exception do msg:=e.Message;
+    end;
+    Check(Pos('does not fit the 64x64 atlas region',msg)>0,
+      'oversized item rejected before packing: '+msg);
+
+    c.Alloc(64,40,0,0,$2002);
+    msg:='';
+    try
+      c.Alloc(64,40,0,0,$2003);
+    except
+      on e:Exception do msg:=e.Message;
+    end;
+    Check(Pos('GlyphCache atlas exhausted',msg)>0,
+      'atlas exhaustion has a descriptive error: '+msg);
+  finally
+    c.Free;
+  end;
+  EndTest;
+end;
+
 begin
   try
     TestAllocFind;
     TestRelativeOffset;
     TestEvictionCycle;
     TestReallocAfterEvict;
+    TestCapacityErrors;
 
     writeln;
     if testsFailed=0 then
