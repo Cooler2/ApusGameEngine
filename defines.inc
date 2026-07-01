@@ -5,7 +5,9 @@
   // Unify syntax with Delphi for FPC builds.
   {$MODE DELPHI}
   // Engine asm snippets are written in Intel syntax.
-  {$ASMMODE intel}
+  {$IF DEFINED(CPUX86) OR DEFINED(CPUX86_64)}
+    {$ASMMODE intel}
+  {$ENDIF}
 {$ELSE}
   // Normalize compiler check to one symbol in code paths.
   {$DEFINE DELPHI}
@@ -16,7 +18,7 @@
   {$DEFINE CPU64}
 {$ENDIF}
 
-{$IF Defined(MSWINDOWS) or Defined(LINUX)}
+{$IF Defined(MSWINDOWS) or Defined(LINUX) or Defined(DARWIN)}
   // Desktop OpenGL loader path (unit dglOpenGL + InitOpenGL/extension handling).
   // Not defined for mobile targets where GLES headers are used instead.
   {$DEFINE DGL}

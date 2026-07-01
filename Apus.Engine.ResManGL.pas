@@ -200,8 +200,7 @@ type
 
 implementation
  uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.GfxFormats,
-   {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
-   {$IFDEF LINUX}dglOpenGL{$ENDIF}
+   {$IFDEF DGL}dglOpenGL{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}
    {$IFDEF ANDROID}gles20{$ENDIF}
    ,
