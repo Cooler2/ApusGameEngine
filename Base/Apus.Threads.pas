@@ -249,7 +249,8 @@ threadvar
 // Configuration
 implementation
 uses Classes, Apus.Strings, Apus.Conv, Apus.Log, Apus.EventMan
-    {$IFDEF UNIX}, unixtype, BaseUnix, Syscall{$ENDIF}
+    {$IFDEF UNIX}, unixtype, BaseUnix{$ENDIF}
+    {$IFDEF LINUX}, Syscall{$ENDIF}
     {$IFDEF IOS}, iphoneAll{$ENDIF}
     {$IFDEF ANDROID}, Apus.Android{$ENDIF};
 
@@ -284,7 +285,7 @@ type
     terminating:LongBool; // atomic termination flag
     paused:LongBool;      // atomic pause flag
     implPtr:pointer;      // TThreadImpl pointer for status updates (raw - avoids forward declaration)
-    {$IFDEF UNIX}
+    {$IFDEF LINUX}
     tid:cardinal;
     {$ENDIF}
     function GetStateInfo:String8; // get thread state (call stack etc)
@@ -776,7 +777,7 @@ end;
 
 procedure TRWLockD.Cleanup;
 begin
- ASSERT(writerThread=0,
+ ASSERT(UIntPtr(writerThread)=0,
    'TRWLockD.Cleanup: write lock still held in "'+name+'"');
  ASSERT(readerCount=0,
    'TRWLockD.Cleanup: '+Conv.ToStr(readerCount)+' read lock(s) still held in "'+name+'"');
@@ -1027,7 +1028,7 @@ begin
   data^.paused:=false;
   data^.handle:=handle;
   data^.implPtr:=implObj;
-  {$IFDEF UNIX}
+  {$IFDEF LINUX}
   data^.tid:=Do_syscall(syscall_nr_gettid); // syscall outside lock
   extra:='tid: '+Conv.ToStr(data^.tid);
   {$ENDIF}
@@ -1036,7 +1037,7 @@ begin
   try
     // check if already registered
     for i:=0 to high(threads) do
-      if cardinal(threads[i]^.ID)=threadID then begin
+      if threads[i]^.ID=threadID then begin
         Dispose(data); // cleanup allocated data
         exit;
       end;
@@ -1055,7 +1056,7 @@ begin
   end;
 
   // Log outside lock (logging can be slow)
-  Log.Msg('Thread ID: %d named %s %s',[data^.ID,uniqueName,extra]);
+  Log.Msg('Thread ID: %d named %s %s',[UIntPtr(data^.ID),uniqueName,extra]);
 
   // set debugger name outside lock
   {$IFDEF DELPHI}
@@ -1134,9 +1135,9 @@ begin
   // Fill in remaining fields from within thread context
   SpinLock;
   try
-    if data^.ID=0 then
+    if UIntPtr(data^.ID)=0 then
       data^.ID:=GetCurrentThreadID; // in case Thread.Start hasn't set it yet
-    {$IFDEF UNIX}
+    {$IFDEF LINUX}
     data^.tid:=Do_syscall(syscall_nr_gettid);
     {$ENDIF}
   finally
@@ -1159,7 +1160,7 @@ begin
   {$ENDIF}
 
   // Log and set debug name
-  Log.Msg('Thread ID: %d named %s',[data^.ID,data^.uniqueName]);
+  Log.Msg('Thread ID: %d named %s',[UIntPtr(data^.ID),data^.uniqueName]);
   {$IFDEF DELPHI}
   {$IF Declared(TThread.NameThreadForDebugging)}
   TThread.NameThreadForDebugging(data^.uniqueName);
@@ -1370,7 +1371,7 @@ var
   id:TThreadID;
   i:integer;
 begin
-  if threadID=0 then
+  if UIntPtr(threadID)=0 then
     id:=GetCurrentThreadId
   else
     id:=threadID;
@@ -1408,8 +1409,8 @@ begin
   // Dump outside lock (slow - calls GetThreadStateInfo with SuspendThread)
   t:=CoreTime.Ticks;
   for i:=0 to n-1 do begin
-    st:=UTF8.Format('%d. %s ID: %d',[i,snapshot[i].uniqueName,snapshot[i].ID]);
-    {$IFDEF UNIX}
+    st:=UTF8.Format('%d. %s ID: %d',[i,snapshot[i].uniqueName,UIntPtr(snapshot[i].ID)]);
+    {$IFDEF LINUX}
     st:=st+UTF8.Format(' TID: %d',[snapshot[i].tid]);
     {$ENDIF}
     if snapshot[i].startTime>0 then

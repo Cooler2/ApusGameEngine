@@ -16,7 +16,8 @@ uses
   Windows, WinSock2,
 {$ELSE}
   {$IFDEF UNIX}
-  BaseUnix, Sockets, CNetDB,
+  BaseUnix, Sockets,
+  {$IFDEF DARWIN}NetDB,{$ELSE}CNetDB,{$ENDIF}
   {$ENDIF}
 {$ENDIF}
   Apus.Types;
@@ -312,7 +313,11 @@ end;
 
 function ResolveIPv4Address(address: AnsiString): Cardinal;
 var
+  {$IFDEF DARWIN}
+  hostEntry:NetDB.THostEntry;
+  {$ELSE}
   h: PHostEnt;
+  {$ENDIF}
 begin
   address:=address+#0;
   {$IFDEF MSWINDOWS}
@@ -326,11 +331,18 @@ begin
   {$ELSE}
   result:=StrToNetAddr(address).s_addr;
   if result<>0 then exit;
+  {$IFDEF DARWIN}
+  if NetDB.GetHostByName(address,hostEntry) then
+    result:=hostEntry.Addr.s_addr
+  else
+    result:=0;
+  {$ELSE}
   h:=CNetDB.GetHostByName(@address[1]);
   if (h<>nil) and (h^.h_addr_list<>nil) then
     move(h^.h_addr_list^^,result,4)
   else
     result:=0;
+  {$ENDIF}
   {$ENDIF}
 end;
 

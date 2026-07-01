@@ -495,14 +495,17 @@ type
 implementation
 
 uses
-  Apus.Conv, DateUtils, Variants,
-{$IFDEF MSWINDOWS}
-  Windows
-{$ENDIF}
+  Apus.Conv, DateUtils, Variants
+  {$IFDEF MSWINDOWS}, Windows{$ENDIF}
+  {$IFDEF UNIX}, BaseUnix{$ENDIF}
+  {$IFDEF LINUX}, Linux{$ENDIF};
+
 {$IFDEF UNIX}
-  BaseUnix,
-  {$IFDEF LINUX}Linux{$ENDIF}
-{$ENDIF};
+const APUS_CLOCK_MONOTONIC={$IFDEF DARWIN}6{$ELSE}CLOCK_MONOTONIC{$ENDIF};
+{$ENDIF}
+{$IFDEF DARWIN}
+function clock_gettime(clockID:longint; timeSpec:PTimeSpec):longint; cdecl; external 'c';
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
 function RtlCaptureStackBackTrace(
@@ -749,7 +752,7 @@ end;
 var
   tp:TTimeSpec;
 begin
-  clock_gettime(CLOCK_MONOTONIC,@tp);
+  clock_gettime(APUS_CLOCK_MONOTONIC,@tp);
   value:=int64(tp.tv_sec)*1000000+tp.tv_nsec div 1000;
 end;
 {$ENDIF}
@@ -2031,7 +2034,7 @@ begin
 {$ELSE}
   freq:=1000000;
   QPC(qpcBase);
-  clock_gettime(CLOCK_MONOTONIC,@ts);
+  clock_gettime(APUS_CLOCK_MONOTONIC,@ts);
   ticksBase:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
 {$ENDIF}
   timerMul:=1.0/freq;
@@ -2203,7 +2206,7 @@ begin
   {$IFDEF MSWINDOWS}
   result:=Windows.GetTickCount64-ticksBase;
   {$ELSE}
-  clock_gettime(CLOCK_MONOTONIC,@ts);
+  clock_gettime(APUS_CLOCK_MONOTONIC,@ts);
   result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000-ticksBase;
   {$ENDIF}
 end;

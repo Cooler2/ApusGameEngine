@@ -1,6 +1,8 @@
 {$IFDEF FPC}
   {$MODE DELPHI}
-  {$ASMMODE intel}
+  {$IF DEFINED(CPUX86) OR DEFINED(CPUX86_64)}
+    {$ASMMODE intel}
+  {$ENDIF}
 {$ELSE}
   {$DEFINE DELPHI}
 {$ENDIF}

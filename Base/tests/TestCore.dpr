@@ -260,7 +260,7 @@ begin
   StartTest('System primitives');
 
   tid:=GetCurrentThreadID;
-  Check(tid<>0,'GetCurrentThreadID non-zero');
+  Check(UIntPtr(tid)<>0,'GetCurrentThreadID non-zero');
 
   // Ticks/Sleep monotonicity
   t0:=CoreTime.Ticks;
