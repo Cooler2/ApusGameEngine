@@ -13,7 +13,12 @@
   {$DEFINE DELPHI}
 {$ENDIF}
 
-{$IFDEF CPUX64}
+{$IFDEF CPUAARCH64}
+  // Normalize FPC's AArch64 symbol to the Delphi-style ARM64 name.
+  {$DEFINE CPUARM64}
+{$ENDIF}
+
+{$IF DEFINED(CPUX64) OR DEFINED(CPUARM64)}
   // Backward-compatible alias used by legacy code paths.
   {$DEFINE CPU64}
 {$ENDIF}

@@ -8,6 +8,7 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTDIR="${OUTDIR:-/tmp/engine5_fpc_macos_smoke}"
 FPC="${FPC:-fpc}"
+SCOPE="${1:-all}"
 FLAGS=(
   -dSDL
   -dOPENGL
@@ -23,6 +24,10 @@ FLAGS=(
 
 if [ "$(uname -s)" != "Darwin" ]; then
   echo "macos_smoke.sh must be run on macOS" >&2
+  exit 2
+fi
+if [ "$SCOPE" != "all" ] && [ "$SCOPE" != "engine" ] && [ "$SCOPE" != "demos" ]; then
+  echo "Usage: $0 [all|engine|demos]" >&2
   exit 2
 fi
 
@@ -61,12 +66,16 @@ compile_only() {
   fi
 }
 
-compile_only tests/PlatformTest.dpr
-compile_only tests/OpenGL.dpr
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
+  compile_only tests/PlatformTest.dpr
+  compile_only tests/OpenGL.dpr
+fi
 
-for demo in SimpleDemo Draw2D InputDemo TextDemo Simple3D ShadowMap; do
-  compile_only "demo/$demo/$demo.dpr" "demo/$demo"
-done
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "demos" ]; then
+  for demo in SimpleDemo Draw2D InputDemo TextDemo Simple3D ShadowMap; do
+    compile_only "demo/$demo/$demo.dpr" "demo/$demo"
+  done
+fi
 
 printf '\nSUMMARY: %d passed, %d failed\n' "$pass" "$fail"
 if [ ${#failed[@]} -gt 0 ]; then

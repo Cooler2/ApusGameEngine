@@ -360,7 +360,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
    if (removed>0) or (queued>0) or (delayed>0) then
     Log.Warn('EventMan: thread %s (%d) exited with %d registered handler(s): %s; discarded %d queued and %d delayed event(s)',
-     [threadName,threadID,removed,handlerList,queued,delayed]);
+     [threadName,UIntPtr(threadID),removed,handlerList,queued,delayed]);
   end;
 
  // Для внутреннего использования
