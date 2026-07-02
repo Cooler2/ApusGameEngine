@@ -357,17 +357,41 @@ constructor TSDLPlatform.Create;
   InitControllers;
  end;
 
+procedure ApplyOpenGLContextAttributes(const graph:TOpenGLContextDesc;shareWithCurrent:boolean);
+ var
+  major,minor,profileMask,flags:integer;
+ begin
+  major:=graph.minMajor;
+  minor:=graph.minMinor;
+  if (major<3) or ((major=3) and (minor<2)) then begin
+   major:=3;
+   minor:=2;
+  end;
+  profileMask:=SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
+  if graph.profile=oglpCore then
+   profileMask:=SDL_GL_CONTEXT_PROFILE_CORE;
+  flags:=0;
+  if graph.debugContext then flags:=flags or SDL_GL_CONTEXT_DEBUG_FLAG;
+  if graph.forwardCompatible then flags:=flags or SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,major);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,minor);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,profileMask);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,flags);
+  SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,byte(shareWithCurrent));
+ end;
+
 function TSDLPlatform.CreateWindow(title:string):TWindow;
  var
   ust:UTF8String;
   localWindow:PSDL_Window;
  begin
    Log.Msg('CreateMainWindow');
+   ApplyOpenGLContextAttributes(oglContextTemplate,false);
    ust:=title;
    localWindow:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
-    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
+   SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
    if localWindow=nil then
-    raise EError.Create('SDL window creation failed');
+    raise EError.Create('SDL window creation failed: '+SDL_GetError);
    result:=TSDLGLWindow.Create(localWindow,title);
   end;
 
@@ -686,7 +710,7 @@ procedure TSDLGLWindow.MoveTo(x,y:integer;width:integer;
 
 function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWithCurrent:boolean=false):UIntPtr;
  var
-  major,minor,profile,flags,profileMask:integer;
+  major,minor,profile,flags:integer;
   requestedProfile:TOpenGLContextProfile;
   requestedDebug,requestedForward:boolean;
  begin
@@ -694,25 +718,7 @@ function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
   requestedProfile:=graph.profile;
   requestedDebug:=graph.debugContext;
   requestedForward:=graph.forwardCompatible;
-  major:=graph.minMajor;
-  minor:=graph.minMinor;
-  if (major<3) or ((major=3) and (minor<2)) then begin
-   major:=3;
-   minor:=2;
-  end;
-  profileMask:=SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
-  if requestedProfile=oglpCore then
-   profileMask:=SDL_GL_CONTEXT_PROFILE_CORE;
-
-  flags:=0;
-  if requestedDebug then flags:=flags or SDL_GL_CONTEXT_DEBUG_FLAG;
-  if requestedForward then flags:=flags or SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,major);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,minor);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,profileMask);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,flags);
-  if shareWithCurrent then
-   SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,1);
+  ApplyOpenGLContextAttributes(graph,shareWithCurrent);
   try
    ctx:=SDL_GL_CreateContext(wnd);
   finally

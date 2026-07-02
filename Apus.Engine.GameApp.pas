@@ -8,7 +8,7 @@ unit Apus.Engine.GameApp;
 interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
-  Apus.Core, Apus.Engine.API;
+  Apus.Core, {$IFDEF DARWIN}Apus.Threads,{$ENDIF} Apus.Engine.API;
 
  type
   // How window/screen area should be used
@@ -97,8 +97,12 @@ interface
    function GetWindowAreaType(x,y:integer):}
   protected
    sysPlatform:ISystemPlatform;
+   {$IFDEF DARWIN}
+   controlThread:IThread;
+   {$ENDIF}
    screenWidth,screenHeight:integer;
    realScreenWidth,realScreenHeight:integer;
+   procedure ControlLoop;
   end;
 
  {$IFDEF ANDROID}
@@ -132,7 +136,6 @@ implementation
   Apus.Files,
   Apus.Log,
   Apus.Strings,
-  Apus.Threads,
   Apus.Utils;
 
 type
@@ -501,7 +504,7 @@ procedure TGameApplication.Prepare;
    if useRealDPI then SetDPIAwareness;
    {$ENDIF}
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
-   Thread.Register('ControlThread');
+   Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
    // Log rotation
@@ -653,7 +656,6 @@ procedure MouseEventHandler(event:TEventStr;tag:TTag);
 procedure TGameApplication.Run;
  var
   settings:TGameSettings;
-  loadingScene:TGameScene;
  begin
   {$IFDEF OPENGL}
   // OpenGL context request is configured on app level and used by platform backend.
@@ -703,14 +705,44 @@ procedure TGameApplication.Run;
 
   // LAUNCH GAME OBJECT
   // ------------------------
+  {$IFDEF DARWIN}
+  controlThread:=Thread.Start('ControlThread',ControlLoop);
+  try
+   TGame(game).RunCurrentThread;
+  finally
+   controlThread.Terminate;
+   controlThread.Wait(2000);
+   controlThread:=nil;
+  end;
+  {$ELSE}
   try
    game.Run;
   except
    on e:exception do begin
-     SystemMessage('Failed to run the game: '+ExceptionMsg(e));
-     halt;
+    SystemMessage('Failed to run the game: '+ExceptionMsg(e));
+    halt;
    end;
   end;
+  ControlLoop;
+  {$ENDIF}
+ end;
+
+procedure TGameApplication.ControlLoop;
+ var
+  {$IFDEF DARWIN}
+  i:integer;
+  {$ENDIF}
+  loadingScene:TGameScene;
+ begin
+  {$IFDEF DARWIN}
+  for i:=1 to 400 do begin
+   if game.running then break;
+   if CurrentThread.Terminating then exit;
+   CoreTime.Sleep(50);
+  end;
+  if not game.running then exit;
+  try
+  {$ENDIF}
   Log.Force('RUN');
   // Transitional compatibility: control thread also needs current window context
   // for scene/UI setup that still happens here.
@@ -770,6 +802,11 @@ procedure TGameApplication.Run;
   until game.terminated;
   Signal('GAMEAPP\Terminated');
   Log.Force('Control thread exit');
+  {$IFDEF DARWIN}
+  finally
+   TGame(game).AllowMainThreadExit;
+  end;
+  {$ENDIF}
  end;
 
 procedure TGameApplication.SaveOptions;

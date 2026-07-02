@@ -29,6 +29,10 @@ type
  TGame=class(TGameBase)
   constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem); // Создать экземпляр
   procedure Run; override; // запустить движок (создание окна, переключение режима и пр.)
+  {$IFDEF DARWIN}
+  procedure RunCurrentThread; // run window/event/render lifecycle on the calling OS thread
+  procedure AllowMainThreadExit; // control lifecycle finished; graphics may be finalized
+  {$ENDIF}
   procedure Stop; override; // остановить и освободить все ресурсы (требуется повторный запуск через Run)
   destructor Destroy; override; // автоматически останавливает, если это не было сделано
 
@@ -102,6 +106,7 @@ type
   useMainThread:boolean; // true - launch "main" thread with main loop,
                          // false - no main thread, catch frame events
   canExitNow:boolean; // флаг того, что теперь можно начать деинициализацию
+  mainLoopExitRequested:boolean;
   params,newParams:TGameSettings;
   aspectRatio:single;  // Initial aspect ratio (width/height)
   altWidth,altHeight:integer; // saved window size for Alt+Enter
@@ -176,6 +181,7 @@ type
   procedure HandleInternalHotkeys(keyCode:integer;pressed:boolean); virtual;
 
   procedure HandleGamepadNavigation;
+  procedure PrepareRun;
   procedure MainThreadLoop;
  end;
 
@@ -533,6 +539,7 @@ begin
  running:=false;
  terminated:=false;
  canExitNow:=false;
+ mainLoopExitRequested:=false;
  useMainThread:=true;
  controlThreadId:=GetCurrentThreadId;
  // TODO: window fields initialized here before window is created - move to post-CreateWindow init
@@ -1135,28 +1142,35 @@ begin
 end;
 
 
-procedure TGame.Run;
+procedure TGame.PrepareRun;
 var
  i:integer;
 begin
- if running then exit;
  game:=self;
  gameEx:=self;
  mainThreadErrorMsg:='';
-
- if useMainThread then begin
-  mainThread:=Thread.Start('MainThread',MainThreadLoop);
- end else begin
-  mainThread:=nil;
-  SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
-  SetEventHandler('Engine\',EngineEvent,emInstant);
-  Signal('Engine\MainLoopInit');
- end;
  SetEventHandler('KBD\',GameKbdEvent,emInstant);
  SetEventHandler('JOYSTICK\',GameJoystickEvent,emInstant);
  SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
  SetEventHandler('DEBUG',DebugSignalEvent,emInstant);
  SetEventHandler('ERROR',ErrorSignalEvent,emInstant);
+end;
+
+procedure TGame.Run;
+var
+ i:integer;
+begin
+ if running then exit;
+ PrepareRun;
+
+ if useMainThread then
+  mainThread:=Thread.Start('MainThread',MainThreadLoop)
+ else begin
+  mainThread:=nil;
+  SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
+  SetEventHandler('Engine\',EngineEvent,emInstant);
+  Signal('Engine\MainLoopInit');
+ end;
 
  for i:=1 to 400 do
   if not running then CoreTime.Sleep(50) else break;
@@ -1169,6 +1183,21 @@ begin
    raise EFatalError.Create('Can''t run: see log for details.');
  end;
 end;
+
+{$IFDEF DARWIN}
+procedure TGame.RunCurrentThread;
+begin
+ if running then exit;
+ PrepareRun;
+ mainThread:=nil;
+ MainThreadLoop;
+end;
+
+procedure TGame.AllowMainThreadExit;
+begin
+ canExitNow:=true;
+end;
+{$ENDIF}
 
 procedure TGame.StartVideoCap(filename:string);
 begin
@@ -1315,7 +1344,10 @@ begin
  if rawEvent.Same('CHANGESETTINGS') then ApplyNewSettings
  else
  if rawEvent.Same('EXIT') then begin
-  if mainThread<>nil then mainThread.Terminate;
+  if mainThread<>nil then
+   mainThread.Terminate
+  else
+   mainLoopExitRequested:=true;
  end
    else
  if EventOfClass(rawEvent,'SWITCHTOSCENE\',arg) then begin
@@ -1915,8 +1947,9 @@ procedure TGame.MainThreadLoop;
  begin
   // Инициализация
   mainThreadErrorMsg:='';
+  mainLoopExitRequested:=false;
   try
-   Log.Msg('%s Main thread started - %d',[CoreTime.Stamp,cardinal(GetCurrentThreadID)]);
+   Log.Msg('%s Main thread started - %d',[CoreTime.Stamp,UIntPtr(GetCurrentThreadID)]);
    // TODO: restore detailed system info logging after GetSystemInfo replacement is finalized.
    Log.Msg('System info: TODO');
    SetEventHandler('Engine\',EngineEvent,emInstant);
@@ -1941,7 +1974,7 @@ procedure TGame.MainThreadLoop;
     end;
     if (window<>nil) and window.IsTerminated then
      break;
-   until CurrentThread.Terminating;
+   until CurrentThread.Terminating or gameEx.mainLoopExitRequested;
    Log.Force('Main loop exit');
    gameEx.terminated:=true;
    Signal('Engine\AfterMainLoop');

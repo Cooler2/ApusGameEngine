@@ -1421,7 +1421,7 @@ procedure TGLRenderTargetAPI.Backbuffer;
   glBindFramebuffer(GL_FRAMEBUFFER,0);
   {$ENDIF}
   {$IFNDEF GLES}
-  if GL_ARB_framebuffer_object then
+  if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
     glBindFramebuffer(GL_FRAMEBUFFER,0);
   {$ENDIF}
   realWidth:=backBufferWidth;

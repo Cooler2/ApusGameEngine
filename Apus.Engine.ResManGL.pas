@@ -1009,7 +1009,7 @@ begin
  glBindFramebuffer(GL_FRAMEBUFFER,fbo);
  {$ENDIF}
  {$IFNDEF GLES}
- if GL_ARB_framebuffer_object then
+ if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
   glBindFramebuffer(GL_FRAMEBUFFER,fbo)
  else if GL_EXT_framebuffer_object then
   glBindFramebufferEXT(GL_FRAMEBUFFER,fbo)
@@ -1688,7 +1688,7 @@ begin
    glDeleteFramebuffers(1,@tex.fbo)
    {$ENDIF}
    {$IFNDEF GLES}
-   if GL_ARB_framebuffer_object then
+   if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
     glDeleteFramebuffers(1,@tex.fbo)
    else
    if GL_EXT_framebuffer_object then
