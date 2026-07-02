@@ -25,7 +25,7 @@ var
   mtQueuedHandlerCalls:integer;
   mtQueuedStart:boolean;
   mtQueuedDoneCount:integer;
-  mtThreadIDs:array[1..MTHandlerCount] of TThreadID;
+  mtThreadIDs:array[1..MTHandlerCount] of TThreadIdent;
   mtQueuedHitByThread:array[1..MTHandlerCount] of boolean;
   mtQueuedLock:TLock;
   danglingWarning:boolean;
@@ -75,7 +75,7 @@ procedure MTDuplicateHandler(event:TEventStr;tag:TTag); begin inc(mtDuplicateCou
 procedure MTQueuedSharedHandler(event:TEventStr;tag:TTag);
 var
   i:integer;
-  id:TThreadID;
+  id:TThreadIdent;
 begin
   id:=GetCurrentThreadID;
   mtQueuedLock.Enter;

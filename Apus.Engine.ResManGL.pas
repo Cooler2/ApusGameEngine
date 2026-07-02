@@ -55,7 +55,7 @@ type
   // OS-assisted (SRWLock on Windows, pthread_rwlock_t on Linux) — no busy-wait.
   // Only used when NeedSyncForRead/Write returns true (multiWindowMode=true).
   rwLock:TRWLock;
-  ownerThread:TThreadID; // for tfThreadLocal: thread that owns this texture (debug checks)
+  ownerThread:TThreadIdent; // for tfThreadLocal: thread that owns this texture (debug checks)
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array[0..MAX_LEVEL] of ByteArray; // internal storage of texture data
   fbo:cardinal; // framebuffer object (for a render target texture)
@@ -225,7 +225,7 @@ const
  {$ENDIF}
 
 var
- mainThreadId:TThreadID;
+ mainThreadId:TThreadIdent;
  cSect:TLock; // TODO: зачем? Нет глобальных данных, нуждающихся в защите
  lastErrorTime:int64;
  errorTr:integer;

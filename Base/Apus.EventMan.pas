@@ -48,7 +48,7 @@ type
 
  // Called by Apus.Threads when a registered thread exits.
  // Removes queued/mixed handlers and discards events which can no longer be handled.
- procedure ThreadFinished(threadID:TThreadID;const threadName:String8);
+ procedure ThreadFinished(threadID:TThreadIdent;const threadName:String8);
 
  // Связать событие с другим событием (тэг при этом может быть новым, но если это -1, то сохраняется старый)
  // Если redirect=true - при наличии линка отменет обработку сигнала на более общих уровнях
@@ -109,14 +109,14 @@ type
   event:TEventStr; // событие
   handler:TEventHandler; // кто должен его обработать
   tag:TTag;
-  callerThread:TThreadID; // поток, из которого было
+  callerThread:TThreadIdent; // поток, из которого было
   callerIP:UIntPtr; // точка вызова Signal
   time:int64; // когда событие должно быть обработано (только для отложенных сигналов)
  end;
 
  // Очередь событий для каждого потока, в котором есть какие-либо обработчики сигналов
  TThreadQueue=record
-  threadID:TThreadId;
+  threadID:TThreadIdent;
   queue:array[0..queueMask] of TQueuedEvent;
   delayed:array[0..31] of TQueuedEvent;
   first,last,delcnt:integer;
@@ -216,7 +216,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
  procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
   var
-   ThreadID:TThreadID;
+   ThreadID:TThreadIdent;
    i,n:integer;
    ph:PHandler;
    caller:pointer;
@@ -301,7 +301,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
   end;
 
- procedure ThreadFinished(threadID:TThreadID;const threadName:String8);
+ procedure ThreadFinished(threadID:TThreadIdent;const threadName:String8);
   var
    i,n,last,removed,queued,delayed:integer;
    ph,prev,next:PHandler;
@@ -360,7 +360,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
    if (removed>0) or (queued>0) or (delayed>0) then
     Log.Warn('EventMan: thread %s (%d) exited with %d registered handler(s): %s; discarded %d queued and %d delayed event(s)',
-     [threadName,UIntPtr(threadID),removed,handlerList,queued,delayed]);
+     [threadName,threadID,removed,handlerList,queued,delayed]);
   end;
 
  // Для внутреннего использования
@@ -371,7 +371,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    hnd:PHandler;
    link:PLink;
    ev:TEventStr;
-   trID:TThreadID;
+   trID:TThreadIdent;
    cnt:integer;
    hndlist:array[1..150] of TEventHandler;
   begin
@@ -546,7 +546,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
    { TThreadQueue }
   var
-   ID:TThreadID;
+   ID:TThreadIdent;
    t:int64;
    i,j:integer;
    calls:array[1..100] of TCall;

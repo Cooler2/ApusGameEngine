@@ -189,7 +189,7 @@ end;
 procedure TestLockOwner;
 var
   lock:TLock;
-  owner:TThreadID;
+  owner:TThreadIdent;
 begin
   StartTest('TLock owner tracking');
 

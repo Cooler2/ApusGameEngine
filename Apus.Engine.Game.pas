@@ -112,7 +112,7 @@ type
   altWidth,altHeight:integer; // saved window size for Alt+Enter
   mainThread:IThread;
   mainThreadErrorMsg:string8;
-  controlThreadId:TThreadID;
+  controlThreadId:TThreadIdent;
   cursors:array of TObject;
   crSect:TLock;
 
@@ -1212,7 +1212,7 @@ end;
 procedure TGame.Stop;
 var
  i:integer;
- h:TThreadID;
+ h:TThreadIdent;
 begin
  Log.Force('GameStop');
  if not running then exit;
@@ -1949,7 +1949,7 @@ procedure TGame.MainThreadLoop;
   mainThreadErrorMsg:='';
   mainLoopExitRequested:=false;
   try
-   Log.Msg('%s Main thread started - %d',[CoreTime.Stamp,UIntPtr(GetCurrentThreadID)]);
+   Log.Msg('%s Main thread started - %d',[CoreTime.Stamp,GetCurrentThreadID]);
    // TODO: restore detailed system info logging after GetSystemInfo replacement is finalized.
    Log.Msg('System info: TODO');
    SetEventHandler('Engine\',EngineEvent,emInstant);

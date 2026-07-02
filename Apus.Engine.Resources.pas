@@ -143,7 +143,7 @@ interface
  TEngineBuffer=class(TObjectEx)
   sizeInBytes:integer;
   caps:cardinal;
-  ownerThread:TThreadID;
+  ownerThread:TThreadIdent;
   // Optional debug label for GPU object naming (NSight/RenderDoc/etc).
   // Filled by higher-level systems that know semantic ownership.
   debugName:String8;

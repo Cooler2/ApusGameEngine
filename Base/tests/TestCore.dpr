@@ -249,7 +249,7 @@ end;
 
 procedure TestSystemPrimitives;
 var
-  tid:TThreadID;
+  tid:TThreadIdent;
   code:cardinal;
   desc:string;
   t0,t1:int64;
@@ -260,7 +260,7 @@ begin
   StartTest('System primitives');
 
   tid:=GetCurrentThreadID;
-  Check(UIntPtr(tid)<>0,'GetCurrentThreadID non-zero');
+  Check(tid<>0,'GetCurrentThreadID non-zero');
 
   // Ticks/Sleep monotonicity
   t0:=CoreTime.Ticks;

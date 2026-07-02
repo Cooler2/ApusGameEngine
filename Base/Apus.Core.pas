@@ -64,6 +64,12 @@ type
   {$IFEND}
   PtrUInt = UIntPtr;
 
+  // Thread identifier (native uint on all platforms).
+  // System.TThreadID's underlying representation differs per platform (cardinal on
+  // MSWINDOWS, PtrUInt on Linux, a pointer on Darwin/BSD) which forces casts at every
+  // use site. GetCurrentThreadID converts to this uniform type once, at the source.
+  TThreadIdent = UIntPtr;
+
   // 8-bit string (UTF-8 encoding)
   Char8 = UTF8Char;
   String8 = UTF8String;
@@ -289,7 +295,7 @@ var
 // Cross-platform primitives
 // =============================================================================
 
-  function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF};
+  function GetCurrentThreadID:TThreadIdent;
   function IsDebuggerPresent:boolean; {$IFDEF FPC} inline; {$ENDIF}
   {$IF not DECLARED(MemoryBarrier)}
   {$DEFINE NEED_MEMORY_BARRIER}
@@ -618,12 +624,12 @@ end;
 // Cross-platform primitives implementation
 // =============================================================================
 
-function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF};
+function GetCurrentThreadID:TThreadIdent;
 begin
 {$IFDEF MSWINDOWS}
   result:=windows.GetCurrentThreadId;
 {$ELSE}
-  result:=system.GetCurrentThreadID;
+  result:=TThreadIdent(system.GetCurrentThreadID); // pthread_t is a pointer on Darwin/BSD, PtrUInt on Linux
 {$ENDIF}
 end;
 
