@@ -9,7 +9,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTDIR="${OUTDIR:-/tmp/engine5_macos_runtime_smoke}"
 FPC="${FPC:-fpc}"
 DEMO_DIR="$ROOT/demo/SimpleDemo"
-EXE="$ROOT/bin64/SimpleDemo_macos_smoke"
+EXE="$ROOT/bin64/SimpleDemo_macos"
 ROBOT_IN="$DEMO_DIR/robot_in.txt"
 ROBOT_OUT="$DEMO_DIR/robot_out.txt"
 SCREENSHOT="$OUTDIR/simpledemo.png"
@@ -28,7 +28,7 @@ cleanup() {
     kill -TERM "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
   fi
-  rm -f "$EXE" "$ROBOT_IN" "$ROBOT_OUT" "$ROOT/ppas.sh" "$ROOT/symbol_order.fpc"
+  rm -f "$ROBOT_IN" "$ROBOT_OUT" "$ROOT/ppas.sh" "$ROOT/symbol_order.fpc"
 }
 trap cleanup EXIT
 
@@ -50,7 +50,7 @@ if ! "$FPC" \
   -dSDL -dOPENGL -MDelphi -Sd \
   -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra -Fudemo/SimpleDemo \
   "-Fl$sdl2LibDir" "-FU$OUTDIR/units" "-FE$ROOT/bin64" \
-  -oSimpleDemo_macos_smoke demo/SimpleDemo/SimpleDemo.dpr > "$BUILD_LOG" 2>&1; then
+  -oSimpleDemo_macos demo/SimpleDemo/SimpleDemo.dpr > "$BUILD_LOG" 2>&1; then
   tail -n 80 "$BUILD_LOG"
   exit 1
 fi
@@ -169,4 +169,5 @@ if [ "$status" -ne 0 ]; then
 fi
 
 echo "macOS runtime smoke passed"
+echo "Executable: $EXE"
 grep -E 'windowWidth:|windowHeight:|screenDPI:|screenScale:|fps:|SCENE:|width:|height:' "$ROBOT_OUT"
