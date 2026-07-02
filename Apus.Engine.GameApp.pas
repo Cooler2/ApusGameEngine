@@ -835,10 +835,14 @@ begin
    height:=windowHeight;
    deviceDPI:=systemPlatform.GetScreenDPI;
    deviceScale:=deviceDPI/96;
+   // SDL window dimensions on macOS are already expressed in logical points.
+   // Scaling them again would create an oversized Retina window.
+   {$IFNDEF DARWIN}
    if scaleWindowSize then begin
     width:=round(width*deviceScale);
     height:=round(height*deviceScale);
    end;
+   {$ENDIF}
    colorDepth:=32;
    refresh:=0;
    if windowSizeable then winDispMode:=TDisplayMode.dmWindow

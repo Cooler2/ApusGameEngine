@@ -83,6 +83,10 @@ printf '%s\n' \
   'ID: windows-check' \
   'CMD: windows' \
   '---' \
+  'ID: screenshot-check' \
+  'CMD: screenshot' \
+  "FILE: $SCREENSHOT" \
+  '---' \
   'ID: resize-check' \
   'CMD: window.resize' \
   'W: 1280' \
@@ -95,10 +99,6 @@ printf '%s\n' \
   'ID: scenes-check' \
   'CMD: scenes' \
   'ACTIVE_ONLY: yes' \
-  '---' \
-  'ID: screenshot-check' \
-  'CMD: screenshot' \
-  "FILE: $SCREENSHOT" \
   '---' \
   'ID: exit-check' \
   'CMD: signal' \
@@ -134,11 +134,11 @@ if ! grep -q 'SCENE: TMainScene' "$ROBOT_OUT"; then
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
-if ! grep -q '^windowWidth: 1280' "$ROBOT_OUT" ||
-  ! grep -q '^windowHeight: 720' "$ROBOT_OUT" ||
-  ! grep -q '^renderWidth: 1280' "$ROBOT_OUT" ||
-  ! grep -q '^renderHeight: 720' "$ROBOT_OUT"; then
-  echo "Window resize did not produce the requested logical size" >&2
+if ! grep -q '^windowWidth: 2560' "$ROBOT_OUT" ||
+  ! grep -q '^windowHeight: 1440' "$ROBOT_OUT" ||
+  ! grep -q '^renderWidth: 2560' "$ROBOT_OUT" ||
+  ! grep -q '^renderHeight: 1440' "$ROBOT_OUT"; then
+  echo "Retina drawable did not track the requested 1280x720 window size" >&2
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi

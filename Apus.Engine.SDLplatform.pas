@@ -166,6 +166,7 @@ procedure TSDLGLWindow.ScreenToClient(var p:TPoint);
 procedure TSDLGLWindow.SamplePointer;
  var
   pnt:TPoint;
+  logicalWidth,logicalHeight:integer;
  begin
   // TODO: match WindowsPlatform.SamplePointer (deferred until SDL-on-Windows, see
   // Work/engine_work_ahead.md P1):
@@ -174,10 +175,15 @@ procedure TSDLGLWindow.SamplePointer;
   //  2) while a button is held, report raw continuous coords (SDL_CaptureMouse /
   //     relative mode) so a camera-drag does not jump to the sentinel off-window.
   SDL_GetMouseState(@pnt.x,@pnt.y); // already client-relative to focused window
+  SDL_GetWindowSize(wnd,@logicalWidth,@logicalHeight);
   if (pnt.x<0) or (pnt.y<0) or
-     (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
+     (pnt.x>=logicalWidth) or (pnt.y>=logicalHeight) then begin
    mousePos:=Types.Point($3FFF,$3FFF);
    exit;
+  end;
+  if (logicalWidth>0) and (logicalHeight>0) then begin
+   pnt.x:=round(pnt.x*windowWidth/logicalWidth);
+   pnt.y:=round(pnt.y*windowHeight/logicalHeight);
   end;
   ClientToGame(pnt);
   mousePos:=pnt;
@@ -325,7 +331,7 @@ procedure TSDLGLWindow.GetSize(out width,height:integer);
   if wnd=nil then begin
    width:=0; height:=0;
   end else
-   SDL_GetWindowSize(wnd,@width,@height);
+   SDL_GL_GetDrawableSize(wnd,@width,@height);
  end;
 
 procedure MyLogHandler(userdata: Pointer; category: TSDL_LogCategory; priority: TSDL_LogPriority; const msg: PAnsiChar); cdecl;
@@ -569,7 +575,7 @@ procedure TSDLGLWindow.ProcessMessages;
   eventWindow:TSDLGLWindow;
   ust:String8;
   wst:String16;
-  i,len:integer;
+  i,len,w,h:integer;
   mbtn:integer;
  begin
   while SDL_PollEvent(@event)<>0 do begin
@@ -613,7 +619,13 @@ procedure TSDLGLWindow.ProcessMessages;
        end;
        Signal('ENGINE\WINDOW\CLOSE');
       end;
-      SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      SDL_WINDOWEVENT_RESIZED:begin
+       eventWindow:=FindSDLWindow(event.window.windowID);
+       if eventWindow<>nil then begin
+        eventWindow.GetSize(w,h);
+        Signal('ENGINE\RESIZE',PackWords(w,h));
+       end;
+      end;
       {SDL_WINDOWEVENT_SIZE_CHANGED:begin
        LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
          [event.window.data1,event.window.data2,w,h]);
