@@ -83,6 +83,11 @@ printf '%s\n' \
   'ID: windows-check' \
   'CMD: windows' \
   '---' \
+  'ID: resize-check' \
+  'CMD: window.resize' \
+  'W: 1280' \
+  'H: 720' \
+  '---' \
   'ID: fps-check' \
   'CMD: fps' \
   'N: 5' \
@@ -119,13 +124,21 @@ if [ ! -f "$ROBOT_OUT" ] || ! grep -q 'ID: exit-check' "$ROBOT_OUT"; then
 fi
 
 okCount="$(grep -c 'STATUS: OK' "$ROBOT_OUT")"
-if [ "$okCount" -ne 5 ] || grep -q 'STATUS: ERROR' "$ROBOT_OUT"; then
+if [ "$okCount" -ne 6 ] || grep -q 'STATUS: ERROR' "$ROBOT_OUT"; then
   echo "Robot API smoke failed" >&2
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
 if ! grep -q 'SCENE: TMainScene' "$ROBOT_OUT"; then
   echo "Main scene is not active" >&2
+  sed -n '1,240p' "$ROBOT_OUT"
+  exit 1
+fi
+if ! grep -q '^windowWidth: 1280' "$ROBOT_OUT" ||
+  ! grep -q '^windowHeight: 720' "$ROBOT_OUT" ||
+  ! grep -q '^renderWidth: 1280' "$ROBOT_OUT" ||
+  ! grep -q '^renderHeight: 720' "$ROBOT_OUT"; then
+  echo "Window resize did not produce the requested logical size" >&2
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
