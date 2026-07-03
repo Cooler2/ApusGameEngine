@@ -33,6 +33,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 - Main target CPU is x64, but should also support x86 and ARM. `ASM` blocks must be inside conditional compilation directives and accompanied by a pure Pascal implementation.
 - Code should be compatible with both Delphi 12+ and FPC 3.2+ compilers.
 - We use GitHub actions to run tests on Windows and Linux.
+- **GL version policy**: baseline = GL 3.3 core (desktop) ↔ GLES 3.0 (mobile) — the only mandatory render path; newer GL (4.x) features only as extension-gated opt-in fast paths with baseline fallback, gated by capability flags, never by context version. See "GL Version Policy" in `engine5_feature_roadmap.md`.
 
 ### Coordinate Conventions
 

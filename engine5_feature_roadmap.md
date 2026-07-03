@@ -45,6 +45,15 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~80% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; remaining = `.app` bundle/signing + close Retina-review findings #1–2 |
 | R-30 | iOS Platform Support | idea | 0% | Gated on FPC arm64-iOS toolchain go/no-go (signable Xcode-integrable binary); then SDL2 UIKit backend vs native `objcclass` shell, GL-ES renderer for MVP (Metal = future idea only), platform integration on a physical iPhone |
 
+## GL Version Policy (locked 2026-07-03)
+
+Two tiers, not a version ladder:
+- **Baseline = GL 3.3 core (desktop) ↔ GLES 3.0 (mobile)** — the only complete, mandatory, fully tested render path. Contexts are always requested as 3.3 core / ES 3.0, never 4.x.
+- **Modern = capability-gated opt-in fast paths** (in practice "GL 4.6 minus macOS"): persistent-mapped buffers (R-12), named resources/DSA (state-cache hygiene), MDI/compute when justified. Call sites test per-feature capability flags; the flags themselves are detected version-first (context ≥ the feature's core version ⇒ true, no extension-string parsing needed) with an extension check only as fallback for pre-core hardware. Every modern path keeps its baseline fallback.
+- **GL 4.1 is not a tier — it is the macOS ceiling**: nothing load-bearing above baseline while macOS runs on GL.
+- **Debug clamp**: a define (+ runtime switch) forces all modern caps off so the baseline path stays exercised on capable GPUs and in CI.
+- Details: `Work/R-09_gl4x_research.md` (desktop, "Соглашение о версиях GL") + `Work/gles_mobile_research.md` (mobile).
+
 ## 2) Strategic Directions
 
 ### A. Engine Module Refactoring
@@ -370,7 +379,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - [ ] Touch input and text input reach the unified Engine5 input/UI path.
   - [ ] At least one baseline sound/media playback path is verified or explicitly deferred.
   - [ ] Android code paths compile without deprecated `PainterGL`/`PainterGL2`.
-- Design / options / staging / build process: `Work/R-24_android_revival.md`.
+- Design / options / staging / build process: `Work/R-24_android_revival.md`. GLES versions/bindings/limitations research (shared with R-30): `Work/gles_mobile_research.md`.
 
 ### [R-25] Immediate Mode GUI API Wrapper
 - Status: idea | Priority: P2 | Area: UI / Tooling
@@ -468,4 +477,4 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 - Acceptance Criteria:
   - [ ] Stage-0 recon report: FPC arm64-iOS toolchain go/no-go and a chosen iOS renderer.
   - [ ] A minimal scene launches and exits cleanly on a physical iPhone.
-- Plan / staging / infra / hardware notes: `Work/R-30_ios_platform.md`.
+- Plan / staging / infra / hardware notes: `Work/R-30_ios_platform.md`. GLES versions/bindings/limitations research (shared with R-24): `Work/gles_mobile_research.md`.

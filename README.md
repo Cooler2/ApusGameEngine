@@ -32,7 +32,7 @@ This means: no inline variables, no type inference, no attributes, no anonymous 
 **Engine** (`Apus.Engine.*.pas`) — the game engine itself:
 - [ ] Scene system with defined lifecycle (Load → Init → Process → Render)
 - [ ] UI system: widgets, layout, CSS-like style system, event signals
-- [ ] OpenGL renderer (core profile): 2D/3D drawing, shaders, textures, nine-patch, text
+- [ ] OpenGL renderer (GL 3.3 core baseline, GLES 3.0 for mobile targets; newer GL features only as optional extension-gated fast paths): 2D/3D drawing, shaders, textures, nine-patch, text
 - [ ] Resource management with reference counting
 - [ ] Audio (BASS, SDL, IMX backends)
 - [ ] Platform layer: Windows (native WinAPI), Linux (SDL2)
