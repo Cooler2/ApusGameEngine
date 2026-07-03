@@ -3280,8 +3280,7 @@ function TQuat.Length:single;
   haddps xmm0,xmm0
   sqrtss xmm0,xmm0
  end;
- {$ENDIF}
- {$IFDEF CPU386}
+ {$ELSE}
 begin
   result:=Sqrt(w*w+x*x+y*y+z*z);
 end;
@@ -3303,8 +3302,7 @@ function TQuat.Length2:single;
   haddps xmm0,xmm0
   haddps xmm0,xmm0
  end;
- {$ENDIF}
- {$IFDEF CPU386}
+ {$ELSE}
  begin
   result:=sqr(x)+sqr(y)+sqr(z)+sqr(w);
  end;
@@ -3337,8 +3335,7 @@ procedure TQuat.Normalize;
   movups [rdi],xmm1
   {$ENDIF}
  end;
- {$ENDIF}
-{$IFDEF CPU386}
+ {$ELSE}
 begin
   Mul(1/Length);
 end;

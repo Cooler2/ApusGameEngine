@@ -65,7 +65,9 @@ implementation
  uses Apus.Core;
  {$R-,Q-}
  {$EXCESSPRECISION OFF}
- {$IFDEF FPC}{$ASMMODE INTEL}{$ENDIF}
+ {$IF DEFINED(FPC) AND (DEFINED(CPUX86) OR DEFINED(CPUX86_64))}
+  {$ASMMODE INTEL}
+ {$ENDIF}
 
  type
   TVector4=array[0..3] of single;

@@ -40,16 +40,16 @@ type
     caller:UIntPtr;     // address where lock was attempted
     owner:UIntPtr;      // address where lock was acquired
     {$IFNDEF MSWINDOWS}
-    owningThread:TThreadID;
+    owningThread:TThreadIdent;
     {$ENDIF}
-    tryingThread:TThreadID;  // thread trying to acquire the lock
+    tryingThread:TThreadIdent;  // thread trying to acquire the lock
     timeout:int64;         // tick to terminate
     lockCount:integer;  // recursion counter
     level:integer;      // level for deadlock prevention (higher = lower-level code)
     prevSection:PLock;
     function GetSysLockCount:integer; inline;
-    function GetSysOwner:TThreadID; inline;
-    function GetOwningThread:TThreadID; inline;
+    function GetSysOwner:TThreadIdent; inline;
+    function GetOwningThread:TThreadIdent; inline;
   public
     name:String8;       // section name
     procedure Init(const aName:String8; aLevel:integer=100);
@@ -57,7 +57,7 @@ type
     procedure Enter(callerAddr:pointer=nil);
     procedure Leave;
     function IsLocked:boolean; inline;
-    function GetOwner:TThreadID; inline;
+    function GetOwner:TThreadIdent; inline;
   end;
 
   // Cross-platform reader-writer lock — lean version for production use.
@@ -108,7 +108,7 @@ type
   public
    // debug state — public so you can inspect it in the debugger or from tests
    name:String8;
-   writerThread:TThreadID;  // thread currently holding write lock (0 = unlocked)
+   writerThread:TThreadIdent;  // thread currently holding write lock (0 = unlocked)
    readerCount:integer;     // number of active concurrent readers
    lastWriteCaller:pointer; // return address of most recent EnterWrite call
    lastReadCaller:pointer;  // return address of most recent EnterRead call
@@ -149,7 +149,7 @@ type
     function Terminating:boolean;
     function Paused:boolean;
     function Name:String8;
-    function ID:TThreadID;
+    function ID:TThreadIdent;
     // Status setters - call from within thread procedure to update status
     procedure SetProgress(p:single);             // progress 0..1
     procedure SetStatusText(const txt:String8);  // spinlock-protected
@@ -184,7 +184,7 @@ type
     procedure Kill; // force terminate (dangerous!)
     procedure Pause; // toggle paused flag
     function GetName:String8;
-    function GetID:TThreadID;
+    function GetID:TThreadIdent;
     function IsRunning:boolean;
     // Status polling
     function GetStatus:TThreadStatus;
@@ -193,7 +193,7 @@ type
     function GetResultData:TBytes;     // valid after status=Finished
     function TakeObject:TObject;       // take custom object (transfers ownership, clears internal ref)
     property Name:String8 read GetName;
-    property ID:TThreadID read GetID;
+    property ID:TThreadIdent read GetID;
     property Status:TThreadStatus read GetStatus;
     property StatusText:String8 read GetStatusText;
     property Progress:single read GetProgress;
@@ -218,7 +218,7 @@ type
     class procedure Register(const name:string; handle:THandle=0); static;
     class procedure Unregister; static;
     class procedure Ping; static;
-    class function GetName(threadID:TThreadID=0):string; static;
+    class function GetName(threadID:TThreadIdent=0):string; static;
     class procedure DumpRegistered; static; // dump all registered threads to log
     class procedure DumpLocks; static; // dump all locks state to log
     class procedure CheckTimeouts; static; // check for lock timeouts
@@ -249,7 +249,8 @@ threadvar
 // Configuration
 implementation
 uses Classes, Apus.Strings, Apus.Conv, Apus.Log, Apus.EventMan
-    {$IFDEF UNIX}, unixtype, BaseUnix, Syscall{$ENDIF}
+    {$IFDEF UNIX}, unixtype, BaseUnix{$ENDIF}
+    {$IFDEF LINUX}, Syscall{$ENDIF}
     {$IFDEF IOS}, iphoneAll{$ENDIF}
     {$IFDEF ANDROID}, Apus.Android{$ENDIF};
 
@@ -265,15 +266,15 @@ function WaitOnAddress(Address:pointer; CompareAddress:pointer; AddressSize:Nati
 {$ENDIF}
 
   {$IFDEF UNIX}
-// pthread_join for POSIX thread wait (TThreadID is pthread_t on POSIX)
-function pthread_join(thread:TThreadID; value_ptr:Ppointer):longint; cdecl; external 'pthread';
+// pthread_join for POSIX thread wait (TThreadIdent carries the same bit pattern as pthread_t)
+function pthread_join(thread:TThreadIdent; value_ptr:Ppointer):longint; cdecl; external 'pthread';
   {$ENDIF}
 
 type
   // Internal thread registry entry (not exposed in interface section)
   PThreadData=^TThreadData;
   TThreadData=record
-    ID:TThreadID;
+    ID:TThreadIdent;
     handle:THandle;     // thread handle for waiting
     uniqueName:String8; // resolved name (pattern stored in threadNameCounters)
     userParam:pointer;  // user-provided pointer parameter
@@ -284,7 +285,7 @@ type
     terminating:LongBool; // atomic termination flag
     paused:LongBool;      // atomic pause flag
     implPtr:pointer;      // TThreadImpl pointer for status updates (raw - avoids forward declaration)
-    {$IFDEF UNIX}
+    {$IFDEF LINUX}
     tid:cardinal;
     {$ENDIF}
     function GetStateInfo:String8; // get thread state (call stack etc)
@@ -314,7 +315,7 @@ type
   // Lightweight thread handle implementation
   TThreadImpl=class(TInterfacedObject,IThread)
   private
-    threadID:TThreadID;
+    threadID:TThreadIdent;
     handle:THandle;             // Windows handle or 0 for POSIX (uses threadID)
     doneEvent:TLightweightEvent; // signaled from IntFinish after status is set
     {$IFDEF UNIX}
@@ -338,7 +339,7 @@ type
     procedure Kill;
     procedure Pause;
     function GetName:String8;
-    function GetID:TThreadID;
+    function GetID:TThreadIdent;
     function IsRunning:boolean;
     // IThread: status polling
     function GetStatus:TThreadStatus;
@@ -385,7 +386,7 @@ threadvar
 function OpenThread(DesiredAccess: DWORD; InheritHandle: BOOL; ThreadID: DWORD): THandle;
 stdcall; external 'kernel32.dll' {$IFNDEF FPC}delayed{$ENDIF};
 
-function GetThreadStateInfo(id:TThreadID):string8;
+function GetThreadStateInfo(id:TThreadIdent):string8;
 const
   THREAD_GET_CONTEXT       = 08;
   THREAD_SUSPEND_RESUME    = 02;
@@ -447,7 +448,7 @@ PTRACE_ATTACH = 16;
 PTRACE_DETACH = 17;
 function ptrace(__request:integer; PID:longint; Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
 
-function GetThreadStateInfo(id:TThreadID):string;
+function GetThreadStateInfo(id:TThreadIdent):string;
 var
   r1,r2,r3:longint;
   regs:array[0..199] of UInt64;
@@ -460,7 +461,7 @@ begin
   Log.Msg('REGS: %d %x %x %x',[id,r1,r2,r3]);
 end;
 {$ELSE}
-function GetThreadStateInfo(id:TThreadID):string;
+function GetThreadStateInfo(id:TThreadIdent):string;
 begin
 end;
 {$ENDIF}
@@ -522,7 +523,7 @@ begin
   end;
 end;
 
-function TLock.GetOwningThread:TThreadID;
+function TLock.GetOwningThread:TThreadIdent;
 begin
   {$IFDEF MSWINDOWS}
   result:=crs.OwningThread;
@@ -533,7 +534,7 @@ end;
 
 procedure TLock.Enter(callerAddr:pointer=nil);
 var
-  threadID:TThreadID;
+  threadID:TThreadIdent;
   i,lastLevel,trIdx:integer;
   prevSection:PLock;
 begin
@@ -598,7 +599,7 @@ end;
 procedure TLock.Leave;
 var
   i:integer;
-  threadID:TThreadID;
+  threadID:TThreadIdent;
 begin
   ASSERT(lockCount>0);
   caller:=0;
@@ -630,7 +631,7 @@ begin
   result:=lockCount>0;
 end;
 
-function TLock.GetOwner:TThreadID;
+function TLock.GetOwner:TThreadIdent;
 begin
   {$IFDEF MSWINDOWS}
   result:=crs.OwningThread;
@@ -648,7 +649,7 @@ begin
   {$ENDIF}
 end;
 
-function TLock.GetSysOwner:TThreadID;
+function TLock.GetSysOwner:TThreadIdent;
 begin
   {$IFDEF MSWINDOWS}
   result:=crs.OwningThread;
@@ -1009,7 +1010,7 @@ end;
 procedure RegisterThread(const name:String8; handle:THandle; implObj:pointer);
 var
   i:integer;
-  threadID:TThreadID;
+  threadID:TThreadIdent;
   extra:string;
   data:PThreadData;
   uniqueName:String8;
@@ -1027,7 +1028,7 @@ begin
   data^.paused:=false;
   data^.handle:=handle;
   data^.implPtr:=implObj;
-  {$IFDEF UNIX}
+  {$IFDEF LINUX}
   data^.tid:=Do_syscall(syscall_nr_gettid); // syscall outside lock
   extra:='tid: '+Conv.ToStr(data^.tid);
   {$ENDIF}
@@ -1036,7 +1037,7 @@ begin
   try
     // check if already registered
     for i:=0 to high(threads) do
-      if cardinal(threads[i]^.ID)=threadID then begin
+      if threads[i]^.ID=threadID then begin
         Dispose(data); // cleanup allocated data
         exit;
       end;
@@ -1075,7 +1076,7 @@ end;
 procedure UnregisterThread;
 var
   i,n:integer;
-  id:TThreadID;
+  id:TThreadIdent;
   data:PThreadData;
   threadName:String8;
 begin
@@ -1136,7 +1137,7 @@ begin
   try
     if data^.ID=0 then
       data^.ID:=GetCurrentThreadID; // in case Thread.Start hasn't set it yet
-    {$IFDEF UNIX}
+    {$IFDEF LINUX}
     data^.tid:=Do_syscall(syscall_nr_gettid);
     {$ENDIF}
   finally
@@ -1201,7 +1202,8 @@ function DoStartThread(const name:String8; startData:PThreadStartData;
   userParam:pointer=nil; const userTag:String8=''):IThread;
 var
   impl:TThreadImpl;
-  threadID:TThreadID;
+  threadID:TThreadIdent;
+  sysThreadID:System.TThreadID; // native out-param slot for BeginThread's var parameter (Windows)
   handle:THandle;
   uniqueName:String8;
   data:PThreadData;
@@ -1244,13 +1246,15 @@ begin
   // BeginThread returns a Windows handle on Windows and pthread_t on POSIX.
   // THandle is narrower than pthread_t on Linux, so don't assign through it.
   {$IFDEF MSWINDOWS}
-  handle:=BeginThread(@ThreadStartWrapper,startData,threadID);
+  handle:=BeginThread(@ThreadStartWrapper,startData,sysThreadID);
+  threadID:=TThreadIdent(sysThreadID);
   {$ELSE}
-  threadID:=BeginThread(@ThreadStartWrapper,startData);
+  threadID:=TThreadIdent(BeginThread(@ThreadStartWrapper,startData));
   handle:=0; // POSIX: use pthread_join with threadID instead
   {$ENDIF}
   {$ELSE}
-  handle:=BeginThread(nil,0,@ThreadStartWrapper,startData,0,threadID);
+  handle:=BeginThread(nil,0,@ThreadStartWrapper,startData,0,sysThreadID);
+  threadID:=TThreadIdent(sysThreadID);
   {$ENDIF}
 
   // Update registry entry with actual ID (wrapper also sets this, but we set it here too)
@@ -1365,9 +1369,9 @@ begin
   end;
 end;
 
-class function Thread.GetName(threadID:TThreadID=0):string;
+class function Thread.GetName(threadID:TThreadIdent=0):string;
 var
-  id:TThreadID;
+  id:TThreadIdent;
   i:integer;
 begin
   if threadID=0 then
@@ -1409,7 +1413,7 @@ begin
   t:=CoreTime.Ticks;
   for i:=0 to n-1 do begin
     st:=UTF8.Format('%d. %s ID: %d',[i,snapshot[i].uniqueName,snapshot[i].ID]);
-    {$IFDEF UNIX}
+    {$IFDEF LINUX}
     st:=st+UTF8.Format(' TID: %d',[snapshot[i].tid]);
     {$ENDIF}
     if snapshot[i].startTime>0 then
@@ -1433,10 +1437,10 @@ type
   TLockSnap=record
     name:String8;
     lockCount:integer;
-    ownerThread:TThreadID;
+    ownerThread:TThreadIdent;
     ownerAddr:UIntPtr;
     callerAddr:UIntPtr;
-    tryingThread:TThreadID;
+    tryingThread:TThreadIdent;
     timeout:int64;
   end;
 var
@@ -1555,7 +1559,7 @@ end;
 // Internal helper functions
 
 // Find thread data by ID, returns nil if not found
-function FindThreadData(id:TThreadID):PThreadData;
+function FindThreadData(id:TThreadIdent):PThreadData;
 var
   i:integer;
 begin
@@ -1616,7 +1620,7 @@ begin
     result:='';
 end;
 
-function TThreadContext.ID:TThreadID;
+function TThreadContext.ID:TThreadIdent;
 var d:PThreadData;
 begin
   d:=PThreadData(data);
@@ -1763,7 +1767,7 @@ begin
   result:=name; // cached at creation, valid for entire lifetime
 end;
 
-function TThreadImpl.GetID:TThreadID;
+function TThreadImpl.GetID:TThreadIdent;
 begin
   result:=threadID;
 end;

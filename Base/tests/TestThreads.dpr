@@ -29,7 +29,7 @@ end;
 function ContextWorker(ctx:TThreadContext):UIntPtr;
 begin
   Check(CurrentThread.Name<>'','CurrentThread.Name should work');
-  Check(CurrentThread.ID<>0,'CurrentThread.ID should work');
+  Check(UIntPtr(CurrentThread.ID)<>0,'CurrentThread.ID should work');
   Check(not CurrentThread.Terminating,'CurrentThread.Terminating should be false initially');
   Check(not CurrentThread.Paused,'CurrentThread.Paused should be false initially');
   result:=0;
@@ -189,7 +189,7 @@ end;
 procedure TestLockOwner;
 var
   lock:TLock;
-  owner:TThreadID;
+  owner:TThreadIdent;
 begin
   StartTest('TLock owner tracking');
 
@@ -305,11 +305,11 @@ begin
   Check(lock.readerCount=0,'readerCount should be 0 after all readers leave');
 
   // Write lock: writerThread must track owning thread
-  Check(lock.writerThread=0,'writerThread should be 0 before write lock');
+  Check(UIntPtr(lock.writerThread)=0,'writerThread should be 0 before write lock');
   lock.EnterWrite;
   Check(lock.writerThread=GetCurrentThreadID,'writerThread should be current thread');
   lock.LeaveWrite;
-  Check(lock.writerThread=0,'writerThread should be 0 after write unlock');
+  Check(UIntPtr(lock.writerThread)=0,'writerThread should be 0 after write unlock');
 
   // lastReadCaller/lastWriteCaller must be non-nil after use
   Check(lock.lastReadCaller<>nil,'lastReadCaller should be set after EnterRead');

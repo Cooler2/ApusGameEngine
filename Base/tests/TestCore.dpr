@@ -249,7 +249,7 @@ end;
 
 procedure TestSystemPrimitives;
 var
-  tid:TThreadID;
+  tid:TThreadIdent;
   code:cardinal;
   desc:string;
   t0,t1:int64;

@@ -27,6 +27,8 @@ jobs:
             runner: ubuntu-latest
           - os_name: windows
             runner: windows-latest
+          - os_name: macos-arm64
+            runner: macos-latest
 
     steps:
       - name: Checkout
@@ -62,6 +64,16 @@ jobs:
           where.exe fpc
           fpc -iV
 
+      - name: Install FPC (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          brew install fpc
+          fpc -iV
+          fpc -iTP
+          fpc -iTO
+
       - name: Build Base modules (Linux)
         if: runner.os == 'Linux'
         run: bash Base/tests/buildtest.sh
@@ -70,6 +82,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Base\tests\buildtest.bat
+
+      - name: Build Base modules (macOS)
+        if: runner.os == 'macOS'
+        run: bash Base/tests/buildtest.sh
 
       - name: Run Base tests (Linux)
         if: runner.os == 'Linux'
@@ -91,6 +107,17 @@ jobs:
             call Base\tests\test.bat %%T || exit /b 1
           )
 
+      - name: Run Base tests (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          tests=(Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial GfxFilters TCP HttpServer)
+          for t in "${tests[@]}"; do
+            echo "::group::Base test $t"
+            bash Base/tests/test_macos.sh "$t"
+            echo "::endgroup::"
+          done
+
       - name: Upload Base test logs
         if: always()
         uses: actions/upload-artifact@v6
@@ -101,6 +128,7 @@ jobs:
             Base/tests/test_results_64.txt
             Base/tests/test_results_32.txt
             Base/tests/test_results_L64.txt
+            Base/tests/test_results_M64.txt
           if-no-files-found: warn
 
   demo-build:
@@ -115,6 +143,8 @@ jobs:
             runner: ubuntu-latest
           - os_name: windows
             runner: windows-latest
+          - os_name: macos-arm64
+            runner: macos-latest
 
     steps:
       - name: Checkout
@@ -148,6 +178,14 @@ jobs:
             }
           }
           where.exe fpc
+          fpc -iV
+
+      - name: Install FPC (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          brew install fpc
           fpc -iV
 
       - name: Compile selected demos (Linux)
@@ -185,6 +223,12 @@ jobs:
             if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
           }
 
+      - name: Compile selected demos (macOS)
+        if: runner.os == 'macOS'
+        env:
+          OUTDIR: tests/_demo_smoke
+        run: bash tests/macos_smoke.sh demos
+
       - name: Upload demo build outputs on failure
         if: failure()
         uses: actions/upload-artifact@v6
@@ -193,6 +237,7 @@ jobs:
           path: |
             demo/**/lib/
             demo/**/*.compiled
+            tests/_demo_smoke/*.log
           if-no-files-found: ignore
 
   engine-tests:
@@ -207,6 +252,8 @@ jobs:
             runner: ubuntu-latest
           - os_name: windows
             runner: windows-latest
+          - os_name: macos-arm64
+            runner: macos-latest
 
     steps:
       - name: Checkout
@@ -242,6 +289,14 @@ jobs:
           where.exe fpc
           fpc -iV
 
+      - name: Install FPC (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          brew install fpc
+          fpc -iV
+
       - name: Run engine smoke tests (Linux)
         if: runner.os == 'Linux'
         env:
@@ -252,6 +307,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File .\tests\windows_smoke.ps1 -OutDir tests\_engine_smoke
+
+      - name: Run engine smoke tests (macOS)
+        if: runner.os == 'macOS'
+        env:
+          OUTDIR: tests/_engine_smoke
+        run: bash tests/macos_smoke.sh engine
 
       - name: Upload engine smoke logs
         if: always()

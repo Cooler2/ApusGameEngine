@@ -64,6 +64,12 @@ type
   {$IFEND}
   PtrUInt = UIntPtr;
 
+  // Thread identifier (native uint on all platforms).
+  // System.TThreadID's underlying representation differs per platform (cardinal on
+  // MSWINDOWS, PtrUInt on Linux, a pointer on Darwin/BSD) which forces casts at every
+  // use site. GetCurrentThreadID converts to this uniform type once, at the source.
+  TThreadIdent = UIntPtr;
+
   // 8-bit string (UTF-8 encoding)
   Char8 = UTF8Char;
   String8 = UTF8String;
@@ -289,7 +295,7 @@ var
 // Cross-platform primitives
 // =============================================================================
 
-  function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF};
+  function GetCurrentThreadID:TThreadIdent;
   function IsDebuggerPresent:boolean; {$IFDEF FPC} inline; {$ENDIF}
   {$IF not DECLARED(MemoryBarrier)}
   {$DEFINE NEED_MEMORY_BARRIER}
@@ -495,14 +501,17 @@ type
 implementation
 
 uses
-  Apus.Conv, DateUtils, Variants,
-{$IFDEF MSWINDOWS}
-  Windows
-{$ENDIF}
+  Apus.Conv, DateUtils, Variants
+  {$IFDEF MSWINDOWS}, Windows{$ENDIF}
+  {$IFDEF UNIX}, BaseUnix{$ENDIF}
+  {$IFDEF LINUX}, Linux{$ENDIF};
+
 {$IFDEF UNIX}
-  BaseUnix,
-  {$IFDEF LINUX}Linux{$ENDIF}
-{$ENDIF};
+const APUS_CLOCK_MONOTONIC={$IFDEF DARWIN}6{$ELSE}CLOCK_MONOTONIC{$ENDIF};
+{$ENDIF}
+{$IFDEF DARWIN}
+function clock_gettime(clockID:longint; timeSpec:PTimeSpec):longint; cdecl; external 'c';
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
 function RtlCaptureStackBackTrace(
@@ -615,12 +624,12 @@ end;
 // Cross-platform primitives implementation
 // =============================================================================
 
-function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF};
+function GetCurrentThreadID:TThreadIdent;
 begin
 {$IFDEF MSWINDOWS}
   result:=windows.GetCurrentThreadId;
 {$ELSE}
-  result:=system.GetCurrentThreadID;
+  result:=TThreadIdent(system.GetCurrentThreadID); // pthread_t is a pointer on Darwin/BSD, PtrUInt on Linux
 {$ENDIF}
 end;
 
@@ -749,7 +758,7 @@ end;
 var
   tp:TTimeSpec;
 begin
-  clock_gettime(CLOCK_MONOTONIC,@tp);
+  clock_gettime(APUS_CLOCK_MONOTONIC,@tp);
   value:=int64(tp.tv_sec)*1000000+tp.tv_nsec div 1000;
 end;
 {$ENDIF}
@@ -2031,7 +2040,7 @@ begin
 {$ELSE}
   freq:=1000000;
   QPC(qpcBase);
-  clock_gettime(CLOCK_MONOTONIC,@ts);
+  clock_gettime(APUS_CLOCK_MONOTONIC,@ts);
   ticksBase:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
 {$ENDIF}
   timerMul:=1.0/freq;
@@ -2203,7 +2212,7 @@ begin
   {$IFDEF MSWINDOWS}
   result:=Windows.GetTickCount64-ticksBase;
   {$ELSE}
-  clock_gettime(CLOCK_MONOTONIC,@ts);
+  clock_gettime(APUS_CLOCK_MONOTONIC,@ts);
   result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000-ticksBase;
   {$ENDIF}
 end;

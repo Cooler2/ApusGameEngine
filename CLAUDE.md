@@ -175,7 +175,8 @@ Level 5:
 3. Fix each error: replace old calls with new API (from Apus.Core/Conv/Strings/Log/Threads), or extract missing functions to the appropriate new module
 
 **Build tools:**
-- Do NOT create `.lpi` files — project uses FPC via `test.bat` or Delphi `.dproj` (created manually)
+- Tests: build and run ONLY via the ready scripts (`test.bat`, `test.sh`, `buildtest.sh`) — do NOT build tests through lazbuild or ad-hoc `.lpi` projects
+- Demos: `.lpi` (Lazarus) projects are welcome alongside `.dproj` (Delphi) — both are useful for IDE build/run-under-debug. Canonical build for CI stays the FPC scripts; keep `.lpi` defines/paths in sync with them. Do not commit `.lps` session files.
 - Compile individual module: `fpc -MDelphi -Sd -Fu.. <Module.pas>` (run from `Base/tests/`)
 - Run tests: `test.bat <TestName>` (e.g. `test.bat EventMan`)
 

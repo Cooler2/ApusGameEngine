@@ -42,7 +42,8 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
 | R-28 | Audio Subsystem Activation | planned | ~10% | Research done, decisions locked (miniaudio primary, 2-tier requirements, typed facade); next: implement per `Work/R-28_audio_activation.md` plan T1–T7 |
-| R-29 | Apple Platform Support (macOS + iOS) | idea | 0% | Stage-0 recon (FPC arm64-darwin/iOS toolchain go/no-go, GL 4.1 ceiling, SDL iOS path); cheap win = macOS in `base-tests` CI; later split into Darwin-portability / macOS-SDL-runtime / iOS-shell / Apple-graphics-backend cards |
+| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~80% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; remaining = `.app` bundle/signing + close Retina-review findings #1–2 |
+| R-30 | iOS Platform Support | idea | 0% | Gated on FPC arm64-iOS toolchain go/no-go (signable Xcode-integrable binary); then SDL2 UIKit backend vs native `objcclass` shell, GL-ES renderer for MVP (Metal = future idea only), platform integration on a physical iPhone |
 
 ## 2) Strategic Directions
 
@@ -436,21 +437,35 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - [ ] GUI `SoundDemo` covers both tiers; headless CI test (null backend) covers at least level 1.
   - [ ] The backend/platform decision and its limits are documented.
 
-### [R-29] Apple Platform Support (macOS + iOS)
+### [R-29] macOS Desktop Support (SDL2/GL)
+- Status: in-progress (~80%) | Priority: P2 | Area: Platform / Build
+- Value: bring macOS arm64 back as a real Engine5 desktop target — and a portability proof for Darwin / Apple-Silicon / native-libs that also de-risks iOS (R-30).
+- Split out of the former Apple umbrella (2026-07-02); the iOS half is now R-30.
+- Direction: SDL2 + OpenGL 3.2/4.1 Core (transitional). **macOS GL ceiling = 4.1** (deprecated, frozen): no compute/SSBO/DSA and no GL 4.4 persistent-mapped buffers — constrains R-12 (streaming buffers) and the R-09 Track D GL-4.x path (`Work/R-09_gl4x_research.md`). Long-term Apple graphics (Metal / SDL_GPU) is a separate future card, tracked in R-30.
+- Progress: Base builds+tests on macOS arm64 in CI; selected engine units/demos compile; SimpleDemo runs via SDL2/OpenGL with a Robot-API runtime smoke (Retina/pointer fixes reviewed). Remaining = `.app` bundle + closing review findings #1–2.
+- Distribution (current conditions): ad-hoc-signed bundle for dev/CI; storefront clients (Steam/itch) are the practical public channel — their installs skip the quarantine attribute, so no notarization needed. Direct public downloads without notarization degraded on macOS 15 (no more right-click→Open bypass). Developer ID + notarization deferred until a Developer Program payment path exists (RF card restrictions); it layers on top of the ad-hoc flow without architectural changes.
+- Out of scope: non-GL renderer (see R-30), App Store packaging (iOS), Intel/universal binaries unless proven needed.
+- Acceptance Criteria:
+  - [x] Base builds and tests pass on macOS arm64 in CI.
+  - [x] Selected engine units/demos compile on macOS; SimpleDemo runs via SDL2/OpenGL with a Robot-API smoke.
+  - [ ] `.app` bundle with resources/dylibs (controlled deployment target, not Homebrew), `@rpath`, ad-hoc signing; runtime smoke passes from inside the bundle.
+  - [ ] Distribution path documented: storefront (no notarization) vs Developer ID + notarization (when a payment path exists — not a blocker for closing the task).
+  - [ ] Retina-review findings #1–2 closed (Linux HiDPI double-scaling gating, `SDL_WINDOWEVENT_SIZE_CHANGED`) before multi-monitor / R-02 builds on this mechanism.
+- Plan / status log / review: `Work/R-29_macos_desktop.md`.
+
+### [R-30] iOS Platform Support
 - Status: idea | Priority: P2 | Area: Platform / Build / Mobile
-- Value: bring Apple platforms back as real Engine5 targets — macOS arm64 as a working desktop platform (and a portability proof for Darwin/Apple-Silicon/native-libs), iOS arm64 as the primary Apple mobile target with its own lifecycle/view/input/graphics/packaging. The existing iOS code (`Apus.Engine.IOSgame.pas`, `EAGLViewU.pas`) is near-fully commented-out OpenGL ES 1.1 legacy — historical hints, not a backend.
-- Umbrella card. This stays a single low-priority entry until **Stage-0 recon** produces a go/no-go; per the doc's step 5 it then splits into separate cards: Darwin portability, macOS SDL runtime, iOS platform shell, Apple graphics backend.
+- Value: bring iOS arm64 back as the primary Apple mobile target with its own lifecycle/view/input/graphics/packaging. Existing iOS code (`Apus.Engine.IOSgame.pas`, `EAGLViewU.pas`) is near-fully commented-out OpenGL ES 1.1 legacy — historical hints, not a backend. Builds on the Darwin/FPC/CI/runtime work already done for macOS (R-29).
+- Split out of the former Apple umbrella (2026-07-02).
 - Direction / open assessments (decide during recon, do NOT assume):
-  - **SDL-first for BOTH macOS and iOS.** Unix already runs through `TSDLPlatform`; macOS-via-SDL2 is cheap. SDL2 also ships a maintained iOS UIKit backend (lifecycle/touch/orientation/safe-areas/GL-ES/Metal-view) — evaluate reusing it as option 0 **before** committing to a hand-written native iOS shell. Native Objective-Pascal (`objcclass`) shell stays a documented fallback.
-  - **FPC toolchain viability is gate-zero.** Confirm FPC arm64-darwin (macOS) and especially the iOS device target produce a signable, Xcode-integrable binary — this is the riskiest, least-trodden part and must be settled before any hardware spend or hardware-purchase decision (the latter lives in the design doc, not here).
-  - **macOS GL ceiling = 4.1** (deprecated, frozen): no compute/SSBO/DSA, and **no GL 4.4 persistent-mapped buffers** — this constrains R-12 (streaming buffers) and the R-09 Track D / `Work/R-09_gl4x_research.md` GL-4.x path. OpenGL is transitional on Apple only.
-  - **Metal backend = long-term + an architecture probe.** A real Metal backend doubles as a stress-test of whether `IGraphicsSystem` is a true abstraction or GL-in-disguise (kin to R-17); likely its own large card, not a sub-bullet of an iOS MVP.
-  - **SDL3 / `SDL_GPU` — evaluate, but parked to a major-version boundary (engine5.1 / engine6), NOT engine5.** Attractive because `SDL_GPU` (Vulkan/Metal/D3D12) could give a Metal path without hand-writing Metal, and SDL3 main-callbacks (`SDL_AppInit/AppIterate/AppEvent`) fit iOS/Web lifecycle where the loop is system-owned. Against, for now: SDL2→SDL3 is a migration (not drop-in) touching platform layer + shader pipeline + graphics abstraction at once; FPC SDL3 bindings are immature vs the settled `sdl2` unit; `SDL_GPU` needs precompiled shaders (SPIR-V/MSL via `SDL_shadercross`), breaking the current runtime-GLSL workflow in `ShadersGL.pas`. So Apple MVP stays SDL2/GL; SDL3 is a candidate for the renderer-decision recon and a future major version.
-- Cheapest independent win (can start now, decoupled from mobile): add `macos-latest` to the `base-tests` CI matrix (FPC via Homebrew) — catches Darwin/case-sensitive-path/pointer-size issues and backs the cross-platform claim in CLAUDE.md.
-- Out of scope (until recon unblocks): full Metal renderer, App Store/TestFlight packaging polish, Intel/universal binaries (add only if proven needed), Simulator-as-primary, hardware-purchase recommendation (stays in the design doc).
-- Acceptance Criteria (umbrella — refined when split):
-  - [ ] Stage-0 recon report with FPC macOS+iOS toolchain go/no-go and a chosen iOS renderer (revive GL ES for an arch probe vs. go straight to Metal).
-  - [ ] Base builds and tests pass on macOS arm64 in CI.
-  - [ ] Selected engine units/demos compile on macOS; SimpleDemo runs via SDL2/OpenGL with a Robot-API smoke.
+  - **FPC iOS toolchain viability is gate-zero** — iOS is a separate FPC target (`aarch64-ios`, not darwin): build a cross-FPC over the Xcode SDK, verify the link step on current Xcode (known Xcode 15+ linker breakage, `-ld_classic` workaround), confirm a signable, Xcode-integrable binary. Riskiest, least-trodden part; settle before any hardware spend. Split in two halves: compile+codesign checks run remotely/in CI; the on-device half needs a physical Mac + iPhone (MacInCloud can't attach a device).
+  - **Integration shape — compare in gate-zero**: (A) Pascal as a static library inside an Xcode app target (classic FPC-iOS route, native signing/provisioning) vs (B) FPC-linked executable + scripted `.app` (closer to the R-29 macOS flow, manual provisioning). SDL2-on-iOS hijacks `main` (`SDL_UIKitRunApp`) — entry point must be reconciled either way.
+  - **SDL-first: evaluate SDL2's maintained iOS UIKit backend (lifecycle/touch/orientation/safe-areas/GL-ES/Metal-view) as option 0** before committing to a hand-written native Objective-Pascal (`objcclass`) shell (documented fallback).
+  - **Renderer for the iOS MVP = revive OpenGL ES** (deprecated since iOS 12 but still functional in current SDKs, GLES 3.0) as an architecture probe. The GLES renderer + touch input are **shared work with Android revival (R-24)** — plan them as shared, not iOS-specific. **Metal is a future idea only, explicitly out of scope of this card** (a real Metal backend would double as an `IGraphicsSystem`-abstraction stress test — its own future card).
+  - **Signing**: a free Apple ID ("Personal Team", 7-day provisioning) suffices for gate-zero and Stage 1 device installs; the paid $99/yr account is only needed for TestFlight/App Store (Stage 2; RF payment issue shared with R-29 notarization).
+  - **SDL3 / `SDL_GPU` — evaluate but parked to a major-version boundary (engine5.1 / engine6), NOT engine5** (SDL2→SDL3 is a migration touching platform + shaders + graphics abstraction; FPC SDL3 bindings immature; `SDL_GPU` needs precompiled shaders, breaking runtime-GLSL in `ShadersGL.pas`).
+- Out of scope: full Metal renderer, App Store/TestFlight packaging polish, Simulator-as-primary.
+- Acceptance Criteria:
+  - [ ] Stage-0 recon report: FPC arm64-iOS toolchain go/no-go and a chosen iOS renderer.
   - [ ] A minimal scene launches and exits cleanly on a physical iPhone.
-- Design / staging / infra / hardware notes: `Work/macos_ios_support_plan_ru.md`.
+- Plan / staging / infra / hardware notes: `Work/R-30_ios_platform.md`.
