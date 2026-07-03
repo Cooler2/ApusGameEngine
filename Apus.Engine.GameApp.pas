@@ -8,7 +8,7 @@ unit Apus.Engine.GameApp;
 interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
-  Apus.Core, {$IFDEF DARWIN}Apus.Threads,{$ENDIF} Apus.Engine.API;
+  Apus.Core, Apus.Threads, Apus.Engine.API;
 
  type
   // How window/screen area should be used
@@ -98,7 +98,7 @@ interface
   protected
    sysPlatform:ISystemPlatform;
    {$IFDEF DARWIN}
-   controlThread:IThread;
+   controlThread:Apus.Threads.IThread;
    {$ENDIF}
    screenWidth,screenHeight:integer;
    realScreenWidth,realScreenHeight:integer;
@@ -136,7 +136,6 @@ implementation
   Apus.Files,
   Apus.Log,
   Apus.Strings,
-  Apus.Threads,
   Apus.Utils;
 
 type
@@ -402,7 +401,7 @@ procedure TGameApplication.HandleParam(param: string);
   end;
   if param='-DEBUG' then begin
    debugMode:=true;
-   debugCriticalSections:=true;
+   Apus.Threads.debugCriticalSections:=true;
   end;
   if param='-GLCORE' then glCoreContext:=true;
   if param='-GLCOMPAT' then glCoreContext:=false;
@@ -505,7 +504,7 @@ procedure TGameApplication.Prepare;
    if useRealDPI then SetDPIAwareness;
    {$ENDIF}
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
-   Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
+   Apus.Threads.Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
    // Log rotation
@@ -707,7 +706,7 @@ procedure TGameApplication.Run;
   // LAUNCH GAME OBJECT
   // ------------------------
   {$IFDEF DARWIN}
-  controlThread:=Thread.Start('ControlThread',ControlLoop);
+  controlThread:=Apus.Threads.Thread.Start('ControlThread',ControlLoop);
   try
    TGame(game).RunCurrentThread;
   finally
@@ -793,8 +792,8 @@ procedure TGameApplication.ControlLoop;
   // ------------------------
   repeat
    try
-    Thread.Ping;
-    Thread.CheckTimeouts;
+    Apus.Threads.Thread.Ping;
+    Apus.Threads.Thread.CheckTimeouts;
     Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
     Signal('GAMEAPP\onIdle');
    except
