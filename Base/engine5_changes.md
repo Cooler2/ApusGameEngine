@@ -9,6 +9,8 @@ Use it as the primary reference when updating old code.
   terminator: CRLF on Windows and LF on Unix-like systems.
 - Robot API responses and the engine diagnostics used by Robot API handlers now
   use `LineBreak`; wire protocols that require CRLF remain unchanged.
+- `Apus.Log` and `Apus.Logging` write native line endings to their log files and
+  caches instead of forcing Windows CRLF on every platform.
 
 ## Glyph cache diagnostics and bounds fixes (2026-06-29)
 

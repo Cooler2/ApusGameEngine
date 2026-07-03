@@ -169,7 +169,7 @@ begin
       // Bypass cache - write directly
       if cacheBuf<>'' then IntFlushLog;
       try
-        st:=st+String8(#13#10);
+        st:=st+String8(LineBreak);
         AppendLogFile(st[1], length(st));
       except
         on e:Exception do begin
@@ -180,12 +180,12 @@ begin
       // Use cache
       if cacheEnabled and (length(cacheBuf) + length(st) < 65000) then begin
         // Cache available and has space
-        cacheBuf:=cacheBuf+st+#13#10;
+        cacheBuf:=cacheBuf+st+LineBreak;
       end else begin
         // Cache disabled or full
         if cacheBuf<>'' then IntFlushLog;
         try
-          st:=st+String8(#13#10);
+          st:=st+String8(LineBreak);
           AppendLogFile(st[1],length(st));
         except
           on e:Exception do begin

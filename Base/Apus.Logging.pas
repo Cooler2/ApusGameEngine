@@ -162,7 +162,7 @@ implementation
      if not msgblocked then begin
       st:='Log flood protection';
       AddLogMsg(SystemTimeToDateTime(time),TSeverity.Forced,0,st);
-      logCache:=logCache+st+#13#10;
+      logCache:=logCache+st+LineBreak;
      end;
      msgblocked:=true;
      exit;
@@ -181,9 +181,9 @@ implementation
      date[13]:=' ';
      date[14]:=' ';
      if category>0 then
-      logCache:=logCache+date+'['+IntToStr(category)+'] '+msg+#13#10
+      logCache:=logCache+date+'['+IntToStr(category)+'] '+msg+LineBreak
      else
-      logCache:=logCache+date+msg+#13#10;
+      logCache:=logCache+date+msg+LineBreak;
      if level>=TSeverity.Warn then FlushLogs;
     end;
    finally
