@@ -506,13 +506,21 @@ procedure TGameApplication.Prepare;
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    Apus.Threads.Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
+   // Resolve per-platform writable dirs now that the app name (gameTitle) is set.
+   SetupStorageDirs(String8(gameTitle));
    Randomize;
    // Log rotation
    if DirectoryExists('Logs') then begin
-    configDir:='Logs\';
-    st:='Logs\'+logFileName;
-   end else
-    st:=logFileName;
+    // Dev convenience: a Logs\ folder next to the app captures logs locally.
+    configDir:='Logs'+PathDelim;
+    st:='Logs'+PathDelim+logFileName;
+   end else begin
+    // Otherwise use the per-platform writable log dir: inside a macOS .app the
+    // working dir is read-only Resources, so a log written there breaks the seal.
+    ForceDirectories(LogDir);
+    configDir:=LogDir;
+    st:=LogDir+logFileName;
+   end;
    st:=Files.FixName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));

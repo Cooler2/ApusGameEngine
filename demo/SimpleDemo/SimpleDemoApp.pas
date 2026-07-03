@@ -19,7 +19,7 @@ interface
   application:TSimpleDemoApp;
 
 implementation
- uses SysUtils, Apus.EventMan, Apus.Colors, Apus.Strings,
+ uses SysUtils, Apus.Core, Apus.EventMan, Apus.Colors, Apus.Strings,
    Apus.Engine.Types,Apus.Engine.SceneEffects,Apus.Engine.UI;
 
  type
@@ -46,8 +46,6 @@ implementation
 { TSimpleDemoApp }
 
 constructor TSimpleDemoApp.Create;
- var
-  st:string;
  begin
   // Platform must be selected before TGameApplication.Create chooses backend.
   {$IFDEF SDL}
@@ -56,17 +54,13 @@ constructor TSimpleDemoApp.Create;
   usedPlatform:=spDefault;
   {$ENDIF}
   inherited;
-  // Change dir from \bin or \bin64 to the demo folder
-  st:=ExtractFileDir(ParamStr(0));
-  SetCurrentDir(st);
+  // Start from the engine-resolved resource base: the exe dir normally, or the
+  // .app's Contents/Resources when launched from a macOS bundle (BaseDir handles
+  // the bundle detection, so no per-demo {$IFDEF DARWIN} is needed here).
+  SetCurrentDir(BaseDir);
+  // When running straight from the repo, assets live in the source tree instead.
   if DirectoryExists('../demo/SimpleDemo') then
-    SetCurrentDir('../demo/SimpleDemo')
-  {$IFDEF DARWIN}
-  // Inside a macOS .app bundle the executable lives in Contents/MacOS and
-  // resources are placed in Contents/Resources next to it.
-  else if DirectoryExists('../Resources') then
-    SetCurrentDir('../Resources')
-  {$ENDIF};
+    SetCurrentDir('../demo/SimpleDemo');
 
   // Alter some global settings
   gameTitle:='Simple Engine Demo'; // app window title
