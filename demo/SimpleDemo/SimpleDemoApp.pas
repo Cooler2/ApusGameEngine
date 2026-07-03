@@ -60,7 +60,13 @@ constructor TSimpleDemoApp.Create;
   st:=ExtractFileDir(ParamStr(0));
   SetCurrentDir(st);
   if DirectoryExists('../demo/SimpleDemo') then
-    SetCurrentDir('../demo/SimpleDemo');
+    SetCurrentDir('../demo/SimpleDemo')
+  {$IFDEF DARWIN}
+  // Inside a macOS .app bundle the executable lives in Contents/MacOS and
+  // resources are placed in Contents/Resources next to it.
+  else if DirectoryExists('../Resources') then
+    SetCurrentDir('../Resources')
+  {$ENDIF};
 
   // Alter some global settings
   gameTitle:='Simple Engine Demo'; // app window title

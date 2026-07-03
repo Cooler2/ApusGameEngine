@@ -1,25 +1,28 @@
 #!/bin/bash
 
-# Build and run SimpleDemo on macOS, then verify its SDL/OpenGL lifecycle
-# through the file-based Robot API.
+# Build SimpleDemo, assemble a macOS .app bundle around it, then run the
+# file-based Robot API smoke FROM INSIDE the bundle. Verifies that resource
+# resolution, bundled SDL dylibs and the Retina path all work when launched as
+# a real .app (Stage 4 of R-29), not just from the build directory.
 
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUTDIR="${OUTDIR:-/tmp/engine5_macos_runtime_smoke}"
+OUTDIR="${OUTDIR:-/tmp/engine5_macos_bundle_smoke}"
 FPC="${FPC:-fpc}"
-DEMO_DIR="$ROOT/demo/SimpleDemo"
-EXE="$ROOT/bin64/SimpleDemo_macos"
-ROBOT_IN="$DEMO_DIR/robot_in.txt"
-ROBOT_OUT="$DEMO_DIR/robot_out.txt"
-SCREENSHOT="$OUTDIR/simpledemo.png"
+APP="$ROOT/bin64/SimpleDemo.app"
+EXE="$APP/Contents/MacOS/SimpleDemo"
+RES="$APP/Contents/Resources"
+ROBOT_IN="$RES/robot_in.txt"
+ROBOT_OUT="$RES/robot_out.txt"
+GAME_LOG="$RES/game.log"
+SCREENSHOT="$OUTDIR/simpledemo_bundle.png"
 BUILD_LOG="$OUTDIR/build.log"
 RUN_LOG="$OUTDIR/run.log"
-GAME_LOG="$DEMO_DIR/game.log"
 pid=""
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  echo "macos_runtime_smoke.sh must be run on macOS" >&2
+  echo "macos_bundle_smoke.sh must be run on macOS" >&2
   exit 2
 fi
 
@@ -34,7 +37,6 @@ trap cleanup EXIT
 
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR/units" "$ROOT/bin64"
-rm -f "$EXE" "$ROBOT_IN" "$ROBOT_OUT"
 
 if [ -n "${SDL2_LIBDIR:-}" ]; then
   sdl2LibDir="$SDL2_LIBDIR"
@@ -45,17 +47,33 @@ else
   exit 2
 fi
 
+# --- Build ------------------------------------------------------------------
 cd "$ROOT"
 if ! "$FPC" \
   -dSDL -dOPENGL -MDelphi -Sd \
   -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra -Fudemo/SimpleDemo \
   "-Fl$sdl2LibDir" "-FU$OUTDIR/units" "-FE$ROOT/bin64" \
   -oSimpleDemo_macos demo/SimpleDemo/SimpleDemo.dpr > "$BUILD_LOG" 2>&1; then
+  echo "Build failed" >&2
   tail -n 80 "$BUILD_LOG"
   exit 1
 fi
 
-cd "$DEMO_DIR"
+# --- Bundle -----------------------------------------------------------------
+if ! "$ROOT/tools/make_macos_bundle.sh" > "$OUTDIR/bundle.log" 2>&1; then
+  echo "Bundle assembly failed" >&2
+  cat "$OUTDIR/bundle.log"
+  exit 1
+fi
+if ! codesign --verify --deep --strict "$APP" 2>>"$OUTDIR/bundle.log"; then
+  echo "Bundle failed code signature verification" >&2
+  cat "$OUTDIR/bundle.log"
+  exit 1
+fi
+
+rm -f "$ROBOT_IN" "$ROBOT_OUT" "$GAME_LOG"
+
+# --- Run from inside the bundle ---------------------------------------------
 startEpoch="$(date +%s)"
 "$EXE" -ROBOT > "$RUN_LOG" 2>&1 &
 pid=$!
@@ -66,23 +84,20 @@ for ((i=0;i<80;i++)); do
     break
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
-    echo "SimpleDemo exited before loading scenes" >&2
-    tail -n 80 "$GAME_LOG"
+    echo "Bundled SimpleDemo exited before loading scenes" >&2
+    cat "$RUN_LOG"
+    [ -f "$GAME_LOG" ] && tail -n 80 "$GAME_LOG"
     exit 1
   fi
   sleep 0.25
 done
-if [ ! -f "$GAME_LOG" ] || [ "$(stat -f %m "$GAME_LOG")" -lt "$startEpoch" ] ||
-  ! grep -q 'All scenes loaded!' "$GAME_LOG"; then
-  echo "Timed out waiting for SimpleDemo scenes" >&2
-  tail -n 80 "$GAME_LOG"
+if [ ! -f "$GAME_LOG" ] || ! grep -q 'All scenes loaded!' "$GAME_LOG"; then
+  echo "Timed out waiting for bundled SimpleDemo scenes" >&2
+  [ -f "$GAME_LOG" ] && tail -n 80 "$GAME_LOG"
   exit 1
 fi
 
 printf '%s\n' \
-  'ID: windows-check' \
-  'CMD: windows' \
-  '---' \
   'ID: screenshot-check' \
   'CMD: screenshot' \
   "FILE: $SCREENSHOT" \
@@ -91,10 +106,6 @@ printf '%s\n' \
   'CMD: window.resize' \
   'W: 1280' \
   'H: 720' \
-  '---' \
-  'ID: fps-check' \
-  'CMD: fps' \
-  'N: 5' \
   '---' \
   'ID: scenes-check' \
   'CMD: scenes' \
@@ -110,8 +121,8 @@ for ((i=0;i<60;i++)); do
     break
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
-    echo "SimpleDemo exited before completing Robot API requests" >&2
-    tail -n 80 game.log
+    echo "Bundled SimpleDemo exited before completing Robot API requests" >&2
+    tail -n 80 "$GAME_LOG"
     exit 1
   fi
   sleep 0.5
@@ -119,13 +130,13 @@ done
 
 if [ ! -f "$ROBOT_OUT" ] || ! grep -q 'ID: exit-check' "$ROBOT_OUT"; then
   echo "Timed out waiting for Robot API response" >&2
-  tail -n 80 game.log
+  tail -n 80 "$GAME_LOG"
   exit 1
 fi
 
 okCount="$(grep -c 'STATUS: OK' "$ROBOT_OUT")"
-if [ "$okCount" -ne 6 ] || grep -q 'STATUS: ERROR' "$ROBOT_OUT"; then
-  echo "Robot API smoke failed" >&2
+if [ "$okCount" -ne 4 ] || grep -q 'STATUS: ERROR' "$ROBOT_OUT"; then
+  echo "Robot API bundle smoke failed" >&2
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
@@ -134,10 +145,12 @@ if ! grep -q 'SCENE: TMainScene' "$ROBOT_OUT"; then
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
-# The drawable must track the 1280x720 logical resize scaled by the display's
+# The drawable must track a 1280x720 logical resize scaled by the display's
 # actual backing factor. Derive the scale from the response instead of assuming
-# 2x, so the smoke passes on Retina (scale 2), a plain display (scale 1) and a
-# headless/virtual CI display alike. Robot API responses use CRLF line endings.
+# 2x: the smoke must pass on a Retina display (scale 2), a plain display
+# (scale 1) and any future integer scale, and NSHighResolutionCapable in
+# Info.plist must not make the bundle behave differently from the bare binary.
+# Robot API responses use CRLF line endings; strip non-digits from the value.
 ww="$(awk -F': ' '/^windowWidth: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
 wh="$(awk -F': ' '/^windowHeight: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
 rw="$(awk -F': ' '/^renderWidth: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
@@ -145,11 +158,12 @@ rh="$(awk -F': ' '/^renderHeight: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROB
 scale=$(( ww / 1280 ))
 if [ "$scale" -lt 1 ] || [ $(( 1280 * scale )) -ne "$ww" ] || [ $(( 720 * scale )) -ne "$wh" ] ||
   [ "$rw" != "$ww" ] || [ "$rh" != "$wh" ]; then
-  echo "Drawable did not track the 1280x720 resize by an integer backing scale" >&2
+  echo "Drawable did not track the 1280x720 resize by an integer backing scale in the bundle" >&2
   echo "window=${ww}x${wh} render=${rw}x${rh} derived scale=${scale}" >&2
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
+echo "Backing scale in bundle: ${scale}x"
 if [ ! -s "$SCREENSHOT" ]; then
   echo "Robot API did not create a screenshot" >&2
   exit 1
@@ -162,20 +176,20 @@ for ((i=0;i<40;i++)); do
   sleep 0.25
 done
 if kill -0 "$pid" 2>/dev/null; then
-  echo "SimpleDemo did not shut down after Engine\\Cmd\\Exit" >&2
-  tail -n 80 game.log
+  echo "Bundled SimpleDemo did not shut down after Engine\\Cmd\\Exit" >&2
+  tail -n 80 "$GAME_LOG"
   exit 1
 fi
 
 wait "$pid"
-status=$?
+runStatus=$?
 pid=""
-if [ "$status" -ne 0 ]; then
-  echo "SimpleDemo exited with status $status" >&2
-  tail -n 80 game.log
+if [ "$runStatus" -ne 0 ]; then
+  echo "Bundled SimpleDemo exited with status $runStatus" >&2
+  tail -n 80 "$GAME_LOG"
   exit 1
 fi
 
-echo "macOS runtime smoke passed"
-echo "Executable: $EXE"
-grep -E 'windowWidth:|windowHeight:|screenDPI:|screenScale:|fps:|SCENE:|width:|height:' "$ROBOT_OUT"
+echo "macOS bundle smoke passed"
+echo "Bundle: $APP"
+grep -E 'windowWidth:|windowHeight:|renderWidth:|renderHeight:|SCENE:' "$ROBOT_OUT"

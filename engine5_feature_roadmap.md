@@ -42,7 +42,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
 | R-28 | Audio Subsystem Activation | planned | ~10% | Research done, decisions locked (miniaudio primary, 2-tier requirements, typed facade); next: implement per `Work/R-28_audio_activation.md` plan T1–T7 |
-| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~80% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; remaining = `.app` bundle/signing + close Retina-review findings #1–2 |
+| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~90% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; dev `.app` bundle done (ad-hoc signed, smoke from inside bundle); remaining = distributable dylibs (controlled deployment target) + close Retina-review findings #1–2 |
 | R-30 | iOS Platform Support | idea | 0% | Gated on FPC arm64-iOS toolchain go/no-go (signable Xcode-integrable binary); then SDL2 UIKit backend vs native `objcclass` shell, GL-ES renderer for MVP (Metal = future idea only), platform integration on a physical iPhone |
 
 ## GL Version Policy (locked 2026-07-03)
