@@ -41,7 +41,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
-| R-28 | Audio Subsystem Activation | idea | 0% | Get one backend reliably playing/streaming + GUI SoundDemo; backend choice open (incl. platform-specific), NOT SDL-anchored; full J1–J3 unification deferred |
+| R-28 | Audio Subsystem Activation | planned | ~10% | Research done, decisions locked (miniaudio primary, 2-tier requirements, typed facade); next: implement per `Work/R-28_audio_activation.md` plan T1–T7 |
 | R-29 | Apple Platform Support (macOS + iOS) | idea | 0% | Stage-0 recon (FPC arm64-darwin/iOS toolchain go/no-go, GL 4.1 ceiling, SDL iOS path); cheap win = macOS in `base-tests` CI; later split into Darwin-portability / macOS-SDL-runtime / iOS-shell / Apple-graphics-backend cards |
 
 ## 2) Strategic Directions
@@ -420,18 +420,20 @@ This file captures what remains to be done. Completed stage notes live in Work/.
   - [ ] A recorded decision on what (if anything) moves into the engine/Base, and where.
 
 ### [R-28] Audio Subsystem Activation
-- Status: idea | Priority: P2 | Area: Audio
-- Value: Strategic direction J is entirely untouched — `Apus.Engine.Sound`/`SoundBass`/`SoundSDL`/`SoundImx` have had no feature/validation work since the bulk migration, and there is no validated audio path on Engine5. An engine preview with zero working audio is an obvious gap.
-- Direction: **do NOT anchor on SDL** (author: SDL audio is not great). Keep the backend choice open — including platform-specific backends — and pick per platform rather than forcing one cross-platform default early. Start with a bounded slice (one backend playing reliably) before any J1–J3 backend unification.
-- Scope (bounded first slice):
-  - One backend playing + streaming reliably (sound effects + music/streaming).
-  - GUI `SoundDemo` (also an R-15 item) exercising playback/volume/streaming/looping.
-  - Basic playback/streaming diagnostics.
-- Out of scope (deferred): full BASS/SDL/IMX backend unification (J1); spatial/3D audio; effects/DSP; a final canonical cross-platform backend decision.
-- Open assessment (decide during the task): which backend(s) to support and the platform mapping; licensing/dependency footprint (BASS is proprietary, Windows-leaning); whether a thin backend-selection layer is worth it now or later.
-- Acceptance Criteria:
-  - [ ] One backend reliably plays effects and streams music on its target platform.
-  - [ ] A GUI `SoundDemo` exercises the baseline audio use cases.
+- Status: planned (~10%, research done, decisions locked) | Priority: P2 | Area: Audio
+- Working doc (authoritative for detail): `Work/R-28_audio_activation.md` — code inventory, backend landscape, decisions, plan T0–T8.
+- Value: Strategic direction J is entirely untouched — no validated audio path on Engine5. Key finding: audio is dead by build configuration (backends gated behind `IMX`/`SDLMIX` defines absent from the standard define set), not by runtime bugs.
+- Decisions locked (2026-07-03):
+  - Primary backend: **miniaudio** (public-domain, per-platform backends under one API, null device for headless CI; own Pascal binding + prebuilt `apusaudio` binaries committed to `bin*/`, sources in `extra/miniaudio/`). SDL2_mixer = temporary debug crutch only; BASS 2.4 = optional alternative (x64 fine; licensing cost for commercial use).
+  - Two-tier requirements: level 1 (gate) = play samples+music as-is + volume control; level 2 (full R-28) = loops/loop points, fades/crossfades, pitch, panning.
+  - MOD/tracker music: not required by default backend (optional backend path if ever needed).
+  - Typed facade `Sound.Play(...):TChannelHandle` added; `SOUND\` signals remain as transport over it.
+  - Legacy `SoundBass`/`SoundImx` removal = bonus stage, non-blocking.
+- Out of scope (deferred): full backend unification (J1); spatial/3D audio; effects/DSP; BASS backend implementation; Android/AAudio validation (→ R-24).
+- Acceptance Criteria (tiered; full list in working doc §8):
+  - [ ] Level 1: one backend reliably plays samples and streams music on Win64+Linux; global/per-channel volume.
+  - [ ] Level 2: loops incl. loop points; smooth `SlideChannel` (volume/pan/speed) on live channels; music crossfades in all modes.
+  - [ ] GUI `SoundDemo` covers both tiers; headless CI test (null backend) covers at least level 1.
   - [ ] The backend/platform decision and its limits are documented.
 
 ### [R-29] Apple Platform Support (macOS + iOS)

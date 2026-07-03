@@ -1,15 +1,17 @@
-﻿# Engine5 Refactoring — Module Status
+# Engine5 Refactoring — Module Status
 
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-06-27)
+## Summary (last updated: 2026-06-29)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
 - ✅ Threading and Logging blockers solved
 - ✅ Managed threads force-log unhandled callback exceptions before reporting `Error`
 - ✅ EventMan removes and warns about dangling thread-affine handlers on thread exit
+- ✅ `Apus.Socket` public declarations use portable `NativeUInt`/`UIntPtr` types in Delphi and FPC
+- ✅ Glyph cache bounds failures are explicit; TextDraw no longer writes past its update-row list
 - ✅ Classes migrated and legacy Structs split completed (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes

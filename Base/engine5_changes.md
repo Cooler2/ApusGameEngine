@@ -3,6 +3,24 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Glyph cache diagnostics and bounds fixes (2026-06-29)
+
+- `Apus.GlyphCache` now rejects items that cannot fit the concrete atlas region
+  before entering the band allocator. Packed glyph metadata supports dimensions
+  up to 255x255; the older 63x63 comment was stale.
+- Generic `DGC: cache overflow` errors now distinguish atlas-space exhaustion
+  from exhaustion of internal band descriptors and include the requested band,
+  atlas dimensions, and allocator state.
+- `Apus.Engine.TextDraw` checks the fixed glyph-update rectangle list before
+  writing a new entry, preventing a range-check exception in the diagnostic path.
+
+## Socket API compatibility fixes (2026-06-28)
+
+- `Apus.Socket.recv` and `send` now use the Delphi/FPC-compatible
+  `NativeUInt` type for buffer length instead of the FPC-specific `SizeUInt`.
+- `Apus.Socket.WSAAccept` uses `UIntPtr` for its callback data instead of the
+  FPC-specific `PtrUInt` spelling.
+
 ## Thread lifecycle changes (2026-06-27)
 
 - `Apus.HttpRequests` now launches request workers through
