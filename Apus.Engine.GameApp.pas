@@ -121,7 +121,7 @@ implementation
  uses
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
-  {$IFDEF ANDROID}Apus.Android,Apus.Engine.AndroidGame,{$ENDIF}
+  {$IFDEF ANDROID}Apus.Android,{$ENDIF}
    SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
@@ -136,6 +136,7 @@ implementation
   Apus.Files,
   Apus.Log,
   Apus.Strings,
+  Apus.Threads,
   Apus.Utils;
 
 type

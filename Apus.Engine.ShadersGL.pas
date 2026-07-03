@@ -9,6 +9,7 @@ unit Apus.Engine.ShadersGL;
 interface
 uses Apus.Core, Apus.Engine.Types, Apus.Engine.GpuLayout,
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  {$IFDEF GLES}dglOpenGLES,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.
   Apus.Engine.API,
@@ -205,8 +206,14 @@ const
 
 procedure SetGLProgramLabel(handle:GLuint;const labelText:String8); inline;
  begin
+  {$IFDEF GLES}
+  // Core glObjectLabel doesn't exist in ES 3.0; only the GL_KHR_debug extension form does.
+  if (handle<>0) and (@glObjectLabelKHR<>nil) and (labelText<>'') then
+   glObjectLabelKHR(GL_PROGRAM,handle,length(labelText),@labelText[1]);
+  {$ELSE}
   if (handle<>0) and (@glObjectLabel<>nil) and (labelText<>'') then
    glObjectLabel(GL_PROGRAM,handle,length(labelText),@labelText[1]);
+  {$ENDIF}
  end;
 
 function ShortProgramLabel(const labelText:String8;handle:GLuint):String8; inline;
@@ -249,8 +256,10 @@ procedure SetUniformInternal(shader:TGLShader;name:string8;mode:integer;const va
    22:glUniform2fv(loc,1,@value);
    23:glUniform3fv(loc,1,@value);
    24:glUniform4fv(loc,1,@value);
-   30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
-   31:glUniformMatrix4dv(loc,1,GL_FALSE,@value);
+   30:glUniformMatrix4fv(loc,1,GLboolean(GL_FALSE),@value);
+   {$IFNDEF GLES}
+   31:glUniformMatrix4dv(loc,1,GLboolean(GL_FALSE),@value); // no double-precision uniforms in GLES
+   {$ENDIF}
   end;
   CheckForGLError(401);
  end;
@@ -295,11 +304,11 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4)
   matrixRevision:=revision;
   if uMVP>=0 then begin
    mat.Init(transformationAPI.MVP);
-   glUniformMatrix4fv(uMVP,1,GL_FALSE,@mat);
+   glUniformMatrix4fv(uMVP,1,GLboolean(GL_FALSE),@mat);
   end;
   if uModelMat>=0 then begin
    mat.Init(transformationAPI.objMatrix);
-   glUniformMatrix4fv(uModelMat,1,GL_FALSE,@mat);
+   glUniformMatrix4fv(uModelMat,1,GLboolean(GL_FALSE),@mat);
   end;
   if uNormalMat>=0 then begin
    // Normal matrix = inverse-transpose of the model 3x3.
@@ -313,10 +322,10 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4)
    m3.Invert;
    m3.Transpose;
    nrm.Init(m3);
-   glUniformMatrix3fv(uNormalMat,1,GL_FALSE,@nrm);
+   glUniformMatrix3fv(uNormalMat,1,GLboolean(GL_FALSE),@nrm);
   end;
   if uShadowMapMat>=0 then begin
-   glUniformMatrix4fv(uShadowMapMat,1,GL_FALSE,@shadowMapMatrix);
+   glUniformMatrix4fv(uShadowMapMat,1,GLboolean(GL_FALSE),@shadowMapMatrix);
   end;
  end;
 
@@ -363,7 +372,8 @@ destructor TGLShader.Destroy;
  begin
   // Requires a valid current GL context.
   // Called from TGLShadersAPI.Destroy during graphics shutdown.
-  glGetAttachedShaders(handle,length(shaders),count,@shaders[0]);
+  // dglOpenGL declares Count as `var`, dglOpenGLES as a pointer - different call syntax.
+  glGetAttachedShaders(handle,length(shaders),{$IFDEF GLES}@{$ENDIF}count,@shaders[0]);
   while count>0 do begin
    dec(count);
    glDeleteShader(shaders[count]);
@@ -377,6 +387,19 @@ destructor TGLShader.Destroy;
 procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
  begin
   if condition then st:=st+line+#13#10;
+ end;
+
+// GLSL version/precision preamble: #version 330 on desktop, #version 300 es
+// + precision qualifiers under GLES (fragment shaders need precision, vertex
+// shaders don't strictly but declaring it there too is harmless and uniform).
+procedure AddShaderPreamble(var st:String8;fragment:boolean);
+ begin
+  {$IFDEF GLES}
+  AddLine(st,'#version 300 es');
+  AddLine(st,'precision highp float;',fragment);
+  {$ELSE}
+  AddLine(st,'#version 330');
+  {$ENDIF}
  end;
 
 // useTable=false (2D painter / legacy mesh): attribute locations are assigned
@@ -402,7 +425,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   end;
   shadowMap:=Bits.HasAll(lighting,LIGHT_SHADOWMAP);
   // Now build shader source
-  AddLine(result,'#version 330');
+  AddShaderPreamble(result,false);
   AddLine(result,'// '+notes);
   AddLine(result,'uniform mat4 MVP;');
   AddLine(result,'uniform mat4 ModelMatrix;',shadowMap or hasTangent);
@@ -462,7 +485,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
   lighting:=Bits.HasAll(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON) and not customized;
   shadowMap:=Bits.HasAll(texMode.lighting,LIGHT_SHADOWMAP) and not customized;
 
-  AddLine(result,'#version 330');
+  AddShaderPreamble(result,true);
   if customized then notes:='[Customized] '+notes;
   AddLine(result,'// '+notes);
   if Bits.HasAll(texMode.lighting,LIGHT_DEPTHPASS) then begin

@@ -198,11 +198,16 @@ type
  // Load image from file (TGA or JPG), result is expected in given pixel format or source pixel format
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
+ {$IFDEF GLES}
+ // GLES has no reliable BGRA texture/readback format: swap R/B on CPU instead.
+ // Shared with Apus.Engine.OpenGL (backbuffer readback).
+ procedure SwapRedBlue8888(data:pointer;pixelCount:integer);
+ {$ENDIF}
+
 implementation
  uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.GfxFormats,
    {$IFDEF DGL}dglOpenGL{$ENDIF}
-   {$IFDEF IOS}gles11,glext{$ENDIF}
-   {$IFDEF ANDROID}gles20{$ENDIF}
+   {$IFDEF GLES}dglOpenGLES{$ENDIF}
    ,
   Apus.Classes,
   Apus.Conv,
@@ -218,11 +223,7 @@ implementation
 }
 
 const
- {$IFDEF GLES11}
- MAX_TEX_SIZE = 1024;
- {$ELSE}
  MAX_TEX_SIZE = 2048;
- {$ENDIF}
 
 var
  mainThreadId:TThreadIdent;
@@ -260,8 +261,14 @@ procedure TrackElementBufferBinding(buffer:cardinal); inline;
 procedure SetGLObjectLabel(identifier,name:cardinal;const labelText:String8); inline;
 begin
  // Stage 7: labeling is best-effort, never required for rendering correctness.
+ {$IFDEF GLES}
+ // Core glObjectLabel doesn't exist in ES 3.0; only the GL_KHR_debug extension form does.
+ if (name<>0) and (labelText<>'') and (@glObjectLabelKHR<>nil) then
+  glObjectLabelKHR(identifier,name,length(labelText),@labelText[1]);
+ {$ELSE}
  if (name<>0) and (labelText<>'') and (@glObjectLabel<>nil) then
   glObjectLabel(identifier,name,length(labelText),@labelText[1]);
+ {$ENDIF}
 end;
 
 function ShortGLLabel(const preferred,prefix:String8;id:cardinal;maxLen:integer=12):String8; inline;
@@ -338,6 +345,53 @@ begin
 { except
  end;}
 end;
+
+{$IFDEF GLES}
+// glGetTexImage doesn't exist in GLES: read back through a scratch FBO instead.
+// Unoptimized (allocates/frees an FBO per call) - only used by Dump/DownloadLevel debug paths.
+procedure GLESReadTexImage(target:cardinal;texName:cardinal;level:integer;width,height:integer;
+   format,dataType:cardinal;dest:pointer;layer:integer=0);
+ var
+  fbo:cardinal;
+  prevFBO:integer;
+ begin
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING,@prevFBO); // don't disturb the render-target state tracking
+  glGenFramebuffers(1,@fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER,fbo);
+  if (target=GL_TEXTURE_2D_ARRAY) or (target=GL_TEXTURE_3D) then
+   glFramebufferTextureLayer(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,texName,level,layer)
+  else
+   glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,target,texName,level);
+  glReadPixels(0,0,width,height,format,dataType,dest);
+  glBindFramebuffer(GL_FRAMEBUFFER,cardinal(prevFBO));
+  glDeleteFramebuffers(1,@fbo);
+ end;
+
+// GLES has no reliable BGRA readback format: read as RGBA then swap R/B on CPU.
+procedure SwapRedBlue8888(data:pointer;pixelCount:integer);
+ var
+  p:PByteArray;
+  i:integer;
+  b:byte;
+ begin
+  p:=data;
+  for i:=0 to pixelCount-1 do begin
+   b:=p[i*4];
+   p[i*4]:=p[i*4+2];
+   p[i*4+2]:=b;
+  end;
+ end;
+
+// ipfARGB/ipfXRGB source data is B,G,R,A in memory but uploaded as GL_RGBA under
+// GLES (no BGRA texture format there): swap into a scratch copy before upload.
+// TODO: swizzle - use GL_TEXTURE_SWIZZLE_* instead of a per-upload CPU copy where supported.
+function BGRAToRGBACopy(src:pointer;pixelCount:integer):pointer;
+ begin
+  GetMem(result,pixelCount*4);
+  Move(src^,result^,pixelCount*4);
+  SwapRedBlue8888(result,pixelCount);
+ end;
+{$ENDIF}
 
 procedure GetGLformat(ipf:TImagePixelFormat;out format,dataType,internalFormat:cardinal);
 begin
@@ -462,51 +516,43 @@ begin
   end;
   {$ENDIF}
   {$IFDEF GLES}
-  ipfARGB:begin
-   if pos('TEXTURE_FORMAT_BGRA8888',GLES_Extensions)>0 then begin
-    internalFormat:=GL_BGRA;
-    format:=GL_BGRA;
-   end else begin
-    internalFormat:=GL_RGBA;
-    format:=GL_RGBA;
-   end;
-   subFormat:=GL_UNSIGNED_BYTE;
+  // BGRA/ARGB pixel data is converted to RGBA on the CPU at upload/readback
+  // (see UploadPixelData/ReadPixelData) - GLES has no reliable BGRA texture
+  // format, so internalFormat/format here are always plain sized RGBA.
+  // TODO: swizzle - use a texture swizzle mask instead of a CPU copy where the driver supports it.
+  ipfARGB,ipfXRGB:begin
+   internalFormat:=GL_RGBA8;
+   format:=GL_RGBA;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfRGB:begin
-   internalFormat:=GL_RGB;
+   internalFormat:=GL_RGB8;
    format:=GL_RGB;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipf565:begin
-   internalFormat:=GL_RGB;
+   internalFormat:=GL_RGB565;
    format:=GL_RGB;
-   subFormat:=GL_UNSIGNED_SHORT_5_6_5;
+   dataType:=GL_UNSIGNED_SHORT_5_6_5;
   end;
   ipf1555:begin
-   internalFormat:=GL_RGBA;
+   internalFormat:=GL_RGB5_A1;
    format:=GL_RGBA;
-   subFormat:=GL_UNSIGNED_SHORT_5_5_5_1;
+   dataType:=GL_UNSIGNED_SHORT_5_5_5_1;
   end;
-  {$IFDEF IOS}
-  ipf4444:begin
-   internalFormat:=GL_RGBA;
+  ipf4444,ipf4444r:begin
+   internalFormat:=GL_RGBA4;
    format:=GL_RGBA;
-   subFormat:=GL_UNSIGNED_SHORT_4_4_4_4_REV;
-  end;
-  {$ENDIF}
-  ipf4444r:begin
-   internalFormat:=GL_RGBA;
-   format:=GL_RGBA;
-   subFormat:=GL_UNSIGNED_SHORT_4_4_4_4;
+   dataType:=GL_UNSIGNED_SHORT_4_4_4_4;
   end;
   ipfPVRTC:begin
    internalFormat:=GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
    format:=GL_COMPRESSED_TEXTURE_FORMATS;
   end;
   ipfA8:begin
-   internalFormat:=GL_ALPHA;
-   format:=GL_ALPHA;
-   subFormat:=GL_UNSIGNED_BYTE;
+   internalFormat:=GL_R8;
+   format:=GL_RED;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   {$ENDIF}
   else
@@ -557,7 +603,14 @@ begin
  Bind;
  itemSize:=width*height*4;
  SetLength(texData,itemSize*length(layers));
+ {$IFDEF GLES}
+ // One scratch FBO alloc/free per array layer - debug-dump-only path, unoptimized is fine here.
+ for layer:=0 to high(layers) do
+  GLESReadTexImage(GetTextureTarget,texname,0,width,height,GL_RGBA,GL_UNSIGNED_BYTE,@texData[itemSize*layer],layer);
+ SwapRedBlue8888(@texData[0],width*height*length(layers));
+ {$ELSE}
  glGetTexImage(GetTextureTarget,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8_REV,@texData[0]);
+ {$ENDIF}
  image:=TBitmapImage.Create(width,height,ipfARGB);
  for layer:=0 to high(layers) do begin
   image.data:=@texData[itemSize*layer];
@@ -639,14 +692,13 @@ begin
       glCompressedTexImage3D(glTarget,level,internalFormat,realwidth,realheight,depth,0,
        length(layers[z].realData[level]),@realData[level,0]);
   end else begin
-   {$IFNDEF GLES}
    if needInit then begin  // Specify texture size and pixel format
     glTexImage3D(glTarget,0,internalFormat,realwidth,realheight,depth,0,
       format,subFormat,nil);
     CheckForGLError('13');
     UpdateFilter;
    end;
-    // Upload texture data
+    // Upload texture data. ES 3.0 supports GL_UNPACK_ROW_LENGTH same as desktop GL.
     glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth);
     CheckForGLError('14');
     bpp:=pixelSize[pixelFormat] div 8;
@@ -660,19 +712,11 @@ begin
        dCount[level]:=0;
       end;
     CheckForGLError('15');
+   {$IFDEF GLES}
+   if HasFlag(tfAutoMipMap) then begin // core in ES 3.0
    {$ELSE}
-   // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
-   // the source texture data
-   NotSupported('');
-{   for z:=0 to depth-1 do
-    with layers[z] do begin
-    if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
-    if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY,0,internalFormat,realwidth,realheight,1,0,format,subFormat,data);
-   end;}
-   CheckForGLError('16');
-   {$ENDIF}
    if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
+   {$ENDIF}
     glGenerateMipmap(glTarget);
    end;
 
@@ -711,6 +755,8 @@ procedure TGLTexture.Clear(color:cardinal);
   level:integer;
  begin
   EnsureWritable('Clear');
+  // glClearTexImage is GL 4.4+, not available under GLES - CPU fill fallback below.
+  {$IFNDEF GLES}
   if InMainThread and (@glClearTexImage<>nil) then begin
    cs.Enter;
    try
@@ -723,7 +769,9 @@ procedure TGLTexture.Clear(color:cardinal);
    finally
      cs.Leave;
    end;
-  end else begin
+  end else
+  {$ENDIF}
+  begin
    // Clear in the internal storage
    Lock;
    Mem.FillD(realData[0][0],length(realData[0]) div 4,color);
@@ -738,6 +786,8 @@ var
  r:TRect;
 begin
   EnsureWritable('ClearPart');
+  // glClearTexSubImage is GL 4.4+, not available under GLES - CPU fill fallback below.
+  {$IFNDEF GLES}
   if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
   // Upload remaining data if needed
   UploadInternalData;
@@ -750,7 +800,9 @@ begin
   finally
    cs.Leave;
   end;
- end else begin
+ end else
+ {$ENDIF}
+ begin
   // Clear in the internal storage
   r:=Rect(x,y,x+width-1,y+width-1);
   Lock(mipLevel,lmReadWrite,@r);
@@ -809,7 +861,11 @@ var
 begin
   Bind;
   GetGLformat(pixelFormat,format,dataType,internal);
+  {$IFDEF GLES}
+  GLESReadTexImage(GetTextureTarget,texname,mipLevel,width shr mipLevel,height shr mipLevel,format,dataType,realData[mipLevel]);
+  {$ELSE}
   glGetTexImage(GetTextureTarget,mipLevel,format,dataType,realData[mipLevel]);
+  {$ENDIF}
   CheckForGLError('DownL');
   realDataObsolete[mipLevel]:=false;
   dCount[mipLevel]:=0;
@@ -827,7 +883,12 @@ begin
  end;
  image:=TBitmapImage.Create(width,height,ipfARGB);
  Bind;
+ {$IFDEF GLES}
+ GLESReadTexImage(GetTextureTarget,texname,0,width,height,GL_RGBA,GL_UNSIGNED_BYTE,image.data);
+ SwapRedBlue8888(image.data,width*height);
+ {$ELSE}
  glGetTexImage(GetTextureTarget,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8,image.data);
+ {$ENDIF}
  data:=SavePNG(image);
  image.Free;
  Files.Save(filename,data);
@@ -1002,13 +1063,9 @@ end;
 procedure TGLTexture.SetAsRenderTarget;
 begin
  Assert(HasFlag(tfRenderTarget));
- {$IFDEF GLES11}
- glBindFramebufferOES(GL_FRAMEBUFFER_OES,fbo);
- {$ENDIF}
- {$IFDEF GLES20}
- glBindFramebuffer(GL_FRAMEBUFFER,fbo);
- {$ENDIF}
- {$IFNDEF GLES}
+ {$IFDEF GLES}
+ glBindFramebuffer(GL_FRAMEBUFFER,fbo); // core in ES 3.0
+ {$ELSE}
  if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
   glBindFramebuffer(GL_FRAMEBUFFER,fbo)
  else if GL_EXT_framebuffer_object then
@@ -1026,12 +1083,9 @@ procedure TGLTexture.SetFilter(filter:TTexFilter);
  end;
 
 procedure TGLTexture.SetLabel;
-var
- lab:String8;
 begin
- if (name<>'') and (@glObjectLabel<>nil) then begin
-  lab:=name;
-  glObjectLabel(GL_TEXTURE,texname,length(lab),@lab[1]);
+ if name<>'' then begin
+  SetGLObjectLabel(GL_TEXTURE,texname,name);
   CheckForGLError('L01');
  end;
 end;
@@ -1068,6 +1122,7 @@ begin
    end;
   end;
  end;
+ {$IFNDEF GLES}
  if @glTextureParameteri<>nil then begin
   // GL 4.5 mode
   glTextureParameteri(texname,GL_TEXTURE_MIN_FILTER,fMin);
@@ -1078,8 +1133,10 @@ begin
   target:=GetTextureTarget;
   glTextureParameteriEXT(texname,target,GL_TEXTURE_MIN_FILTER,fMin);
   glTextureParameteriEXT(texname,target,GL_TEXTURE_MAG_FILTER,fMax);
- end else begin
-  // 4.4- compatibility mode
+ end else
+ {$ENDIF}
+ begin
+  // 4.4-/GLES compatibility mode (no DSA)
   target:=GetTextureTarget;
   SaveActiveTexture;
   Bind;
@@ -1100,6 +1157,9 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   format,subformat,internalFormat,error:cardinal;
   bpp,y,lineSize:integer;
   sp,dp:PByte;
+  {$IFDEF GLES}
+  uploadBuf:pointer;
+  {$ENDIF}
  begin
   EnsureWritable('Upload');
   if not InMainThread then begin // upload request from non-main thread: sync
@@ -1134,6 +1194,14 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
    GetGLFormat(PixelFormat,format,subFormat,internalFormat);
    bpp:=pixelSize[pixelFormat] div 8;
    glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
+   {$IFDEF GLES}
+   if pixelFormat in [ipfARGB,ipfXRGB] then begin
+    uploadBuf:=BGRAToRGBACopy(pixelData,(pitch div bpp)*Max(realheight shr mipLevel,1));
+    glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
+      Max(realwidth shr mipLevel,1),Max(realheight shr mipLevel,1),0,format,subFormat,uploadBuf);
+    FreeMem(uploadBuf);
+   end else
+   {$ENDIF}
    glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
      Max(realwidth shr mipLevel,1),Max(realheight shr mipLevel,1),0,format,subFormat,pixelData);
    CheckForGLError('231');
@@ -1148,6 +1216,9 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
  var
   format,subformat,internalFormat,error:cardinal;
   bpp:integer;
+  {$IFDEF GLES}
+  uploadBuf:pointer;
+  {$ENDIF}
  begin
   EnsureWritable('UploadPart');
   ASSERT(InMainThread,'Direct upload is available in the main thread only');
@@ -1158,6 +1229,13 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
    GetGLFormat(PixelFormat,format,subFormat,internalFormat);
    bpp:=pixelSize[pixelFormat] div 8;
    glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
+   {$IFDEF GLES}
+   if pixelFormat in [ipfARGB,ipfXRGB] then begin
+    uploadBuf:=BGRAToRGBACopy(pixelData,(pitch div bpp)*height);
+    glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,uploadBuf);
+    FreeMem(uploadBuf);
+   end else
+   {$ENDIF}
    glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,pixelData);
    CheckForGLError('241');
    InvalidateInternalLevel(mipLevel);
@@ -1230,8 +1308,14 @@ procedure TGLTexture.UploadInternalData;
 
   Bind;
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
-  {$IFNDEF GLES}
-  // Upload texture data
+  // ES 3.0 supports GL_UNPACK_ROW_LENGTH same as desktop GL, so the dirty-rect
+  // upload path is shared; only the BGRA->RGBA byte swap below is GLES-specific.
+  {$IFDEF GLES}
+  if pixelFormat in [ipfARGB,ipfXRGB] then
+   for level:=0 to mipmaps do
+    if length(realData[level])>0 then
+     SwapRedBlue8888(@realData[level,0],length(realData[level]) div 4); // buffer size, not shr dims: `w shr level` hits 0 on tail mips
+  {$ENDIF}
   for level:=0 to mipmaps do
     if dCount[level]<>0 then begin
      // Upload texture data
@@ -1246,17 +1330,20 @@ procedure TGLTexture.UploadInternalData;
      CheckForGLError('15');
      dCount[level]:=0;
     end;
+  {$IFDEF GLES}
+  // swap back: realData keeps its original BGRA-family in-memory layout for other consumers
+  if pixelFormat in [ipfARGB,ipfXRGB] then
+   for level:=0 to mipmaps do
+    if length(realData[level])>0 then
+     SwapRedBlue8888(@realData[level,0],length(realData[level]) div 4); // buffer size, not shr dims: `w shr level` hits 0 on tail mips
+  {$ENDIF}
   // Set level limit - otherwise texture sampler will produce black
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
+  {$IFDEF GLES}
+  if HasFlag(tfAutoMipMap) then begin // core in ES 3.0
   {$ELSE}
-  // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
-  // the source texture data
-  if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
-  if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
-  glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
-  CheckForGLError('16');
-  {$ENDIF}
   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
+  {$ENDIF}
    glGenerateMipmap(GL_TEXTURE_2D);
   end;
   online:=true; Bits.Clear(caps,tfDirty);
@@ -1299,41 +1386,41 @@ begin
     Log.Msg(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[tex.width,tex.height,flags,tex.name]));
   if Max(tex.width,tex.height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
   {$IFDEF GLES}
-  {$IFDEF GLES11}
-  width:=GetPow2(width);
-  height:=GetPow2(height);
-  glGenFramebuffersOES(1,@tex.fbo);
-  glBindFramebufferOES(GL_FRAMEBUFFER_OES,tex.fbo);
-  lab:='FBO:'+tex.name;
-  if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
-  SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
-  {$ELSE}
+  // Rewritten from scratch during the ES 3.0 cleanup (2026-07-03): the previous GLES11
+  // branch here referenced an undeclared `zTex` and bare `width`/`height` locals that
+  // don't exist in this signature - it never actually compiled for any real target.
+  // This path mirrors the desktop branch below but is UNTESTED on real GLES hardware/ANGLE
+  // (only compile-checked, per the GLES cleanup task's code-only scope). Needs runtime
+  // sign-off once R-24/R-30 bring up an actual mobile/ANGLE target.
   glGenFramebuffers(1,@tex.fbo);
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   lab:='FBO:'+tex.name;
   if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
-  {$ENDIF}
   glGenTextures(1,@tex.texname);
   ActiveTextureUnit(9);
   tex.Bind;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
   tex.filter:=fltBilinear;
-  GetGLFormat(PixFmt,format,subFormat,internalFormat);
-  glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,subFormat,nil);
-  {$IFDEF GLES11}
-  glFramebufferTexture2DOES(GL_FRAMEBUFFER_OES,GL_COLOR_ATTACHMENT0_OES,GL_TEXTURE_2D,tex.texname,0);
-  status:=glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES);
-  if status<>GL_FRAMEBUFFER_COMPLETE_OES then
-   raise EError.Create('FBO status: '+inttostr(status));
-  {$ELSE}
-  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,zTex.texname,0);
+  if Bits.HasAll(flags,aiClampUV) then begin
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+   Bits.SetFlag(tex.caps,tfClamped);
+  end;
+  GetGLFormat(tex.pixelFormat,format,subFormat,internalFormat);
+  glTexImage2D(GL_TEXTURE_2D,0,internalFormat,tex.width,tex.height,0,format,subFormat,nil);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+  if Bits.HasAll(flags,aiDepthBuffer) then begin
+   glGenRenderbuffers(1,@renderBuffer);
+   glBindRenderbuffer(GL_RENDERBUFFER,renderBuffer);
+   glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,tex.width,tex.height);
+   glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,renderBuffer);
+   tex.rbo:=renderBuffer;
+  end;
   status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if status<>GL_FRAMEBUFFER_COMPLETE then
    raise EError.Create('FBO status: '+inttostr(status));
-  {$ENDIF}
-
   {$ENDIF GLES}
 
   {$IFNDEF GLES}
@@ -1433,6 +1520,7 @@ begin
  result:=tex;
  tex.width:=width;
  tex.height:=height;
+ // ES 3.0 supports full NPOT natively, so under GLES the pow2 rounding is opt-in only (aiPow2 flag).
  if Bits.HasAll(flags,aiPow2) {$IFNDEF GLES} or
      not GL_ARB_texture_non_power_of_two {$ENDIF} then begin
   width:=NextPow2(width);
@@ -1681,13 +1769,9 @@ begin
  if image is TGLTexture then begin
   tex:=image as TGLTexture;
   if tex.fbo<>0 then begin // free framebuffer
-   {$IFDEF GLES11}
-   glDeleteFramebuffersOES(1,@tex.fbo);
-   {$ENDIF}
-   {$IFDEF GLES20}
-   glDeleteFramebuffers(1,@tex.fbo)
-   {$ENDIF}
-   {$IFNDEF GLES}
+   {$IFDEF GLES}
+   glDeleteFramebuffers(1,@tex.fbo); // core in ES 3.0
+   {$ELSE}
    if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
     glDeleteFramebuffers(1,@tex.fbo)
    else
@@ -1765,6 +1849,8 @@ begin
   result:=false;
   exit;
  end;
+ // GL_PROXY_TEXTURE_2D doesn't exist in GLES: the MAX_TEX_SIZE/GL_MAX_TEXTURE_SIZE
+ // comparison above is the whole check there, no format-capability probe.
  {$IFNDEF GLES}
  GetGLFormat(format,glFormat,subFormat,internalFormat);
  glTexImage2D(GL_PROXY_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
@@ -1792,7 +1878,8 @@ begin
    CheckForGLError('19');
    if rbo<>0 then begin
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+    // ES 3.0 requires a sized internal format for renderbuffer storage
+    glRenderbufferStorage(GL_RENDERBUFFER, {$IFDEF GLES}GL_DEPTH_COMPONENT16{$ELSE}GL_DEPTH_COMPONENT{$ENDIF}, width, height);
    end;
    exit;
   end;
@@ -1817,7 +1904,12 @@ begin
  if depth.rbo<>0 then
   glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,depth.rbo)
  else
+  {$IFDEF GLES}
+  // glFramebufferTexture (no target dimension) is GL 3.2+/ES 3.2, not core in ES 3.0.
+  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,depth.texname,0);
+  {$ELSE}
   glFramebufferTexture(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,depth.texname,0);
+  {$ENDIF}
 
  // Restore framebuffer binding
  glBindFramebuffer(GL_FRAMEBUFFER,prevFrameBuffer);

@@ -9,6 +9,7 @@ unit Apus.Engine.OpenGL;
 interface
 uses Apus.Core, Apus.Engine.GpuLayout,
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  {$IFDEF GLES}dglOpenGLES,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.
   Apus.Engine.API,
@@ -210,6 +211,9 @@ type
    scissor:boolean;
    backBufferWidth,backBufferHeight:integer;
    threadReady:boolean;
+   // Default framebuffer id: 0 on desktop/Android; iOS under SDL uses a
+   // non-zero default FBO. Nothing sets this yet - plumbing only (R-30).
+   defaultFramebuffer:cardinal;
   procedure EnsureThreadState;
   procedure ClearBuffers(fColor,fDepth,fStencil:boolean;color:cardinal;zbuf:single;stencil:integer);
  end;
@@ -267,6 +271,15 @@ procedure SetupGLDebugOutputForCurrentContext(const actual:TOpenGLContextDesc; c
   else
    where:='';
   // Callback registration is per-context. Each shared context must set it explicitly.
+  {$IFDEF GLES}
+  // ES 3.0 only has the GL_KHR_debug extension form, no ARB/core variant.
+  if @glDebugMessageCallbackKHR<>nil then begin
+   glEnable(GL_DEBUG_OUTPUT_KHR);
+   glDebugMessageCallbackKHR(TglDebugProcKHR(@HandleGLDebugMessage),nil);
+   Log.Force('OpenGL debug callback enabled (KHR)'+where);
+  end else
+   Log.Warn('Debug context requested but debug callback API is not available'+where);
+  {$ELSE}
   if @glDebugMessageCallback<>nil then begin
    glEnable(GL_DEBUG_OUTPUT);
    if @glDebugMessageControl<>nil then
@@ -281,6 +294,7 @@ procedure SetupGLDebugOutputForCurrentContext(const actual:TOpenGLContextDesc; c
    Log.Force('OpenGL debug callback enabled (ARB)'+where);
   end else
    Log.Warn('Debug context requested but debug callback API is not available'+where);
+  {$ENDIF}
  end;
 
 { TOpenGL }
@@ -309,8 +323,8 @@ procedure TOpenGL.Init(window:TWindow);
   {$ENDIF}
   CheckForGLError(011);
 
-  glVersion:=glGetString(GL_VERSION);
-  glRenderer:=glGetString(GL_RENDERER);
+  glVersion:=PAnsiChar(glGetString(GL_VERSION));
+  glRenderer:=PAnsiChar(glGetString(GL_RENDERER));
   if actual.actualMajor=0 then begin
    glVersionNum:=GetVersion;
    actual.actualMajor:=trunc(glVersionNum);
@@ -429,9 +443,16 @@ procedure TOpenGL.Done;
 
 procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
  begin
-  if (length(st)=0) or (@glDebugMessageInsert=nil) then exit;
+  if length(st)=0 then exit;
+  {$IFDEF GLES}
+  if @glDebugMessageInsertKHR=nil then exit;
+  glDebugMessageInsertKHR(GL_DEBUG_SOURCE_APPLICATION,GL_DEBUG_TYPE_MARKER, id, GL_DEBUG_SEVERITY_LOW,
+   length(st),@st[1]);
+  {$ELSE}
+  if @glDebugMessageInsert=nil then exit;
   glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION,GL_DEBUG_TYPE_MARKER, id, GL_DEBUG_SEVERITY_LOW,
    length(st),@st[1]);
+  {$ENDIF}
  end;
 
 procedure TOpenGL.PresentFrame;
@@ -472,7 +493,9 @@ procedure TOpenGL.SetCullMode(mode: TCullMode);
 function TOpenGL.SetVSyncDivider(n: integer):boolean;
  begin
   result:=false;
-  {$IFDEF MSWINDOWS}
+  {$IF DEFINED(MSWINDOWS) AND DEFINED(DGL)}
+  // WGL_EXT_swap_control is a desktop WGL extension; GLES (e.g. ANGLE) uses EGL's
+  // eglSwapInterval instead - not wired up yet (R-24/R-30 mobile work).
   if WGL_EXT_swap_control then begin
    wglSwapIntervalEXT(n);
    Log.Msg('VSync: swap interval=%d',[n]);
@@ -553,7 +576,13 @@ procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   if fbo=0 then glReadBuffer(GL_BACK)
    else glReadBuffer(GL_COLOR_ATTACHMENT0);
   image.Lock;
+  {$IFDEF GLES}
+  // GLES has no GL_BGRA readback format: read RGBA, then swap R/B on CPU.
+  glReadPixels(srcX,srcY,image.Width,image.Height,GL_RGBA,GL_UNSIGNED_BYTE,image.data);
+  SwapRedBlue8888(image.data,image.Width*image.Height);
+  {$ELSE}
   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
+  {$ENDIF}
   if fbo<>0 then // flip vertically: FBO origin is bottom-left
    image.FlipVertical;
   image.Unlock;
@@ -567,7 +596,12 @@ function TOpenGL.GetPixelValue(x,y:integer):cardinal;
   if fbo<>0 then exit(0);
   glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
   glReadBuffer(GL_BACK);
+  {$IFDEF GLES}
+  glReadPixels(x,target.height-y-1,1,1,GL_RGBA,GL_UNSIGNED_BYTE,@result);
+  SwapRedBlue8888(@result,1);
+  {$ELSE}
   glReadPixels(x,target.height-y-1,1,1,GL_BGRA,GL_UNSIGNED_BYTE,@result);
+  {$ENDIF}
   CheckForGLError(022);
  end;
 
@@ -621,6 +655,10 @@ function TOpenGL.GetName: string8;
 
 function TOpenGL.GetVersion: single;
  begin
+  {$IFDEF GLES}
+  // ES 3.0 baseline for this slice; dglOpenGLES only exposes a GL_VERSION_3_0 flag.
+  result:=3.0;
+  {$ELSE}
   result:=1.4;
   if GL_VERSION_1_5 then result:=1.5;
   if GL_VERSION_2_0 then result:=2.0;
@@ -636,6 +674,7 @@ function TOpenGL.GetVersion: single;
   if GL_VERSION_4_4 then result:=4.4;
   if GL_VERSION_4_5 then result:=4.5;
   if GL_VERSION_4_6 then result:=4.6;
+  {$ENDIF}
  end;
 
 { TRenderDevice }
@@ -707,16 +746,28 @@ end;
 procedure PushDebugGroup(const st:String8;id:integer=0);
  begin
   // Functions may be absent on old drivers even with debug context requested.
-  if (length(st)=0) or (@glPushDebugGroup=nil) then exit;
+  if length(st)=0 then exit;
+  {$IFDEF GLES}
+  if @glPushDebugGroupKHR=nil then exit;
+  glPushDebugGroupKHR(GL_DEBUG_SOURCE_APPLICATION,id,length(st),@st[1]);
+  {$ELSE}
+  if @glPushDebugGroup=nil then exit;
   glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION,id,length(st),@st[1]);
+  {$ENDIF}
   inc(debugGroupDepth);
  end;
 
 procedure PopDebugGroup;
  begin
   // Keep this safe for error paths: never pop below zero.
-  if (debugGroupDepth<=0) or (@glPopDebugGroup=nil) then exit;
+  if debugGroupDepth<=0 then exit;
+  {$IFDEF GLES}
+  if @glPopDebugGroupKHR=nil then exit;
+  glPopDebugGroupKHR;
+  {$ELSE}
+  if @glPopDebugGroup=nil then exit;
   glPopDebugGroup;
+  {$ENDIF}
   dec(debugGroupDepth);
  end;
 
@@ -1078,10 +1129,10 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
      end else
       dim:=3;
      case i of
-      0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
-      1,5:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
-      2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
-      3,4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
+      0:glVertexAttribPointer(n,dim,GL_FLOAT,GLboolean(GL_FALSE),stride,p); // position
+      1,5:glVertexAttribPointer(n,3,GL_FLOAT,GLboolean(GL_FALSE),stride,p); // normal
+      2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GLboolean(GL_TRUE),stride,p); // color
+      3,4:glVertexAttribPointer(n,2,GL_FLOAT,GLboolean(GL_FALSE),stride,p); // uv1
      end;
      inc(n);
      if layout=0 then break;
@@ -1150,13 +1201,13 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
 procedure MeshFormatToGL(format:TVertexFormat;out comps:integer;out glType:cardinal;
    out normalized:GLboolean;out isInt:boolean);
  begin
-  normalized:=GL_FALSE;
+  normalized:=GLboolean(GL_FALSE);
   isInt:=false;
   comps:=VertexFormatComponents(format);
   case format of
    TVertexFormat.Float1,TVertexFormat.Float2,
    TVertexFormat.Float3,TVertexFormat.Float4: glType:=GL_FLOAT;
-   TVertexFormat.UByte4Norm:begin glType:=GL_UNSIGNED_BYTE; normalized:=GL_TRUE; end;
+   TVertexFormat.UByte4Norm:begin glType:=GL_UNSIGNED_BYTE; normalized:=GLboolean(GL_TRUE); end;
    TVertexFormat.UByte4:    begin glType:=GL_UNSIGNED_BYTE; isInt:=true; end;
    TVertexFormat.UInt16x4:  begin glType:=GL_UNSIGNED_SHORT; isInt:=true; end;
    TVertexFormat.UInt32:    begin glType:=GL_UNSIGNED_INT; isInt:=true; end;
@@ -1397,32 +1448,21 @@ procedure TGLRenderTargetAPI.Resized(newWidth, newHeight: integer);
 procedure TGLRenderTargetAPI.ApplyMask;
  begin
    EnsureThreadState;
-   {$IFDEF GLES}
-   glColorMask((curmask and 4),
-               (curmask and 2),
-               (curmask and 1),
-               (curmask and 8));
-   {$ELSE}
    glColorMask((curmask and 4)>0,
                (curmask and 2)>0,
                (curmask and 1)>0,
                (curmask and 8)>0);
-   {$ENDIF}
  end;
 
 procedure TGLRenderTargetAPI.Backbuffer;
  begin
   EnsureThreadState;
   inherited;
-  {$IFDEF GLES11}
-  glBindFramebufferOES(GL_FRAMEBUFFER_OES,0);
-  {$ENDIF}
-  {$IFDEF GLES20}
-  glBindFramebuffer(GL_FRAMEBUFFER,0);
-  {$ENDIF}
-  {$IFNDEF GLES}
+  {$IFDEF GLES}
+  glBindFramebuffer(GL_FRAMEBUFFER,defaultFramebuffer); // core in ES 3.0
+  {$ELSE}
   if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
-    glBindFramebuffer(GL_FRAMEBUFFER,0);
+    glBindFramebuffer(GL_FRAMEBUFFER,defaultFramebuffer);
   {$ENDIF}
   realWidth:=backBufferWidth;
   realHeight:=backBufferHeight;
@@ -1483,7 +1523,7 @@ procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderH
 
 initialization
  oglContextTemplate.minMajor:=3;
- oglContextTemplate.minMinor:=0;
+ oglContextTemplate.minMinor:=3;
  oglContextTemplate.profile:=oglpCore;
  {$IFDEF DEBUG}
  oglContextTemplate.debugContext:=true;

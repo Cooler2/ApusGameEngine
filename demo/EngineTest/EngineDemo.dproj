@@ -188,7 +188,6 @@
         <DCCReference Include="..\..\Apus.Engine.ConsoleScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.BitmapStyle.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UdpTransport.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.IOSgame.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Game.pas"/>
         <DCCReference Include="..\..\Apus.Engine.TweakScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.HttpGameClient.pas"/>

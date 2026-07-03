@@ -26,7 +26,6 @@ uses
   Apus.Engine.ConsoleScene in '..\..\Apus.Engine.ConsoleScene.pas',
   Apus.Engine.BitmapStyle in '..\..\Apus.Engine.BitmapStyle.pas',
   Apus.Engine.UdpTransport in '..\..\Apus.Engine.UdpTransport.pas',
-  Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
   Apus.Engine.Game in '..\..\Apus.Engine.Game.pas',
   Apus.Engine.TweakScene in '..\..\Apus.Engine.TweakScene.pas',
   Apus.Engine.HttpGameClient in '..\..\Apus.Engine.HttpGameClient.pas',

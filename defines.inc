@@ -23,28 +23,24 @@
   {$DEFINE CPU64}
 {$ENDIF}
 
-{$IF Defined(MSWINDOWS) or Defined(LINUX) or Defined(DARWIN)}
-  // Desktop OpenGL loader path (unit dglOpenGL + InitOpenGL/extension handling).
-  // Not defined for mobile targets where GLES headers are used instead.
-  {$DEFINE DGL}
-{$ENDIF}
-
 {$IFDEF IOS}
-  // iOS uses OpenGL ES profile.
+  // iOS uses OpenGL ES 3.0 profile.
   {$DEFINE GLES}
-  // iOS legacy renderer paths expect GLES 1.1 symbol.
-  {$DEFINE GLES11}
   // Marks OpenGL-family backend (desktop GL or GLES).
   {$DEFINE OPENGL}
 {$ENDIF}
 
 {$IFDEF ANDROID}
-  // Android uses OpenGL ES profile.
+  // Android uses OpenGL ES 3.0 profile.
   {$DEFINE GLES}
-  // Android renderer paths use GLES 2.0 shader pipeline.
-  {$DEFINE GLES20}
   // Marks OpenGL-family backend (desktop GL or GLES).
   {$DEFINE OPENGL}
+{$ENDIF}
+
+{$IF (Defined(MSWINDOWS) or Defined(LINUX) or Defined(DARWIN)) and not Defined(GLES)}
+  // Desktop OpenGL loader path (unit dglOpenGL + InitOpenGL/extension handling).
+  // Not defined when GLES is active (macOS desktop stays DGL; iOS/Android define GLES above).
+  {$DEFINE DGL}
 {$ENDIF}
 
 // Keep deterministic floating-point behavior across compilers.

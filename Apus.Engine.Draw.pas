@@ -148,7 +148,11 @@ uses Apus.Core, Apus.Lib,
  // Particles Shader 3D
 
   PART_SHADER_3D_VERT =
+   {$IFDEF GLES}
+   '#version 300 es // 3D particles '#13#10+
+   {$ELSE}
    '#version 330 // 3D particles '#13#10+
+   {$ENDIF}
    'uniform mat4 MVP; '#13#10+
    'uniform vec3 vecDown; '#13#10+
    'uniform vec3 vecRight; '#13#10+
@@ -177,7 +181,12 @@ uses Apus.Core, Apus.Lib,
    '}';
 
   PART_SHADER_3D_FRAG =
+   {$IFDEF GLES}
+   '#version 300 es // 3D particles '#13#10+
+   'precision highp float; '#13#10+
+   {$ELSE}
    '#version 330 // 3D particles '#13#10+
+   {$ENDIF}
    'uniform sampler2D tex0; '#13#10+
    'uniform sampler2D depthTex; '#13#10+
    'uniform float softRange; '#13#10+
@@ -190,7 +199,7 @@ uses Apus.Core, Apus.Lib,
    ' if (softRange>0.0) { '#13#10+
    '   vec2 depthUV = gl_FragCoord.xy/vec2(textureSize(depthTex,0)); '#13#10+
    '   float delta = texture(depthTex,depthUV).r-gl_FragCoord.z; '#13#10+
-   '   alpha = smoothstep(0,softRange,delta); '#13#10+
+   '   alpha = smoothstep(0.0,softRange,delta); '#13#10+
    ' } '#13#10+
    ' fragColor = texture(tex0,uv)*vColor*vec4(2.0,2.0,2.0,alpha);'#13#10+
    ' if (fragColor.a<0.01) discard;'#13#10+

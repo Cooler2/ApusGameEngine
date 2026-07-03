@@ -92,8 +92,8 @@ type
 
 implementation
  uses Apus.Images, Apus.Geom2D, Apus.Geom3D,
-      {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
-      {$IFDEF ANDROID}gles20, {$ENDIF}
+      {$IFDEF DGL}dglOpenGL, {$ENDIF}
+      {$IFDEF GLES}dglOpenGLES, {$ENDIF}
       Apus.Colors,Apus.Engine.UI,Apus.Engine.UITypes,Apus.Engine.UIRender,
       Apus.Engine.Window,
       Apus.Lib, Apus.Utils;
@@ -603,7 +603,11 @@ end;
 const
  // version for GLPainter2
  vBlurShader2=
+  {$IFDEF GLES}
+  '#version 300 es '#13#10+
+  {$ELSE}
   '#version 330 '#13#10+
+  {$ENDIF}
   'layout (location=0) in vec3 aPosition;    '#13#10+
   'layout (location=1) in vec4 color;      '#13#10+
   'layout (location=2) in vec2 texCoord; '#13#10+
@@ -617,6 +621,12 @@ const
   '}';
 
  fBlurShader2=
+  {$IFDEF GLES}
+  '#version 300 es '#13#10+
+  'precision highp float; '#13#10+
+  {$ELSE}
+  '#version 330 '#13#10+
+  {$ENDIF}
   'uniform sampler2D tex1; '#13#10+
   'uniform sampler2D tex2; '#13#10+
   'uniform float offsetX; '#13#10+
@@ -626,14 +636,15 @@ const
   'uniform vec4 colorAdd; '#13#10+
   'uniform vec4 colorMult; '#13#10+
   'in vec2 vTexcoord;'#13#10+
+  'out vec4 fragColor;'#13#10+
   'void main(void)   '#13#10+
   '{   '#13#10+
-  '   vec4 value = v1 * texture2D(tex1, vTexcoord);  '#13#10+
-  '   value += v2 * texture2D(tex2, vTexcoord+vec2(offsetX,offsetY));  '#13#10+
-  '   value += v2 * texture2D(tex2, vTexcoord+vec2(-offsetX,offsetY));  '#13#10+
-  '   value += v2 * texture2D(tex2, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
-  '   value += v2 * texture2D(tex2, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
-  '   gl_FragColor = colorAdd + value*colorMult;  '#13#10+
+  '   vec4 value = v1 * texture(tex1, vTexcoord);  '#13#10+
+  '   value += v2 * texture(tex2, vTexcoord+vec2(offsetX,offsetY));  '#13#10+
+  '   value += v2 * texture(tex2, vTexcoord+vec2(-offsetX,offsetY));  '#13#10+
+  '   value += v2 * texture(tex2, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
+  '   value += v2 * texture(tex2, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
+  '   fragColor = colorAdd + value*colorMult;  '#13#10+
   '}';
 
 var

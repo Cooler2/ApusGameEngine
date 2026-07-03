@@ -3,9 +3,11 @@
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+{$I defines.inc}
 unit Apus.Engine.SDLplatform;
 interface
-uses Types, sdl2, Apus.Engine.API, Apus.Engine.OpenGL;
+uses Types, sdl2, Apus.Engine.API, Apus.Engine.OpenGL
+ {$IFDEF GLES},dglOpenGLES{$ENDIF};
 
 type
  
@@ -369,13 +371,20 @@ procedure ApplyOpenGLContextAttributes(const graph:TOpenGLContextDesc;shareWithC
  begin
   major:=graph.minMajor;
   minor:=graph.minMinor;
-  if (major<3) or ((major=3) and (minor<2)) then begin
+  {$IFDEF GLES}
+  // ES 3.0 baseline: do NOT apply the desktop 3.3 minimum clamp.
+  profileMask:=SDL_GL_CONTEXT_PROFILE_ES;
+  major:=3;
+  minor:=0;
+  {$ELSE}
+  if (major<3) or ((major=3) and (minor<3)) then begin
    major:=3;
-   minor:=2;
+   minor:=3;
   end;
   profileMask:=SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
   if graph.profile=oglpCore then
    profileMask:=SDL_GL_CONTEXT_PROFILE_CORE;
+  {$ENDIF}
   flags:=0;
   if graph.debugContext then flags:=flags or SDL_GL_CONTEXT_DEBUG_FLAG;
   if graph.forwardCompatible then flags:=flags or SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
@@ -738,6 +747,17 @@ function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,0);
   end;
   result:=UIntPtr(ctx);
+
+  {$IFDEF GLES}
+  // dglOpenGLES has no lazy self-binding stubs like dglOpenGL: load entry points
+  // explicitly, resolving through SDL instead of dlopen'ing the GLES library ourselves.
+  if ctx<>nil then begin
+   SetExternalProcAddressResolver(TdglExternalProcAddress(@SDL_GL_GetProcAddress));
+   ReadOpenGLCore;
+   ReadCoreVersion;
+   ReadExtensions;
+  end;
+  {$ENDIF}
 
   graph.actualMajor:=0;
   graph.actualMinor:=0;
