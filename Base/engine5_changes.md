@@ -3,6 +3,13 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Platform-native text line endings (2026-07-03)
+
+- `Apus.Core.LineBreak` provides the current platform's native text line
+  terminator: CRLF on Windows and LF on Unix-like systems.
+- Robot API responses and the engine diagnostics used by Robot API handlers now
+  use `LineBreak`; wire protocols that require CRLF remain unchanged.
+
 ## Glyph cache diagnostics and bounds fixes (2026-06-29)
 
 - `Apus.GlyphCache` now rejects items that cannot fit the concrete atlas region

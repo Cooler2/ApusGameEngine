@@ -2175,14 +2175,14 @@ begin
   for i:=0 to high(objects) do begin
     if not (objects[i] is TGLTexture) then continue;
     t:=TGLTexture(objects[i]);
-    body:=body+'TEX: '+t.name+#13#10+
-      '  glName: '+Conv.ToStr(integer(t.texname))+#13#10+
-      '  width: '+Conv.ToStr(t.width)+#13#10+
-      '  height: '+Conv.ToStr(t.height)+#13#10+
-      '  realWidth: '+Conv.ToStr(t.realWidth)+#13#10+
-      '  realHeight: '+Conv.ToStr(t.realHeight)+#13#10+
-      '  format: '+GetEnumName(TypeInfo(TImagePixelFormat),ord(t.pixelFormat))+#13#10+
-      '  hasFBO: '+Conv.ToStr(t.fbo<>0)+#13#10;
+    body:=body+'TEX: '+t.name+LineBreak+
+      '  glName: '+Conv.ToStr(integer(t.texname))+LineBreak+
+      '  width: '+Conv.ToStr(t.width)+LineBreak+
+      '  height: '+Conv.ToStr(t.height)+LineBreak+
+      '  realWidth: '+Conv.ToStr(t.realWidth)+LineBreak+
+      '  realHeight: '+Conv.ToStr(t.realHeight)+LineBreak+
+      '  format: '+GetEnumName(TypeInfo(TImagePixelFormat),ord(t.pixelFormat))+LineBreak+
+      '  hasFBO: '+Conv.ToStr(t.fbo<>0)+LineBreak;
   end;
   result:=true;
 end;

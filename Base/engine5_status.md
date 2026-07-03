@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-06-29)
+## Summary (last updated: 2026-07-03)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -12,6 +12,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ EventMan removes and warns about dangling thread-affine handlers on thread exit
 - ✅ `Apus.Socket` public declarations use portable `NativeUInt`/`UIntPtr` types in Delphi and FPC
 - ✅ Glyph cache bounds failures are explicit; TextDraw no longer writes past its update-row list
+- ✅ Platform-native `Apus.Core.LineBreak` is used by Robot API text responses and diagnostics
 - ✅ Classes migrated and legacy Structs split completed (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes

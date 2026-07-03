@@ -40,8 +40,10 @@ const
 
   {$IFDEF MSWINDOWS}
   PathSeparator='\';
+  LineBreak=#13#10;
   {$ELSE}
   PathSeparator='/';
+  LineBreak=#10;
   {$ENDIF}
   MAX_FLOAT = 3.4E38;
   MIN_FLOAT = 1.18E-38;

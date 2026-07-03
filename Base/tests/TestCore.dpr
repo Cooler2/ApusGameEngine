@@ -259,6 +259,12 @@ var
 begin
   StartTest('System primitives');
 
+  {$IFDEF MSWINDOWS}
+  Check(LineBreak=#13#10,'LineBreak is CRLF on Windows');
+  {$ELSE}
+  Check(LineBreak=#10,'LineBreak is LF on Unix-like systems');
+  {$ENDIF}
+
   tid:=GetCurrentThreadID;
   Check(tid<>0,'GetCurrentThreadID non-zero');
 

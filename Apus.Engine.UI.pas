@@ -493,7 +493,7 @@ implementation
       indent+Format('%d En=%d Vis=%d shape=%s',[c.order,byte(c.flags.enabled),byte(c.flags.visible),shapeStr]),
       indent+Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
        [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]),
-       ''],#13#10);
+       ''],LineBreak);
      for i:=0 to length(c.children)-1 do
       result:=result+DumpElement(c.children[i],indent+'+ ');
     end;
@@ -511,10 +511,10 @@ implementation
      'Modal: '+Conv.ToStr(window.modal.Root),
      'Focused: '+Conv.ToStr(FocusedElement),
      'Hooked: '+Conv.ToStr(hooked),
-     ''],#13#10);
+     ''],LineBreak);
     CollectUIRoots(roots,zOrders,false);
     for i:=0 to high(roots) do
-      result:=result+DumpUITree(roots[i])+#13#10;
+      result:=result+DumpUITree(roots[i])+LineBreak;
   end;
 
  procedure SetupButton(btn:TUIButton;cursor:integer;

@@ -263,35 +263,35 @@ var
   itemWidth:single;
 begin
   if layout=nil then exit('');
-  s:='layout:'+#13#10+
-    indent+'class: '+String8(layout.ClassName)+#13#10;
+  s:='layout:'+LineBreak+
+    indent+'class: '+String8(layout.ClassName)+LineBreak;
   if layout is TRowLayout then begin
     s:=s+
-      indent+'horizontal: '+Conv.ToStr(TRowLayout(layout).fHorizontal)+#13#10+
-      indent+'resizeToContent: '+Conv.ToStr(TRowLayout(layout).fResize)+#13#10+
-      indent+'center: '+Conv.ToStr(TRowLayout(layout).fCenter)+#13#10+
-      indent+'spaceBetween: '+Conv.ToStr(TRowLayout(layout).fSpaceBetween,3)+#13#10;
+      indent+'horizontal: '+Conv.ToStr(TRowLayout(layout).fHorizontal)+LineBreak+
+      indent+'resizeToContent: '+Conv.ToStr(TRowLayout(layout).fResize)+LineBreak+
+      indent+'center: '+Conv.ToStr(TRowLayout(layout).fCenter)+LineBreak+
+      indent+'spaceBetween: '+Conv.ToStr(TRowLayout(layout).fSpaceBetween,3)+LineBreak;
   end else if layout is TFlexboxLayout then begin
     s:=s+
-      indent+'vertical: '+Conv.ToStr(TFlexboxLayout(layout).vertical)+#13#10+
-      indent+'spaceBetween: '+Conv.ToStr(TFlexboxLayout(layout).spaceBetween,3)+#13#10;
+      indent+'vertical: '+Conv.ToStr(TFlexboxLayout(layout).vertical)+LineBreak+
+      indent+'spaceBetween: '+Conv.ToStr(TFlexboxLayout(layout).spaceBetween,3)+LineBreak;
   end else if layout is TGridLayout then begin
     g:=TGridLayout(layout);
     s:=s+
-      indent+'vertSpace: '+Conv.ToStr(g.vertSpace,3)+#13#10+
-      indent+'horSpace: '+Conv.ToStr(g.horSpace,3)+#13#10+
-      indent+'paddingV: '+Conv.ToStr(g.paddingV,3)+#13#10+
-      indent+'paddingH: '+Conv.ToStr(g.paddingH,3)+#13#10+
-      indent+'desiredWidth: '+Conv.ToStr(g.desiredWidth,3)+#13#10+
-      indent+'center: '+Conv.ToStr(g.center)+#13#10+
-      indent+'allowResize: '+Conv.ToStr(g.allowResize)+#13#10;
+      indent+'vertSpace: '+Conv.ToStr(g.vertSpace,3)+LineBreak+
+      indent+'horSpace: '+Conv.ToStr(g.horSpace,3)+LineBreak+
+      indent+'paddingV: '+Conv.ToStr(g.paddingV,3)+LineBreak+
+      indent+'paddingH: '+Conv.ToStr(g.paddingH,3)+LineBreak+
+      indent+'desiredWidth: '+Conv.ToStr(g.desiredWidth,3)+LineBreak+
+      indent+'center: '+Conv.ToStr(g.center)+LineBreak+
+      indent+'allowResize: '+Conv.ToStr(g.allowResize)+LineBreak;
     if (parent<>nil) and g.allowResize and (g.desiredWidth>0) then begin
       // compute effective columns and item width as LayoutFlex would
       cols:=max(1,round(parent.clientWidth/g.desiredWidth));
       itemWidth:=round((parent.clientWidth-g.paddingH*2-(cols-1)*g.horSpace)/cols);
       s:=s+
-        indent+'computedCols: '+Conv.ToStr(cols)+#13#10+
-        indent+'computedItemWidth: '+Conv.ToStr(itemWidth,1)+#13#10;
+        indent+'computedCols: '+Conv.ToStr(cols)+LineBreak+
+        indent+'computedItemWidth: '+Conv.ToStr(itemWidth,1)+LineBreak;
     end;
   end;
   result:=s;

@@ -39,7 +39,6 @@ const
   SLOW_INTERVAL = 500; // ms between checks in slow mode
   FAST_INTERVAL = 100; // ms between checks in fast mode
   FAST_TIMEOUT  = 5000; // ms of inactivity before returning to slow mode
-  CRLF = #13#10;
 
 type
   TCommandEntry=record
@@ -142,7 +141,7 @@ var
 begin
   pending:=false;
   if req.id='' then begin
-    result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: ID parameter required'+CRLF+'==='+CRLF;
+    result:='ID: '+req.id+LineBreak+'STATUS: ERROR'+LineBreak+'MSG: ID parameter required'+LineBreak+'==='+LineBreak;
     exit;
   end;
   for i:=0 to commandCount-1 do
@@ -155,14 +154,14 @@ begin
           result:='';
           exit;
         end;
-        result:='ID: '+req.id+CRLF+'STATUS: OK'+CRLF+body+'==='+CRLF
+        result:='ID: '+req.id+LineBreak+'STATUS: OK'+LineBreak+body+'==='+LineBreak
       end else begin
-        result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: '+body+CRLF+'==='+CRLF;
+        result:='ID: '+req.id+LineBreak+'STATUS: ERROR'+LineBreak+'MSG: '+body+LineBreak+'==='+LineBreak;
         Log.Warn('RoboReq FAIL: '+body);
       end;
       exit;
     end;
-  result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: unknown command: '+req.cmd+CRLF+'==='+CRLF;
+  result:='ID: '+req.id+LineBreak+'STATUS: ERROR'+LineBreak+'MSG: unknown command: '+req.cmd+LineBreak+'==='+LineBreak;
 end;
 
 procedure ProcessInputFile;

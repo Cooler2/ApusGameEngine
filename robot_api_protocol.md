@@ -5,6 +5,8 @@ File-based request/response protocol for external automation of the Apus Engine 
 ## Files
 
 - **Input:** `robot_in.txt` — **Output:** `robot_out.txt` (both in working directory)
+- Output uses the current platform's native line terminator (CRLF on Windows,
+  LF on Unix-like systems). Input accepts CRLF, LF, and CR line endings.
 
 ## Request Format
 

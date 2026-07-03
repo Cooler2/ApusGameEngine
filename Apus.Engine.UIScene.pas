@@ -178,10 +178,10 @@ function UIScene(name:String8):TUIScene;
   begin
    st:=' mouse clipping: '+inttostr(ord(clipMouse))+' ('+
      inttostr(clipMouserect.left)+','+inttostr(clipMouserect.top)+':'+
-     inttostr(clipMouserect.right)+','+inttostr(clipMouserect.bottom)+')'#13#10;
+     inttostr(clipMouserect.right)+','+inttostr(clipMouserect.bottom)+')'+LineBreak;
    st:=st+' Modal element: ';
    if window.modal.Root<>nil then st:=st+window.modal.Root.name else st:=st+'none';
-   Log.Force('UI state'#13#10+st);
+   Log.Force('UI state'+LineBreak+st);
   end;
 
  procedure onSimulateClick(event:TEventStr;tag:TTag); forward;
@@ -792,7 +792,7 @@ begin
     ElementFlags(e);
   if e.caption<>'' then
     result:=result+' caption="'+e.caption+'"';
-  result:=result+#13#10;
+  result:=result+LineBreak;
 end;
 
 procedure DumpTree(e:TUIElement; depth,maxDepth:integer; var body:String8);
@@ -876,7 +876,7 @@ var
     lines:=text.SplitLines;
     for j:=0 to high(lines) do
       if lines[j]<>'' then
-        result:=result+prefix+lines[j]+#13#10;
+        result:=result+prefix+lines[j]+LineBreak;
   end;
 
   procedure AppendElementInfo(el:TUIElement;prefix:String8);
@@ -886,49 +886,49 @@ var
   begin
     r:=el.GetPosOnScreen; // always compute current rect
     body:=body+
-      prefix+'name: '+el.name+#13#10+
-      prefix+'class: '+String8(el.ClassName)+#13#10+
-      prefix+'position: '+Conv.ToStr(el.position.x,1)+','+Conv.ToStr(el.position.y,1)+#13#10+
-      prefix+'size: '+Conv.ToStr(el.size.x,1)+','+Conv.ToStr(el.size.y,1)+#13#10+
-      prefix+'clientSize: '+Conv.ToStr(el.clientWidth,1)+','+Conv.ToStr(el.clientHeight,1)+#13#10+
+      prefix+'name: '+el.name+LineBreak+
+      prefix+'class: '+String8(el.ClassName)+LineBreak+
+      prefix+'position: '+Conv.ToStr(el.position.x,1)+','+Conv.ToStr(el.position.y,1)+LineBreak+
+      prefix+'size: '+Conv.ToStr(el.size.x,1)+','+Conv.ToStr(el.size.y,1)+LineBreak+
+      prefix+'clientSize: '+Conv.ToStr(el.clientWidth,1)+','+Conv.ToStr(el.clientHeight,1)+LineBreak+
       prefix+'anchors: '+Conv.ToStr(el.anchors.left,2)+','+Conv.ToStr(el.anchors.top,2)+','+
-        Conv.ToStr(el.anchors.right,2)+','+Conv.ToStr(el.anchors.bottom,2)+#13#10+
-      prefix+'pivot: '+Conv.ToStr(el.pivot.x,1)+','+Conv.ToStr(el.pivot.y,1)+#13#10+
-      prefix+'scale: '+Conv.ToStr(el.scale,2)+#13#10+
-      prefix+'globalRect: '+RectToStr(r)+#13#10+
-      prefix+'visible: '+Conv.ToStr(el.flags.visible)+#13#10+
-      prefix+'visibleInternal: '+Conv.ToStr(el.flags.visible)+#13#10+
-      prefix+'visibleEffective: '+Conv.ToStr(el.IsVisible)+#13#10+
-      prefix+'enabled: '+Conv.ToStr(el.flags.enabled)+#13#10+
-      prefix+'enabledInternal: '+Conv.ToStr(el.flags.enabled)+#13#10+
-      prefix+'enabledEffective: '+Conv.ToStr(el.IsEnabled)+#13#10+
-      prefix+'noParentClip: '+Conv.ToStr(el.flags.noParentClip)+#13#10+
-      prefix+'dontClipChildren: '+Conv.ToStr(el.flags.dontClipChildren)+#13#10+
-      prefix+'order: '+Conv.ToStr(el.order)+#13#10+
-      prefix+'caption: '+el.caption+#13#10+
-      prefix+'hint: '+el.hint+#13#10+
-      prefix+'styleInfo: '+el.styleInfo+#13#10+
-      prefix+'color: '+el.GetStyleValue('color','')+#13#10;
+        Conv.ToStr(el.anchors.right,2)+','+Conv.ToStr(el.anchors.bottom,2)+LineBreak+
+      prefix+'pivot: '+Conv.ToStr(el.pivot.x,1)+','+Conv.ToStr(el.pivot.y,1)+LineBreak+
+      prefix+'scale: '+Conv.ToStr(el.scale,2)+LineBreak+
+      prefix+'globalRect: '+RectToStr(r)+LineBreak+
+      prefix+'visible: '+Conv.ToStr(el.flags.visible)+LineBreak+
+      prefix+'visibleInternal: '+Conv.ToStr(el.flags.visible)+LineBreak+
+      prefix+'visibleEffective: '+Conv.ToStr(el.IsVisible)+LineBreak+
+      prefix+'enabled: '+Conv.ToStr(el.flags.enabled)+LineBreak+
+      prefix+'enabledInternal: '+Conv.ToStr(el.flags.enabled)+LineBreak+
+      prefix+'enabledEffective: '+Conv.ToStr(el.IsEnabled)+LineBreak+
+      prefix+'noParentClip: '+Conv.ToStr(el.flags.noParentClip)+LineBreak+
+      prefix+'dontClipChildren: '+Conv.ToStr(el.flags.dontClipChildren)+LineBreak+
+      prefix+'order: '+Conv.ToStr(el.order)+LineBreak+
+      prefix+'caption: '+el.caption+LineBreak+
+      prefix+'hint: '+el.hint+LineBreak+
+      prefix+'styleInfo: '+el.styleInfo+LineBreak+
+      prefix+'color: '+el.GetStyleValue('color','')+LineBreak;
     if el is TUIScrollBar then begin
       sb:=TUIScrollBar(el);
       body:=body+
-        prefix+'scrollMin: '+Conv.ToStr(sb.min,2)+#13#10+
-        prefix+'scrollMax: '+Conv.ToStr(sb.max,2)+#13#10+
-        prefix+'scrollPageSize: '+Conv.ToStr(sb.pagesize,2)+#13#10+
-        prefix+'scrollValue: '+Conv.ToStr(sb.value,2)+#13#10+
-        prefix+'scrollStep: '+Conv.ToStr(sb.step,2)+#13#10+
-        prefix+'scrollHorizontal: '+Conv.ToStr(sb.horizontal)+#13#10+
-        prefix+'scrollSlider: '+Conv.ToStr(sb.sliderStart,3)+'..'+Conv.ToStr(sb.sliderEnd,3)+#13#10;
+        prefix+'scrollMin: '+Conv.ToStr(sb.min,2)+LineBreak+
+        prefix+'scrollMax: '+Conv.ToStr(sb.max,2)+LineBreak+
+        prefix+'scrollPageSize: '+Conv.ToStr(sb.pagesize,2)+LineBreak+
+        prefix+'scrollValue: '+Conv.ToStr(sb.value,2)+LineBreak+
+        prefix+'scrollStep: '+Conv.ToStr(sb.step,2)+LineBreak+
+        prefix+'scrollHorizontal: '+Conv.ToStr(sb.horizontal)+LineBreak+
+        prefix+'scrollSlider: '+Conv.ToStr(sb.sliderStart,3)+'..'+Conv.ToStr(sb.sliderEnd,3)+LineBreak;
     end;
     if el.layout<>nil then
       body:=body+PrefixLines(DescribeLayouter(el.layout,el),prefix);
     if el.parent<>nil then
-      body:=body+prefix+'parent: '+el.parent.name+#13#10
+      body:=body+prefix+'parent: '+el.parent.name+LineBreak
     else
-      body:=body+prefix+'parent: (none)'+#13#10;
-    body:=body+prefix+'childCount: '+Conv.ToStr(length(el.children))+#13#10+
-      prefix+'focused: '+Conv.ToStr(FocusedElement=el)+#13#10+
-      prefix+'underMouse: '+Conv.ToStr(underMouse=el)+#13#10;
+      body:=body+prefix+'parent: (none)'+LineBreak;
+    body:=body+prefix+'childCount: '+Conv.ToStr(length(el.children))+LineBreak+
+      prefix+'focused: '+Conv.ToStr(FocusedElement=el)+LineBreak+
+      prefix+'underMouse: '+Conv.ToStr(underMouse=el)+LineBreak;
   end;
 begin
   eName:=req.Param('NAME');
@@ -949,9 +949,9 @@ begin
         chain[n]:=c;
         c:=c.parent;
       end;
-      body:=body+'hierarchyCount: '+Conv.ToStr(length(chain))+#13#10;
+      body:=body+'hierarchyCount: '+Conv.ToStr(length(chain))+LineBreak;
       for i:=0 to high(chain) do begin
-        body:=body+'HIERARCHY: '+Conv.ToStr(i+1)+#13#10;
+        body:=body+'HIERARCHY: '+Conv.ToStr(i+1)+LineBreak;
         AppendElementInfo(chain[i],'  ');
       end;
     end;
@@ -972,7 +972,7 @@ begin
   y:=Conv.ToInt(req.Param('Y'));
   enabled:=FindAnyElementAt(x,y,c); // uses window lock internally
   if c=nil then begin
-    body:='hit: (none)'+#13#10;
+    body:='hit: (none)'+LineBreak;
   end else begin
     chain:=c.name;
     p:=c.parent;
@@ -980,15 +980,15 @@ begin
       chain:=p.name+' > '+chain;
       p:=p.parent;
     end;
-    body:='hit: '+c.name+#13#10+
-      'hitClass: '+String8(c.ClassName)+#13#10+
-      'chain: '+chain+#13#10+
-      'enabled: '+Conv.ToStr(enabled)+#13#10;
+    body:='hit: '+c.name+LineBreak+
+      'hitClass: '+String8(c.ClassName)+LineBreak+
+      'chain: '+chain+LineBreak+
+      'enabled: '+Conv.ToStr(enabled)+LineBreak;
   end;
   if window.modal.Root<>nil then
-    body:=body+'modal: '+window.modal.Root.name+#13#10
+    body:=body+'modal: '+window.modal.Root.name+LineBreak
   else
-    body:=body+'modal: (none)'+#13#10;
+    body:=body+'modal: (none)'+LineBreak;
   result:=true;
 end;
 

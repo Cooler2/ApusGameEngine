@@ -763,15 +763,15 @@ function ValidateMainWindowParam(const req:TRobotRequest; out error:String8):boo
 function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
-  body:='WINDOW: 0'#13#10+
-    '  windowWidth: '+Conv.ToStr(window.windowWidth)+#13#10+
-    '  windowHeight: '+Conv.ToStr(window.windowHeight)+#13#10+
-    '  renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
-    '  renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10+
-    '  screenDPI: '+Conv.ToStr(window.screenDPI)+#13#10+
-    '  screenScale: '+Conv.ToStr(game.screenScale,2)+#13#10+
+  body:='WINDOW: 0'+LineBreak+
+    '  windowWidth: '+Conv.ToStr(window.windowWidth)+LineBreak+
+    '  windowHeight: '+Conv.ToStr(window.windowHeight)+LineBreak+
+    '  renderWidth: '+Conv.ToStr(window.renderWidth)+LineBreak+
+    '  renderHeight: '+Conv.ToStr(window.renderHeight)+LineBreak+
+    '  screenDPI: '+Conv.ToStr(window.screenDPI)+LineBreak+
+    '  screenScale: '+Conv.ToStr(game.screenScale,2)+LineBreak+
     '  displayRect: '+Conv.ToStr(window.displayRect.Left)+','+Conv.ToStr(window.displayRect.Top)+','+
-      Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+#13#10;
+      Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+LineBreak;
   result:=true;
 end;
 
@@ -805,12 +805,12 @@ function RobotCmdWindowMove(const req:TRobotRequest; out body:String8):boolean;
   g.SetupRenderArea;
   p:=Types.Point(0,0);
   window.ClientToScreen(p);
-  body:='x: '+Conv.ToStr(p.x)+#13#10+
-    'y: '+Conv.ToStr(p.y)+#13#10+
-    'windowWidth: '+Conv.ToStr(window.windowWidth)+#13#10+
-    'windowHeight: '+Conv.ToStr(window.windowHeight)+#13#10+
-    'renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
-    'renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10;
+  body:='x: '+Conv.ToStr(p.x)+LineBreak+
+    'y: '+Conv.ToStr(p.y)+LineBreak+
+    'windowWidth: '+Conv.ToStr(window.windowWidth)+LineBreak+
+    'windowHeight: '+Conv.ToStr(window.windowHeight)+LineBreak+
+    'renderWidth: '+Conv.ToStr(window.renderWidth)+LineBreak+
+    'renderHeight: '+Conv.ToStr(window.renderHeight)+LineBreak;
   result:=true;
  end;
 
@@ -851,12 +851,12 @@ function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean
   g.SetupRenderArea;
   p:=Types.Point(0,0);
   window.ClientToScreen(p);
-  body:='x: '+Conv.ToStr(p.x)+#13#10+
-    'y: '+Conv.ToStr(p.y)+#13#10+
-    'windowWidth: '+Conv.ToStr(window.windowWidth)+#13#10+
-    'windowHeight: '+Conv.ToStr(window.windowHeight)+#13#10+
-    'renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
-    'renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10;
+  body:='x: '+Conv.ToStr(p.x)+LineBreak+
+    'y: '+Conv.ToStr(p.y)+LineBreak+
+    'windowWidth: '+Conv.ToStr(window.windowWidth)+LineBreak+
+    'windowHeight: '+Conv.ToStr(window.windowHeight)+LineBreak+
+    'renderWidth: '+Conv.ToStr(window.renderWidth)+LineBreak+
+    'renderHeight: '+Conv.ToStr(window.renderHeight)+LineBreak;
   result:=true;
  end;
 
@@ -895,22 +895,22 @@ begin
   if req.Param('METRICS')<>'' then
     window.timings.phaseMetrics:=false;
 
-  body:='fps: '+Conv.ToStr(window.FPS,2)+#13#10+
-    'smoothFPS: '+Conv.ToStr(window.smoothFPS,2)+#13#10+
-    'frameNum: '+Conv.ToStr(window.frameNum)+#13#10+
-    'frameTimeMs: '+Conv.ToStr(window.timings.lastFrameTimeUs*0.001,2)+#13#10;
+  body:='fps: '+Conv.ToStr(window.FPS,2)+LineBreak+
+    'smoothFPS: '+Conv.ToStr(window.smoothFPS,2)+LineBreak+
+    'frameNum: '+Conv.ToStr(window.frameNum)+LineBreak+
+    'frameTimeMs: '+Conv.ToStr(window.timings.lastFrameTimeUs*0.001,2)+LineBreak;
   if collectMetrics then begin
     body:=body+
-      'msgMs: '+Conv.ToStr(window.timings.lastMsgUs*0.001,2)+#13#10+
-      'onFrameMs: '+Conv.ToStr(window.timings.lastOnFrameUs*0.001,2)+#13#10+
-      'renderMs: '+Conv.ToStr(window.timings.lastRenderUs*0.001,2)+#13#10+
-      'presentMs: '+Conv.ToStr(window.timings.lastPresentUs*0.001,2)+#13#10+
-      'sleepMs: '+Conv.ToStr(window.timings.lastSleepUs*0.001,2)+#13#10;
+      'msgMs: '+Conv.ToStr(window.timings.lastMsgUs*0.001,2)+LineBreak+
+      'onFrameMs: '+Conv.ToStr(window.timings.lastOnFrameUs*0.001,2)+LineBreak+
+      'renderMs: '+Conv.ToStr(window.timings.lastRenderUs*0.001,2)+LineBreak+
+      'presentMs: '+Conv.ToStr(window.timings.lastPresentUs*0.001,2)+LineBreak+
+      'sleepMs: '+Conv.ToStr(window.timings.lastSleepUs*0.001,2)+LineBreak;
   end;
   if n>0 then begin
     if n>window.timings.frameTimeRingCount then n:=window.timings.frameTimeRingCount;
     if n>FRAME_TIME_RING_SIZE then n:=FRAME_TIME_RING_SIZE;
-    body:=body+'historyCount: '+Conv.ToStr(n)+#13#10;
+    body:=body+'historyCount: '+Conv.ToStr(n)+LineBreak;
     if n>0 then begin
       idx:=window.timings.frameTimeRingPos-n;
       if idx<0 then inc(idx,FRAME_TIME_RING_SIZE);
@@ -919,17 +919,17 @@ begin
       for i:=0 to n-1 do begin
         if collectMetrics then begin
           body:=body+
-            'Frame: '+Conv.ToStr(startFrameNum+i)+#13#10+
-            '  MSG: '+Conv.ToStr(window.timings.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  ONFRAME: '+Conv.ToStr(window.timings.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  RENDER: '+Conv.ToStr(window.timings.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  PRESENT: '+Conv.ToStr(window.timings.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  SLEEP: '+Conv.ToStr(window.timings.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  Total: '+Conv.ToStr(window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+            'Frame: '+Conv.ToStr(startFrameNum+i)+LineBreak+
+            '  MSG: '+Conv.ToStr(window.timings.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak+
+            '  ONFRAME: '+Conv.ToStr(window.timings.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak+
+            '  RENDER: '+Conv.ToStr(window.timings.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak+
+            '  PRESENT: '+Conv.ToStr(window.timings.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak+
+            '  SLEEP: '+Conv.ToStr(window.timings.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak+
+            '  Total: '+Conv.ToStr(window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak;
         end else
-          body:=body+'FRAME_MS: '+Conv.ToStr(window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+          body:=body+'FRAME_MS: '+Conv.ToStr(window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+LineBreak;
         if collectMetrics then begin
-          body:=body+#13#10;
+          body:=body+LineBreak;
         end;
       end;
     end;
@@ -949,12 +949,12 @@ begin
   try
     for s in window.scenes do begin
       if activeOnly and (s.status<>ssActive) then continue;
-      body:=body+'SCENE: '+s.name+#13#10+
-        '  status: '+statusNames[s.status]+#13#10+
-        '  zOrder: '+Conv.ToStr(s.zOrder)+#13#10+
-        '  frequency: '+Conv.ToStr(s.frequency)+#13#10+
-        '  fullscreen: '+Conv.ToStr(s.fullscreen)+#13#10+
-        '  class: '+String8(s.ClassName)+#13#10;
+      body:=body+'SCENE: '+s.name+LineBreak+
+        '  status: '+statusNames[s.status]+LineBreak+
+        '  zOrder: '+Conv.ToStr(s.zOrder)+LineBreak+
+        '  frequency: '+Conv.ToStr(s.frequency)+LineBreak+
+        '  fullscreen: '+Conv.ToStr(s.fullscreen)+LineBreak+
+        '  class: '+String8(s.ClassName)+LineBreak;
     end;
   finally
     window.Unlock;
@@ -985,9 +985,9 @@ begin
     img.FlipVertical; // backbuffer is bottom-up in OpenGL
     res:=SavePNG(img);
     Files.WriteBlock(fname,@res[0],length(res),0);
-    body:='file: '+fname+#13#10+
-      'width: '+Conv.ToStr(w)+#13#10+
-      'height: '+Conv.ToStr(h)+#13#10;
+    body:='file: '+fname+LineBreak+
+      'width: '+Conv.ToStr(w)+LineBreak+
+      'height: '+Conv.ToStr(h)+LineBreak;
     result:=true;
   except
     on e:Exception do begin
@@ -1007,9 +1007,9 @@ begin
   x:=Conv.ToInt(req.Param('X'));
   y:=Conv.ToInt(req.Param('Y'));
   color:=gfx.GetPixelValue(x,y);
-  body:='x: '+Conv.ToStr(x)+#13#10+
-    'y: '+Conv.ToStr(y)+#13#10+
-    'color: '+Conv.ToHex(color)+#13#10;
+  body:='x: '+Conv.ToStr(x)+LineBreak+
+    'y: '+Conv.ToStr(y)+LineBreak+
+    'color: '+Conv.ToHex(color)+LineBreak;
   result:=true;
 end;
 
