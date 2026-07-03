@@ -53,10 +53,14 @@ game.ctl`). The script:
 - builds `SimpleDemo.app/Contents/{MacOS,Resources,Frameworks}` + `Info.plist`
   (with `NSHighResolutionCapable` — **required**, or the Retina path stays off
   when launched from the bundle);
-- copies resources into `Contents/Resources`, and the SDL dylibs into
-  `Contents/Frameworks`;
-- rewrites the executable's library reference to `@rpath/...` and adds the
-  rpath `@executable_path/../Frameworks`;
+- copies resources into `Contents/Resources`, and **walks the executable's
+  dependency graph** (`otool -L`, recursively) to copy every non-system dylib —
+  SDL2, and, when present, FreeType, `SDL2_mixer` and its codec libraries — into
+  `Contents/Frameworks`. Nothing is hardcoded per library, so adding a dependency
+  needs no script change (the one exception is `libSDL3`, which sdl2-compat
+  `dlopen`s at runtime and is therefore invisible to `otool` — see below);
+- rewrites each bundled library's install name and the executable's references to
+  `@rpath/...` and adds the rpath `@executable_path/../Frameworks`;
 - **ad-hoc** signs nested-first (each dylib, then the app) and verifies with
   `codesign --verify --deep --strict`.
 
@@ -86,11 +90,34 @@ Homebrew no longer ships classic SDL2 — the `sdl2` formula is an alias for
 `libSDL2` and `libSDL3`; for a genuinely self-contained SDL2 it bundles just
 `libSDL2`.
 
-For a **distributable** bundle, prefer official SDL binaries over Homebrew ones:
-Homebrew dylibs are built with `minimum-macOS = the build host's version`, so a
-bundle made from them only launches on that macOS version or newer. Point
-`SDL2_LIBDIR` (and `SDL3_LIBDIR` if using the shim) at SDL built/downloaded with
-a controlled `MACOSX_DEPLOYMENT_TARGET`; the bundle layout is identical.
+For a **distributable** bundle, prefer official/controlled binaries over Homebrew
+ones: Homebrew dylibs are built with `minimum-macOS = the build host's version`,
+so a bundle made from them only launches on that macOS version or newer — and
+this applies to **every** dependency (FreeType, `SDL2_mixer`, …), not just SDL.
+
+The repo vendors a controlled SDL2 for exactly this. Populate it once with:
+
+```sh
+tools/fetch_redist_macos.sh     # -> redist/macos/libSDL2-2.0.0.dylib (+ SOURCES, license)
+```
+
+This downloads the **official** SDL2 release (a self-contained, universal
+arm64+x86_64 framework with a low deployment target), verifies its SHA-256 and
+normalizes it into `redist/macos/`. Because official SDL2 is self-contained, it
+also **removes the libSDL3 dependency** the Homebrew sdl2-compat shim needs.
+
+Then build the bundle so it substitutes the vendored library:
+
+```sh
+REDIST_LIBDIR="$PWD/redist/macos" tools/make_macos_bundle.sh ...
+```
+
+Any bundled dylib whose **leaf name** matches a file in `REDIST_LIBDIR` is taken
+from there instead of the host copy; the bundle layout is identical, only the
+source of each dylib changes. Use `REDIST_LIBDIR` (not `SDL2_LIBDIR`) for this:
+`SDL2_LIBDIR` also steers the FPC link path in the build/test scripts, whereas
+`REDIST_LIBDIR` only affects which dylibs the bundle packs, so the dev build
+keeps linking against Homebrew while the bundle ships the vendored SDL2.
 
 ### Distribution / signing levels
 
