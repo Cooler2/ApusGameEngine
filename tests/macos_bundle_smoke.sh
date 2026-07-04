@@ -15,7 +15,10 @@ EXE="$APP/Contents/MacOS/SimpleDemo"
 RES="$APP/Contents/Resources"
 ROBOT_IN="$RES/robot_in.txt"
 ROBOT_OUT="$RES/robot_out.txt"
-GAME_LOG="$RES/game.log"
+# The engine writes logs to the per-platform writable dir, not into the
+# read-only bundle Resources. For SimpleDemo (gameTitle "Simple Engine Demo")
+# that is ~/Library/Logs/<title>/.
+GAME_LOG="$HOME/Library/Logs/Simple Engine Demo/game.log"
 SCREENSHOT="$OUTDIR/simpledemo_bundle.png"
 BUILD_LOG="$OUTDIR/build.log"
 RUN_LOG="$OUTDIR/run.log"
@@ -190,6 +193,20 @@ if [ "$runStatus" -ne 0 ]; then
   exit 1
 fi
 
+# Capture the summary before removing the robot files below.
+summary="$(grep -E 'windowWidth:|windowHeight:|renderWidth:|renderHeight:|SCENE:' "$ROBOT_OUT")"
+
+# The whole point of the writable-path work: a normal run must not write into
+# the signed bundle. Drop the test-only robot files we placed in Resources, then
+# the seal must still verify — proving the app kept its config (AppDataDir) and
+# log (~/Library/Logs) out of Contents/Resources.
+rm -f "$ROBOT_IN" "$ROBOT_OUT"
+if ! codesign --verify --deep --strict "$APP" 2>>"$OUTDIR/bundle.log"; then
+  echo "Bundle seal broken after run: the app wrote into Contents/Resources" >&2
+  cat "$OUTDIR/bundle.log"
+  exit 1
+fi
+
 echo "macOS bundle smoke passed"
 echo "Bundle: $APP"
-grep -E 'windowWidth:|windowHeight:|renderWidth:|renderHeight:|SCENE:' "$ROBOT_OUT"
+printf '%s\n' "$summary"

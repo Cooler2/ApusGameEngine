@@ -372,6 +372,7 @@ var
   LogDir:String8;     // writable location for log files
   AppDataDir:String8; // writable location for configs and saved data (persistent)
   TempDir:String8;    // writable location for temporary files
+  bundleMode:boolean; // launched from inside a macOS/iOS .app (base is immutable by convention, even though the filesystem allows writing into it)
 
   // Fill LogDir/AppDataDir/TempDir for the given application. appName is the
   // subfolder used under the per-user data root; bundleId (reverse-DNS) is
@@ -2332,15 +2333,17 @@ procedure InitBaseDir;
   suffix:String8;
   {$ENDIF}
  begin
+  bundleMode:=false;
   exeDir:=AppendDelim(String8(ExtractFilePath(ParamStr(0))));
   {$IFDEF DARWIN}
   // Inside a macOS/iOS .app the executable sits in Contents/MacOS/; resources
   // live in the sibling Contents/Resources/. Detect that layout and redirect.
   suffix:='Contents'+PathDelim+'MacOS'+PathDelim;
   if (Length(exeDir)>Length(suffix)) and
-     (Copy(exeDir,Length(exeDir)-Length(suffix)+1,Length(suffix))=suffix) then
-    BaseDir:=Copy(exeDir,1,Length(exeDir)-Length('MacOS'+PathDelim))+'Resources'+PathDelim
-  else
+     (Copy(exeDir,Length(exeDir)-Length(suffix)+1,Length(suffix))=suffix) then begin
+    BaseDir:=Copy(exeDir,1,Length(exeDir)-Length('MacOS'+PathDelim))+'Resources'+PathDelim;
+    bundleMode:=true;
+  end else
   {$ENDIF}
     BaseDir:=exeDir;
  end;
