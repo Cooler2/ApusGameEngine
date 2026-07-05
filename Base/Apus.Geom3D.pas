@@ -420,13 +420,18 @@ type
   PBox3=^TBox3;
 
 const
+  // These identity matrices must be 16-byte aligned for the SSE matrix paths.
+  // Delphi uses the [Align(16)] attribute; FPC has no such attribute for typed
+  // constants, so force it via CONSTMIN (natural alignment would give only 4).
   {$IFDEF DELPHI}[Align(16)] {$ENDIF}
+  {$IFDEF FPC}{$CODEALIGN CONSTMIN=16}{$ENDIF}
   identMat4:TMat4     = (v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
   identMat4d:TMat4d   = (v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
   identMat3d:TMat3d   = (v:((1,0,0),(0,1,0),(0,0,1)));
   identMat3:TMat3     = (v:((1,0,0),(0,1,0),(0,0,1)));
   identMat34d:TMat34d = (v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
   identMat34:TMat34   = (v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
+  {$IFDEF FPC}{$CODEALIGN CONSTMIN=1}{$ENDIF} // restore natural const alignment
 
   NaN=0.0/0.0;
 
