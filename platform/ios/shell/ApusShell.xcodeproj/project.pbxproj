@@ -18,7 +18,7 @@
       isa = PBXFileReference;
       explicitFileType = wrapper.application;
       includeInIndex = 0;
-      path = R30Shell.app;
+      path = ApusShell.app;
       sourceTree = BUILT_PRODUCTS_DIR;
     };
     000000000000000000000004 = {
@@ -63,8 +63,8 @@
       );
       buildRules = ();
       dependencies = ();
-      name = R30Shell;
-      productName = R30Shell;
+      name = ApusShell;
+      productName = ApusShell;
       productReference = 000000000000000000000003;
       productType = "com.apple.product-type.application";
     };
@@ -115,13 +115,13 @@
         ONLY_ACTIVE_ARCH = YES;
         OTHER_LDFLAGS = (
           "-force_load",
-          "$(PROJECT_DIR)/build/libR30Pascal.a",
+          "$(PROJECT_DIR)/build/libShellPascal.a",
           "-framework",
           SDL2,
         );
         FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/../../../redist/ios";
         LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-        PRODUCT_BUNDLE_IDENTIFIER = org.apusengine.r30shell;
+        PRODUCT_BUNDLE_IDENTIFIER = org.apusengine.shell;
         PRODUCT_NAME = "$(TARGET_NAME)";
         SUPPORTED_PLATFORMS = iphoneos;
         SUPPORTS_MACCATALYST = NO;
@@ -138,13 +138,13 @@
         ONLY_ACTIVE_ARCH = YES;
         OTHER_LDFLAGS = (
           "-force_load",
-          "$(PROJECT_DIR)/build/libR30Pascal.a",
+          "$(PROJECT_DIR)/build/libShellPascal.a",
           "-framework",
           SDL2,
         );
         FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/../../../redist/ios";
         LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-        PRODUCT_BUNDLE_IDENTIFIER = org.apusengine.r30shell;
+        PRODUCT_BUNDLE_IDENTIFIER = org.apusengine.shell;
         PRODUCT_NAME = "$(TARGET_NAME)";
         SUPPORTED_PLATFORMS = iphoneos;
         SUPPORTS_MACCATALYST = NO;

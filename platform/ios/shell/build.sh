@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-SHELL_DIR="$ROOT/platform/ios/R30Shell"
+SHELL_DIR="$ROOT/platform/ios/shell"
 BUILD_DIR="$SHELL_DIR/build"
 PASCAL_DIR="$BUILD_DIR/pascal"
 FPC_ROOT="${FPC_ROOT:-$HOME/Developer/fpc/3.3.1}"
@@ -31,18 +31,18 @@ mkdir -p "$PASCAL_DIR"
     "-Fu$ROOT/extra/sdl2" \
     "-FU$PASCAL_DIR" \
     "-FE$PASCAL_DIR" \
-    "$SHELL_DIR/pascal/r30_pascal.lpr"
+    "$SHELL_DIR/pascal/shell.lpr"
 )
 
-ar rcs "$BUILD_DIR/libR30Pascal.a" \
+ar rcs "$BUILD_DIR/libShellPascal.a" \
   "$PASCAL_DIR"/*.o \
   "$FPC_LIB/units/aarch64-ios/rtl/system.o" \
   "$FPC_LIB/units/aarch64-ios/rtl/sysinit.o" \
   "$FPC_LIB/units/aarch64-ios/rtl/objpas.o"
 
 xcodebuild \
-  -project "$SHELL_DIR/R30Shell.xcodeproj" \
-  -scheme R30Shell \
+  -project "$SHELL_DIR/ApusShell.xcodeproj" \
+  -scheme ApusShell \
   -configuration Debug \
   -sdk iphoneos \
   -destination 'generic/platform=iOS' \
@@ -50,7 +50,7 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   build
 
-APP="$SHELL_DIR/DerivedData/Build/Products/Debug-iphoneos/R30Shell.app"
+APP="$SHELL_DIR/DerivedData/Build/Products/Debug-iphoneos/ApusShell.app"
 mkdir -p "$APP/Frameworks"
 ditto "$SDL_FRAMEWORK" "$APP/Frameworks/SDL2.framework"
 cmp "$SDL_FRAMEWORK/SDL2" "$APP/Frameworks/SDL2.framework/SDL2"

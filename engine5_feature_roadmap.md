@@ -43,7 +43,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
 | R-28 | Audio Subsystem Activation | planned | ~10% | Research done, decisions locked (miniaudio primary, 2-tier requirements, typed facade); next: implement per `Work/R-28_audio_activation.md` plan T1–T7 |
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~90% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; dev `.app` bundle done (ad-hoc signed, smoke from inside bundle); remaining = distributable dylibs (controlled deployment target) + close Retina-review findings #1–2 |
-| R-30 | iOS Platform Support | idea | 0% | Gated on FPC arm64-iOS toolchain go/no-go (signable Xcode-integrable binary); then SDL2 UIKit backend vs native `objcclass` shell, GL-ES renderer for MVP (Metal = future idea only), platform integration on a physical iPhone |
+| R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
 
 ## GL Version Policy (locked 2026-07-03)
 
@@ -463,7 +463,8 @@ Two tiers, not a version ladder:
 - Plan / status log / review: `Work/R-29_macos_desktop.md`.
 
 ### [R-30] iOS Platform Support
-- Status: idea | Priority: P2 | Area: Platform / Build / Mobile
+- Status: in-progress (~25%) | Priority: P2 | Area: Platform / Build / Mobile
+- Progress: gate-zero compile+link half proven by the reproducible lifecycle shell `platform/ios/shell/` (FPC trunk 3.3.1 static archive inside an Xcode app target, `SDL_UIKitRunApp` + GLES 3.0 + `SDL_iPhoneSetAnimationCallback`, vendored `redist/ios/SDL2.framework`); integration shape A and SDL-first settled by demonstration. Remaining gate-zero: on-device run (personal-team signing, physical iPhone).
 - Value: bring iOS arm64 back as the primary Apple mobile target with its own lifecycle/view/input/graphics/packaging. Existing iOS code (`Apus.Engine.IOSgame.pas`, `EAGLViewU.pas`) is near-fully commented-out OpenGL ES 1.1 legacy — historical hints, not a backend. Builds on the Darwin/FPC/CI/runtime work already done for macOS (R-29).
 - Split out of the former Apple umbrella (2026-07-02).
 - Direction / open assessments (decide during recon, do NOT assume):

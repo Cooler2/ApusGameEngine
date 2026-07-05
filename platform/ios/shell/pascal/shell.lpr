@@ -1,4 +1,4 @@
-﻿library r30_pascal;
+﻿library shell;
 
 uses
   ctypes,
@@ -8,7 +8,7 @@ var
   window:PSDL_Window;
   context:TSDL_GLContext;
 
-procedure R30Frame(unused:Pointer); cdecl;
+procedure ShellFrame(unused:Pointer); cdecl;
 var
   event:TSDL_Event;
 begin
@@ -23,7 +23,7 @@ begin
   SDL_GL_SwapWindow(window);
 end;
 
-function R30SDLMain(argc:cint; argv:PPAnsiChar):cint; cdecl;
+function ShellSDLMain(argc:cint; argv:PPAnsiChar):cint; cdecl;
 begin
   if SDL_Init(SDL_INIT_VIDEO or SDL_INIT_EVENTS)<0 then exit(1);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_ES);
@@ -33,7 +33,7 @@ begin
   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,8);
   SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,8);
   SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE,8);
-  window:=SDL_CreateWindow('Apus Engine R-30',SDL_WINDOWPOS_UNDEFINED,
+  window:=SDL_CreateWindow('Apus Engine Shell',SDL_WINDOWPOS_UNDEFINED,
     SDL_WINDOWPOS_UNDEFINED,0,0,SDL_WINDOW_OPENGL or SDL_WINDOW_SHOWN or
     SDL_WINDOW_ALLOW_HIGHDPI);
   if window=nil then begin
@@ -46,7 +46,7 @@ begin
     SDL_Quit;
     exit(3);
   end;
-  if SDL_iPhoneSetAnimationCallback(window,1,@R30Frame,nil)<0 then begin
+  if SDL_iPhoneSetAnimationCallback(window,1,@ShellFrame,nil)<0 then begin
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);
     SDL_Quit;
@@ -57,7 +57,7 @@ end;
 
 function ApusIOSMain(argc:cint; argv:PPAnsiChar):cint; cdecl;
 begin
-  result:=SDL_UIKitRunApp(argc,argv,@R30SDLMain);
+  result:=SDL_UIKitRunApp(argc,argv,@ShellSDLMain);
 end;
 
 exports
