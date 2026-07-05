@@ -2370,10 +2370,10 @@ procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
   LogDir:=AppDataDir;
   TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
   {$ELSEIF defined(MSWINDOWS)}
-  home:=String8(GetEnvironmentVariable('APPDATA'));
-  if home='' then home:=String8(GetEnvironmentVariable('USERPROFILE'))+'\AppData\Roaming';
+  home:=String8(SysUtils.GetEnvironmentVariable('APPDATA'));
+  if home='' then home:=String8(SysUtils.GetEnvironmentVariable('USERPROFILE'))+'\AppData\Roaming';
   AppDataDir:=AppendDelim(home)+name+'\';
-  home:=String8(GetEnvironmentVariable('LOCALAPPDATA'));
+  home:=String8(SysUtils.GetEnvironmentVariable('LOCALAPPDATA'));
   if home='' then home:=AppDataDir
    else home:=AppendDelim(home)+name+'\';
   LogDir:=home+'Logs\';
