@@ -63,7 +63,7 @@ if ! "$FPC" \
 fi
 
 # --- Bundle -----------------------------------------------------------------
-if ! "$ROOT/tools/make_macos_bundle.sh" > "$OUTDIR/bundle.log" 2>&1; then
+if ! "$ROOT/platform/macos/make_bundle.sh" > "$OUTDIR/bundle.log" 2>&1; then
   echo "Bundle assembly failed" >&2
   cat "$OUTDIR/bundle.log"
   exit 1

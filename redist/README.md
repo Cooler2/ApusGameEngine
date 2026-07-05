@@ -35,12 +35,12 @@ reclaim any repository size, since git history keeps them regardless).
 
 ## Regenerating / auditing
 
-Each platform directory is produced by a `tools/fetch_redist_<platform>.sh`
+Each platform directory is produced by a `platform/<platform>/fetch_redist.sh`
 script that downloads the official upstream, verifies its SHA-256, normalizes it
 into our canonical layout, and records provenance in `SOURCES.txt`. To update a
 library, bump the version in the script and re-run it; commit the result.
 
-- macOS: `tools/fetch_redist_macos.sh`
+- macOS: `platform/macos/fetch_redist.sh`
 
 Note the committed files are **not byte-identical to upstream** where
 normalization was required (e.g. macOS install-id rewrite + ad-hoc re-sign);

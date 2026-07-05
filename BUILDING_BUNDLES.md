@@ -43,7 +43,7 @@ This produces `bin64/SimpleDemo_macos`.
 ### 2. Assemble the bundle
 
 ```sh
-tools/make_macos_bundle.sh
+platform/macos/make_bundle.sh
 ```
 
 Options: `--exe PATH`, `--name NAME`, `--out DIR`, `--resdir DIR`, `--id
@@ -98,7 +98,7 @@ this applies to **every** dependency (FreeType, `SDL2_mixer`, …), not just SDL
 The repo vendors a controlled SDL2 for exactly this. Populate it once with:
 
 ```sh
-tools/fetch_redist_macos.sh     # -> redist/macos/libSDL2-2.0.0.dylib (+ SOURCES, license)
+platform/macos/fetch_redist.sh  # -> redist/macos/libSDL2-2.0.0.dylib (+ SOURCES, license)
 ```
 
 This downloads the **official** SDL2 release (a self-contained, universal
@@ -109,7 +109,7 @@ also **removes the libSDL3 dependency** the Homebrew sdl2-compat shim needs.
 Then build the bundle so it substitutes the vendored library:
 
 ```sh
-REDIST_LIBDIR="$PWD/redist/macos" tools/make_macos_bundle.sh ...
+REDIST_LIBDIR="$PWD/redist/macos" platform/macos/make_bundle.sh ...
 ```
 
 Any bundled dylib whose **leaf name** matches a file in `REDIST_LIBDIR` is taken

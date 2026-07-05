@@ -20,11 +20,11 @@
 # ad-hoc re-signed (required, or it will not load on Apple Silicon after the id
 # rewrite invalidates SDL's signature).
 #
-# Usage: tools/fetch_redist_macos.sh [--version X.Y.Z]
+# Usage: platform/macos/fetch_redist.sh [--version X.Y.Z]
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 REDIST="$ROOT/redist/macos"
 
 SDL2_VERSION="2.30.9"
@@ -41,7 +41,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  echo "fetch_redist_macos.sh must be run on macOS (needs hdiutil/codesign)" >&2
+  echo "fetch_redist.sh must be run on macOS (needs hdiutil/codesign)" >&2
   exit 2
 fi
 for tool in curl shasum hdiutil install_name_tool codesign; do
@@ -105,7 +105,7 @@ final="$(shasum -a 256 "$REDIST/$LEAF" | awk '{print $1}')"
 
 # Provenance record for the committed (normalized) file.
 cat > "$REDIST/SOURCES.txt" <<EOF
-# redist/macos provenance — regenerate with tools/fetch_redist_macos.sh
+# redist/macos provenance — regenerate with platform/macos/fetch_redist.sh
 
 [SDL2]
 version        = $SDL2_VERSION
@@ -129,6 +129,6 @@ echo "Verify it is self-contained (no libSDL3, no Homebrew paths):"
 otool -L "$REDIST/$LEAF" | awk 'NR>1{print "  "$1}'
 echo
 echo "Build a distributable bundle that substitutes this file with:"
-echo "  REDIST_LIBDIR=\"$REDIST\" tools/make_macos_bundle.sh ..."
+echo "  REDIST_LIBDIR=\"$REDIST\" platform/macos/make_bundle.sh ..."
 echo "(REDIST_LIBDIR overrides bundled dylibs by leaf name; unlike SDL2_LIBDIR it"
 echo " does not affect the FPC link path, so the dev build still uses Homebrew.)"

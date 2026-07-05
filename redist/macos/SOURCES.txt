@@ -1,4 +1,4 @@
-# redist/macos provenance — regenerate with tools/fetch_redist_macos.sh
+# redist/macos provenance — regenerate with platform/macos/fetch_redist.sh
 
 [SDL2]
 version        = 2.30.9

@@ -14,14 +14,14 @@
 # so the layout produced here is identical — only the dylib source changes.
 #
 # Usage:
-#   tools/make_macos_bundle.sh [--exe PATH] [--name NAME] [--out DIR]
-#                              [--resdir DIR] [RESOURCE ...]
+#   platform/macos/make_bundle.sh [--exe PATH] [--name NAME] [--out DIR]
+#                                 [--resdir DIR] [RESOURCE ...]
 # Defaults target SimpleDemo. RESOURCE arguments are files copied into
 # Contents/Resources (default: particles.png game.ctl from --resdir).
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 APP_NAME="SimpleDemo"
 EXE="$ROOT/bin64/SimpleDemo_macos"
@@ -51,7 +51,7 @@ if [ "${#RESOURCES[@]}" -eq 0 ]; then
 fi
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  echo "make_macos_bundle.sh must be run on macOS" >&2
+  echo "make_bundle.sh must be run on macOS" >&2
   exit 2
 fi
 for tool in install_name_tool codesign otool; do
