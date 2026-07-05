@@ -168,7 +168,7 @@ type
  *
  * \sa SDL_iPhoneSetEventPump
  *}
-function SDL_iPhoneSetAnimationCallback(window: PSDL_Window; interval: cint; callback: TSDL_iPhoneAnimationCallback; callbackParam: Pointer); cdecl;
+function SDL_iPhoneSetAnimationCallback(window: PSDL_Window; interval: cint; callback: TSDL_iPhoneAnimationCallback; callbackParam: Pointer):cint; cdecl;
   external SDL_LibName;
 
 {**

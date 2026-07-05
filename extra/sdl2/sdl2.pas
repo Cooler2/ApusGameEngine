@@ -59,6 +59,10 @@ unit sdl2;
 
 {$DEFINE SDL}
 
+{$IFDEF IOS}
+  {$DEFINE __IPHONEOS__}
+{$ENDIF}
+
 {$I jedi.inc}
 
 interface
