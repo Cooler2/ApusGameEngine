@@ -72,6 +72,11 @@ interface
   {$ENDIF}
 
   {$IF DEFINED(UNIX) AND NOT DEFINED(ANDROID)}
+    {$IF DEFINED(IOS) AND DEFINED(FPC)}
+    uses
+      ctypes,
+      UnixType;
+    {$ELSE}
     uses
       {$IFDEF FPC}
       ctypes,
@@ -83,6 +88,7 @@ interface
       X,
       XLib;
       {$ENDIF}
+    {$ENDIF}
   {$ENDIF}
 
   {$IF DEFINED(UNIX) AND DEFINED(ANDROID) AND DEFINED(FPC)}
@@ -99,9 +105,13 @@ const
 
   {$IFDEF UNIX}
     {$IFDEF DARWIN}
+      {$IFDEF IOS}
+      SDL_LibName = 'SDL2';
+      {$ELSE}
       SDL_LibName = 'libSDL2.dylib';
       {$IFDEF FPC}
         {$LINKLIB libSDL2}
+      {$ENDIF}
       {$ENDIF}
     {$ELSE}
       {$IFDEF FPC}
