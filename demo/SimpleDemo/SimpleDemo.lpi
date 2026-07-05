@@ -15,7 +15,7 @@
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
-    <BuildModes Count="3">
+    <BuildModes Count="4">
       <Item1 Name="default" Default="True"/>
       <Item2 Name="win32">
         <CompilerOptions>
@@ -123,6 +123,52 @@
           </Other>
         </CompilerOptions>
       </Item3>
+      <Item4 Name="macos">
+        <CompilerOptions>
+          <Version Value="11"/>
+          <Target>
+            <Filename Value="../../bin64/SimpleDemo_macos"/>
+          </Target>
+          <SearchPaths>
+            <IncludeFiles Value="$(ProjOutDir)"/>
+            <Libraries Value="/opt/homebrew/lib/"/>
+            <OtherUnitFiles Value="../..;../../extra;../../extra/sdl2;../../Base;../../Base/extra"/>
+            <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+          </SearchPaths>
+          <Parsing>
+            <Style Value="1"/>
+            <SyntaxOptions>
+              <SyntaxMode Value="Delphi"/>
+              <IncludeAssertionCode Value="True"/>
+            </SyntaxOptions>
+          </Parsing>
+          <CodeGeneration>
+            <Checks>
+              <RangeChecks Value="True"/>
+            </Checks>
+            <TargetCPU Value="aarch64"/>
+            <TargetOS Value="darwin"/>
+          </CodeGeneration>
+          <Linking>
+            <Debugging>
+              <DebugInfoType Value="dsDwarf2Set"/>
+            </Debugging>
+            <Options>
+              <Win32>
+                <GraphicApplication Value="True"/>
+              </Win32>
+            </Options>
+          </Linking>
+          <Other>
+            <CustomOptions Value="-dOPENGL
+-dSDL"/>
+            <OtherDefines Count="2">
+              <Define0 Value="OPENGL"/>
+              <Define1 Value="SDL"/>
+            </OtherDefines>
+          </Other>
+        </CompilerOptions>
+      </Item4>
       <SharedMatrixOptions Count="1">
         <Item1 ID="625498359418" Modes="Default"/>
       </SharedMatrixOptions>

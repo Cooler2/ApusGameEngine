@@ -506,13 +506,21 @@ procedure TGameApplication.Prepare;
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    Apus.Threads.Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
+   // Resolve per-platform writable dirs now that the app name (gameTitle) is set.
+   SetupStorageDirs(String8(gameTitle));
    Randomize;
    // Log rotation
    if DirectoryExists('Logs') then begin
-    configDir:='Logs\';
-    st:='Logs\'+logFileName;
-   end else
-    st:=logFileName;
+    // Dev convenience: a Logs\ folder next to the app captures logs locally.
+    configDir:='Logs'+PathDelim;
+    st:='Logs'+PathDelim+logFileName;
+   end else begin
+    // Otherwise use the per-platform writable log dir: inside a macOS .app the
+    // working dir is read-only Resources, so a log written there breaks the seal.
+    ForceDirectories(LogDir);
+    configDir:=LogDir;
+    st:=LogDir+logFileName;
+   end;
    st:=Files.FixName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));
@@ -524,6 +532,21 @@ procedure TGameApplication.Prepare;
     configFileName:=Files.FixName(configFileName);
     if not FileExists(configFileName) then
      FatalError('Config file not found: '+configFileName);
+    // Decide where the persistent config lives. Normally it stays next to the
+    // shipped file (dev tree or a writable install) so behaviour is unchanged.
+    // It moves to the per-platform writable AppDataDir (seeded once from the
+    // shipped defaults) when the shipped copy must not be touched: either the
+    // directory is genuinely read-only, or we run from a macOS .app bundle whose
+    // Contents/Resources is writable on disk but must stay immutable, since a
+    // write there breaks the code-signing seal.
+    st:=ExtractFilePath(ExpandFileName(configFileName));
+    if bundleMode or not Folder.Writable(String8(st)) then begin
+     ForceDirectories(AppDataDir);
+     st:=string(AppDataDir)+ExtractFileName(string(configFileName));
+     if not FileExists(st) then
+      Files.CopyFile(String8(configFileName),String8(st)); // seed from shipped defaults
+     configFileName:=st;
+    end;
     UseControlFile(configFileName);
     configFileName:=ExtractFileName(configFileName);
     LoadOptions;

@@ -1,0 +1,12 @@
+# redist/macos provenance — regenerate with tools/fetch_redist_macos.sh
+
+[SDL2]
+version        = 2.30.9
+upstream_url   = https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-2.30.9.dmg
+upstream_dmg   = SDL2-2.30.9.dmg
+upstream_sha256 = e8f69d97dcab8faf41654d915ee1451d38a155e31c20945e974643d8d776ca9b
+license        = zlib (licenses/SDL2-LICENSE.txt)
+normalization  = extracted SDL2.framework/Versions/A/SDL2;
+                 install-id -> @rpath/libSDL2-2.0.0.dylib; ad-hoc re-signed
+committed_file  = libSDL2-2.0.0.dylib
+committed_sha256 = d9da29a8c66ea3cef240d1247ce511f8b1ca1c24c56c5364b48d363dd39ece4f

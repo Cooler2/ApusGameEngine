@@ -101,6 +101,7 @@ type
   Folder = record
     class function Exists(const path:String8):boolean; static;
     class function Create(const path:String8):boolean; static; // create directory (with parents)
+    class function Writable(const path:String8):boolean; static; // can we create files here? (write-probe)
     class function Delete(const path:String8):boolean; static; // delete directory recursively
     class function Copy(const sour,dest:String8):boolean; static;
     class function Move(const sour,dest:String8):boolean; static;
@@ -577,6 +578,26 @@ end;
 class function Folder.Create(const path:String8):boolean;
 begin
   result:=SysUtils.ForceDirectories(string(path));
+end;
+
+class function Folder.Writable(const path:String8):boolean;
+var
+  probe:string;
+  f:file;
+begin
+  result:=false;
+  if not SysUtils.DirectoryExists(string(path)) then exit;
+  // Probe by creating and deleting a throwaway file: the read-only case we care
+  // about (a signed macOS .app's Contents/Resources) can't be told from perms
+  // alone, so ask the filesystem directly.
+  probe:=SysUtils.IncludeTrailingPathDelimiter(string(path))+'.apus_write_test.tmp';
+  AssignFile(f,probe);
+  {$PUSH}{$I-}
+  Rewrite(f,1);
+  result:=IOResult=0;
+  if result then CloseFile(f);
+  {$POP}
+  if result then SysUtils.DeleteFile(probe);
 end;
 
 class function Folder.ListFiles(const path:String8; const mask:String8; recursive:boolean):Strings8;

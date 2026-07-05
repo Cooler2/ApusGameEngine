@@ -361,6 +361,27 @@ var
   // Optional callback for logging (set by Apus.Log or application)
   onSystemMessage:procedure(const msg:String8);
 
+// =============================================================================
+// Standard storage directories
+// =============================================================================
+// Prefer these over hardcoded paths so bundled/sandboxed layouts (macOS .app,
+// iOS containers, Android) resolve correctly. All values end with a path
+// delimiter. BaseDir is set in the initialization section (it needs only the
+// executable path); the writable dirs are (re)computed by SetupStorageDirs once
+// the application name is known — until then they hold exe-name-based defaults.
+var
+  BaseDir:String8;    // read-only resource base (macOS .app Resources, else exe dir)
+  LogDir:String8;     // writable location for log files
+  AppDataDir:String8; // writable location for configs and saved data (persistent)
+  TempDir:String8;    // writable location for temporary files
+  bundleMode:boolean; // launched from inside a macOS/iOS .app (base is immutable by convention, even though the filesystem allows writing into it)
+
+  // Fill LogDir/AppDataDir/TempDir for the given application. appName is the
+  // subfolder used under the per-user data root; bundleId (reverse-DNS) is
+  // preferred on Apple platforms when supplied. Pure computation, no filesystem
+  // side effects (the writer creates the dir). Safe to call more than once.
+  procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
+
 
 // =============================================================================
 // Mem scope - memory operations
@@ -2298,10 +2319,84 @@ begin
 end;
 {$ENDIF}
 
+// --- Standard storage directories --------------------------------------------
+
+function AppendDelim(const s:String8):String8;
+ begin
+  result:=s;
+  if (result<>'') and (result[Length(result)]<>PathDelim) then
+    result:=result+PathDelim;
+ end;
+
+procedure InitBaseDir;
+ var
+  exeDir:String8;
+  {$IFDEF DARWIN}
+  suffix:String8;
+  {$ENDIF}
+ begin
+  bundleMode:=false;
+  exeDir:=AppendDelim(String8(ExtractFilePath(ParamStr(0))));
+  {$IFDEF DARWIN}
+  // Inside a macOS/iOS .app the executable sits in Contents/MacOS/; resources
+  // live in the sibling Contents/Resources/. Detect that layout and redirect.
+  suffix:='Contents'+PathDelim+'MacOS'+PathDelim;
+  if (Length(exeDir)>Length(suffix)) and
+     (Copy(exeDir,Length(exeDir)-Length(suffix)+1,Length(suffix))=suffix) then begin
+    BaseDir:=Copy(exeDir,1,Length(exeDir)-Length('MacOS'+PathDelim))+'Resources'+PathDelim;
+    bundleMode:=true;
+  end else
+  {$ENDIF}
+    BaseDir:=exeDir;
+ end;
+
+procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
+ var
+  name,home:String8;
+ begin
+  name:=appName;
+  if name='' then name:=String8(ChangeFileExt(ExtractFileName(ParamStr(0)),''));
+  {$IF defined(DARWIN)}
+  // ~/Library — resolved via $HOME so a sandboxed (App Store) container works too.
+  home:=String8(GetEnvironmentVariable('HOME'));
+  if bundleId<>'' then AppDataDir:=home+'/Library/Application Support/'+bundleId+'/'
+   else AppDataDir:=home+'/Library/Application Support/'+name+'/';
+  LogDir:=home+'/Library/Logs/'+name+'/';
+  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  {$ELSEIF defined(ANDROID)}
+  // Android's app-private dir comes from JNI (Apus.Android assigns AppDataDir);
+  // derive the rest from it. Fall back to temp if not yet populated.
+  if AppDataDir='' then AppDataDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  LogDir:=AppDataDir;
+  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  {$ELSEIF defined(MSWINDOWS)}
+  home:=String8(GetEnvironmentVariable('APPDATA'));
+  if home='' then home:=String8(GetEnvironmentVariable('USERPROFILE'))+'\AppData\Roaming';
+  AppDataDir:=AppendDelim(home)+name+'\';
+  home:=String8(GetEnvironmentVariable('LOCALAPPDATA'));
+  if home='' then home:=AppDataDir
+   else home:=AppendDelim(home)+name+'\';
+  LogDir:=home+'Logs\';
+  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'\';
+  {$ELSE}
+  // Linux / generic Unix — XDG Base Directory spec with $HOME fallbacks.
+  home:=String8(GetEnvironmentVariable('HOME'));
+  AppDataDir:=String8(GetEnvironmentVariable('XDG_DATA_HOME'));
+  if AppDataDir='' then AppDataDir:=home+'/.local/share';
+  AppDataDir:=AppendDelim(AppDataDir)+name+'/';
+  LogDir:=String8(GetEnvironmentVariable('XDG_STATE_HOME'));
+  if LogDir='' then LogDir:=home+'/.local/state';
+  LogDir:=AppendDelim(LogDir)+name+'/';
+  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  {$ENDIF}
+ end;
+
 initialization
   CheckCPU;
   InitTimer;
   DetectConsole;
+  InitBaseDir;
+  SetupStorageDirs('');
   {$IFDEF MSWINDOWS}
   systemMessageFlags:=[TSystemMessageFlag.smLog,TSystemMessageFlag.smDebugOutput];
   if hasConsole then

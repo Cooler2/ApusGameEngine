@@ -134,11 +134,19 @@ if ! grep -q 'SCENE: TMainScene' "$ROBOT_OUT"; then
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
-if ! grep -q '^windowWidth: 2560' "$ROBOT_OUT" ||
-  ! grep -q '^windowHeight: 1440' "$ROBOT_OUT" ||
-  ! grep -q '^renderWidth: 2560' "$ROBOT_OUT" ||
-  ! grep -q '^renderHeight: 1440' "$ROBOT_OUT"; then
-  echo "Retina drawable did not track the requested 1280x720 window size" >&2
+# The drawable must track the 1280x720 logical resize scaled by the display's
+# actual backing factor. Derive the scale from the response instead of assuming
+# 2x, so the smoke passes on Retina (scale 2), a plain display (scale 1) and a
+# headless/virtual CI display alike. Robot API responses use CRLF line endings.
+ww="$(awk -F': ' '/^windowWidth: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
+wh="$(awk -F': ' '/^windowHeight: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
+rw="$(awk -F': ' '/^renderWidth: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
+rh="$(awk -F': ' '/^renderHeight: /{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ROBOT_OUT")"
+scale=$(( ww / 1280 ))
+if [ "$scale" -lt 1 ] || [ $(( 1280 * scale )) -ne "$ww" ] || [ $(( 720 * scale )) -ne "$wh" ] ||
+  [ "$rw" != "$ww" ] || [ "$rh" != "$wh" ]; then
+  echo "Drawable did not track the 1280x720 resize by an integer backing scale" >&2
+  echo "window=${ww}x${wh} render=${rw}x${rh} derived scale=${scale}" >&2
   sed -n '1,240p' "$ROBOT_OUT"
   exit 1
 fi
