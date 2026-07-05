@@ -144,9 +144,13 @@ function SDL_LinuxSetThreadPriorityAndPolicy(threadID: cint64; sdlPriority, sche
 (* Platform specific functions for iOS *)
 {$IFDEF __IPHONEOS__}
 type
+  TSDL_MainFunction = function(argc: cint; argv: PPAnsiChar): cint; cdecl;
   PPSDL_iPhoneAnimationCallback = ^PSDL_iPhoneAnimationCallback;
   PSDL_iPhoneAnimationCallback = ^TSDL_iPhoneAnimationCallback;
   TSDL_iPhoneAnimationCallback = procedure(callbackParam: Pointer); cdecl;
+
+function SDL_UIKitRunApp(argc: cint; argv: PPAnsiChar; mainFunction: TSDL_MainFunction): cint; cdecl;
+  external SDL_LibName;
 
 {**
  * Use this function to set the animation callback on Apple iOS.

@@ -1,0 +1,175 @@
+// !$*UTF8*$!
+{
+  archiveVersion = 1;
+  classes = {};
+  objectVersion = 56;
+  objects = {
+    000000000000000000000001 = {
+      isa = PBXBuildFile;
+      fileRef = 000000000000000000000002;
+    };
+    000000000000000000000002 = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.c.c;
+      path = app/main.c;
+      sourceTree = "<group>";
+    };
+    000000000000000000000003 = {
+      isa = PBXFileReference;
+      explicitFileType = wrapper.application;
+      includeInIndex = 0;
+      path = R30Shell.app;
+      sourceTree = BUILT_PRODUCTS_DIR;
+    };
+    000000000000000000000004 = {
+      isa = PBXGroup;
+      children = (
+        000000000000000000000002,
+        000000000000000000000005,
+      );
+      sourceTree = "<group>";
+    };
+    000000000000000000000005 = {
+      isa = PBXGroup;
+      children = (000000000000000000000003,);
+      name = Products;
+      sourceTree = "<group>";
+    };
+    000000000000000000000006 = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (000000000000000000000001,);
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    000000000000000000000007 = {
+      isa = PBXFrameworksBuildPhase;
+      buildActionMask = 2147483647;
+      files = ();
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    000000000000000000000008 = {
+      isa = PBXResourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = ();
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    000000000000000000000009 = {
+      isa = PBXNativeTarget;
+      buildConfigurationList = 00000000000000000000000A;
+      buildPhases = (
+        000000000000000000000006,
+        000000000000000000000007,
+        000000000000000000000008,
+      );
+      buildRules = ();
+      dependencies = ();
+      name = R30Shell;
+      productName = R30Shell;
+      productReference = 000000000000000000000003;
+      productType = "com.apple.product-type.application";
+    };
+    00000000000000000000000B = {
+      isa = PBXProject;
+      attributes = {
+        BuildIndependentTargetsInParallel = 1;
+        LastUpgradeCheck = 2660;
+        TargetAttributes = {
+          000000000000000000000009 = {CreatedOnToolsVersion = 26.6;};
+        };
+      };
+      buildConfigurationList = 00000000000000000000000C;
+      compatibilityVersion = "Xcode 14.0";
+      developmentRegion = en;
+      hasScannedForEncodings = 0;
+      knownRegions = (en, Base,);
+      mainGroup = 000000000000000000000004;
+      productRefGroup = 000000000000000000000005;
+      projectDirPath = "";
+      projectRoot = "";
+      targets = (000000000000000000000009,);
+    };
+    00000000000000000000000D = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CLANG_ENABLE_MODULES = YES;
+        IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+        SDKROOT = iphoneos;
+      };
+      name = Debug;
+    };
+    00000000000000000000000E = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CLANG_ENABLE_MODULES = YES;
+        IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+        SDKROOT = iphoneos;
+      };
+      name = Release;
+    };
+    00000000000000000000000F = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CODE_SIGNING_ALLOWED = NO;
+        GENERATE_INFOPLIST_FILE = YES;
+        MACH_O_TYPE = mh_execute;
+        ONLY_ACTIVE_ARCH = YES;
+        OTHER_LDFLAGS = (
+          "-force_load",
+          "$(PROJECT_DIR)/build/libR30Pascal.a",
+          "-framework",
+          SDL2,
+        );
+        FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/../../../redist/ios";
+        LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+        PRODUCT_BUNDLE_IDENTIFIER = org.apusengine.r30shell;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SUPPORTED_PLATFORMS = iphoneos;
+        SUPPORTS_MACCATALYST = NO;
+        TARGETED_DEVICE_FAMILY = "1,2";
+      };
+      name = Debug;
+    };
+    000000000000000000000010 = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CODE_SIGNING_ALLOWED = NO;
+        GENERATE_INFOPLIST_FILE = YES;
+        MACH_O_TYPE = mh_execute;
+        ONLY_ACTIVE_ARCH = YES;
+        OTHER_LDFLAGS = (
+          "-force_load",
+          "$(PROJECT_DIR)/build/libR30Pascal.a",
+          "-framework",
+          SDL2,
+        );
+        FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/../../../redist/ios";
+        LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+        PRODUCT_BUNDLE_IDENTIFIER = org.apusengine.r30shell;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SUPPORTED_PLATFORMS = iphoneos;
+        SUPPORTS_MACCATALYST = NO;
+        TARGETED_DEVICE_FAMILY = "1,2";
+      };
+      name = Release;
+    };
+    00000000000000000000000A = {
+      isa = XCConfigurationList;
+      buildConfigurations = (
+        00000000000000000000000F,
+        000000000000000000000010,
+      );
+      defaultConfigurationIsVisible = 0;
+      defaultConfigurationName = Release;
+    };
+    00000000000000000000000C = {
+      isa = XCConfigurationList;
+      buildConfigurations = (
+        00000000000000000000000D,
+        00000000000000000000000E,
+      );
+      defaultConfigurationIsVisible = 0;
+      defaultConfigurationName = Release;
+    };
+  };
+  rootObject = 00000000000000000000000B;
+}
