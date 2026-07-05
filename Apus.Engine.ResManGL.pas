@@ -1520,9 +1520,13 @@ begin
  result:=tex;
  tex.width:=width;
  tex.height:=height;
- // ES 3.0 supports full NPOT natively, so under GLES the pow2 rounding is opt-in only (aiPow2 flag).
- if Bits.HasAll(flags,aiPow2) {$IFNDEF GLES} or
-     not GL_ARB_texture_non_power_of_two {$ENDIF} then begin
+ // NPOT textures (incl. render targets) are a hard requirement of the engine
+ // baseline (GL 3.3 core / GLES 3.0), so dimensions are never rounded up
+ // automatically — only when aiPow2 is explicitly requested (mip-mapped or tiled
+ // textures). The old auto-fallback keyed off GL_ARB_texture_non_power_of_two,
+ // which core profiles don't advertise (macOS = GL 4.1 core via Metal), so it
+ // silently pow2-rounded every RT and corrupted its UVs.
+ if Bits.HasAll(flags,aiPow2) then begin
   width:=NextPow2(width);
   height:=NextPow2(height);
  end;
@@ -1602,8 +1606,7 @@ begin
  result:=tex;
  tex.width:=width;
  tex.height:=height;
- if (flags and aiPow2>0) {$IFNDEF GLES} or
-     not GL_ARB_texture_non_power_of_two {$ENDIF} then begin
+ if (flags and aiPow2>0) then begin // explicit opt-in only; NPOT is baseline (see AllocImage above)
   width:=NextPow2(width);
   height:=NextPow2(height);
  end;
