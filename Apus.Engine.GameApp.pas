@@ -7,7 +7,7 @@
 unit Apus.Engine.GameApp;
 interface
  uses
-  {$IFDEF ANDROID}jni,{$ENDIF}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}jni,{$IFEND}
   Apus.Core, Apus.Threads, Apus.Engine.API;
 
  type
@@ -105,7 +105,8 @@ interface
    procedure ControlLoop;
   end;
 
- {$IFDEF ANDROID}
+ // Legacy GLSurfaceView shell. The SDL-first Android target does not use these bindings.
+ {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}
   // Binding functions (to be exported)
   procedure AppSurfaceChanged(env:PJNIEnv;this:jobject; width, height:jint);
   procedure AppInit(env:PJNIEnv;this:jobject; view:jobject; width,height,dpi:jint; assetManager:jobject; sdkVer:jint);
@@ -115,13 +116,13 @@ interface
   function AppInput(env:PJNIEnv;this:jobject; action,i1,i2:jint; text:jstring):jstring;
   procedure AppTouch(env:PJNIEnv;this:jobject; x,y:jfloat; action:jint);
   procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
- {$ENDIF}
+ {$IFEND}
 
 implementation
  uses
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
-  {$IFDEF ANDROID}Apus.Android,{$ENDIF}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}Apus.Android,{$IFEND}
    SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
@@ -150,7 +151,7 @@ type
 var
  app:TGameApplication;
 
-{$IFDEF ANDROID}
+{$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}
 {Android bindings}
 var
   initialized:boolean;
@@ -329,7 +330,7 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
  begin
   LogI(Format('AppKey: %d  %d',[keyCode,UChar]));
  end;
-{$ENDIF}
+{$IFEND}
 
 { TGameApplication }
 

@@ -17,7 +17,7 @@ $sdlArchive = Join-Path $downloadsDir $sdlArchiveName
 $sdlSource = Join-Path $sourcesDir "SDL2-$sdlVersion"
 $sdlUrl = "https://github.com/libsdl-org/SDL/releases/download/release-$sdlVersion/$sdlArchiveName"
 $sdlSha256 = "EC855BCD815B4B63D0C958C42C2923311C656227D6E0C1AE1E721406D346444B"
-$probeLibrary = Join-Path $workRoot "libapus_android_probe.so"
+$probeLibrary = Join-Path $workRoot "libapus_android_engine_probe.so"
 $overlayDir = Join-Path $scriptDir "shell"
 
 function Copy-Overlay([string]$source, [string]$destination) {
@@ -27,14 +27,6 @@ function Copy-Overlay([string]$source, [string]$destination) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
     Copy-Item -LiteralPath $_.FullName -Destination $target -Force
   }
-}
-
-if (-not $SkipNativeBuild) {
-  & (Join-Path $scriptDir "toolchain.ps1")
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-}
-if (-not (Test-Path -LiteralPath $probeLibrary -PathType Leaf)) {
-  throw "Native probe not found: $probeLibrary"
 }
 
 New-Item -ItemType Directory -Force -Path $downloadsDir, $sourcesDir | Out-Null
@@ -61,7 +53,6 @@ Copy-Overlay $overlayDir $packageDir
 
 $jniLibDir = Join-Path $packageDir "app/libs/arm64-v8a"
 New-Item -ItemType Directory -Force -Path $jniLibDir | Out-Null
-Copy-Item -LiteralPath $probeLibrary -Destination (Join-Path $jniLibDir "libapus_android_probe.so")
 
 $gradle = if ($IsWindows -or $env:OS -eq "Windows_NT") {
   Join-Path $packageDir "gradlew.bat"
@@ -71,6 +62,32 @@ $gradle = if ($IsWindows -or $env:OS -eq "Windows_NT") {
 if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
   & chmod +x $gradle
 }
+
+if (-not $SkipNativeBuild) {
+  $nativeTask = "externalNativeBuild$Configuration"
+  Write-Host "Building SDL2 native library ($nativeTask)..."
+  Push-Location $packageDir
+  try {
+    & $gradle --no-daemon $nativeTask
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  } finally {
+    Pop-Location
+  }
+
+  $sdlLibrary = Get-ChildItem -LiteralPath (Join-Path $packageDir "app/build/intermediates/cxx/$Configuration") `
+      -Recurse -Filter "libSDL2.so" |
+    Where-Object { $_.FullName -match 'obj[\\/]local[\\/]arm64-v8a' } |
+    Select-Object -First 1
+  if (-not $sdlLibrary) {
+    throw "Gradle built SDL2 but libSDL2.so was not found"
+  }
+  & (Join-Path $scriptDir "toolchain.ps1") -Engine -SdlLibrary $sdlLibrary.FullName
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+if (-not (Test-Path -LiteralPath $probeLibrary -PathType Leaf)) {
+  throw "Engine probe not found: $probeLibrary"
+}
+Copy-Item -LiteralPath $probeLibrary -Destination (Join-Path $jniLibDir "libapus_android_engine_probe.so")
 
 $task = "assemble$Configuration"
 Write-Host "Building Android package ($task)..."
@@ -96,7 +113,7 @@ try {
     "AndroidManifest.xml",
     "classes.dex",
     "lib/arm64-v8a/libSDL2.so",
-    "lib/arm64-v8a/libapus_android_probe.so",
+    "lib/arm64-v8a/libapus_android_engine_probe.so",
     "lib/arm64-v8a/libmain.so"
   )
   $missingEntries = @($requiredEntries | Where-Object { $_ -notin $entries })
@@ -114,4 +131,4 @@ try {
 }
 
 Write-Host "[OK] Android APK: $apk"
-Write-Host "[OK] SDL2, Pascal probe, and main shim are packaged for arm64-v8a"
+Write-Host "[OK] SDL2, Engine5 probe, and main shim are packaged for arm64-v8a"

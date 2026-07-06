@@ -29,7 +29,8 @@ Use `-CheckOnly` to report the environment without compiling the probe:
 pwsh ./platform/android/toolchain.ps1 -CheckOnly
 ```
 
-Package the probe into a debug APK through the pinned SDL/Gradle shell:
+Compile the full Engine5 `GameApp` closure and package it into a debug APK
+through the pinned SDL/Gradle shell:
 
 ```powershell
 pwsh ./platform/android/package.ps1
@@ -37,9 +38,15 @@ pwsh ./platform/android/package.ps1
 
 The packaging script downloads and verifies the SDL 2.30.9 source archive,
 stages its official Android project under `tmp/android/package/`, builds SDL for
-`arm64-v8a`, and adds the FPC probe library to the APK. Gradle 8.11.1, Android
+`arm64-v8a`, links the Engine5 probe against it, and adds both libraries to the
+APK. Gradle 8.11.1, Android
 Gradle Plugin 8.10.1, compile/target SDK 36, NDK r27d, and minimum API 21 are
 pinned at the build boundary.
+
+S0 compiles the SDL-first path. The obsolete GLSurfaceView bindings and Java
+SoundPool/MediaPlayer backend remain available only through the explicit
+`ANDROID_NATIVE_JNI` and `ANDROID_LEGACY_AUDIO` defines; neither is part of the
+current package gate.
 
 The script is intentionally usable from a terminal, CI, a Lazarus external
 tool, or a VS Code task. No IDE project is authoritative.
@@ -68,6 +75,8 @@ Generated files stay under `tmp/android/`:
 
 - `units/` - FPC intermediate units and objects;
 - `libapus_android_probe.so` - minimal JNI-loadable ARM64 library.
+- `engine-units/` - FPC output for the Engine5 compile gate;
+- `libapus_android_engine_probe.so` - linked Engine5 `GameApp` closure;
 - `downloads/` and `sources/` - verified SDL source cache;
 - `package/` - generated Gradle project and debug APK.
 
@@ -76,5 +85,5 @@ the script verifies both the AArch64 ELF header and the export.
 
 ## Next slice
 
-S0 will replace the packaging probe with a minimal Engine5 target and compile
-Android code paths without the deprecated PainterGL/PainterGL2 backend.
+S1 will turn the compile/package probe into a minimal rendered Engine5 scene and
+exercise Android GLES context creation on a device.

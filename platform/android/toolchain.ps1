@@ -1,5 +1,7 @@
 param(
   [switch]$CheckOnly,
+  [switch]$Engine,
+  [string]$SdlLibrary,
   [ValidateRange(21, 99)]
   [int]$ApiLevel = 21
 )
@@ -8,9 +10,18 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 $outputDir = Join-Path $repoRoot "tmp/android"
-$unitDir = Join-Path $outputDir "units"
-$probeSource = Join-Path $scriptDir "probe/android_probe.lpr"
-$probeLibrary = Join-Path $outputDir "libapus_android_probe.so"
+if ($Engine) {
+  $unitName = "engine-units"
+  $sourceName = "probe/android_engine_probe.lpr"
+  $libraryName = "libapus_android_engine_probe.so"
+} else {
+  $unitName = "units"
+  $sourceName = "probe/android_probe.lpr"
+  $libraryName = "libapus_android_probe.so"
+}
+$unitDir = Join-Path $outputDir $unitName
+$probeSource = Join-Path $scriptDir $sourceName
+$probeLibrary = Join-Path $outputDir $libraryName
 $script:failures = 0
 
 function Resolve-Executable([string]$explicitPath, [string[]]$names) {
@@ -182,12 +193,29 @@ $arguments = @(
   "-Fl$apiLibDir",
   "-FU$unitDir",
   "-FE$outputDir",
-  "-o$probeLibrary",
-  $probeSource
+  "-o$probeLibrary"
 )
 
+if ($Engine) {
+  if (-not (Test-Path -LiteralPath $SdlLibrary -PathType Leaf)) {
+    throw "Engine probe requires a built SDL2 library: $SdlLibrary"
+  }
+  $sdlLibraryDir = Split-Path -Parent (Resolve-Path -LiteralPath $SdlLibrary).Path
+  $arguments += @(
+    "-Fl$sdlLibraryDir",
+    "-dANDROID",
+    "-dSDL",
+    "-Fu$repoRoot",
+    "-Fu$(Join-Path $repoRoot 'extra')",
+    "-Fu$(Join-Path $repoRoot 'extra/sdl2')",
+    "-Fu$(Join-Path $repoRoot 'Base')",
+    "-Fu$(Join-Path $repoRoot 'Base/extra')"
+  )
+}
+$arguments += $probeSource
+
 Write-Host ""
-Write-Host "Building native probe..."
+Write-Host $(if ($Engine) { "Building Engine5 Android probe..." } else { "Building native probe..." })
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if (-not (Test-Path -LiteralPath $probeLibrary -PathType Leaf)) {

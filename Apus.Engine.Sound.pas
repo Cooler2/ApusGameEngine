@@ -92,10 +92,12 @@ procedure DoneSoundSystem;
 
 implementation
 
+// The old Java SoundPool/MediaPlayer path is opt-in until it is migrated away
+// from the removed MyServis API. SDL-first Android builds currently defer audio.
 uses SysUtils, Apus.ControlFiles, Apus.HashMaps, Apus.Utils, Apus.EventMan, Classes
   {$IFDEF IMX},Apus.Engine.SoundImx{$ENDIF}
   {$IFDEF SDLMIX},Apus.Engine.SoundSDL{$ENDIF}
-  {$IFDEF ANDROID},Apus.Android,Apus.AndroidSoundPool,Apus.AndroidMediaPlayer{$ENDIF}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)},Apus.Android,Apus.AndroidSoundPool,Apus.AndroidMediaPlayer{$IFEND}
   ,
   Apus.Conv,
   Apus.Files,
@@ -130,9 +132,9 @@ type
   loopPos:double; // in seconds
   loop:boolean;
   curVolume:TAnimatedValue;
-  {$IFDEF ANDROID}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
   player:TJNIMediaPlayer;
-  {$ENDIF}
+  {$IFEND}
  end;
 
  // Thread processing sound events
@@ -267,7 +269,7 @@ function LoadSample(s:TSample):boolean;
   {$IFDEF IMX}
   s.handle:=IMXSampleLoad(false,PAnsiChar(AnsiString(soundFolderPath+s.fname)));
   {$ENDIF}
-  {$IFDEF ANDROID}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
   try
    s.handle:=0;
 //   st:=Lowercase {TODO: use st.ToLower}(s.fname);
@@ -284,7 +286,7 @@ function LoadSample(s:TSample):boolean;
   except
    on e:exception do Log.Msg('[Sound] '+ExceptionMsg(e));
   end;
-  {$ENDIF}
+  {$IFEND}
 
   if s.handle=0 then
    Log.Msg('[Sound] Warning: cannot load sample '+s.fname)
@@ -345,7 +347,7 @@ procedure LoadConfig;
    item.looppos:=ctlGetInt(path+'\loopPos',0);
    fExt:=UpperCase {TODO: use st.ToUpper}(ExtractFileExt(fname));
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAV') then begin
-    {$IFDEF ANDROID}
+    {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
     // Copy file to data folder
     fname:=CopyAssetFile('Audio/'+lowercase {TODO: use st.ToLower}(fname));
     try
@@ -363,7 +365,7 @@ procedure LoadConfig;
        Log.Msg('[SOUND] Music loading failed: '+ExceptionMsg(e));
      end;
     end;
-    {$ENDIF}
+    {$IFEND}
 
     // Load as stream
     item.media:=soundLib.OpenMediaFile(Files.FixName(soundFolderPath+fname),mlmJustOpen);
@@ -565,9 +567,9 @@ procedure PlaySound(event:TEventStr;tag:TTag);
      soundLib.SlideChannel(evt.lastChannel,caPanning,newPan,slide/1000);
    end;
 
-  {$IFDEF ANDROID}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
   evt.channel:=pools[evt.sample.pool].PlaySound(evt.sample.handle,v/100,v/100,1.0,false);
-  {$ENDIF}
+  {$IFEND}
  end;
 
 procedure PlayMusic(event:TEventStr;tag:TTag);
@@ -663,7 +665,7 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    while st<>'' do begin
     mus:=MusHash.Get(st);
     if mus.channel<>nil then begin
-     {$IFDEF ANDROID}
+     {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
      if pause then begin
       Log.Msg('Pause music track '+mus.name);
       mus.player.Pause;
@@ -671,7 +673,7 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
       Log.Msg('Resume music track '+mus.name);
       mus.player.Resume;
      end;
-     {$ENDIF}
+     {$IFEND}
     end;
     st:=MusHash.NextKey;
    end;
@@ -683,12 +685,12 @@ procedure AnimateMusicVolume(mus:TMusicEntry);
  begin
   v:=mus.curVolume.Value;
   soundLib.SetChannelAttribute(mus.channel,caVolume,v);
-  {$IFDEF ANDROID}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
   rVol:=mus.curVolume.Value/100;
   mus.player.SetVolume(rVol,rVol);
   if mus.curVolume.IsAnimating then
     DelayedSignal(event,10,tag);
-  {$ENDIF}
+  {$IFEND}
   if mus.curVolume.IsAnimating then
    DelayedSignal('SOUND\AnimateMusicVol',10,TTag(mus));
  end;
@@ -713,9 +715,9 @@ procedure EventHandler(event:TEventStr;tag:TTag);
     {$IFDEF IMX}
     IMXSampleUnload(evt.sample.handle);
     {$ENDIF}
-    {$IFDEF ANDROID}
+    {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
     pools[evt.sample.pool].UnloadSound(evt.sample.handle);
-    {$ENDIF}
+    {$IFEND}
     evt.sample.handle:=0;
    end;
    exit;
@@ -897,9 +899,9 @@ begin
   soundLib.SetVolume(vtSounds,soundVolume);
   soundLib.SetVolume(vtMusic,musicVolume);
 
-  {$IFDEF ANDROID}
+  {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
   pools[0]:=TSoundPool.Create; // Also registers current thread
-  {$ENDIF}
+  {$IFEND}
 
   ctl:=UseControlFile(soundConfigFile,'');
   SetEventHandler('SOUND',EventHandler,emQueued);
