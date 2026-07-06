@@ -18,7 +18,8 @@ uses Apus.Core, Apus.Engine.GpuLayout,
 type
  TOpenGLContextProfile=(oglpAny,
                        oglpCompatibility,
-                       oglpCore);
+                       oglpCore,
+                       oglpES); // OpenGL ES profile (GLES builds)
 
  TOpenGLContextDesc=record
   // request
@@ -237,6 +238,7 @@ function GLProfileToString(profile:TOpenGLContextProfile):string;
   case profile of
    oglpCompatibility:result:='compatibility';
    oglpCore:result:='core';
+   oglpES:result:='es';
    else result:='any';
   end;
  end;
@@ -330,8 +332,8 @@ procedure TOpenGL.Init(window:TWindow);
    actual.actualMajor:=trunc(glVersionNum);
    actual.actualMinor:=round((glVersionNum-actual.actualMajor)*10);
   end;
-  if (request.profile=oglpCore) and ((not actual.requestAccepted) or (actual.profile<>oglpCore)) then
-   raise EFatalError.Create('Core profile was requested but not created.'#13#10+
+  if (request.profile in [oglpCore,oglpES]) and ((not actual.requestAccepted) or (actual.profile<>request.profile)) then
+   raise EFatalError.Create(GLProfileToString(request.profile)+' profile was requested but not created.'#13#10+
     'Requested: '+GLContextRequestToString(request)+#13#10+
     'Actual: '+GLContextInfoToString(actual));
   oglContextInfo:=actual;
@@ -709,7 +711,8 @@ function TRenderDevice.PrimitiveIndexCount(primType:TPrimitiveType;primCount:int
 function TRenderDevice.IsCoreProfile:boolean;
  begin
   EnsureThreadState;
-  result:=oglContextInfo.profile=oglpCore;
+  // ES follows the same strict path: buffer-backed draws only, no client-memory pointers
+  result:=oglContextInfo.profile in [oglpCore,oglpES];
  end;
 
 procedure TRenderDevice.EnsureThreadState;
@@ -1522,9 +1525,15 @@ procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderH
  end;
 
 initialization
+ {$IFDEF GLES}
+ oglContextTemplate.minMajor:=3;
+ oglContextTemplate.minMinor:=0;
+ oglContextTemplate.profile:=oglpES;
+ {$ELSE}
  oglContextTemplate.minMajor:=3;
  oglContextTemplate.minMinor:=3;
  oglContextTemplate.profile:=oglpCore;
+ {$ENDIF}
  {$IFDEF DEBUG}
  oglContextTemplate.debugContext:=true;
  {$ELSE}

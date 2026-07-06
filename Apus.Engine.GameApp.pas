@@ -687,10 +687,14 @@ procedure TGameApplication.Run;
   oglContextTemplate.preferHighest:=glPreferHighest;
   oglContextTemplate.debugContext:=glDebugContext or debugMode;
   oglContextTemplate.forwardCompatible:=glForwardCompatible;
+  {$IFDEF GLES}
+  oglContextTemplate.profile:=oglpES; // GLES builds always use the ES profile, glCoreContext is ignored
+  {$ELSE}
   if glCoreContext then
    oglContextTemplate.profile:=oglpCore
   else
    oglContextTemplate.profile:=oglpCompatibility;
+  {$ENDIF}
   {$ENDIF}
 
   // CREATE GAME OBJECT
