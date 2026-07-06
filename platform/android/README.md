@@ -29,6 +29,18 @@ Use `-CheckOnly` to report the environment without compiling the probe:
 pwsh ./platform/android/toolchain.ps1 -CheckOnly
 ```
 
+Package the probe into a debug APK through the pinned SDL/Gradle shell:
+
+```powershell
+pwsh ./platform/android/package.ps1
+```
+
+The packaging script downloads and verifies the SDL 2.30.9 source archive,
+stages its official Android project under `tmp/android/package/`, builds SDL for
+`arm64-v8a`, and adds the FPC probe library to the APK. Gradle 8.11.1, Android
+Gradle Plugin 8.10.1, compile/target SDK 36, NDK r27d, and minimum API 21 are
+pinned at the build boundary.
+
 The script is intentionally usable from a terminal, CI, a Lazarus external
 tool, or a VS Code task. No IDE project is authoritative.
 
@@ -56,12 +68,13 @@ Generated files stay under `tmp/android/`:
 
 - `units/` - FPC intermediate units and objects;
 - `libapus_android_probe.so` - minimal JNI-loadable ARM64 library.
+- `downloads/` and `sources/` - verified SDL source cache;
+- `package/` - generated Gradle project and debug APK.
 
 The probe exports `JNI_OnLoad`. If the NDK `llvm-readelf` tool is available,
 the script verifies both the AArch64 ELF header and the export.
 
 ## Next slice
 
-T1 will add a pinned Gradle wrapper and minimal Android/SDL shell that packages
-the probe library into a debug APK. Engine units remain outside the toolchain
-probe until that package path is reproducible locally and in CI.
+S0 will replace the packaging probe with a minimal Engine5 target and compile
+Android code paths without the deprecated PainterGL/PainterGL2 backend.
