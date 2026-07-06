@@ -14,3 +14,6 @@
 
 # Shell scripts must stay executable by /bin/sh and bash on Linux.
 *.sh text eol=lf
+
+# Unified diffs encode an empty context line as a single space.
+platform/android/patches/*.patch text eol=lf whitespace=-blank-at-eol

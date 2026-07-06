@@ -94,9 +94,9 @@ $assemblerName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
   "aarch64-linux-android-as"
 }
 $linkerName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
-  "aarch64-linux-android-ld.exe"
+  "aarch64-linux-android-ld.lld.exe"
 } else {
-  "aarch64-linux-android-ld"
+  "aarch64-linux-android-ld.lld"
 }
 $assembler = if ($binutils) { Join-Path $binutils $assemblerName } else { $null }
 $linker = if ($binutils) { Join-Path $binutils $linkerName } else { $null }
@@ -175,6 +175,7 @@ $arguments = @(
   "-MDelphi",
   "-B",
   "-Cg",
+  "-XLL",
   "-FD$binutils",
   "-XPaarch64-linux-android-",
   "-XR$sysroot",
@@ -196,11 +197,11 @@ Write-Host "[OK] Probe library: $probeLibrary"
 
 if ($readElf) {
   $header = & $readElf -h $probeLibrary
-  if ($LASTEXITCODE -ne 0 -or $header -notmatch "AArch64") {
+  if ($LASTEXITCODE -ne 0 -or ($header -join "`n") -notmatch "AArch64") {
     throw "Probe is not an AArch64 ELF library"
   }
   $symbols = & $readElf --dyn-syms $probeLibrary
-  if ($LASTEXITCODE -ne 0 -or $symbols -notmatch "JNI_OnLoad") {
+  if ($LASTEXITCODE -ne 0 -or ($symbols -join "`n") -notmatch "JNI_OnLoad") {
     throw "Probe does not export JNI_OnLoad"
   }
   Write-Host "[OK] AArch64 ELF and JNI_OnLoad export verified"

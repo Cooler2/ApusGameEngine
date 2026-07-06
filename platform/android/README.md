@@ -9,6 +9,12 @@ The current T0 slice validates the host toolchain and builds a minimal JNI
 library when the native prerequisites are available. It does not build Engine5
 or an APK yet.
 
+The canonical modern-NDK path uses FPC's `-XLL` switch and LLVM's `ld.lld`.
+Current FPC trunk needs the patch in `patches/fpc-android-lld.patch`: it teaches
+the Android backend to select `ld.lld` and omits a GNU BFD-only linker-script
+anchor that LLD cannot process. Keep the patch tied to the recorded FPC commit
+until it is accepted upstream.
+
 ## Quick start
 
 From the repository root:
@@ -33,7 +39,7 @@ The script resolves these tools from explicit environment variables first:
 | Variable | Purpose |
 |---|---|
 | `FPC_ANDROID` | Full path to the FPC `ppcrossa64` executable |
-| `FPC_ANDROID_BINUTILS` | Directory containing `aarch64-linux-android-as` and `aarch64-linux-android-ld` |
+| `FPC_ANDROID_BINUTILS` | Directory containing `aarch64-linux-android-as` and `aarch64-linux-android-ld.lld` |
 | `ANDROID_SDK_ROOT` | Android SDK command-line installation |
 | `ANDROID_NDK_ROOT` | Pinned Android NDK installation |
 | `JAVA_HOME` | JDK used by the future Gradle build |

@@ -1,0 +1,26 @@
+diff --git a/compiler/systems/t_android.pas b/compiler/systems/t_android.pas
+--- a/compiler/systems/t_android.pas
++++ b/compiler/systems/t_android.pas
+@@ -168,7 +168,11 @@ procedure TLinkerAndroid.SetDefaultInfo;
+   with Info do
+    begin
+      { Specify correct max-page-size and common-page-size to prevent big gaps between sections in resulting executable }
+-     s:='ld -z max-page-size=0x1000 -z common-page-size=0x1000 -z noexecstack -z now -z relro --build-id $OPT -L. -T $RES -o $EXE';
++     if cs_link_lld in current_settings.globalswitches then
++       s:='ld.lld'
++     else
++       s:='ld';
++     s:=s+' -z max-page-size=0x1000 -z common-page-size=0x1000 -z noexecstack -z now -z relro --build-id $OPT -L. -T $RES -o $EXE';
+      ExeCmd[1]:=s + ' --entry=_start';
+      DllCmd[1]:=s + ' -shared -soname $SONAME';
+      DllCmd[2]:='strip --strip-unneeded $EXE';
+@@ -354,7 +358,8 @@ procedure TLinkerAndroid.LoadPredefinedLibraryOrder;
+       add('    KEEP (*(.fpc .fpc.n_version .fpc.n_links))');
+       add('  }');
+       add('}');
+-      add('INSERT AFTER .data1');
++      if not(cs_link_lld in current_settings.globalswitches) then
++        add('INSERT AFTER .data1');
+ 
+       // Define different aliases for normal and JNI libraries
+       if FJNIOnLoadName <> '' then
