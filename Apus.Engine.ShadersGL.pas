@@ -8,7 +8,7 @@
 unit Apus.Engine.ShadersGL;
 interface
 uses Apus.Core, Apus.Engine.Types, Apus.Engine.GpuLayout,
-  {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  {$IFDEF GLDESKTOP}dglOpenGL,{$ENDIF}
   {$IFDEF GLES}dglOpenGLES,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.

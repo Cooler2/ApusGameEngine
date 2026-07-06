@@ -265,10 +265,10 @@ function WaitOnAddress(Address:pointer; CompareAddress:pointer; AddressSize:Nati
   stdcall; external 'API-MS-Win-Core-Synch-l1-2-0.dll' name 'WakeByAddressSingle';
 {$ENDIF}
 
-  {$IFDEF UNIX}
+  {$IF DEFINED(UNIX) AND NOT DEFINED(ANDROID)}
 // pthread_join for POSIX thread wait (TThreadIdent carries the same bit pattern as pthread_t)
 function pthread_join(thread:TThreadIdent; value_ptr:Ppointer):longint; cdecl; external 'pthread';
-  {$ENDIF}
+  {$IFEND}
 
 type
   // Internal thread registry entry (not exposed in interface section)
@@ -1709,7 +1709,11 @@ begin
   completed:=doneEvent.WaitFor(timeout);
   // Reap POSIX thread resources once after completion.
   if completed and (Atomic.CmpExchange(joined,1,0)=0) then begin
+    {$IFDEF ANDROID}
+    joinRes:=pthreads.pthread_join(threadID,nil);
+    {$ELSE}
     joinRes:=pthread_join(threadID,nil);
+    {$ENDIF}
     if joinRes<>0 then
       Log.Msg('WARNING: pthread_join failed for %s (%d)',[name,joinRes]);
   end;

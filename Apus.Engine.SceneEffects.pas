@@ -92,7 +92,7 @@ type
 
 implementation
  uses Apus.Images, Apus.Geom2D, Apus.Geom3D,
-      {$IFDEF DGL}dglOpenGL, {$ENDIF}
+      {$IFDEF GLDESKTOP}dglOpenGL, {$ENDIF}
       {$IFDEF GLES}dglOpenGLES, {$ENDIF}
       Apus.Colors,Apus.Engine.UI,Apus.Engine.UITypes,Apus.Engine.UIRender,
       Apus.Engine.Window,

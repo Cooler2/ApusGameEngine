@@ -5,9 +5,6 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {$I defines.inc}
 unit Apus.Android;
-{$IFDEF FPC}
-{$mode delphi}
-{$ENDIF}
 interface
  {$IFDEF ANDROID}
   uses jni, Apus.Core;
@@ -78,7 +75,7 @@ interface
  {$ENDIF}
 implementation
  {$IFDEF ANDROID}
- uses ctypes,SysUtils;
+ uses ctypes,SysUtils,Apus.Files,Apus.Log,Apus.Strings;
  {$linklib android}
  type
    PAAssetManager = pointer;
@@ -231,7 +228,7 @@ implementation
     inc(pc);
    end;
    appEnv^.ReleaseStringChars(appEnv,js,p);
-   result:=EncodeUTF8(ws);
+   result:=UTF8.Encode(ws);
   end;
 
  function JavaString(st:string):jobject;
@@ -244,12 +241,12 @@ implementation
    fObj,sObj:jobject;
    args:array[0..3] of jvalue;
   begin
-   ForceLog.Msg('InitAndroid');
+   Log.Force('InitAndroid');
    appEnv:=env;
    curActivity:=appEnv^.NewGlobalRef(appEnv,activity);
    mainView:=appEnv^.NewGlobalRef(appEnv,view);
 
-   if appEnv^.GetJavaVM(appEnv,curVM)<>0 then ForceLog.Msg('Failed to get JavaVM');
+   if appEnv^.GetJavaVM(appEnv,curVM)<>0 then Log.Force('Failed to get JavaVM');
 
    // JNI call: Resources resources = activity.getResources()
    appResources:=appEnv^.CallObjectMethod(appEnv,curActivity,
@@ -295,7 +292,7 @@ implementation
    appPackageName:=StringFromJavaString(sObj);
    Log.Msg('AppPackage: '+appPackageName);
 
-   DebugMessage('InitAndroid done!');
+   Log.Debug('InitAndroid done!');
   end;
 
  function AndroidListDir(dirName:string):Strings8;
@@ -308,7 +305,7 @@ implementation
    if dir=nil then exit;
    pc:=AAssetDir_getNextFileName(dir);
    while pc<>nil do begin
-    AddString(result,pc);
+    result.Add(pc);
     pc:=AAssetDir_getNextFileName(dir);
    end;
    AAssetDir_close(dir);
@@ -384,7 +381,7 @@ implementation
  procedure AndroidInitThread;
   begin
    if curVM^.AttachCurrentThread(curVM,@appEnv,nil)<>JNI_OK then
-    ForceLog.Msg('ERROR! Failed to attach thread!');
+    Log.Force('ERROR! Failed to attach thread!');
    Log.Msg('New Android thread registered');
   end;
 
@@ -409,9 +406,9 @@ implementation
     data:=AndroidLoadFile2(fname);
     dir:=ExtractFileDir(newName);
     if not DirectoryExists(dir) then CreateDir(dir);
-    SaveFile(newName,@data[0],length(data));
+    Files.Save(newName,data);
    except
-    on e:exception do ForceLog.Msg('Failed to copy file: '+fname);
+    on e:exception do Log.Force('Failed to copy file: '+fname);
    end;
   end;
 
@@ -454,7 +451,7 @@ implementation
   var
    imm:jobject;
   begin
-   DebugMessage(Format('Update virtual keyboard: %d..%d',[selStart,selEnd]));
+   Log.Debug(Format('Update virtual keyboard: %d..%d',[selStart,selEnd]));
    imm:=CallMethod(curActivity,'android/content/Context',
     'getSystemService','(Ljava/lang/String;)Ljava/lang/Object;',[JavaString('input_method')]).l;
    CallMethod(imm,'android/view/inputmethod/InputMethodManager','updateSelection',

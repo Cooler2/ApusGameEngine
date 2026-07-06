@@ -72,7 +72,7 @@ implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types, Apus.Engine.Window
-  {$IFDEF OPENGL},dglOpenGL{$ENDIF};
+  {$IFDEF GLDESKTOP},dglOpenGL{$ENDIF}; // GLDESKTOP, not OPENGL: under GLES the desktop unit would shadow dglOpenGLES' loader procs
 
 type
  TSDLController=record
@@ -775,6 +775,7 @@ function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
    case profile of
     SDL_GL_CONTEXT_PROFILE_CORE:graph.profile:=oglpCore;
     SDL_GL_CONTEXT_PROFILE_COMPATIBILITY:graph.profile:=oglpCompatibility;
+    SDL_GL_CONTEXT_PROFILE_ES:graph.profile:=oglpES;
     else graph.profile:=oglpAny;
    end;
    graph.debugContext:=(flags and SDL_GL_CONTEXT_DEBUG_FLAG)<>0;

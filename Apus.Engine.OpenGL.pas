@@ -8,7 +8,7 @@
 unit Apus.Engine.OpenGL;
 interface
 uses Apus.Core, Apus.Engine.GpuLayout,
-  {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  {$IFDEF GLDESKTOP}dglOpenGL,{$ENDIF}
   {$IFDEF GLES}dglOpenGLES,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.
@@ -18,7 +18,8 @@ uses Apus.Core, Apus.Engine.GpuLayout,
 type
  TOpenGLContextProfile=(oglpAny,
                        oglpCompatibility,
-                       oglpCore);
+                       oglpCore,
+                       oglpES); // OpenGL ES profile (GLES builds)
 
  TOpenGLContextDesc=record
   // request
@@ -237,6 +238,7 @@ function GLProfileToString(profile:TOpenGLContextProfile):string;
   case profile of
    oglpCompatibility:result:='compatibility';
    oglpCore:result:='core';
+   oglpES:result:='es';
    else result:='any';
   end;
  end;
@@ -312,12 +314,12 @@ procedure TOpenGL.Init(window:TWindow);
   request:=oglContextTemplate;
   actual:=request;
   Log.Force('OpenGL context request: '+GLContextRequestToString(request));
-  {$IFDEF DGL}
+  {$IFDEF GLDESKTOP}
   InitOpenGL;
   {$ENDIF}
   wnd.InitGraph;
   actual:=oglContextInfo;
-  {$IFDEF DGL}
+  {$IFDEF GLDESKTOP}
   ReadImplementationProperties;
   ReadExtensions;
   {$ENDIF}
@@ -330,8 +332,8 @@ procedure TOpenGL.Init(window:TWindow);
    actual.actualMajor:=trunc(glVersionNum);
    actual.actualMinor:=round((glVersionNum-actual.actualMajor)*10);
   end;
-  if (request.profile=oglpCore) and ((not actual.requestAccepted) or (actual.profile<>oglpCore)) then
-   raise EFatalError.Create('Core profile was requested but not created.'#13#10+
+  if (request.profile in [oglpCore,oglpES]) and ((not actual.requestAccepted) or (actual.profile<>request.profile)) then
+   raise EFatalError.Create(GLProfileToString(request.profile)+' profile was requested but not created.'#13#10+
     'Requested: '+GLContextRequestToString(request)+#13#10+
     'Actual: '+GLContextInfoToString(actual));
   oglContextInfo:=actual;
@@ -493,7 +495,7 @@ procedure TOpenGL.SetCullMode(mode: TCullMode);
 function TOpenGL.SetVSyncDivider(n: integer):boolean;
  begin
   result:=false;
-  {$IF DEFINED(MSWINDOWS) AND DEFINED(DGL)}
+  {$IF DEFINED(MSWINDOWS) AND DEFINED(GLDESKTOP)}
   // WGL_EXT_swap_control is a desktop WGL extension; GLES (e.g. ANGLE) uses EGL's
   // eglSwapInterval instead - not wired up yet (R-24/R-30 mobile work).
   if WGL_EXT_swap_control then begin
@@ -709,7 +711,8 @@ function TRenderDevice.PrimitiveIndexCount(primType:TPrimitiveType;primCount:int
 function TRenderDevice.IsCoreProfile:boolean;
  begin
   EnsureThreadState;
-  result:=oglContextInfo.profile=oglpCore;
+  // ES follows the same strict path: buffer-backed draws only, no client-memory pointers
+  result:=oglContextInfo.profile in [oglpCore,oglpES];
  end;
 
 procedure TRenderDevice.EnsureThreadState;
@@ -796,7 +799,7 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
     GL_DEBUG_TYPE_PORTABILITY:result:='PORT';
     GL_DEBUG_TYPE_PERFORMANCE:result:='PERF';
     GL_DEBUG_TYPE_OTHER:result:='OTHER';
-    {$IFDEF DGL}
+    {$IFDEF GLDESKTOP}
     GL_DEBUG_TYPE_MARKER:result:='MARK';
     {$ENDIF}
     else result:='TYPE'+IntToHex(v,4);
@@ -1522,9 +1525,15 @@ procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderH
  end;
 
 initialization
+ {$IFDEF GLES}
+ oglContextTemplate.minMajor:=3;
+ oglContextTemplate.minMinor:=0;
+ oglContextTemplate.profile:=oglpES;
+ {$ELSE}
  oglContextTemplate.minMajor:=3;
  oglContextTemplate.minMinor:=3;
  oglContextTemplate.profile:=oglpCore;
+ {$ENDIF}
  {$IFDEF DEBUG}
  oglContextTemplate.debugContext:=true;
  {$ELSE}

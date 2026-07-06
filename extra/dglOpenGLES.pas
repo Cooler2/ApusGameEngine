@@ -5754,8 +5754,10 @@ var
       if (s = p) then
         exit;
 
-      aMajor := StrToInt(Copy(aBuffer, s - 1, p - s + 1));
-      aMinor := StrToInt(Copy(aBuffer, p + 1, e - p + 1));
+      // Local fix: upstream bounds were off by one, producing ' 3' and '2 ' from
+      // 'OpenGL ES 3.2 <vendor>' - the trailing space makes StrToInt raise, zeroing the version.
+      aMajor := StrToInt(Copy(aBuffer, s, p - s));
+      aMinor := StrToInt(Copy(aBuffer, p + 1, e - p));
     except
       aMajor := 0;
       aMinor := 0;
