@@ -13,7 +13,8 @@ The canonical modern-NDK path uses FPC's `-XLL` switch and LLVM's `ld.lld`.
 Current FPC trunk needs the patch in `patches/fpc-android-lld.patch`: it teaches
 the Android backend to select `ld.lld` and omits a GNU BFD-only linker-script
 anchor that LLD cannot process. Keep the patch tied to the recorded FPC commit
-until it is accepted upstream.
+until it is accepted upstream. The exact FPC commit, binutils origins, and all
+other component pins are recorded in `toolchain.lock.md`.
 
 ## Quick start
 

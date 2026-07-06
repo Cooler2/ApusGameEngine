@@ -37,7 +37,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-21 | Mesh Editing Operations (Stateful Wrapper) | idea | 0% | Design-now / build-on-demand; first heavy consumer gates implementation |
 | R-22 | Toast Notifications (Implement + Extend `FireMessage`) | implemented | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
 | R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | done | 100% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Committed (`f811e93`..`361bb9a`) on engine5 |
-| R-24 | Android Platform Revival | idea | 0% | Restore Android/GLES build and runtime path on the current Engine5 platform/graphics/input/resource architecture |
+| R-24 | Android Platform Revival | in-progress | ~30% | S0 compile/package gate done (2026-07-06): FPC-trunk+LLD cross toolchain, SDL-first APK pipeline (`platform/android/`), full `GameApp` closure links for aarch64-android; GLES runtime proven on Windows native ES; next: device smoke → first pixels, then CI gate + toolchain repo |
 | R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
@@ -368,17 +368,19 @@ Two tiers, not a version ladder:
 - Design doc: `Work/scene_onkeydown_design.md`.
 
 ### [R-24] Android Platform Revival
-- Status: idea | Priority: P1 | Area: Platform / Build / Mobile
+- Status: in-progress | Priority: P1 | Area: Platform / Build / Mobile
 - Value: Restore Android as a real supported Engine5 target instead of legacy code behind stale project metadata. A working Android path proves the platform layer, GLES renderer, resource loading, touch/input, and mobile audio abstractions are not desktop-only assumptions.
-- Restoration spike, not a full mobile port. Five staged layers: bootstrap/lifecycle, window/GLES context, GLES renderer, input, resources/audio. Leaning SDL-first (Android as "just another SDL target") to reuse the existing platform/graphics/audio abstractions; native JNI bridge kept as a documented follow-up. `Apus.Engine.AndroidGame.pas` (blocked in `InitObjects`, references removed `PainterGL2`) is the explicit restoration seam.
+- Restoration spike, not a full mobile port. Five staged layers: bootstrap/lifecycle, window/GLES context, GLES renderer, input, resources/audio. SDL-first shell locked (Android as "just another SDL target"); native JNI bridge stays a documented follow-up (legacy GLSurfaceView bindings parked behind `ANDROID_NATIVE_JNI`).
+- Done, S0 of S0–S5 (2026-07-06, merged to engine5): IDE-independent CLI pipeline under `platform/android/` — FPC trunk cross-compiler with NDK `ld.lld` linking (`-XLL`, local patch `patches/fpc-android-lld.patch`), SDL 2.30.9 APK packaging (Gradle 8.11.1 / AGP 8.10.1 / SDK 36 / NDK r27d / min API 21, all pinned), and an Engine5 compile gate linking the full `GameApp` closure for aarch64-android into the debug APK. Toolchain status quo recorded in `platform/android/toolchain.lock.md`. GLES runtime path proven on Windows via a native ES context (SimpleDemo renders; `GLDESKTOP`/`GLES` define split, `oglpES` profile).
+- Next: install the APK on a device/emulator to validate that the LLD-linked `.so` loads, then Pascal `SDL_main` + minimal scene → first pixels (S1/S2). After that: CI compile/package gate, backed by a separate toolchain repository (prebuilt patched cross-FPC published as GitHub Releases, consumed via a hash-pinned lock).
 - Out of scope for MVP: iOS revival, store packaging polish, push, background services, full gamepad coverage, Android UI skins.
 - Acceptance Criteria:
   - [ ] A minimal Engine5 demo builds for Android64 from documented steps.
   - [ ] The demo starts, creates a GLES context, renders a textured/UI scene, and exits cleanly.
   - [ ] Assets load from APK/package resources and writable app storage is documented.
   - [ ] Touch input and text input reach the unified Engine5 input/UI path.
-  - [ ] At least one baseline sound/media playback path is verified or explicitly deferred.
-  - [ ] Android code paths compile without deprecated `PainterGL`/`PainterGL2`.
+  - [x] At least one baseline sound/media playback path is verified or explicitly deferred. *(Explicitly deferred to R-28/miniaudio; legacy SoundPool/MediaPlayer path parked behind `ANDROID_LEGACY_AUDIO`.)*
+  - [x] Android code paths compile without deprecated `PainterGL`/`PainterGL2`. *(Full-closure compile gate is green; `Apus.Engine.AndroidGame.pas` deleted in the GLES cleanup.)*
 - Design / options / staging / build process: `Work/R-24_android_revival.md`. GLES versions/bindings/limitations research (shared with R-30): `Work/gles_mobile_research.md`.
 
 ### [R-25] Immediate Mode GUI API Wrapper
