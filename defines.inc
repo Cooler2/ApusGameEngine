@@ -32,9 +32,9 @@
 //            Implies OPENGL. Forced for iOS/Android; may also be set manually
 //            (-dGLES) on desktop for bring-up/debugging (native ES context or
 //            ANGLE). Bindings unit: extra/dglOpenGLES.pas.
-//   DGL    - derived (= OPENGL minus GLES), never set manually: the desktop
-//            loader unit dglOpenGL is in scope.
-// RULE: unit dglOpenGL must only ever be referenced under {$IFDEF DGL}.
+//   GLDESKTOP - derived (= OPENGL minus GLES), never set manually: the
+//            desktop loader unit dglOpenGL is in scope.
+// RULE: unit dglOpenGL must only ever be referenced under {$IFDEF GLDESKTOP}.
 // Gating it with OPENGL pulls the desktop loader into GLES builds, where its
 // ReadOpenGLCore/ReadExtensions shadow the dglOpenGLES ones (implementation
 // uses outranks interface uses) and GL entry points silently stay nil.
@@ -56,8 +56,8 @@
 
 {$IF (Defined(MSWINDOWS) or Defined(LINUX) or Defined(DARWIN)) and not Defined(GLES)}
   // Desktop OpenGL loader path (unit dglOpenGL + InitOpenGL/extension handling).
-  // Not defined when GLES is active (macOS desktop stays DGL; iOS/Android define GLES above).
-  {$DEFINE DGL}
+  // Not defined when GLES is active (macOS desktop stays GLDESKTOP; iOS/Android define GLES above).
+  {$DEFINE GLDESKTOP}
 {$ENDIF}
 
 // Keep deterministic floating-point behavior across compilers.

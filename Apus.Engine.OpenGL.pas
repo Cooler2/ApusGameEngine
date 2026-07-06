@@ -8,7 +8,7 @@
 unit Apus.Engine.OpenGL;
 interface
 uses Apus.Core, Apus.Engine.GpuLayout,
-  {$IFDEF DGL}dglOpenGL,{$ENDIF}
+  {$IFDEF GLDESKTOP}dglOpenGL,{$ENDIF}
   {$IFDEF GLES}dglOpenGLES,{$ENDIF}
   // dglOpenGL pulls X11's Window/window symbols on Linux. Keep it before
   // Apus.Engine.API so the engine threadvar window remains the short name.
@@ -314,12 +314,12 @@ procedure TOpenGL.Init(window:TWindow);
   request:=oglContextTemplate;
   actual:=request;
   Log.Force('OpenGL context request: '+GLContextRequestToString(request));
-  {$IFDEF DGL}
+  {$IFDEF GLDESKTOP}
   InitOpenGL;
   {$ENDIF}
   wnd.InitGraph;
   actual:=oglContextInfo;
-  {$IFDEF DGL}
+  {$IFDEF GLDESKTOP}
   ReadImplementationProperties;
   ReadExtensions;
   {$ENDIF}
@@ -495,7 +495,7 @@ procedure TOpenGL.SetCullMode(mode: TCullMode);
 function TOpenGL.SetVSyncDivider(n: integer):boolean;
  begin
   result:=false;
-  {$IF DEFINED(MSWINDOWS) AND DEFINED(DGL)}
+  {$IF DEFINED(MSWINDOWS) AND DEFINED(GLDESKTOP)}
   // WGL_EXT_swap_control is a desktop WGL extension; GLES (e.g. ANGLE) uses EGL's
   // eglSwapInterval instead - not wired up yet (R-24/R-30 mobile work).
   if WGL_EXT_swap_control then begin
@@ -799,7 +799,7 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
     GL_DEBUG_TYPE_PORTABILITY:result:='PORT';
     GL_DEBUG_TYPE_PERFORMANCE:result:='PERF';
     GL_DEBUG_TYPE_OTHER:result:='OTHER';
-    {$IFDEF DGL}
+    {$IFDEF GLDESKTOP}
     GL_DEBUG_TYPE_MARKER:result:='MARK';
     {$ENDIF}
     else result:='TYPE'+IntToHex(v,4);

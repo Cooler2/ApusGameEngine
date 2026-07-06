@@ -206,7 +206,7 @@ type
 
 implementation
  uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.GfxFormats,
-   {$IFDEF DGL}dglOpenGL{$ENDIF}
+   {$IFDEF GLDESKTOP}dglOpenGL{$ENDIF}
    {$IFDEF GLES}dglOpenGLES{$ENDIF}
    ,
   Apus.Classes,

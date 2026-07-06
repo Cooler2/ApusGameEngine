@@ -72,7 +72,7 @@ implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types, Apus.Engine.Window
-  {$IFDEF DGL},dglOpenGL{$ENDIF}; // DGL, not OPENGL: under GLES the desktop unit would shadow dglOpenGLES' loader procs
+  {$IFDEF GLDESKTOP},dglOpenGL{$ENDIF}; // GLDESKTOP, not OPENGL: under GLES the desktop unit would shadow dglOpenGLES' loader procs
 
 type
  TSDLController=record
