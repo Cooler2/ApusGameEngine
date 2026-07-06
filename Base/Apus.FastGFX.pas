@@ -4,8 +4,8 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
-{$IFDEF FPC}
-{$PIC OFF}
+{$IF DEFINED(FPC) AND DEFINED(CPU386)}
+{$PIC OFF} // preserve legacy i386 asm behavior
 {$ENDIF}
 {$R-}
 {$I defines.inc}

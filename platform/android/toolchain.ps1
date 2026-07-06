@@ -210,6 +210,7 @@ if ($Engine) {
     "-Fu$(Join-Path $repoRoot 'extra/sdl2')",
     "-Fu$(Join-Path $repoRoot 'Base')",
     "-Fu$(Join-Path $repoRoot 'Base/extra')"
+    "-k--version-script=$(Join-Path $repoRoot 'platform/android/probe/android_engine_probe.exports')"
   )
 }
 $arguments += $probeSource
@@ -231,6 +232,9 @@ if ($readElf) {
   $symbols = & $readElf --dyn-syms $probeLibrary
   if ($LASTEXITCODE -ne 0 -or ($symbols -join "`n") -notmatch "JNI_OnLoad") {
     throw "Probe does not export JNI_OnLoad"
+  }
+  if ($Engine -and ($symbols -join "`n") -notmatch "SDL_main") {
+    throw "Engine probe does not export SDL_main"
   }
   Write-Host "[OK] AArch64 ELF and JNI_OnLoad export verified"
 }
