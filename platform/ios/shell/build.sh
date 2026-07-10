@@ -28,6 +28,7 @@ case "$TARGET" in
     PRODUCTS_DIR="Debug-iphoneos"
     SDL_DIR="$ROOT/redist/ios"
     SDL_BINARY_SHA256="ff75fb376c754839b040e58b5f9ef3879446162681a213224e3ec31384fd5793"
+    XCODE_EXTRA=()
     ;;
   simulator|sim)
     FPC_OS="iphonesim"
@@ -40,8 +41,11 @@ case "$TARGET" in
     XCODE_DEST="generic/platform=iOS Simulator"
     PRODUCTS_DIR="Debug-iphonesimulator"
     SDL_DIR="$ROOT/redist/ios-simulator"
-    # not yet vendored; override via SDL_SIM_SHA256 once the slice is pinned
-    SDL_BINARY_SHA256="${SDL_SIM_SHA256:-}"
+    SDL_BINARY_SHA256="2c698a10abc2d82dac084fdf9bf6381878d0cc90806a79b923b4c20e4305934b"
+    # the FPC iphonesim RTL and Pascal archive are arm64-only; a generic
+    # simulator destination would otherwise also build the x86_64 slice and
+    # fail to link. Restrict to the arm64 (Apple Silicon) simulator slice.
+    XCODE_EXTRA=(ARCHS=arm64 ONLY_ACTIVE_ARCH=NO)
     ;;
   *)
     echo "Unknown target '$TARGET' (expected: device | simulator)" >&2
@@ -101,6 +105,7 @@ xcodebuild \
   -destination "$XCODE_DEST" \
   -derivedDataPath "$SHELL_DIR/DerivedData" \
   FRAMEWORK_SEARCH_PATHS="$SDL_DIR" \
+  ${XCODE_EXTRA[@]+"${XCODE_EXTRA[@]}"} \
   CODE_SIGNING_ALLOWED=NO \
   build
 
