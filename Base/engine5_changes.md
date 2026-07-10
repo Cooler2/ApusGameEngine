@@ -3,6 +3,11 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Android JNI VM state (2026-07-10)
+
+- `jni.curVM` is now mutable. Android initialization stores the `PJavaVM`
+  supplied by JNI so `Apus.Android` can attach and detach engine worker threads.
+
 ## Platform-native text line endings (2026-07-03)
 
 - `Apus.Core.LineBreak` provides the current platform's native text line

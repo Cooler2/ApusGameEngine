@@ -512,8 +512,9 @@ function JNI_GetCreatedJavaVMs(vm:PPJavaVM;ASize:jsize;p:Pjsize):jint;{$ifdef ms
  * called by JNI, not provided by JNI.
  *)
 
-const curVM:PJavaVM=nil;
-      curEnv:PJNIEnv=nil;
+var
+  curVM:PJavaVM=nil;
+  curEnv:PJNIEnv=nil;
 
 (*
 function JNI_OnLoad(vm:PJavaVM;reserved:pointer):jint;{$ifdef mswindows}stdcall;{$else}cdecl;{$endif}

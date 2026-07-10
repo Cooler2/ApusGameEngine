@@ -25,6 +25,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ Linux/FPC engine smoke coverage added for SDL/OpenGL compile-only paths (`tests/PlatformTest.dpr`, `tests/OpenGL.dpr`)
 - ✅ Linux/FPC Base build sweep includes `Apus.Compress`
 - ✅ Linux/FPC style test and modern SDL/OpenGL demo compile coverage verified
+- ✅ Android JNI initialization stores the VM pointer used to attach and detach
+  engine worker threads
 - 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and incremental cleanup of legacy Engine/Demo/Tools references
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.

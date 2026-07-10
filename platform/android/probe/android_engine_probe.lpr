@@ -4,6 +4,7 @@ library apus_android_engine_probe;
 
 uses
   {$IFDEF UNIX}cthreads,{$ENDIF}
+  jni,
   Apus.Engine.API,
   Apus.Engine.GameApp;
 
@@ -17,9 +18,10 @@ begin
   // Audio activation is a later R-24 slice; first pixels must not depend on it.
 end;
 
-function JNI_OnLoad(vm:pointer; reserved:pointer):longint; cdecl;
+function JNI_OnLoad(vm:PJavaVM; reserved:pointer):jint; cdecl;
 begin
-  JNI_OnLoad:=$00010006;
+  curVM:=vm;
+  JNI_OnLoad:=JNI_VERSION_1_6;
 end;
 
 function SDL_main(argc:longint; argv:PPChar):longint; cdecl;
