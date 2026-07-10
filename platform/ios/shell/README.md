@@ -74,6 +74,10 @@ the final executable, the Pascal archive is linked with `-force_load`.
 - `pascal/shell.lpr` — the Pascal static library.
 - `ApusShell.xcodeproj` — unsigned device target.
 - `build.sh` — reproducible build of the FPC archive and the Xcode app.
+  Takes an optional target: `./build.sh device` (default, a real iPhone) or
+  `./build.sh simulator` (iOS Simulator on Apple Silicon). The simulator path
+  needs an `aarch64-iphonesim` RTL under the FPC install and an iphonesimulator
+  SDL2 slice vendored into `redist/ios-simulator/`.
 - `redist/ios/SDL2.framework` — runtime framework files only (binary and
   `Info.plist`), with provenance in `redist/ios/SOURCES.txt`.
 
