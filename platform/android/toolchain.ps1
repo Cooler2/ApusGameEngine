@@ -99,6 +99,18 @@ Write-Host ""
 
 $compiler = Resolve-Executable $env:FPC_ANDROID @("ppcrossa64", "ppcrossa64.exe")
 $binutils = Resolve-Directory @($env:FPC_ANDROID_BINUTILS)
+$fpcUnits = Resolve-Directory @($env:FPC_ANDROID_UNITS)
+if (-not $fpcUnits -and $compiler) {
+  $compilerDir = Split-Path -Parent $compiler
+  $fpcUnits = Resolve-Directory @(
+    (Join-Path $compilerDir "units/aarch64-android"),
+    (Join-Path (Split-Path -Parent $compilerDir) "units/aarch64-android")
+  )
+}
+$rtlUnits = if ($fpcUnits) { Join-Path $fpcUnits "rtl" } else { $null }
+$rtlObjPasUnits = if ($fpcUnits) { Join-Path $fpcUnits "rtl-objpas" } else { $null }
+if ($rtlUnits -and -not (Test-Path -LiteralPath $rtlUnits -PathType Container)) { $rtlUnits = $null }
+if ($rtlObjPasUnits -and -not (Test-Path -LiteralPath $rtlObjPasUnits -PathType Container)) { $rtlObjPasUnits = $null }
 $assemblerName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
   "aarch64-linux-android-as.exe"
 } else {
@@ -116,12 +128,13 @@ if ($linker -and -not (Test-Path -LiteralPath $linker -PathType Leaf)) { $linker
 
 $sdkRoot = Resolve-Directory @($env:ANDROID_SDK_ROOT, $env:ANDROID_HOME)
 $ndkRoot = Find-Ndk $sdkRoot
+$javaExecutableName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
+  "bin/java.exe"
+} else {
+  "bin/java"
+}
 $javaHomeExecutable = if ($env:JAVA_HOME) {
-  Join-Path $env:JAVA_HOME (if ($IsWindows -or $env:OS -eq "Windows_NT") {
-    "bin/java.exe"
-  } else {
-    "bin/java"
-  })
+  Join-Path $env:JAVA_HOME $javaExecutableName
 } else {
   $null
 }
@@ -134,6 +147,8 @@ $readElf = Find-NdkTool $ndkRoot "llvm-readelf"
 Report "FPC aarch64 Android compiler (FPC_ANDROID)" $compiler
 Report "FPC Android assembler (FPC_ANDROID_BINUTILS)" $assembler
 Report "FPC Android linker (FPC_ANDROID_BINUTILS)" $linker
+Report "FPC Android RTL units (FPC_ANDROID_UNITS)" $rtlUnits $false
+Report "FPC Android ObjPas units (FPC_ANDROID_UNITS)" $rtlObjPasUnits $false
 Report "Android SDK (ANDROID_SDK_ROOT)" $sdkRoot
 Report "Android NDK (ANDROID_NDK_ROOT)" $ndkRoot
 Report "Java" $java
@@ -195,6 +210,12 @@ $arguments = @(
   "-FE$outputDir",
   "-o$probeLibrary"
 )
+if ($rtlUnits -and $rtlObjPasUnits) {
+  $arguments += @(
+    "-Fu$rtlUnits",
+    "-Fu$rtlObjPasUnits"
+  )
+}
 
 if ($Engine) {
   if (-not (Test-Path -LiteralPath $SdlLibrary -PathType Leaf)) {
@@ -209,7 +230,7 @@ if ($Engine) {
     "-Fu$(Join-Path $repoRoot 'extra')",
     "-Fu$(Join-Path $repoRoot 'extra/sdl2')",
     "-Fu$(Join-Path $repoRoot 'Base')",
-    "-Fu$(Join-Path $repoRoot 'Base/extra')"
+    "-Fu$(Join-Path $repoRoot 'Base/extra')",
     "-k--version-script=$(Join-Path $repoRoot 'platform/android/probe/android_engine_probe.exports')"
   )
 }

@@ -30,6 +30,15 @@ Use `-CheckOnly` to report the environment without compiling the probe:
 pwsh ./platform/android/toolchain.ps1 -CheckOnly
 ```
 
+On an Apple Silicon Mac, source the local environment helper before running a
+native command. It records the FPC 3.3.1-20523 installation, NDK r27d, and the
+Homebrew JDK 21 locations used for the R-24 bring-up. It also keeps AVD data
+under `~/Library/Android/avd`:
+
+```sh
+. ./platform/android/macos_env.sh
+```
+
 Compile the full Engine5 `GameApp` closure and package it into a debug APK
 through the pinned SDL/Gradle shell:
 
@@ -60,6 +69,7 @@ The script resolves these tools from explicit environment variables first:
 |---|---|
 | `FPC_ANDROID` | Full path to the FPC `ppcrossa64` executable |
 | `FPC_ANDROID_BINUTILS` | Directory containing `aarch64-linux-android-as` and `aarch64-linux-android-ld.lld` |
+| `FPC_ANDROID_UNITS` | Optional root of the `aarch64-android` FPC unit tree when the compiler has no local `fpc.cfg` |
 | `ANDROID_SDK_ROOT` | Android SDK command-line installation |
 | `ANDROID_NDK_ROOT` | Pinned Android NDK installation |
 | `JAVA_HOME` | JDK used by the future Gradle build |

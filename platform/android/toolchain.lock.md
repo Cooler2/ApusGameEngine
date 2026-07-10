@@ -42,3 +42,25 @@ $env:ANDROID_NDK_ROOT='G:\android\sdk\ndk\27.3.13750724'
   assembler `as` is the piece that must come from the crossbins archive.
 - Origins hash-verified 2026-07-06: `aarch64-linux-android-as.exe` matches the
   crossbins copy, `aarch64-linux-android-ld.lld.exe` matches the NDK r27d copy.
+
+## Host instantiation (Apple Silicon macOS, verified 2026-07-10)
+
+- FPC source: exact `afe4d4122eadcd4d1fefc7ed8a62b937855fc6fc`, with the
+  repository LLD patch applied before `crossall` and `crossinstall`.
+- Installation: `~/Developer/fpc/3.3.1-20523-aarch64-android`.
+- GNU assembler/binutils: Homebrew `aarch64-elf-binutils`; the installation's
+  `binutils/` directory exposes both FPC's unprefixed build names and the
+  `aarch64-linux-android-*` names used at application link time.
+- NDK r27d provides a universal `darwin-x86_64` LLVM directory on this host;
+  `ld.lld` is universal and runs natively on Apple Silicon.
+- The installed FPC compiler does not discover its Android RTL automatically.
+  `macos_env.sh` exports `FPC_ANDROID_UNITS`, and `toolchain.ps1` adds its RTL
+  and ObjPas directories when that variable is present.
+- Native probe verification: `libapus_android_probe.so` is ELF64/AArch64 and
+  exports `JNI_OnLoad`.
+- `sdkmanager` failed while downloading the Google APIs API 36 ARM64 image,
+  although the official archive was available. Its direct download was verified
+  against the published SHA-1 before extraction. `avdmanager` does not yet
+  recognize that locally registered package, so the verified
+  `apus_api36_arm64` AVD descriptor was created manually; the emulator boots
+  it successfully.
