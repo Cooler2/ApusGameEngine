@@ -1702,7 +1702,7 @@ procedure TObjectHash.Remove(value:TNamedObject);
 var
   h:cardinal;
 begin
-  if (value=nil) or (value.name='') then exit;
+  if (values=nil) or (value=nil) or (value.name='') then exit;
   h:=FastHash(value.name);
   SpinLock(lock);
   try

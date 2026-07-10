@@ -463,7 +463,7 @@ end;
 
 procedure TestObjectHash;
 var
-  h:TObjectHash;
+  h,uninitialized:TObjectHash;
   a,b:TTestNamedObject;
   keys:Strings8;
   objs:TNamedObjects;
@@ -471,12 +471,15 @@ begin
   StartTest('TObjectHash');
   h.Init(4);
   Check(h.Get('missing')=nil, 'missing=nil');
+  FillChar(uninitialized,SizeOf(uninitialized),0);
 
   a:=TTestNamedObject.Create;
   b:=TTestNamedObject.Create;
   try
     a.name:='Object A';
     b.name:='Object B';
+    uninitialized.Remove(a);
+    Check(uninitialized.count=0, 'uninitialized remove ignored');
     h.Put(a);
     h.Put(b);
     h.Put(nil); // ignored
