@@ -50,12 +50,19 @@ $env:ANDROID_NDK_ROOT='G:\android\sdk\ndk\27.3.13750724'
 - Installation: `~/Developer/fpc/3.3.1-20523-aarch64-android`.
 - GNU assembler/binutils: Homebrew `aarch64-elf-binutils`; the installation's
   `binutils/` directory exposes both FPC's unprefixed build names and the
-  `aarch64-linux-android-*` names used at application link time.
+  `aarch64-linux-android-*` names used at application link time, including the
+  BFD linker as `aarch64-linux-android-ld`.
 - NDK r27d provides a universal `darwin-x86_64` LLVM directory on this host;
-  `ld.lld` is universal and runs natively on Apple Silicon.
-- The installed FPC compiler does not discover its Android RTL automatically.
-  `macos_env.sh` exports `FPC_ANDROID_UNITS`, and `toolchain.ps1` adds its RTL
-  and ObjPas directories when that variable is present.
+  `ld.lld` is universal and runs natively on Apple Silicon. The macOS helper
+  selects BFD because FPC's LLD linker script omits `PT_PHDR`, which Android's
+  dynamic linker rejects. BFD uses FPC's generated export block directly;
+  the extra LLD version script is not passed to it.
+- The installed FPC compiler does not discover its Android unit tree
+  automatically. `macos_env.sh` exports `FPC_ANDROID_UNITS`, and
+  `toolchain.ps1` adds each installed target package directory when that
+  variable is present.
+- Engine5 Android builds define `ANDROID`, `GLES`, and `SDL`, selecting the
+  existing OpenGL ES shader and API paths.
 - Native probe verification: `libapus_android_probe.so` is ELF64/AArch64 and
   exports `JNI_OnLoad`.
 - `sdkmanager` failed while downloading the Google APIs API 36 ARM64 image,

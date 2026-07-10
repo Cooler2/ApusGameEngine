@@ -15,4 +15,5 @@ export JAVA_HOME
 export FPC_ANDROID="$APUS_ANDROID_TOOLCHAIN_ROOT/lib/fpc/3.3.1/ppcrossa64"
 export FPC_ANDROID_BINUTILS="$APUS_ANDROID_TOOLCHAIN_ROOT/binutils"
 export FPC_ANDROID_UNITS="$APUS_ANDROID_TOOLCHAIN_ROOT/lib/fpc/3.3.1/units/aarch64-android"
+export FPC_ANDROID_LINKER=bfd
 export PATH="$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH"

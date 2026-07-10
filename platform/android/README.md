@@ -53,7 +53,7 @@ APK. Gradle 8.11.1, Android
 Gradle Plugin 8.10.1, compile/target SDK 36, NDK r27d, and minimum API 21 are
 pinned at the build boundary.
 
-S0 compiles the SDL-first path. The obsolete GLSurfaceView bindings and Java
+S0 compiles the SDL-first OpenGL ES path. The obsolete GLSurfaceView bindings and Java
 SoundPool/MediaPlayer backend remain available only through the explicit
 `ANDROID_NATIVE_JNI` and `ANDROID_LEGACY_AUDIO` defines; neither is part of the
 current package gate.
@@ -68,8 +68,9 @@ The script resolves these tools from explicit environment variables first:
 | Variable | Purpose |
 |---|---|
 | `FPC_ANDROID` | Full path to the FPC `ppcrossa64` executable |
-| `FPC_ANDROID_BINUTILS` | Directory containing `aarch64-linux-android-as` and `aarch64-linux-android-ld.lld` |
-| `FPC_ANDROID_UNITS` | Optional root of the `aarch64-android` FPC unit tree when the compiler has no local `fpc.cfg` |
+| `FPC_ANDROID_BINUTILS` | Directory containing `aarch64-linux-android-as` and the selected target linker |
+| `FPC_ANDROID_UNITS` | Optional root of the `aarch64-android` FPC unit tree when the compiler has no local `fpc.cfg`; all installed package directories are added after project paths, preserving local compatibility units |
+| `FPC_ANDROID_LINKER` | Optional linker kind: `lld` (default, requires `aarch64-linux-android-ld.lld`) or `bfd` (requires `aarch64-linux-android-ld`) |
 | `ANDROID_SDK_ROOT` | Android SDK command-line installation |
 | `ANDROID_NDK_ROOT` | Pinned Android NDK installation |
 | `JAVA_HOME` | JDK used by the future Gradle build |

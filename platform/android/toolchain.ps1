@@ -107,19 +107,29 @@ if (-not $fpcUnits -and $compiler) {
     (Join-Path (Split-Path -Parent $compilerDir) "units/aarch64-android")
   )
 }
-$rtlUnits = if ($fpcUnits) { Join-Path $fpcUnits "rtl" } else { $null }
-$rtlObjPasUnits = if ($fpcUnits) { Join-Path $fpcUnits "rtl-objpas" } else { $null }
-if ($rtlUnits -and -not (Test-Path -LiteralPath $rtlUnits -PathType Container)) { $rtlUnits = $null }
-if ($rtlObjPasUnits -and -not (Test-Path -LiteralPath $rtlObjPasUnits -PathType Container)) { $rtlObjPasUnits = $null }
+$fpcUnitDirectories = if ($fpcUnits) {
+  @(Get-ChildItem -LiteralPath $fpcUnits -Directory | ForEach-Object { $_.FullName })
+} else {
+  @()
+}
+$linkerKind = if ($env:FPC_ANDROID_LINKER) { $env:FPC_ANDROID_LINKER.ToLowerInvariant() } else { "lld" }
+if ($linkerKind -notin @("lld", "bfd")) {
+  throw "FPC_ANDROID_LINKER must be 'lld' or 'bfd', not '$linkerKind'"
+}
 $assemblerName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
   "aarch64-linux-android-as.exe"
 } else {
   "aarch64-linux-android-as"
 }
-$linkerName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
-  "aarch64-linux-android-ld.lld.exe"
+$linkerBaseName = if ($linkerKind -eq "bfd") {
+  "aarch64-linux-android-ld"
 } else {
   "aarch64-linux-android-ld.lld"
+}
+$linkerName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
+  "$linkerBaseName.exe"
+} else {
+  $linkerBaseName
 }
 $assembler = if ($binutils) { Join-Path $binutils $assemblerName } else { $null }
 $linker = if ($binutils) { Join-Path $binutils $linkerName } else { $null }
@@ -146,9 +156,8 @@ $readElf = Find-NdkTool $ndkRoot "llvm-readelf"
 
 Report "FPC aarch64 Android compiler (FPC_ANDROID)" $compiler
 Report "FPC Android assembler (FPC_ANDROID_BINUTILS)" $assembler
-Report "FPC Android linker (FPC_ANDROID_BINUTILS)" $linker
-Report "FPC Android RTL units (FPC_ANDROID_UNITS)" $rtlUnits $false
-Report "FPC Android ObjPas units (FPC_ANDROID_UNITS)" $rtlObjPasUnits $false
+Report "FPC Android $linkerKind linker (FPC_ANDROID_BINUTILS)" $linker
+Report "FPC Android unit tree (FPC_ANDROID_UNITS)" $fpcUnits $false
 Report "Android SDK (ANDROID_SDK_ROOT)" $sdkRoot
 Report "Android NDK (ANDROID_NDK_ROOT)" $ndkRoot
 Report "Java" $java
@@ -201,7 +210,6 @@ $arguments = @(
   "-MDelphi",
   "-B",
   "-Cg",
-  "-XLL",
   "-FD$binutils",
   "-XPaarch64-linux-android-",
   "-XR$sysroot",
@@ -210,13 +218,9 @@ $arguments = @(
   "-FE$outputDir",
   "-o$probeLibrary"
 )
-if ($rtlUnits -and $rtlObjPasUnits) {
-  $arguments += @(
-    "-Fu$rtlUnits",
-    "-Fu$rtlObjPasUnits"
-  )
+if ($linkerKind -eq "lld") {
+  $arguments += "-XLL"
 }
-
 if ($Engine) {
   if (-not (Test-Path -LiteralPath $SdlLibrary -PathType Leaf)) {
     throw "Engine probe requires a built SDL2 library: $SdlLibrary"
@@ -225,14 +229,20 @@ if ($Engine) {
   $arguments += @(
     "-Fl$sdlLibraryDir",
     "-dANDROID",
+    "-dGLES",
     "-dSDL",
     "-Fu$repoRoot",
     "-Fu$(Join-Path $repoRoot 'extra')",
     "-Fu$(Join-Path $repoRoot 'extra/sdl2')",
     "-Fu$(Join-Path $repoRoot 'Base')",
-    "-Fu$(Join-Path $repoRoot 'Base/extra')",
-    "-k--version-script=$(Join-Path $repoRoot 'platform/android/probe/android_engine_probe.exports')"
+    "-Fu$(Join-Path $repoRoot 'Base/extra')"
   )
+}
+foreach ($unitDirectory in $fpcUnitDirectories) {
+  $arguments += "-Fu$unitDirectory"
+}
+if ($Engine -and $linkerKind -eq "lld") {
+  $arguments += "-k--version-script=$(Join-Path $repoRoot 'platform/android/probe/android_engine_probe.exports')"
 }
 $arguments += $probeSource
 
