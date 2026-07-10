@@ -9,7 +9,10 @@ cd "$(dirname "$0")"
 
 # Compiler settings from test.bat [cite: 1, 2]
 FPC64="fpc"
-FLAGS="-MDelphi -Sd -RIntel -Fu.. -Ct -CR -Xm -gl -dTIME_OVERRIDE"
+FLAGS="-MDelphi -Sd -Fu.. -Ct -CR -Xm -gl -dTIME_OVERRIDE"
+case "$(uname -m)" in
+  x86_64|i386|i686) FLAGS="$FLAGS -RIntel" ;;
+esac
 LOG64="test_results_L64.txt"
 
 # Determine which test to run 
