@@ -111,6 +111,7 @@
       buildSettings = {
         CODE_SIGNING_ALLOWED = NO;
         GENERATE_INFOPLIST_FILE = YES;
+        INFOPLIST_KEY_UILaunchScreen_Generation = YES;
         MACH_O_TYPE = mh_execute;
         ONLY_ACTIVE_ARCH = YES;
         OTHER_LDFLAGS = (
@@ -134,6 +135,7 @@
       buildSettings = {
         CODE_SIGNING_ALLOWED = NO;
         GENERATE_INFOPLIST_FILE = YES;
+        INFOPLIST_KEY_UILaunchScreen_Generation = YES;
         MACH_O_TYPE = mh_execute;
         ONLY_ACTIVE_ARCH = YES;
         OTHER_LDFLAGS = (
