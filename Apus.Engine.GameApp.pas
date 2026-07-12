@@ -733,6 +733,14 @@ procedure TGameApplication.Run;
 
   // LAUNCH GAME OBJECT
   // ------------------------
+  {$IFDEF IOS}
+  // UIKit owns the main thread's run loop, so Run() must NOT block. game.Run
+  // sets everything up (useMainThread=false → InitMainLoop runs synchronously)
+  // and returns; the shell then drives frames via the display-link callback.
+  // Scene setup and the idle loop run on a control thread, as on macOS.
+  game.Run;
+  controlThread:=Apus.Threads.Thread.Start('ControlThread',ControlLoop);
+  {$ELSE}
   {$IFDEF DARWIN}
   controlThread:=Apus.Threads.Thread.Start('ControlThread',ControlLoop);
   try
@@ -753,6 +761,7 @@ procedure TGameApplication.Run;
   end;
   ControlLoop;
   {$ENDIF}
+  {$ENDIF} // IOS
  end;
 
 procedure TGameApplication.ControlLoop;
