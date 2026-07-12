@@ -1,0 +1,14 @@
+# redist/ios-simulator provenance
+
+[SDL2]
+version = 2.30.12
+upstream_tag = release-2.30.12
+upstream_snapshot = https://codeload.github.com/libsdl-org/SDL/tar.gz/refs/tags/release-2.30.12
+upstream_snapshot_sha256 = 560da2e54dd8af933e35bd08fb1b6cf80d4f6938c67710fecf13b7e9bdd6c47e
+license = zlib (licenses/SDL2-LICENSE.txt)
+target = Framework-iOS, iphonesimulator (x86_64 + arm64), deployment target 14.0
+build = xcodebuild -project Xcode/SDL/SDL.xcodeproj -scheme Framework-iOS -configuration Release -sdk iphonesimulator EXCLUDED_SOURCE_FILE_NAMES=SDL_shaders_metal.metal
+build_note = SDL_shaders_metal.metal excluded because Xcode 26 installs the Metal toolchain separately; the Metal renderer is unused (engine uses GLES 3.0), the GLES/UIKit backends are unaffected
+runtime_contents = SDL2.framework/SDL2 and SDL2.framework/Info.plist only
+binary = SDL2.framework/SDL2
+binary_sha256 = 2c698a10abc2d82dac084fdf9bf6381878d0cc90806a79b923b4c20e4305934b
