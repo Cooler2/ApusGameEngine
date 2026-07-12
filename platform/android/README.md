@@ -39,6 +39,20 @@ under `~/Library/Android/avd`:
 . ./platform/android/macos_env.sh
 ```
 
+### Emulator profile
+
+The R-24 runtime smoke uses the API 36 Google APIs ARM64 system image with a
+`720x1280`, 320 dpi display. Merge the tracked values from
+`avd/wxga720.properties` into the AVD's `config.ini`. Without explicit LCD and
+skin values, Android Emulator may silently fall back to the obsolete HVGA
+`320x480` skin even when `hw.device.name` says `pixel_7`.
+
+The local AVD name used during bring-up is `apus_api36_arm64`:
+
+```sh
+emulator -avd apus_api36_arm64 -no-snapshot-load
+```
+
 Compile TouchDemo with the full Engine5 `GameApp` closure and package it into a debug APK
 through the pinned SDL/Gradle shell:
 
@@ -101,7 +115,7 @@ the script verifies both the AArch64 ELF header and the export.
 
 S1 is verified on the API 36 Google APIs ARM64 emulator: the APK loads, creates
 an accepted GLES 3.0 context (ANGLE exposes GLES 3.1), renders TouchDemo's line
-pattern and PNG sprite at the native `320x480` drawable size, and SDL's primary
+pattern and PNG sprite at the native `720x1280` drawable size, and SDL's primary
 touch/mouse mapping drags the sprite. Audio is deliberately disabled for this
 gate.
 
