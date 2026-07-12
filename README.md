@@ -2,10 +2,12 @@
 
 Cross-platform 2D/3D game engine written in Delphi/Pascal by Ivan Polyacov ([Apus Software](https://apus-software.com)). In active development since the early 2000s, used in several commercial titles.
 
+**Engine 5 supports five platforms: Windows, Linux, macOS, Android and iOS** — up from Windows and Linux in Engine 4.
+
 **Games made with this engine:**
-* [Astral Masters](https://store.steampowered.com/app/1790630/Astral_Masters/) — Windows, IOS (Engine-2)
-* [Spectromancer](https://store.steampowered.com/app/22500/Spectromancer/) — Windows, IOS (Engine-3)
-* [Astral Towers](https://store.steampowered.com/app/983450/Astral_Towers/) — Windows, Linux, IOS (Engine-3 / 4)
+* [Astral Masters](https://store.steampowered.com/app/1790630/Astral_Masters/) — Windows, iOS (Engine-2)
+* [Spectromancer](https://store.steampowered.com/app/22500/Spectromancer/) — Windows, iOS (Engine-3)
+* [Astral Towers](https://store.steampowered.com/app/983450/Astral_Towers/) — Windows, Linux, iOS (Engine-3 / 4)
 * [Astral Heroes](https://store.steampowered.com/app/488910/Astral_Heroes/) — Windows (Engine-3)
 
 ---
@@ -35,7 +37,7 @@ This means: no inline variables, no type inference, no attributes, no anonymous 
 - [ ] OpenGL renderer (GL 3.3 core baseline, GLES 3.0 for mobile targets; newer GL features only as optional extension-gated fast paths): 2D/3D drawing, shaders, textures, nine-patch, text
 - [ ] Resource management with reference counting
 - [ ] Audio (BASS, SDL, IMX backends)
-- [ ] Platform layer: Windows (native WinAPI), Linux (SDL2)
+- [ ] Platform layer: Windows, Linux, macOS, Android and iOS
 - [ ] Multi-window and DPI-aware display support
 
 ---
@@ -55,16 +57,16 @@ The current stable version is **engine4**. It is used in shipped games and is th
 
 What's being worked on is tracked in [engine5_feature_roadmap.md](engine5_feature_roadmap.md). Current highlights:
 
-- [ ] New foundation library (`Apus.Core`, `Apus.Strings`, `Apus.Conv`, `Apus.Log`, `Apus.Threads`, …) replacing the monolithic legacy `Apus.Common`
-- [ ] OpenGL core profile pipeline: VBO/IBO, debug instrumentation, NSight-compatible
-- [ ] CSS-like style system for UI (declarative, inherited, state-aware)
-- [ ] Geometry library overhaul: single-precision first, spatial primitives, intersection and culling tests
-- [ ] Multi-window support with runtime DPI changes
-- [ ] Robot API for automated testing and tooling integration (file-based protocol, UI introspection, screenshot/pixel commands)
-- [ ] CI coverage on Windows and Linux (GitHub Actions)
-- [ ] Modernized demo suite
+- New foundation library (`Apus.Core`, `Apus.Strings`, `Apus.Conv`, `Apus.Log`, `Apus.Threads`, …) replacing the monolithic legacy `Apus.Common`
+- OpenGL core profile pipeline with a GL 3.3 desktop baseline and a shared GLES 3.0 mobile path
+- CSS-like style system for UI (declarative, inherited, state-aware)
+- Geometry library overhaul: single-precision first, spatial primitives, intersection and culling tests
+- Multi-window support with runtime DPI changes
+- Robot API for automated testing and tooling integration (file-based protocol, UI introspection, screenshot/pixel commands)
+- CI coverage on Windows, Linux and macOS arm64 (GitHub Actions)
+- Modernized demo suite, including the touch-oriented `TouchDemo` used for mobile bring-up
 
-Documentation for engine5 does not exist yet — it will appear as the codebase stabilizes.
+Build notes and platform-specific tooling live under [`platform/`](platform/). Engine5 has an evolving manual under [`manual/`](manual/) and detailed implementation status in the [feature roadmap](engine5_feature_roadmap.md); both are works in progress.
 
 ---
 
