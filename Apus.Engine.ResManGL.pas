@@ -1378,6 +1378,9 @@ var
  prevFramebuffer:GLint;
  renderBuffer:GLUint;
  lab:String8;
+ {$IFDEF GLES}
+ colorStatus,glErrColor,glErrDepth:cardinal;
+ {$ENDIF}
 begin
  begin
    if tex.name='UI_HintImage' then
@@ -1410,17 +1413,24 @@ begin
   end;
   GetGLFormat(tex.pixelFormat,format,subFormat,internalFormat);
   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,tex.width,tex.height,0,format,subFormat,nil);
+  glErrColor:=glGetError; // capture upload error before it is masked by later calls
   glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+  colorStatus:=glCheckFramebufferStatus(GL_FRAMEBUFFER); // completeness with color attachment only
+  glErrDepth:=0;
   if Bits.HasAll(flags,aiDepthBuffer) then begin
    glGenRenderbuffers(1,@renderBuffer);
    glBindRenderbuffer(GL_RENDERBUFFER,renderBuffer);
    glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,tex.width,tex.height);
+   glErrDepth:=glGetError;
    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,renderBuffer);
    tex.rbo:=renderBuffer;
   end;
   status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if status<>GL_FRAMEBUFFER_COMPLETE then
-   raise EError.Create('FBO status: '+inttostr(status));
+   raise EError.Create(sysUtils.Format(
+     'FBO status: %d (color-only:%d) %dx%d ifmt:$%x fmt:$%x depth:%d glErr(color:$%x depth:$%x)',
+     [status,colorStatus,tex.width,tex.height,internalFormat,format,
+      integer(Bits.HasAll(flags,aiDepthBuffer)),glErrColor,glErrDepth]));
   {$ENDIF GLES}
 
   {$IFNDEF GLES}
