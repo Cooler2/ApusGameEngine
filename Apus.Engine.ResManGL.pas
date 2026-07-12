@@ -1581,9 +1581,11 @@ begin
  end;
  except
   on e:Exception do begin
+   // Log first (Forced -> reaches the OS system log on iOS) so the real cause is
+   // recorded even if the cleanup below faults on a half-constructed texture.
+   Log.Force('AllocImage error (%s): %s',[name,ExceptionMsg(e)]);
    if tex<>nil then tex.Free;
    result:=nil;
-   Log.Msg('AllocImage error: '+ExceptionMsg(e));
    raise;
   end;
  end;

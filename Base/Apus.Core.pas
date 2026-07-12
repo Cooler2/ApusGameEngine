@@ -339,6 +339,12 @@ type
 
   // Display a messgae using system platform facilities (stderr, MessageBox etc.). Configurable.
   procedure SystemMessage(const msg:String8);
+  // Write an important message straight to the OS system log (os_log/syslog on
+  // Apple, OutputDebugString on Windows, stderr elsewhere). Always visible and
+  // independent of the engine's file/cached logging - use for messages that must
+  // never be lost (startup failures, unhandled exceptions, and iOS where the file
+  // log lives in a hidden app container invisible to `log show`/Console).
+  procedure SystemLog(const msg:String8);
   // Explicit debug output (to debugger console when available).
   // Unlike Log.Msg, this is intended for low-level lifecycle tracing.
   procedure DebugMsg(const msg:String8); overload;
@@ -360,6 +366,10 @@ var
   systemMessageFlags:TSystemMessageFlags;
   // Optional callback for logging (set by Apus.Log or application)
   onSystemMessage:procedure(const msg:String8);
+  // Optional GUI message-box callback, set by the platform layer (e.g. SDL/UIKit).
+  // Invoked by SystemMessage when smMessageBox is active on platforms that have no
+  // built-in message box of their own (everything except Windows).
+  onSystemMessageBox:procedure(const msg:String8);
 
 // =============================================================================
 // Standard storage directories
@@ -2279,6 +2289,26 @@ end;
 {$ENDIF}
 
 
+{$IFDEF DARWIN}
+const
+  LOG_ERR=3; // syslog priority (see <sys/syslog.h>); routed into the unified log (os_log) on iOS/macOS
+// libc syslog(3): on modern Apple platforms it forwards into os_log, so the message
+// is visible via `log show` / Console even for a sandboxed app with a hidden container.
+procedure c_syslog(priority:longint; format:pchar); cdecl; varargs; external name 'syslog';
+{$ENDIF}
+
+procedure SystemLog(const msg:String8);
+begin
+  if msg='' then exit;
+  {$IF DEFINED(DARWIN)}
+  c_syslog(LOG_ERR,'%s',PAnsiChar(msg));
+  {$ELSEIF DEFINED(MSWINDOWS)}
+  OutputDebugStringA(PAnsiChar(msg));
+  {$ELSE}
+  WriteLn({$IFDEF FPC}StdErr{$ELSE}ErrOutput{$ENDIF},msg);
+  {$ENDIF}
+end;
+
 procedure SystemMessage(const msg:String8);
 const
   smLog=TSystemMessageFlag.smLog;
@@ -2289,12 +2319,20 @@ const
 begin
   if (smLog in SystemMessageFlags) and Assigned(OnSystemMessage) then
     OnSystemMessage(msg);
+  // Always mirror critical messages to the OS system log so they survive a
+  // read-only bundle / hidden container and are never lost (esp. on iOS).
+  SystemLog(msg);
   {$IFDEF MSWINDOWS}
   if smDebugOutput in SystemMessageFlags then
     if IsDebuggerPresent then
       OutputDebugStringA(PAnsiChar(msg));
   if smMessageBox in SystemMessageFlags then
     MessageBoxA(0,PAnsiChar(msg),'Error',MB_ICONERROR);
+  {$ELSE}
+  // Windows has a built-in box; every other platform routes through the hook the
+  // platform layer installs (SDL_ShowSimpleMessageBox -> UIAlertController on iOS).
+  if (smMessageBox in SystemMessageFlags) and Assigned(OnSystemMessageBox) then
+    OnSystemMessageBox(msg);
   {$ENDIF}
   if smStdErr in SystemMessageFlags then
     WriteLn({$IFDEF FPC}StdErr{$ELSE}ErrOutput{$ENDIF},msg);
@@ -2405,6 +2443,10 @@ initialization
     systemMessageFlags:=systemMessageFlags+[TSystemMessageFlag.smMessageBox];
   {$ELSE}
   systemMessageFlags:=[TSystemMessageFlag.smLog,TSystemMessageFlag.smStdErr];
+  {$IFDEF IOS}
+  // No console on iOS: surface critical messages in a native alert via the hook.
+  systemMessageFlags:=systemMessageFlags+[TSystemMessageFlag.smMessageBox];
+  {$ENDIF}
   {$ENDIF}
 end.
 

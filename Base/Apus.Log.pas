@@ -218,6 +218,13 @@ class procedure Log.Msg(msg:String8; category:byte; level:TSeverity);
 var
   text:string;
 begin
+  {$IFDEF IOS}
+  // Mirror important messages (Forced and above) to the OS system log. The file
+  // log lives in a hidden app container on iOS, so this is the only channel that
+  // shows up in `log show`/Console - and it works even before the log file is set
+  // up or if the app dies before the next cache flush.
+  if level>=TSeverity.Forced then SystemLog(msg);
+  {$ENDIF}
   // Call custom handler if set
   if Assigned(customHandler) then
     customHandler(msg, category, level);

@@ -1184,6 +1184,9 @@ begin
       end;
     except
       on e:Exception do begin // catch unhandled exceptions to prevent process termination
+        // An unhandled thread exception must never pass unnoticed: log it Forced
+        // (never cached). On iOS Log.Force is mirrored into the OS system log, so it
+        // surfaces even when the file log is unavailable (iOS bundle) or the app dies.
         Log.Force('Unhandled exception in thread %s (%s): %s',
           [data^.uniqueName,e.ClassName,e.Message]);
         if data^.implPtr<>nil then

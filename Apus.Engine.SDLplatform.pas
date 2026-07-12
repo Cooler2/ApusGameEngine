@@ -346,6 +346,14 @@ procedure MyLogHandler(userdata: Pointer; category: TSDL_LogCategory; priority: 
    savedLogHandler(userData,category,priority,msg);
  end;
 
+// Installed as Apus.Core.onSystemMessageBox: show a critical message in a native
+// alert. SDL routes this to UIAlertController on iOS / NSAlert on macOS / a Win32
+// box on desktop, and marshals to the UI thread as needed.
+procedure ShowSDLMessageBox(const msg:String8);
+ begin
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,'Error',PAnsiChar(msg),nil);
+ end;
+
 constructor TSDLPlatform.Create;
  var
   plName:AnsiString;
@@ -360,6 +368,7 @@ constructor TSDLPlatform.Create;
   SDL_GetVersion(@ver);
   SDL_LogGetOutputFunction(@savedLogHandler,nil);
   SDL_LogSetOutputFunction(MyLogHandler,nil);
+  onSystemMessageBox:=ShowSDLMessageBox;
   Log.Msg('SDL Platform Initialized. System: %s, runtime %d.%d.%d, headers %d.%d.%d',
     [plName,ver.major,ver.minor,ver.patch,SDL_MAJOR_VERSION,SDL_MINOR_VERSION,SDL_PATCHLEVEL]);
   InitControllers;
