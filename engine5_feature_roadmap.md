@@ -42,7 +42,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
 | R-28 | Audio Subsystem Activation | planned | ~10% | Research done, decisions locked (miniaudio primary, 2-tier requirements, typed facade); next: implement per `Work/R-28_audio_activation.md` plan T1–T7 |
-| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~90% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; dev `.app` bundle done (ad-hoc signed, smoke from inside bundle); remaining = distributable dylibs (controlled deployment target) + close Retina-review findings #1–2 |
+| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
 | R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
 
 ## GL Version Policy (locked 2026-07-03)
@@ -450,19 +450,19 @@ Two tiers, not a version ladder:
   - [ ] The backend/platform decision and its limits are documented.
 
 ### [R-29] macOS Desktop Support (SDL2/GL)
-- Status: in-progress (~80%) | Priority: P2 | Area: Platform / Build
+- Status: in-progress (~95%) | Priority: P2 | Area: Platform / Build
 - Value: bring macOS arm64 back as a real Engine5 desktop target — and a portability proof for Darwin / Apple-Silicon / native-libs that also de-risks iOS (R-30).
 - Split out of the former Apple umbrella (2026-07-02); the iOS half is now R-30.
 - Direction: SDL2 + OpenGL 3.2/4.1 Core (transitional). **macOS GL ceiling = 4.1** (deprecated, frozen): no compute/SSBO/DSA and no GL 4.4 persistent-mapped buffers — constrains R-12 (streaming buffers) and the R-09 Track D GL-4.x path (`Work/R-09_gl4x_research.md`). Long-term Apple graphics (Metal / SDL_GPU) is a separate future card, tracked in R-30.
-- Progress: Base builds+tests on macOS arm64 in CI; selected engine units/demos compile; SimpleDemo runs via SDL2/OpenGL with a Robot-API runtime smoke (Retina/pointer fixes reviewed). Remaining = `.app` bundle + closing review findings #1–2.
+- Progress: Base builds+tests on macOS arm64 in CI; selected engine units/demos compile; SimpleDemo runs via SDL2/OpenGL with a Robot-API runtime smoke (Retina/pointer fixes reviewed). `.app` bundle done — both dev (ad-hoc) and **distributable** (vendored official SDL2 in `redist/macos/`, controlled deployment target, recursive dep-walk, `BUILDING_BUNDLES.md`); engine now has per-platform storage dirs (`BaseDir/LogDir/AppDataDir/TempDir` + `bundleMode`) so a signed `.app` writes config/logs to `~/Library`, never its read-only Resources. macOS core-profile NPOT render-target UV bug fixed (`4ce9874b`). Lazarus dev build-mode `macos` added. Remaining = closing Retina review findings #1–2.
 - Distribution (current conditions): ad-hoc-signed bundle for dev/CI; storefront clients (Steam/itch) are the practical public channel — their installs skip the quarantine attribute, so no notarization needed. Direct public downloads without notarization degraded on macOS 15 (no more right-click→Open bypass). Developer ID + notarization deferred until a Developer Program payment path exists (RF card restrictions); it layers on top of the ad-hoc flow without architectural changes.
-- Out of scope: non-GL renderer (see R-30), App Store packaging (iOS), Intel/universal binaries unless proven needed.
+- Out of scope: non-GL renderer (see R-30), App Store packaging (iOS), Intel/universal binaries unless proven needed, `.dmg`/installer packaging & notarization tooling (downstream/product concern — the engine only assembles a runnable `.app`).
 - Acceptance Criteria:
   - [x] Base builds and tests pass on macOS arm64 in CI.
   - [x] Selected engine units/demos compile on macOS; SimpleDemo runs via SDL2/OpenGL with a Robot-API smoke.
-  - [ ] `.app` bundle with resources/dylibs (controlled deployment target, not Homebrew), `@rpath`, ad-hoc signing; runtime smoke passes from inside the bundle.
-  - [ ] Distribution path documented: storefront (no notarization) vs Developer ID + notarization (when a payment path exists — not a blocker for closing the task).
-  - [ ] Retina-review findings #1–2 closed (Linux HiDPI double-scaling gating, `SDL_WINDOWEVENT_SIZE_CHANGED`) before multi-monitor / R-02 builds on this mechanism.
+  - [x] `.app` bundle with resources/dylibs (controlled deployment target, not Homebrew), `@rpath`, ad-hoc signing; runtime smoke passes from inside the bundle *(dev 2026-07-03; distributable via vendored official SDL2 2026-07-04)*.
+  - [x] Distribution path documented: storefront (no notarization) vs Developer ID + notarization (when a payment path exists — not a blocker for closing the task) — see `BUILDING_BUNDLES.md`.
+  - [ ] Retina-review findings #1–2 closed (Linux HiDPI double-scaling gating, `SDL_WINDOWEVENT_SIZE_CHANGED`) before multi-monitor / R-02 builds on this mechanism. *Deferred: current dev stand is 1440p non-Retina (scale 1) — verify on real HiDPI hardware (home 4K).*
 - Plan / status log / review: `Work/R-29_macos_desktop.md`.
 
 ### [R-30] iOS Platform Support
