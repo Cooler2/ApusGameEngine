@@ -212,9 +212,12 @@ type
    scissor:boolean;
    backBufferWidth,backBufferHeight:integer;
    threadReady:boolean;
-   // Default framebuffer id: 0 on desktop/Android; iOS under SDL uses a
-   // non-zero default FBO. Nothing sets this yet - plumbing only (R-30).
+   // Default framebuffer/renderbuffer ids: 0 on desktop/Android; iOS under SDL
+   // uses a non-zero system FBO whose colour attachment is a drawable-backed
+   // renderbuffer. SDL's iOS present shows whatever renderbuffer is bound, so it
+   // must be restored before SwapWindow (see PresentFrame).
    defaultFramebuffer:cardinal;
+   defaultRenderbuffer:cardinal;
   procedure EnsureThreadState;
   procedure ClearBuffers(fColor,fDepth,fStencil:boolean;color:cardinal;zbuf:single;stencil:integer);
  end;
@@ -460,6 +463,14 @@ procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
 procedure TOpenGL.PresentFrame;
  begin
   PostDebugMsg('PresentFrame');
+  {$IFDEF IOS}
+  // SDL's iOS present calls presentRenderbuffer on the currently bound GL_RENDERBUFFER;
+  // rendering may have left another renderbuffer bound, which would make the swap fail
+  // with GL_INVALID_OPERATION and present nothing. Restore SDL's system framebuffer and
+  // its drawable-backed renderbuffer captured at context init.
+  glBindFramebuffer(GL_FRAMEBUFFER,TGLRenderTargetAPI.defaultFramebuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER,TGLRenderTargetAPI.defaultRenderbuffer);
+  {$ENDIF}
   wnd.PresentFrame;
  end;
 
@@ -1445,6 +1456,9 @@ procedure TGLRenderTargetAPI.EnsureThreadState;
   fb:=0;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING,@fb);
   defaultFramebuffer:=cardinal(fb);
+  fb:=0;
+  glGetIntegerv(GL_RENDERBUFFER_BINDING,@fb); // SDL's drawable-backed renderbuffer
+  defaultRenderbuffer:=cardinal(fb);
   scissor:=false;
   threadReady:=true;
  end;
