@@ -133,9 +133,26 @@ function TMainScene.Process:boolean;
 
 procedure TMainScene.Render;
  var
+  i,n,maxX,maxY:integer;
+  x1,y1,x2,y2,x3,y3,x4,y4:single;
   font:cardinal;
  begin
   gfx.target.Clear($FF203040); // dark slate background
+
+  // Sparse diagonal pattern makes line aliasing and framebuffer scaling visible.
+  maxX:=window.renderWidth-1;
+  maxY:=window.renderHeight-1;
+  n:=8;
+  for i:=0 to n-1 do begin
+   x1:=maxX*i/n; y1:=0;
+   x2:=maxX; y2:=maxY*i/n;
+   x3:=maxX-maxX*i/n; y3:=maxY;
+   x4:=0; y4:=maxY-maxY*i/n;
+   draw.Line(x1,y1,x2,y2,$6040C8F0);
+   draw.Line(x2,y2,x3,y3,$6040C8F0);
+   draw.Line(x3,y3,x4,y4,$6040C8F0);
+   draw.Line(x4,y4,x1,y1,$6040C8F0);
+  end;
 
   font:=txt.GetFont('Default',7);
   txt.Write(font,window.renderWidth div 2,40,$FFE0E0E0,
