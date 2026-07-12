@@ -1432,11 +1432,19 @@ constructor TGLRenderTargetAPI.Create;
 procedure TGLRenderTargetAPI.EnsureThreadState;
  var
   data:array[0..3] of GLInt;
+  fb:GLInt;
  begin
   if threadReady then exit;
   glGetIntegerv(GL_VIEWPORT,@data[0]);
   backBufferWidth:=data[2];
   backBufferHeight:=data[3];
+  // Capture the context's default framebuffer. On desktop/Android this is 0,
+  // but iOS under SDL renders to a system-owned FBO with a non-zero name, so
+  // binding 0 there raises GL_INVALID_FRAMEBUFFER_OPERATION. SDL has its own
+  // FBO bound as we enter the first frame, so read it now.
+  fb:=0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING,@fb);
+  defaultFramebuffer:=cardinal(fb);
   scissor:=false;
   threadReady:=true;
  end;

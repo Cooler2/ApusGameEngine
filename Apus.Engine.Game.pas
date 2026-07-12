@@ -541,6 +541,12 @@ begin
  canExitNow:=false;
  mainLoopExitRequested:=false;
  useMainThread:=true;
+ {$IFDEF IOS}
+ // UIKit owns the main run loop, so we can't spin our own blocking loop.
+ // Run() sets everything up and returns; frames are driven externally by the
+ // display-link callback signalling 'Engine\onFrame'.
+ useMainThread:=false;
+ {$ENDIF}
  controlThreadId:=GetCurrentThreadId;
  // TODO: window fields initialized here before window is created - move to post-CreateWindow init
  mainThread:=nil;
@@ -1028,6 +1034,17 @@ procedure TGame.InitMainLoop;
 begin
  try
   Log.Msg('Init main loop');
+  // In the useMainThread=false path (iOS/mobile) there is no MainThreadLoop to
+  // create the window first, so create it here on the calling thread. When a
+  // MainThreadLoop already ran (desktop), window is set and this is skipped.
+  if window=nil then begin
+   window:=systemPlatform.CreateWindow(gameEx.params.title);
+   mainWindow:=window;
+   window.screenDPI:=systemPlatform.GetScreenDPI;
+   window.frameNum:=0;
+   window.ResetFrameTiming;
+   PublishVar(@window.screenDPI,'ScreenDPI',TVarTypeInteger);
+  end;
   InitGraph;
 
   window.timings.Reset;
@@ -1038,8 +1055,8 @@ begin
   Signal('Engine\BeforeMainLoop');
   Log.Msg('Game is running...');
   running:=true;
-  {$IFDEF ANDROID}
-  window.active:=true; // window is initially active
+  {$IF DEFINED(ANDROID) OR DEFINED(IOS)}
+  window.active:=true; // window is initially active (no focus events on mobile)
   {$ENDIF}
   except
    on e:Exception do begin

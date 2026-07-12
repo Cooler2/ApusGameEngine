@@ -251,7 +251,6 @@ implementation
 uses Classes, Apus.Strings, Apus.Conv, Apus.Log, Apus.EventMan
     {$IFDEF UNIX}, unixtype, BaseUnix{$ENDIF}
     {$IFDEF LINUX}, Syscall{$ENDIF}
-    {$IFDEF IOS}, iphoneAll{$ENDIF}
     {$IFDEF ANDROID}, Apus.Android{$ENDIF};
 
 const
