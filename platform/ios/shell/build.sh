@@ -77,23 +77,42 @@ else
   echo "Warning: no pinned SDL2 hash for $TARGET; skipping integrity check" >&2
 fi
 
+# Engine build defines (same on device and simulator). -dGLES selects the
+# GLES 3.0 render path; -dSDL selects the SDL platform backend; -dOPENGL is the
+# umbrella GL define. The shell pulls the whole engine via `uses TouchDemoApp`.
+ENGINE_DEFS=(-dOPENGL -dGLES -dSDL)
+# Engine + Base + demo source on the unit path; -Fi for defines.inc at the root.
+ENGINE_UNITS=(
+  "-Fu$ROOT"
+  "-Fu$ROOT/Base"
+  "-Fu$ROOT/Base/extra"
+  "-Fu$ROOT/extra"
+  "-Fu$ROOT/extra/sdl2"
+  "-Fu$ROOT/demo/TouchDemo"
+  "-Fi$ROOT"
+)
+
 mkdir -p "$PASCAL_DIR"
 (
   cd "$BUILD_DIR"
-  "$FPC" "-T$FPC_OS" -Paarch64 -MDelphi -Sd -Cn "${FPC_DEFS[@]}" \
+  "$FPC" "-T$FPC_OS" -Paarch64 -MDelphi -Sd -Cn "${FPC_DEFS[@]}" "${ENGINE_DEFS[@]}" \
     "-XR$SDK" \
     "-Fu$FPC_LIB/units/$UNITS_ARCH/*" \
-    "-Fu$ROOT/extra/sdl2" \
+    "${ENGINE_UNITS[@]}" \
     "-FU$PASCAL_DIR" \
     "-FE$PASCAL_DIR" \
     "$SHELL_DIR/pascal/shell.lpr"
 )
 
+# The archive must contain every object the engine references: the freshly
+# compiled engine/Base/demo/shell units (in PASCAL_DIR) plus all the precompiled
+# FPC package objects (rtl and the packages built by build_iphonesim_packages.sh),
+# whose .o live in the unit prefix. -force_load (set in the .xcodeproj) then keeps
+# every unit's Mach-O init constructor so unit initialization runs before main().
+rm -f "$BUILD_DIR/libShellPascal.a"
 ar rcs "$BUILD_DIR/libShellPascal.a" \
   "$PASCAL_DIR"/*.o \
-  "$FPC_LIB/units/$UNITS_ARCH/rtl/system.o" \
-  "$FPC_LIB/units/$UNITS_ARCH/rtl/sysinit.o" \
-  "$FPC_LIB/units/$UNITS_ARCH/rtl/objpas.o"
+  "$FPC_LIB/units/$UNITS_ARCH"/*/*.o
 
 # FRAMEWORK_SEARCH_PATHS is pinned to redist/ios in the .xcodeproj for the
 # device build; override it on the command line for the simulator slice.
@@ -113,5 +132,12 @@ APP="$SHELL_DIR/DerivedData/Build/Products/$PRODUCTS_DIR/ApusShell.app"
 mkdir -p "$APP/Frameworks"
 ditto "$SDL_FRAMEWORK" "$APP/Frameworks/SDL2.framework"
 cmp "$SDL_FRAMEWORK/SDL2" "$APP/Frameworks/SDL2.framework/SDL2"
+
+# Bundle the TouchDemo assets at the .app root. BaseDir resolves to the bundle's
+# resource dir on iOS, and the app's `../demo/TouchDemo` source-tree fallback is
+# absent there, so the demo loads these copies.
+for asset in sprite.png game.ctl; do
+  cp "$ROOT/demo/TouchDemo/$asset" "$APP/$asset"
+done
 
 echo "Built unsigned shell ($TARGET): $APP"
