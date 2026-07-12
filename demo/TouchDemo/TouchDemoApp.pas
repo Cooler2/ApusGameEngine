@@ -73,7 +73,11 @@ constructor TTouchDemoApp.Create;
 procedure TTouchDemoApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
+  {$IFDEF ANDROID}
+  settings.mode.displayMode:=dmFullScreen;
+  {$ELSE}
   settings.mode.displayMode:=dmWindow;
+  {$ENDIF}
   settings.mode.displayFitMode:=dfmFullSize;
   settings.mode.displayScaleMode:=dsmDontScale;
  end;
@@ -129,6 +133,7 @@ function TMainScene.Process:boolean;
    result:=true; // sprite moved - request a redraw
   end;
   prevPressed:=pressed;
+  result:=true; // mobile swapchains do not guarantee preserved backbuffer contents
  end;
 
 procedure TMainScene.Render;

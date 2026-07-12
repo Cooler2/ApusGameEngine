@@ -350,7 +350,7 @@ procedure TOpenGL.Init(window:TWindow);
   glGetIntegerv(GL_NUM_EXTENSIONS,@cnt);
   for i:=0 to cnt-1 do
    exList:=exList+#13#10+PAnsiChar(glGetStringi(GL_EXTENSIONS,i));
-  Log.Force('OpenGL extensions: '+exList);
+  Log.Info('OpenGL extensions: '+exList);
   CheckForGLError(012);
 
   glVersionNum:=GetVersion;

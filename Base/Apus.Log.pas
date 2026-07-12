@@ -69,6 +69,37 @@ type
 implementation
 uses SysUtils, Apus.Threads;
 
+{$IFDEF ANDROID}
+{$linklib log}
+function AndroidLogWrite(priority:longint; tag,text:PAnsiChar):longint; cdecl;
+  external 'liblog.so' name '__android_log_write';
+
+procedure MirrorToAndroidLog(const msg:String8; category:byte; level:TSeverity);
+const
+  ANDROID_LOG_INFO=4;
+  ANDROID_LOG_WARN=5;
+  ANDROID_LOG_ERROR=6;
+  ANDROID_LOG_FATAL=7;
+var
+  priority:longint;
+  text:UTF8String;
+begin
+  if level<TSeverity.Forced then exit;
+  case level of
+    TSeverity.Forced:priority:=ANDROID_LOG_INFO;
+    TSeverity.Warn:priority:=ANDROID_LOG_WARN;
+    TSeverity.Error:priority:=ANDROID_LOG_ERROR;
+  else
+    priority:=ANDROID_LOG_FATAL;
+  end;
+  if category>0 then
+    text:=UTF8String('['+IntToStr(category)+'] '+string(msg))
+  else
+    text:=UTF8String(msg);
+  AndroidLogWrite(priority,'ApusEngine',PAnsiChar(text));
+end;
+{$ENDIF}
+
 
 var
   logFileName:string = '';
@@ -225,6 +256,10 @@ begin
   // Call default handler unless disabled
   if not disableDefault then
     InternalLogWrite(msg, category, level);
+
+  {$IFDEF ANDROID}
+  MirrorToAndroidLog(msg,category,level);
+  {$ENDIF}
 
   // Optional mirroring to debug console.
   if debugMirrorEnabled and (level>=debugMirrorMinSeverity) then begin

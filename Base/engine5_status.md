@@ -157,7 +157,7 @@ are not intended to enumerate every live `Base/Apus.*.pas` unit.
 | **Apus.Strings** | ~1550 | TestStrings | String8Helper methods (IndexOf, Trim, Split, ToUpper...), case-insensitive search via optional `ignoreCase`, UTF8.Format (native formatter) |
 | **Apus.Files** | 729 | TestFiles | Files.Exists/Load/Save, Folder.ListFiles/Find/Copy/Delete, BOM-aware text I/O (`LoadAsString` strips BOM, `Save(String8)` adds BOM by default) |
 | **Apus.HashMaps** | 1590 | TestHashMaps | Generic `THashMap<T>` is the preferred API. Supported specialized hashes: `THash` (multi-value), `TSimpleHash` (int64->int64), `TObjectHash`. Deprecated/compat: `TStrHash`, `TSimpleHashS/AS/8`, `TVarHash`. |
-| **Apus.Log** | 373 | — | Unified logging: Log.Msg/Debug/Info/Warn/Error/Fatal, Logger.UseLogFile/Flush. Replaces Common logging + base for Apus.Logging refactor. |
+| **Apus.Log** | 456 | — | Unified logging: Log.Msg/Debug/Info/Warn/Error/Fatal, Logger.UseLogFile/Flush; Android mirrors `Forced+` to logcat as `ApusEngine`. Replaces Common logging + base for Apus.Logging refactor. |
 | **Apus.Threads** | 714 | — | Thread synchronization (TLock with Enter/Leave methods), thread management (RegisterThread/PingThread), utilities (WaitFor). Cross-platform (Windows/Linux). **Solves blocker #1**. |
 | **Apus.Utils** | 280 | — | Misc utilities: ParseDate/ParseTime (date parsing), cmdline helpers (`HasParam/GetParam`), SplitA (string splitting with quotes), Chop (trim). Default place for functions that don't fit other modules' scope. |
 | **Apus.Lib** | 58 | — | Re-export facade (type aliases for convenient `uses`) |

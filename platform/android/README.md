@@ -119,6 +119,11 @@ pattern and PNG sprite at the native `720x1280` drawable size, and SDL's primary
 touch/mouse mapping drags the sprite. Audio is deliberately disabled for this
 gate.
 
+TouchDemo requests Android fullscreen mode. SDLActivity applies immersive
+sticky system-UI flags, so rendering covers the entire drawable and system bars
+return only through the standard Android reveal gesture. Important Engine5 log
+messages (`Forced` and above) are also mirrored to logcat with tag `ApusEngine`.
+
 Next, handle Android system bars/display cutouts so UI content uses a deliberate
 safe area (the current `Drag the ball` label is under the status/cutout area),
 then verify pause/resume, rotation/context restoration, clean exit, and text

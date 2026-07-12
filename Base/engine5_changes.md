@@ -904,3 +904,11 @@ Do not treat it as a list of functions to reintroduce under the old names.
 - Removed `Apus.Engine.PainterGL.pas` and `Apus.Engine.PainterGL2.pas`.
 - Current desktop rendering uses `Apus.Engine.OpenGL` with `IGraphicsSystem`, `IRenderTarget`, `IShader`, `IDrawer`, and `ITextDrawer`.
 - The old Android backend still needs migration to the current graphics-system architecture before Android builds can be re-enabled.
+
+## 2026-07-12 — Android system-log mirror
+
+- `Apus.Log` now mirrors important Android messages (`Forced` and above) to
+  logcat under the `ApusEngine` tag.
+- Severity maps to Android's Info/Warn/Error/Fatal priorities. Lower-volume
+  `Debug`, `Info`, and `Normal` messages remain in the regular Engine5 log.
+- No public logging API changed.
