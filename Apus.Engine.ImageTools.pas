@@ -499,10 +499,13 @@ begin
   //if (defaultImagesDir<>'') and (fname[1]<>'/') then fname:=defaultImagesDir+fname;
   {$ENDIF}
   {$IFDEF IOS}
+  // Prefer mobile-optimized formats, but fall back to png/jpg so plain assets work too.
   if not FileExists(fname) then
-   if FileExists(fname+'.tga') then fname:=fname+'.tga'
-    else if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
-     else raise EError.Create(fname+' not found');
+   if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
+    else if FileExists(fname+'.tga') then fname:=fname+'.tga'
+     else if FileExists(fname+'.png') then fname:=fname+'.png'
+      else if FileExists(fname+'.jpg') then fname:=fname+'.jpg'
+       else raise EError.Create(fname+' not found');
   {$ELSE}
   if ExtractFileExt8(fname)='' then begin // find file
    fName:=FindProperFile(fName,Bits.HasAll(flags,liffNoFail));
