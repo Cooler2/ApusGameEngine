@@ -427,7 +427,13 @@ procedure TGame.SetSettings(s: TGameSettings);
 begin
  if not systemPlatform.canChangeSettings then exit;
  newParams:=s;
- if useMainThread and (mainThread=nil) then begin
+ // During initial setup (before the main loop is up) apply directly on the
+ // calling thread: there is no running loop yet to service a deferred
+ // ChangeSettings signal, and both window configuration and scene creation
+ // need params in place. On iOS useMainThread=false yet mainThread stays nil,
+ // so gate on `running` rather than useMainThread (which left params zeroed,
+ // producing a 0x0 render area and a broken transition render target).
+ if not running then begin
   ApplyNewSettings; exit;
  end;
  if (mainThread=nil) or (GetCurrentThreadID<>mainThread.ID) then
