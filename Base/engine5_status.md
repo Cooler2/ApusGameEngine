@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-07-03)
+## Summary (last updated: 2026-07-12)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -27,6 +27,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ Linux/FPC style test and modern SDL/OpenGL demo compile coverage verified
 - ✅ Android JNI initialization stores the VM pointer used to attach and detach
   engine worker threads
+- ✅ Android `SystemMessage` diagnostics are error-logged and asynchronously
+  displayed in a native `AlertDialog` without blocking engine threads
 - 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and incremental cleanup of legacy Engine/Demo/Tools references
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.

@@ -71,6 +71,9 @@ interface
 
  procedure LogD(text:string);
  procedure LogI(text:string);
+ // Show a native modal dialog. The call is queued to Android's UI thread and
+ // returns immediately; only one engine error dialog is shown at a time.
+ procedure AndroidShowMessage(const title,text:string);
 
  {$ENDIF}
 implementation
@@ -117,6 +120,50 @@ implementation
  procedure LogI(text:string);
   begin
    AndroidLog(4,'ApusLib',PChar(text));
+  end;
+
+ procedure AndroidShowMessage(const title,text:string);
+  var
+   env:PJNIEnv;
+   cls:jclass;
+   methodID:jMethodID;
+   args:array[0..1] of jvalue;
+  begin
+   if curActivity=nil then exit;
+   if appEnv=nil then AndroidInitThread;
+   env:=appEnv;
+   if env=nil then exit;
+   cls:=env^.GetObjectClass(env,curActivity);
+   if cls=nil then raise EError.Create('Failed to get Android activity class');
+   try
+    methodID:=env^.GetMethodID(env,cls,'showErrorDialog',
+      '(Ljava/lang/String;Ljava/lang/String;)V');
+    if methodID=nil then
+     raise EError.Create('Android activity method not found: showErrorDialog');
+    args[0].l:=JavaString(title);
+    args[1].l:=JavaString(text);
+    try
+     env^.CallVoidMethodA(env,curActivity,methodID,@args);
+     HandleException('showErrorDialog');
+    finally
+     env^.DeleteLocalRef(env,args[0].l);
+     env^.DeleteLocalRef(env,args[1].l);
+    end;
+   finally
+    env^.DeleteLocalRef(env,cls);
+   end;
+  end;
+
+ procedure AndroidSystemMessage(const msg:String8);
+  begin
+   // Keep durable diagnostics independent from the Activity/UI lifecycle.
+   Log.Error(msg);
+   try
+    AndroidShowMessage('Error',string(msg));
+   except
+    on e:Exception do
+     Log.Force('Failed to show Android error dialog: '+ExceptionMsg(e));
+   end;
   end;
 
 
@@ -245,6 +292,7 @@ implementation
    appEnv:=env;
    curActivity:=appEnv^.NewGlobalRef(appEnv,activity);
    mainView:=appEnv^.NewGlobalRef(appEnv,view);
+   OnSystemMessage:=AndroidSystemMessage;
 
    if appEnv^.GetJavaVM(appEnv,curVM)<>0 then Log.Force('Failed to get JavaVM');
 

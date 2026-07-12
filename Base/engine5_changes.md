@@ -3,6 +3,16 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Android native critical dialogs (2026-07-12)
+
+- `Apus.Android.AndroidShowMessage` queues a native `AlertDialog` on the Android
+  UI thread and returns immediately to the calling engine thread.
+- Android initialization connects `Apus.Core.OnSystemMessage` to an error-log
+  and dialog handler. Critical messages therefore reach the durable logger and
+  `logcat` even when the Activity cannot display UI.
+- The Android shell suppresses concurrent dialog stacking; after the visible
+  dialog is dismissed, a later critical message may open another one.
+
 ## Android JNI VM state (2026-07-10)
 
 - `jni.curVM` is now mutable. Android initialization stores the `PJavaVM`
