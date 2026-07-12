@@ -4,16 +4,20 @@ library apus_android_engine_probe;
 
 uses
   {$IFDEF UNIX}cthreads,{$ENDIF}
+  SysUtils,
   jni,
+  sdl2,
+  Apus.Android,
   Apus.Engine.API,
-  Apus.Engine.GameApp;
+  Apus.Engine.GameApp,
+  TouchDemoApp;
 
 type
-  TAndroidProbeApplication=class(TGameApplication)
+  TAndroidTouchDemoApp=class(TTouchDemoApp)
     procedure InitSound; override;
   end;
 
-procedure TAndroidProbeApplication.InitSound;
+procedure TAndroidTouchDemoApp.InitSound;
 begin
   // Audio activation is a later R-24 slice; first pixels must not depend on it.
 end;
@@ -26,18 +30,26 @@ end;
 
 function SDL_main(argc:longint; argv:PPChar):longint; cdecl;
 var
-  application:TAndroidProbeApplication;
+  application:TAndroidTouchDemoApp;
+  env:PJNIEnv;
+  activity:jobject;
 begin
-  usedPlatform:=spSDL;
-  usedAPI:=gaOpenGL2;
-  gameTitle:='Apus Engine Android Probe';
-  configFileName:='';
+  env:=PJNIEnv(SDL_AndroidGetJNIEnv());
+  activity:=jobject(SDL_AndroidGetActivity());
+  if (env=nil) or (activity=nil) then begin
+    SDL_main:=1;
+    exit;
+  end;
+  InitAndroid(env,activity,nil);
+
+  application:=TAndroidTouchDemoApp.Create;
+  configFileName:=''; // packaged demo uses defaults for the first runtime gate
   useConsoleScene:=false;
   useTweakerScene:=false;
   useSystemCursor:=false;
-
-  application:=TAndroidProbeApplication.Create;
   try
+    CopyAssetFile('sprite.png');
+    SetCurrentDir(Apus.Android.appDataDir);
     application.Prepare;
     application.Run;
     SDL_main:=0;

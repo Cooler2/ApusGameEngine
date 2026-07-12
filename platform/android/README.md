@@ -5,9 +5,9 @@ eventual pipeline is:
 
 `FPC cross-compiler -> Android NDK linker -> lib<demo>.so -> Gradle wrapper -> APK`
 
-The current T0 slice validates the host toolchain and builds a minimal JNI
-library when the native prerequisites are available. It does not build Engine5
-or an APK yet.
+The current S1 slice builds and runs TouchDemo on the ARM64 Android emulator.
+It validates the host toolchain, links the Engine5/TouchDemo closure into a
+Pascal SDL entry library, packages the demo asset, and assembles a debug APK.
 
 The canonical modern-NDK path uses FPC's `-XLL` switch and LLVM's `ld.lld`.
 Current FPC trunk needs the patch in `patches/fpc-android-lld.patch`: it teaches
@@ -39,7 +39,7 @@ under `~/Library/Android/avd`:
 . ./platform/android/macos_env.sh
 ```
 
-Compile the full Engine5 `GameApp` closure and package it into a debug APK
+Compile TouchDemo with the full Engine5 `GameApp` closure and package it into a debug APK
 through the pinned SDL/Gradle shell:
 
 ```powershell
@@ -48,8 +48,10 @@ pwsh ./platform/android/package.ps1
 
 The packaging script downloads and verifies the SDL 2.30.9 source archive,
 stages its official Android project under `tmp/android/package/`, builds SDL for
-`arm64-v8a`, links the Engine5 probe against it, and adds both libraries to the
-APK. Gradle 8.11.1, Android
+`arm64-v8a`, links TouchDemo against it, and adds both libraries plus
+`sprite.png` to the APK. At startup the asset is copied through `Apus.Android`
+to the app-private `app_Data` directory before the resource system loads it.
+Gradle 8.11.1, Android
 Gradle Plugin 8.10.1, compile/target SDK 36, NDK r27d, and minimum API 21 are
 pinned at the build boundary.
 
@@ -95,7 +97,15 @@ Generated files stay under `tmp/android/`:
 The probe exports `JNI_OnLoad`. If the NDK `llvm-readelf` tool is available,
 the script verifies both the AArch64 ELF header and the export.
 
-## Next slice
+## Runtime status and next slice
 
-S1 will turn the compile/package probe into a minimal rendered Engine5 scene and
-exercise Android GLES context creation on a device.
+S1 is verified on the API 36 Google APIs ARM64 emulator: the APK loads, creates
+an accepted GLES 3.0 context (ANGLE exposes GLES 3.1), renders TouchDemo's line
+pattern and PNG sprite at the native `320x480` drawable size, and SDL's primary
+touch/mouse mapping drags the sprite. Audio is deliberately disabled for this
+gate.
+
+Next, handle Android system bars/display cutouts so UI content uses a deliberate
+safe area (the current `Drag the ball` label is under the status/cutout area),
+then verify pause/resume, rotation/context restoration, clean exit, and text
+input.

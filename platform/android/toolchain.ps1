@@ -235,7 +235,8 @@ if ($Engine) {
     "-Fu$(Join-Path $repoRoot 'extra')",
     "-Fu$(Join-Path $repoRoot 'extra/sdl2')",
     "-Fu$(Join-Path $repoRoot 'Base')",
-    "-Fu$(Join-Path $repoRoot 'Base/extra')"
+    "-Fu$(Join-Path $repoRoot 'Base/extra')",
+    "-Fu$(Join-Path $repoRoot 'demo/TouchDemo')"
   )
 }
 foreach ($unitDirectory in $fpcUnitDirectories) {

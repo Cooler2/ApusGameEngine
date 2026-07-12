@@ -6,7 +6,7 @@
     <application
         android:allowBackup="false"
         android:hardwareAccelerated="true"
-        android:label="Apus Android Probe"
+        android:label="Touch Demo"
         android:theme="@style/AppTheme">
         <activity
             android:name="com.apusengine.toolchain.ApusActivity"

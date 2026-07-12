@@ -899,6 +899,11 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    screenHeight:=mode.h;
    w:=params.width;
    h:=params.height;
+   {$IFDEF ANDROID}
+   // Android owns the native surface size. SDL_SetWindowSize only changes SDL's
+   // logical drawable size here, leaving it out of sync with the Java surface.
+   SDL_SetWindowResizable(wnd,SDL_TRUE);
+   {$ELSE}
    if params.mode.displayMode=dmBorderless then
      SDL_SetWindowBordered(wnd,SDL_FALSE);
    case params.mode.displayMode of
@@ -920,6 +925,7 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
       SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN);
     end;
    end;
+   {$ENDIF}
 
    SDL_ShowWindow(wnd);
 //   SDL_SetWindowSize();

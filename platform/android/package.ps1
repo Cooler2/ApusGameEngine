@@ -51,6 +51,10 @@ Copy-Item -LiteralPath (Join-Path $sdlSource "android-project") -Destination $pa
 Copy-Item -LiteralPath $sdlSource -Destination (Join-Path $packageDir "app/jni/SDL") -Recurse
 Copy-Overlay $overlayDir $packageDir
 
+$assetsDir = Join-Path $packageDir "app/src/main/assets"
+New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
+Copy-Item -LiteralPath (Join-Path $repoRoot "demo/TouchDemo/sprite.png") -Destination $assetsDir
+
 $jniLibDir = Join-Path $packageDir "app/libs/arm64-v8a"
 New-Item -ItemType Directory -Force -Path $jniLibDir | Out-Null
 
