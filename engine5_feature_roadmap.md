@@ -482,3 +482,20 @@ Two tiers, not a version ladder:
   - [ ] Stage-0 recon report: FPC arm64-iOS toolchain go/no-go and a chosen iOS renderer.
   - [ ] A minimal scene launches and exits cleanly on a physical iPhone.
 - Plan / staging / infra / hardware notes: `Work/R-30_ios_platform.md`. GLES versions/bindings/limitations research (shared with R-24): `Work/gles_mobile_research.md`.
+
+### [R-31] Working Surface, Size & Orientation Model
+- Status: in-design | Priority: P1 | Area: Platform / Render / API
+- Value: one coherent model for every "sizes don't match" case — mobile portrait/landscape apps, their desktop previews, HiDPI, letterbox, performance render scale, retina-style rendering — replacing the current `dfm*`×`dsm*`×`directRenderOnly` combination space (dead modes, silent degradations, `TGameSettings.width/height` mutated at runtime).
+- Design core (agreed in discussion):
+  - Per-window state: three sizes — **canvasSize** (draw+input coordinate space; that is what current `renderWidth` actually is), renderSize (pixels shaded), clientSize (native) — plus derived `displayRect`. Settings become read-only intent. Confirmed space terminology: canvas space (draw/input) / UI space (widgets, per-widget inherited scale) / world space (gameplay, not engine's).
+  - Three intent axes: fixed-vs-flexible canvas size (constants `canvasWidth/Height`, 0 = flexible axis), render policy (native / fixed / scaled k), presentation fit (fill / keepAspect / center). Invalid combos rejected at configuration; mechanism (mapping stage, need for dRT) is derived. Presets = helper procedures over the axes.
+  - Four mapping stages: none / **layout** (UI transforms coords before draw calls — pixel-exact, today's `screenScale`) / render (matrix, virtual coords — kept as supported non-default for hardcoded direct-draw designs) / presentation (blit — for pixel-jointed designs). Choice between the last two is driven by the design itself.
+  - Mobile: orientation as project policy (declared in code → packaging-script parameter → runtime validation), safe-area insets in canvas coords, fixed-one-axis default layout, `FitPreviewWindow` helper for desktop previews (preview scale is derived, never stored).
+  - Atomic surface-changed notification fired **after** rebuild + surface generation counter (today scene `onResize` fires before viewport/dRT update).
+- Out of scope (v1): adaptive orientation, UI-at-native-res over low-res 3D, engine-level phone/tablet size classes.
+- Relation: R-02 owns multi-window/monitor/DPI mechanics; this card owns the coordinate/size model those mechanics feed. Mobile consumers: R-24 / R-30.
+- Acceptance Criteria (draft, to finalize with the design):
+  - [ ] Axes implemented; every scenario from the design doc expressible; invalid combos rejected at configuration time.
+  - [ ] Renames applied per approved terminology; input↔render coordinate round-trip tests pass at displayRect edges.
+  - [ ] A mobile demo declares orientation once and runs both on device and as a fitted desktop preview.
+- Design doc (RU, active discussion): `Work/surface_size_design.md`; companions: `Work/mobile_surface_orientation.md`, `Work/render_size_model.md`.
