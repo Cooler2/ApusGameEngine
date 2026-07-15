@@ -2328,6 +2328,30 @@ function AppendDelim(const s:String8):String8;
     result:=result+PathDelim;
  end;
 
+function GetSystemTempDir:String8;
+ {$IFDEF MSWINDOWS}
+ var
+  buf:array[0..MAX_PATH] of char;
+  len:cardinal;
+ begin
+  len:=Windows.GetTempPath(Length(buf),@buf[0]);
+  if (len>0) and (len<Length(buf)) then
+   result:=String8(PChar(@buf[0]))
+  else begin
+   result:=String8(SysUtils.GetEnvironmentVariable('TEMP'));
+   if result='' then result:=String8(SysUtils.GetEnvironmentVariable('TMP'));
+  end;
+  if result='' then result:='.';
+  result:=AppendDelim(result);
+ end;
+ {$ELSE}
+ begin
+  result:=String8(SysUtils.GetEnvironmentVariable('TMPDIR'));
+  if result='' then result:='/tmp';
+  result:=AppendDelim(result);
+ end;
+ {$ENDIF}
+
 procedure InitBaseDir;
  var
   exeDir:String8;
@@ -2362,13 +2386,13 @@ procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
   if bundleId<>'' then AppDataDir:=home+'/Library/Application Support/'+bundleId+'/'
    else AppDataDir:=home+'/Library/Application Support/'+name+'/';
   LogDir:=home+'/Library/Logs/'+name+'/';
-  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  TempDir:=GetSystemTempDir+name+'/';
   {$ELSEIF defined(ANDROID)}
   // Android's app-private dir comes from JNI (Apus.Android assigns AppDataDir);
   // derive the rest from it. Fall back to temp if not yet populated.
-  if AppDataDir='' then AppDataDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  if AppDataDir='' then AppDataDir:=GetSystemTempDir+name+'/';
   LogDir:=AppDataDir;
-  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  TempDir:=GetSystemTempDir+name+'/';
   {$ELSEIF defined(MSWINDOWS)}
   home:=String8(SysUtils.GetEnvironmentVariable('APPDATA'));
   if home='' then home:=String8(SysUtils.GetEnvironmentVariable('USERPROFILE'))+'\AppData\Roaming';
@@ -2377,7 +2401,7 @@ procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
   if home='' then home:=AppDataDir
    else home:=AppendDelim(home)+name+'\';
   LogDir:=home+'Logs\';
-  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'\';
+  TempDir:=GetSystemTempDir+name+'\';
   {$ELSE}
   // Linux / generic Unix — XDG Base Directory spec with $HOME fallbacks.
   home:=String8(GetEnvironmentVariable('HOME'));
@@ -2387,7 +2411,7 @@ procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
   LogDir:=String8(GetEnvironmentVariable('XDG_STATE_HOME'));
   if LogDir='' then LogDir:=home+'/.local/state';
   LogDir:=AppendDelim(LogDir)+name+'/';
-  TempDir:=AppendDelim(String8(GetTempDir(false)))+name+'/';
+  TempDir:=GetSystemTempDir+name+'/';
   {$ENDIF}
  end;
 
