@@ -197,7 +197,7 @@ excluding `tmp/**` and `Base/Deprecated/**`.
 
 **Engine (19):** `Apus.Engine.AEMLoader.pas`, `Apus.Engine.AndroidGame.pas`,
 `Apus.Engine.BitmapStyle.pas`, `Apus.Engine.ComplexText.pas`,
-`Apus.Engine.DxImages8.pas`, `Apus.Engine.IOSgame.pas`,
+`Apus.Engine.IOSgame.pas`,
 `Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`,
 `Apus.Engine.UdpTransport.pas`, `Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`,
 `Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`,
