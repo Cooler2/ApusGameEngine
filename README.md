@@ -6,7 +6,7 @@ Cross-platform 2D/3D game engine written in Delphi/Pascal by Ivan Polyacov ([Apu
 
 **Games made with this engine:**
 * [Astral Masters](https://store.steampowered.com/app/1790630/Astral_Masters/) — Windows, iOS (Engine-2)
-* [Spectromancer](https://store.steampowered.com/app/22500/Spectromancer/) — Windows, iOS (Engine-3)
+* [Spectromancer](https://store.steampowered.com/app/22500/Spectromancer/) — Windows, iOS (Engine-2.5 (late))
 * [Astral Towers](https://store.steampowered.com/app/983450/Astral_Towers/) — Windows, Linux, iOS (Engine-3 / 4)
 * [Astral Heroes](https://store.steampowered.com/app/488910/Astral_Heroes/) — Windows (Engine-3)
 
