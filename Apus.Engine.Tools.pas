@@ -109,7 +109,7 @@ type
  // FOR INTERNAL USE ----------------------------------------------------------
 
 implementation
- uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,Apus.Engine.DxImages8,{$ENDIF}
+ uses SysUtils,
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
     Apus.GfxFormats,Classes,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
     Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,

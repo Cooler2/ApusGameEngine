@@ -162,42 +162,7 @@ end; *)
 
 // подогнать формат пикселя под поддерживаемый системой
 procedure AdjustFormat(var ForceFormat:TImagePixelFormat);
-{$IFDEF DIRECTX}
-var
- i:integer;
-{$ENDIF}
 begin
-  {$IFDEF DIRECTX}
-  i:=0;
-  if draw.texman.InheritsFrom(TDxTextureMan) then begin
-  // 1-я итерация - проверка альтернативных форматов
-  case ForceFormat of
-   ipfRGB:if supportRGB then exit else ForceFormat:=ipfXRGB;
-   ipfXRGB:if supportXRGB then exit else ForceFormat:=ipfRGB;
-   ipf565:if support565 then exit else ForceFormat:=ipf555;
-   ipf555:if support555 then exit else ForceFormat:=ipf565;
-  end;
-  repeat
-   // Проверка поддерживается ли формат (последовательная замена пока не найдется подходящий поддерживаемый)
-   case ForceFormat of
-    ipfDXT5:if supportDXT5 then break else ForceFormat:=ipfARGB;
-    ipfDXT3:if supportDXT3 then break else ForceFormat:=ipfARGB;
-    ipfDXT2:if supportDXT2 then break else ForceFormat:=ipfARGB;
-    ipfARGB:if supportARGB then break else ForceFormat:=ipf4444;
-    ipfXRGB:if supportXRGB then break else ForceFormat:=ipfRGB;
-    ipfDXT1:if supportDXT1 then break else ForceFormat:=ipf565;
-    ipf4444:if support4444 then break else ForceFormat:=ipfARGB;
-    ipf565:if support565 then break else ForceFormat:=ipf555;
-    ipf1555:if support1555 then break else ForceFormat:=ipf4444;
-    ipf8Bit:if support8bit then break else ForceFormat:=ipfARGB;
-    ipfRGB:if supportRGB then break else ForceFormat:=ipf565;
-    ipf555:if support555 then break else ForceFormat:=ipfXRGB;
-   end;
-   inc(i);
-   if i>=4 then raise EError.Create('Failed to choose valid pixel format!');
-  until false;
- end;
- {$ENDIF}
  {$IFDEF OPENGL}
   case ForceFormat of
    ipfXRGB,ipfRGB:forceFormat:=ipfARGB;

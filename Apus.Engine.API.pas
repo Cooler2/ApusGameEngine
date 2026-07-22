@@ -196,7 +196,6 @@ type
 
  // Which API use for rendering
  TGraphicsAPI=(gaAuto,     // Check one considering defined symbols
-               gaDirectX,  // Currently Direct3D8 (deprecated)
                gaOpenGL,   // OpenGL 1.4 or higher with fixed function pipeline (deprecated)
                gaOpenGL2); // OpenGL 2.0 or higher with shaders
 

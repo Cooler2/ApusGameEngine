@@ -1002,7 +1002,7 @@ var
    begin
     data.x:=vx;
     data.y:=vy;
-    data.z:=0; {$IFDEF DIRECTX} data.rhw:=1; {$ENDIF}
+    data.z:=0;
     data.color:=ApplyTextColor(data.x,data.y,color);
     data.u:=u; data.v:=v;
     inc(data);

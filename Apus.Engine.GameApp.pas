@@ -130,7 +130,6 @@ implementation
    Apus.Engine.Types,
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
-  {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
   {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF},
   Apus.Conv,
@@ -702,9 +701,6 @@ procedure TGameApplication.Run;
   // ------------------------
   {$IFDEF MSWINDOWS}
   if usedAPI=gaAuto then begin
-    {$IFDEF DIRECTX}
-     usedAPI:=gaDirectX;
-    {$ENDIF}
     {$IFDEF OPENGL}
      usedAPI:=gaOpenGL2
     {$ENDIF}
