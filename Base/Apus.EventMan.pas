@@ -379,7 +379,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     i:=event.LastIndexOf('::');
     if i>0 then begin
      tag:=Conv.ToInt(Copy(event,i+2,length(event)));
-     SetLength(event,i);
+     SetLength(event,i-1); // LastIndexOf is 1-based: cut the '::' off completely
     end;
    end;
 
