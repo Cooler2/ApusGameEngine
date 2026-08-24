@@ -1,12 +1,22 @@
+// Console demo for the sound subsystem: plays samples and music through
+// whatever backend is compiled in (SDL2_mixer by default, see defines.inc).
+//
+// Usage:
+//   soundDemo                 - interactive mode: type commands or 1..N
+//   soundDemo 5 w2000 1 w5000 - script mode: run the listed commands, then exit
+// A script item is either a command ("Play\Sample"), a predefined command
+// number, or a delay in milliseconds ("w2000").
 {$APPTYPE CONSOLE}
 
 program soundDemo;
 
 uses
-  Apus.Common,
   SysUtils,
+  Apus.Core,
+  Apus.Conv,
+  Apus.Files,
+  Apus.Log,
   Apus.EventMan,
-  Apus.Engine.API,
   Apus.Engine.Sound;
 
 const
@@ -22,45 +32,84 @@ const
   'Play\sampleLeft',
   'Play\sampleQuiet');
 
+// Resolve a numeric shortcut into a real command
+function ExpandCommand(cmd:string):string;
+ var
+  v:integer;
+ begin
+  result:=cmd;
+  if length(cmd)>2 then exit;
+  v:=Conv.ToInt(cmd);
+  if (v>0) and (v<=high(defaultCmd)) then result:=defaultCmd[v];
+ end;
 
-var
- cmd:string;
- v:integer;
- tag:int64;
-begin
- try
-  UseLogFile('test.log',true);
-  soundFolderPath:='..\demo\SoundDemo\Res\';
-  soundConfigFile:='..\demo\SoundDemo\Res\sounds.ctl';
-  writeln('Select backend library: ');
-  writeln(' 1 - !Mixer (ImxEx.dll)');
-  writeln(' 2 - BASS (bass.dll)');
-  writeln(' 3 - SDL Mixer (sdl_mixer.dll)');
-  readln(cmd);
-  case ParseInt(cmd) of
-   1:InitSoundSystem(slIMixer);
-   2:InitSoundSystem(slBass);
-   3:InitSoundSystem(slSDL);
+procedure RunCommand(cmd:string);
+ begin
+  cmd:=ExpandCommand(cmd);
+  writeln('SOUND\'+cmd);
+  Signal('SOUND\'+cmd);
+ end;
+
+// Non-interactive mode: run the command line as a script and exit
+procedure RunScript;
+ var
+  i,delay:integer;
+  st:string;
+ begin
+  for i:=1 to ParamCount do begin
+   st:=ParamStr(i);
+   if (length(st)>1) and (st[1] in ['w','W']) and (Conv.ToInt(copy(st,2,10))>0) then begin
+    delay:=Conv.ToInt(copy(st,2,10));
+    writeln('(wait ',delay,' ms)');
+    CoreTime.Sleep(delay);
+   end else
+    RunCommand(st);
   end;
+  // let the last command be heard before shutting the system down
+  CoreTime.Sleep(500);
+ end;
 
-  writeln('Enter command (like "Play\sample") or '#13#10'1..',high(defaultCmd),' for predefined commands or "q" to exit.');
-
+procedure RunInteractive;
+ var
+  cmd:string;
+ begin
+  writeln('Enter a command (like "Play\Sample"), or 1..',high(defaultCmd),
+    ' for predefined commands, or "q" to exit.');
   repeat
    write('Sound\:');
    readln(cmd);
-   if length(cmd)<3 then begin
-    v:=ParseInt(cmd);
-    if (v>0) and (v<=high(defaultCmd)) then begin
-     cmd:=defaultCmd[v];
-     writeln('SOUND\'+cmd);
-    end;
-   end;
    if SameText(cmd,'q') then break;
-   Signal('SOUND\'+cmd,tag);
+   if cmd<>'' then RunCommand(cmd);
   until false;
+ end;
+
+begin
+ try
+  Logger.UseLogFile('soundDemo.log',true);
+  // The demo runs either from the build output folder (bin64) or from its own one
+  if Folder.Exists('../demo/SoundDemo/Res') then
+   soundFolderPath:='../demo/SoundDemo/Res/'
+  else
+   soundFolderPath:='Res/';
+  soundConfigFile:=soundFolderPath+'sounds.ctl';
+  writeln('Sound resources: ',soundFolderPath);
+  if not FileExists(soundConfigFile) then
+   raise EError.Create('Sound configuration not found: '+soundConfigFile);
+  InitSoundSystem(slDefault); // whichever backend is compiled in
+
+  if ParamCount>0 then RunScript
+   else RunInteractive;
 
   DoneSoundSystem;
+  // Playback problems are logged as errors, so a script run can be a CI check
+  if Logger.GetErrorCount>0 then begin
+   writeln('FAILED: ',Logger.GetErrorCount,' error(s) logged, see soundDemo.log');
+   ExitCode:=1;
+  end;
  except
-  on E:Exception do writeln('Error: '+ExceptionMsg(e));
+  on e:Exception do begin
+   writeln('Error: '+ExceptionMsg(e));
+   ExitCode:=1;
+  end;
  end;
 end.

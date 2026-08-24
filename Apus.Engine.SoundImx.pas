@@ -17,6 +17,7 @@ type
   function CanSlide:TChannelAttributes;
   function CanFadeMusic:boolean;
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
+  procedure Pause(pause:boolean);
   procedure Done;
  end;
 
@@ -79,6 +80,11 @@ function TSoundLibImx.CanFadeMusic:boolean;
   result:=true;
  end;
 
+
+procedure TSoundLibImx.Pause(pause:boolean);
+ begin
+  IMXPause(pause);
+ end;
 
 procedure TSoundLibImx.Done;
  begin

@@ -628,19 +628,11 @@ procedure TGameApplication.Prepare;
  end;
 
 procedure TGameApplication.InitSound;
-var
- lib:TSoundLib;
 begin
  Signal('GAMEAPP\InitSound');
- lib:=slDefault;
- {$IFDEF IMX}
- lib:=slIMixer;
- {$ENDIF}
- {$IFDEF SDLMIX}
- lib:=slSDL;
- {$ENDIF}
  try
-  InitSoundSystem(lib,mainWindow.GetHandle);
+  // slDefault picks whichever backend is compiled in (see defines.inc)
+  InitSoundSystem(slDefault,mainWindow.GetHandle);
  except
   on e:Exception do begin
    Log.Force('Sound initialization failed. Continue without sound. '+e.message);

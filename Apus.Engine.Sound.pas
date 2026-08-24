@@ -9,6 +9,8 @@
 //
 // Sound\PlayMusic\MusicName
 //
+
+{$I defines.inc}
 unit Apus.Engine.Sound;
 interface
 uses Apus.Core, Apus.Types, Apus.AnimatedValues;
@@ -73,7 +75,9 @@ type
   procedure SetVolume(volumeType:TVolumeType;volume:single); // 0..1
   function OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaFile;
   function PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
-  procedure StopChannel(var channel:TChannel); // frees and set to nil channel if success
+  // Stops playback and clears the reference. The channel object belongs to the
+  // backend (it can be pooled and reused), so callers must never free it.
+  procedure StopChannel(var channel:TChannel);
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
   // Which channel attributes can be slided
   function CanSlide:TChannelAttributes;
@@ -81,6 +85,8 @@ type
   function CanFadeMusic:boolean;
   // timeInterval - in seconds
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
+  // Pause/resume everything that plays (e.g. when the application loses focus)
+  procedure Pause(pause:boolean);
   procedure Done;
  end;
 
@@ -145,10 +151,10 @@ type
 
 var
  soundLib:ISoundLib;
- // TODO: initialized/failed are written by sound thread and read by main thread without
- // memory barriers — technically a data race (works on x86 in practice)
- initialized:boolean=false; // ready to process events
- failed:boolean;
+ // Written by the sound thread, read by the main thread: touch them only
+ // through RaiseFlag/FlagIsSet so that the access is atomic on every platform
+ initialized:integer=0; // ready to process events
+ failed:integer=0;
  soundThread:TSoundThread;
  wndHandle:THandle=0;
  ctl:integer;
@@ -167,6 +173,25 @@ var
  // Global volume levels (multiply by particular volume)
  soundVolume:single=1.0;
  musicVolume:single=1.0;
+
+// Cross-thread boolean flags
+procedure RaiseFlag(var flag:integer); inline;
+ begin
+  Atomic.Exchange(flag,1);
+ end;
+
+function FlagIsSet(var flag:integer):boolean; inline;
+ begin
+  result:=Atomic.CmpExchange(flag,0,0)<>0;
+ end;
+
+// Sample rate of a media file with a safe fallback: it is used as a divisor,
+// and some formats can leave it unknown
+function SampleRateOf(media:TMediaFile):integer;
+ begin
+  result:=media.sampleRate;
+  if result<=0 then result:=44100;
+ end;
 
 { TMediaFile }
 
@@ -196,10 +221,35 @@ procedure TMediaFile.DetectParams(data:TBuffer);
   end;
 
  procedure ParseMP3;
+  const
+   // [version][sample rate index]
+   rates:array[0..3,0..2] of integer=(
+    (11025,12000,8000),    // MPEG 2.5
+    (0,0,0),               // reserved
+    (22050,24000,16000),   // MPEG 2
+    (44100,48000,32000));  // MPEG 1
+  var
+   i,ver,srIndex,mode:integer;
+   pc:PAnsiChar;
   begin
-   // TODO: MP3 header parsing not implemented — numChannels/sampleRate/bitDepth remain 0,
-   // which can cause division by zero downstream (e.g. settings.speed:=freq/sampleRate)
-   data.Seek(2);
+   numChannels:=2;
+   sampleRate:=0;
+   bitDepth:=16;
+   duration:=0; // needs the whole file (or a VBR header) to be known
+   // Scan for the first frame header (11 sync bits): it can be preceded by an ID3 tag
+   pc:=PAnsiChar(data.data);
+   for i:=0 to data.size-4 do begin
+    if (ord(pc[i])=$FF) and (ord(pc[i+1]) and $E0=$E0) then begin
+     ver:=(ord(pc[i+1]) shr 3) and 3;
+     srIndex:=(ord(pc[i+2]) shr 2) and 3;
+     if (ver=1) or (srIndex=3) then continue; // reserved values: not a frame header
+     sampleRate:=rates[ver,srIndex];
+     mode:=(ord(pc[i+3]) shr 6) and 3;
+     if mode=3 then numChannels:=1; // single channel
+     break;
+    end;
+   end;
+   if sampleRate=0 then Log.Warn('[SOUND] MP3 frame header not found');
   end;
 
  var
@@ -211,7 +261,7 @@ procedure TMediaFile.DetectParams(data:TBuffer);
   else
   if c=$46464952 then ParseWAV
   else
-  if (c and $FFF=$FFF) or (c=$03334449) then ParseMP3;
+  if ((c and $FF=$FF) and ((c shr 8) and $E0=$E0)) or (c=$03334449) then ParseMP3;
  end;
 
 procedure TMediaFile.DetectParams(fName: string);
@@ -460,7 +510,7 @@ procedure LoadConfig;
   except
    on e:Exception do begin
     Log.Force('[SOUND] config loading error: '+ExceptionMsg(e));
-    failed:=true;
+    RaiseFlag(failed);
    end;
   end;
  end;
@@ -529,7 +579,7 @@ procedure PlaySound(event:TEventStr;tag:TTag);
      end else
      if par.Named('pan') or par.Named('p') then settings.pan:=par.GetInt/100
      else
-     if par.Named('freq') or par.Named('f') then settings.speed:=par.GetInt/evt.sample.sampleRate
+     if par.Named('freq') or par.Named('f') then settings.speed:=par.GetInt/SampleRateOf(evt.sample)
      else
      if par.Named('speed') or par.Named('r') then settings.speed:=par.GetFloat
      else
@@ -539,7 +589,7 @@ procedure PlaySound(event:TEventStr;tag:TTag);
      else
      if par.Named('newpan') or par.Named('np') then newpan:=par.GetInt/100
      else
-     if par.Named('newfreq') or par.Named('nf') then newSpeed:=par.GetInt/evt.sample.sampleRate;
+     if par.Named('newfreq') or par.Named('nf') then newSpeed:=par.GetInt/SampleRateOf(evt.sample);
    end;
 
 
@@ -550,7 +600,7 @@ procedure PlaySound(event:TEventStr;tag:TTag);
    // 8..23 bits of tag = override sample frequency (if >250) or speed (1..250 in %)
    p:=(tag shr 8) and $FFFF;
    if p>0 then begin
-    if p>250 then settings.speed:=p/evt.sample.sampleRate
+    if p>250 then settings.speed:=p/SampleRateOf(evt.sample)
      else settings.speed:=p/100;
    end;
    // High byte of tag overrides pan (-128..127 -> -1.0..1.0)
@@ -656,11 +706,17 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    end;
  end;
 
- procedure PauseMusic(pause:boolean);
+ // Pause/resume all playback
+ procedure PauseAll(pause:boolean);
   var
    mus:TMusicEntry;
    st:string;
   begin
+   if soundLib<>nil then begin
+    if pause then Log.Info('[SOUND] Pause')
+     else Log.Info('[SOUND] Resume');
+    soundLib.Pause(pause);
+   end;
    st:=MusHash.FirstKey;
    while st<>'' do begin
     mus:=MusHash.Get(st);
@@ -791,7 +847,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
 
   if event.StartsWith('PAUSE') or event.startsWith('RESUME') then
-   PauseMusic(event.StartsWith('PAUSE'));
+   PauseAll(event.StartsWith('PAUSE'));
 
   if pos('PLAYMUSIC\',event)=1 then begin
    Log.Msg('[SOUND] '+event);
@@ -811,25 +867,28 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForP
   end;
   wndHandle:=windowHandle;
   if useLibrary=slDefault then begin
-   {$IFDEF WIN32}
+   {$IF DEFINED(SDLMIX)}
+   useLibrary:=slSDL;
+   {$ELSEIF DEFINED(IMX)}
    useLibrary:=slIMixer;
    {$ELSE}
-   useLibrary:=slSDL;
-   {$ENDIF}
+   raise EError.Create('No sound backend is compiled in: build with -dSDLMIX (SDL2_mixer)');
+   {$IFEND}
   end;
   case useLibrary of
-   slIMixer:{$IFDEF IMX}soundLib:=TSoundLibImx.Create; {$ELSE} raise EError.Create('Define IMX'); {$ENDIF}
-   slSDL:{$IFDEF SDLMIX}soundLib:=TSoundLibSDL.Create; {$ELSE} raise EError.Create('Define SDLMIX'); {$ENDIF}
-   // TODO: slBass declared but no backend exists — selecting it silently fails
-   else raise EError.Create('Sound library not supported: '+IntToStr(ord(useLibrary)));
+   slIMixer:{$IFDEF IMX}soundLib:=TSoundLibImx.Create;{$ELSE}raise EError.Create('IMixer sound backend is not compiled in (define IMX)');{$ENDIF}
+   slSDL:{$IFDEF SDLMIX}soundLib:=TSoundLibSDL.Create;{$ELSE}raise EError.Create('SDL_mixer sound backend is not compiled in (define SDLMIX)');{$ENDIF}
+   slBass:raise EError.Create('BASS sound backend is not implemented');
+   slNative:raise EError.Create('Native sound backend is not implemented');
+   else raise EError.Create('Unknown sound library id: '+IntToStr(ord(useLibrary)));
   end;
   soundThread:=TSoundThread.Create(false);
   soundThread.waitForPreload:=waitForPreload;
   repeat
    CoreTime.Sleep(10);
    HandleSignals;
-  until initialized or failed;
-  if failed then begin
+  until FlagIsSet(initialized) or FlagIsSet(failed);
+  if FlagIsSet(failed) then begin
    soundThread.Free;
    raise EError.Create('[SOUND] Initialization failed!');
   end;
@@ -838,7 +897,7 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForP
 
 procedure DoneSoundSystem;
  begin
-  if not initialized then exit;
+  if not FlagIsSet(initialized) then exit;
   soundThread.Free; // stop & wait
  end;
 
@@ -905,10 +964,10 @@ begin
 
   ctl:=UseControlFile(soundConfigFile,'');
   SetEventHandler('SOUND',EventHandler,emQueued);
-  if not waitForPreload then initialized:=true;
+  if not waitForPreload then RaiseFlag(initialized);
   LoadConfig;
   needmusic:=nil;
-  initialized:=true;
+  RaiseFlag(initialized);
   // Main loop
   repeat
    try
@@ -936,7 +995,7 @@ begin
   EvtHash.Free;
  except
   on e:Exception do begin
-   failed:=true;
+   RaiseFlag(failed);
    Log.Force('[SOUND] '+ExceptionMsg(e))
   end;
  end;
