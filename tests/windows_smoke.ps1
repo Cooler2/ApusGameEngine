@@ -85,6 +85,7 @@ function Invoke-FpcTarget {
 Invoke-FpcTarget 'tests/PlatformTest.dpr' -CompileOnly
 Invoke-FpcTarget 'tests/OpenGL.dpr' -CompileOnly
 Invoke-FpcTarget 'tests/TestStyle.dpr'
+Invoke-FpcTarget 'tests/TestSurface.dpr'
 Invoke-FpcTarget 'tests/TestGpuLayout.dpr'
 Invoke-FpcTarget 'tests/TestHttpGameClient.dpr'
 Invoke-FpcTarget 'tests/TestUdpTransport.dpr'
