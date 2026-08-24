@@ -240,10 +240,26 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          Copy-Item bin64\sdl2.dll,bin64\SDL2_mixer.dll,bin64\libxmp.dll demo\SoundDemo -Force
+          $targetCPU=(fpc -iTP).Trim()
+          if($targetCPU -eq "x86_64"){
+            $runtimeDir="bin64"
+          }elseif($targetCPU -eq "i386"){
+            $runtimeDir="bin"
+          }else{
+            throw "Unsupported Windows FPC target: $targetCPU"
+          }
+          $runtimeDlls=@(
+            (Join-Path $runtimeDir "sdl2.dll"),
+            (Join-Path $runtimeDir "SDL2_mixer.dll"),
+            (Join-Path $runtimeDir "libxmp.dll")
+          )
+          Write-Host "Using $runtimeDir audio runtime for FPC target $targetCPU"
+          Copy-Item -LiteralPath $runtimeDlls -Destination demo\SoundDemo -Force
           Set-Location demo\SoundDemo
           .\SoundDemo.exe 5 w300 1 w800 2 w1500 check:music 4 w300
-          if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
+          $soundExitCode=$LASTEXITCODE
+          Write-Host "SoundDemo exit code: $soundExitCode"
+          if($soundExitCode -ne 0){ exit $soundExitCode }
 
       - name: Compile selected demos (macOS)
         if: runner.os == 'macOS'

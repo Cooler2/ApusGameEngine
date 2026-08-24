@@ -12,6 +12,7 @@
 program SoundDemo;
 
 uses
+  {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   SysUtils,
   Apus.Core,
   Apus.Conv,
