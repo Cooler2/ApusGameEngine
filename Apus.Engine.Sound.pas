@@ -466,26 +466,27 @@ procedure LoadConfig;
   var
    evt:TSoundEvent;
    i:integer;
-   st,fName:string8;
+   st,mode,fName:string8;
    list:PointerArray;
   begin
    path:=ctlRoot+'Settings\';
-   st:=UpperCase {TODO: use st.ToUpper}(ctlGetStr(path+'PreloadSamples'));
-   Log.Force('[SOUND] Preloading mode: '+st);
-   if st<>'NONE' then Log.Msg('[SOUND] Preloading');
-   if st='ALL' then begin
+   st:=ctlGetStr(path+'PreloadSamples');
+   mode:=UpperCase {TODO: use st.ToUpper}(st);
+   Log.Force('[SOUND] Preloading mode: '+mode);
+   if mode<>'NONE' then Log.Msg('[SOUND] Preloading');
+   if mode='ALL' then begin
     // preload all
     list:=evtHash.GetValues;
     for i:=0 to high(list) do
      TSoundEvent(list[i]).Preload;
    end else
-   if st='NONE' then
+   if mode='NONE' then
    else begin
     // preload listed
     sa:=st.Split(',');
     for fName in sa do LoadMediaAsSample(fName);
    end;
-   if st<>'NONE' then Log.Msg('[SOUND] samples preloading done');
+   if mode<>'NONE' then Log.Msg('[SOUND] samples preloading done');
   end;
 
  procedure LoadMusicEntries;
