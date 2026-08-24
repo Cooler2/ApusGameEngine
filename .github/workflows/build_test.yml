@@ -240,7 +240,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          Copy-Item bin64\sdl2.dll,bin64\SDL2_mixer.dll,bin64\libogg-0.dll,bin64\libvorbis-0.dll,bin64\libvorbisfile-3.dll,bin64\libmodplug-1.dll demo\SoundDemo -Force
+          Copy-Item bin64\sdl2.dll,bin64\SDL2_mixer.dll,bin64\libxmp.dll demo\SoundDemo -Force
           Set-Location demo\SoundDemo
           .\SoundDemo.exe 5 w300 1 w800 2 w1500 check:music 4 w300
           if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
