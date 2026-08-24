@@ -230,9 +230,13 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          set -euo pipefail
+          set -uo pipefail
           cd demo/SoundDemo
           ./SoundDemo 5 w300 1 w800 2 w1500 check:music 4 w300
+          sound_exit=$?
+          echo '--- SoundDemo.log ---'
+          if [[ -f SoundDemo.log ]]; then cat SoundDemo.log; else echo 'SoundDemo.log not found'; fi
+          exit "$sound_exit"
 
       - name: Sound smoke (Windows, dummy audio device)
         if: runner.os == 'Windows'
@@ -275,6 +279,7 @@ jobs:
           path: |
             demo/**/lib/
             demo/**/*.compiled
+            demo/SoundDemo/SoundDemo.log
             tests/_demo_smoke/*.log
           if-no-files-found: ignore
 
