@@ -232,8 +232,8 @@ jobs:
         run: |
           set -uo pipefail
           cd demo/SoundDemo
-          ./SoundDemo 5 w300 1 w800 2 w1500 check:music 4 w300
-          sound_exit=$?
+          sound_exit=0
+          ./SoundDemo 5 w300 1 w800 2 w1500 check:music 4 w300 || sound_exit=$?
           echo '--- SoundDemo.log ---'
           if [[ -f SoundDemo.log ]]; then cat SoundDemo.log; else echo 'SoundDemo.log not found'; fi
           exit "$sound_exit"
