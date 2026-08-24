@@ -16,6 +16,8 @@ type
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
   function CanSlide:TChannelAttributes;
   function CanFadeMusic:boolean;
+  function HasSingleMusicStream:boolean;
+  function IsPlaying(channel:TChannel):boolean;
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   procedure Pause(pause:boolean);
   procedure Done;
@@ -80,6 +82,17 @@ function TSoundLibImx.CanFadeMusic:boolean;
   result:=true;
  end;
 
+
+function TSoundLibImx.IsPlaying(channel:TChannel):boolean;
+ begin
+  // IMixerPro has no channel status query: best effort only
+  result:=channel<>nil;
+ end;
+
+function TSoundLibImx.HasSingleMusicStream:boolean;
+ begin
+  result:=false; // streams are ordinary channels here
+ end;
 
 procedure TSoundLibImx.Pause(pause:boolean);
  begin

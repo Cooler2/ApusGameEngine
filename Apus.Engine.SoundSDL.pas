@@ -25,6 +25,8 @@ type
 
   function CanSlide:TChannelAttributes;
   function CanFadeMusic:boolean;
+  function HasSingleMusicStream:boolean;
+  function IsPlaying(channel:TChannel):boolean;
  end;
 
 implementation
@@ -134,6 +136,25 @@ function TSoundLibSDL.CanSlide:TChannelAttributes;
 function TSoundLibSDL.CanFadeMusic:boolean;
  begin
   result:=true;
+ end;
+
+function TSoundLibSDL.HasSingleMusicStream:boolean;
+ begin
+  result:=true; // SDL_mixer mixes many samples, but plays one music stream
+ end;
+
+function TSoundLibSDL.IsPlaying(channel:TChannel):boolean;
+ var
+  ch:integer;
+ begin
+  result:=false;
+  if channel=nil then exit;
+  ASSERT(channel is TChannelSDL);
+  ch:=TChannelSDL(channel).sampleChannel;
+  if ch=MUSIC_CHANNEL then
+   result:=Mix_PlayingMusic<>0
+  else
+   result:=Mix_Playing(ch)<>0;
  end;
 
 procedure TSoundLibSDL.Init(windowHandle:THandle);
@@ -329,9 +350,10 @@ procedure TSoundLibSDL.StopChannel(var channel:TChannel);
   if channel=nil then exit;
   ASSERT(channel is TChannelSDL);
   ch:=TChannelSDL(channel).sampleChannel;
-  if ch=MUSIC_CHANNEL then
-   Mix_HaltMusic
-  else
+  if ch=MUSIC_CHANNEL then begin
+   Log.Info('[SDL_MIX] halt music');
+   Mix_HaltMusic;
+  end else
    Mix_HaltChannel(ch);
   channel:=nil; // the object itself is owned by the backend
  end;

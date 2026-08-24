@@ -3,7 +3,7 @@
         <ProjectGuid>{D8AEF7B8-F8D4-4A7C-A4F3-2BA43C1396BE}</ProjectGuid>
         <ProjectVersion>19.5</ProjectVersion>
         <FrameworkType>None</FrameworkType>
-        <MainSource>soundDemo.dpr</MainSource>
+        <MainSource>SoundDemo.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
@@ -57,7 +57,7 @@
         <DCC_F>false</DCC_F>
         <DCC_K>false</DCC_K>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
-        <SanitizedProjectName>soundDemo</SanitizedProjectName>
+        <SanitizedProjectName>SoundDemo</SanitizedProjectName>
         <DCC_UnitSearchPath>..\..;..\..\extra;..\..\base;..\..\extra\sdl2;..\..\base\extra;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_Define>DELPHI;IMX;SDLMIX;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
@@ -161,7 +161,7 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">soundDemo.dpr</Source>
+                    <Source Name="MainSource">SoundDemo.dpr</Source>
                 </Source>
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dcloffice2k260.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -184,7 +184,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Debug\soundDemo.exe" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="Win32\Debug\SoundDemo.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="iOSSimulator">
                         <Operation>1</Operation>

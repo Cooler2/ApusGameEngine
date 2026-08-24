@@ -12,7 +12,7 @@
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="soundDemo"/>
+      <Title Value="SoundDemo"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -29,7 +29,7 @@
     </RunParams>
     <Units Count="1">
       <Unit0>
-        <Filename Value="soundDemo.dpr"/>
+        <Filename Value="SoundDemo.dpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
     </Units>

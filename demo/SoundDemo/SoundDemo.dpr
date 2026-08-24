@@ -2,13 +2,14 @@
 // whatever backend is compiled in (SDL2_mixer by default, see defines.inc).
 //
 // Usage:
-//   soundDemo                 - interactive mode: type commands or 1..N
-//   soundDemo 5 w2000 1 w5000 - script mode: run the listed commands, then exit
+//   SoundDemo                 - interactive mode: type commands or 1..N
+//   SoundDemo 5 w2000 1 w5000 - script mode: run the listed commands, then exit
 // A script item is either a command ("Play\Sample"), a predefined command
-// number, or a delay in milliseconds ("w2000").
+// number, a delay in milliseconds ("w2000"), or the check "check:music"
+// which fails the run unless a music track is playing at that moment.
 {$APPTYPE CONSOLE}
 
-program soundDemo;
+program SoundDemo;
 
 uses
   SysUtils,
@@ -45,6 +46,14 @@ function ExpandCommand(cmd:string):string;
 
 procedure RunCommand(cmd:string);
  begin
+  if SameText(cmd,'check:music') then begin
+   if IsMusicPlaying then
+    writeln('check:music - playing')
+   else
+    // logged as an error, so a script run fails with a non-zero exit code
+    Log.Error('[SOUNDDEMO] check:music failed - no music is playing');
+   exit;
+  end;
   cmd:=ExpandCommand(cmd);
   writeln('SOUND\'+cmd);
   Signal('SOUND\'+cmd);
@@ -85,7 +94,7 @@ procedure RunInteractive;
 
 begin
  try
-  Logger.UseLogFile('soundDemo.log',true);
+  Logger.UseLogFile('SoundDemo.log',true);
   // The demo runs either from the build output folder (bin64) or from its own one
   if Folder.Exists('../demo/SoundDemo/Res') then
    soundFolderPath:='../demo/SoundDemo/Res/'
@@ -103,7 +112,7 @@ begin
   DoneSoundSystem;
   // Playback problems are logged as errors, so a script run can be a CI check
   if Logger.GetErrorCount>0 then begin
-   writeln('FAILED: ',Logger.GetErrorCount,' error(s) logged, see soundDemo.log');
+   writeln('FAILED: ',Logger.GetErrorCount,' error(s) logged, see SoundDemo.log');
    ExitCode:=1;
   end;
  except

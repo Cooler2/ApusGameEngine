@@ -83,6 +83,11 @@ type
   function CanSlide:TChannelAttributes;
   // If full volume slide not supported: can it fade in/out music?
   function CanFadeMusic:boolean;
+  // Can several music streams play at the same time? If not, starting a new
+  // track implicitly ends the previous one.
+  function HasSingleMusicStream:boolean;
+  // Is this channel still playing? (a stale channel reference yields false)
+  function IsPlaying(channel:TChannel):boolean;
   // timeInterval - in seconds
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   // Pause/resume everything that plays (e.g. when the application loses focus)
@@ -90,6 +95,9 @@ type
   procedure Done;
  end;
 
+// Is a music track playing right now? (diagnostics: the sound thread can
+// change the current track at any moment)
+function IsMusicPlaying:boolean;
 // Initialize sound system
 procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
 // Shutdown sound system
@@ -859,6 +867,14 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
  end;
 
+function IsMusicPlaying:boolean;
+ var
+  mus:TMusicEntry;
+ begin
+  mus:=curMusic;
+  result:=(soundLib<>nil) and (mus<>nil) and (mus.channel<>nil) and soundLib.IsPlaying(mus.channel);
+ end;
+
 procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
  begin
   if not FileExists(soundConfigFile) then begin
@@ -901,10 +917,27 @@ procedure DoneSoundSystem;
   soundThread.Free; // stop & wait
  end;
 
+// A single-stream backend replaces the previous track when a new one starts:
+// forget the old channel so that its pending stop doesn't kill the new track
+procedure DropOtherMusicChannels(keep:TMusicEntry);
+var
+ keys:Strings;
+ st:string;
+ mus:TMusicEntry;
+begin
+ keys:=musHash.GetKeys;
+ for st in keys do begin
+  mus:=TMusicEntry(musHash.Get(st));
+  if (mus<>keep) and (mus.channel<>nil) then begin
+   mus.channel:=nil;
+   mus.stopTime:=0;
+  end;
+ end;
+end;
+
 procedure PlayNeededMusic;
 var
  settings:TPlaySettings;
- chan:TChannel;
 begin
  if needMusic=nil then exit;
  needMusic.stopTime:=0;
@@ -918,6 +951,8 @@ begin
  end;
  curMusic:=needMusic;
  curMusic.channel:=soundLib.PlayMedia(needMusic.media,settings);
+ if (curMusic.channel<>nil) and soundLib.HasSingleMusicStream then
+  DropOtherMusicChannels(curMusic);
  if needSlide>0 then begin
   if caVolume in soundLib.CanSlide then
    soundLib.SlideChannel(curMusic.channel,caVolume,curMusic.volume,needSlide/1000)
