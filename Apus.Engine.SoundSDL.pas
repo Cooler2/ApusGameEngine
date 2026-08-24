@@ -272,7 +272,11 @@ function TSoundLibSDL.PlayMedia(media:TMediaFile;const settings:TPlaySettings):T
    SetPanning(res,settings.pan);
    result:=channels[res];
   end else begin
-   // Play music (SDL_mixer has a single music stream)
+   // Play music (SDL_mixer has a single music stream).
+   // A fade-out started for the previous track keeps its own timer running: it
+   // would halt whatever plays when it expires, i.e. this new track. Stop the
+   // old stream explicitly instead of letting the fade finish on its own.
+   if Mix_FadingMusic<>MIX_NO_FADING then Mix_HaltMusic;
    if Mix_PlayMusic(m.music,loops)<>0 then begin
     Log.Error('[SDL_MIX] failed to play music %s: %s',[m.source,string(Mix_GetError)]);
     exit(nil);

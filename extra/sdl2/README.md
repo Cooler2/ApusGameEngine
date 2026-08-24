@@ -21,21 +21,20 @@ This is a vendored copy. Changes made here are marked with an `APUS:` comment:
   expanding to `Mix_LoadWAV_RW` / `Mix_PlayChannelTimed` /
   `Mix_FadeInChannelTimed` exactly as the C header does.
 
-## Shipped libraries vs headers
+## Shipped libraries
 
-These headers describe SDL2_mixer 2.8.x, while the DLLs shipped in `bin/` and
-`bin64/` are 2.0.4. Because the bindings are load-time imports, calling a
-function that the shipped library does not export does not fail at the call
-site - the process refuses to start. `Apus.Engine.SoundSDL` logs both versions
-at initialization so the mismatch is visible.
+`bin/` and `bin64/` carry the official SDL2_mixer **2.8.1** release
+(https://github.com/libsdl-org/SDL_mixer/releases/tag/release-2.8.1), matching
+these headers. Ogg/Vorbis, MP3, FLAC and WAV are decoded by the library itself;
+the only optional library shipped alongside is `libxmp.dll`, which 2.6+ needs
+for tracker music (.mod/.s3m/.xm). The other optional decoders from the release
+(opus, wavpack, gme) are not shipped - add them from the same release if a
+project needs those formats.
 
-The 2.6+ API absent from the shipped 2.0.4: `Mix_MasterVolume`,
-`Mix_GetMusicVolume`, `Mix_PauseAudio`, `Mix_MusicDuration`,
-`Mix_GetMusicPosition`, `Mix_GetMusicLoopStartTime`, `Mix_GetMusicLoopEndTime`,
-`Mix_GetMusicLoopLengthTime`, `Mix_ModMusicJumpToOrder`, `Mix_GetNumTracks`,
-`Mix_HasMusicDecoder`, `Mix_GetMusicTitle`, `Mix_GetMusicTitleTag`,
-`Mix_GetMusicArtistTag`, `Mix_GetMusicAlbumTag`, `Mix_GetMusicCopyrightTag`,
-`Mix_SetTimidityCfg`, `Mix_GetTimidityCfg`.
+Keep the DLLs and these headers in step: the bindings are load-time imports, so
+calling a function the shipped library does not export does not fail at the call
+site - the process refuses to start. `Apus.Engine.SoundSDL` logs both the linked
+and the header version at initialization, which makes such a mismatch obvious.
 
 ## Bugs / Contributions
 
