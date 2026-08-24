@@ -199,7 +199,8 @@ function Mix_QuerySpec(frequency: pcint; format: pcuint16; channels: pcint): cin
 
   {* Load a wave file or a music (.mod .s3m .it .xm) file *}
 function Mix_LoadWAV_RW(src: PSDL_RWops; freesrc: cint): PMix_Chunk cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_LoadWAV_RW' {$ENDIF} {$ENDIF};
-function Mix_LoadWAV(_file: PAnsiChar): PMix_Chunk cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_LoadWAV' {$ENDIF} {$ENDIF};
+// APUS: a macro in SDL_mixer.h, not an exported symbol - implemented below
+function Mix_LoadWAV(_file: PAnsiChar): PMix_Chunk;
 function Mix_LoadMUS(_file: PAnsiChar): PMix_Music cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_LoadMUS' {$ENDIF} {$ENDIF};
 
   {* Load a music file from an SDL_RWop object (Ogg and MikMod specific currently)
@@ -654,8 +655,8 @@ function Mix_GroupNewer(tag: cint): cint cdecl; external MIX_LibName {$IFDEF DEL
      If 'loops' is -1, loop inifinitely (~65000 times).
      Returns which channel was used to play the sound.
   *}
-function Mix_PlayChannel(channel: cint; chunk: PMix_Chunk; loops: cint): cint; cdecl;
-  external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_PlayChannel' {$ENDIF} {$ENDIF};
+// APUS: a macro in SDL_mixer.h, not an exported symbol - implemented below
+function Mix_PlayChannel(channel: cint; chunk: PMix_Chunk; loops: cint): cint;
   {* The same as above, but the sound is played at most 'ticks' milliseconds *}
 function Mix_PlayChannelTimed(channel: cint; chunk: PMix_Chunk; loops: cint; ticks: cint): cint cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_PlayChannelTimed' {$ENDIF} {$ENDIF};
 function Mix_PlayMusic(music: PMix_Music; loops: cint): cint cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_PlayMusic' {$ENDIF} {$ENDIF};
@@ -663,8 +664,8 @@ function Mix_PlayMusic(music: PMix_Music; loops: cint): cint cdecl; external MIX
   {* Fade in music or a channel over "ms" milliseconds, same semantics as the "Play" functions *}
 function Mix_FadeInMusic(music: PMix_Music; loops: cint; ms: cint): cint cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_FadeInMusic' {$ENDIF} {$ENDIF};
 function Mix_FadeInMusicPos(music: PMix_Music; loops: cint; ms: cint; position: cdouble): cint cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_FadeInMusicPos' {$ENDIF} {$ENDIF};
-function Mix_FadeInChannel(channel: cint; chunk: PMix_Chunk; loops: cint; ms: cint): cint; cdecl;
-  external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_FadeInChannel' {$ENDIF} {$ENDIF};
+// APUS: a macro in SDL_mixer.h, not an exported symbol - implemented below
+function Mix_FadeInChannel(channel: cint; chunk: PMix_Chunk; loops: cint; ms: cint): cint;
 function Mix_FadeInChannelTimed(channel: cint; chunk: PMix_Chunk; loops: cint; ms: cint; ticks: cint): cint cdecl; external MIX_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_MIX_FadeInChannelTimed' {$ENDIF} {$ENDIF};
 
   {* Set the volume in the range of 0-128 of a specific channel or chunk.
@@ -840,6 +841,25 @@ procedure Mix_ClearError(); cdecl;
   name {$IF DEFINED(DELPHI) AND DEFINED(MACOS)} '_SDL_ClearError' {$ELSE} 'SDL_ClearError' {$ENDIF};
 
 implementation
+
+// APUS: these three are macros in SDL_mixer.h - the library exports no such
+// symbols, so declaring them as external made every binary that referenced
+// them fail to start (STATUS_ENTRYPOINT_NOT_FOUND). Expand them the way the
+// C header does.
+function Mix_LoadWAV(_file: PAnsiChar): PMix_Chunk;
+begin
+  Result := Mix_LoadWAV_RW(SDL_RWFromFile(_file, 'rb'), 1);
+end;
+
+function Mix_PlayChannel(channel: cint; chunk: PMix_Chunk; loops: cint): cint;
+begin
+  Result := Mix_PlayChannelTimed(channel, chunk, loops, -1);
+end;
+
+function Mix_FadeInChannel(channel: cint; chunk: PMix_Chunk; loops: cint; ms: cint): cint;
+begin
+  Result := Mix_FadeInChannelTimed(channel, chunk, loops, ms, -1);
+end;
 
 procedure SDL_MIXER_VERSION(Out X: TSDL_Version);
 begin

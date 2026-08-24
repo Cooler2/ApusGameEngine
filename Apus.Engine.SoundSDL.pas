@@ -161,6 +161,7 @@ procedure TSoundLibSDL.Init(windowHandle:THandle);
  var
   i,freq,chan:integer;
   format:word;
+  ver:PSDL_Version;
  begin
   Log.Info('[SDL_MIX] Init');
   // The audio subsystem may already be up if the SDL platform backend is used
@@ -177,6 +178,10 @@ procedure TSoundLibSDL.Init(windowHandle:THandle);
    if channels[i]=nil then channels[i]:=TChannelSDL.Create(i);
   if musicChannel=nil then musicChannel:=TChannelSDL.Create(MUSIC_CHANNEL);
   // Diagnostics: what the device actually gave us
+  ver:=Mix_Linked_Version;
+  if ver<>nil then
+   Log.Info('[SDL_MIX] SDL2_mixer %d.%d.%d (headers: %d.%d.%d)',
+     [ver.major,ver.minor,ver.patch,SDL_MIXER_MAJOR_VERSION,SDL_MIXER_MINOR_VERSION,SDL_MIXER_PATCHLEVEL]);
   freq:=0; format:=0; chan:=0;
   if Mix_QuerySpec(@freq,@format,@chan)<>0 then
    Log.Info('[SDL_MIX] Device: driver=%s, %d Hz, format $%x, %d channels, %d mixing channels',
@@ -216,11 +221,8 @@ function TSoundLibSDL.OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaF
 
   media:=TMediaFileSDL.Create;
   if (mode=mlmLoadUnpack) and ((ext='.wav') or (ext='.ogg')) then begin
-   // Load as sample.
-   // Mix_LoadWAV and Mix_PlayChannel are macros in the C headers, so the DLL
-   // exports neither of them (the Pascal binding declares them anyway) - use
-   // the real functions they expand to.
-   chunk:=Mix_LoadWAV_RW(SDL_RWFromFile(PAnsiChar(st),'rb'),1);
+   // Load as sample
+   chunk:=Mix_LoadWAV(PAnsiChar(st));
    if chunk=nil then begin
     Log.Error('[SDL_MIX] Failed to load media file %s: %s',[fName,string(Mix_GetError)]);
     media.Free;
@@ -260,7 +262,7 @@ function TSoundLibSDL.PlayMedia(media:TMediaFile;const settings:TPlaySettings):T
   if settings.loop then loops:=-1 else loops:=0;
   if m.chunk<>nil then begin
    // Play sample
-   res:=Mix_PlayChannelTimed(-1,m.chunk,loops,-1);
+   res:=Mix_PlayChannel(-1,m.chunk,loops);
    if res<0 then begin
     Log.Error('[SDL_MIX] failed to play sample %s: %s',[m.source,string(Mix_GetError)]);
     exit(nil);
