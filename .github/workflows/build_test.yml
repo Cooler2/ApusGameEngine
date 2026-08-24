@@ -154,7 +154,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y fpc
+          # SDL2 + SDL2_mixer: the audio backend is enabled by default on desktop (defines.inc)
+          sudo apt-get install -y fpc libsdl2-dev libsdl2-mixer-dev
           fpc -iV
 
       - name: Install FPC (Windows)
@@ -208,11 +209,12 @@ jobs:
           compile_demo "TextDemo"
           compile_demo "Simple3D"
           compile_demo "ShadowMap"
+          compile_demo "SoundDemo"
 
       - name: Compile selected demos (Windows)
         if: runner.os == 'Windows'
         run: |
-          $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo","Simple3D","ShadowMap")
+          $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo","Simple3D","ShadowMap","SoundDemo")
           foreach($demo in $demos){
             $out="demo/$demo/_fpc"
             if(Test-Path $out){ Remove-Item $out -Recurse -Force }
@@ -222,6 +224,26 @@ jobs:
               -Fu"demo/$demo" -FU"$out" "demo/$demo/$demo.dpr"
             if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
           }
+
+      - name: Sound smoke (Linux, dummy audio device)
+        if: runner.os == 'Linux'
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          set -euo pipefail
+          cd demo/SoundDemo
+          ./SoundDemo 5 w300 1 w800 4 w300
+
+      - name: Sound smoke (Windows, dummy audio device)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          Copy-Item bin64\sdl2.dll,bin64\SDL2_mixer.dll,bin64\libogg-0.dll,bin64\libvorbis-0.dll,bin64\libvorbisfile-3.dll,bin64\libmodplug-1.dll demo\SoundDemo -Force
+          Set-Location demo\SoundDemo
+          .\SoundDemo.exe 5 w300 1 w800 4 w300
+          if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
 
       - name: Compile selected demos (macOS)
         if: runner.os == 'macOS'
@@ -263,7 +285,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y fpc
+          # SDL2 + SDL2_mixer: the audio backend is enabled by default on desktop (defines.inc)
+          sudo apt-get install -y fpc libsdl2-dev libsdl2-mixer-dev
           fpc -iV
 
       - name: Install FPC (Windows)

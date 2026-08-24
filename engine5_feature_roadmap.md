@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-06-27
+Last updated: 2026-08-24
 
 Language policy: this roadmap is maintained in English.
 
@@ -41,9 +41,10 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
-| R-28 | Audio Subsystem Activation | planned | ~10% | Research done, decisions locked (miniaudio primary, 2-tier requirements, typed facade); next: implement per `Work/R-28_audio_activation.md` plan T1–T7 |
+| R-28 | Audio Subsystem Activation | in-progress | ~40% | **Level-1 gate closed on Win64 (2026-08-24)**: `SDLMIX` is on by default on desktop (defines.inc), `SoundSDL` reworked, T1 core fixes done, `SoundDemo` migrated + script mode, sound verified by ear. Remaining: Linux/CI run of the new headless smoke, GUI SoundDemo (T5), diagnostics (T6), then miniaudio T3/T4 for level 2 |
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
-| R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
+| R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
+| R-31 | Working Surface, Size & Orientation Model | in-progress | ~20% | **Schedule blocker (P1)**. Design agreed (2026-07-20); API sketch drafted in `Work/R-31_api_design.md` — awaiting author review of §1–§6 + answers to §9; then stage A (types+resolver+tests), stage B (engine switchover + renames) |
 
 ## GL Version Policy (locked 2026-07-03)
 
@@ -433,20 +434,24 @@ Two tiers, not a version ladder:
   - [ ] A recorded decision on what (if anything) moves into the engine/Base, and where.
 
 ### [R-28] Audio Subsystem Activation
-- Status: planned (~10%, research done, decisions locked) | Priority: P2 | Area: Audio
+- Status: in-progress (~40%, level-1 gate closed on Win64) | Priority: **P1 — schedule blocker** | Area: Audio
 - Working doc (authoritative for detail): `Work/R-28_audio_activation.md` — code inventory, backend landscape, decisions, plan T0–T8.
 - Value: Strategic direction J is entirely untouched — no validated audio path on Engine5. Key finding: audio is dead by build configuration (backends gated behind `IMX`/`SDLMIX` defines absent from the standard define set), not by runtime bugs.
 - Decisions locked (2026-07-03):
-  - Primary backend: **miniaudio** (public-domain, per-platform backends under one API, null device for headless CI; own Pascal binding + prebuilt `apusaudio` binaries committed to `bin*/`, sources in `extra/miniaudio/`). SDL2_mixer = temporary debug crutch only; BASS 2.4 = optional alternative (x64 fine; licensing cost for commercial use).
+  - Primary backend: **miniaudio** (public-domain, per-platform backends under one API, null device for headless CI; own Pascal binding + prebuilt `apusaudio` binaries committed to `bin*/`, sources in `extra/miniaudio/`). SDL2_mixer = second maintained backend (see the 2026-08-24 gate decision below), not a crutch to be removed; BASS 2.4 = optional alternative (x64 fine; licensing cost for commercial use).
   - Two-tier requirements: level 1 (gate) = play samples+music as-is + volume control; level 2 (full R-28) = loops/loop points, fades/crossfades, pitch, panning.
   - MOD/tracker music: not required by default backend (optional backend path if ever needed).
   - Typed facade `Sound.Play(...):TChannelHandle` added; `SOUND\` signals remain as transport over it.
   - Legacy `SoundBass`/`SoundImx` removal = bonus stage, non-blocking.
+- Gate decision (2026-08-24): the near-term consumer needs level 1 only (samples, music, volume), so **SDL2_mixer closes the gate**: `Apus.Engine.SoundSDL.pas` already implements all of level 1, `extra/sdl2/sdl2_mixer.pas` and `bin*/SDL2_mixer.dll` are in the repo, and this path has been exercised before — T1+T2 is hours, against T1+T3+T4a for the same gate via miniaudio. miniaudio (T3+T4a+T4b) follows unhurried as the level-2 backend and stays primary. **Both are kept as two maintained backends** — the second implementation is what keeps the `ISoundLib` abstraction honest and gives a fallback per platform.
+- Gate work items (T1+T2): add `SDLMIX` to the standard define set and to the demo projects; migrate `SoundSDL` off `Apus.Common` onto the new foundation API; T1 core fixes (atomics on `initialized/failed`, `sampleRate=0` guard, `TChannel` lifetime contract, `Pause/Resume`); `Mix_Init` currently requests `MIX_INIT_OGG` only — mp3 will not load. Headless CI comes cheap here via `SDL_AUDIODRIVER=dummy` (no null backend needed); Linux CI needs `libsdl2-mixer` to link.
+- Known level-1 ceiling of the SDL2_mixer path (all level-2 concerns, none blocks the gate): `CanSlide=[]`, no pitch, no loop points, panning for samples only, and a **single music stream** — music crossfade is impossible by construction, which is exactly what miniaudio is for.
 - Out of scope (deferred): full backend unification (J1); spatial/3D audio; effects/DSP; BASS backend implementation; Android/AAudio validation (→ R-24).
+- Level-1 gate: DONE on Win64 (2026-08-24) — `SDLMIX` enabled by default for desktop Windows/Linux in `defines.inc` (opt-out `NOAUDIO`), `Apus.Engine.SoundSDL` reworked (pooled channel objects instead of a per-play leak, relative volumes reapplied on global change, real decoder/device diagnostics, `Pause`), T1 core fixes in `Apus.Engine.Sound` (atomic cross-thread flags, MP3 header parsing + `SampleRateOf` divisor guard, honest backend-selection errors, `ISoundLib.Pause` wired to `SOUND\Pause|Resume`), `soundDemo` migrated to the new foundation API with a non-interactive script mode. Verified: samples, ogg/mp3 music, MOD, volume, pan, pause/resume, fade-out — audible on Win64 (author sign-off), x64+x86 builds, headless run on the SDL `dummy` driver. Two side finds fixed: the vendored `sdl2_mixer.pas` declares the C macros `Mix_LoadWAV`/`Mix_PlayChannel` as exported functions (they are not — the backend calls `Mix_LoadWAV_RW`/`Mix_PlayChannelTimed` instead), and `Apus.EventMan` cut the `event::tag` suffix one character short.
 - Acceptance Criteria (tiered; full list in working doc §8):
-  - [ ] Level 1: one backend reliably plays samples and streams music on Win64+Linux; global/per-channel volume.
+  - [x] Level 1: one backend reliably plays samples and streams music on Win64; global/per-channel volume. *(Linux: compiled + wired into CI with the `dummy` driver, first CI run pending.)*
   - [ ] Level 2: loops incl. loop points; smooth `SlideChannel` (volume/pan/speed) on live channels; music crossfades in all modes.
-  - [ ] GUI `SoundDemo` covers both tiers; headless CI test (null backend) covers at least level 1.
+  - [ ] GUI `SoundDemo` covers both tiers; headless CI test covers at least level 1. *(Headless: console `SoundDemo` script mode runs in CI on Win+Linux with `SDL_AUDIODRIVER=dummy`; GUI demo still to do.)*
   - [ ] The backend/platform decision and its limits are documented.
 
 ### [R-29] macOS Desktop Support (SDL2/GL)
@@ -484,18 +489,19 @@ Two tiers, not a version ladder:
 - Plan / staging / infra / hardware notes: `Work/R-30_ios_platform.md`. GLES versions/bindings/limitations research (shared with R-24): `Work/gles_mobile_research.md`.
 
 ### [R-31] Working Surface, Size & Orientation Model
-- Status: in-design | Priority: P1 | Area: Platform / Render / API
+- Status: API sketch drafted (2026-07-20) — awaiting author review | Priority: **P1 — schedule blocker** | Area: Platform / Render / API
+- Next step: review `Work/R-31_api_design.md` (§1–§6 types/resolver/`TWindow`/dRT/preview, §7 rename table, §8 stages A–E, §9 four open questions), then **stage A** (types + resolver + table tests in `Apus.Engine.Types`, old code untouched) and **stage B** (engine switchover: snapshot+resolver in `TWindow`, config hook, single post-rebuild event, removal of `dfm*`/`dsm*`/`gameMode`/`directRenderOnly`/`useRealDPI`, renames + registry). A+B are what close the public contract; C (presets/preview) only if a desktop preview of a mobile canvas is needed; D/E on demand.
 - Value: one coherent model for every "sizes don't match" case — mobile portrait/landscape apps, their desktop previews, HiDPI, letterbox, performance render scale, retina-style rendering — replacing the current `dfm*`×`dsm*`×`directRenderOnly` combination space (dead modes, silent degradations, `TGameSettings.width/height` mutated at runtime).
 - Design core (agreed in discussion):
   - Per-window state: three sizes — **canvasSize** (draw+input coordinate space; that is what current `renderWidth` actually is), renderSize (pixels shaded), clientSize (native) — plus derived `displayRect`. Settings become read-only intent. Confirmed space terminology: canvas space (draw/input) / UI space (widgets, per-widget inherited scale) / world space (gameplay, not engine's).
-  - Three intent axes: fixed-vs-flexible canvas size (constants `canvasWidth/Height`, 0 = flexible axis), render policy (native / fixed / scaled k), presentation fit (fill / keepAspect / center). Invalid combos rejected at configuration; mechanism (mapping stage, need for dRT) is derived. Presets = helper procedures over the axes.
+  - Three intent axes: fixed-vs-flexible canvas size (constants `canvasWidth/Height`, 0 = flexible axis), render policy (native / fixed — `scaled(k)` dropped: a fraction has no external source; game computes fixed from the offered surface via a **configuration hook** running before the resolver), presentation fit (fill / keepAspect / center / integerScale). Normative resolver order + aspect invariant; invalid combos rejected at configuration; mechanism (mapping stage, need for dRT) is derived. Presets = helper procedures over the axes. DPI-aware process is a model precondition (clientSize = physical pixels; `useRealDPI` flag to be removed).
   - Four mapping stages: none / **layout** (UI transforms coords before draw calls — pixel-exact, today's `screenScale`) / render (matrix, virtual coords — kept as supported non-default for hardcoded direct-draw designs) / presentation (blit — for pixel-jointed designs). Choice between the last two is driven by the design itself.
   - Mobile: orientation as project policy (declared in code → packaging-script parameter → runtime validation), safe-area insets in canvas coords, fixed-one-axis default layout, `FitPreviewWindow` helper for desktop previews (preview scale is derived, never stored).
   - Atomic surface-changed notification fired **after** rebuild + surface generation counter (today scene `onResize` fires before viewport/dRT update).
-- Out of scope (v1): adaptive orientation, UI-at-native-res over low-res 3D, engine-level phone/tablet size classes.
-- Relation: R-02 owns multi-window/monitor/DPI mechanics; this card owns the coordinate/size model those mechanics feed. Mobile consumers: R-24 / R-30.
+- Out of scope (v1): adaptive orientation, engine-level phone/tablet size classes, engine dynamic resolution (internal-k mechanism reserved), crop/overscan fit, post-blit native debug layer (rejected: single-consumer engine mode; frame slot documented). UI-at-native over low-res 3D turned out to be a scene-level pattern available today, not an engine feature. Engine-level postprocessing = final-blit shader hook only (its presence implies the presentation RT).
+- Relation: R-02 owns multi-window/monitor/DPI mechanics; this card owns the coordinate/size model those mechanics feed, so R-31 core (A+B) should land before the remaining R-02 work. Mobile consumers: R-24 / R-30. Stage B shares the resize path with the open **R-29 findings #1–2** (`SDL_WINDOWEVENT_SIZE_CHANGED`, HiDPI double-scaling) — close them in the same pass rather than separately; the renames in §7 touch every demo, tool and test, which collides with **R-15** (demo restructuring, in progress) — sequence the two deliberately.
 - Acceptance Criteria (draft, to finalize with the design):
   - [ ] Axes implemented; every scenario from the design doc expressible; invalid combos rejected at configuration time.
   - [ ] Renames applied per approved terminology; input↔render coordinate round-trip tests pass at displayRect edges.
   - [ ] A mobile demo declares orientation once and runs both on device and as a fitted desktop preview.
-- Design doc (RU, active discussion): `Work/surface_size_design.md`; companions: `Work/mobile_surface_orientation.md`, `Work/render_size_model.md`.
+- Design doc (RU, agreed 2026-07-20; §8.1–8.3 = accepted decisions, §8.4 = two items deferred to API sketch): `Work/surface_size_design.md`; companions: `Work/mobile_surface_orientation.md`, `Work/render_size_model.md`.
