@@ -42,7 +42,6 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   windowBorderless:=true;
   windowSizeable:=true;
-  //directRenderOnly:=true; // draw to backbuffer (instead of a screen-size RT-texture for post-processing)
   //windowedMode:=false;
  end;
 
@@ -52,7 +51,7 @@ procedure TMainApp.CreateScenes;
   scale:single;
  begin
   inherited;
-  scale:=window.screenDPI/96;
+  scale:=window.surface.dpi/96;
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   sceneMain.UI.SetScale(scale);

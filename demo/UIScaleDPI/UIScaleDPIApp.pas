@@ -57,7 +57,7 @@ implementation
 
  function DPIScale:single;
   begin
-   result:=window.screenDPI/96;
+   result:=window.surface.dpi/96;
   end;
 
  // Palette for card thumbnails
@@ -105,14 +105,13 @@ begin
   gameTitle:='Apus Engine: UI Scale && DPI Demo';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=true;
   windowSizeable:=true;
 end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
 begin
   inherited;
-  settings.mode.displayMode:=dmWindow;
+  settings.mode:=dmWindow;
 end;
 
 procedure TMainApp.CreateScenes;
@@ -230,7 +229,7 @@ procedure TMainScene.Load;
   // === Connect signals ===
   SetEventHandler('UI\ScaleCombo\ONSELECT',OnScaleSelect,emInstant);
   SetEventHandler('UI\TestDlgBtn\ONCLICK',OnTestDialog,emQueued);
-  SetEventHandler('ENGINE\DPICHANGED\DONE',OnDPIChanged,emQueued); // after engine-level scale update
+  SetEventHandler('ENGINE\SURFACECHANGED',OnDPIChanged,emQueued); // after the surface rebuild
 
   // apply initial scale: dpiScale * userZoom(100%)
   ApplyScale;
@@ -245,11 +244,11 @@ begin
   if statusLabel<>nil then begin
    ds:=DPIScale;
    statusLabel.caption:=
-    'DPI: '+Conv.ToStr(window.screenDPI)+
+    'DPI: '+Conv.ToStr(window.surface.dpi)+
     '  |  DPI Scale: '+Conv.ToStr(round(ds*100))+'%'+
     '  |  Zoom: '+Conv.ToStr(round(userZoom*100))+'%'+
     '  |  Effective: '+Conv.ToStr(round(ds*userZoom*100))+'%'+
-    '  |  Render: '+Conv.ToStr(window.renderWidth)+'x'+Conv.ToStr(window.renderHeight);
+    '  |  Render: '+Conv.ToStr(window.canvasWidth)+'x'+Conv.ToStr(window.canvasHeight);
   end;
   inherited;
 end;

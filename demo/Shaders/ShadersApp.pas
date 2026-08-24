@@ -40,9 +40,7 @@ constructor TMainApp.Create;
   //configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
-  useRealDPI:=false;
   //usedPlatform:=spSDL;   // alternative cross-platform solution
-  //directRenderOnly:=true; // draw to backbuffer (instead of a screen-size RT-texture for post-processing)
   //windowedMode:=false;
  end;
 

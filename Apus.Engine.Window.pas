@@ -101,6 +101,16 @@ TWindow=class(TNamedObject)
 protected
   class function ClassHash:pointer; override;
 private
+  // Working surface: accumulated resolver input and cross-thread rebuild requests.
+  surfaceInput:TSurfaceInput; // client size, DPI, native insets, render scale
+  pendingLock:TLock;   // guards the pending* fields (written by any thread)
+  pendingMask:integer; // see psmXXX constants
+  pendingClient:TSize;
+  pendingDPI:integer;
+  pendingInsets:TRect;
+  dRTallowed:boolean;  // the default RT may be created for this window
+  dRTzbuffer:byte;     // parameters remembered for a deferred/repeated creation
+  dRTdepthTex:boolean;
   // Authoritative per-frame timing source: high-precision microseconds.
   frameStartUsValue:int64;
   frameDeltaUsValue:int64;
@@ -109,11 +119,14 @@ private
   frameDeltaMsValue:int64;
   frameStartSecValue:double;
   frameDeltaSecValue:double;
+  procedure SetupViewport;   // apply the current surface to the graphics backend
+  procedure EnsureDefaultRT; // create the default RT if the surface needs one
+  procedure UpdateSurfaceRT; // keep the default RT in sync with surface.renderSize
+  procedure UpdateScreenScale; // DPI -> uiScale ladder (main window only)
 public
-  // Render area
-  renderWidth,renderHeight:integer; // size of render area in virtual pixels
-  displayRect:TRect; // render area inside window's client area, in screen pixels
-  windowWidth,windowHeight:integer; // window client size in pixels
+  // Working surface (R-31): declared axes + resolved snapshot.
+  config:TSurfaceConfig; // runtime authority for this window (a copy of TGameSettings.surface)
+  surface:TSurfaceState; // published snapshot; written only by this window's own thread between frames
   screenChanged:boolean; // set to true to request frame rendering
 
   // Input state snapshot for this window: values are stored per-window (not global)
@@ -133,7 +146,6 @@ public
   // Window state
   active:boolean; // true when window is visible and updated
   paused:boolean; // pause rendering regardless of active state
-  screenDPI:integer; // DPI according to system settings
   frameNum:integer; // increments every frame
   FPS,smoothFPS:single; // current and smoothed FPS
   // Text link (TODO: move out)
@@ -164,6 +176,13 @@ public
   property frameStartSec:double read frameStartSecValue;
   property frameDeltaSec:double read frameDeltaSecValue;
 
+  // Surface shortcuts (read the published snapshot)
+  property canvasWidth:integer read surface.canvasSize.cx;   // draw/input space
+  property canvasHeight:integer read surface.canvasSize.cy;
+  property clientWidth:integer read surface.clientSize.cx;   // native client area
+  property clientHeight:integer read surface.clientSize.cy;
+  property displayRect:TRect read surface.displayRect;       // picture placement in the client area
+
   constructor Create(windowName:String8='MainWnd');
   destructor Destroy; override;
   procedure SetFrameTiming(startUs,deltaUs:int64);
@@ -183,8 +202,19 @@ public
   // Called once per frame (after ProcessMessages) to update mouse position,
   // emit MOUSE\MOVE signal and notify scenes. Buttons are handled immediately.
   procedure FlushMouseInput;
-  procedure DPIChanged(newDPI:integer);
   function ProcessScenes(deltaTime:integer):boolean;
+
+  // --- Working surface: rebuild requests (any thread; only stores the request) ---
+  procedure RequestResize(const client:TSize); overload;
+  procedure RequestResize(width,height:integer); overload;
+  procedure RequestDPI(dpi:integer);
+  procedure SetNativeSafeArea(const insets:TRect);
+  procedure SetRenderScale(scale:single);
+  procedure SetSurfaceConfig(const cfg:TSurfaceConfig); // validates, then requests a rebuild
+  procedure InvalidateSurface; // force a full rebuild on the next ApplyPendingSurface
+  // Apply a pending request. Called by the window's OWN thread at frame start:
+  // hook -> validate -> resolve -> RT/viewport -> publish snapshot -> notifications.
+  procedure ApplyPendingSurface;
 
   procedure Close; virtual; abstract;
   // Apply display/window settings (mode, size, style, position) to an existing native window.
@@ -225,13 +255,19 @@ public
 
   // Frame processing and scene rendering
   function OnFrame:boolean;
-  procedure RenderFrame(var params:TGameSettings; aspectRatio:single;
+  procedure RenderFrame(const params:TGameSettings;
     drawCursor,drawOverlays:TRenderProc);
   procedure RenderScenes(drawOverlays:TRenderProc);
 
-  // Coordinate transforms between client area and game (render) space
-  procedure ClientToGame(var p:TPoint);
-  procedure GameToClient(var p:TPoint);
+  // Coordinate transforms between client area and canvas (draw/input) space
+  function ClientToCanvas(const p:TPoint):TPoint;
+  function CanvasToClient(const p:TPoint):TPoint;
+  // False when the point is outside displayRect (canvasP is still computed)
+  function TryClientToCanvas(const p:TPoint;out canvasP:TPoint):boolean;
+  // Pointer sampling contract: a position outside the display rect is dropped
+  // (off-screen sentinel) unless a button is held - then it is clamped to the canvas,
+  // so a drag started inside never sticks when it leaves the letterbox area.
+  function MapPointerToCanvas(const clientPos:TPoint):TPoint;
 
   // Mouse position queries in game coordinates
   function MouseInRect(const r:TRect):boolean; overload;
@@ -241,10 +277,10 @@ public
   function MouseWasInRect(const r:TRect):boolean; overload;
   function MouseWasInRect(const r:TRect2):boolean; overload;
 
-  // Render area setup
-  procedure SetupRenderArea(var params:TGameSettings; aspectRatio:single);
-
   // Default render target
+  // Allow a presentation RT for this window and create it if the surface needs one.
+  // Without it rendering goes straight to the backbuffer.
+  procedure EnableDefaultRT(zbuffer:byte;useDepthTex:boolean);
   procedure InitDefaultRenderTarget(width,height:integer; zbuffer:byte; useDepthTex:boolean);
   function GetDepthBufferTex:TTexture;
   // Blit default RT to backbuffer (called before platform PresentFrame)
@@ -260,7 +296,15 @@ public
   procedure FinishVideoCap;
  end;
 
+// Configuration hook: called on every rebuild, before the resolver.
+// Set by TGameApplication (the engine core must not depend on it).
+type
+ TSurfaceConfigHook=procedure(wnd:TWindow;const input:TSurfaceInput;var config:TSurfaceConfig) of object;
+var
+ surfaceConfigHook:TSurfaceConfigHook;
+
 function FindWindowForScene(scene:TGameScene):TWindow;
+function FindWindowByHandle(handle:THandle):TWindow;
 function FindWindowForUIRoot(root:TObject):TWindow;
 function ListWindows:TWindowArray;
 
@@ -271,6 +315,13 @@ implementation
    Apus.Engine.API, Apus.Engine.UIScene,
    Apus.Engine.UITypes, Apus.Engine.TextDraw;
 
+const
+ // TWindow.pendingMask bits
+ psmClient = 1; // client area size changed
+ psmDPI    = 2; // system DPI changed
+ psmInsets = 4; // native safe-area insets changed
+ psmForce  = 8; // rebuild requested explicitly (config/scale change)
+
 var
  windowHash:TObjectHash;
 
@@ -279,11 +330,16 @@ constructor TWindow.Create(windowName:String8='MainWnd');
   inherited Create;
   name:=windowName;
   runtimeLock.Init('Window',20);
+  pendingLock.Init('WndSurface',20);
+  config.Init;
+  surfaceInput.Init(0,0,96);
+  Mem.Clear(surface,sizeof(surface));
   ResetFrameTiming;
  end;
 
 destructor TWindow.Destroy;
  begin
+  pendingLock.Cleanup;
   runtimeLock.Cleanup;
   inherited;
  end;
@@ -598,11 +654,146 @@ procedure TWindow.NotifyScenesResize;
    scenes[i].onResize;
  end;
 
-procedure TWindow.DPIChanged(newDPI:integer);
+procedure TWindow.RequestResize(const client:TSize);
  begin
-  screenDPI:=newDPI;
-  Log.Msg('DPI changed: %d for window %s',[newDPI,name]);
-  Signal('ENGINE\DPICHANGED',newDPI);
+  pendingLock.Enter;
+  try
+   pendingClient:=client;
+   pendingMask:=pendingMask or psmClient;
+  finally
+   pendingLock.Leave;
+  end;
+ end;
+
+procedure TWindow.RequestResize(width,height:integer);
+ begin
+  RequestResize(MakeSize(width,height));
+ end;
+
+procedure TWindow.RequestDPI(dpi:integer);
+ begin
+  if dpi<=0 then exit;
+  pendingLock.Enter;
+  try
+   pendingDPI:=dpi;
+   pendingMask:=pendingMask or psmDPI;
+  finally
+   pendingLock.Leave;
+  end;
+ end;
+
+procedure TWindow.SetNativeSafeArea(const insets:TRect);
+ begin
+  pendingLock.Enter;
+  try
+   pendingInsets:=insets;
+   pendingMask:=pendingMask or psmInsets;
+  finally
+   pendingLock.Leave;
+  end;
+ end;
+
+procedure TWindow.SetRenderScale(scale:single);
+ begin
+  ASSERT(scale>0,'Render scale must be positive');
+  surfaceInput.renderScale:=scale;
+  InvalidateSurface;
+ end;
+
+procedure TWindow.SetSurfaceConfig(const cfg:TSurfaceConfig);
+ begin
+  ValidateSurfaceConfig(cfg); // reject a broken declaration where it is made
+  config:=cfg;
+  InvalidateSurface;
+ end;
+
+procedure TWindow.InvalidateSurface;
+ begin
+  pendingLock.Enter;
+  try
+   pendingMask:=pendingMask or psmForce;
+  finally
+   pendingLock.Leave;
+  end;
+ end;
+
+procedure TWindow.ApplyPendingSurface;
+ var
+  mask:integer;
+  cfg:TSurfaceConfig;
+  newState:TSurfaceState;
+  w,h:integer;
+  oldWindow:TWindow;
+ begin
+  pendingLock.Enter;
+  try
+   mask:=pendingMask;
+   pendingMask:=0;
+   if mask and psmClient<>0 then surfaceInput.clientSize:=pendingClient;
+   if mask and psmDPI<>0 then surfaceInput.dpi:=pendingDPI;
+   if mask and psmInsets<>0 then surfaceInput.safeInsets:=pendingInsets;
+  finally
+   pendingLock.Leave;
+  end;
+  if (mask=0) and (surface.generation>0) then exit;
+
+  if (surfaceInput.clientSize.cx<=0) or (surfaceInput.clientSize.cy<=0) then begin
+   GetSize(w,h); // some platforms report the client size only after the first message pump
+   if (w<=0) or (h<=0) then exit; // nothing to resolve yet
+   surfaceInput.clientSize:=MakeSize(w,h);
+  end;
+  if surfaceInput.dpi<=0 then surfaceInput.dpi:=96;
+  if surfaceInput.renderScale<=0 then surfaceInput.renderScale:=1;
+  surfaceInput.forceRT:=false; // presentation shader hook: stage E
+
+  cfg:=config;
+  if Assigned(surfaceConfigHook) then surfaceConfigHook(self,surfaceInput,cfg);
+  ValidateSurfaceConfig(cfg);
+  ResolveSurface(surfaceInput,cfg,newState);
+  newState.generation:=surface.generation+1;
+  newState.changes:=newState.Diff(surface);
+  surface:=newState;
+
+  EnsureDefaultRT;
+  UpdateSurfaceRT;
+  SetupViewport;
+  if (surface.generation>1) and (surface.changes=[]) then exit; // forced pass, nothing really changed
+
+  Log.Msg('Surface [%s]: %s',[name,surface.ToString]);
+  UpdateScreenScale;
+  oldWindow:=window;
+  window:=self; // scene callbacks expect the threadvar to point at their own window
+  try
+   NotifyScenesResize;
+  finally
+   window:=oldWindow;
+  end;
+  Signal('ENGINE\SURFACECHANGED',UIntPtr(self));
+  screenChanged:=true;
+ end;
+
+procedure TWindow.UpdateScreenScale;
+ var
+  baseDPI:integer;
+  scale:single;
+ begin
+  if (game=nil) or (self<>mainWindow) then exit;
+  // The uiScale ladder is only meaningful when the canvas follows the surface:
+  // over a fixed canvas the design already defines its own scale (R-31 8.3.3).
+  if not config.CanvasFlexible then begin
+   game.screenScale:=1.0;
+   exit;
+  end;
+  baseDPI:=96;
+  {$IF DEFINED(ANDROID) OR DEFINED(IOS)}
+  baseDPI:=192;
+  {$ENDIF}
+  scale:=1.0;
+  if surface.dpi>0.95*baseDPI*1.2 then scale:=1.2;
+  if surface.dpi>0.94*baseDPI*1.5 then scale:=1.5;
+  if surface.dpi>0.93*baseDPI*2.0 then scale:=2.0;
+  if surface.dpi>0.92*baseDPI*2.5 then scale:=2.5;
+  game.screenScale:=scale;
  end;
 
 function TWindow.ProcessScenes(deltaTime:integer):boolean;
@@ -678,7 +869,7 @@ begin
  frameLog:=frameLog+st+#13#10;
 end;
 
-procedure TWindow.RenderFrame(var params:TGameSettings; aspectRatio:single;
+procedure TWindow.RenderFrame(const params:TGameSettings;
   drawCursor,drawOverlays:TRenderProc);
 var
  i,j,n:integer;
@@ -757,12 +948,12 @@ begin
  end;
 
  gfx.BeginPaint(dRT);
- SetupRenderArea(params,aspectRatio);
+ SetupViewport;
  // draw all active scenes
  for i:=1 to n do try
   // draw shadow
   if sc[i].shadowColor<>0 then
-   draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
+   draw.FillRect(0,0,canvasWidth,canvasHeight,sc[i].shadowColor);
 
   if not sc[i].gfxInitialized then try
    sc[i].InitGfx;
@@ -806,6 +997,7 @@ begin
  oldWindow:=window;
  window:=self;
  try
+  SetupViewport; // backend state is shared between windows - re-assert ours every frame
   // sort active scenes by Z order
   n:=0;
   for i:=low(scenes) to high(scenes) do
@@ -874,102 +1066,83 @@ begin
  result:=r.Contains(oldMousePos);
 end;
 
-procedure TWindow.ClientToGame(var p:TPoint);
+function TWindow.ClientToCanvas(const p:TPoint):TPoint;
 begin
- p.X:=round((p.X-displayRect.Left)*renderWidth/(displayRect.Right-displayRect.Left));
- p.Y:=round((p.Y-displayRect.Top)*renderHeight/(displayRect.Bottom-displayRect.Top));
+ if surface.generation=0 then exit(p); // surface not resolved yet
+ result:=surface.ClientToCanvas(p);
 end;
 
-procedure TWindow.GameToClient(var p:TPoint);
+function TWindow.CanvasToClient(const p:TPoint):TPoint;
 begin
- p.X:=round(displayRect.Left+p.X*(displayRect.Right-displayRect.Left)/renderWidth);
- p.Y:=round(displayRect.Top+p.Y*(displayRect.Bottom-displayRect.Top)/renderHeight);
+ if surface.generation=0 then exit(p);
+ result:=surface.CanvasToClient(p);
 end;
 
-procedure TWindow.SetupRenderArea(var params:TGameSettings; aspectRatio:single);
+function TWindow.TryClientToCanvas(const p:TPoint;out canvasP:TPoint):boolean;
+begin
+ if surface.generation=0 then begin
+  canvasP:=p;
+  exit(false);
+ end;
+ result:=surface.TryClientToCanvas(p,canvasP);
+end;
+
+function TWindow.MapPointerToCanvas(const clientPos:TPoint):TPoint;
 var
- w,h:integer;
- oldDisplayRect:TRect;
- oldRW,oldRH:integer;
- gfxWasReady:boolean;
+ p:TPoint;
 begin
- gfxWasReady:=(gfx<>nil) and (gfx.target<>nil);
- if (windowWidth<=0) or (windowHeight<=0) then begin
-  GetSize(windowWidth,windowHeight);
-  if windowWidth<=0 then windowWidth:=params.width;
-  if windowHeight<=0 then windowHeight:=params.height;
+ if not TryClientToCanvas(clientPos,p) then begin
+  if mouseButtons=0 then exit(Types.Point($3FFF,$3FFF));
+  p.x:=Clamp(p.x,0,Max(0,canvasWidth-1));
+  p.y:=Clamp(p.y,0,Max(0,canvasHeight-1));
  end;
+ result:=p;
+end;
 
- oldRW:=renderWidth;
- oldRH:=renderHeight;
- oldDisplayRect:=displayRect;
- w:=0; h:=0;
- case params.mode.displayFitMode of
-  dfmCenter:begin
-   w:=params.width;
-   h:=params.height;
-  end;
-  dfmFullSize:begin
-   w:=windowWidth;
-   h:=windowHeight;
-   if params.mode.displayScaleMode=dsmDontScale then begin
-    params.width:=w;
-    params.height:=h;
-   end;
-  end;
-  dfmKeepAspectRatio:begin
-   w:=windowWidth;
-   h:=windowHeight;
-   if w>round(h*aspectRatio*1.01) then w:=round(h*aspectRatio);
-   if h>round(w/aspectRatio*1.01) then h:=round(w/aspectRatio);
-   if params.mode.displayScaleMode in [dsmDontScale] then begin
-    params.width:=w;
-    params.height:=h;
-   end;
-  end;
- end;
- displayRect.Left:=0;
- displayRect.Top:=0;
- displayRect.Right:=w;
- displayRect.Bottom:=h;
- OffsetRect(displayRect,(windowWidth-w) div 2,(windowHeight-h) div 2);
+procedure TWindow.EnableDefaultRT(zbuffer:byte;useDepthTex:boolean);
+begin
+ dRTallowed:=true;
+ dRTzbuffer:=zbuffer;
+ dRTdepthTex:=useDepthTex;
+ EnsureDefaultRT;
+end;
 
- renderWidth:=params.width;
- renderHeight:=params.height;
+// The presentation RT exists only while the surface needs one (fixed render size,
+// render scale or a present shader). An RT that is no longer needed is kept: it
+// still renders correctly, just with an extra blit.
+procedure TWindow.EnsureDefaultRT;
+begin
+ if (dRT<>nil) or not dRTallowed or not surface.needRT then exit;
+ if surface.generation=0 then exit;
+ InitDefaultRenderTarget(surface.renderSize.cx,surface.renderSize.cy,dRTzbuffer,dRTdepthTex);
+end;
 
- // nothing changed? skip only if gfx was already set up (avoids skipping the first proper
- // viewport setup when displayRect was pre-initialized to prevent ClientToGame div-by-zero).
- if (displayRect=oldDisplayRect) and
-    (renderWidth=oldRW) and (renderHeight=oldRH) and gfxWasReady then exit;
+// Keep the default render target sized as the surface demands (renderSize).
+procedure TWindow.UpdateSurfaceRT;
+begin
+ if dRT=nil then exit;
+ if (gfx=nil) or (gfx.resman=nil) then exit;
+ if (dRT.width=surface.renderSize.cx) and (dRT.height=surface.renderSize.cy) then exit;
+ Log.Msg('Resizing framebuffer: %d x %d',[surface.renderSize.cx,surface.renderSize.cy]);
+ gfx.resman.ResizeImage(dRT,surface.renderSize.cx,surface.renderSize.cy);
+ if dRTdepth<>nil then
+  gfx.resman.ResizeImage(dRTdepth,surface.renderSize.cx,surface.renderSize.cy);
+end;
 
- Log.Msg(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
-   [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
- Signal('ENGINE\BEFORERESIZE');
- NotifyScenesResize;
- Signal('ENGINE\RESIZED');
-
- if (gfx<>nil) and (gfx.target<>nil) then begin
-  gfx.target.Resized(windowWidth,windowHeight);
-  w:=displayRect.Width;
-  h:=displayRect.Height;
-  if dRT=nil then begin
-   // rendering directly to the framebuffer
-   gfx.target.Viewport(displayRect.Left,windowHeight-displayRect.Bottom,
-     w,h,params.width,params.height);
-  end else begin
-   // rendering to a framebuffer texture
-   with params.mode do
-    if (displayFitMode in [dfmFullSize,dfmKeepAspectRatio]) and
-       (displayScaleMode in [dsmDontScale,dsmScale]) and
-       ((dRT.width<>w) or (dRT.height<>h)) then begin
-     Log.Msg('Resizing framebuffer');
-     gfx.resman.ResizeImage(dRT,w,h);
-     if dRTdepth<>nil then
-       gfx.resman.ResizeImage(dRTdepth,w,h);
-    end;
-   gfx.target.Viewport(0,0,dRT.width,dRT.height,params.width,params.height);
-  end;
- end;
+// Push the current surface into the graphics backend. Cheap and idempotent:
+// called on every rebuild and once per frame (the backend state is shared between windows).
+procedure TWindow.SetupViewport;
+begin
+ if (gfx=nil) or (gfx.target=nil) then exit;
+ if surface.generation=0 then exit;
+ gfx.target.Resized(surface.clientSize.cx,surface.clientSize.cy);
+ if dRT=nil then
+  // rendering directly to the framebuffer
+  gfx.target.Viewport(surface.displayRect.Left,surface.clientSize.cy-surface.displayRect.Bottom,
+    surface.displayRect.Width,surface.displayRect.Height,surface.canvasSize.cx,surface.canvasSize.cy)
+ else
+  // rendering to a framebuffer texture
+  gfx.target.Viewport(0,0,dRT.width,dRT.height,surface.canvasSize.cx,surface.canvasSize.cy);
 end;
 
 procedure TWindow.InitDefaultRenderTarget(width,height:integer; zbuffer:byte; useDepthTex:boolean);
@@ -1007,12 +1180,12 @@ procedure TWindow.BlitDefaultRT(tintColor:cardinal);
 begin
  if dRT=nil then exit;
  // blit render texture to window backbuffer
- gfx.target.Viewport(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
+ gfx.target.Viewport(0,0,clientWidth,clientHeight,clientWidth,clientHeight);
  gfx.BeginPaint(nil);
  try
   // clear unused bars (not every frame to avoid performance hit)
   if not ((displayRect.Left=0) and (displayRect.Top=0) and
-          (displayRect.Right=windowWidth) and (displayRect.Bottom=windowHeight)) and
+          (displayRect.Right=clientWidth) and (displayRect.Bottom=clientHeight)) and
      ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
   with displayRect do
    draw.TexturedRect(Left,Top,right-1,bottom-1,dRT,0,0,1,0,1,1,tintColor);
@@ -1193,6 +1366,15 @@ function FindWindowForUIRoot(root:TObject):TWindow;
     wnd.Unlock;
    end;
   end;
+  result:=nil;
+ end;
+
+function FindWindowByHandle(handle:THandle):TWindow;
+ var
+  item:TWindow;
+ begin
+  for item in ListWindows do
+   if item.GetHandle=handle then exit(item);
   result:=nil;
  end;
 

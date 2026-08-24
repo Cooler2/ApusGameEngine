@@ -53,7 +53,6 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\CharAnimation') then
    baseDir:='..\Demo\CharAnimation\';

@@ -393,8 +393,8 @@ begin
  wnd:=window;
  // Prime per-thread backend state for deterministic startup.
  // Keep lazy EnsureThreadState as fallback in all subsystems.
- target.Resized(window.windowWidth,window.windowHeight);
- target.Viewport(0,0,window.windowWidth,window.windowHeight,window.renderWidth,window.renderHeight);
+ target.Resized(window.clientWidth,window.clientHeight);
+ target.Viewport(0,0,window.clientWidth,window.clientHeight,window.canvasWidth,window.canvasHeight);
  glFrontFace(GL_CCW); // anchor the front-face winding the cull-mode mapping relies on
  shader.Reset;
  clip.Nothing;

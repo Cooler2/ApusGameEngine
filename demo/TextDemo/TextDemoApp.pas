@@ -131,7 +131,6 @@ begin
   gameTitle:='Apus Engine: TextDemo';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=false;
   windowWidth:=1620;
   windowHeight:=920;
   windowSizeable:=false;
@@ -140,9 +139,7 @@ end;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
 begin
   inherited;
-  settings.mode.displayMode:=dmFixedWindow;
-  settings.mode.displayFitMode:=dfmFullSize;
-  settings.mode.displayScaleMode:=dsmDontScale;
+  settings.mode:=dmFixedWindow;
 end;
 
 procedure TMainApp.CreateScenes;
@@ -192,7 +189,7 @@ var
   st:string;
   y:integer;
 begin
-  y:=window.renderHeight-round(6*layoutScale);
+  y:=window.canvasHeight-round(6*layoutScale);
   st:=Format('frameDelta: %d/%d ms',[window.frameDeltaMs,MaxRecentDeltaMs]);
   txt.Write(hintFont,12,y,$FFE6F0FA,st,taLeft,toWithShadow or toDontTranslate);
 end;
@@ -228,10 +225,10 @@ end;
 
 procedure TMainScene.UpdateMetrics;
 begin
-  layoutScale:=window.screenDPI/96;
+  layoutScale:=window.surface.dpi/96;
   if layoutScale<1 then layoutScale:=1;
   menuWidth:=MENU_WIDTH+round((layoutScale-1)*120);
-  menuWidth:=ClampI(menuWidth,360,window.renderWidth div 2);
+  menuWidth:=ClampI(menuWidth,360,window.canvasWidth div 2);
   menuTop:=round(MENU_TOP*layoutScale);
   menuItemHeight:=round(MENU_ITEM_HEIGHT*layoutScale);
   contentPadding:=round(CONTENT_PADDING*layoutScale);
@@ -247,7 +244,7 @@ var
     if result<6 then result:=6;
   end;
 begin
-  fs:=window.screenDPI/96;
+  fs:=window.surface.dpi/96;
   if fs<1 then fs:=1;
   titleFont:=txt.GetFont('Default',F(12));
   menuFont:=txt.GetFont('Default',F(10));
@@ -288,7 +285,7 @@ end;
 
 function TMainScene.GetArea:TRect;
 begin
-  result:=Rect(0,0,window.renderWidth,window.renderHeight);
+  result:=Rect(0,0,window.canvasWidth,window.canvasHeight);
 end;
 
 procedure TMainScene.DrawMenu(const menuRect:TRect);
@@ -456,7 +453,7 @@ begin
   {$ELSE}
     txt.Write(bodyFont,innerR.Left+10,innerR.Top+82,$FF9DE0B0,'FreeType support: compiled',taLeft,toAddBaseline);
   {$ENDIF}
-  txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-54,$FFE5EDF7,UTF8.Format('DPI=%d scale=%.2f',[window.screenDPI,layoutScale]),taLeft,toAddBaseline);
+  txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-54,$FFE5EDF7,UTF8.Format('DPI=%d scale=%.2f',[window.surface.dpi,layoutScale]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-32,$FFE5EDF7,UTF8.Format('FPS=%.1f smooth=%.1f',[window.FPS,window.smoothFPS]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-10,$FFE5EDF7,UTF8.Format('frameDelta=%.3fms',[window.frameDeltaMs]),taLeft,toAddBaseline);
 end;
@@ -806,7 +803,7 @@ begin
   wv:=txt.Width(vectorFont,'Sample');
   txt.Write(monoFont,innerR.Left+12,innerR.Top+34,$FFD8E7F8,UTF8.Format('menuWidth=%d itemH=%d',[menuWidth,menuItemHeight]),taLeft,toAddBaseline);
   txt.Write(monoFont,innerR.Left+12,innerR.Top+56,$FFD8E7F8,UTF8.Format('window=%dx%d render=%dx%d',
-    [window.windowWidth,window.windowHeight,window.renderWidth,window.renderHeight]),taLeft,toAddBaseline);
+    [window.clientWidth,window.clientHeight,window.canvasWidth,window.canvasHeight]),taLeft,toAddBaseline);
   txt.Write(monoFont,innerR.Left+12,innerR.Top+78,$FFD8E7F8,UTF8.Format('rasterW=%d vectorW=%d',[wr,wv]),taLeft,toAddBaseline);
   txt.Write(monoFont,innerR.Left+12,innerR.Top+100,$FFD8E7F8,UTF8.Format('raster=%u vector=%u',[rasterFont,vectorFont]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+126,$FF90C0E8,'This screen doubles as a quick regression checklist.',taLeft,toAddBaseline);
@@ -818,8 +815,8 @@ var
 begin
   UpdateDeltaStats;
 
-  if window.screenDPI<>lastDPI then begin
-    lastDPI:=window.screenDPI;
+  if window.surface.dpi<>lastDPI then begin
+    lastDPI:=window.surface.dpi;
     UpdateMetrics;
     RebuildFonts;
   end;

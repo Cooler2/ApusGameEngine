@@ -264,3 +264,26 @@ dbPass -> TDepthTest.Pass [Apus.Engine.API]
 dbDisabled -> TDepthTest.Disabled [Apus.Engine.API]
 dbNever -> TDepthTest.Never [Apus.Engine.API]
 // SetDepthMode(test,false) → SetDepthMode(test,TDepthWrite.Off); ,true → ,TDepthWrite.On  [2nd arg type changed boolean→TDepthWrite — manual]
+
+// === R-31 working surface model (Apus.Engine.Types / TWindow / TGameApplication) ===
+// TWindow geometry fields became a resolved surface snapshot.
+window.renderWidth -> window.canvasWidth [Apus.Engine.Window]
+window.renderHeight -> window.canvasHeight [Apus.Engine.Window]
+window.windowWidth -> window.clientWidth [Apus.Engine.Window]
+window.windowHeight -> window.clientHeight [Apus.Engine.Window]
+window.screenDPI -> window.surface.dpi [Apus.Engine.Window]
+// Coordinate transforms became functions: ClientToGame(p) => p:=ClientToCanvas(p)  [manual]
+// ClientToGame -> ClientToCanvas, GameToClient -> CanvasToClient; new TryClientToCanvas
+// TGameSettings.mode/altMode are plain TDisplayMode now; the axes live in TGameSettings.surface.
+// Order matters: altMode before mode (substring).
+altMode.displayMode -> altMode [Apus.Engine.Types]
+mode.displayMode -> mode [Apus.Engine.Types]
+// Removed with no replacement (delete the line, then declare the surface with a preset):
+//   mode.displayFitMode / mode.displayScaleMode, TDisplayFitMode (dfm*), TDisplayScaleMode (dsm*),
+//   TDisplaySettings, TGameAppMode/gameMode, directRenderOnly, useRealDPI
+// gamUseFullWindow    => SetupFullWindow (the default; nothing to write)
+// gamKeepAspectRatio  => SetupFixedCanvas(w,h)
+// TGame.SetupRenderArea / TGame.SizeChanged => wnd.RequestResize + wnd.ApplyPendingSurface
+// Signal('ENGINE\RESIZE',...) => wnd.RequestResize(w,h)
+// ENGINE\BEFORERESIZE, ENGINE\RESIZED, ENGINE\DPICHANGED[\DONE] => ENGINE\SURFACECHANGED (tag=wnd, after the rebuild)
+game.RenderSize -> game.CanvasSize [Apus.Engine.API]

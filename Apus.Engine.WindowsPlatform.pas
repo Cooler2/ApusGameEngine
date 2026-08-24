@@ -72,7 +72,7 @@ type
 
 implementation
 uses Messages, Types, SysUtils, Apus.Lib,
-  Apus.EventMan, Apus.Strings, Apus.Engine.Types
+  Apus.EventMan, Apus.Strings, Apus.Engine.Types, Apus.Engine.Window
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
@@ -170,6 +170,7 @@ var
  rc:TRect;
  pt:TPoint;
  ps:TPaintStruct;
+ wnd:TWindow;
 begin
  try
  result:=0;
@@ -311,15 +312,19 @@ begin
    end;
   end;
 
-  WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
+  WM_SIZE:if lParam<>0 then begin
+   // the window's own thread applies the request at the start of its next frame
+   wnd:=FindWindowByHandle(THandle(Window));
+   if wnd<>nil then wnd.RequestResize(loword(cardinal(lParam)),hiword(cardinal(lParam)));
+  end;
 
   WM_DPICHANGED:begin
    // apply the suggested rect from Windows
    with PRect(lParam)^ do
     SetWindowPos(Window,0,Left,Top,Right-Left,Bottom-Top,
      SWP_NOZORDER or SWP_NOACTIVATE);
-   if Apus.Engine.API.window<>nil then
-    Apus.Engine.API.window.DPIChanged(loword(wParam));
+   wnd:=FindWindowByHandle(THandle(Window));
+   if wnd<>nil then wnd.RequestDPI(loword(wParam));
   end;
 
   WM_NCHITTEST: begin
@@ -465,12 +470,11 @@ procedure TWinGLWindow.SamplePointer;
   // not dragging: pointer outside client area → use off-screen sentinel
   if not captured then
    if (pnt.x<0) or (pnt.y<0) or
-      (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
+      (pnt.x>=clientWidth) or (pnt.y>=clientHeight) then begin
     mousePos:=Types.Point($3FFF,$3FFF);
     exit;
    end;
-  ClientToGame(pnt);
-  mousePos:=pnt;
+  mousePos:=MapPointerToCanvas(pnt);
  end;
 
 function TWindowsPlatform.GetMousePos: TPoint;
@@ -1048,9 +1052,9 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
  begin
    Log.Msg('Configure main window');
    style:=ws_popup;
-   //if params.mode.displayMode=dmBorderless then style:=
-   if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
-   if params.mode.displayMode in [dmWindow,dmFixedWindow] then
+   //if params.mode=dmBorderless then style:=
+   if params.mode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
+   if params.mode in [dmWindow,dmFixedWindow] then
     inc(style,WS_CAPTION+WS_MINIMIZEBOX+WS_SYSMENU);
 
    // Get desktop area size
@@ -1058,7 +1062,7 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
 
    w:=params.width;
    h:=params.height;
-   case params.mode.displayMode of
+   case params.mode of
     dmWindow,dmFixedWindow,dmBorderless:begin
       r:=Rect(0,0,w,h);
       AdjustWindowRect(r,style,false);
@@ -1084,13 +1088,7 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    Log.Msg('WindowRect: %d:%d',[r.Right-r.Left,r.Bottom-r.top]);
    GetClientRect(window,r);
    Log.Msg('ClientRect: %d:%d',[r.Right-r.Left,r.Bottom-r.top]);
-   // Eagerly initialize displayRect so ClientToGame is safe before SetupRenderArea runs.
-   if (displayRect.Width=0) or (displayRect.Height=0) then begin
-    windowWidth:=r.Width; windowHeight:=r.Height;
-    displayRect:=r;
-    renderWidth:=r.Width; renderHeight:=r.Height;
-   end;
-   Signal('ENGINE\RESIZE',r.Width+r.height shl 16);
+   RequestResize(r.Width,r.Height);
  end;
 
 procedure TWinGLWindow.SetCaption(text:string);

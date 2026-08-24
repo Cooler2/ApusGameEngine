@@ -444,7 +444,7 @@ constructor TUILabApp.Create;
 procedure TUILabApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.mode.displayMode:=dmWindow; // resizeable window — needed for layout demos
+  settings.mode:=dmWindow; // resizeable window — needed for layout demos
  end;
 
 procedure TUILabApp.CreateScenes;
@@ -491,7 +491,7 @@ procedure TUILabScene.Render;
  begin
   gfx.target.Clear(themeBg);
   xPos:=content.globalRect.Left;
-  draw.FillGradrect(0,0,xPos-1,window.renderHeight-1,sideBarBgTop,sideBarBgBottom,false);
+  draw.FillGradrect(0,0,xPos-1,window.canvasHeight-1,sideBarBgTop,sideBarBgBottom,false);
   if (freeSlider<>nil) and (sliderValLabel<>nil) then
    sliderValLabel.Setup('Value: '+IntToStr(round(freeSlider.value)));
   inherited;

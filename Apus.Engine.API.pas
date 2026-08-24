@@ -177,8 +177,13 @@ type
  TKeyMod = Apus.Engine.Keys.TKeyMod;
 
  TDisplayMode = Apus.Engine.Types.TDisplayMode;
- TDisplayFitMode = Apus.Engine.Types.TDisplayFitMode;
- TDisplayScaleMode = Apus.Engine.Types.TDisplayScaleMode;
+ TSurfaceConfig = Apus.Engine.Types.TSurfaceConfig;
+ TSurfaceInput = Apus.Engine.Types.TSurfaceInput;
+ TSurfaceState = Apus.Engine.Types.TSurfaceState;
+ TSurfaceFit = Apus.Engine.Types.TSurfaceFit;
+ TSurfaceChange = Apus.Engine.Types.TSurfaceChange;
+ TSurfaceChanges = Apus.Engine.Types.TSurfaceChanges;
+ TSurfaceMechanism = Apus.Engine.Types.TSurfaceMechanism;
  TGameSettings = Apus.Engine.Types.TGameSettings;
  TWindow = Apus.Engine.Window.TWindow;
 
@@ -888,8 +893,8 @@ type
 
   // Screen coordinates
   // ------------------
-  procedure ClientToGame(var p:TPoint); virtual; abstract;
-  procedure GameToClient(var p:TPoint); virtual; abstract;
+  function ClientToCanvas(const p:TPoint):TPoint; virtual; abstract;
+  function CanvasToClient(const p:TPoint):TPoint; virtual; abstract;
 
   // Debug tools
   // -----------
@@ -924,7 +929,7 @@ type
   function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
   function MouseWasInRect(r:TRect2):boolean; overload; virtual; abstract;
 
-  function RenderSize:TSize; // returns (renderWidth,renderHeight)
+  function CanvasSize:TSize; // draw/input space of the current window
 
   // Return interpolated color from color0 to color1 using AV sampled at the current frame time
   function ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
@@ -1239,7 +1244,7 @@ function CurValue(var av:TAnimatedValue):single;
 function Dp(v:single):single;
  begin
   ASSERT(window<>nil);
-  result:=v*window.screenDPI/96;
+  result:=v*window.surface.dpi/96;
  end;
 
 function IsMouseBtn(btn:integer):boolean;
@@ -1279,10 +1284,9 @@ class function TNinePatch.ClassHash:pointer;
   result:=@ninePatchHash;
  end;
 
-function TGameBase.RenderSize:TSize;
+function TGameBase.CanvasSize:TSize;
  begin
-  result.cx:=window.renderWidth;
-  result.cy:=window.renderHeight;
+  result:=window.surface.canvasSize;
  end;
 
 function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
@@ -1303,9 +1307,8 @@ function TGameBase.AddWindow(title:string;w,h:integer):TWindow;
   s.title:=title;
   s.width:=w;
   s.height:=h;
-  s.mode.displayMode:=Apus.Engine.Types.dmWindow;
-  s.mode.displayFitMode:=Apus.Engine.Types.dfmFullSize;
-  s.mode.displayScaleMode:=Apus.Engine.Types.dsmDontScale;
+  s.mode:=Apus.Engine.Types.dmWindow;
+  s.surface.Init; // tool windows use the full client area
   s.showSystemCursor:=true;
   s.vSync:=1;
   result:=AddWindow(s);

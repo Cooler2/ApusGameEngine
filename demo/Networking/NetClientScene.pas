@@ -179,7 +179,7 @@ end;
 procedure TClientScene.Render;
 var w,h,by,bh,panelTop,inputTop:integer; inner:TRect; caret,vis:String8;
 begin
-  w:=window.renderWidth; h:=window.renderHeight;
+  w:=window.canvasWidth; h:=window.canvasHeight;
   gfx.target.Clear(COL_BG);
   DrawHeader('Apus Networking Demo  Client',
     'Type a line + Enter: it round-trips client -> server -> broadcast -> all clients.');

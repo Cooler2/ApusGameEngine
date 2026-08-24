@@ -275,13 +275,12 @@ begin
    width:=900;
    height:=700;
    colorDepth:=32;
-   mode.displayMode:=Apus.Engine.Types.dmWindow;
-   mode.displayFitMode:=Apus.Engine.Types.dfmFullSize;
-   mode.displayScaleMode:=Apus.Engine.Types.dsmDontScale;
+   mode:=Apus.Engine.Types.dmWindow;
    VSync:=0;
   end;
   wnd:=systemPlatform.CreateWindow('Platform Test: '+systemPlatform.GetPlatformName);
   wnd.Configure(params);
+  wnd.ApplyPendingSurface; // resolve the working surface before the backend starts
 
   gfx.Init(wnd);
   gfx.config.SetVSyncDivider(0);

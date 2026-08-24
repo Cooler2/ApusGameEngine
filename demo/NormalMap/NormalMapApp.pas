@@ -165,7 +165,6 @@ begin
   gameTitle:='Apus Engine: Normal Mapping (R-06)';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=false;
   windowWidth:=1440;
   windowHeight:=860;
   windowSizeable:=true;
@@ -366,7 +365,7 @@ begin
   shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
-  x:=window.renderWidth-234;
+  x:=window.canvasWidth-234;
   y:=28;
   s:=96;
   draw.FillRect(x-14,y-20,x+s+14,y+s*2+92,$A020242C);

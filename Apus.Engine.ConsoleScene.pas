@@ -522,7 +522,7 @@ begin
  inherited Create('CONSOLE',false); // pure foreground scene
  wndRef:=window;
  if wndRef=nil then wndRef:=mainWindow;
- if wndRef<>nil then dpi:=wndRef.screenDPI
+ if wndRef<>nil then dpi:=wndRef.surface.dpi
   else dpi:=96;
  if dpi>120 then
   ui.SetScale(dpi/96);

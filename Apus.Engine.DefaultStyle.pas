@@ -161,13 +161,13 @@ implementation
     pnt.x:=scrX+(5+size.x)*globalscale; // right side in screen coordinates
     pnt.y:=scrY+(12+size.y)*globalScale; // bottom in screen coordinates
     // Adjust Y
-    remainer:=window.renderHeight-pnt.y;
+    remainer:=window.canvasHeight-pnt.y;
     if remainer<0 then begin
      position.y:=position.y-size.y;
     end else
      position.y:=position.y+12;
     // Adjust X
-    remainer:=window.renderWidth-pnt.x;
+    remainer:=window.canvasWidth-pnt.x;
     if remainer<0 then begin
      pnt.x:=scrX+remainer;
      pnt:=parent.TransformFromScreen(pnt);

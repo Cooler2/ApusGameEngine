@@ -74,12 +74,10 @@ procedure TTouchDemoApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
   {$IFDEF ANDROID}
-  settings.mode.displayMode:=dmFullScreen;
+  settings.mode:=dmFullScreen;
   {$ELSE}
-  settings.mode.displayMode:=dmWindow;
+  settings.mode:=dmWindow;
   {$ENDIF}
-  settings.mode.displayFitMode:=dfmFullSize;
-  settings.mode.displayScaleMode:=dsmDontScale;
  end;
 
 procedure TTouchDemoApp.CreateScenes;
@@ -109,8 +107,8 @@ function TMainScene.Process:boolean;
 
   // Place the sprite at the screen centre once the render size is known.
   if not placed then begin
-   spriteX:=window.renderWidth/2;
-   spriteY:=window.renderHeight/2;
+   spriteX:=window.canvasWidth/2;
+   spriteY:=window.canvasHeight/2;
    placed:=true;
   end;
 
@@ -145,8 +143,8 @@ procedure TMainScene.Render;
   gfx.target.Clear($FF203040); // dark slate background
 
   // Sparse diagonal pattern makes line aliasing and framebuffer scaling visible.
-  maxX:=window.renderWidth-1;
-  maxY:=window.renderHeight-1;
+  maxX:=window.canvasWidth-1;
+  maxY:=window.canvasHeight-1;
   n:=8;
   for i:=0 to n-1 do begin
    x1:=maxX*i/n; y1:=0;
@@ -160,7 +158,7 @@ procedure TMainScene.Render;
   end;
 
   font:=txt.GetFont('Default',7);
-  txt.Write(font,window.renderWidth div 2,40,$FFE0E0E0,
+  txt.Write(font,window.canvasWidth div 2,40,$FFE0E0E0,
     'Drag the ball',taCenter);
 
   if sprite<>nil then

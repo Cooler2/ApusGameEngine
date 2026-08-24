@@ -45,7 +45,6 @@ constructor TMainApp.Create;
   //configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spSDL; // Important!
-  //directRenderOnly:=true;
   baseDir:='';
   if DirectoryExists('../Demo/ControllerDemo') then
    baseDir:='../Demo/ControllerDemo/';
@@ -69,7 +68,7 @@ procedure TMainApp.CreateScenes;
   // initialize our main scene
   sceneMain:=TMainScene.Create;
   TUIButton.Create(200,32,sceneMain.UI,'ToggleInput').Setup('Toggle UI Test')
-   .SetPos(window.renderWidth/2,window.renderHeight-25,pivotCenter);
+   .SetPos(window.canvasWidth/2,window.canvasHeight-25,pivotCenter);
   UIButton('ToggleInput').onClickAsync:=OnToggleBtn;
   sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
@@ -142,8 +141,8 @@ procedure DefineManualUI;
  begin
   randSeed:=2;
   for i:=1 to 10 do begin
-   x:=20+random(window.renderWidth-40);
-   y:=20+random(window.renderHeight-100);
+   x:=20+random(window.canvasWidth-40);
+   y:=20+random(window.canvasHeight-100);
    game.DPadCustomPoint(x,y); // Tell the engine that this point should be available for gamepad navigation
   end;
  end;
@@ -153,8 +152,8 @@ procedure TMainScene.Render;
   w2,h2:integer;
  begin
   gfx.target.Clear($FFE0E0E0);
-  w2:=window.renderWidth div 2;
-  h2:=window.renderHeight div 2;
+  w2:=window.canvasWidth div 2;
+  h2:=window.canvasHeight div 2;
   draw.Line(w2,0,w2,h2*2,$FF200000);
   draw.Line(0,h2,w2*2,h2,$FF200000);
 

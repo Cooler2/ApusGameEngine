@@ -206,7 +206,7 @@ function UIScene(name:String8):TUIScene;
    wnd:=TWindow(ownerWindow);
    ASSERT(wnd<>nil,'Can''t resolve owner window for scene '+name);
    if sceneName='' then sceneName:=name;
-   UI:=TUIElement.Create(wnd.renderWidth,wnd.renderHeight,nil,sceneName);
+   UI:=TUIElement.Create(wnd.canvasWidth,wnd.canvasHeight,nil,sceneName);
    UI.ownerScene:=self;
    UI.flags.enabled:=false;
    UI.flags.visible:=false;
@@ -468,7 +468,7 @@ function UIScene(name:String8):TUIScene;
  procedure TUIScene.onResize;
   begin
     inherited;
-    if UI<>nil then UI.Resize(window.renderWidth,window.renderHeight);
+    if UI<>nil then UI.Resize(window.canvasWidth,window.canvasHeight);
   end;
 
  function TUIScene.Process: boolean;
@@ -684,8 +684,8 @@ function UIScene(name:String8):TUIScene;
   // Log.Msg('Scene '+name+' status changed to '+statuses[st],5);
    if (status=ssActive) and (UI=nil) then begin
     ASSERT(window<>nil,'TUIScene must be attached to a window before activation: '+name);
-    w:=window.renderWidth;
-    h:=window.renderHeight;
+    w:=window.canvasWidth;
+    h:=window.canvasHeight;
     UI:=TUIElement.Create(w,h,nil);
     UI.name:=name;
     UI.ownerScene:=self;
@@ -992,17 +992,20 @@ begin
   result:=true;
 end;
 
-// update UI scale for all scenes on the current window after DPI change
-procedure OnDPIChanged(event:TEventStr;tag:TTag);
+// update UI scale for all scenes of the rebuilt window after a DPI change
+procedure OnSurfaceChanged(event:TEventStr;tag:TTag);
  var
   i:integer;
   scene:TGameScene;
+  wnd:TWindow;
  begin
-  if window=nil then exit;
-  window.Lock;
+  wnd:=TWindow(UIntPtr(tag));
+  if wnd=nil then exit;
+  if not (TSurfaceChange.dpi in wnd.surface.changes) then exit;
+  wnd.Lock;
   try
-   for i:=0 to high(window.scenes) do begin
-    scene:=window.scenes[i];
+   for i:=0 to high(wnd.scenes) do begin
+    scene:=wnd.scenes[i];
     if scene is TUIScene then
      with TUIScene(scene) do
       if UI<>nil then begin
@@ -1011,12 +1014,12 @@ procedure OnDPIChanged(event:TEventStr;tag:TTag);
       end;
    end;
   finally
-   window.Unlock;
+   wnd.Unlock;
   end;
  end;
 
 initialization
- SetEventHandler('ENGINE\DPICHANGED\DONE',OnDPIChanged,emInstant);
+ SetEventHandler('ENGINE\SURFACECHANGED',OnSurfaceChanged,emInstant);
  RegisterRobotCommand('ui.tree',@RobotCmdUITree);
  RegisterRobotCommand('ui.element',@RobotCmdUIElement);
  RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);

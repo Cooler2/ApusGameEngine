@@ -133,7 +133,6 @@ begin
   gameTitle:='Apus Engine: Draw2D';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=false;
   windowWidth:=1520;
   windowHeight:=860;
   windowSizeable:=false;
@@ -142,9 +141,7 @@ end;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
 begin
   inherited;
-  settings.mode.displayMode:=dmFixedWindow;
-  settings.mode.displayFitMode:=dfmFullSize;
-  settings.mode.displayScaleMode:=dsmDontScale;
+  settings.mode:=dmFixedWindow;
 end;
 
 procedure TMainApp.CreateScenes;
@@ -356,10 +353,10 @@ end;
 
 procedure TMainScene.UpdateMetrics;
 begin
-  layoutScale:=window.screenDPI/96;
+  layoutScale:=window.surface.dpi/96;
   if layoutScale<1 then layoutScale:=1;
   menuWidth:=MENU_WIDTH+SRound((layoutScale-1)*110);
-  menuWidth:=ClampI(menuWidth,340,window.renderWidth div 2);
+  menuWidth:=ClampI(menuWidth,340,window.canvasWidth div 2);
   menuTop:=SRound(MENU_TOP*layoutScale);
   menuItemHeight:=SRound(MENU_ITEM_HEIGHT*layoutScale);
   contentPadding:=SRound(CONTENT_PADDING*layoutScale);
@@ -374,7 +371,7 @@ var
     result:=Math.Max(6,SRound(baseSize*fs));
   end;
 begin
-  fs:=window.screenDPI/96;
+  fs:=window.surface.dpi/96;
   if fs<1 then fs:=1;
   titleFont:=txt.GetFont('Default',F(12));
   menuFont:=txt.GetFont('Default',F(10));
@@ -1012,7 +1009,7 @@ var
 begin
   UpdateMetrics;
   UpdateAnimTime;
-  dpiNow:=window.screenDPI;
+  dpiNow:=window.surface.dpi;
   if dpiNow<>lastDPI then begin
     lastDPI:=dpiNow;
     RebuildFonts;
@@ -1020,9 +1017,9 @@ begin
   HandleInput;
   gfx.target.Clear($FF151C27);
 
-  menuRect:=Rect(0,0,menuWidth-1,window.renderHeight-1);
+  menuRect:=Rect(0,0,menuWidth-1,window.canvasHeight-1);
   contentRect:=Rect(menuWidth+contentPadding,contentPadding,
-    window.renderWidth-contentPadding-1,window.renderHeight-contentPadding-1);
+    window.canvasWidth-contentPadding-1,window.canvasHeight-contentPadding-1);
 
   DrawMenu(menuRect);
   DrawScreenTitle(contentRect,SCREEN_TITLES[currentScreen],SCREEN_HINTS[currentScreen]);
@@ -1041,7 +1038,7 @@ begin
   end;
   FinishBlockClipping;
 
-  txt.Write(hintFont,contentRect.Left+12,window.renderHeight-8,$FF9BB0C8,
+  txt.Write(hintFont,contentRect.Left+12,window.canvasHeight-8,$FF9BB0C8,
     'Tip: switch screens with mouse or numeric keys [1..9,0]',taLeft,0);
   inherited;
 end;

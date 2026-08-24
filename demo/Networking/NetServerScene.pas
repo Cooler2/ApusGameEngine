@@ -160,7 +160,7 @@ end;
 procedure TServerScene.Render;
 var w,h,top,btnTop,playersBottom,y,rowH,i:integer; inner:TRect;
 begin
-  w:=window.renderWidth; h:=window.renderHeight;
+  w:=window.canvasWidth; h:=window.canvasHeight;
   gfx.target.Clear(COL_BG);
   DrawHeader('Apus Networking Demo  Server',
     'Loopback game server. Press C or click "Launch client" to start more clients.');

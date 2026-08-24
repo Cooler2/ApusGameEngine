@@ -11,11 +11,12 @@ interface
   Apus.Core, Apus.Threads, Apus.Engine.API;
 
  type
-  // How window/screen area should be used
-  TGameAppMode=(gamScaleWithAspectRatio,  // Scale W/H of the render area to output rect while keeping its aspect ratio (fixed design)
-                gamScaleWithFixedHeight,  // Scale width of the render area to match the output rect (fixed height design)
-                gamKeepAspectRatio,       // Modify W/H of the render area to fit the output rect keeping its aspect ratio (fixed design with flexible scale)
-                gamUseFullWindow);        // Modify W/H of the render area to match the output rect (flexible design)
+  {$SCOPEDENUMS ON}
+  // Screen orientation policy for the main window (R-31)
+  TOrientation=(any,portrait,landscape);
+  // How a fixed canvas is rendered: at native resolution (sharp) or at canvas resolution (cheap)
+  TFixedCanvasRender=(sharp,cheap);
+  {$SCOPEDENUMS OFF}
 
  var
    // Default global settings
@@ -30,16 +31,13 @@ interface
    windowSizeable:boolean=false; // allow user to resize window
    windowWidth:integer=1024;
    windowHeight:integer=768;
-   useRealDPI:boolean=true; // use real DPI on High DPI screens (Windows: set DPI awareness mode)
    scaleWindowSize:boolean=true; // enlarge window accordingly if DPI is higher than platform default (96 for desktop monitor)
    scaleScenes:boolean=true;  // set default scale for scenes according to DPI
    scaleFonts:boolean=true;   // enable font scaling according to DPI
-   gameMode:TGameAppMode=gamUseFullWindow;
 
-   deviceDPI:integer=96; // equals game.screenDPI
+   deviceDPI:integer=96; // equals window.surface.dpi
    deviceScale:single=1.0; // deviceDPI/96
    noVSync:boolean=false;
-   directRenderOnly:boolean=true; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
    useDepthTexture:boolean=false; // use depth texture instead of the regular depth buffer (not available with direct render)
    checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
    useSystemCursor:boolean=true; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
@@ -88,6 +86,19 @@ interface
 
    procedure onResize; virtual;
 
+   // --- Working surface declaration (R-31) ---
+   // Presets fill orientation+surfaceConfig; call them before Prepare.
+   procedure SetupFullWindow;  // default: canvas follows the client area
+   procedure SetupFixedCanvas(w,h:integer;render:TFixedCanvasRender=TFixedCanvasRender.sharp);
+   procedure SetupMobilePortrait(canvasW:integer);
+   procedure SetupMobileLandscape(canvasH:integer);
+   procedure SetupPixelArt(w,h:integer);
+   // Configuration hook: called on EVERY surface rebuild, before the resolver.
+   // Look at the proposed surface and adjust the axes (perf cap, aspect choice).
+   // Change config only - not global state. wnd tells the windows apart.
+   procedure ConfigureSurface(wnd:TWindow;const input:TSurfaceInput;
+     var config:TSurfaceConfig); virtual;
+
    // Useful tools
    procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0); virtual;
    procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0); virtual;
@@ -95,6 +106,9 @@ interface
 
 {   // Borderless window
    function GetWindowAreaType(x,y:integer):}
+  public
+   orientation:TOrientation;     // main window orientation policy
+   surfaceConfig:TSurfaceConfig; // project-level surface declaration (main window)
   protected
    sysPlatform:ISystemPlatform;
    {$IFDEF DARWIN}
@@ -120,6 +134,7 @@ interface
 
 implementation
  uses
+  Apus.Engine.Window,
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}Apus.Android,{$IFEND}
@@ -336,6 +351,60 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
 constructor TGameApplication.Create;
  begin
   app:=self;
+  orientation:=TOrientation.any;
+  surfaceConfig.Init; // full window by default
+ end;
+
+// --- Working surface presets (R-31) ---
+
+procedure TGameApplication.SetupFullWindow;
+ begin
+  orientation:=TOrientation.any;
+  surfaceConfig.Init;
+ end;
+
+procedure TGameApplication.SetupFixedCanvas(w,h:integer;render:TFixedCanvasRender=TFixedCanvasRender.sharp);
+ begin
+  ASSERT((w>0) and (h>0),'Fixed canvas must have positive size');
+  orientation:=TOrientation.any;
+  surfaceConfig.Init;
+  surfaceConfig.canvasSize:=MakeSize(w,h);
+  // keepAspect degenerates to the full client area when the aspects match
+  surfaceConfig.fit:=TSurfaceFit.keepAspect;
+  if render=TFixedCanvasRender.cheap then
+   surfaceConfig.renderSize:=MakeSize(w,h); // render at canvas resolution, then blit
+ end;
+
+procedure TGameApplication.SetupMobilePortrait(canvasW:integer);
+ begin
+  ASSERT(canvasW>0,'Canvas width must be positive');
+  orientation:=TOrientation.portrait;
+  surfaceConfig.Init;
+  surfaceConfig.canvasSize:=MakeSize(canvasW,0); // height follows the surface
+ end;
+
+procedure TGameApplication.SetupMobileLandscape(canvasH:integer);
+ begin
+  ASSERT(canvasH>0,'Canvas height must be positive');
+  orientation:=TOrientation.landscape;
+  surfaceConfig.Init;
+  surfaceConfig.canvasSize:=MakeSize(0,canvasH); // width follows the surface
+ end;
+
+procedure TGameApplication.SetupPixelArt(w,h:integer);
+ begin
+  ASSERT((w>0) and (h>0),'Pixel art canvas must have positive size');
+  orientation:=TOrientation.any;
+  surfaceConfig.Init;
+  surfaceConfig.canvasSize:=MakeSize(w,h);
+  surfaceConfig.renderSize:=MakeSize(w,h);
+  surfaceConfig.fit:=TSurfaceFit.integerScale;
+ end;
+
+procedure TGameApplication.ConfigureSurface(wnd:TWindow;const input:TSurfaceInput;
+  var config:TSurfaceConfig);
+ begin
+  // default: keep the declared configuration as is
  end;
 
 procedure TGameApplication.CreateScenes;
@@ -501,7 +570,7 @@ procedure TGameApplication.Prepare;
  begin
   try
    {$IFDEF MSWINDOWS}
-   if useRealDPI then SetDPIAwareness;
+   SetDPIAwareness; // a DPI-aware process is a precondition of the surface model
    {$ENDIF}
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    Apus.Threads.Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
@@ -600,7 +669,6 @@ procedure TGameApplication.Prepare;
    sysPlatform.GetRealScreenSize(realScreenWidth,realScreenHeight);
 
    {$IFDEF OPENGL}
-   if directRenderOnly then disableDRT:=true;
    Apus.Engine.Game.useDepthTexture:=useDepthTexture;
    {$ENDIF}
 
@@ -642,14 +710,22 @@ begin
 end;
 
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
+ var
+  wnd:TWindow;
  begin
   if app=nil then exit;
-  if event='ENGINE\BEFORERESIZE' then app.onResize
-  else if event='ENGINE\DPICHANGED\DONE' then begin
-   deviceDPI:=tag;
-   deviceScale:=deviceDPI/96;
-   app.SetupHighDPI;
-   app.SelectFonts;
+  if event='ENGINE\SURFACECHANGED' then begin
+   wnd:=TWindow(UIntPtr(tag));
+   // Startup values are applied by SetupGameSettings/SetupHighDPI: text and UI
+   // subsystems don't exist yet during the first rebuild.
+   if (wnd<>nil) and (game<>nil) and game.running and
+      (TSurfaceChange.dpi in wnd.surface.changes) then begin
+    deviceDPI:=wnd.surface.dpi;
+    deviceScale:=deviceDPI/96;
+    app.SetupHighDPI;
+    app.SelectFonts;
+   end;
+   app.onResize; // after the rebuild: sizes are already final
   end;
  end;
 
@@ -706,12 +782,14 @@ procedure TGameApplication.Run;
 
   if game=nil then raise EFatalError.Create('Game object not created!');
 
+  surfaceConfigHook:=ConfigureSurface; // called on every surface rebuild
+
   // CONFIGURE GAME OBJECT
   // ------------------------
   SetupGameSettings(settings);
   game.SetSettings(settings);
 
-  if settings.mode.displayMode<>TDisplayMode.dmSwitchResolution then
+  if settings.mode<>TDisplayMode.dmSwitchResolution then
    Log.Force('Running in cooperative mode')
   else
    Log.Force('Running in exclusive mode');
@@ -873,32 +951,11 @@ begin
    if windowSizeable then winDispMode:=TDisplayMode.dmWindow
     else winDispMode:=TDisplayMode.dmFixedWindow;
    if windowBorderless then winDispMode:=TDisplayMode.dmBorderless;
-   case gameMode of
-    // Для отрисовки используется вся область окна в масштабе реальных пикселей (1:1)
-    gamUseFullWindow:begin
-      if windowedMode then mode.displayMode:=winDispMode
-       else mode.displayMode:=dmFullScreen;
-      mode.displayFitMode:=dfmFullSize;
-      mode.displayScaleMode:=dsmDontScale;
-      if windowedMode then altMode.displayMode:=dmFullScreen
-       else altMode.displayMode:=winDispMode;
-      altMode.displayFitMode:=dfmFullSize;
-      altMode.displayScaleMode:=dsmDontScale;
-    end;
-    // Для отрисовки используется часть окна в масштабе 1:1
-    gamKeepAspectRatio:begin
-      if windowedMode then mode.displayMode:=winDispMode
-       else mode.displayMode:=dmFullScreen;
-      mode.displayScaleMode:=dsmScale;
-      mode.displayFitMode:=dfmKeepAspectRatio;
-      if windowedMode then altMode.displayMode:=dmFullScreen
-       else altMode.displayMode:=winDispMode;
-      altMode.displayScaleMode:=dsmScale;
-      altMode.displayFitMode:=dfmKeepAspectRatio;
-     end;
-    else
-     raise EError.Create('Game Mode not yet implemented');
-   end;
+   if windowedMode then mode:=winDispMode
+    else mode:=dmFullScreen;
+   if windowedMode then altMode:=dmFullScreen
+    else altMode:=winDispMode;
+   surface:=surfaceConfig; // project declaration -> per-window request
 
    showSystemCursor:=useSystemCursor;
    zbuffer:=16;
@@ -949,8 +1006,8 @@ begin
  gfx.target.Clear($FF000000);
  for i:=0 to 12 do begin
   a:=i*3.1416/6.5;
-  x:=window.renderWidth/2+32*cos(a);
-  y:=window.renderHeight/2-32*sin(a);
+  x:=window.canvasWidth/2+32*cos(a);
+  y:=window.canvasHeight/2-32*sin(a);
   L:=50+round(-256*i/13-CoreTime.Ticks*0.3) and 255;
   L:=round(v.Value*L);
   draw.RotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);

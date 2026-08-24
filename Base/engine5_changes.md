@@ -912,3 +912,43 @@ Do not treat it as a list of functions to reintroduce under the old names.
 - Severity maps to Android's Info/Warn/Error/Fatal priorities. Lower-volume
   `Debug`, `Info`, and `Normal` messages remain in the regular Engine5 log.
 - No public logging API changed.
+
+## 2026-08-25 — R-31 working surface model (stage B)
+
+Window geometry is now a resolved snapshot instead of a set of loose fields.
+Design: `Work/R-31_api_design.md`.
+
+- `TWindow` gained `config:TSurfaceConfig` (the axes requested for this window)
+  and `surface:TSurfaceState` (the resolved snapshot: client/display/render/canvas
+  sizes, safe area, DPI, mechanism). The snapshot is written only by the window's
+  own thread, between frames.
+- Renamed: `TWindow.renderWidth/renderHeight` → **`canvasWidth/canvasHeight`**,
+  `windowWidth/windowHeight` → **`clientWidth/clientHeight`**, `screenDPI` →
+  **`surface.dpi`**. `displayRect` is now a read-only property.
+- `ClientToGame`/`GameToClient` (procedures with a `var` argument) →
+  **`ClientToCanvas`/`CanvasToClient`** functions, plus `TryClientToCanvas`
+  (false outside the display rect) and `MapPointerToCanvas` (pointer contract:
+  outside the picture the position is dropped unless a button is held).
+  `TGameBase.RenderSize` → **`CanvasSize`**.
+- Resize/DPI flow inverted: the platform layer only posts a request
+  (`RequestResize`, `RequestDPI`, `SetNativeSafeArea`), and the window's own
+  thread applies it at frame start via **`ApplyPendingSurface`**. A tool window
+  resize no longer rebuilds the main window. `TGame.SetupRenderArea`,
+  `TGame.SizeChanged` and the `ENGINE\RESIZE` signal are gone.
+- Events `ENGINE\BEFORERESIZE`, `ENGINE\RESIZED`, `ENGINE\DPICHANGED` and
+  `ENGINE\DPICHANGED\DONE` are replaced by a single **`ENGINE\SURFACECHANGED`**
+  (`tag=UIntPtr(wnd)`), sent after the rebuild; what changed is in
+  `wnd.surface.changes`.
+- `TGameSettings`: `mode,altMode` are plain `TDisplayMode` now; the axes come as
+  `surface:TSurfaceConfig`. Removed: `TDisplaySettings`, `TDisplayFitMode`
+  (`dfm*`), `TDisplayScaleMode` (`dsm*`).
+- `TGameApplication`: removed `TGameAppMode`/`gameMode`, `directRenderOnly` and
+  `useRealDPI` (the process is DPI-aware unconditionally). Added `orientation`,
+  `surfaceConfig`, presets `SetupFullWindow` / `SetupFixedCanvas` /
+  `SetupMobilePortrait` / `SetupMobileLandscape` / `SetupPixelArt`, and the
+  `ConfigureSurface` hook called before every resolve.
+- The default render target is no longer a global switch: it is created only when
+  the resolved surface needs one (`surface.needRT`), so the full-window default
+  still renders straight to the backbuffer.
+- Migration: `gamUseFullWindow` → the default, `gamKeepAspectRatio` →
+  `SetupFixedCanvas(w,h)`. Upgrader rules added to `tools/engine5.upgrade`.

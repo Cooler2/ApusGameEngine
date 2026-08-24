@@ -74,9 +74,7 @@ end;
 procedure TMultiWindowApp.SetupGameSettings(var settings:TGameSettings);
 begin
  inherited;
- settings.mode.displayMode:=dmWindow;
- settings.mode.displayFitMode:=dfmFullSize;
- settings.mode.displayScaleMode:=dsmDontScale;
+ settings.mode:=dmWindow;
 end;
 
 procedure TMultiWindowApp.CreateScenes;
@@ -141,8 +139,8 @@ var
  maxX,maxY,i:integer;
 begin
  gfx.target.Clear($FF1A1A2E);
- maxX:=window.renderWidth-1;
- maxY:=window.renderHeight-1;
+ maxX:=window.canvasWidth-1;
+ maxY:=window.canvasHeight-1;
 
  // subtle animated grid
  for i:=0 to 7 do begin
@@ -188,8 +186,8 @@ begin
                  or cardinal((toolIndex*137) and $FF) shl 8
                  or cardinal((toolIndex*41) and $FF);
  gfx.target.Clear(hue);
- maxX:=window.renderWidth-1;
- maxY:=window.renderHeight-1;
+ maxX:=window.canvasWidth-1;
+ maxY:=window.canvasHeight-1;
  draw.Rect(0,0,maxX,maxY,$FFC08040);
  inherited;
 end;

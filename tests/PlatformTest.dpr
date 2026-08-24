@@ -41,12 +41,11 @@ begin
    width:=800;
    height:=600;
    colorDepth:=32;
-   mode.displayMode:=Apus.Engine.Types.dmWindow;
-   mode.displayFitMode:=Apus.Engine.Types.dfmFullSize;
-   mode.displayScaleMode:=Apus.Engine.Types.dsmDontScale;
+   mode:=Apus.Engine.Types.dmWindow;
   end;
   wnd:=plat.CreateWindow('Platform Test: '+plat.GetPlatformName);
   wnd.Configure(params);
+  wnd.ApplyPendingSurface;
 
   repeat
    wnd.ProcessMessages;

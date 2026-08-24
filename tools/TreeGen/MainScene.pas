@@ -60,7 +60,6 @@ constructor TMainApp.Create;
   scaleWindowSize:=true;
 
   //usedPlatform:=spSDL;   // alternative cross-platform solution
-  //directRenderOnly:=true; // draw to backbuffer (instead of a screen-size RT-texture for post-processing)
   //windowedMode:=false;
  end;
 
@@ -68,7 +67,7 @@ constructor TMainApp.Create;
 procedure TMainApp.CreateScenes;
  begin
   inherited;
-  txt.SetScale(window.screenDPI/96);
+  txt.SetScale(window.surface.dpi/96);
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   // switch to the main scene using fade transition effect
@@ -86,7 +85,7 @@ procedure TMainApp.LoadFonts;
 procedure TMainApp.SelectFonts;
  begin
   inherited;
-  txt.SetScale(window.screenDPI/96);
+  txt.SetScale(window.surface.dpi/96);
   mainFont:=txt.GetFont('Main',10);
   titleFont:=txt.GetFont('Main',12);
  end;
@@ -116,8 +115,8 @@ procedure TMainScene.onMouseMove(x,y:integer);
   inherited;
   // Turn camera around
   if (window.moveKind=mkMove) and (window.mouseButtons and mbLeft>0) then begin
-   cameraAngle:=cameraAngle-0.5*(x-window.oldMousePos.x)/window.screenDPI;
-   cameraHeight:=Clamp(cameraHeight+0.3*(y-window.oldMousePos.y)/window.screenDPI,0.35,1.22);
+   cameraAngle:=cameraAngle-0.5*(x-window.oldMousePos.x)/window.surface.dpi;
+   cameraHeight:=Clamp(cameraHeight+0.3*(y-window.oldMousePos.y)/window.surface.dpi,0.35,1.22);
   end;
  end;
 
@@ -137,7 +136,7 @@ procedure TMainScene.InitUI;
   panel,block:TUIElement;
   lab:TUILabel;
  begin
-  UI.SetScale(window.screenDPI/96);
+  UI.SetScale(window.surface.dpi/96);
 
   // UI container
   panel:=TUIElement.Create(220,200,UI,'panel');

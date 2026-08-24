@@ -52,7 +52,7 @@ implementation
 
  procedure DrawGlobalShadow(color:cardinal);
   begin
-   draw.FillRect(0,0,window.renderWidth,window.renderHeight,color);
+   draw.FillRect(0,0,window.canvasWidth,window.canvasHeight,color);
   end;
 
  procedure BackgroundRenderBegin;

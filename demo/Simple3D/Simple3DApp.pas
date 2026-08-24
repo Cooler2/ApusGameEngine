@@ -55,7 +55,6 @@ constructor TMainApp.Create;
   usedPlatform:=spDefault;
   scaleWindowSize:=true;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\Simple3D') then
    baseDir:='..\Demo\Simple3D\';
@@ -116,7 +115,7 @@ procedure TMainScene.onMouseMove(x, y: integer);
   if window.moveKind<>mkMove then exit; // only react to in-world movement (UI consumes the rest)
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then
-   cameraAngle:=cameraAngle-0.5*(x-window.oldMousePos.x)/window.screenDPI;
+   cameraAngle:=cameraAngle-0.5*(x-window.oldMousePos.x)/window.surface.dpi;
  end;
 
 procedure TMainScene.onMouseWheel(delta: integer);

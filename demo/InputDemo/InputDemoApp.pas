@@ -215,7 +215,6 @@ begin
   gameTitle:='Apus Engine: InputDemo';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=false;
   windowWidth:=1520;
   windowHeight:=860;
   windowSizeable:=false;
@@ -224,9 +223,7 @@ end;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
 begin
   inherited;
-  settings.mode.displayMode:=dmFixedWindow;
-  settings.mode.displayFitMode:=dfmFullSize;
-  settings.mode.displayScaleMode:=dsmDontScale;
+  settings.mode:=dmFixedWindow;
 end;
 
 procedure TMainApp.CreateScenes;
@@ -252,10 +249,10 @@ end;
 
 procedure TMainScene.UpdateMetrics;
 begin
-  layoutScale:=window.screenDPI/96;
+  layoutScale:=window.surface.dpi/96;
   if layoutScale<1 then layoutScale:=1;
   menuWidth:=MENU_WIDTH+round((layoutScale-1)*110);
-  menuWidth:=Clamp(menuWidth,340,window.renderWidth div 2);
+  menuWidth:=Clamp(menuWidth,340,window.canvasWidth div 2);
   menuTop:=round(MENU_TOP*layoutScale);
   menuItemHeight:=round(MENU_ITEM_HEIGHT*layoutScale);
   contentPadding:=round(CONTENT_PADDING*layoutScale);
@@ -271,7 +268,7 @@ var
     if result<6 then result:=6;
   end;
 begin
-  fs:=window.screenDPI/96;
+  fs:=window.surface.dpi/96;
   if fs<1 then fs:=1;
   titleFont:=txt.GetFont('Default',F(12));
   menuFont:=txt.GetFont('Default',F(10));
@@ -380,7 +377,7 @@ end;
 
 function TMainScene.GetArea:TRect;
 begin
-  result:=Rect(0,0,window.renderWidth,window.renderHeight);
+  result:=Rect(0,0,window.canvasWidth,window.canvasHeight);
 end;
 
 procedure TMainScene.DrawMenu(const menuRect:TRect);
@@ -482,7 +479,7 @@ begin
 
   DrawTag(b.Left+20,b.Top+24,'Input Summary');
   pClient:=Point(window.mousePos.x,window.mousePos.y);
-  game.GameToClient(pClient);
+  pClient:=game.CanvasToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,b.Left+20,b.Top+52,$FFE5EDF7,
@@ -492,7 +489,7 @@ begin
   txt.Write(bodyFont,b.Left+20,b.Top+92,$FFE5EDF7,
     Format('Mouse screen: (%d,%d)',[pScreen.X,pScreen.Y]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+122,$FFE5EDF7,
-    Format('Window: %dx%d render=%dx%d',[window.windowWidth,window.windowHeight,window.renderWidth,window.renderHeight]),taLeft,toAddBaseline);
+    Format('Window: %dx%d render=%dx%d',[window.clientWidth,window.clientHeight,window.canvasWidth,window.canvasHeight]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+152,$FFE5EDF7,
     Format('Events total: move=%d wheel=%d keyDown=%d keyUp=%d char=%d',
       [moveEventsTotal,wheelEventsTotal,keyDownEvents,keyUpEvents,charEvents]),taLeft,toAddBaseline);
@@ -587,7 +584,7 @@ begin
        byte(Bits.HasAll(window.mouseButtons,4)),byte(Bits.HasAll(window.mouseButtons,8)),
        byte(Bits.HasAll(window.mouseButtons,16))]),taLeft,integer(textTopOpt));
   pClient:=Point(window.mousePos.x,window.mousePos.y);
-  game.GameToClient(pClient);
+  pClient:=game.CanvasToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,a.Left+20,a.Top+448,$FFF3D39C,
@@ -770,7 +767,7 @@ var
   t:double;
 begin
   UpdateMetrics;
-  dpiNow:=window.screenDPI;
+  dpiNow:=window.surface.dpi;
   if dpiNow<>lastDPI then begin
     lastDPI:=dpiNow;
     RebuildFonts;
@@ -785,9 +782,9 @@ begin
 
   gfx.target.Clear($FF151C27);
 
-  menuRect:=Rect(0,0,menuWidth-1,window.renderHeight-1);
+  menuRect:=Rect(0,0,menuWidth-1,window.canvasHeight-1);
   contentRect:=Rect(menuWidth+contentPadding,contentPadding,
-    window.renderWidth-contentPadding-1,window.renderHeight-contentPadding-1);
+    window.canvasWidth-contentPadding-1,window.canvasHeight-contentPadding-1);
 
   txt.BeginBlock(textBlockOpt);
   try

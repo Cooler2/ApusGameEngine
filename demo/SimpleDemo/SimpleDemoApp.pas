@@ -66,7 +66,6 @@ constructor TSimpleDemoApp.Create;
   gameTitle:='Simple Engine Demo'; // app window title
   configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  //directRenderOnly:=false;
   //useDepthTexture:=true;
   //windowedMode:=false;
  end;
@@ -76,23 +75,11 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
  begin
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
-  settings.mode.displayMode:=dmWindow; // run in window
-  settings.mode.displayFitMode:=dfmFullSize;
-  //settings.mode.displayFitMode:=dfmCenter;
-  //settings.mode.displayFitMode:=dfmKeepAspectRatio;
+  settings.mode:=dmWindow;          // run in a resizeable window
+  settings.altMode:=dmFullScreen;   // [Alt]+[Enter] switches to fullscreen
 
-  settings.mode.displayScaleMode:=dsmDontScale;
-
-  // Here you can override instance settings
-{  // Primary mode settings
-  settings.mode.displayMode:=dmWindow; // run in window
-  settings.mode.displayFitMode:=dfmStretch; // stretch the backbuffer to match the full window size
-  settings.mode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
-  // Secondary mode settings (for [Alt]+[Enter])
-  settings.altMode.displayMode:=dmFullScreen; // use fullscreen window
-  settings.altMode.displayFitMode:=dfmKeepAspectRatio; // use borders to keep the initial aspect ratio
-  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
-  }
+  // The working surface is declared with the Setup* presets in the constructor
+  // (default: the canvas follows the whole client area, 1:1 pixels).
  end;
 
  procedure ExitBtnClick;
@@ -216,8 +203,8 @@ procedure TMainScene.Render;
   // 1. Draw scene background
   gfx.target.Clear(0); // clear with black
   // Draw some lines
-  maxX:=window.renderWidth-1;
-  maxY:=window.renderHeight-1;
+  maxX:=window.canvasWidth-1;
+  maxY:=window.canvasHeight-1;
   n:=24;
   for i:=0 to n-1 do begin
     x1:=maxX*i/n; y1:=0;

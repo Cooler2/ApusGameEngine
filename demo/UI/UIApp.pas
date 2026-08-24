@@ -40,10 +40,7 @@ constructor TMainApp.Create;
   gameTitle:='Apus Game Engine: UI Demo'; // app window title
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
-  useRealDPI:=true;
-  //useRealDPI:=false;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
   //windowedMode:=false;
   useConsoleScene:=true;
  end;
@@ -64,7 +61,7 @@ procedure TMainApp.CreateScenes;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.mode.displayMode:=TDisplayMode.dmWindow; // make window resizeable
+  settings.mode:=TDisplayMode.dmWindow; // make window resizeable
  end;
 
 procedure RootCloseCLick;

@@ -396,8 +396,8 @@ function ToastRect(var t:TToast):TRect;
   yVal:single;
  begin
   yVal:=t.y.Value;
-  rw:=window.renderWidth;
-  rh:=window.renderHeight;
+  rw:=window.canvasWidth;
+  rh:=window.canvasHeight;
   mx:=round(toastConfig.margin.x*UIScale);
   my:=round(toastConfig.margin.y*UIScale);
   case t.anchor of

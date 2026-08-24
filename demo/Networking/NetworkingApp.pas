@@ -38,7 +38,6 @@ begin
   inherited;
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=true;             // crisp on high-DPI screens; the scenes scale by game.screenScale
   windowSizeable:=false;
   windowWidth:=WIN_W;          // base size; PlaceWindow rescales+repositions on the first frame
   windowHeight:=WIN_H;
@@ -49,9 +48,7 @@ end;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
 begin
   inherited;
-  settings.mode.displayMode:=dmFixedWindow;
-  settings.mode.displayFitMode:=dfmFullSize;
-  settings.mode.displayScaleMode:=dsmDontScale;  // 1:1 device pixels; scenes do their own DPI scaling
+  settings.mode:=dmFixedWindow;
 end;
 
 procedure TMainApp.CreateScenes;

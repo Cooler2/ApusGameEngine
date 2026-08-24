@@ -66,7 +66,6 @@ constructor TStyleDemoApp.Create;
   usedAPI:=gaOpenGL2;
   hiDPI:=HasParamEarly('-HIDPI') or HasParamEarly('-REALDPI');
   if HasParamEarly('-LOWDPI') then hiDPI:=false;
-  useRealDPI:=hiDPI;
   windowWidth:=1520;
   windowHeight:=860;
   windowSizeable:=false;
@@ -76,9 +75,7 @@ constructor TStyleDemoApp.Create;
 procedure TStyleDemoApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.mode.displayMode:=dmFixedWindow;
-  settings.mode.displayFitMode:=dfmFullSize;
-  settings.mode.displayScaleMode:=dsmDontScale;
+  settings.mode:=dmFixedWindow;
  end;
 
 procedure RegisterDemoStyles;

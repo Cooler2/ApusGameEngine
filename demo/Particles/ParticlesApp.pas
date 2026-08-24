@@ -51,7 +51,6 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=false;
   //useDepthTexture:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\Particles') then
@@ -246,7 +245,7 @@ procedure SoftTest;
 
 procedure StartSoft;
  begin
-  AllocImage(window.renderWidth,window.renderHeight,TImagePixelFormat.ipfDepth32f,aiDepthBuffer,'DepthTex');
+  AllocImage(window.canvasWidth,window.canvasHeight,TImagePixelFormat.ipfDepth32f,aiDepthBuffer,'DepthTex');
   SetLength(particles,300);
   testProc:=SoftTest;
   UIElement('Menu').Hide;

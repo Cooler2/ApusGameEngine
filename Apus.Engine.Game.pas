@@ -55,8 +55,8 @@ type
   procedure HideAllCursors; override;
 
   // Translate coordinates in window's client area
-  procedure ClientToGame(var p:TPoint); override;
-  procedure GameToClient(var p:TPoint); override;
+  function ClientToCanvas(const p:TPoint):TPoint; override;
+  function CanvasToClient(const p:TPoint):TPoint; override;
 
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
@@ -108,7 +108,6 @@ type
   canExitNow:boolean; // флаг того, что теперь можно начать деинициализацию
   mainLoopExitRequested:boolean;
   params,newParams:TGameSettings;
-  aspectRatio:single;  // Initial aspect ratio (width/height)
   altWidth,altHeight:integer; // saved window size for Alt+Enter
   mainThread:IThread;
   mainThreadErrorMsg:string8;
@@ -140,7 +139,6 @@ type
   // Настраивает отрисовку
   // Производит настройку подчинённых объектов/интерфейсов (Painter, UI и т.д)
   // Вызывается после инициализации а также при изменения размеров окна, области или режима отрисовки
-  procedure SetupRenderArea; virtual;
   procedure InitMainLoop; virtual;
 
   procedure FrameLoop; virtual; // One iteration of the frame loop
@@ -170,7 +168,6 @@ type
   // Event processors
   procedure CharEntered(charCode,scanCode:integer); virtual;
   procedure KeyPressed(keyCode,scanCode:integer;pressed:boolean=true); virtual;
-  procedure SizeChanged(newWidth,newHeight:integer); virtual;
   procedure Activate(activeState:boolean); virtual;
 
   // Utils
@@ -339,8 +336,8 @@ begin
   if pressed then begin
    // Alt+Enter - switch display settings
    if (TKey(keyCode and $FF)=TKey.Enter) and (window.shiftstate and sscAlt>0) then
-      if (params.mode.displayMode<>params.altMode.displayMode) and
-         (params.altMode.displayMode<>dmNone) then
+      if (params.mode<>params.altMode) and
+         (params.altMode<>dmNone) then
        SwitchToAltSettings;
 
    // Alt+F11
@@ -393,20 +390,19 @@ end;
 procedure TGame.ApplyNewSettings;
 begin
  params:=newParams;
- if (params.mode.displayMode=dmFullScreen) and ((altWidth=0) or (altHeight=0)) then begin
+ if (params.mode=dmFullScreen) and ((altWidth=0) or (altHeight=0)) then begin
   // save size for windowed mode
   altWidth:=params.width;
   altHeight:=params.height;
  end;
 
  if running then begin // смена параметров во время работы
-  with params.mode do
-   Log.Msg('Change mode to: %s,%s,%s %d x %d ',
-    [displayMode.ToString, displayFitMode.ToString, displayScaleMode.ToString,
-     params.width, params.height]);
+  Log.Msg('Change mode to: %s, %d x %d',[params.mode.ToString,params.width,params.height]);
+  window.SetSurfaceConfig(params.surface);
   window.Configure(params);
+  window.ProcessMessages;
   if gfx.target<>nil then gfx.target.Backbuffer;
-  SetupRenderArea;
+  window.ApplyPendingSurface;
   window.NotifyScenesModeChanged;
  end;
 end;
@@ -499,21 +495,10 @@ begin
     window.keyState[scanCode]:=window.keyState[scanCode] and $FE;
 end;
 
-procedure TGame.SizeChanged(newWidth,newHeight:integer);
-begin
- if (window.windowWidth<>newWidth) or (window.windowHeight<>newHeight) then begin
-  window.windowWidth:=newWidth;
-  window.windowHeight:=newHeight;
-  Log.Msg('RESIZED: %d,%d',[window.windowWidth,window.windowHeight]);
-  SetupRenderArea;
-  window.screenChanged:=true;
- end;
-end;
-
 procedure TGame.Activate(activeState:boolean);
 begin
  window.active:=activeState;
- if not window.active and (params.mode.displayMode=dmFullScreen) then Minimize;
+ if not window.active and (params.mode=dmFullScreen) then Minimize;
  Log.Msg('ACTIVATE: %d',[byte(window.active)]);
  Signal('Engine\ActivateWnd',byte(window.active));
  if params.showSystemCursor then wndCursor:=0;
@@ -556,7 +541,7 @@ begin
  systemPlatform.GetScreenSize(screenWidth,screenHeight);
  Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,systemPlatform.GetScreenDPI]);
 
- // TODO: PublishVar for renderWidth/renderHeight/windowWidth/windowHeight
+ // TODO: PublishVar for surface sizes (canvas/client)
  // needs window to exist - move to post-CreateWindow init
  PublishVar(@game,'game',TVarTypeGameClass);
 end;
@@ -639,7 +624,7 @@ begin
  txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont10,length(defaultFont10)));
  txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont12,length(defaultFont12)));
  {$ENDIF}
- size:=2+0.056*window.screenDPI;
+ size:=2+0.056*window.surface.dpi;
  defaultFont:=txt.GetFont('Default',size);
  smallFont:=txt.GetFont('Default',size*0.8);
  largerFont:=txt.GetFont('Default',size*1.25);
@@ -668,7 +653,7 @@ begin
  end;
 end;
 
-procedure InitDefaultRT(wnd:TWindow; const params:TGameSettings);
+procedure InitDefaultRT(wnd:TWindow);
 begin
  if HasParamLocal('-nodrt') then begin
   Log.Msg('Default RT disabled by -noDRT switch');
@@ -678,23 +663,26 @@ begin
   Log.Msg('Default RT disabled');
   exit;
  end;
- wnd.InitDefaultRenderTarget(params.width,params.height,params.zbuffer,useDepthTexture);
+ // The RT itself is created only when the resolved surface needs one.
+ wnd.EnableDefaultRT(game.GetSettings.zbuffer,useDepthTexture);
 end;
 
 procedure TGame.InitGraph;
 var
- baseDPI:integer;
+ w,h:integer;
 begin
  Log.Msg('InitGraph');
  Signal('Engine\BeforeInitGraph');
- aspectRatio:=params.width/params.height;
 
+ window.SetSurfaceConfig(params.surface);
  window.Configure(params);
  // Some platforms report client size only after first message pump.
  window.ProcessMessages;
- window.GetSize(window.windowWidth,window.windowHeight);
- if window.windowWidth<=0 then window.windowWidth:=params.width;
- if window.windowHeight<=0 then window.windowHeight:=params.height;
+ window.GetSize(w,h);
+ if w<=0 then w:=params.width;
+ if h<=0 then h:=params.height;
+ window.RequestResize(w,h);
+ window.ApplyPendingSurface; // resolve the surface: the default RT is sized from it
  gfx.Init(window);
  // Choose pixel formats
  gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
@@ -708,29 +696,15 @@ begin
  SetVSync(params.VSync);
 
  //
- InitDefaultRT(window,params);
- SetupRenderArea;
-
- screenScale:=1.0;
- if params.mode.displayScaleMode=dsmDontScale then begin
-   baseDPI:=96;
-   {$IFDEF ANDROID}
-    baseDPI:=192;
-   {$ENDIF}
-   {$IFDEF IOS}
-    baseDPI:=192;
-   {$ENDIF}
-   if window.screenDPI>0.95*baseDPI*1.2 then screenScale:=1.2;
-   if window.screenDPI>0.94*baseDPI*1.5 then screenScale:=1.5;
-   if window.screenDPI>0.93*baseDPI*2.0 then screenScale:=2.0;
-   if window.screenDPI>0.92*baseDPI*2.5 then screenScale:=2.5;
- end;
+ InitDefaultRT(window);
+ window.InvalidateSurface;
+ window.ApplyPendingSurface; // re-apply: the viewport now goes through the default RT
 
  InitDefaultResources;
 
  globalTintColor:=$FF808080;
  window.ProcessMessages;
- allowCriticalPopup:=params.mode.displayMode<>dmSwitchResolution;
+ allowCriticalPopup:=params.mode<>dmSwitchResolution;
 
  AfterInitGraph;
 end;
@@ -770,16 +744,27 @@ function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
   body:='WINDOW: 0'+LineBreak+
-    '  windowWidth: '+Conv.ToStr(window.windowWidth)+LineBreak+
-    '  windowHeight: '+Conv.ToStr(window.windowHeight)+LineBreak+
-    '  renderWidth: '+Conv.ToStr(window.renderWidth)+LineBreak+
-    '  renderHeight: '+Conv.ToStr(window.renderHeight)+LineBreak+
-    '  screenDPI: '+Conv.ToStr(window.screenDPI)+LineBreak+
+    '  clientWidth: '+Conv.ToStr(window.clientWidth)+LineBreak+
+    '  clientHeight: '+Conv.ToStr(window.clientHeight)+LineBreak+
+    '  canvasWidth: '+Conv.ToStr(window.canvasWidth)+LineBreak+
+    '  canvasHeight: '+Conv.ToStr(window.canvasHeight)+LineBreak+
+    '  screenDPI: '+Conv.ToStr(window.surface.dpi)+LineBreak+
     '  screenScale: '+Conv.ToStr(game.screenScale,2)+LineBreak+
     '  displayRect: '+Conv.ToStr(window.displayRect.Left)+','+Conv.ToStr(window.displayRect.Top)+','+
       Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+LineBreak;
   result:=true;
 end;
+
+// Common reply for window.move / window.resize: position plus the resolved surface sizes
+function WindowGeometryReport(const clientOrigin:TPoint):String8;
+ begin
+  result:='x: '+Conv.ToStr(clientOrigin.x)+LineBreak+
+    'y: '+Conv.ToStr(clientOrigin.y)+LineBreak+
+    'clientWidth: '+Conv.ToStr(window.clientWidth)+LineBreak+
+    'clientHeight: '+Conv.ToStr(window.clientHeight)+LineBreak+
+    'canvasWidth: '+Conv.ToStr(window.canvasWidth)+LineBreak+
+    'canvasHeight: '+Conv.ToStr(window.canvasHeight)+LineBreak;
+ end;
 
 function RobotCmdWindowMove(const req:TRobotRequest; out body:String8):boolean;
  var
@@ -807,16 +792,10 @@ function RobotCmdWindowMove(const req:TRobotRequest; out body:String8):boolean;
   end;
   window.MoveTo(x,y,w,h);
   window.ProcessMessages;
-  window.GetSize(window.windowWidth,window.windowHeight);
-  g.SetupRenderArea;
+  window.ApplyPendingSurface;
   p:=Types.Point(0,0);
   window.ClientToScreen(p);
-  body:='x: '+Conv.ToStr(p.x)+LineBreak+
-    'y: '+Conv.ToStr(p.y)+LineBreak+
-    'windowWidth: '+Conv.ToStr(window.windowWidth)+LineBreak+
-    'windowHeight: '+Conv.ToStr(window.windowHeight)+LineBreak+
-    'renderWidth: '+Conv.ToStr(window.renderWidth)+LineBreak+
-    'renderHeight: '+Conv.ToStr(window.renderHeight)+LineBreak;
+  body:=WindowGeometryReport(p);
   result:=true;
  end;
 
@@ -853,16 +832,10 @@ function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean
   end;
   window.MoveTo(x,y,w,h);
   window.ProcessMessages;
-  window.GetSize(window.windowWidth,window.windowHeight);
-  g.SetupRenderArea;
+  window.ApplyPendingSurface;
   p:=Types.Point(0,0);
   window.ClientToScreen(p);
-  body:='x: '+Conv.ToStr(p.x)+LineBreak+
-    'y: '+Conv.ToStr(p.y)+LineBreak+
-    'windowWidth: '+Conv.ToStr(window.windowWidth)+LineBreak+
-    'windowHeight: '+Conv.ToStr(window.windowHeight)+LineBreak+
-    'renderWidth: '+Conv.ToStr(window.renderWidth)+LineBreak+
-    'renderHeight: '+Conv.ToStr(window.renderHeight)+LineBreak;
+  body:=WindowGeometryReport(p);
   result:=true;
  end;
 
@@ -983,11 +956,11 @@ begin
   y:=Conv.ToInt(req.Param('Y'));
   w:=Conv.ToInt(req.Param('W'));
   h:=Conv.ToInt(req.Param('H'));
-  if w<=0 then w:=window.renderWidth;
-  if h<=0 then h:=window.renderHeight;
+  if w<=0 then w:=window.canvasWidth;
+  if h<=0 then h:=window.canvasHeight;
   img:=TBitmapImage.Create(w,h,ipfXRGB);
   try
-    gfx.CopyFromBackbuffer(x,window.renderHeight-y-h,img);
+    gfx.CopyFromBackbuffer(x,window.canvasHeight-y-h,img);
     img.FlipVertical; // backbuffer is bottom-up in OpenGL
     res:=SavePNG(img);
     Files.WriteBlock(fname,@res[0],length(res),0);
@@ -1040,10 +1013,10 @@ begin
   if window=nil then begin
    window:=systemPlatform.CreateWindow(gameEx.params.title);
    mainWindow:=window;
-   window.screenDPI:=systemPlatform.GetScreenDPI;
+   window.RequestDPI(systemPlatform.GetScreenDPI);
    window.frameNum:=0;
    window.ResetFrameTiming;
-   PublishVar(@window.screenDPI,'ScreenDPI',TVarTypeInteger);
+   PublishVar(@window.surface.dpi,'ScreenDPI',TVarTypeInteger);
   end;
   InitGraph;
 
@@ -1303,8 +1276,7 @@ begin
     t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
-   ClientToGame(p);
-   window.mousePos:=p;
+   window.mousePos:=ClientToCanvas(p);
    window.FlushMouseInput; // emits MOUSE\MOVE if position changed
    Signal('Mouse\BtnDown\Left',1);
    window.NotifyScenesMouseBtn(1,true);
@@ -1315,8 +1287,7 @@ begin
    t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
-   ClientToGame(p);
-   window.mousePos:=p;
+   window.mousePos:=ClientToCanvas(p);
    window.FlushMouseInput;
    Timing;
  end else
@@ -1332,22 +1303,8 @@ begin
   if game.running then
    RenderAndPresentFrame;
   end else
- if event.Same('RESIZE') then begin
-  SizeChanged(Bits.GetWord(cardinal(tag),0),Bits.GetWord(cardinal(tag),1));
-  end else
  if event.Same('SETACTIVE') then begin
   Activate(tag<>0);
-  end else
- if event.Same('DPICHANGED') then begin
-  // screenDPI already updated by TWindow.DPIChanged
-  screenScale:=1.0;
-  if params.mode.displayScaleMode=dsmDontScale then begin
-   if window.screenDPI>0.95*96*1.2 then screenScale:=1.2;
-   if window.screenDPI>0.94*96*1.5 then screenScale:=1.5;
-   if window.screenDPI>0.93*96*2.0 then screenScale:=2.0;
-   if window.screenDPI>0.92*96*2.5 then screenScale:=2.5;
-  end;
-  Signal('ENGINE\DPICHANGED\DONE',tag);
  end;
 end;
 
@@ -1450,7 +1407,7 @@ var
     Unlock;
    end;
    if best<100000 then begin
-    GameToClient(bestPnt);
+    bestPnt:=CanvasToClient(bestPnt);
     window.ClientToScreen(bestPnt);
     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
    end;
@@ -1504,11 +1461,6 @@ begin
  HandleGamepadNavigation;
 end;
 
-procedure TGame.SetupRenderArea;
-begin
- window.SetupRenderArea(params,aspectRatio);
-end;
-
 procedure TGame.DrawCursor;
 var
  n,i,j:integer;
@@ -1560,7 +1512,7 @@ end;
 
 procedure TGame.RenderFrame;
 begin
- window.RenderFrame(params,aspectRatio,DrawCursor,DrawOverlays);
+ window.RenderFrame(params,DrawCursor,DrawOverlays);
 end;
 
 procedure TGame.WaitFor(pb:PBoolean; msg:string);
@@ -1676,14 +1628,14 @@ begin
   end;
 end;
 
-procedure TGame.ClientToGame(var p:TPoint);
+function TGame.ClientToCanvas(const p:TPoint):TPoint;
 begin
- window.ClientToGame(p);
+ result:=window.ClientToCanvas(p);
 end;
 
-procedure TGame.GameToClient(var p:TPoint);
+function TGame.CanvasToClient(const p:TPoint):TPoint;
 begin
- window.GameToClient(p);
+ result:=window.CanvasToClient(p);
 end;
 
 function TGame.GetCursorForID(cursorID:integer):THandle;
@@ -1839,6 +1791,7 @@ procedure TGame.FrameLoop;
   EndMeasure2(14);
 
   if useMainThread and CurrentThread.Terminating then exit;
+  window.ApplyPendingSurface; // rebuild the surface (if requested) before anything reads it
   window.SamplePointer; // poll cursor once per frame (frame-synced mouse input)
   window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
   RenderAndPresentFrame;
@@ -1862,6 +1815,9 @@ procedure TGame.RenderAndPresentFrame;
    if renderingFrame then exit;
    renderingFrame:=true;
   try
+   // Also covers the WM_PAINT path: the OS modal move/resize loop renders through
+   // here without running FrameLoop, and the surface must follow the live size.
+   window.ApplyPendingSurface;
    onFrameUs:=0;
    renderUs:=0;
    presentUs:=0;
@@ -1910,7 +1866,7 @@ procedure TGame.RenderAndPresentFrame;
    end else
     window.timings.idleRedrawAccUs:=0;
 
-   if window.active or (params.mode.displayMode<>dmSwitchResolution) then begin
+   if window.active or (params.mode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
     if window.screenChanged then begin
      if window.timings.phaseMetrics then Timer.Start(phaseTimer);
@@ -1932,7 +1888,7 @@ procedure TGame.RenderAndPresentFrame;
    CoreTime.Sleep(onFrameDelay);
    if window.timings.phaseMetrics then sleepUs:=round(Timer.Get(phaseTimer)*1000000);
    // Теперь нужно вывести кадр на экран
-   if (window.active or (params.mode.displayMode<>dmSwitchResolution)) and
+   if (window.active or (params.mode<>dmSwitchResolution)) and
       window.screenChanged then begin
     if window.timings.phaseMetrics then Timer.Start(phaseTimer);
     PresentFrame;
@@ -1974,10 +1930,10 @@ procedure TGame.MainThreadLoop;
 
    window:=systemPlatform.CreateWindow(gameEx.params.title);
    mainWindow:=window;
-   window.screenDPI:=systemPlatform.GetScreenDPI;
+   window.RequestDPI(systemPlatform.GetScreenDPI);
    window.frameNum:=0;
    window.ResetFrameTiming;
-   PublishVar(@window.screenDPI,'ScreenDPI',TVarTypeInteger);
+   PublishVar(@window.surface.dpi,'ScreenDPI',TVarTypeInteger);
    gameEx.InitMainLoop; // вызывает InitGraph
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
@@ -2033,6 +1989,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   deltaUs:int64;
   sampleUs:integer;
   presented:boolean;
+  w,h:integer;
  begin
   result:=0;
   ewCtx:=PExtraWindowContext(ctx.Parameter);
@@ -2046,15 +2003,16 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    try
     wnd:=systemPlatform.CreateWindow(settings.title);
     window:=wnd; // set threadvar
-    wnd.screenDPI:=systemPlatform.GetScreenDPI;
+    wnd.RequestDPI(systemPlatform.GetScreenDPI);
+    wnd.SetSurfaceConfig(settings.surface);
     // Shared context creation + handoff is coordinated inside platform backend.
     wnd.InitGraphShared(mainWindow,callerReleasedMainContext);
     wnd.Configure(settings);
-    wnd.GetSize(wnd.windowWidth,wnd.windowHeight);
-    if wnd.windowWidth<=0 then wnd.windowWidth:=settings.width;
-    if wnd.windowHeight<=0 then wnd.windowHeight:=settings.height;
-    wnd.renderWidth:=wnd.windowWidth;
-    wnd.renderHeight:=wnd.windowHeight;
+    wnd.GetSize(w,h);
+    if w<=0 then w:=settings.width;
+    if h<=0 then h:=settings.height;
+    wnd.RequestResize(w,h);
+    wnd.ApplyPendingSurface;
     // Explicit per-thread graphics bootstrap for this shared context.
     // Must run before startup "ready" signal, so first frame is deterministic.
     gfx.InitThreadContext(wnd);
@@ -2111,6 +2069,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
 
     wnd.ProcessMessages;
     if wnd.IsTerminated then break;
+    wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
 
     if wnd.OnFrame then
      wnd.screenChanged:=true;

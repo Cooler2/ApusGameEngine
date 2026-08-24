@@ -111,18 +111,18 @@ begin
  EditImage(state.magnifierTex);
  Apus.FastGFX.FillRect(0,0,127,127,$FF000000);
  rawImage:=state.magnifierTex.GetRawImage;
- gfx.CopyFromBackbuffer(cx,window.renderHeight-cy,rawImage);
+ gfx.CopyFromBackbuffer(cx,window.canvasHeight-cy,rawImage);
  rawImage.Free;
  color:=Apus.FastGFX.GetPixel(64,63);
  state.magnifierTex.Unlock;
  state.magnifierTex.SetFilter(TTexFilter.fltNearest);
  gfx.shader.UseTexture(state.magnifierTex);
- scrScale:=window.screenDPI/96;
+ scrScale:=window.surface.dpi/96;
  mSize:=round(512*scrScale);
  mSize:=mSize and $FFFFFFF0;
- width:=Min(mSize,round(window.renderWidth*0.4));
- height:=Min(mSize,window.renderHeight);
- if window.mousePos.x<window.renderWidth div 2 then left:=window.renderWidth-width
+ width:=Min(mSize,round(window.canvasWidth*0.4));
+ height:=Min(mSize,window.canvasHeight);
+ if window.mousePos.x<window.canvasWidth div 2 then left:=window.canvasWidth-width
   else left:=0;
  zoom:=round(4*scrScale);
  if (window.shiftstate and sscShift)>0 then zoom:=zoom*2;
@@ -269,7 +269,7 @@ var
     WriteLine('FREETYPE: '+{$IFDEF FREETYPE}'on'{$ELSE}'off'{$ENDIF});
     WriteLine('LODEPNG: '+{$IFDEF LODEPNG}'on'{$ELSE}'off'{$ENDIF}+
       ', OPENGL: '+{$IFDEF OPENGL}'on'{$ELSE}'off'{$ENDIF});
-    WriteLine('VSync: '+FlagText(settings.VSync>0)+', DPI: '+Conv.ToStr(window.screenDPI));
+    WriteLine('VSync: '+FlagText(settings.VSync>0)+', DPI: '+Conv.ToStr(window.surface.dpi));
     txt.EndBlock;
    end;
 
@@ -385,7 +385,7 @@ var
     dfShowFPS:begin
       w:=SRound(80*game.screenScale);
       h:=SRound(30*game.screenScale);
-      x:=window.renderWidth-w; y:=1;
+      x:=window.canvasWidth-w; y:=1;
       draw.FillRect(x,y,x+w-2,y+h,$80000000);
       dCurUs:=window.timings.lastFrameTimeUs;
       dCurMs:=dCurUs div 1000;
@@ -409,7 +409,7 @@ var
        if rowH<12 then rowH:=12;
        detailW:=SRound(160*game.screenScale);
        detailH:=rowCount*rowH+SRound(8*game.screenScale);
-       detX:=window.renderWidth-detailW;
+       detX:=window.canvasWidth-detailW;
        detY:=y+h+2;
        labelW:=SRound(42*game.screenScale);
        valueW:=SRound(20*game.screenScale);

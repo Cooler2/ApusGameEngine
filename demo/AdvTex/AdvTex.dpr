@@ -156,8 +156,6 @@ begin
  usedAPI:=gaOpenGL2;
  useDefaultLoaderScene:=false;
  //usedPlatform:=spSDL;
- //directRenderOnly:=false;
- useRealDPI:=false;
 
  LinkProc('GameApp\CreateScenes',CreateScenes);
  application:=TGameApplication.Create;

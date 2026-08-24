@@ -61,7 +61,7 @@ var
   begin
    queue.Init(64);
    scene:=TMessageScene.Create;
-   SetEventHandler('ENGINE\DPICHANGED\DONE',DPIChangedHandler,emInstant);
+   SetEventHandler('ENGINE\SURFACECHANGED',DPIChangedHandler,emInstant);
   end;
 
  procedure QueueMsg(msg,e1,e2:String8;mType,x,y:integer);
@@ -149,6 +149,7 @@ var
   begin
    if scene=nil then exit;
    if window=nil then exit;
+   if not (TSurfaceChange.dpi in window.surface.changes) then exit;
    window.Lock;
    try
     if (curMsg<>nil) and scene.IsActive then
@@ -168,7 +169,7 @@ constructor TMessageScene.Create;
   SetEventHandler('UI\Message',EventHandler,emQueued);
 
   wnd:=TUIElement.Create(400,200,ui,'Message\Wnd');
-  wnd.SetPos(window.renderWidth/2,window.renderHeight/2,pivotCenter);
+  wnd.SetPos(window.canvasWidth/2,window.canvasHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
   wnd.flags.manualDraw:=true;
   wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';

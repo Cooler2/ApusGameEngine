@@ -184,11 +184,10 @@ procedure TSDLGLWindow.SamplePointer;
    exit;
   end;
   if (logicalWidth>0) and (logicalHeight>0) then begin
-   pnt.x:=round(pnt.x*windowWidth/logicalWidth);
-   pnt.y:=round(pnt.y*windowHeight/logicalHeight);
+   pnt.x:=round(pnt.x*clientWidth/logicalWidth);
+   pnt.y:=round(pnt.y*clientHeight/logicalHeight);
   end;
-  ClientToGame(pnt);
-  mousePos:=pnt;
+  mousePos:=MapPointerToCanvas(pnt);
  end;
 
 procedure TSDLGLWindow.Close;
@@ -628,18 +627,16 @@ procedure TSDLGLWindow.ProcessMessages;
        end;
        Signal('ENGINE\WINDOW\CLOSE');
       end;
-      SDL_WINDOWEVENT_RESIZED:begin
+      // RESIZED covers user/window-manager resizing, SIZE_CHANGED also covers
+       // programmatic ones (SDL_SetWindowSize) - both just post the request,
+       // the window's own thread applies it at the start of its next frame.
+      SDL_WINDOWEVENT_RESIZED,SDL_WINDOWEVENT_SIZE_CHANGED:begin
        eventWindow:=FindSDLWindow(event.window.windowID);
        if eventWindow<>nil then begin
         eventWindow.GetSize(w,h);
-        Signal('ENGINE\RESIZE',PackWords(w,h));
+        eventWindow.RequestResize(w,h);
        end;
       end;
-      {SDL_WINDOWEVENT_SIZE_CHANGED:begin
-       LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
-         [event.window.data1,event.window.data2,w,h]);
-       Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
-      end;}
      end;
     end;
 
@@ -890,7 +887,7 @@ procedure TSDLGLWindow.ActivateGraphContext;
 procedure TSDLGLWindow.Configure(params:TGameSettings);
  var
   mode:TSDL_DisplayMode;
-  w,h,screenWidth,screenHeight,clientWidth,clientHeight:integer;
+  w,h,screenWidth,screenHeight,cw,ch:integer;
  begin
    Log.Msg('Configure main window');
 
@@ -903,17 +900,17 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    // Android owns the native surface size. SDL_SetWindowSize only changes SDL's
    // logical drawable size here, leaving it out of sync with the Java surface.
    SDL_SetWindowResizable(wnd,SDL_TRUE);
-   if params.mode.displayMode in [dmFullScreen,dmSwitchResolution] then
+   if params.mode in [dmFullScreen,dmSwitchResolution] then
      SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN_DESKTOP)
    else
      SDL_SetWindowFullscreen(wnd,0);
    {$ELSE}
-   if params.mode.displayMode=dmBorderless then
+   if params.mode=dmBorderless then
      SDL_SetWindowBordered(wnd,SDL_FALSE);
-   case params.mode.displayMode of
+   case params.mode of
     dmWindow,dmFixedWindow,dmBorderless:begin
       SDL_SetWindowFullscreen(wnd,0);
-      if params.mode.displayMode=Apus.Engine.Types.dmWindow then
+      if params.mode=Apus.Engine.Types.dmWindow then
         SDL_SetWindowResizable(wnd,SDL_TRUE)
       else
         SDL_SetWindowResizable(wnd,SDL_FALSE);
@@ -934,9 +931,9 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    SDL_ShowWindow(wnd);
 //   SDL_SetWindowSize();
 
-   SDL_GL_GetDrawableSize(wnd,@clientWidth,@clientHeight);
-   Log.Msg('Client size: %d %d',[clientWidth,clientHeight]);
-   Signal('ENGINE\RESIZE',clientWidth+clientHeight shl 16);
+   SDL_GL_GetDrawableSize(wnd,@cw,@ch);
+   Log.Msg('Client size: %d %d',[cw,ch]);
+   RequestResize(cw,ch);
  end;
 
 procedure TSDLGLWindow.SetCaption(text:string);

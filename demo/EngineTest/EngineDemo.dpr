@@ -1951,14 +1951,13 @@ begin
   colorDepth:=32;
   refresh:=0;
   if wnd then begin
-   mode.displayMode:=dmWindow;
-   altMode.displayMode:=dmSwitchResolution;
+   mode:=dmWindow;
+   altMode:=dmSwitchResolution;
   end else begin
-   mode.displayMode:=dmSwitchResolution;
-   altMode.displayMode:=dmFixedWindow;
+   mode:=dmSwitchResolution;
+   altMode:=dmFixedWindow;
   end;
 //  mode:=dmFullScreen;
-  mode.displayFitMode:=dfmCenter;
   showsystemcursor:=true;
   zbuffer:=16;
   stencil:=false;

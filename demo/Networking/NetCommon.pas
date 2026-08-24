@@ -166,7 +166,7 @@ end;
 
 function TNetSceneBase.GetArea:TRect;
 begin
-  result:=Types.Rect(0,0,window.renderWidth,window.renderHeight);
+  result:=Types.Rect(0,0,window.canvasWidth,window.canvasHeight);
 end;
 
 function TNetSceneBase.S(v:integer):integer;
@@ -208,7 +208,7 @@ end;
 procedure TNetSceneBase.DrawHeader(const title,subtitle:String8);
 var w:integer;
 begin
-  w:=window.renderWidth;
+  w:=window.canvasWidth;
   draw.FillRect(0,0,w,S(58),COL_HEADER);
   txt.Write(titleFont,S(16),S(12),COL_WHITE,title,taLeft,toAddBaseline);
   txt.Write(smallFont,S(16),S(40),COL_DIM,FitWidth(smallFont,subtitle,w-S(32)),taLeft,toAddBaseline);
@@ -217,7 +217,7 @@ end;
 procedure TNetSceneBase.DrawStatus(const text:String8;ok:boolean);
 var w:integer; col:cardinal;
 begin
-  w:=window.renderWidth;
+  w:=window.canvasWidth;
   draw.FillRect(0,S(58),w,S(84),COL_STATUS);
   if ok then col:=COL_OK else col:=COL_WARN;
   txt.Write(smallFont,S(16),S(66),col,FitWidth(smallFont,text,w-S(32)),taLeft,toAddBaseline);
@@ -284,8 +284,8 @@ begin
   if x<0 then x:=0;
   if y<0 then y:=0;
   window.MoveTo(x,y,ww,wh);
-  window.ProcessMessages;         // WM_SIZE -> SizeChanged -> SetupRenderArea
-  window.GetSize(window.windowWidth,window.windowHeight);
+  window.ProcessMessages;         // WM_SIZE -> RequestResize
+  window.ApplyPendingSurface;     // rebuild the surface right away (we are in the window thread)
 end;
 
 end.

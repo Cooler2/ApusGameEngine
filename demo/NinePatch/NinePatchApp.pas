@@ -46,7 +46,6 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
   //windowedMode:=false;
   if paramCount>0 then begin
    st:=ParamStr(1);

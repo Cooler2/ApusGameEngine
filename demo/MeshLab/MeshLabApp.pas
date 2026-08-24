@@ -221,7 +221,6 @@ constructor TMainApp.Create;
   gameTitle:='Apus Engine: MeshLab (shapes gallery)';
   usedAPI:=gaOpenGL2;
   usedPlatform:=spDefault;
-  useRealDPI:=false;
   windowWidth:=1280;
   windowHeight:=800;
   windowSizeable:=true;
