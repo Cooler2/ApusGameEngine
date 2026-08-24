@@ -18,9 +18,15 @@ redist/
     SOURCES.txt           # provenance: version, URL, sha256, normalization
 ```
 
-Currently populated: `macos/` (SDL2). Windows runtime DLLs still live in
-`bin/`/`bin64/` for now; they are not re-vendored here (removing them would not
-reclaim any repository size, since git history keeps them regardless).
+Currently populated: `macos/`, `ios/` and `ios-simulator/` (SDL2), plus
+`windows/` — which is paperwork only. The Windows DLLs stay in `bin/`, `bin64/`
+and `Base/bin/`, where the build output needs them; re-vendoring them here would
+double their weight, and moving them would not reclaim any repository size
+either, since git history keeps them regardless. `redist/windows/` therefore
+holds just their `SOURCES.txt` and `licenses/`.
+
+`THIRD-PARTY.md` in the repository root indexes every third-party component,
+binary and source, and points at the notice file for each.
 
 ## Why plain git, not LFS or a zip
 
@@ -41,6 +47,9 @@ into our canonical layout, and records provenance in `SOURCES.txt`. To update a
 library, bump the version in the script and re-run it; commit the result.
 
 - macOS: `platform/macos/fetch_redist.sh`
+- Windows: no script — the binaries are not re-vendored, so there is nothing
+  to normalize; `redist/windows/SOURCES.txt` records the upstream artifacts,
+  their hashes and the commands to re-verify them.
 
 Note the committed files are **not byte-identical to upstream** where
 normalization was required (e.g. macOS install-id rewrite + ad-hoc re-sign);

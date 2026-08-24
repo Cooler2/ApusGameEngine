@@ -1,0 +1,107 @@
+# redist/windows provenance - third-party runtime DLLs committed to this repository.
+#
+# Unlike the other platform directories, the binaries are NOT stored here: they
+# live where the build output expects to find them (bin/, bin64/, Base/bin/,
+# Base/tests/). Copying them here as well would double their weight in the
+# repository for no benefit. This file records where each one came from;
+# licenses/ holds the upstream license texts.
+#
+# Every hash below was verified by re-downloading the upstream artifact and
+# comparing: unless a "normalization" line says otherwise, the committed file is
+# byte-identical to the one the upstream project published.
+
+[SDL2]
+version          = 2.32.10
+upstream_url     = https://github.com/libsdl-org/SDL/releases/tag/release-2.32.10
+upstream_x86     = SDL2-2.32.10-win32-x86.zip
+upstream_x86_sha256 = d72b0728a315ab25ad43123b89baa2ab6fd7c335a43f737213685d29fd2aa4fe
+upstream_x64     = SDL2-2.32.10-win32-x64.zip
+upstream_x64_sha256 = 6cf9706eefd0a4a06dc764007934d428afaf029fabdd408a9e646048c91e18fb
+license          = zlib (licenses/SDL2-LICENSE.txt)
+normalization    = SDL2.dll -> sdl2.dll (lowercase name, as the loader expects it)
+installed_to     = bin/sdl2.dll (x86), bin64/sdl2.dll (x64)
+committed_sha256 = 68c78590d1997122c30c992ec79857d32e5e976a0f17c0a69a2e29eab0101d70 (x86)
+                   b37740a72a7a9706216df9f0134894bb7a850b356fd149398c67d874cbcfacb4 (x64)
+
+[SDL2_mixer]
+version          = 2.8.1
+upstream_url     = https://github.com/libsdl-org/SDL_mixer/releases/tag/release-2.8.1
+upstream_x86     = SDL2_mixer-2.8.1-win32-x86.zip
+upstream_x86_sha256 = 5ef10cf7e33bc84e15730d4551365d0bbb49d82637f00c8904638d77fa8e20dd
+upstream_x64     = SDL2_mixer-2.8.1-win32-x64.zip
+upstream_x64_sha256 = ddd4454f9157a01259ac0fd6d9a99663305a358f19f828867064a2186b0f198f
+license          = zlib (licenses/SDL2_mixer-LICENSE.txt)
+normalization    = none
+installed_to     = bin/SDL2_mixer.dll (x86), bin64/SDL2_mixer.dll (x64)
+committed_sha256 = d7445e070dacb7a046894407776c51a74750447574c7e40a098ccf4494562a01 (x86)
+                   79d84ea27b2b0402b5506bc6883e71fbca2874f983c727106fa26abb11b7f5b5 (x64)
+notes            = must stay in step with the Pascal headers in extra/sdl2/ -
+                   they are load-time imports, so a missing export keeps the
+                   process from starting at all. Ogg/Vorbis, MP3, FLAC and WAV
+                   are decoded by the library itself; the other optional
+                   decoders in the release (opus, wavpack, gme) are not shipped.
+
+[libxmp]
+version          = 4.6.1
+upstream_url     = same SDL2_mixer-2.8.1-win32-*.zip archives, optional/libxmp.dll
+license          = MIT (licenses/libxmp-LICENSE.txt)
+normalization    = none
+installed_to     = bin/libxmp.dll (x86), bin64/libxmp.dll (x64)
+committed_sha256 = d9d69a2e0a244a4939d00a3f7307dd300c807559bb0b5ed2ea79907917c73d05 (x86)
+                   d0504d742581e2d38220ca1f37a3a6f09ebd7cb8df592a07d0833ed261e35ed0 (x64)
+notes            = SDL2_mixer 2.6+ needs it for tracker music (.mod/.s3m/.xm);
+                   without it those formats simply fail to load. libxmp was
+                   LGPL-2.1 until 4.5.0 and is MIT from 4.5.0 on - do not copy
+                   the license from older references.
+
+[FreeType]
+version          = 2.10.0
+upstream_url     = https://github.com/ubawurinna/freetype-windows-binaries/tree/v2.10.0
+                   (official builds of https://freetype.org, VS2019, /MT)
+license          = FreeType License (licenses/FreeType-FTL.txt); FreeType is dual
+                   FTL / GPLv2 and this project elects the FTL. The FTL asks that
+                   products using FreeType credit it in their documentation -
+                   THIRD-PARTY.md is that credit for the engine itself; a game
+                   shipping these DLLs owes the same credit downstream.
+normalization    = freetype.dll -> freetype32.dll / freetype64.dll (both files are
+                   named freetype.dll upstream, one per architecture directory)
+installed_to     = Base/bin/freetype32.dll, Base/bin/freetype64.dll
+committed_sha256 = d039f727e82a4570883dba2069f9dd95518ba580f16f891fcc5fd6c07624bf35 (32)
+                   58aae1f69ea5c2adca3cf0314d01e14353f674755b9d1098c1ebbf478207b672 (64)
+
+[LodePNG]
+version          = 20161127
+upstream_url     = https://github.com/lvandeve/lodepng (commit 1d1b55c07159)
+license          = zlib (licenses/LodePNG-LICENSE.txt)
+normalization    = built in-house as a DLL wrapper - no upstream binary exists.
+                   Sources are not vendored here; the PDB paths in the DLLs point
+                   at a local build tree (K:\Apus\3RDPARTY\LodePNG).
+installed_to     = Base/bin/LodePNG.dll, Base/bin/LodePNG64.dll
+                   Base/tests/LodePNG.dll, Base/tests/LodePNG64.dll
+                   Base/extra/LodePNG.lib (static, Win32 Delphi link)
+committed_sha256 = e372f5653a892c96c46622c4e064e944814c95eab326f7e9d18bb999e9d2e96c (32, both copies)
+                   51e644618897e51185c4c5ab832a0f6a68cfe6d7fc8d833ba3c0e6873d9a6c86 (64, Base/bin)
+                   90992d9bf581d69a868332e995e28f59b9ec328c80b140abd793d5918c82e6d2 (64, Base/tests)
+notes            = the two x64 copies are different builds of the same LodePNG
+                   version; Base/tests/ has drifted from Base/bin/.
+
+[zlib]
+version          = 1.1.4
+upstream_url     = https://github.com/madler/zlib/tree/v1.1.4
+license          = zlib (licenses/zlib-LICENSE.txt)
+normalization    = C sources compiled to Borland/C++Builder .obj files and linked
+                   into Delphi by Base/extra/ZLIBEX.PAS - no upstream binary.
+installed_to     = Base/extra/zlib/*.obj (adler32, deflate, infblock, infcodes,
+                   inffast, inflate, inftrees, infutil, trees)
+committed_sha256 = see `sha256sum Base/extra/zlib/*.obj`
+notes            = Win32 Delphi only; every other target uses its own zlib.
+
+# Reproducing / auditing
+# ----------------------
+# There is no fetch script for this platform (the DLLs are not re-vendored into
+# this directory, so there is nothing to normalize into a canonical layout).
+# To re-verify, download the archives named above and compare hashes, e.g.:
+#
+#   curl -LO https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.1/SDL2_mixer-2.8.1-win32-x64.zip
+#   unzip -o SDL2_mixer-2.8.1-win32-x64.zip
+#   sha256sum SDL2_mixer.dll optional/libxmp.dll

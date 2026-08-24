@@ -70,5 +70,6 @@ Build notes and platform-specific tooling live under [`platform/`](platform/). E
 
 ---
 
-License: BSD-3 — see `license.txt`  
+License: BSD-3 — see `license.txt`; third-party components and their notices
+are indexed in `THIRD-PARTY.md`  
 VK group: https://vk.com/apusgameengine

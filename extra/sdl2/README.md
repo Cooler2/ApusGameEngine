@@ -31,6 +31,9 @@ for tracker music (.mod/.s3m/.xm). The other optional decoders from the release
 (opus, wavpack, gme) are not shipped - add them from the same release if a
 project needs those formats.
 
+Exact upstream artifacts, hashes and licence texts for these DLLs are
+recorded in `redist/windows/SOURCES.txt` and `redist/windows/licenses/`.
+
 Keep the DLLs and these headers in step: the bindings are load-time imports, so
 calling a function the shipped library does not export does not fail at the call
 site - the process refuses to start. `Apus.Engine.SoundSDL` logs both the linked
