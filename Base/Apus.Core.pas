@@ -476,9 +476,8 @@ type
     class function Now:TDateTime; static;  // local time (high-precision)
     class function UTC:TDateTime; static;  // UTC time (high-precision)
     class function Stamp:string8; static;   // HH:MM:SS.mmm for logs
-    // Coarse monotonic milliseconds since program start (compatible with existing timeout logic).
-    // IMPORTANT: real update granularity is platform/timer-resolution dependent and can be >1ms
-    // (on Windows typically around 10-15ms unless timer resolution is raised).
+    // Monotonic milliseconds since program start, based on the high-resolution platform clock.
+    // The value has 1ms granularity and is suitable for frame/input timing and timeout logic.
     class function Ticks:int64; static;
     // High-precision monotonic microseconds since program start (QPC/clock_gettime based).
     class function TicksUs:int64; static;
@@ -766,10 +765,11 @@ end;
 {$ENDIF}
 
 var
-  timerMul:double; // 1/frequency, initialized in unit init
+  timerMul:double; // seconds per high-resolution timer tick
+  timerMulMs:double; // milliseconds per high-resolution timer tick
+  timerMulUs:double; // microseconds per high-resolution timer tick
   internalTimer:int64;
   qpcBase:int64; // subtracted from QPC/monotonic value to make values relative to program start
-  ticksBase:int64; // subtracted from Time.Ticks to make values relative to program start
   {$IFDEF TIME_OVERRIDE}
   timeOverrideUs:int64=0;
   {$ENDIF}
@@ -2054,21 +2054,16 @@ end;
 procedure InitTimer;
 var
   freq:int64;
-{$IFDEF UNIX}
-  ts:TTimeSpec;
-{$ENDIF}
 begin
 {$IFDEF MSWINDOWS}
   windows.QueryPerformanceFrequency(freq);
-  QPC(qpcBase);
-  ticksBase:=Windows.GetTickCount64;
 {$ELSE}
   freq:=1000000;
-  QPC(qpcBase);
-  clock_gettime(APUS_CLOCK_MONOTONIC,@ts);
-  ticksBase:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
 {$ENDIF}
+  QPC(qpcBase);
   timerMul:=1.0/freq;
+  timerMulMs:=1000.0/freq;
+  timerMulUs:=1000000.0/freq;
 end;
 
 // =============================================================================
@@ -2227,19 +2222,14 @@ end;
 {$ENDIF}
 
 class function Time.Ticks:int64;
-{$IFDEF UNIX}
-var ts:TTimeSpec;
-{$ENDIF}
+var
+  t:int64;
 begin
   {$IFDEF TIME_OVERRIDE}
   if timeOverrideUs<>0 then exit(timeOverrideUs div 1000);
   {$ENDIF}
-  {$IFDEF MSWINDOWS}
-  result:=Windows.GetTickCount64-ticksBase;
-  {$ELSE}
-  clock_gettime(APUS_CLOCK_MONOTONIC,@ts);
-  result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000-ticksBase;
-  {$ENDIF}
+  QPC(t);
+  result:=Round((t-qpcBase)*timerMulMs);
 end;
 
 class function Time.TicksUs:int64;
@@ -2250,7 +2240,7 @@ begin
   if timeOverrideUs<>0 then exit(timeOverrideUs);
   {$ENDIF}
   QPC(t);
-  result:=Round((t-qpcBase)*timerMul*1000000.0);
+  result:=Round((t-qpcBase)*timerMulUs);
 end;
 
 class function Time.TicksSec:double;

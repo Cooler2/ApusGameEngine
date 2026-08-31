@@ -3,9 +3,11 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-07-03)
+## Summary (last updated: 2026-09-01)
 
 **Progress:**
+- ✅ `Time.Ticks` uses the high-resolution monotonic platform counter with direct
+  millisecond scaling; Windows granularity is no longer limited by `GetTickCount64`.
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
 - ✅ Threading and Logging blockers solved
 - ✅ Managed threads force-log unhandled callback exceptions before reporting `Error`

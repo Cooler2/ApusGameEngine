@@ -3,6 +3,18 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## High-resolution `Time.Ticks` (2026-09-01)
+
+- `Time.Ticks` now uses the same high-resolution monotonic source as
+  `Time.TicksUs` (QPC on Windows, `clock_gettime` on Unix-like systems).
+- Milliseconds are calculated directly with a cached `1000/frequency` scale;
+  the runtime path does not call `TicksUs` or divide its result by 1000.
+- This removes the 10-16ms Windows granularity of `GetTickCount64` while keeping
+  `Time.Ticks` no slower than `Time.TicksUs`.
+- `TestCore` checks for an observed timer step of at most 5ms. `BenchCore`
+  compares the raw platform counter with `Time.Ticks` and `Time.TicksUs`, using
+  ABBA ordering for the two scaled APIs to reduce warm-up/frequency bias.
+
 ## Android JNI VM state (2026-07-10)
 
 - `jni.curVM` is now mutable. Android initialization stores the `PJavaVM`
@@ -169,9 +181,8 @@ Use it as the primary reference when updating old code.
 - Added explicit high-precision monotonic time API in `Apus.Core.Time`:
   - `Time.TicksUs:int64` — microseconds since program start (QPC/clock_gettime based)
   - `Time.TicksSec:double` — seconds since program start (QPC/clock_gettime based)
-- Clarified split of responsibilities:
-  - `Time.Ticks` stays as coarse millisecond API for compatibility/timeouts
-  - `TicksUs/TicksSec` are the preferred source for frame/input/profiling precision paths
+- All three functions use a high-resolution monotonic source. Choose the unit
+  needed by the caller: milliseconds, microseconds, or seconds.
 - Added benchmark coverage in `Base/tests/BenchCore.dpr`:
   - `Time.Ticks`
   - `Time.TicksUs`
@@ -489,7 +500,7 @@ High-precision time functions:
 | `NowGMT` | `Time.UTC` | UTC time in TDateTime format (high-precision on Windows 8+) |
 | — | `Time.Now` | Local time in TDateTime format (high-precision on Windows 8+) |
 | `GetUTCTime` + formatting | `Time.Stamp` | Returns `HH:MM:SS.mmm` string for logs |
-| `MyTickCount` | `Time.Ticks` | coarse monotonic milliseconds, cross-platform |
+| `MyTickCount` | `Time.Ticks` | high-resolution monotonic milliseconds, cross-platform |
 
 **Usage:**
 ```pascal

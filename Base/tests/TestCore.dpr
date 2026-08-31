@@ -1109,6 +1109,29 @@ begin
   EndTest;
 end;
 
+procedure TestTicksResolution;
+const
+  SAMPLE_TIME_US=50000;
+var
+  deadlineUs,prevTicks,curTicks,minStep:int64;
+begin
+  StartTest('Time.Ticks resolution');
+  minStep:=High(int64);
+  deadlineUs:=CoreTime.TicksUs+SAMPLE_TIME_US;
+  prevTicks:=CoreTime.Ticks;
+  repeat
+    curTicks:=CoreTime.Ticks;
+    if curTicks>prevTicks then begin
+      if curTicks-prevTicks<minStep then
+        minStep:=curTicks-prevTicks;
+      prevTicks:=curTicks;
+    end;
+  until (minStep<=5) or (CoreTime.TicksUs>=deadlineUs);
+  Check(minStep<=5,'Ticks granularity must be at most 5 ms (best observed step: '+
+    IntToStr(minStep)+' ms)');
+  EndTest;
+end;
+
 
 // SetupStorageDirs turns an application name into folder paths, so the name must not
 // carry characters the filesystem reserves (a window caption easily does - see appName)
@@ -1159,6 +1182,7 @@ begin
     TestExceptionMsg;
     TestTime;
     TestTimeOverride;
+    TestTicksResolution;
     TestStorageDirs;
     TestSystemPrimitives;
 

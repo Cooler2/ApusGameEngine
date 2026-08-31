@@ -353,19 +353,28 @@ begin
   EndBench;
 end;
 
-procedure BenchTime_Ticks;
+procedure BenchQueryPerformanceCounter;
 var i:integer; t:int64;
 begin
-  StartBench('Time.Ticks',N_FAST);
+  StartBench('QueryPerformanceCounter',N_FAST);
+  for i:=1 to N_FAST do
+    QueryPerformanceCounter(t);
+  EndBench;
+end;
+
+procedure BenchTime_Ticks(const suffix:string='');
+var i:integer; t:int64;
+begin
+  StartBench('Time.Ticks'+suffix,N_FAST);
   for i:=1 to N_FAST do
     t:=Time.Ticks;
   EndBench;
 end;
 
-procedure BenchTime_TicksUs;
+procedure BenchTime_TicksUs(const suffix:string='');
 var i:integer; t:int64;
 begin
-  StartBench('Time.TicksUs',N_FAST);
+  StartBench('Time.TicksUs'+suffix,N_FAST);
   for i:=1 to N_FAST do
     t:=Time.TicksUs;
   EndBench;
@@ -438,8 +447,12 @@ begin
   BenchTime_Now;
   BenchTime_Stamp;
   BenchGetTickCount64;
-  BenchTime_Ticks;
-  BenchTime_TicksUs;
+  BenchQueryPerformanceCounter;
+  // ABBA order reduces systematic bias from CPU warm-up and frequency changes.
+  BenchTime_Ticks(' A');
+  BenchTime_TicksUs(' A');
+  BenchTime_TicksUs(' B');
+  BenchTime_Ticks(' B');
   BenchTime_TicksSec;
   BenchWriteln;
 
