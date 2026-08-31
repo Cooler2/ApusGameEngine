@@ -20,7 +20,8 @@ interface
 
  var
    // Default global settings
-   gameTitle:string='Apus Game Engine Template';
+   gameTitle:string='Apus Game Engine Template'; // window caption, shown to the user
+   appName:string=''; // name of the writable storage folders (see SetupStorageDirs); gameTitle is used when empty
    configFileName:string8=''; // load this config file (can contain path, which is discarded after file is loaded)
    logFileName:string='game.log'; // default log file name
 
@@ -567,6 +568,7 @@ procedure TGameApplication.Prepare;
  var
   i:integer;
   st:string;
+  logPath:String8;
  begin
   try
    {$IFDEF MSWINDOWS}
@@ -575,21 +577,26 @@ procedure TGameApplication.Prepare;
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    Apus.Threads.Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
-   // Resolve per-platform writable dirs now that the app name (gameTitle) is set.
-   SetupStorageDirs(String8(gameTitle));
+   // Resolve per-platform writable dirs now that the app name is known.
+   if appName<>'' then SetupStorageDirs(String8(appName))
+    else SetupStorageDirs(String8(gameTitle)); // a caption makes a poor folder name, but it's better than nothing
    Randomize;
    // Log rotation
-   if DirectoryExists('Logs') then begin
-    // Dev convenience: a Logs\ folder next to the app captures logs locally.
-    configDir:='Logs'+PathDelim;
-    st:='Logs'+PathDelim+logFileName;
-   end else begin
-    // Otherwise use the per-platform writable log dir: inside a macOS .app the
-    // working dir is read-only Resources, so a log written there breaks the seal.
-    ForceDirectories(LogDir);
-    configDir:=LogDir;
-    st:=LogDir+logFileName;
+   // The log belongs next to the application, in Logs\ - that's where one looks for
+   // it first. Fall back to the per-platform writable dir when that's impossible:
+   // a read-only install location, or a macOS/iOS bundle (the filesystem may allow
+   // writing inside it, but that breaks the seal).
+   logPath:='';
+   if not bundleMode then begin
+    logPath:=String8(ExtractFilePath(ParamStr(0)))+'Logs'+PathDelim;
+    if not (Folder.Create(logPath) and Folder.Writable(logPath)) then logPath:='';
    end;
+   if logPath='' then begin
+    ForceDirectories(LogDir);
+    logPath:=LogDir;
+   end;
+   configDir:=logPath;
+   st:=logPath+logFileName;
    st:=Files.FixName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));

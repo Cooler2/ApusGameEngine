@@ -122,3 +122,6 @@ demo/*/_dbg.txt
 /tools/button.*
 /tools/tick.*
 /Screenshot_*.png
+
+# engine log folder (created next to the executable)
+Logs/

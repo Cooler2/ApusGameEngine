@@ -378,7 +378,8 @@ var
   bundleMode:boolean; // launched from inside a macOS/iOS .app (base is immutable by convention, even though the filesystem allows writing into it)
 
   // Fill LogDir/AppDataDir/TempDir for the given application. appName is the
-  // subfolder used under the per-user data root; bundleId (reverse-DNS) is
+  // subfolder used under the per-user data root (characters that are invalid in a
+  // path are replaced); bundleId (reverse-DNS) is
   // preferred on Apple platforms when supplied. Pure computation, no filesystem
   // side effects (the writer creates the dir). Safe to call more than once.
   procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
@@ -2375,11 +2376,26 @@ procedure InitBaseDir;
     BaseDir:=exeDir;
  end;
 
+// A directory name can't contain the characters reserved by the filesystem, so an
+// app name that came from a window title doesn't silently produce an uncreatable path
+function SanitizeDirName(const name:String8):String8;
+ var
+  i:integer;
+ begin
+  result:=name;
+  for i:=1 to length(result) do
+   if result[i] in ['\','/',':','*','?','"','<','>','|',#0..#31] then result[i]:='_';
+  while (length(result)>0) and (result[1]=' ') do Delete(result,1,1);
+  // Windows drops trailing dots and spaces from a folder name
+  while (length(result)>0) and (result[length(result)] in [' ','.']) do
+   SetLength(result,length(result)-1);
+ end;
+
 procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
  var
   name,home:String8;
  begin
-  name:=appName;
+  name:=SanitizeDirName(appName);
   if name='' then name:=String8(ChangeFileExt(ExtractFileName(ParamStr(0)),''));
   {$IF defined(DARWIN)}
   // ~/Library — resolved via $HOME so a sandboxed (App Store) container works too.

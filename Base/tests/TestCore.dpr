@@ -1110,6 +1110,26 @@ begin
 end;
 
 
+// SetupStorageDirs turns an application name into folder paths, so the name must not
+// carry characters the filesystem reserves (a window caption easily does - see appName)
+procedure TestStorageDirs;
+begin
+  StartTest('Storage dirs');
+  try
+    SetupStorageDirs('Apus Engine: Advanced Texturing');
+    Check(Pos('Apus Engine_ Advanced Texturing',LogDir)>0,'reserved character is replaced in the folder name');
+    Check(Pos(':',Copy(LogDir,3,length(LogDir)))=0,'no reserved character is left in the path');
+    SetupStorageDirs('PlainName');
+    Check(Pos('PlainName',AppDataDir)>0,'a valid name is used as is');
+    Check(Pos('PlainName',TempDir)>0,'all the storage dirs share the name');
+    SetupStorageDirs('  Trailing dots... ');
+    Check(Pos('Trailing dots'+PathDelim,LogDir)>0,'trailing dots and spaces are dropped');
+  finally
+    SetupStorageDirs(''); // restore the exe-name-based defaults
+  end;
+  EndTest;
+end;
+
 begin
   try
     TestMinMax;
@@ -1139,6 +1159,7 @@ begin
     TestExceptionMsg;
     TestTime;
     TestTimeOverride;
+    TestStorageDirs;
     TestSystemPrimitives;
 
     writeln;
