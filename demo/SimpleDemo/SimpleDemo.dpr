@@ -3,7 +3,7 @@ program SimpleDemo;
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   SimpleDemoApp in 'SimpleDemoApp.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TSimpleDemoApp.Create;

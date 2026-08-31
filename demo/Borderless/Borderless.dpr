@@ -2,7 +2,7 @@ program Borderless;
  uses
   BorderlessApp in 'BorderlessApp.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMainApp.Create;

@@ -2,7 +2,7 @@ program CharAnimation;
  uses
   CharAnimationApp in 'CharAnimationApp.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMainApp.Create;

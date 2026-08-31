@@ -3,7 +3,7 @@ program VertexBuffer;
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   VertexBufferApp in 'VertexBufferApp.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMainApp.Create;

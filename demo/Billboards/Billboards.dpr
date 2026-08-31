@@ -2,7 +2,7 @@ program Billboards;
  uses
   BillboardsApp in 'BillboardsApp.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMainApp.Create;

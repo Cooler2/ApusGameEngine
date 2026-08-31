@@ -3,7 +3,7 @@ program MultiWindow;
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   MultiWindowApp in 'MultiWindowApp.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMultiWindowApp.Create;
