@@ -128,6 +128,7 @@ public
   // Working surface (R-31): declared axes + resolved snapshot.
   config:TSurfaceConfig; // runtime authority for this window (a copy of TGameSettings.surface)
   surface:TSurfaceState; // published snapshot; written only by this window's own thread between frames
+  presentedGeneration:integer; // surface generation of the last presented frame (see SurfaceSettled)
   screenChanged:boolean; // set to true to request frame rendering
 
   // Input state snapshot for this window: values are stored per-window (not global)
@@ -213,6 +214,10 @@ public
   procedure SetRenderScale(scale:single);
   procedure SetSurfaceConfig(const cfg:TSurfaceConfig); // validates, then requests a rebuild
   procedure InvalidateSurface; // force a full rebuild on the next ApplyPendingSurface
+  // True when no surface change is waiting and a frame for the current surface
+  // generation has already been presented. Frame readback (screenshot, pixel)
+  // must wait for this: right after a resize the presented frame is still the old one.
+  function SurfaceSettled:boolean;
   // Apply a pending request. Called by the window's OWN thread at frame start:
   // hook -> validate -> resolve -> RT/viewport -> publish snapshot -> notifications.
   procedure ApplyPendingSurface;
@@ -731,6 +736,17 @@ procedure TWindow.InvalidateSurface;
   end;
  end;
 
+function TWindow.SurfaceSettled:boolean;
+ begin
+  pendingLock.Enter;
+  try
+   result:=pendingMask=0;
+  finally
+   pendingLock.Leave;
+  end;
+  result:=result and (presentedGeneration=surface.generation);
+ end;
+
 procedure TWindow.ApplyPendingSurface;
  var
   mask:integer;
@@ -1214,6 +1230,7 @@ begin
  FLog('Present');
  gfx.PresentFrame;
  inc(frameNum);
+ presentedGeneration:=surface.generation; // the presented frame matches this surface
  screenChanged:=false;
  timings.idleRedrawAccUs:=0;
  stats.Reset;

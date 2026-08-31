@@ -20,6 +20,11 @@ type
   // handler returns true=OK (body=response), false=ERROR (body=error message)
   TRobotCommandHandler=function(const req:TRobotRequest; out body:String8):boolean;
 
+const
+  // A handler that can't answer yet returns true with this token as the body:
+  // the request is kept and retried on the next frame, nothing is written out.
+  PENDING_TOKEN='@PENDING@';
+
   procedure InitRobotAPI;
   procedure PollRobotAPI;
   procedure DoneRobotAPI;
@@ -34,7 +39,6 @@ uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Files, Apus.EventMan;
 const
   INPUT_FILE  = 'robot_in.txt';
   OUTPUT_FILE = 'robot_out.txt';
-  PENDING_TOKEN='@PENDING@';
   UTF8_BOM=#$EF#$BB#$BF;
   SLOW_INTERVAL = 500; // ms between checks in slow mode
   FAST_INTERVAL = 100; // ms between checks in fast mode
@@ -51,6 +55,7 @@ var
   commands:array of TCommandEntry;
   commandCount:integer;
   pendingRequests:TRequestArray;
+  batchResponse:String8; // accumulated responses: written out when nothing is pending anymore
   lastCheckTime:int64;
   lastActivityTime:int64;
   fastMode:boolean;
@@ -205,8 +210,13 @@ begin
   end;
   pendingRequests:=newPending;
 
-  if response<>'' then
-    Files.Save(OUTPUT_FILE,response);
+  // Answers are written as a whole batch: a command that postponed itself would
+  // otherwise let the next frame overwrite the answers already given here.
+  batchResponse:=batchResponse+response;
+  if (batchResponse<>'') and (length(pendingRequests)=0) then begin
+    Files.Save(OUTPUT_FILE,batchResponse);
+    batchResponse:='';
+  end;
   if length(pendingRequests)>0 then begin
     fastMode:=true;
     lastActivityTime:=CoreTime.Ticks;
@@ -240,6 +250,7 @@ begin
   lastCheckTime:=0;
   lastActivityTime:=0;
   SetLength(pendingRequests,0);
+  batchResponse:='';
   initialized:=true;
   Log.Msg('RobotAPI: initialized (%d commands registered)',[commandCount]);
 end;
@@ -269,6 +280,7 @@ begin
   if not initialized then exit;
   initialized:=false;
   SetLength(pendingRequests,0);
+  batchResponse:='';
   Log.Msg('RobotAPI: shutdown');
 end;
 

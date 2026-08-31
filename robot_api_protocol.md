@@ -34,6 +34,12 @@ MSG: <message>   (ERROR only)
 
 Each response block ends with `===`. Multi-item output uses repeated key prefixes with indented sub-fields.
 
+`robot_out.txt` is written once per batch, when every request of that batch has an
+answer. A command may postpone itself (see `fps` with `METRICS`, and `screenshot` /
+`pixel` right after a surface change), so a batch can span several frames; its
+answers are still delivered together. Blocks are ordered by the moment each answer
+became available, not by the request order — match them by `ID`.
+
 ## Activation
 
 - DEBUG builds: on by default. Release: only with `-ROBOT` flag.
@@ -134,6 +140,11 @@ commands therefore accept an optional `SPACE`:
 
 A region outside the canvas (or outside the picture in `client` space) is reported as
 `STATUS: ERROR` instead of being silently cropped.
+
+Both commands read the frame as presented, so both wait for the frame to match the
+current surface: sent in the same batch as `window.resize` (or while the user is
+resizing the window), they are answered from the first frame presented at the new
+size instead of returning the stale one.
 
 ### `screenshot` — capture the presented frame to a PNG file.
 - `FILE`: output path (default: `screenshot.png`).

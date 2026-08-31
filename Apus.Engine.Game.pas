@@ -718,7 +718,6 @@ end;
 // --- Robot API command handlers ---
 const
  statusNames:array[TSceneStatus] of String8 = ('frozen','background','active');
-  ROBOT_PENDING_TOKEN='@PENDING@';
 
 var
   fpsMetricsPending:boolean=false;
@@ -858,11 +857,11 @@ begin
       fpsMetricsStartFrame:=window.frameNum;
       fpsMetricsTargetFrames:=n;
       window.timings.phaseMetrics:=true;
-      body:=ROBOT_PENDING_TOKEN;
+      body:=PENDING_TOKEN;
       exit(true);
     end;
     if window.frameNum-fpsMetricsStartFrame<fpsMetricsTargetFrames then begin
-      body:=ROBOT_PENDING_TOKEN;
+      body:=PENDING_TOKEN;
       exit(true);
     end;
     fpsMetricsPending:=false;
@@ -1016,6 +1015,12 @@ var
   canvasSpace:boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
+  // A surface change requested earlier in this batch (window.resize) isn't visible
+  // yet: the presented frame still has the old size. Retry on the next frame.
+  if not window.SurfaceSettled then begin
+    body:=PENDING_TOKEN;
+    exit(true);
+  end;
   fname:=req.Param('FILE');
   if fname='' then fname:='screenshot.png';
   if not RobotReadbackRect(req,pixRect,canvasSpace,body) then exit(false);
@@ -1047,6 +1052,10 @@ var
   canvasSpace:boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
+  if not window.SurfaceSettled then begin // see RobotCmdScreenshot
+    body:=PENDING_TOKEN;
+    exit(true);
+  end;
   if not RobotParseSpace(req,canvasSpace,body) then exit(false);
   x:=Conv.ToInt(req.Param('X'));
   y:=Conv.ToInt(req.Param('Y'));
@@ -2178,6 +2187,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
      end;
      wnd.PresentFrame;
      inc(wnd.frameNum);
+     wnd.presentedGeneration:=wnd.surface.generation; // see TWindow.PresentRenderedFrame
      wnd.screenChanged:=false;
      wnd.timings.idleRedrawAccUs:=0;
      presented:=true;
