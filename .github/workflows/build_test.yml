@@ -189,7 +189,9 @@ jobs:
           brew install fpc
           fpc -iV
 
-      - name: Compile selected demos (Linux)
+      # Every demo that currently builds. The ones left out don't compile yet -
+      # they are listed with their blocker in demo/demo_inventory.md.
+      - name: Compile demos (Linux)
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
@@ -197,7 +199,9 @@ jobs:
             local demo="$1"
             # extra defines, if any: audio backends are opt-in (see defines.inc)
             local extra="${2:-}"
-            local dpr="demo/${demo}/${demo}.dpr"
+            # project name, when it differs from the folder name
+            local project="${3:-$demo}"
+            local dpr="demo/${demo}/${project}.dpr"
             local out="demo/${demo}/_fpc"
             rm -rf "$out"
             mkdir -p "$out"
@@ -212,22 +216,42 @@ jobs:
           compile_demo "Simple3D"
           compile_demo "ShadowMap"
           compile_demo "SoundDemo" "-dSDLMIX"
+          compile_demo "01-Scenes" "" "scenes"
+          compile_demo "AdvTex"
+          compile_demo "MeshLab"
+          compile_demo "MultiWindow"
+          compile_demo "Networking"
+          compile_demo "NormalMap"
+          compile_demo "ProjectTemplate"
+          compile_demo "StyleDemo"
+          compile_demo "TouchDemo"
+          compile_demo "Tweenings"
+          compile_demo "UI"
+          compile_demo "UILab"
+          compile_demo "UIScaleDPI"
+          compile_demo "VertexBuffer"
 
-      - name: Compile selected demos (Windows)
+      - name: Compile demos (Windows)
         if: runner.os == 'Windows'
         run: |
-          $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo","Simple3D","ShadowMap","SoundDemo")
+          $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo","Simple3D","ShadowMap","SoundDemo",
+            "01-Scenes","AdvTex","MeshLab","MultiWindow","Networking","NormalMap","ProjectTemplate",
+            "StyleDemo","TouchDemo","Tweenings","UI","UILab","UIScaleDPI","VertexBuffer")
           # extra defines per demo: audio backends are opt-in (see defines.inc)
           $extraDefines=@{ "SoundDemo"="-dSDLMIX" }
+          # project name where it differs from the folder name
+          $projectName=@{ "01-Scenes"="scenes" }
           foreach($demo in $demos){
             $out="demo/$demo/_fpc"
             if(Test-Path $out){ Remove-Item $out -Recurse -Force }
             New-Item -ItemType Directory -Path $out | Out-Null
+            $project=$demo
+            if($projectName.ContainsKey($demo)){ $project=$projectName[$demo] }
             $fpcArgs=@("-dOPENGL")
             if($extraDefines.ContainsKey($demo)){ $fpcArgs+=$extraDefines[$demo] }
             $fpcArgs+=@("-MDelphi","-Sd","-RIntel",
               "-Fu.","-Fuextra","-Fuextra/sdl2","-FuBase","-FuBase/extra",
-              "-Fudemo/$demo","-FU$out","demo/$demo/$demo.dpr")
+              "-Fudemo/$demo","-FU$out","demo/$demo/$project.dpr")
             fpc @fpcArgs
             if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
           }
@@ -272,7 +296,7 @@ jobs:
           Write-Host "SoundDemo exit code: $soundExitCode"
           if($soundExitCode -ne 0){ exit $soundExitCode }
 
-      - name: Compile selected demos (macOS)
+      - name: Compile demos (macOS)
         if: runner.os == 'macOS'
         env:
           OUTDIR: tests/_demo_smoke

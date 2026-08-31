@@ -72,8 +72,15 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "demos" ]; then
-  for demo in SimpleDemo Draw2D InputDemo TextDemo Simple3D ShadowMap; do
-    compile_only "demo/$demo/$demo.dpr" "demo/$demo"
+  # Every demo that currently builds, as <folder>/<project>. The ones left out
+  # don't compile yet - see demo/demo_inventory.md for their blockers.
+  for target in SimpleDemo/SimpleDemo Draw2D/Draw2D InputDemo/InputDemo TextDemo/TextDemo \
+                Simple3D/Simple3D ShadowMap/ShadowMap 01-Scenes/scenes AdvTex/AdvTex \
+                MeshLab/MeshLab MultiWindow/MultiWindow Networking/Networking \
+                NormalMap/NormalMap ProjectTemplate/ProjectTemplate StyleDemo/StyleDemo \
+                TouchDemo/TouchDemo Tweenings/Tweenings UI/UI UILab/UILab \
+                UIScaleDPI/UIScaleDPI VertexBuffer/VertexBuffer; do
+    compile_only "demo/${target}.dpr" "demo/${target%/*}"
   done
 fi
 

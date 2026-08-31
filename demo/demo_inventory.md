@@ -20,6 +20,10 @@ Builds (21): `01-Scenes`, `AdvTex`, `Draw2D`, `InputDemo`, `MeshLab`, `MultiWind
 `SimpleDemo`, `SoundDemo`, `StyleDemo`, `TextDemo`, `TouchDemo`, `Tweenings`,
 `UI`, `UIScaleDPI`, `UILab`, `VertexBuffer`.
 
+These 21 are exactly what CI compiles on Linux, Windows and macOS (`demo-build`
+job, plus `tests/macos_smoke.sh`). When a demo below moves to "builds", add it
+to both lists.
+
 Broken (8) - all of them still sit on the retired foundation modules:
 
 | Demo | Blocker |
