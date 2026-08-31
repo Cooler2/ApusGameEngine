@@ -633,11 +633,14 @@ begin
   // alone, so ask the filesystem directly.
   probe:=SysUtils.IncludeTrailingPathDelimiter(string(path))+'.apus_write_test.tmp';
   AssignFile(f,probe);
-  {$PUSH}{$I-}
+  {$UNDEF APUS_FILES_IOCHECK_ON}
+  {$IFOPT I+}{$DEFINE APUS_FILES_IOCHECK_ON}{$ENDIF}
+  {$I-}
   Rewrite(f,1);
   result:=IOResult=0;
   if result then CloseFile(f);
-  {$POP}
+  {$IFDEF APUS_FILES_IOCHECK_ON}{$I+}{$ENDIF}
+  {$UNDEF APUS_FILES_IOCHECK_ON}
   if result then SysUtils.DeleteFile(probe);
 end;
 
