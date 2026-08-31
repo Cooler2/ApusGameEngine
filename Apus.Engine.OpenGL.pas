@@ -585,24 +585,28 @@ procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   {$ELSE}
   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
   {$ENDIF}
-  if fbo<>0 then // flip vertically: FBO origin is bottom-left
-   image.FlipVertical;
+  // glReadPixels returns rows bottom-up, so the result is always flipped to top-down
+  image.FlipVertical;
   image.Unlock;
   CheckForGLError(021);
  end;
 function TOpenGL.GetPixelValue(x,y:integer):cardinal;
  var
   fbo:gluint;
+  realY:integer;
  begin
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@fbo);
   if fbo<>0 then exit(0);
   glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
   glReadBuffer(GL_BACK);
+  // x,y are real pixels of the backbuffer (top-left origin), so the flip base is
+  // its physical height - NOT target.height, which is a virtual (canvas) size
+  realY:=TGLRenderTargetAPI.backBufferHeight-y-1;
   {$IFDEF GLES}
-  glReadPixels(x,target.height-y-1,1,1,GL_RGBA,GL_UNSIGNED_BYTE,@result);
+  glReadPixels(x,realY,1,1,GL_RGBA,GL_UNSIGNED_BYTE,@result);
   SwapRedBlue8888(@result,1);
   {$ELSE}
-  glReadPixels(x,target.height-y-1,1,1,GL_BGRA,GL_UNSIGNED_BYTE,@result);
+  glReadPixels(x,realY,1,1,GL_BGRA,GL_UNSIGNED_BYTE,@result);
   {$ENDIF}
   CheckForGLError(022);
  end;

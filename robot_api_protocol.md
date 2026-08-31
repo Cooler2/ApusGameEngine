@@ -120,14 +120,32 @@ Each response block ends with `===`. Multi-item output uses repeated key prefixe
 ### `signal` — send event signal.
 - `EVENT`: event path (required), `TAG`: integer tag (optional, default 0).
 
-### `screenshot` — capture backbuffer to PNG file.
-- `FILE`: output path (default: `screenshot.png`).
-- `X`, `Y`, `W`, `H`: optional crop region (full render area if omitted).
-- Returns: file, width, height.
+### Coordinate spaces of the readback commands
 
-### `pixel` — read single pixel color from backbuffer.
-- `X`, `Y`: coordinates.
-- Returns: x, y, color (AARRGGBB hex).
+`screenshot` and `pixel` read the frame as presented, which lives in real pixels of
+the client area, while UI and input coordinates live in the canvas space. Both
+commands therefore accept an optional `SPACE`:
+
+- `SPACE: canvas` (default) — the draw/input space shared with `ui.tree`,
+  `ui.element`, `ui.hittest` and mouse input. Coordinates are mapped to real pixels
+  by the engine, so a crop matches what a UI element reports as its rect.
+- `SPACE: client` — real pixels of the client area (the picture occupies
+  `displayRect`, see the `windows` command).
+
+A region outside the canvas (or outside the picture in `client` space) is reported as
+`STATUS: ERROR` instead of being silently cropped.
+
+### `screenshot` — capture the presented frame to a PNG file.
+- `FILE`: output path (default: `screenshot.png`).
+- `SPACE`: `canvas` (default) or `client`.
+- `X`, `Y`, `W`, `H`: optional crop region in that space (the whole picture if omitted).
+- Returns: file, width, height (real pixels of the saved image), space,
+  pixelRect (`x,y,w,h` actually read from the frame).
+
+### `pixel` — read a single pixel color from the presented frame.
+- `SPACE`: `canvas` (default) or `client`.
+- `X`, `Y`: coordinates in that space.
+- Returns: x, y (as requested), space, pixel (`x,y` in real pixels), color (AARRGGBB hex).
 
 ## Error Handling
 

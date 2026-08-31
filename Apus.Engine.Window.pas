@@ -13,7 +13,7 @@
 unit Apus.Engine.Window;
 interface
 uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene, Apus.Threads,
-  Apus.Classes, Apus.Engine.Resources;
+  Apus.Classes, Apus.Images, Apus.Engine.Resources;
 
 const
  FRAME_TIME_RING_SIZE=512;
@@ -123,6 +123,7 @@ private
   procedure EnsureDefaultRT; // create the default RT if the surface needs one
   procedure UpdateSurfaceRT; // keep the default RT in sync with surface.renderSize
   procedure UpdateScreenScale; // DPI -> uiScale ladder (main window only)
+  function FrameSurfaceHeight(src:TFrameSource):integer; // physical height of the readback surface
 public
   // Working surface (R-31): declared axes + resolved snapshot.
   config:TSurfaceConfig; // runtime authority for this window (a copy of TGameSettings.surface)
@@ -288,6 +289,19 @@ public
   // Full present cycle: blit dRT + swap + update counters
   procedure PresentRenderedFrame(tintColor:cardinal);
 
+  // Frame readback: canvas space <-> pixels of the surface holding the frame.
+  // The backbuffer is read in physical pixels, so a canvas-space region must be
+  // mapped first - canvasSize and clientSize differ whenever the canvas is fixed,
+  // scaled or letterboxed.
+  // Where the picture sits inside that surface, in its own pixels
+  function FrameRect(src:TFrameSource=TFrameSource.presented):TRect;
+  // Map a canvas-space rect/point into those pixels
+  function CanvasToPixels(const r:TRect;src:TFrameSource=TFrameSource.presented):TRect; overload;
+  function CanvasToPixels(const p:TPoint;src:TFrameSource=TFrameSource.presented):TPoint; overload;
+  // Read a pixel region of the frame into image (its size must match the rect).
+  // Rows come out top-down regardless of the source.
+  procedure ReadFrameRect(const pixRect:TRect;image:TRawImage;src:TFrameSource=TFrameSource.presented);
+
   // Frame capture
   procedure RequestScreenshot(saveAsJpeg:boolean=true);
   procedure RequestFrameCapture(obj:TObject=nil);
@@ -309,7 +323,7 @@ function FindWindowForUIRoot(root:TObject):TWindow;
 function ListWindows:TWindowArray;
 
 implementation
- uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.Images, Apus.GfxFormats, Apus.Files,
+ uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.GfxFormats, Apus.Files,
    {$IFDEF MSWINDOWS}Apus.Clipboard,{$ENDIF}
    {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
    Apus.Engine.API, Apus.Engine.UIScene,
@@ -1205,6 +1219,51 @@ begin
  stats.Reset;
 end;
 
+function TWindow.FrameRect(src:TFrameSource=TFrameSource.presented):TRect;
+begin
+ // While rendering, the picture occupies the whole presentation RT (if there is one);
+ // in the backbuffer it always sits in the display rect.
+ if (src=TFrameSource.rendering) and (dRT<>nil) then
+  result:=Rect(0,0,dRT.width,dRT.height)
+ else
+  result:=surface.displayRect;
+end;
+
+// Full height of the surface being read - glReadPixels counts rows from its bottom
+function TWindow.FrameSurfaceHeight(src:TFrameSource):integer;
+begin
+ if (src=TFrameSource.rendering) and (dRT<>nil) then result:=dRT.height
+  else result:=surface.clientSize.cy;
+end;
+
+function TWindow.CanvasToPixels(const r:TRect;src:TFrameSource=TFrameSource.presented):TRect;
+var
+ pic:TRect;
+begin
+ pic:=FrameRect(src);
+ ASSERT((surface.canvasSize.cx>0) and (surface.canvasSize.cy>0),'Canvas is not resolved yet');
+ result.Left:=pic.Left+round(r.Left*pic.Width/surface.canvasSize.cx);
+ result.Right:=pic.Left+round(r.Right*pic.Width/surface.canvasSize.cx);
+ result.Top:=pic.Top+round(r.Top*pic.Height/surface.canvasSize.cy);
+ result.Bottom:=pic.Top+round(r.Bottom*pic.Height/surface.canvasSize.cy);
+end;
+
+function TWindow.CanvasToPixels(const p:TPoint;src:TFrameSource=TFrameSource.presented):TPoint;
+var
+ pic:TRect;
+begin
+ pic:=FrameRect(src);
+ ASSERT((surface.canvasSize.cx>0) and (surface.canvasSize.cy>0),'Canvas is not resolved yet');
+ result.x:=pic.Left+round(p.x*pic.Width/surface.canvasSize.cx);
+ result.y:=pic.Top+round(p.y*pic.Height/surface.canvasSize.cy);
+end;
+
+procedure TWindow.ReadFrameRect(const pixRect:TRect;image:TRawImage;src:TFrameSource=TFrameSource.presented);
+begin
+ ASSERT((image.width=pixRect.Width) and (image.height=pixRect.Height),'Image size must match the rect');
+ gfx.CopyFromBackbuffer(pixRect.Left,FrameSurfaceHeight(src)-pixRect.Bottom,image);
+end;
+
 procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
  Lock;
@@ -1240,11 +1299,9 @@ var
 begin
  capture.singleFrame:=false;
 
- r:=displayRect;
+ r:=FrameRect; // the presented picture, in client pixels (may be offset by letterboxing)
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
- gfx.CopyFromBackbuffer(0,0,img);
- inc(PByte(img.data),img.width*4*(img.height-1)); // move pointer to the last line
- img.pitch:=-img.width*4; // invert pitch
+ ReadFrameRect(r,img);
  case capture.target of
   0:if capture.data<>nil then begin
    Signal('Engine\FrameCaptured',UIntPtr(img));

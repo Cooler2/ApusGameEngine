@@ -114,6 +114,12 @@ type
                     matrix,  // canvas differs from render: projection matrix scales
                     blit);   // presentation RT blitted into the display rect
 
+ // Which surface holds the frame being read back (see TWindow.ReadFrameRect).
+ // Canvas coordinates map differently into each of them, so a readback must say
+ // which one it means.
+ TFrameSource=(presented,  // default framebuffer: the frame as presented (valid after PresentFrame)
+               rendering); // surface being rendered into right now (presentation RT or backbuffer)
+
  // Immutable surface snapshot; written by the window's own thread between frames.
  // generation/changes are filled by the owner (they describe the transition, not the state).
  TSurfaceState=record

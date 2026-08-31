@@ -942,31 +942,93 @@ begin
   result:=true;
 end;
 
+// Rect formatting for robot responses: "x,y,w,h"
+function RobotRectStr(const r:TRect):String8;
+begin
+  result:=Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+','+
+          Conv.ToStr(r.Width)+','+Conv.ToStr(r.Height);
+end;
+
+function RobotSpaceName(canvasSpace:boolean):String8;
+begin
+  if canvasSpace then result:='canvas' else result:='client';
+end;
+
+// Coordinate space of the X/Y/W/H parameters of the readback commands.
+// CANVAS (default) is the draw/input space shared with ui.tree / ui.element / mouse
+// input; CLIENT is real pixels of the window client area.
+function RobotParseSpace(const req:TRobotRequest; out canvasSpace:boolean; out err:String8):boolean;
+var
+  space:String8;
+begin
+  space:=req.Param('SPACE').ToLower;
+  canvasSpace:=(space='') or (space='canvas');
+  result:=canvasSpace or (space='client');
+  if not result then err:='unknown SPACE: '+space+' (expected canvas or client)';
+end;
+
+// Resolve the requested region into real pixels of the presented frame.
+// The region itself is validated in the space it was given in, so an out-of-range
+// request is reported instead of being silently cropped.
+function RobotReadbackRect(const req:TRobotRequest; out pixRect:TRect;
+  out canvasSpace:boolean; out err:String8):boolean;
+var
+  x,y,w,h:integer;
+  r,bounds:TRect;
+begin
+  result:=false;
+  if not RobotParseSpace(req,canvasSpace,err) then exit;
+  if canvasSpace then bounds:=Types.Rect(0,0,window.canvasWidth,window.canvasHeight)
+   else bounds:=window.FrameRect;
+  x:=Conv.ToInt(req.Param('X'),bounds.Left);
+  y:=Conv.ToInt(req.Param('Y'),bounds.Top);
+  w:=Conv.ToInt(req.Param('W'),0);
+  h:=Conv.ToInt(req.Param('H'),0);
+  if w<=0 then w:=bounds.Right-x;
+  if h<=0 then h:=bounds.Bottom-y;
+  r:=Types.Rect(x,y,x+w,y+h);
+  if (w<=0) or (h<=0) or (r.Left<bounds.Left) or (r.Top<bounds.Top) or
+     (r.Right>bounds.Right) or (r.Bottom>bounds.Bottom) then begin
+    err:='region '+RobotRectStr(r)+' is outside the picture '+RobotRectStr(bounds);
+    exit;
+  end;
+  if canvasSpace then pixRect:=window.CanvasToPixels(r)
+   else pixRect:=r;
+  // absorb rounding: the mapped rect must not leave the picture
+  bounds:=window.FrameRect;
+  pixRect.Left:=Clamp(pixRect.Left,bounds.Left,bounds.Right);
+  pixRect.Right:=Clamp(pixRect.Right,pixRect.Left,bounds.Right);
+  pixRect.Top:=Clamp(pixRect.Top,bounds.Top,bounds.Bottom);
+  pixRect.Bottom:=Clamp(pixRect.Bottom,pixRect.Top,bounds.Bottom);
+  if (pixRect.Width<=0) or (pixRect.Height<=0) then begin
+    err:='region maps to an empty pixel rect';
+    exit;
+  end;
+  result:=true;
+end;
+
 function RobotCmdScreenshot(const req:TRobotRequest; out body:String8):boolean;
 var
   fname:String8;
-  x,y,w,h:integer;
   img:TBitmapImage;
   res:ByteArray;
+  pixRect:TRect;
+  canvasSpace:boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
   fname:=req.Param('FILE');
   if fname='' then fname:='screenshot.png';
-  x:=Conv.ToInt(req.Param('X'));
-  y:=Conv.ToInt(req.Param('Y'));
-  w:=Conv.ToInt(req.Param('W'));
-  h:=Conv.ToInt(req.Param('H'));
-  if w<=0 then w:=window.canvasWidth;
-  if h<=0 then h:=window.canvasHeight;
-  img:=TBitmapImage.Create(w,h,ipfXRGB);
+  if not RobotReadbackRect(req,pixRect,canvasSpace,body) then exit(false);
+  img:=TBitmapImage.Create(pixRect.Width,pixRect.Height,ipfXRGB);
   try
-    gfx.CopyFromBackbuffer(x,window.canvasHeight-y-h,img);
-    img.FlipVertical; // backbuffer is bottom-up in OpenGL
+    window.ReadFrameRect(pixRect,img);
     res:=SavePNG(img);
     Files.WriteBlock(fname,@res[0],length(res),0);
     body:='file: '+fname+LineBreak+
-      'width: '+Conv.ToStr(w)+LineBreak+
-      'height: '+Conv.ToStr(h)+LineBreak;
+      'width: '+Conv.ToStr(img.width)+LineBreak+
+      'height: '+Conv.ToStr(img.height)+LineBreak+
+      'space: '+RobotSpaceName(canvasSpace)+LineBreak+
+      'pixelRect: '+RobotRectStr(pixRect)+LineBreak;
     result:=true;
   except
     on e:Exception do begin
@@ -980,14 +1042,31 @@ end;
 function RobotCmdPixel(const req:TRobotRequest; out body:String8):boolean;
 var
   x,y:integer;
+  p:TPoint;
   color:cardinal;
+  canvasSpace:boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
+  if not RobotParseSpace(req,canvasSpace,body) then exit(false);
   x:=Conv.ToInt(req.Param('X'));
   y:=Conv.ToInt(req.Param('Y'));
-  color:=gfx.GetPixelValue(x,y);
+  if canvasSpace then begin
+    if not PtInRect(Types.Rect(0,0,window.canvasWidth,window.canvasHeight),Types.Point(x,y)) then begin
+      body:='point is outside the canvas';
+      exit(false);
+    end;
+    p:=window.CanvasToPixels(Types.Point(x,y));
+  end else
+    p:=Types.Point(x,y);
+  if not PtInRect(window.FrameRect,p) then begin
+    body:='point is outside the picture';
+    exit(false);
+  end;
+  color:=gfx.GetPixelValue(p.x,p.y);
   body:='x: '+Conv.ToStr(x)+LineBreak+
     'y: '+Conv.ToStr(y)+LineBreak+
+    'space: '+RobotSpaceName(canvasSpace)+LineBreak+
+    'pixel: '+Conv.ToStr(p.x)+','+Conv.ToStr(p.y)+LineBreak+
     'color: '+Conv.ToHex(color)+LineBreak;
   result:=true;
 end;

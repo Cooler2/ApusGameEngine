@@ -784,9 +784,14 @@ type
   // Set cull mode
   procedure SetCullMode(mode:TCullMode);
 
-  // Get image from the Backbuffer (screenshot etc)
+  // Get image from the current render surface: the backbuffer or the bound render target
+  // (screenshot etc). srcX,srcY are REAL pixels of that surface with a bottom-left origin
+  // (the OpenGL convention); the image is always filled top-down.
+  // Canvas coordinates must be mapped first - see TWindow.CanvasToPixels/ReadFrameRect.
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
-  // Get a single pixel value from the backbuffer (for debug/test purposes)
+  // Get a single pixel value from the backbuffer (for debug/test purposes).
+  // X,Y are real pixels of the backbuffer, top-left origin. Returns 0 when a
+  // render target is bound.
   function GetPixelValue(X,Y:integer):cardinal;
   // Present backbuffer to the screen
   procedure PresentFrame;

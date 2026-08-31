@@ -21,7 +21,7 @@ procedure DrawDebugOverlays(var state:TDebugState);
 procedure DrawDebugMagnifier(var state:TDebugState);
 
 implementation
-uses SysUtils, Apus.Core, Apus.Lib, Apus.Strings, Apus.Colors,
+uses Types, SysUtils, Apus.Core, Apus.Lib, Apus.Strings, Apus.Colors,
   Apus.Images, Apus.FastGFX,
   Apus.Engine.Window, Apus.Engine.Scene, Apus.Engine.UIScene,
   Apus.Engine.ImageTools, Apus.Engine.TextDraw
@@ -97,6 +97,8 @@ var
  width,height,left:integer;
  u,v,du,dv:single;
  cx,cy,zoom,ox,oy:integer;
+ pic:TRect;
+ center:TPoint;
  text:string;
  color:cardinal;
  rawImage:TRawImage;
@@ -106,14 +108,18 @@ begin
  if state.magnifierTex=nil then begin
   state.magnifierTex:=AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
  end;
- cx:=window.mousePos.x-64;
- cy:=window.mousePos.y+64;
+ // the magnifier shows real pixels, so the cursor position is mapped into the
+ // surface being rendered into and the 128x128 block is kept inside the picture
+ pic:=window.FrameRect(TFrameSource.rendering);
+ center:=window.CanvasToPixels(window.mousePos,TFrameSource.rendering);
+ cx:=Clamp(center.x-64,pic.Left,Max(pic.Left,pic.Right-128));
+ cy:=Clamp(center.y-64,pic.Top,Max(pic.Top,pic.Bottom-128));
  EditImage(state.magnifierTex);
  Apus.FastGFX.FillRect(0,0,127,127,$FF000000);
  rawImage:=state.magnifierTex.GetRawImage;
- gfx.CopyFromBackbuffer(cx,window.canvasHeight-cy,rawImage);
+ window.ReadFrameRect(Types.Rect(cx,cy,cx+128,cy+128),rawImage,TFrameSource.rendering);
  rawImage.Free;
- color:=Apus.FastGFX.GetPixel(64,63);
+ color:=Apus.FastGFX.GetPixel(center.x-cx,center.y-cy);
  state.magnifierTex.Unlock;
  state.magnifierTex.SetFilter(TTexFilter.fltNearest);
  gfx.shader.UseTexture(state.magnifierTex);
