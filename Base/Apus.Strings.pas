@@ -79,6 +79,12 @@ type
     // quoteChar ("") collapsed to one literal. Whitespace is NOT trimmed.
     function Split(delimiter:AnsiChar;quoteChar:AnsiChar=#0):Strings8; overload;
     function Split(const delimiters:String8;quoteChar:AnsiChar=#0):Strings8; overload;
+    // Split by a single delimiter, ignoring delimiters inside quoted spans.
+    // Unlike Split, a quoteChar is special anywhere in the string (not just at the
+    // start of a token) and quotes are KEPT in the output, so a later parsing stage
+    // still sees them. Whitespace is not trimmed. Use it to cut a command/statement
+    // line into parts before the parts themselves are parsed.
+    function SplitOutsideQuotes(delimiter:AnsiChar;quoteChar:AnsiChar='"'):Strings8;
     // Split by a single delimiter, escapeChar-style: escapeChar protects the next
     // char (incl. delimiter or escapeChar itself) and is removed from the output.
     function SplitEscaped(delimiter:AnsiChar;escapeChar:AnsiChar='\'):Strings8;
@@ -660,6 +666,29 @@ begin
     end;
   end;
   SetLength(result,cnt);
+end;
+
+// Quote state is a simple toggle, so a doubled quoteChar inside a quoted span
+// flips it twice and changes nothing. An unterminated quote swallows the rest.
+function String8Helper.SplitOutsideQuotes(delimiter:AnsiChar;quoteChar:AnsiChar):Strings8;
+var
+  i,len,start,cnt:integer;
+  quoted:boolean;
+begin
+  len:=System.Length(self);
+  SetLength(result,16); cnt:=0; start:=1; quoted:=false;
+  for i:=1 to len do begin
+    if self[i]=quoteChar then quoted:=not quoted
+    else
+    if (self[i]=delimiter) and not quoted then begin
+      if cnt>=System.Length(result) then SetLength(result,cnt*2);
+      result[cnt]:=System.Copy(self,start,i-start); inc(cnt);
+      start:=i+1;
+    end;
+  end;
+  if cnt>=System.Length(result) then SetLength(result,cnt+1);
+  result[cnt]:=System.Copy(self,start,len-start+1);
+  SetLength(result,cnt+1);
 end;
 
 function String8Helper.SplitEscaped(delimiter:AnsiChar;escapeChar:AnsiChar):Strings8;

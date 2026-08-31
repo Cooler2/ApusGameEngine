@@ -182,15 +182,19 @@ implementation
   end;
 
  procedure ExecCmd(cmd:string8);
+  var
+   parts:Strings8;
+   i:integer;
   begin
    if length(cmd)=0 then exit; // empty string
    if cmd[1] in ['#',';'] then exit;   // comments
    if cmd.StartsWith('//') then exit;
-   while pos(';',cmd)>0 do begin
-    ExecSingleCmd(copy(cmd,1,pos(';',cmd)-1));
-    delete(cmd,1,pos(';',cmd));
-   end;
-   ExecSingleCmd(cmd);
+   // ';' separates commands, but not inside a quoted value: handlers down the chain
+   // (AssignCmd -> Split('=','"')) expect a quoted string to arrive whole, e.g.
+   // styleinfo="@button; font: Arial;" is one assignment, not four commands.
+   parts:=cmd.SplitOutsideQuotes(';');
+   for i:=0 to high(parts) do
+    ExecSingleCmd(parts[i]); // empty parts are ignored by the handler
   end;
 
  procedure ExecFile(fname:string8;echo:boolean=false);

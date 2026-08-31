@@ -323,6 +323,45 @@ begin
   EndTest;
 end;
 
+procedure TestString8SplitOutsideQuotes;
+var s:String8; arr:Strings8;
+begin
+  StartTest('String8.SplitOutsideQuotes');
+  s:='a;b;c';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['a','b','c']),'no quotes');
+  // quotes are kept, the delimiter inside them is not a separator
+  s:='a;"b;c";d';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['a','"b;c"','d']),'quoted delimiter kept');
+  // unlike Split, a quote is special in the middle of a token too
+  s:='style="@btn; font: X;";visible=1';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['style="@btn; font: X;"','visible=1']),'mid-token quote');
+  // doubled quote inside a quoted span toggles twice = still quoted
+  s:='"a"";b";c';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['"a"";b"','c']),'doubled quote');
+  // unterminated quote swallows the rest of the string
+  s:='a;"b;c';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['a','"b;c']),'unterminated quote');
+  // custom quote char
+  s:='a;''b;c'';d';
+  arr:=s.SplitOutsideQuotes(';','''');
+  Check(SL(arr,['a','''b;c''','d']),'single quote char');
+  s:='';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['']),'empty string');
+  s:='hello';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['hello']),'no delimiter');
+  s:='a;';
+  arr:=s.SplitOutsideQuotes(';');
+  Check(SL(arr,['a','']),'trailing delimiter');
+  EndTest;
+end;
+
 procedure TestString8SplitEscaped;
 var
   s:String8;
@@ -1034,6 +1073,7 @@ begin
     TestString8Modify;
     TestString8SplitLines;
     TestString8Split;
+    TestString8SplitOutsideQuotes;
     TestString8SplitEscaped;
     TestString8Quote;
     TestString8Escape;
