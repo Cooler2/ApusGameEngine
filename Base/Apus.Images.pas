@@ -186,10 +186,14 @@ begin
    ipf4444:result:='4444';
    ipf565:result:='565';
    ipf555:result:='555';
+   ipf1bit:result:='1bit';
+   ipf4bit:result:='4bit';
    ipf8bit:result:='8bit';
+   ipfBGR:result:='BGR';
    ipfDXT1:result:='DXT1';
    ipfDXT2:result:='DXT2';
    ipfDXT3:result:='DXT3';
+   ipfDXT5:result:='DXT5';
    ipfPVRTC:result:='PVRTC';
    ipfABGR:result:='ABGR';
    ipfXBGR:result:='xBGR';
@@ -203,7 +207,10 @@ begin
    ipfMono16i:result:='Mono16i';
    ipfMono16s:result:='Mono16s';
    ipfMono32f:result:='Mono32f';
+   ipfDuo8:result:='Duo8';
    ipfDuo32f:result:='Duo32f';
+   ipfQuad32f:result:='Quad32f';
+   ipfDepth32f:result:='Depth32f';
    ipfL4A4:result:='L4A4';
   else
    result:='other('+Conv.ToStr(ord(ipf))+')';
@@ -350,7 +357,7 @@ begin
   ipfRGB: pitch:=(1+(w-1) div 4)*12;
   ipfXRGB,ipfARGB,ipfXBGR,ipfABGR: pitch:=(1+(w-1) div 2)*8;
   ipfDXT1: pitch:=w*8;
-  ipfDXT2,ipfDXT3: pitch:=w*16;
+  ipfDXT2,ipfDXT3,ipfDXT5: pitch:=w*16;
   else
    raise EError.Create('TBitmapImage.Create: unsupported pixel format '+PixFmt2Str(pf));
 end;

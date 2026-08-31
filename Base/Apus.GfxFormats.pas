@@ -22,7 +22,9 @@ interface
  threadvar
   imgInfo:TImageFileInfo; // info about last checked image
 
- // Guess image format and extract key image parameters into imgInfo without unpacking the whole image
+ // Guess image format and extract key image parameters into imgInfo without unpacking the whole image.
+ // imgInfo.format is the format the corresponding Loadxxx routine will produce, not necessarily the
+ // format the data is stored in (e.g. a 16-bit or 4-bit PNG is reported as an 8 bit per channel one)
  function CheckFileFormat(fname:string):TImageFileType;
  function CheckImageFormat(data:ByteArray):TImageFileType;
 
@@ -40,7 +42,7 @@ interface
  procedure LoadSTR(data:string8;var image:TRawImage);
  function SaveSTR(image:TRawImage):string8;
 
- // DirectDrawSurface
+ // DirectDrawSurface: DXT1/DXT3/DXT5 compressed surfaces only, mip levels are not loaded
  procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
 
  // Always allocates new image object
@@ -50,7 +52,11 @@ interface
  procedure LoadJPEG(data:ByteArray;var image:TRawImage);
  procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer);
 
- // PNG import using LodePNG (lodePNG.dll under Windows)
+ // PNG import using LodePNG (lodePNG.dll under Windows).
+ // Any color type and bit depth is accepted, but the result is always 8 bits per channel:
+ // 16-bit samples are downsampled, palette and sub-byte depths are expanded (no 16 bit support).
+ // Grayscale (color type 0) is loaded as ipfMono8, so its tRNS transparency (if any) is lost.
+ // Any other color type is loaded as 32-bit RGBA and converted to the target image format.
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
  function SavePNG(image:TRawImage):ByteArray;
 
@@ -115,7 +121,7 @@ type
   dwMipMapCount: DWORD;            // number of mip-map levels requested
   dwAlphaBitDepth: DWORD;          // depth of alpha buffer requested
   dwReserved: DWORD;               // reserved
-  lpSurface: Pointer;              // pointer to the associated surface memory
+  dwReserved1: DWORD;              // lpSurface in DDSURFACEDESC2, but always 4 bytes in a file (don't declare as a pointer!)
   ddckCKDestOverlay: TDDColorKey;  // color key for destination overlay use
   ddckCKDestBlt: TDDColorKey;      // color key for destination blt use
   ddckCKSrcOverlay: TDDColorKey;   // color key for source overlay use
@@ -769,7 +775,6 @@ function CheckFileFormat(fname:string):TImageFileType;
    pvr:^PVRheader;
    i,j:integer;
    fl:boolean;
-   bitdepth:byte;
   begin
    result:=ifUnknown;
    if length(data)=0 then exit;
@@ -786,21 +791,15 @@ function CheckFileFormat(fname:string):TImageFileType;
     for i:=4 to length(data)-20 do
      if data[i]=$49 then begin
       if (i+13<length(data)) and (data[i+1]=$48) and (data[i+2]=$44) and (data[i+3]=$52) then begin
-       imginfo.width:=data[i+7]+data[i+6]*256;
-       imginfo.height:=data[i+11]+data[i+10]*256;
-       bitDepth:=data[i+12];
-       if bitDepth=8 then
-        case data[i+13] of
-         0:imginfo.format:=ipfMono8;
-         2:imginfo.format:=ipfXRGB;
-         3:imginfo.format:=ipf8bit;
-         4:imginfo.format:=ipfDuo8;
-         6:imginfo.format:=ipfARGB;
-        end
-       else if bitDepth=16 then
-        case data[i+13] of
-         0:imginfo.format:=ipfMono16;
-        end;
+       imginfo.width:=(data[i+4] shl 24) or (data[i+5] shl 16) or (data[i+6] shl 8) or data[i+7];
+       imginfo.height:=(data[i+8] shl 24) or (data[i+9] shl 16) or (data[i+10] shl 8) or data[i+11];
+       // Report the format LoadPNG will actually produce, not the one stored in the file:
+       // the bit depth (data[i+12]) is irrelevant as any depth is converted to 8 bits per channel
+       case data[i+13] of // color type
+        0:imginfo.format:=ipfMono8;   // grayscale
+        2:imginfo.format:=ipfXRGB;    // truecolor
+        else imginfo.format:=ipfARGB; // palette (3), grayscale+alpha (4), truecolor+alpha (6)
+       end;
        break;
       end;
      end;
@@ -1267,7 +1266,9 @@ function CheckFileFormat(fname:string):TImageFileType;
    CheckImageFormat(data);
    {$IFDEF LODEPNG}
    // 2 modes supported: 8bpp for 1-channel images, 32bpp - for anything else
-   if imgInfo.format in [ipfA8,ipfMono8] then
+   // (the 8bpp mode writes raw bytes, so it can't be used for a target of a different format)
+   if (imgInfo.format in [ipfA8,ipfMono8]) and
+      ((image=nil) or (image.PixelFormat in [ipfA8,ipfMono8])) then
     LoadPNG8(data,image)
    else
     LoadPNG32(data,image);
