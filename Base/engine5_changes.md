@@ -966,3 +966,22 @@ Design: `Work/R-31_api_design.md`.
   `slIMixer`) still raises, as before.
 - Builds that need sound: CI and `demo\build_demo_fpc.cmd` pass `-dSDLMIX` for
   `SoundDemo`; the script's `snd` mode enables it for any demo.
+
+## 2026-08-31 — Files: the open mode is part of the function name
+
+- `Files.Open(fname,readOnly)` is replaced by four functions, in `IFileProvider`
+  as well: `OpenRead` (read-only, must exist), `Open` (read+write from position
+  0, created if missing), `OpenNew` (previous content discarded), `OpenAppend`
+  (read+write at the end, created if missing). Migration: `Open(f,true)` →
+  `OpenRead(f)`; `Open(f,false)` → `Open(f)` to keep the content, or `OpenNew(f)`
+  to replace it. A read-only provider only has to serve `OpenRead`.
+- Rationale: the boolean carried two different intentions for writers — "rewrite
+  this file" and "write into the existing one" — and the rewriting callers had
+  to remember to truncate afterwards. `Files.Save(String8)` with the default BOM
+  and `Files.CopyFile` didn't, so writing shorter content left a tail of the
+  previous one in the file. Both are fixed by opening with `OpenNew`, and the
+  compensating `SetSize` is gone from `Files.Save`.
+- `Files.WriteBlock` keeps its "write at an offset" meaning and no longer doubles
+  as a whole-file save: the three engine callers (robot `screenshot`,
+  `TWindow.CaptureFrame`, `ImageTools.SaveImage`) now use `Files.Save`, which
+  truncates. Saving a PNG over a longer one used to leave bytes past `IEND`.

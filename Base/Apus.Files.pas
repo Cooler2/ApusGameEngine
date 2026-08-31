@@ -64,7 +64,12 @@ type
     class procedure WriteBlock(const fname:String8; buf:pointer; size:integer; offset:int64=0); static;
 
     // --- Handle-based I/O ---
-    class function Open(const fname:String8; readOnly:boolean):TFileHandle; static;
+    // How the file is opened is part of the function name, so a call site can't
+    // silently mean something else:
+    class function OpenRead(const fname:String8):TFileHandle; static;   // read-only, must exist
+    class function Open(const fname:String8):TFileHandle; static;       // read+write from position 0, created if missing
+    class function OpenNew(const fname:String8):TFileHandle; static;    // read+write, previous content discarded
+    class function OpenAppend(const fname:String8):TFileHandle; static; // read+write at the end, created if missing
     class function Read(f:TFileHandle; buf:pointer; size:integer):integer; static;
     class procedure Close(f:TFileHandle); static;
     class function Write(f:TFileHandle; buf:pointer; size:integer):integer; static;
@@ -119,7 +124,11 @@ type
     function ListFiles(const path:String8; const mask:String8='*'):Strings8;
     function Map(const fname:String8; readOnly:boolean):TBuffer;
     procedure UnMap(fileData:TBuffer);
-    function Open(const fname:String8; readOnly:boolean):TFileHandle;
+    // See the Files.OpenXXX comments. A read-only provider (a pack file, say) only has
+    // to serve OpenRead and can delegate the writing ones to the fallback provider.
+    function OpenRead(const fname:String8):TFileHandle;
+    function Open(const fname:String8):TFileHandle;
+    function OpenNew(const fname:String8):TFileHandle;
     procedure Close(f:TFileHandle);
     function Read(f:TFileHandle; buf:pointer; size:integer):integer;
     function Seek(f:TFileHandle; offset:int64; origin:integer):int64;
@@ -148,7 +157,9 @@ type
     function ListFiles(const path:String8; const mask:String8='*'):Strings8;
     function Map(const fname:String8; readOnly:boolean):TBuffer;
     procedure UnMap(fileData:TBuffer);
-    function Open(const fname:String8; readOnly:boolean):TFileHandle;
+    function OpenRead(const fname:String8):TFileHandle;
+    function Open(const fname:String8):TFileHandle;
+    function OpenNew(const fname:String8):TFileHandle;
     procedure Close(f:TFileHandle);
     function Read(f:TFileHandle; buf:pointer; size:integer):integer;
     function Seek(f:TFileHandle; offset:int64; origin:integer):int64;
@@ -274,21 +285,33 @@ begin
   // TODO: memory-mapped files
 end;
 
-function TOSFileProvider.Open(const fname:String8; readOnly:boolean):TFileHandle;
-var
-  h:THandle;
+function CheckHandle(h:THandle; const fname:String8):TFileHandle;
 begin
-  if readOnly then
-    h:=SysUtils.FileOpen(string(fname),fmOpenRead or fmShareDenyNone)
-  else begin
-    if SysUtils.FileExists(string(fname)) then
-      h:=SysUtils.FileOpen(string(fname),fmOpenReadWrite or fmShareDenyWrite)
-    else
-      h:=SysUtils.FileCreate(string(fname));
-  end;
   if h=THandle(-1) then
     raise EError.Create('Cannot open file: '+string(fname));
   result:=HandleToFile(h);
+end;
+
+function TOSFileProvider.OpenRead(const fname:String8):TFileHandle;
+begin
+  result:=CheckHandle(SysUtils.FileOpen(string(fname),fmOpenRead or fmShareDenyNone),fname);
+end;
+
+function TOSFileProvider.Open(const fname:String8):TFileHandle;
+var
+  h:THandle;
+begin
+  if SysUtils.FileExists(string(fname)) then
+    h:=SysUtils.FileOpen(string(fname),fmOpenReadWrite or fmShareDenyWrite)
+  else
+    h:=SysUtils.FileCreate(string(fname));
+  result:=CheckHandle(h,fname);
+end;
+
+function TOSFileProvider.OpenNew(const fname:String8):TFileHandle;
+begin
+  // FileCreate truncates an existing file, so nothing of the old content survives
+  result:=CheckHandle(SysUtils.FileCreate(string(fname)),fname);
 end;
 
 procedure TOSFileProvider.Close(f:TFileHandle);
@@ -347,9 +370,26 @@ begin
   result:=fileSystem.GetFileInfo(fname,info);
 end;
 
-class function Files.Open(const fname:String8; readOnly:boolean):TFileHandle;
+class function Files.OpenRead(const fname:String8):TFileHandle;
 begin
-  result:=fileSystem.Open(fname,readOnly);
+  result:=fileSystem.OpenRead(fname);
+end;
+
+class function Files.Open(const fname:String8):TFileHandle;
+begin
+  result:=fileSystem.Open(fname);
+end;
+
+class function Files.OpenNew(const fname:String8):TFileHandle;
+begin
+  result:=fileSystem.OpenNew(fname);
+end;
+
+class function Files.OpenAppend(const fname:String8):TFileHandle;
+begin
+  // Position only: this is not the atomic O_APPEND mode, concurrent writers can still overlap
+  result:=fileSystem.Open(fname);
+  fileSystem.Seek(result,0,2); // 2 = from the end
 end;
 
 class procedure Files.Close(f:TFileHandle);
@@ -414,7 +454,7 @@ var
   f:TFileHandle;
   size,toRead:int64;
 begin
-  f:=fileSystem.Open(fname,true);
+  f:=fileSystem.OpenRead(fname);
   try
     size:=fileSystem.FileSize(f);
     if startFrom>size then startFrom:=size;
@@ -452,11 +492,10 @@ class procedure Files.Save(const fname:String8; buf:pointer; size:integer);
 var
   f:TFileHandle;
 begin
-  f:=fileSystem.Open(fname,false);
+  f:=fileSystem.OpenNew(fname);
   try
     if (buf<>nil) and (size>0) then
       fileSystem.Write(f,buf,size);
-    fileSystem.SetSize(f,size);
   finally
     fileSystem.Close(f);
   end;
@@ -481,12 +520,14 @@ begin
     exit;
   end;
   if addBOM and not UTF8.HasBOM(data) then begin
-    f:=Open(fname,false);
-    f.WriteMem(@BOM,3);
-    f.WriteMem(@data[1],length(data));
-    f.Close;
+    f:=OpenNew(fname);
+    try
+      f.WriteMem(@BOM,3);
+      f.WriteMem(@data[1],length(data));
+    finally
+      f.Close;
+    end;
   end else
-  if length(data)>0 then
     Save(fname,@data[1],length(data));
 end;
 
@@ -501,7 +542,7 @@ class procedure Files.ReadBlock(const fname:String8; buf:pointer; size:integer; 
 var
   f:TFileHandle;
 begin
-  f:=fileSystem.Open(fname,true);
+  f:=fileSystem.OpenRead(fname);
   try
     if offset>0 then
       fileSystem.Seek(f,offset,0);
@@ -516,7 +557,7 @@ class procedure Files.WriteBlock(const fname:String8; buf:pointer; size:integer;
 var
   f:TFileHandle;
 begin
-  f:=fileSystem.Open(fname,false);
+  f:=fileSystem.Open(fname);
   try
     if offset>0 then
       fileSystem.Seek(f,offset,0);
@@ -537,9 +578,9 @@ var
 begin
   result:=true;
   try
-    src:=fileSystem.Open(sour,true);
+    src:=fileSystem.OpenRead(sour);
     try
-      dst:=fileSystem.Open(dest,false);
+      dst:=fileSystem.OpenNew(dest);
       try
         repeat
           n:=fileSystem.Read(src,@buf[0],sizeof(buf));

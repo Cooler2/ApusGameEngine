@@ -105,7 +105,7 @@ var
 begin
   StartTest('Handle I/O');
   // write
-  f:=Files.Open(TestDir+'/handle.bin',false);
+  f:=Files.OpenNew(TestDir+'/handle.bin');
   buf[0]:=$11; buf[1]:=$22; buf[2]:=$33; buf[3]:=$44;
   f.Write(buf,4);
   Check(Files.Position(f)=4,'position after write');
@@ -113,7 +113,7 @@ begin
   f.Close;
 
   // read
-  f:=Files.Open(TestDir+'/handle.bin',true);
+  f:=Files.OpenRead(TestDir+'/handle.bin');
   Mem.Clear(buf,4);
   n:=f.Read(buf,4);
   Check(n=4,'read 4 bytes');
@@ -128,16 +128,98 @@ begin
 
   // write/read pointer value itself (not pointed data)
   ptrIn:=pointer(UIntPtr($12345678));
-  f:=Files.Open(TestDir+'/handle_ptr.bin',false);
+  f:=Files.OpenNew(TestDir+'/handle_ptr.bin');
   f.Write(ptrIn,sizeof(ptrIn));
   f.Close;
   ptrOut:=nil;
-  f:=Files.Open(TestDir+'/handle_ptr.bin',true);
+  f:=Files.OpenRead(TestDir+'/handle_ptr.bin');
   n:=f.Read(ptrOut,sizeof(ptrOut));
   f.Close;
   Check(n=sizeof(ptrOut),'read pointer-sized bytes');
   Check(ptrOut=ptrIn,'pointer value roundtrip');
 
+  EndTest;
+end;
+
+// Writing a file must leave nothing of what was there before
+procedure TestOverwrite;
+var
+  f:TFileHandle;
+  b:byte;
+begin
+  StartTest('Overwrite');
+  // Save(String8) with the default BOM
+  Files.Save(TestDir+'/ovr1.txt','a very long line of text');
+  Files.Save(TestDir+'/ovr1.txt','short');
+  Check(Files.LoadAsString(TestDir+'/ovr1.txt')='short','Save(String8) with BOM truncates');
+
+  // Save(String8) without BOM
+  Files.Save(TestDir+'/ovr2.txt','a very long line of text',false);
+  Files.Save(TestDir+'/ovr2.txt','short',false);
+  Check(Files.LoadAsString(TestDir+'/ovr2.txt')='short','Save(String8) raw truncates');
+
+  // CopyFile over a longer file
+  Files.Save(TestDir+'/ovr_src.txt','tiny',false);
+  Files.Save(TestDir+'/ovr_dst.txt','a very long line of text',false);
+  Files.CopyFile(TestDir+'/ovr_src.txt',TestDir+'/ovr_dst.txt');
+  Check(Files.LoadAsString(TestDir+'/ovr_dst.txt')='tiny','CopyFile truncates');
+
+  // OpenNew discards the old content
+  Files.Save(TestDir+'/ovr3.txt','a very long line of text',false);
+  f:=Files.OpenNew(TestDir+'/ovr3.txt');
+  Check(Files.FileSize(f)=0,'OpenNew starts empty');
+  f.Close;
+
+  // ...while Open keeps it and writes from the start
+  Files.Save(TestDir+'/ovr4.txt','ABCDEFGH',false);
+  f:=Files.Open(TestDir+'/ovr4.txt');
+  b:=ord('X');
+  f.Write(b,1);
+  f.Close;
+  Check(Files.LoadAsString(TestDir+'/ovr4.txt')='XBCDEFGH','Open writes from position 0');
+
+  // WriteBlock at an offset must not truncate either
+  Files.Save(TestDir+'/ovr5.txt','ABCDEFGH',false);
+  b:=ord('Z');
+  Files.WriteBlock(TestDir+'/ovr5.txt',@b,1,2);
+  Check(Files.LoadAsString(TestDir+'/ovr5.txt')='ABZDEFGH','WriteBlock keeps the rest');
+  EndTest;
+end;
+
+procedure TestOpenModes;
+var
+  f:TFileHandle;
+  failed:boolean;
+begin
+  StartTest('Open modes');
+  // OpenAppend: position at the end, file created when missing
+  Files.Save(TestDir+'/app.txt','AB',false);
+  f:=Files.OpenAppend(TestDir+'/app.txt');
+  Check(Files.Position(f)=2,'OpenAppend starts at the end');
+  f.WriteMem(pointer(PAnsiChar('CD')),2);
+  f.Close;
+  Check(Files.LoadAsString(TestDir+'/app.txt')='ABCD','OpenAppend adds to the end');
+
+  Files.Delete(TestDir+'/app_new.txt');
+  f:=Files.OpenAppend(TestDir+'/app_new.txt');
+  f.Close;
+  Check(Files.Exists(TestDir+'/app_new.txt'),'OpenAppend creates a missing file');
+
+  // Open creates a missing file too
+  Files.Delete(TestDir+'/open_new.txt');
+  f:=Files.Open(TestDir+'/open_new.txt');
+  f.Close;
+  Check(Files.Exists(TestDir+'/open_new.txt'),'Open creates a missing file');
+
+  // OpenRead requires an existing one
+  failed:=false;
+  try
+    f:=Files.OpenRead(TestDir+'/no_such_file.txt');
+    f.Close;
+  except
+    failed:=true;
+  end;
+  Check(failed,'OpenRead fails on a missing file');
   EndTest;
 end;
 
@@ -295,6 +377,8 @@ begin
     TestPartialRead;
     TestBlockIO;
     TestHandleIO;
+    TestOverwrite;
+    TestOpenModes;
     TestFileOps;
     TestGetFileInfo;
     TestFolderOps;
