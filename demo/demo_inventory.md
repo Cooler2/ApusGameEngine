@@ -1,12 +1,40 @@
 ﻿# Demo Inventory
 
-Date: 2026-03-20
+Date: 2026-03-20 (last revised 2026-08-31)
 
 Relevance categories:
 - `engine5` - active and maintained demo path for the current engine5 branch.
 - `engine4` - working demo on the older stack (partly using old modules/API).
 - `legacy` - historical testbed, mainly useful as reference/archive.
 - `scaffold` - incomplete demo or project template skeleton.
+
+## Build status (FPC 3.2.2, Win64, 2026-08-31)
+
+Checked with `demo\build_demo_fpc.cmd <Name>` for every demo whose project file
+matches its folder name, plus `01-Scenes` and `EngineTest` by hand. Relevance
+above says how current a demo is *meant* to be; this table says whether it
+compiles today.
+
+Builds (18): `Draw2D`, `InputDemo`, `MeshLab`, `MultiWindow`, `Networking`,
+`NormalMap`, `ProjectTemplate`, `ShadowMap`, `Simple3D`, `SimpleDemo`,
+`SoundDemo`, `StyleDemo`, `TextDemo`, `TouchDemo`, `Tweenings`, `UI`, `UILab`,
+`VertexBuffer`.
+
+Broken (11):
+
+| Demo | Blocker |
+|---|---|
+| `01-Scenes` | UI API drift: `TUIElement.Create` arity, `TElementShape` is gone |
+| `AdvTex` | uses the retired `Apus.Common` |
+| `Billboards` | uses the retired `Apus.CrossPlatform` |
+| `Borderless` | uses the retired `Apus.CrossPlatform` |
+| `CharAnimation` | blocked by the engine, not the demo: `Apus.Engine.Model3D` still uses `Apus.Common` |
+| `ControllerDemo` | uses the retired `Apus.Common` |
+| `EngineTest` | uses the retired `Apus.Common` (legacy demo) |
+| `NinePatch` | uses the retired `Apus.Common` |
+| `Particles` | uses the retired `Apus.Common` |
+| `Shaders` | uses the retired `Apus.CrossPlatform` |
+| `UIScaleDPI` | `TUIScrollBar.Link` now takes a `TUIScrollable`; the demo passes a plain `TUIElement` |
 
 ## 1. Core Validation Demos (highest priority)
 
@@ -47,14 +75,14 @@ Relevance categories:
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
 | `ControllerDemo` | Gamepad/joystick input, SDL platform path, UI navigation from controller. | `engine4` |
-| `SoundDemo` | Console audio-system check (backend selection, music/samples, SOUND signals). | `engine4` |
+| `SoundDemo` | Console audio-system check (backend selection, music/samples, SOUND signals). Migrated to the foundation API in R-28; script mode runs headless in CI. Audio backends are opt-in, so it builds with `-dSDLMIX`. | `engine5` |
 
 ## 5. Incomplete / Transitional / Historical (lowest priority)
 
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
 | `MultiWindow` | Multi-window support (R-02): main window + tool windows, `AddWindow`/window-scene flow. | `engine5` |
-| `ProjectTemplate` | Minimal starter project skeleton (window + simple scene + Exit button). | `scaffold` |
+| `ProjectTemplate` | Minimal starter project skeleton (window + simple scene + Exit button). Updated 2026-08-31: current API, R-31 surface presets, Lazarus project added. | `engine5` |
 | `EngineTest` | Large old set of manual graphics/resource tests (many modes, includes deprecated API paths). | `legacy` |
 
 ## Classification notes
@@ -62,4 +90,4 @@ Relevance categories:
 - `engine5` status was assigned to demos explicitly tracked as active in `Work/engine_work_ahead.md` (for example `SimpleDemo`, `01-Scenes`, `VertexBuffer`, `MultiWindow`, `UIScaleDPI`) and/or used as current test vehicles.
 - Most remaining demos still sit on older API layers (`Apus.Common`, `Apus.CrossPlatform`) and were marked `engine4`.
 - `EngineTest` is marked `legacy` because it is a historical monolithic test program with deprecated branches.
-- `ProjectTemplate` is marked `scaffold` due to its template/incomplete functional scope.
+- `ProjectTemplate` is deliberately minimal (a copy-and-go skeleton, not a feature showcase), but it is kept on the current API and must compile at all times - it is the first thing a new project is copied from.

@@ -1,9 +1,8 @@
 program ProjectTemplate;
+{$APPTYPE GUI}
  uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   ProjectTemplateApp in 'ProjectTemplateApp.pas';
-
-{$R *.res}
 
 begin
  application:=TMainApp.Create;
