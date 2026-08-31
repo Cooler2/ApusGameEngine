@@ -1,7 +1,7 @@
 program Scenes;
  uses {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
    Apus.Core, SysUtils, Types, Apus.EventMan, Apus.Engine.API,
-   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
+   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI, Apus.Engine.UIShapes,
    Apus.Engine.SceneEffects, Apus.Engine.UIRender;
 
  type
@@ -84,21 +84,21 @@ constructor TSceneA.Create;
  begin
   inherited Create('SceneA');
   // Create a button
-  TUIButton.Create(250,50,'SceneA\Btn1','Switch to the SceneB',mainFont,ui).
+  TUIButton.Create(250,50,ui,'SceneA\Btn1').Setup('Switch to the SceneB').
    SetPos(ui.clientWidth/2, ui.clientHeight*0.3, pivotCenter);
   // This signal is emited when button is clicked (pressed and released)
   Link('UI\SceneA\Btn1\Click','Logic\SwitchToSceneB');
 
   // Few more buttons
-  TUIButton.Create(250,50,'SceneA\BtnShow1','Show Window (shadow)',mainFont,ui).
+  TUIButton.Create(250,50,ui,'SceneA\BtnShow1').Setup('Show Window (shadow)').
    SetPos(ui.clientWidth/2, ui.clientHeight*0.4, pivotCenter);
   Link('UI\SceneA\BtnShow1\Click','Logic\ShowWindowWithShadow');
 
-  TUIButton.Create(250,50,'SceneA\BtnShow2','Show Window (blur)',mainFont,ui).
+  TUIButton.Create(250,50,ui,'SceneA\BtnShow2').Setup('Show Window (blur)').
    SetPos(ui.clientWidth/2, ui.clientHeight*0.5, pivotCenter);
   Link('UI\SceneA\BtnShow2\Click','Logic\ShowWindowWithBlur');
 
-  TUIButton.Create(250,50,'SceneA\BtnAsk','Exit?',mainFont,ui).
+  TUIButton.Create(250,50,ui,'SceneA\BtnAsk').Setup('Exit?').
    SetPos(ui.clientWidth/2, ui.clientHeight*0.6, pivotCenter);
   Link('UI\SceneA\BtnAsk\Click','Logic\AskExit');
  end;
@@ -119,7 +119,7 @@ procedure TSceneA.Render;
 constructor TSceneB.Create;
  begin
   inherited Create('SceneB');
-  TUIButton.Create(250,50,'SceneB\Btn1','Switch to the SceneA',mainFont,ui).
+  TUIButton.Create(250,50,ui,'SceneB\Btn1').Setup('Switch to the SceneA').
    SetPos(ui.clientWidth/2, ui.clientHeight*0.45, pivotCenter);
   // Alternate signal emited when a button is pressed
   Link('UI\onButtonClick\SceneB\Btn1','Logic\SwitchToSceneA');
@@ -140,8 +140,8 @@ constructor TSceneW.Create;
   zOrder:=100; // Important: it should be above other scenes
   c:=TUIElement.Create(300,140,ui,'SceneW\Frame');
   c.SetPos(ui.clientWidth/2,ui.clientHeight*0.6, pivotCenter);
-  c.shape:=TElementShape.shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
-  TUIButton.Create(100,40,'SceneW\Btn1','Close',mainFont,c).
+  c.shape:=shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
+  TUIButton.Create(100,40,c,'SceneW\Btn1').Setup('Close').
    SetPos(c.clientWidth/2, c.clientHeight*0.5, pivotCenter);
   Link('UI\onButtonClick\SceneW\Btn1','Logic\CloseWindow');
  end;
@@ -150,7 +150,7 @@ procedure TSceneW.Render;
  var
   r:TRect;
  begin
-  r:=FindControl('SceneW\Frame').GetPosOnScreen; // don't use globalRect for items in a windowed scene!
+  r:=FindElement('SceneW\Frame').GetPosOnScreen; // don't use globalRect for items in a windowed scene!
   BackgroundRenderBegin; // needed ONLY because background drawn below has semi-transparent parts
   draw.FillRect(r.left,r.top,r.right-1,r.bottom-1,$A0B0D0D0); // <-- semi-transparent color used
   draw.Rect(r.left,r.top,r.right-1,r.bottom-1,$FF000000);

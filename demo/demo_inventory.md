@@ -15,16 +15,15 @@ matches its folder name, plus `01-Scenes` and `EngineTest` by hand. Relevance
 above says how current a demo is *meant* to be; this table says whether it
 compiles today.
 
-Builds (18): `Draw2D`, `InputDemo`, `MeshLab`, `MultiWindow`, `Networking`,
-`NormalMap`, `ProjectTemplate`, `ShadowMap`, `Simple3D`, `SimpleDemo`,
-`SoundDemo`, `StyleDemo`, `TextDemo`, `TouchDemo`, `Tweenings`, `UI`, `UILab`,
-`VertexBuffer`.
+Builds (20): `01-Scenes`, `Draw2D`, `InputDemo`, `MeshLab`, `MultiWindow`,
+`Networking`, `NormalMap`, `ProjectTemplate`, `ShadowMap`, `Simple3D`,
+`SimpleDemo`, `SoundDemo`, `StyleDemo`, `TextDemo`, `TouchDemo`, `Tweenings`,
+`UI`, `UIScaleDPI`, `UILab`, `VertexBuffer`.
 
-Broken (11):
+Broken (9) - all of them still sit on the retired foundation modules:
 
 | Demo | Blocker |
 |---|---|
-| `01-Scenes` | UI API drift: `TUIElement.Create` arity, `TElementShape` is gone |
 | `AdvTex` | uses the retired `Apus.Common` |
 | `Billboards` | uses the retired `Apus.CrossPlatform` |
 | `Borderless` | uses the retired `Apus.CrossPlatform` |
@@ -34,7 +33,6 @@ Broken (11):
 | `NinePatch` | uses the retired `Apus.Common` |
 | `Particles` | uses the retired `Apus.Common` |
 | `Shaders` | uses the retired `Apus.CrossPlatform` |
-| `UIScaleDPI` | `TUIScrollBar.Link` now takes a `TUIScrollable`; the demo passes a plain `TUIElement` |
 
 ## 1. Core Validation Demos (highest priority)
 
