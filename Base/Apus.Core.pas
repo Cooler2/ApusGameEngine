@@ -17,6 +17,7 @@
 
 {$I defines.inc}
 unit Apus.Core;
+{$Q-} // overflow checks off: bit tricks like NextPow2 rely on unsigned wraparound
 interface
 uses SysUtils, Types;
 

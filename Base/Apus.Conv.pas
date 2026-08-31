@@ -17,6 +17,7 @@
 {$I defines.inc}
 
 unit Apus.Conv;
+{$Q-} // overflow checks off: integer conversions rely on two's complement wraparound
 interface
 uses Apus.Core;
 

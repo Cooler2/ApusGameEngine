@@ -17,6 +17,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.GpuLayout;
+{$Q-} // overflow checks off: the FNV layout hash relies on unsigned wraparound
 interface
 uses Apus.Core, Apus.Threads;
 

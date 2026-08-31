@@ -18,6 +18,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {$I defines.inc}
 unit Apus.Strings;
+{$Q-} // overflow checks off: hash functions rely on unsigned wraparound
 interface
 uses Apus.Core;
 
