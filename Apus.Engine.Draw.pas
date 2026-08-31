@@ -201,7 +201,7 @@ uses Apus.Core, Apus.Lib,
    '   float delta = texture(depthTex,depthUV).r-gl_FragCoord.z; '#13#10+
    '   alpha = smoothstep(0.0,softRange,delta); '#13#10+
    ' } '#13#10+
-   ' fragColor = texture(tex0,uv)*vColor*vec4(2.0,2.0,2.0,alpha);'#13#10+
+   ' fragColor = texture(tex0,uv)*vColor*vec4(vec3(255.0/128.0),alpha);'#13#10+
    ' if (fragColor.a<0.01) discard;'#13#10+
    '}';
 

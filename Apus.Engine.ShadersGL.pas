@@ -562,7 +562,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
      case colorMode of
       ord(tblReplace)    : AddLine(result,'   c = vec3(t.r, t.g, t.b);');
       ord(tblModulate)   : AddLine(result,'   c = c*vec3(t.r, t.g, t.b);');
-      ord(tblModulate2x) : AddLine(result,'   c = 2.0*c*vec3(t.r, t.g, t.b);');
+      ord(tblModulate2x) : AddLine(result,'   c = (255.0/128.0)*c*vec3(t.r, t.g, t.b);'); // 255/128 makes the neutral 128 level an exact 1.0 gain
       ord(tblAdd)        : AddLine(result,'   c = c+vec3(t.r, t.g, t.b);');
       ord(tblSub)        : AddLine(result,'   c = c-vec3(t.r, t.g, t.b);');
       ord(tblInterpolate): AddLine(result,'   c = mix(c, vec3(t.r, t.g, t.b), uFactor); ');
@@ -570,7 +570,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
      case alphaMode of
       ord(tblReplace)    : AddLine(result,'   a = t.a; ');
       ord(tblModulate)   : AddLine(result,'   a = a*t.a; ');
-      ord(tblModulate2x) : AddLine(result,'   a = 2.0*a*t.a; ');
+      ord(tblModulate2x) : AddLine(result,'   a = (255.0/128.0)*a*t.a; ');
       ord(tblAdd)        : AddLine(result,'   a = a+t.a; ');
       ord(tblSub)        : AddLine(result,'   a = a-t.a; ');
       ord(tblInterpolate): AddLine(result,'   a = mix(a, t.a, uFactor); ');
