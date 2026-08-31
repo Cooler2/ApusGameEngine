@@ -15,16 +15,15 @@ matches its folder name, plus `01-Scenes` and `EngineTest` by hand. Relevance
 above says how current a demo is *meant* to be; this table says whether it
 compiles today.
 
-Builds (20): `01-Scenes`, `Draw2D`, `InputDemo`, `MeshLab`, `MultiWindow`,
+Builds (21): `01-Scenes`, `AdvTex`, `Draw2D`, `InputDemo`, `MeshLab`, `MultiWindow`,
 `Networking`, `NormalMap`, `ProjectTemplate`, `ShadowMap`, `Simple3D`,
 `SimpleDemo`, `SoundDemo`, `StyleDemo`, `TextDemo`, `TouchDemo`, `Tweenings`,
 `UI`, `UIScaleDPI`, `UILab`, `VertexBuffer`.
 
-Broken (9) - all of them still sit on the retired foundation modules:
+Broken (8) - all of them still sit on the retired foundation modules:
 
 | Demo | Blocker |
 |---|---|
-| `AdvTex` | uses the retired `Apus.Common` |
 | `Billboards` | uses the retired `Apus.CrossPlatform` |
 | `Borderless` | uses the retired `Apus.CrossPlatform` |
 | `CharAnimation` | blocked by the engine, not the demo: `Apus.Engine.Model3D` still uses `Apus.Common` |
@@ -63,7 +62,7 @@ Broken (9) - all of them still sit on the retired foundation modules:
 |---|---|---|
 | `Particles` | Particle scenarios (basic/galaxy/soft), 2D/3D particles and effects. | `engine4` |
 | `Shaders` | Shader rendering checks (including round-rect/custom shader snippets). | `engine4` |
-| `AdvTex` | Advanced texturing: texture array, manual mip levels, direct texture access, shader path. | `engine4` |
+| `AdvTex` | Texture assets: manual mip levels under the three filters, texture array with a custom shader, compressed texture from DDS (S3TC), direct upload/fill. Migrated to the foundation API in B-10; declares a fixed canvas and self-checks the direct-access panel by reading the frame back. | `engine5` |
 | `Billboards` | 3D billboards, camera/zoom behavior, sprite rendering in 3D space. | `engine4` |
 | `CharAnimation` | Loading/rendering animated character (`IQM`), basic 3D character pipeline. | `engine4` |
 | `ShadowMap` | 3D scene with shadow map pass, custom shader files, and OBJ geometry loaded through the engine5 `TGpuMesh` path. | `engine5` |
