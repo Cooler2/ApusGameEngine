@@ -279,8 +279,8 @@ implementation
   begin
    context:=element.styleContext as TContext;
 
-   col:=element.GetStyleColor('col',$FF808080);
-   captionColor:=element.GetStyleColor('text-color',col);
+   col:=element.GetStyleColor('border-color',$FF808080); // box outline
+   captionColor:=element.GetStyleColor('color',col);
    font:=StyleFont(element);
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
@@ -290,7 +290,7 @@ implementation
    //
    inTransition:=context.active.IsAnimating(window.frameStartMs);
    if element.classType=TUICheckBox then begin
-    vColor:=element.GetStyleColor('tick-col',Color.Add(col,$808080));
+    vColor:=element.GetStyleColor('tick-color',Color.Add(col,$808080));
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,col,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
@@ -327,7 +327,7 @@ implementation
        v:=size*(0.24+tt*0.2);
       end;
      end;
-     vColor:=Color.Scale(element.GetStyleColor('tick-col',col),alpha);
+     vColor:=Color.Scale(element.GetStyleColor('tick-color',col),alpha);
      draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,vColor,vColor);
     end;
    end;
@@ -355,12 +355,12 @@ implementation
       av:=context.active.Value;
       dv:=context.disabled.Value;
 
-      // background color: base → hover → pressed (layered)
-      baseC:=control.GetBaseStyleColor('color',defaultBtnColor);
-      c:=Color.Mix(baseC,control.style.GetStateColor('hover','color',Color.Add(baseC,$101010)),hv);
-      c:=Color.Mix(c,control.style.GetStateColor('pressed','color',Color.Sub(baseC,$282020)),av);
+      // box color ('fill'): base → hover → pressed (layered)
+      baseC:=control.GetBaseStyleColor('fill',defaultBtnColor);
+      c:=Color.Mix(baseC,control.style.GetStateColor('hover','fill',Color.Add(baseC,$101010)),hv);
+      c:=Color.Mix(c,control.style.GetStateColor('pressed','fill',Color.Sub(baseC,$282020)),av);
       if dv>0 then
-       c:=Color.Mix(c,control.style.GetStateColor('disabled','color',Color.Mix(baseC,$FFA0A0A0,128)),dv);
+       c:=Color.Mix(c,control.style.GetStateColor('disabled','fill',Color.Mix(baseC,$FFA0A0A0,128)),dv);
 
       d:=round(av);
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,Color.Add(c,$303030),Color.Sub(c,$303030),true);
@@ -386,10 +386,10 @@ implementation
       // caption
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       textBaseC:=control.GetBaseStyleColor('text-color',clBlack);
-       c:=Color.Mix(textBaseC,control.style.GetStateColor('hover','text-color',$FF300000),hv);
+       textBaseC:=control.GetBaseStyleColor('color',clBlack);
+       c:=Color.Mix(textBaseC,control.style.GetStateColor('hover','color',$FF300000),hv);
        if dv>0 then
-        c:=Color.Mix(c,control.style.GetStateColor('disabled','text-color',$80000000),dv);
+        c:=Color.Mix(c,control.style.GetStateColor('disabled','color',$80000000),dv);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=Str32(caption);
        if dv<1 then
@@ -408,8 +408,8 @@ implementation
    c1,c2:cardinal;
    i:integer;
   begin
-   c1:=control.GetStyleColor('color',clBlack);
-   c2:=control.GetStyleColor('color-dark',0);
+   c1:=control.GetStyleColor('border-color',clBlack);
+   c2:=control.GetStyleColor('border-dark',0); // 0 = flat frame
    for i:=0 to round(control.padding.Left)-1 do begin
     if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
@@ -453,7 +453,7 @@ implementation
       end else
        raise EWarning.Create('Unsupported image SRC type: '+src);
       if tex<>nil then begin
-       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('color',clWhite));
+       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('tint',clWhite));
       end;
      end;
     end;
@@ -467,10 +467,12 @@ implementation
    col:cardinal;
    font:TFontHandle;
   begin
-   col:=element.GetStyleColor('color',element.GetStyleColor('col',$FFB0B0C0));
+   col:=element.GetStyleColor('fill',$FFB0B0C0);
    font:=StyleFont(element);
    with element do begin
-    draw.FillRect(x1,y1,x2,y2,col);
+    // body: the common box path already drew 'fill' when the style defines it;
+    // draw the default body only for a style without 'fill' (avoids double blending)
+    if element.GetStyleValue('fill')='' then draw.FillRect(x1,y1,x2,y2,col);
     if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
     c:=Color.Mix(col,c,128);
@@ -513,8 +515,8 @@ implementation
 
    // Draw
    context:=TContext(element.styleContext);
-   sStyle:=element.GetStyleValue('style','flat');
-   col:=element.GetStyleColor('col',$FFA8B0BC);
+   sStyle:=element.GetStyleValue('variant','flat');
+   col:=element.GetStyleColor('color',$FFA8B0BC); // slider color
    scale:=element.globalScale;
 
    if SameText(sStyle,'flat') then begin
@@ -523,8 +525,8 @@ implementation
     sliderWidth:=element.GetStyleNumber('slider-width',0.9);
     sliderRadius:=element.GetStyleNumber('radius',0)*width*sliderWidth;
     // Draw track
-    trackColor:=element.GetBaseStyleColor('track-col',Color.Scale(col,0.5));
-    trackColor:=Color.Mix(trackColor,element.style.GetStateColor('hover','track-col',trackColor),context.hover.Value);
+    trackColor:=element.GetBaseStyleColor('track-color',Color.Scale(col,0.5));
+    trackColor:=Color.Mix(trackColor,element.style.GetStateColor('hover','track-color',trackColor),context.hover.Value);
     r.Init(x1,y1,x2,y2);
     f:=(1-trackWidth)/2;
     if element.horizontal then begin
@@ -553,9 +555,9 @@ implementation
      end;
      // col
      if hooked=element then
-      col:=element.GetStyleColor('active-col',Color.Add(col,$404040)) // pressed/dragging
+      col:=element.GetStyleColor('active-color',Color.Add(col,$404040)) // pressed/dragging
      else if element.sliderUnder then
-      col:=element.style.GetStateColor('hover','col',Color.Add(col,$202020)); // hover col
+      col:=element.style.GetStateColor('hover','color',Color.Add(col,$202020)); // hover col
      if sliderRadius=0 then
       draw.FillRect(r.left,r.top,r.right,r.bottom,col)
      else begin
@@ -629,7 +631,7 @@ implementation
    col:cardinal;
   begin
    font:=StyleFont(control);
-   col:=control.GetStyleColor('col',$FF202020);
+   col:=control.GetStyleColor('color',$FF202020);
    with control do begin
     wst:=realtext;
     if password then begin
@@ -792,7 +794,6 @@ implementation
    var
     i,bw:integer;
    begin
-     if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.GetStyleColor('color',clDefault);
     if radius>1 then begin
      if outerBorder then begin
       if fillColor<>0 then
@@ -846,7 +847,7 @@ implementation
    // Inner (client) block
    outerBorder:=false;
    fillColor:=element.GetBaseStyleColor('inner-fill');
-   borderColor:=element.GetBaseStyleColor('inner-border');
+   borderColor:=element.GetBaseStyleColor('inner-border-color');
    radius:=element.GetBaseStyleNumber('inner-radius',radius);
    bWidth:=element.GetBaseStyleNumber('inner-border-width',bWidth);
    if (fillColor<>0) or (borderColor<>0) then begin
@@ -863,7 +864,10 @@ implementation
   begin
    context:=PrepareContext(element);
    context.Update(element);
-   DrawCommonStyle(element,context,element is TUIListBox);
+   // Plain/toggle buttons own their box (fill+bevel) — skipping the common box path
+   // avoids double-blending translucent fills. Unifying both is the B-16 box-path step.
+   if not ((element.ClassType=TUIButton) or (element is TUIToggleButton)) or (element is TUICheckbox) then
+    DrawCommonStyle(element,context,element is TUIListBox);
 
    with element.globalrect do begin
     x1:=Left; x2:=right-1;
@@ -958,9 +962,9 @@ procedure TContext.Update(element:TUIElement);
   v:=HoverState(element);
   if hover.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
-   duration:=element.GetStyleInt('hoverTime',duration);
-   if v=1 then duration:=element.GetStyleInt('hoverTimeUp',duration)
-    else duration:=element.GetStyleInt('hoverTimeDown',duration);
+   duration:=element.GetStyleInt('hover-time',duration);
+   if v=1 then duration:=element.GetStyleInt('hover-time-in',duration)
+    else duration:=element.GetStyleInt('hover-time-out',duration);
    hover.Animate(v,duration);
   end;
   // sync hover state to element.style for CSS :hover blocks
@@ -974,8 +978,8 @@ procedure TContext.Update(element:TUIElement);
    if TUIToggleButton(element).toggled then v:=1;
   if active.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80;
-   duration:=element.GetStyleInt('pressTime',duration);
-   if v=0 then duration:=element.GetStyleInt('releaseTime',duration);
+   duration:=element.GetStyleInt('press-time',duration);
+   if v=0 then duration:=element.GetStyleInt('release-time',duration);
    active.Animate(v,duration);
   end;
   // sync pressed/toggled state
@@ -984,8 +988,8 @@ procedure TContext.Update(element:TUIElement);
   // Disabled state
   if element.IsEnabled then v:=0 else v:=1;
   if disabled.FinalValue<>v then begin
-   duration:=element.GetStyleInt('disableTime',0);
-   if v=0 then duration:=element.GetStyleInt('enableTime',duration);
+   duration:=element.GetStyleInt('disable-time',0);
+   if v=0 then duration:=element.GetStyleInt('enable-time',duration);
    disabled.Animate(v,duration);
   end;
   // sync disabled state
@@ -997,7 +1001,7 @@ function TContext.HoverState(element:TUIElement):byte;
   hoverEl:TUIElement;
  begin
   hoverEl:=element;
-  if SameText(element.GetStyleValue('hover'),'parent') and (element.parent<>nil) then
+  if SameText(element.GetStyleValue('hover-target'),'parent') and (element.parent<>nil) then
    hoverEl:=element.parent;
   if (underMouse=hoverEl) or hoverEl.HasChild(underMouse) then result:=1
    else result:=0;
@@ -1005,6 +1009,6 @@ function TContext.HoverState(element:TUIElement):byte;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
- TUIEditBox.SetDefault('styleInfo','borderWidth=1; radius=3; borderColor:8000; fill:8FFF');
+ TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
 end.
 

@@ -186,12 +186,12 @@ procedure InitNotifications;
    font:=0;
    stylePrefix:='toast.';
   end;
-  // Default themed look (fill:AARRGGBB; border; color=text; radius)
+  // Default themed look (fill; border-color; color=text; radius)
   // Translucent background + slightly translucent border; text stays opaque.
-  DefStyle('toast.info',   'fill:A0303840; border:C05878A0; color:FFE8F0FF; radius:8');
-  DefStyle('toast.success','fill:A0204028; border:C040A860; color:FFE0FFE8; radius:8');
-  DefStyle('toast.warning','fill:A0403018; border:C0C89030; color:FFFFF0D0; radius:8');
-  DefStyle('toast.error',  'fill:A0401820; border:C0C04040; color:FFFFE0E0; radius:8');
+  DefStyle('toast.info',   'fill:A0303840; border-color:C05878A0; color:FFE8F0FF; radius:8');
+  DefStyle('toast.success','fill:A0204028; border-color:C040A860; color:FFE0FFE8; radius:8');
+  DefStyle('toast.warning','fill:A0403018; border-color:C0C89030; color:FFFFF0D0; radius:8');
+  DefStyle('toast.error',  'fill:A0401820; border-color:C0C04040; color:FFFFE0E0; radius:8');
   lock.Init('Notifications');
   initialized:=true;
  end;
@@ -454,7 +454,7 @@ procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit
  begin
   block:=Styles.Block(t.styleName);
   fill:=ResolveBlockColor(block,'fill',$E0303840);
-  border:=ResolveBlockColor(block,'border',$FF5878A0);
+  border:=ResolveBlockColor(block,'border-color',$FF5878A0);
   textCol:=ResolveBlockColor(block,'color',$FFFFFFFF);
   radius:=ResolveBlockNumber(block,'radius',8);
   font:=ResolveFont;

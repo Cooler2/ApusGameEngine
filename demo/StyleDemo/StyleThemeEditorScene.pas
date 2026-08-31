@@ -56,9 +56,9 @@ interface
    'demo-panel','demo-button','demo-input','demo-list','demo-slider',
    'demo-check','demo-showcase');
 
-  STYLEDEMO_STYLE_KEYS:array[0..12] of String8=(
-   'color','text-color','fill','border-color','border-width','radius',
-   'font-size','inner-fill','inner-border','inner-radius',
+  STYLEDEMO_STYLE_KEYS:array[0..11] of String8=(
+   'color','fill','border-color','border-width','radius',
+   'font-size','inner-fill','inner-border-color','inner-radius',
    'track-width','slider-width','min-size');
 
 implementation
@@ -104,7 +104,7 @@ procedure TStyleThemeEditorScene.CreateUI;
   wnd.SetPos(760,18,pivotTopLeft);
   wnd.minW:=500;
   wnd.minH:=540;
-  wnd.style.Assign('@demo-panel; color:&surface-alt;');
+  wnd.style.Assign('@demo-panel; fill:&surface-alt;');
   wnd.moveable:=true;
 
   LabelAt(wnd,14,16,160,'Palette tokens');
@@ -135,7 +135,7 @@ procedure TStyleThemeEditorScene.CreateUI;
   LabelAt(wnd,184,226,70,'Theme');
   themeGroup:=TUIGroupBox.Create(150,24,wnd,'StyleDemo\ThemeGroup');
   themeGroup.SetPos(244,224,pivotTopLeft);
-  themeGroup.style.Assign('fill:0; border-color:0; border-width:0; radius:0; inner-fill:0; inner-border:0;');
+  themeGroup.style.Assign('fill:0; border-color:0; border-width:0; radius:0; inner-fill:0; inner-border-color:0;');
   themeLight:=TUIRadioButton.Create(72,24,themeGroup,'StyleDemo\ThemeLight').Setup('light',editorTheme<>'dark');
   themeLight.SetPos(0,0,pivotTopLeft);
   themeLight.style.Assign('@demo-check;');

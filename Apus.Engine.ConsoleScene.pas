@@ -86,12 +86,12 @@ implementation
   begin
    btn.hint:=hint;
    btn.style.SetAttr('font-size','7.5');
-   btn.style.SetAttr('color','$D0303A46');
-   btn.style.SetAttr('text-color','$FFE8F7FF');
-   btn.style.SetAttr('hover.color','$F0445668');
-   btn.style.SetAttr('hover.text-color','$FFFFFFFF');
-   btn.style.SetAttr('pressed.color','$F05A6F84');
-   btn.style.SetAttr('pressed.text-color','$FFFFFFFF');
+   btn.style.SetAttr('fill','$D0303A46');
+   btn.style.SetAttr('color','$FFE8F7FF');
+   btn.style.SetAttr('hover.fill','$F0445668');
+   btn.style.SetAttr('hover.color','$FFFFFFFF');
+   btn.style.SetAttr('pressed.fill','$F05A6F84');
+   btn.style.SetAttr('pressed.color','$FFFFFFFF');
    btn.style.SetAttr('border-light','$90FFFFFF');
    btn.style.SetAttr('border-dark','$B0000000');
   end;
@@ -536,7 +536,7 @@ begin
  wnd.SetPos(10,10,pivotTopLeft);
  wnd.moveable:=true;
  wnd.minW:=120; wnd.minH:=160;
- wnd.style.SetAttr('color','$D0202020');
+ wnd.style.SetAttr('fill','$D0202020');
  zorder:=$FF0000;
 
  // View controls float over the text area in the top-right corner.

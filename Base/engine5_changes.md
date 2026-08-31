@@ -3,6 +3,51 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI style keys: canonical vocabulary + selective inheritance (2026-09-02)
+
+Style attribute names are now canonical (kebab-case, CSS names where CSS has the
+concept); the full list lives in the header of `Apus.Engine.Style.pas`. Drawers read
+only canonical keys — the old spellings are silently ignored (no aliases).
+
+- `color` is the **content (text/glyph) color everywhere** and inherits down the
+  element tree. It is never a box color.
+- Box chrome keys (`fill`, `border-*`, `radius`, `inner-*`) never inherit. Only
+  `font`, `font-size`, `color`, `text-align`, `text-shadow`, `text-decoration` cascade
+  from parents (`IsInheritedStyleKey`); previously every key cascaded.
+- Style keys are string literals, so `engine5.upgrade` cannot rewrite them — update
+  style text by hand:
+
+| widget | old key | new key |
+|---|---|---|
+| button | `color` (box) | `fill` |
+| button | `text-color` | `color` |
+| checkbox/radio | `col` (box outline) | `border-color` |
+| checkbox/radio | `text-color` | `color` |
+| checkbox/radio | `tick-col` | `tick-color` |
+| frame | `color`, `color-dark` | `border-color`, `border-dark` |
+| image | `color` (tint) | `tint` |
+| window | `color` / `col` | `fill` |
+| editbox | `col` | `color` |
+| editbox class default | `borderWidth`, `borderColor` | `border-width`, `border-color` (the old spelling was never read, so edit boxes now get their default border) |
+| scrollbar | `col`, `track-col`, `active-col` | `color`, `track-color`, `active-color` |
+| scrollbar | `style: flat` | `variant: flat` |
+| any | `inner-border` | `inner-border-color` |
+| any | `border` (never read) | `border-color` |
+| listbox (style, not yet read) | `sel-bg`, `sel-text-color` | `:selected { fill; color }` |
+| transitions | `hoverTime`, `hoverTimeUp`, `hoverTimeDown` | `hover-time`, `hover-time-in`, `hover-time-out` |
+| transitions | `pressTime`, `releaseTime`, `disableTime`, `enableTime` | `press-time`, `release-time`, `disable-time`, `enable-time` |
+| any | `hover: parent` | `hover-target: parent` |
+
+- Buttons (plain and toggle) no longer go through the common box path
+  (`DrawCommonStyle`); the button drawer owns its box from `fill`/`border-light`/
+  `border-dark`. Unifying both is the B-16 box-path step.
+- Removed: `TUIElement.SetStyle` (edited the style text without reparsing, so it never
+  took effect). Use `element.style.SetAttr(key,value)`.
+- Legacy numeric `styleInfo` strings (`'60404040'`, `'FFB0C0C4 80000000'`) were never
+  parsed by the R-05 parser; write `fill:$60404040` instead.
+- `TUIEditBox.SetDefault('style',...)` / `SetDefault('styleInfo',...)`: only
+  `styleInfo` is a real class attribute; `style` was never read.
+
 ## High-resolution `Time.Ticks` (2026-09-01)
 
 - `Time.Ticks` now uses the same high-resolution monotonic source as

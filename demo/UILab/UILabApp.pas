@@ -109,7 +109,7 @@ implementation
    result:=TUILabel.Create(width,height,parent);
    result.Centered(text);
    result.style.SetAttr('fill','$384E6A84');
-   result.style.SetAttr('border','$90D8E6F2');
+   result.style.SetAttr('border-color','$90D8E6F2');
    result.style.SetAttr('radius','4');
   end;
 
@@ -295,7 +295,7 @@ implementation
    panel:=TUIElement.Create(240,150,content,'Lab\ClipPanel');
    panel.SetPos(470,56);
    panel.style.SetAttr('fill','$FF405068');
-   panel.style.SetAttr('border','$FFFFFFFF');
+   panel.style.SetAttr('border-color','$FFFFFFFF');
    panel.shape:=TUIShape.shapeFull;
 
    inner:=TUIElement.Create(160,40,panel,'');
@@ -308,7 +308,7 @@ implementation
    inner.SetPos(180,20);                    // also outside, but escapes the clip
    inner.flags.noParentClip:=true;
    inner.style.SetAttr('fill','$FFE08040');
-   inner.style.SetAttr('border','$FFFFFFFF');
+   inner.style.SetAttr('border-color','$FFFFFFFF');
    inner.shape:=TUIShape.shapeFull;
    TUILabel.Create(-1,20,inner).Centered('noParentClip');
 
@@ -343,7 +343,7 @@ implementation
    panel:=CreateVerticalContainer(220,180,content,8,6,false,'Lab\OOOPanel');
    panel.SetPos(16,60);
    panel.style.SetAttr('fill','$FF304058');
-   panel.style.SetAttr('border','$FF90A0C0');
+   panel.style.SetAttr('border-color','$FF90A0C0');
    panel.shape:=TUIShape.shapeFull;
    for i:=1 to 5 do
     AddTile(panel,200,28,'Row item '+IntToStr(i));

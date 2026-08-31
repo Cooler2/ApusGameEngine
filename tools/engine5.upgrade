@@ -113,6 +113,13 @@ GetThreadName -> Thread.GetName [Apus.Threads]
 // === Apus.Core: system messages ===
 ErrorMessage -> SystemMessage [Apus.Core]
 
+// === UI style keys (string literals — not rewritable here, see Base/engine5_changes.md 2026-09-02) ===
+// button: color->fill (box), text-color->color (caption); checkbox: col->border-color, tick-col->tick-color
+// frame: color->border-color, color-dark->border-dark; image: color->tint; window: color/col->fill
+// editbox: col->color; scrollbar: col->color, track-col->track-color, active-col->active-color, style->variant
+// any: border->border-color, inner-border->inner-border-color, hoverTime*->hover-time[-in|-out], hover->hover-target
+SetStyle( -> ?use element.style.SetAttr(key,value) [Apus.Engine.UITypes]
+
 // === TODO markers: need manual rewrite (call style changes) ===
 InitCritSect -> ?use lock.Init(name[,level]) [Apus.Threads]
 DeleteCritSect -> ?use lock.Cleanup [Apus.Threads]

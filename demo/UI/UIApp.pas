@@ -95,10 +95,9 @@ procedure TestWidgets;
   cont:=CreateVerticalContainer(150,root,0,10,false);
   cont.SetPos(10,10);
   // Default properties
-  TUILabel.SetDefault('styleInfo','40FFFFFF');
-  TUILabel.SetDefault('style','color: $FF603000');
+  TUILabel.SetDefault('styleInfo','fill:$40FFFFFF; color:$FF603000');
   // Labels
-  TUILabel.Create(-1,20,cont,'Label1').Setup('Simple label').styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
+  TUILabel.Create(-1,20,cont,'Label1').Setup('Simple label').styleInfo:='hover.fill:F088EEEE; hover.radius=6; hover-time:1000';
   TUILabel.Create(-1,20,cont,'Label2').Centered('Centered');
   TUILabel.Create(-1,20,cont,'Label3').Right('Right');
   TUILabel.Create(-1,20,cont,'Label4').Setup('With padding').SetPaddings(4,2,4,2);
@@ -123,7 +122,7 @@ procedure TestWidgets;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Check boxes
   TUICheckBox.Create(-1,22,cont,'Check1').Setup('checkbox 1 VERYLONG',true);
-  TUICheckBox.Create(-1,22,cont,'Check2').Setup('checkbox 2 (red)').SetStyle('tickColor','811');
+  TUICheckBox.Create(-1,22,cont,'Check2').Setup('checkbox 2 (red)').style.SetAttr('tick-color','#811');
   TUISplitter.CreateH(10,cont);
   // Radio buttons (TUIGroupBox parent = radio group behavior)
   hCont:=TUIGroupBox.Create(-1,0,cont);
@@ -138,19 +137,18 @@ procedure TestWidgets;
   cont:=CreateVerticalContainer(150,root,0,6,false);
   cont.SetPos(400,10);
   //Edit boxes
-  TUIEditBox.SetDefault('styleInfo','borderColor=444;borderWidth=1; radius=3');
-  TUIEditBox.SetDefault('style','color: $FF002040');
+  TUIEditBox.SetDefault('styleInfo','border-color:#444; border-width:1; radius:3; color:$FF002040');
   TUIEditBox.Create(-1,24,cont,'Edit1');
   TUIEditBox.Create(-1,24,cont);
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Scroll
-  TUIScrollBar.SetDefault('style','color: $FF405060');
+  TUIScrollBar.SetDefault('styleInfo','color:$FF405060');
   TUIScrollBar.CreateH(-1,18,cont,'Scroll1');
   TUIScrollBar.CreateH(-1,18,cont,'Scroll2').SetRange(-10,10,0);
   TUIScrollBar.CreateH(-1,18,cont,'Scroll3').SetRange(100,300,50);
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // ListBox
-  TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');
+  TUIListBox.SetDefault('styleInfo','border-color:#444; border-width:1');
   TUIListBox.Create(-1,80,cont,'List1',20).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
   UIListBox('List1').textColor:=$FF202020;
   UIListBox('List1').hoverTextColor:=$FF502020;
@@ -182,14 +180,14 @@ procedure TestHitTest;
   // Clipping panel near top-left
   panel:=TUIElement.Create(200,150,root,'HT\Panel');
   panel.SetPos(50,50);
-  panel.styleInfo:='fill:FF505080; border:FFFFFFFF; radius=4';
+  panel.styleInfo:='fill:FF505080; border-color:FFFFFFFF; radius=4';
   panel.shape:=TUIShape.shapeFull;
 
   // noParentClip popup hanging off panel's right edge
   popup:=TUIElement.Create(160,80,panel,'HT\Popup');
   popup.SetPos(220,30); // x=220 is beyond panel.width=200 → outside panel rect
   popup.flags.noParentClip:=true;
-  popup.styleInfo:='fill:FFE08040; border:FFFFFFFF; radius=4';
+  popup.styleInfo:='fill:FFE08040; border-color:FFFFFFFF; radius=4';
   popup.shape:=TUIShape.shapeFull;
   TUILabel.Create(-1,20,popup,'HT\Popup\Label').Centered('noParentClip');
 
@@ -197,7 +195,7 @@ procedure TestHitTest;
   // It must be visually clipped and NOT hit-testable outside the panel.
   clipped:=TUIElement.Create(160,30,panel,'HT\Clipped');
   clipped.SetPos(220,110); // also outside panel
-  clipped.styleInfo:='fill:FFE04040; border:FFFFFFFF';
+  clipped.styleInfo:='fill:FFE04040; border-color:FFFFFFFF';
   clipped.shape:=TUIShape.shapeFull;
   TUILabel.Create(-1,20,clipped,'HT\Clipped\Label').Centered('clipped');
 
@@ -206,7 +204,7 @@ procedure TestHitTest;
   // panel skipped the mid container (mid has no noParentClip).
   panel:=TUIElement.Create(200,150,root,'HT\Panel2');
   panel.SetPos(50,260);
-  panel.styleInfo:='fill:FF508050; border:FFFFFFFF; radius=4';
+  panel.styleInfo:='fill:FF508050; border-color:FFFFFFFF; radius=4';
   panel.shape:=TUIShape.shapeFull;
   popup:=TUIElement.Create(180,120,panel,'HT\Mid');     // intermediate clipper
   popup.SetPos(10,10);
@@ -215,7 +213,7 @@ procedure TestHitTest;
   deep:=TUIElement.Create(160,40,popup,'HT\Deep');
   deep.SetPos(230,20); // outside both Mid and Panel2
   deep.flags.noParentClip:=true;
-  deep.styleInfo:='fill:FF40C0E0; border:FFFFFFFF; radius=4';
+  deep.styleInfo:='fill:FF40C0E0; border-color:FFFFFFFF; radius=4';
   deep.shape:=TUIShape.shapeFull;
   TUILabel.Create(-1,20,deep,'HT\Deep\Label').Centered('deep noParentClip');
  end;
@@ -234,7 +232,7 @@ procedure TMainScene.InitGfx;
   panel.layout:=TRowLayout.CreateVertical(10,true,true);
   panel.SetPadding(15);
   //panel.styleInfo:='40E0E0E0 60E0E0E0';
-  panel.styleInfo:='Fill:4EEE; border:9EEE; radius=6;';
+  panel.styleInfo:='Fill:4EEE; border-color:9EEE; radius=6;';
   panel.style.SetAttr('color','$FF202040');
 
   // Create menu buttons
@@ -249,7 +247,7 @@ procedure TMainScene.InitGfx;
   root:=TUIElement.Create(-1,-1,UI,'Root');
   root.SetAnchors(anchorAll);
   //root.styleInfo:='FFB0C0C4 80000000';
-  root.styleInfo:='fill:FFB0C0C4; border:80000000';
+  root.styleInfo:='fill:FFB0C0C4; border-color:80000000';
   root.shape:=TUIShape.shapeFull;
   root.Hide;
  end;

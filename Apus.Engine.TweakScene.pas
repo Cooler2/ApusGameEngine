@@ -136,7 +136,7 @@ begin
  tinyFont:=tinyFont_;
  normalFont:=normalFont_;
  UI.Resize(320,300);
- UI.styleinfo:='60404040';
+ UI.styleInfo:='fill:$60404040';
  edCount:=0;
 
  h:=round(11+window.canvasHeight*0.01);

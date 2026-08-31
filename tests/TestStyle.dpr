@@ -327,6 +327,18 @@ begin
   EndTest;
 end;
 
+procedure TestInheritedKeys;
+begin
+  StartTest('Inherited style keys');
+  Check(IsInheritedStyleKey('color') and IsInheritedStyleKey('font') and
+        IsInheritedStyleKey('font-size') and IsInheritedStyleKey('text-align'),'typography/content keys inherit');
+  Check(not (IsInheritedStyleKey('fill') or IsInheritedStyleKey('border-color') or
+        IsInheritedStyleKey('radius') or IsInheritedStyleKey('tint')),'box chrome does not inherit');
+  Check(IsInheritedStyleKey('Color'),'key match is case-insensitive');
+  Check(not IsInheritedStyleKey('col'),'partial key does not match');
+  EndTest;
+end;
+
 // --- Main ---
 begin
   writeln('=== TestStyle ===');
@@ -349,6 +361,7 @@ begin
   TestUnknownToken;
   TestTokenInNumbers;
   TestThemeSwap;
+  TestInheritedKeys;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

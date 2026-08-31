@@ -79,7 +79,7 @@ procedure TMainScene.CreateUI;
   // Create a panel
   panel:=TUIElement.Create(250,220,UI,'Panel');
   panel.SetPos(UI.width-10,UI.height-10,pivotBottomRight);
-  panel.styleInfo:='E0808890'; // background color
+  panel.styleInfo:='fill:$E0808890';
   panel.layout:=TRowLayout.CreateVertical(5);
   TUILabel.Create(200,30,panel,'Panel\Label1').Centered('SETTINGS',clWhite);
 

@@ -241,7 +241,6 @@ type
   procedure SetHotKey(vKeyCode:integer;shiftstate:byte=0);
   procedure RemoveHotKey(vKeyCode:integer;shiftstate:byte=0);
   class procedure SetDefault(name:String8;value:variant); // set class-level default attribute
-  procedure SetStyle(name,value:string8); // 'name:value' or 'state.name:value' syntax
 
   // R-05: style system — use element.style.Assign/Add/SetState/GetColor etc. directly
   function HasState(const name:String8):boolean;  // shortcut for style.HasState
@@ -1275,20 +1274,6 @@ procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
    end;
   end;
 
- procedure TUIElement.SetStyle(name,value:string8);
-  var
-   i,j:integer;
-  begin
-   i:=fStyleInfo.IndexOf(name,1,true);
-   if i>0 then begin
-    j:=fStyleInfo.IndexOf(';',i+1);
-    if j=0 then j:=high(fStyleInfo);
-    Delete(fStyleInfo,i,j-i);
-   end;
-   if value<>'' then name:=name+':'+value+';';
-   fStyleInfo:=name+fStyleInfo
-  end;
-
  function TUIElement.GetClientWidth:single;
   begin
    result:=size.x/scale-padding.left-padding.right;
@@ -1481,7 +1466,8 @@ function TUIElement.GetClientHeight:single;
    style.SetState(name,active);
   end;
 
- // Resolve style value: own block (with refs) → parent chain for inheritable attrs
+ // Resolve style value: own block (with refs) → parent chain, but only for inherited keys
+ // (IsInheritedStyleKey); box chrome never cascades down the tree
  function TUIElement.GetStyleValue(const key:String8; const defVal:String8):String8;
   var
    item:TUIElement;
@@ -1489,12 +1475,14 @@ function TUIElement.GetClientHeight:single;
    // own block first
    result:=ResolveBlockAttr(style,key,'');
    if result<>'' then exit;
-   // walk parent chain for inheritable attributes
-   item:=parent;
-   while item<>nil do begin
-    result:=ResolveBlockAttr(item.style,key,'');
-    if result<>'' then exit;
-    item:=item.parent;
+   // walk parent chain — only for inheritable attributes (typography, content color)
+   if IsInheritedStyleKey(key) then begin
+    item:=parent;
+    while item<>nil do begin
+     result:=ResolveBlockAttr(item.style,key,'');
+     if result<>'' then exit;
+     item:=item.parent;
+    end;
    end;
    result:=defVal;
   end;
@@ -1529,7 +1517,7 @@ function TUIElement.GetClientHeight:single;
    item:TUIElement;
   begin
    s:=ResolveBlockAttrBase(style,key,'');
-   if s='' then begin
+   if (s='') and IsInheritedStyleKey(key) then begin
     item:=parent;
     while item<>nil do begin
      s:=ResolveBlockAttrBase(item.style,key,'');
@@ -1548,7 +1536,7 @@ function TUIElement.GetClientHeight:single;
    item:TUIElement;
   begin
    s:=ResolveBlockAttrBase(style,key,'');
-   if s='' then begin
+   if (s='') and IsInheritedStyleKey(key) then begin
     item:=parent;
     while item<>nil do begin
      s:=ResolveBlockAttrBase(item.style,key,'');

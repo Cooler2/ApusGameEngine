@@ -379,14 +379,14 @@ implementation
   begin
    inherited Create(FILL_PARENT,height,parent,name);
    if color<>0 then
-    SetStyle('inner-fill',IntToHex(color,8));
+    style.SetAttr('inner-fill','$'+IntToHex(color,8));
   end;
 
  constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal;name:String8);
   begin
    inherited Create(width,FILL_PARENT,parent,name);
    if color<>0 then
-    SetStyle('inner-fill',IntToHex(color,8));
+    style.SetAttr('inner-fill','$'+IntToHex(color,8));
   end;
 
  { TUIimage }
@@ -713,7 +713,7 @@ function TUILabel.Right(text:String8):TUILabel;
    moveable:=true;
    minW:=32; minH:=32;
    maxW:=1600; maxH:=1200;
-   style.SetAttr('color','$FFBCB8B0');
+   style.SetAttr('fill','$FFBCB8B0');
    area:=0;
    order:=100; // выше чем прочие элементы.
   end;
@@ -1603,7 +1603,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    selTextColor:=$FFF0F0F0;
    autoSelectMode:=false;
    // R-05: expose list colors via style for theming (drawers still use the direct fields above)
-   style.Assign('text-color:$E0D0D0D0; :hover { text-color:$FFD8D8D8; } sel-text-color:$FFF0F0F0; sel-bg:$90406070');
+   style.Assign('color:$E0D0D0D0; :hover { color:$FFD8D8D8; } :selected { fill:$90406070; color:$FFF0F0F0; }');
    UpdateScroller;
   end;
 

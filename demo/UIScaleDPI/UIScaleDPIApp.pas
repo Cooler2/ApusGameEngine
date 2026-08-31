@@ -209,12 +209,12 @@ procedure TMainScene.Load;
   scroll.autoHide:=true;
   scroll.Snap(smRight);
   scroll.Link(cardGrid);
-  scroll.styleInfo:='style:flat; radius:30%; trackWidth:20%';
+  scroll.styleInfo:='variant:flat; radius:30%; track-width:20%';
 
   // === Create cards ===
   for i:=0 to CARD_COUNT-1 do begin
    card:=TUIElement.Create(CARD_WIDTH,CARD_HEIGHT,cardGrid,'Card'+Conv.ToStr(i));
-   card.styleInfo:='fill:'+Conv.ToHex(CardColor(i))+'; radius:6; hover.borderWidth:2; hover.borderColor:FFEE; hoverTime:0';
+   card.styleInfo:='fill:'+Conv.ToHex(CardColor(i))+'; radius:6; hover.border-width:2; hover.border-color:FFEE; hover-time:0';
    card.SetPaddings(6,6,6,6);
 
    // filename label at bottom

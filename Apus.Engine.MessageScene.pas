@@ -172,7 +172,7 @@ constructor TMessageScene.Create;
   wnd.SetPos(window.canvasWidth/2,window.canvasHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
   wnd.flags.manualDraw:=true;
-  wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';
+  wnd.styleInfo:='border-color:FFD0D8E0; radius:8; fill:C0C0C8D0';
 
   btnOk:=TUIButton.Create(90,35,wnd,'Message\OK').Setup('Ok');
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);

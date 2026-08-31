@@ -19,6 +19,33 @@
 //   2. Local attributes
 //   3. Active state overrides
 //
+// Canonical attribute vocabulary (kebab-case; CSS names where CSS has the concept).
+// Drawers read ONLY these keys. Keys marked [inh] are inherited from the parent chain
+// (see IsInheritedStyleKey); box chrome never inherits.
+//
+//  Box (chrome):
+//   fill                 background color (0 = none)
+//   border-color         border color; border-width; radius
+//   border-light         bevel highlight (button); border-dark  bevel shadow (button, frame)
+//   inner-fill, inner-border-color, inner-radius, inner-border-width  (client-area block)
+//   background-image     file:<name> | tex:<name>  (B-16: read by the box path)
+//   background-tint      tint for background-image (neutral by default)
+//   background-size      auto | stretch;  background-offset-x/y
+//  Content:
+//   font [inh]           font name;  font-size [inh]
+//   color [inh]          content (text/glyph) color — NEVER a box color
+//   text-align [inh]     left | center | right | justify
+//   text-shadow [inh]    shadow color [dx dy];  text-decoration [inh]  underline
+//   text-offset-x/y      caption shift (state-able: ':pressed { text-offset-y:1 }')
+//   tint                 TUIImage image tint (content image, not inherited)
+//   tick-color           checkbox/radio mark
+//  Scrollbar:
+//   color (slider), track-color, active-color, track-width, slider-width, min-size,
+//   radius, variant (flat)
+//  Transitions (ms):
+//   hover-time, hover-time-in, hover-time-out, press-time, release-time,
+//   disable-time, enable-time;  hover-target: parent  (hover follows the parent)
+//
 // Author: Apus Engine R-05 refactoring
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -136,6 +163,10 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
 // Returns 0 on failure
 function ParseStyleColor(const s:String8):cardinal;
 
+// True for attributes that cascade down the element tree when not set locally
+// (typography and content color). Box chrome (fill, border*, radius...) never inherits.
+function IsInheritedStyleKey(const key:String8):boolean;
+
 // --- R-05 token foundation (palette tokens + themes) ---
 // A value of the form '&name' in any style attribute is replaced by the token's
 // value before color/number parsing. Tokens are the theme swap point.
@@ -201,6 +232,15 @@ var
  warnedTokens:String8; // ';name;name;' — to warn about each unknown token once
 
 { Utility }
+
+const
+ // ';'-delimited for a cheap substring test; keys are lowercase (ParseKV normalizes)
+ INHERITED_KEYS=';font;font-size;color;text-align;text-shadow;text-decoration;';
+
+function IsInheritedStyleKey(const key:String8):boolean;
+ begin
+  result:=Pos(';'+key.ToLower+';',INHERITED_KEYS)>0;
+ end;
 
 function ParseStyleColor(const s:String8):cardinal;
  var
