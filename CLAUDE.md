@@ -14,6 +14,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 
 - Projects: `.dproj` (Delphi), `.lpi` (Lazarus/FPC)
 - Defines: `DELPHI;OPENGL;LODEPNG;FREETYPE`
+- Audio backends are opt-in: nothing is linked without `-dSDLMIX` (SDL2_mixer) or `-dIMX`. Without one the sound system stays inactive; see the audio block in `defines.inc`
 - GL define family (full description in `defines.inc`): `OPENGL` = umbrella "any GL renderer"; `GLES` = ES 3.0 dialect (implies OPENGL; mobile, or `-dGLES` on desktop for debugging); `GLDESKTOP` = derived (OPENGL minus GLES), gates the desktop loader. RULE: unit `dglOpenGL` only under `{$IFDEF GLDESKTOP}`, unit `dglOpenGLES` only under `{$IFDEF GLES}`
 - Output: `bin\` (Win32), `bin64\` (Win64)
 - Entry point: `TGameApplication.Create` → `Prepare()` → `Run()`

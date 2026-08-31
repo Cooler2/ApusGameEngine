@@ -5,9 +5,12 @@ rem Build any demo with FPC using engine-standard flags.
 rem Usage:
 rem   demo\build_demo_fpc.cmd InputDemo
 rem   demo\build_demo_fpc.cmd SimpleDemo sdl
+rem   demo\build_demo_fpc.cmd MyDemo snd     (link the SDL_mixer audio backend)
+rem Audio backends are opt-in (see defines.inc), so "snd" is required by any
+rem demo that plays sound. SoundDemo enables it automatically.
 
 if "%~1"=="" (
-  echo Usage: %~nx0 DemoName [sdl]
+  echo Usage: %~nx0 DemoName [sdl^|snd]
   exit /b 1
 )
 
@@ -19,8 +22,11 @@ set "DPR=%DEMO_DIR%\%DEMO%.dpr"
 set "OUT=%DEMO_DIR%\_fpc"
 set "EXE_OUT=%ROOT%\bin64"
 set "DEF_SDL="
+set "DEF_SND="
 
 if /I "%MODE%"=="sdl" set "DEF_SDL=-dSDL"
+if /I "%MODE%"=="snd" set "DEF_SND=-dSDLMIX"
+if /I "%DEMO%"=="SoundDemo" set "DEF_SND=-dSDLMIX"
 
 if not exist "%DPR%" (
   echo ERROR: Demo project not found: "%DPR%"
@@ -35,7 +41,7 @@ if exist "%OUT%\*.ppu" del /q "%OUT%\*.ppu" >nul 2>nul
 if exist "%OUT%\*.o" del /q "%OUT%\*.o" >nul 2>nul
 
 echo Building "%DEMO%"...
-fpc -dOPENGL -dFREETYPE %DEF_SDL% -MDelphi -Sd -RIntel -WG ^
+fpc -dOPENGL -dFREETYPE %DEF_SDL% %DEF_SND% -MDelphi -Sd -RIntel -WG ^
   -Fu"%ROOT%" ^
   -Fu"%ROOT%\extra" ^
   -Fu"%ROOT%\extra\sdl2" ^

@@ -952,3 +952,17 @@ Design: `Work/R-31_api_design.md`.
   still renders straight to the backbuffer.
 - Migration: `gamUseFullWindow` → the default, `gamKeepAspectRatio` →
   `SetupFixedCanvas(w,h)`. Upgrader rules added to `tools/engine5.upgrade`.
+
+## 2026-08-31 — Audio backends are opt-in
+
+- `defines.inc` no longer enables any audio backend on its own. Nothing is
+  linked unless the project builds with `-dSDLMIX` (SDL2_mixer) or `-dIMX`
+  (legacy Win32 IMixerPro). The `NOAUDIO` opt-out is gone with it.
+- Rationale: a backend binding is a load-time import, so linking one makes the
+  executable depend on `SDL2_mixer.dll` / `libSDL2_mixer` even when the project
+  never plays a sound.
+- With no backend compiled in, `InitSoundSystem(slDefault,...)` logs one line
+  and returns instead of raising. An explicit backend request (`slSDL`,
+  `slIMixer`) still raises, as before.
+- Builds that need sound: CI and `demo\build_demo_fpc.cmd` pass `-dSDLMIX` for
+  `SoundDemo`; the script's `snd` mode enables it for any demo.

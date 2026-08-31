@@ -195,11 +195,13 @@ jobs:
           set -euo pipefail
           compile_demo() {
             local demo="$1"
+            # extra defines, if any: audio backends are opt-in (see defines.inc)
+            local extra="${2:-}"
             local dpr="demo/${demo}/${demo}.dpr"
             local out="demo/${demo}/_fpc"
             rm -rf "$out"
             mkdir -p "$out"
-            fpc -dOPENGL -MDelphi -Sd -RIntel \
+            fpc -dOPENGL $extra -MDelphi -Sd -RIntel \
               -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra \
               -Fu"demo/${demo}" -FU"$out" "$dpr"
           }
@@ -209,19 +211,24 @@ jobs:
           compile_demo "TextDemo"
           compile_demo "Simple3D"
           compile_demo "ShadowMap"
-          compile_demo "SoundDemo"
+          compile_demo "SoundDemo" "-dSDLMIX"
 
       - name: Compile selected demos (Windows)
         if: runner.os == 'Windows'
         run: |
           $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo","Simple3D","ShadowMap","SoundDemo")
+          # extra defines per demo: audio backends are opt-in (see defines.inc)
+          $extraDefines=@{ "SoundDemo"="-dSDLMIX" }
           foreach($demo in $demos){
             $out="demo/$demo/_fpc"
             if(Test-Path $out){ Remove-Item $out -Recurse -Force }
             New-Item -ItemType Directory -Path $out | Out-Null
-            fpc -dOPENGL -MDelphi -Sd -RIntel `
-              -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra `
-              -Fu"demo/$demo" -FU"$out" "demo/$demo/$demo.dpr"
+            $fpcArgs=@("-dOPENGL")
+            if($extraDefines.ContainsKey($demo)){ $fpcArgs+=$extraDefines[$demo] }
+            $fpcArgs+=@("-MDelphi","-Sd","-RIntel",
+              "-Fu.","-Fuextra","-Fuextra/sdl2","-FuBase","-FuBase/extra",
+              "-Fudemo/$demo","-FU$out","demo/$demo/$demo.dpr")
+            fpc @fpcArgs
             if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
           }
 

@@ -61,23 +61,17 @@
 {$ENDIF}
 
 // ---------------------------------------------------------------------------
-// Audio backend family
+// Audio backend family - all backends are opt-in, no audio is linked by default
 //   SDLMIX - SDL2_mixer backend (Apus.Engine.SoundSDL): plays samples, streams
-//            music, controls volume. This is the default desktop backend.
+//            music, controls volume. The recommended desktop backend: add
+//            -dSDLMIX to the project build to enable audio.
 //   IMX    - legacy Win32-only IMixerPro backend (opt-in, being retired).
-//   NOAUDIO - compile with no backend at all.
-// SDLMIX is enabled by default on desktop Windows/Linux, where the library is
-// available (SDL2_mixer.dll ships in bin*/, Linux uses the distro package).
-// The binding is a load-time import, so a build whose library is missing will
-// not start - use -dNOAUDIO for builds that must not depend on it.
-// macOS and mobile targets keep it opt-in (-dSDLMIX) until their packaging
-// vendors the library (R-29 / R-24 / R-30).
+// Nothing is defined here on purpose. A backend binding is a load-time import,
+// so linking one makes the executable depend on its library (SDL2_mixer.dll
+// ships in bin*/, Linux uses the distro package) - a project that does not
+// need sound must not pay for that. With no backend compiled in the sound
+// system simply stays inactive (see Apus.Engine.Sound.InitSoundSystem).
 // ---------------------------------------------------------------------------
-{$IF DEFINED(MSWINDOWS) OR (DEFINED(LINUX) AND NOT DEFINED(ANDROID))}
-  {$IF NOT DEFINED(NOAUDIO) AND NOT DEFINED(IMX)}
-    {$DEFINE SDLMIX}
-  {$IFEND}
-{$IFEND}
 
 // Keep deterministic floating-point behavior across compilers.
 {$EXCESSPRECISION OFF}

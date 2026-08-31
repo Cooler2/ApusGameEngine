@@ -878,6 +878,15 @@ function IsMusicPlaying:boolean;
 
 procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
  begin
+  {$IF NOT DEFINED(SDLMIX) AND NOT DEFINED(IMX)}
+  // Audio backends are opt-in (see defines.inc). With none of them compiled in
+  // the sound system just stays inactive: this is a build-time choice, not a
+  // runtime failure, so no exception is raised here.
+  if useLibrary=slDefault then begin
+   Log.Msg('[SOUND] No sound backend is compiled in, audio is disabled. Build with -dSDLMIX to enable it.');
+   exit;
+  end;
+  {$IFEND}
   if not FileExists(soundConfigFile) then begin
    Log.Msg('[SOUND] No config file found (%s). Sound system won''t initialize.',[soundConfigFile]);
    exit;
