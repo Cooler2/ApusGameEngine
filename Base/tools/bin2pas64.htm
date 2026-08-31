@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body style='font-family: courier,mono;'>
+ <div id=fileSelector>
+  Select file to convert:<br>
+  <input type=file onChange='ProcessFile(this.files)'>
+ </div> 
+ <pre id=result></pre>
+ <script type='text/javascript'>
+  function ProcessFile(files) {
+	var reader=new FileReader();
+	var fileName=files[0].name;
+	var fileSize=files[0].size;
+	reader.onload=function(evt) {
+		var data=evt.target.result;
+		var bytes=new Uint8Array(data);
+      var lines=new Array();
+		var count=Math.ceil(fileSize / 8);
+   	lines.push(" "+fileName+"Size:integer="+fileSize+';');
+   	lines.push(" "+fileName+":array[0.."+(count-1)+"] of uint64=(");
+		var str="    ";
+   	for (var i=0; i<count; i++) {
+			var code='';
+			for (var j=0; j<8; j++) {
+			   var idx=i*8+j;
+				if (idx>=fileSize) break;
+				var byteCode = bytes[idx].toString(16);
+				if (byteCode.length==1) byteCode="0"+byteCode;
+				code = byteCode + code;
+			}
+			str=str+"$"+code;
+			if (i<count-1) str=str+",";
+			if (i%8 == 7) { 
+				lines.push(str);
+				str="    ";
+			}			
+		}
+		lines.push(str);
+   	lines.push("  );");
+   	document.getElementById('result').innerHTML=lines.join("\n");
+		document.getElementById('fileSelector').style.display="none";
+	};
+	reader.readAsArrayBuffer(files[0]);	
+  }
+ </script>
+</body>
+</html>

@@ -94,7 +94,7 @@ modules/
 /tmp/
 /tmp_*.csv
 /.codexignore
-/.claude/agents/
+/.claude/
 CLAUDE.local.md
 *.zip
 robot_in.txt
@@ -102,3 +102,22 @@ robot_out.txt
 log.txt
 *.log
 *.old
+
+# Local-only working material (kept out of the repo on purpose)
+/manual/
+/extra/Assimp/
+
+# FPC leftovers and per-demo build output
+ppas.bat
+ppas.sh
+demo/*/_fpc*/
+demo/*/_gles/
+demo/*/_desktop/
+demo/*/lib/
+demo/*/_dbg.txt
+
+# Scratch input/output of the tools in tools/ (ConvertStr etc.)
+/tools/test.*
+/tools/button.*
+/tools/tick.*
+/Screenshot_*.png
