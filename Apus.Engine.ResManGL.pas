@@ -85,6 +85,7 @@ type
   procedure DownloadLevel(mipLevel:integer); virtual;
   procedure ProcessUploadRequest; virtual;
   procedure EnsureWritable(opName:string8); inline;
+  procedure EnsureNotCompressed(opName:string8); inline;
  end;
 
  // OpenGL-backed vertex buffer wrapper.
@@ -393,6 +394,33 @@ function BGRAToRGBACopy(src:pointer;pixelCount:integer):pointer;
  end;
 {$ENDIF}
 
+const
+ // Block-compressed formats: pixelSize[] holds the size of a 4x4 block, and the data
+ // can only be uploaded a whole level at a time (glCompressedTexImage2D)
+ DXTformats = [ipfDXT1,ipfDXT2,ipfDXT3,ipfDXT5];
+ compressedFormats = DXTformats+[ipfPVRTC];
+
+// Pitch and size of the internal storage for one mip level of the given dimensions
+procedure GetLevelSize(ipf:TImagePixelFormat;width,height:integer;out pitch,size:integer);
+ begin
+  if ipf in DXTformats then begin // dimensions are counted in 4x4 blocks
+   pitch:=((width+3) div 4)*pixelSize[ipf] div 8;
+   size:=pitch*((height+3) div 4);
+  end else begin // PVRTC is 4 bpp with a linear layout, just like the uncompressed formats
+   pitch:=width*pixelSize[ipf] div 8;
+   size:=pitch*height;
+  end;
+ end;
+
+// S3TC is an extension even on desktop GL: without it the driver rejects the internal format
+function CompressedFormatSupported(ipf:TImagePixelFormat):boolean;
+ begin
+  {$IFDEF GLDESKTOP}
+  if ipf in DXTformats then exit(GL_EXT_texture_compression_s3tc);
+  {$ENDIF}
+  result:=true; // anything else is rejected by GetGLformat anyway
+ end;
+
 procedure GetGLformat(ipf:TImagePixelFormat;out format,dataType,internalFormat:cardinal);
 begin
  case ipf of
@@ -484,15 +512,18 @@ begin
   end;
   ipfDXT1:begin
    internalFormat:=GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-   format:=GL_COMPRESSED_TEXTURE_FORMATS;
+   format:=internalFormat;  // not used: compressed data is uploaded with glCompressedTexImage2D
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfDXT3:begin
    internalFormat:=GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-   format:=GL_COMPRESSED_TEXTURE_FORMATS;
+   format:=internalFormat;  // not used: compressed data is uploaded with glCompressedTexImage2D
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfDXT5:begin
    internalFormat:=GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-   format:=GL_COMPRESSED_TEXTURE_FORMATS;
+   format:=internalFormat;  // not used: compressed data is uploaded with glCompressedTexImage2D
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfA4:begin
    internalFormat:=GL_ALPHA4;
@@ -547,7 +578,8 @@ begin
   end;
   ipfPVRTC:begin
    internalFormat:=GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
-   format:=GL_COMPRESSED_TEXTURE_FORMATS;
+   format:=internalFormat;  // not used: compressed data is uploaded with glCompressedTexImage2D
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfA8:begin
    internalFormat:=GL_R8;
@@ -685,7 +717,7 @@ begin
   glTarget:=GetTextureTarget;
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   depth:=length(layers);
-  if format=GL_COMPRESSED_TEXTURE_FORMATS then begin
+  if pixelFormat in compressedFormats then begin
    for z:=0 to depth-1 do
     for level:=0 to MAX_LEVEL do
      if length(realData[level])>0 then
@@ -755,6 +787,7 @@ procedure TGLTexture.Clear(color:cardinal);
   level:integer;
  begin
   EnsureWritable('Clear');
+  EnsureNotCompressed('Clear');
   // glClearTexImage is GL 4.4+, not available under GLES - CPU fill fallback below.
   {$IFNDEF GLES}
   if InMainThread and (@glClearTexImage<>nil) then begin
@@ -786,6 +819,7 @@ var
  r:TRect;
 begin
   EnsureWritable('ClearPart');
+  EnsureNotCompressed('ClearPart');
   // glClearTexSubImage is GL 4.4+, not available under GLES - CPU fill fallback below.
   {$IFNDEF GLES}
   if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
@@ -859,6 +893,8 @@ procedure TGLTexture.DownloadLevel(mipLevel:integer);
 var
  format,dataType,internal:cardinal;
 begin
+  if pixelFormat in compressedFormats then
+   raise EWarning.Create('Reading back a compressed texture is not supported: '+name);
   Bind;
   GetGLformat(pixelFormat,format,dataType,internal);
   {$IFDEF GLES}
@@ -905,6 +941,8 @@ begin
 end;
 
 function TGLTexture.GetRawImage: TRawImage;
+var
+ levelPitch:integer;
 begin
  result:=TRawImage.Create;
  result.width:=width;
@@ -912,6 +950,7 @@ begin
  result.PixelFormat:=PixelFormat;
  result.data:=data;
  result.pitch:=pitch;
+ GetLevelSize(PixelFormat,width,height,levelPitch,result.dataSize); // top level: matches the reported dimensions
  result.paletteFormat:=palNone;
  result.palette:=nil;
  result.palSize:=0;
@@ -948,6 +987,13 @@ begin
   raise EWarning.Create(opName+' not allowed for immutable texture: '+name);
 end;
 
+// Pixel-oriented operations make no sense for block-compressed data
+procedure TGLTexture.EnsureNotCompressed(opName:string8);
+begin
+ if pixelFormat in compressedFormats then
+  raise EWarning.Create(opName+' is not supported for a compressed texture: '+name);
+end;
+
 procedure TGLTexture.MakeImmutable;
 begin
  if IsLocked then
@@ -964,7 +1010,7 @@ end;
 
 procedure TGLTexture.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
 var
- size:integer;
+ size,levelPitch:integer;
  lockRect:TRect;
  writeMode:boolean;
 begin
@@ -989,17 +1035,18 @@ begin
    if (mode=lmCustomUpdate) and (r<>nil) then
     raise EWarning.Create('GLTex: for custom update must lock full surface');
 
+   if (r<>nil) and (pixelFormat in compressedFormats) then
+    raise EWarning.Create('Partial lock is not supported for a compressed texture: '+name);
    mipmaps:=Max(mipmaps,mipLevel);
+   GetLevelSize(pixelFormat,Max(width shr mipLevel,1),Max(height shr mipLevel,1),levelPitch,size);
    if length(realdata[mipLevel])=0 then begin // alloc internal storage
-    size:=Max(width shr mipLevel,1)*Max(height shr mipLevel,1); // number of texels
-    size:=size*pixelSize[pixelFormat] div 8;
     SetLength(realdata[mipLevel],size);
     if realDataObsolete[mipLevel] and (mode<>lmWriteOnly) then begin
      ASSERT(InMainThread,'Trying to read modified texture data outside the main thread');
      DownloadLevel(mipLevel);
     end;
    end;
-   pitch:=Max(width shr mipLevel,1)*pixelSize[pixelFormat] shr 3;
+   pitch:=levelPitch;
    if r=nil then data:=@realData[mipLevel,0]
     else data:=@realData[mipLevel,lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
    inc(locked);
@@ -1162,6 +1209,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   {$ENDIF}
  begin
   EnsureWritable('Upload');
+  EnsureNotCompressed('Upload');
   if not InMainThread then begin // upload request from non-main thread: sync
    ASSERT(self.pixelFormat=pixelFormat);
    repeat
@@ -1221,6 +1269,7 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
   {$ENDIF}
  begin
   EnsureWritable('UploadPart');
+  EnsureNotCompressed('UploadPart');
   ASSERT(InMainThread,'Direct upload is available in the main thread only');
   cs.Enter;
   try
@@ -1267,11 +1316,14 @@ procedure TGLTexture.InitStorage;
   // Allocate texture storage
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   CheckForGLError('S15');
-  for mipLevel:=0 to mipMaps do begin
-   glTexImage2D(GetTextureTarget,mipLevel,internalFormat,
-     Max(realwidth shr mipLevel,1),Max(realheight shr mipLevel,1),0,format,subFormat,nil);
-   CheckForGLError('S17');
-  end;
+  // Compressed levels can't be preallocated this way: their storage is created by
+  // glCompressedTexImage2D at upload time (see UploadInternalData)
+  if not (pixelFormat in compressedFormats) then
+   for mipLevel:=0 to mipMaps do begin
+    glTexImage2D(GetTextureTarget,mipLevel,internalFormat,
+      Max(realwidth shr mipLevel,1),Max(realheight shr mipLevel,1),0,format,subFormat,nil);
+    CheckForGLError('S17');
+   end;
   RestoreActiveTexture;
   SetLabel;
   UpdateFilter;
@@ -1316,6 +1368,17 @@ procedure TGLTexture.UploadInternalData;
     if length(realData[level])>0 then
      SwapRedBlue8888(@realData[level,0],length(realData[level]) div 4); // buffer size, not shr dims: `w shr level` hits 0 on tail mips
   {$ENDIF}
+  if pixelFormat in compressedFormats then begin
+   // Compressed data can only be uploaded a whole level at a time, so dirty rects are ignored
+   for level:=0 to mipmaps do
+    if (dCount[level]<>0) and (length(realData[level])>0) then begin
+     glCompressedTexImage2D(GetTextureTarget,level,internalFormat,
+       Max(realWidth shr level,1),Max(realHeight shr level,1),0,
+       length(realData[level]),@realData[level,0]);
+     CheckForGLError('16');
+     dCount[level]:=0;
+    end;
+  end else
   for level:=0 to mipmaps do
     if dCount[level]<>0 then begin
      // Upload texture data
@@ -1513,6 +1576,8 @@ begin
  ASSERT((pixFmt<>ipfNone) or Bits.HasAll(flags,aiDepthBuffer),'Invalid pixel format for '+name);
  if not Bits.HasAll(flags,aiSysMem) and ((width>maxTextureSize) or (height>maxTextureSize)) then
   raise EWarning.Create('AI: Texture too large');
+ if (pixFmt in compressedFormats) and not CompressedFormatSupported(pixFmt) then
+  raise EWarning.Create('Compressed texture format is not supported by the GPU: '+PixFmt2Str(pixFmt));
  try
  cSect.Enter;
  try
@@ -1532,6 +1597,10 @@ begin
  end;
  tex.realwidth:=width;
  tex.realHeight:=height;
+ // Compressed data is uploaded as whole levels, so the internal storage must match
+ // the texture exactly - there is no room for POT padding
+ if (pixFmt in compressedFormats) and ((width<>tex.width) or (height<>tex.height)) then
+  raise EWarning.Create('Compressed texture can''t be padded to POT: '+name);
  if Bits.HasAll(flags,aiThreadLocal) then begin
   Bits.SetFlag(tex.caps,tfThreadLocal);
   tex.ownerThread:=GetCurrentThreadID; // caller's thread owns this texture
@@ -1564,11 +1633,16 @@ begin
   Bits.SetFlag(tex.caps,tfDirectAccess); // Can be locked
   if Bits.HasAll(flags,aiClampUV) then
    Bits.SetFlag(tex.caps,tfClamped);
-  // Mip-maps -> enable automatic generation
-  if Bits.HasAll(flags,aiAutoMipmap) then begin
+  // Mip-maps -> enable automatic generation.
+  // Compressed textures are excluded: glGenerateMipmap is invalid for them, and the
+  // loaders provide level 0 only (a DDS mip chain would have to be uploaded level by level)
+  if Bits.HasAll(flags,aiAutoMipmap) and not (pixFmt in compressedFormats) then begin
    Bits.SetFlag(tex.caps,tfAutoMipMap);
    tex.mipmaps:=Clamp(Log2i(Max(width,height)),0,tex.MAX_LEVEL);
   end else
+  if pixFmt in compressedFormats then
+   tex.mipmaps:=0
+  else
    tex.mipmaps:=mipLevels;
  end;
 
@@ -1869,6 +1943,8 @@ var
  old:TTexture;
 begin
  // Render target -> resize
+ // TODO: consider size quantization (over-allocate storage, render via viewport) to avoid
+ // driver-side realloc on every tick of interactive window resize (resize storm)
  if img.HasFlag(tfRenderTarget) then
   with img as TGLTexture do begin
    width:=newWidth;

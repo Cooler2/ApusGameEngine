@@ -215,6 +215,8 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
    move(pc^,image.data^,width*height*PixelSize[format] div 8);
   end else begin
    // conversion may be required
+   if (format<>image.PixelFormat) and (format in [ipfDXT1..ipfDXT5]) then
+    raise EWarning.Create('Can''t convert compressed image data to '+PixFmt2Str(image.PixelFormat));
    inc(pc,sizeof(DDSheader) div 4);
    for y:=0 to height-1 do begin
     sp:=pointer(pc); inc(sp,y*width*PixelSize[format] div 8);
