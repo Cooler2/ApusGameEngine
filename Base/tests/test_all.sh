@@ -26,6 +26,7 @@ TESTS=(
   Geom2D
   Geom3D
   Spatial
+  GfxFormats
   Compress
   TCP
   HttpServer
