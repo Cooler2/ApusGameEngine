@@ -1339,7 +1339,7 @@ begin
     SaveJPEG(img,st,95)
    else begin
     res:=SavePNG(img);
-    Files.WriteBlock(st,@res[0],length(res),0);
+    Files.Save(st,res);
    end;
    capture.capturedName:=st;
    capture.capturedTime:=CoreTime.Ticks;

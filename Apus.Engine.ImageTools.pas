@@ -660,7 +660,7 @@ procedure SaveImage(img:TTexture;fName:String8);
    img.Lock(0,lmReadOnly);
    try
     buf:=SaveTGA(img.GetRawImage);
-    Files.WriteBlock(fname,@buf[0],length(buf));
+    Files.Save(fname,buf);
    finally
     img.Unlock;
    end;

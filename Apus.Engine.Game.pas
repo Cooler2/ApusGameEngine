@@ -1028,7 +1028,7 @@ begin
   try
     window.ReadFrameRect(pixRect,img);
     res:=SavePNG(img);
-    Files.WriteBlock(fname,@res[0],length(res),0);
+    Files.Save(fname,res);
     body:='file: '+fname+LineBreak+
       'width: '+Conv.ToStr(img.width)+LineBreak+
       'height: '+Conv.ToStr(img.height)+LineBreak+
