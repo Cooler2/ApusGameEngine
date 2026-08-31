@@ -104,7 +104,8 @@ log.txt
 *.old
 
 # Local-only working material (kept out of the repo on purpose)
-/manual/
+/manual/*
+!/manual/engine_signal_inventory.md
 /extra/Assimp/
 
 # FPC leftovers and per-demo build output
