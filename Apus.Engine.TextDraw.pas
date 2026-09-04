@@ -15,6 +15,10 @@ interface
 
   // FT-шрифты не имеют "базового" размера, поэтому scale задается относительно произвольно зафиксированного размера
   FTF_DEFAULT_LINE_HEIGHT = 24; // Высота строки, соответствующей scale=100
+  // Fallback for GetFont(name,0) when the best match is a vector font: those have no
+  // native size, so "default font size" has to be an actual number. Same default as
+  // DefaultStyle uses for a missing 'font-size'.
+  DEFAULT_UI_FONT_SIZE = 9;
 
  type
   // Функция вычисления цвета в точке (для раскраски текста)
@@ -336,7 +340,6 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
   realsize,scale:single;
  begin
   if globalScale=0 then globalScale:=1.0;
-  ASSERT(size>0);
   best:=-1; bestRate:=0;
   realsize:=size;
   matchRate:=800;
@@ -350,7 +353,10 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
     if fonts[i] is TUnicodeFont then
      with fonts[i] as TUnicodeFont do begin
       if lowercase {TODO: use st.ToLower}(header.FontName)=name then rate:=matchRate;
-      rate:=rate+round(3000-600*(0.1*header.width/realsize+realsize/(0.1*header.width)));
+      // size=0 means "native size, no size preference" (see ITextDrawer.GetFont), so the
+      // size term is skipped entirely: with realsize=0 it would be a division by zero.
+      if realsize>0 then
+       rate:=rate+round(3000-600*(0.1*header.width/realsize+realsize/(0.1*header.width)));
       if rate>bestRate then begin
        bestRate:=rate;
        best:=i;
@@ -379,6 +385,13 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    end else
    if fonts[best] is TFreeTypeFont then begin
     result:=best;
+    // A vector font has no native size, so size=0 cannot mean scale=1 here: it would
+    // encode a zero scale and the text would not be drawn at all.
+    if realsize<=0 then begin
+     Log.Warn('GetFont("%s",0): a vector font has no native size, using %d',
+       [name,DEFAULT_UI_FONT_SIZE]);
+     realSize:=DEFAULT_UI_FONT_SIZE*globalScale;
+    end;
     EncodeScale(realSize/15,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
     if flags and fsNoHinting>0 then result:=result or fhNoHinting;
     if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
