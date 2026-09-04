@@ -14,6 +14,7 @@ implementation
  uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Core, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
     Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
+    Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings;
 
  var
@@ -95,6 +96,124 @@ implementation
    result:=txt.GetFont(name,round(size*element.globalScale));
   end;
 
+ type
+  // Content (text) style of an element, resolved for its current state.
+  // Offsets are screen pixels (logical style units multiplied by globalScale).
+  TTextStyle=record
+   font:TFontHandle;
+   color:cardinal;
+   align:TTextAlignment;
+   options:cardinal;       // txt.Write flags (toUnderline, toWithShadow, ...)
+   shadowColor:cardinal;   // 0 = no separate shadow layer
+   shadowX,shadowY:single; // shadow offset
+   ofsX,ofsY:single;       // text offset
+  end;
+
+ // Resolve the content keys for the element's current state: font, color, text-align,
+ // text-decoration, text-shadow, text-offset-x/y. Colors and offsets are tweened through
+ // the state values (like the box path); align, decoration and shadow switch instantly.
+ // defHoverColor/defDisabledColor - drawer defaults for those states (0 = keep the base
+ // color); defPressOfsY - default caption shift while pressed (data can override it).
+ function ResolveTextStyle(element:TUIElement;context:TContext;defColor:cardinal;
+    defAlign:TTextAlignment=taLeft;defOptions:cardinal=0;
+    defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TTextStyle;
+  var
+   scale:single;
+   st:String8;
+   parts:Strings8;
+   i,n:integer;
+  procedure BlendColor(const state:String8;v:single;defC:cardinal);
+   begin
+    if v<=0 then exit;
+    if defC=0 then defC:=result.color;
+    result.color:=Color.Mix(result.color,element.GetStateStyleColor(state,'color',defC),v);
+   end;
+  procedure BlendOffset(const state:String8;v,defY:single);
+   begin
+    if v<=0 then exit;
+    result.ofsX:=Lerp(result.ofsX,element.GetStateStyleNumber(state,'text-offset-x',result.ofsX),v);
+    result.ofsY:=Lerp(result.ofsY,element.GetStateStyleNumber(state,'text-offset-y',result.ofsY+defY),v);
+   end;
+  begin
+   scale:=element.globalScale;
+   result.font:=StyleFont(element);
+   result.options:=defOptions;
+   result.shadowColor:=0;
+   result.shadowX:=1; result.shadowY:=1;
+   // Base values (states are blended in, so the base must ignore them)
+   result.color:=element.GetBaseStyleColor('color',defColor);
+   result.ofsX:=element.GetBaseStyleNumber('text-offset-x');
+   result.ofsY:=element.GetBaseStyleNumber('text-offset-y');
+   BlendColor('hover',context.hover.Value,defHoverColor);
+   BlendColor('pressed',context.active.Value,0);
+   BlendColor('disabled',context.disabled.Value,defDisabledColor);
+   BlendOffset('hover',context.hover.Value,0);
+   BlendOffset('pressed',context.active.Value,defPressOfsY);
+   BlendOffset('disabled',context.disabled.Value,0);
+   // Alignment: the style overrides the drawer's default (e.g. TUILabel.align)
+   result.align:=defAlign;
+   st:=element.GetStyleValue('text-align');
+   if st<>'' then
+    if SameText(st,'left') then result.align:=taLeft else
+    if SameText(st,'center') then result.align:=taCenter else
+    if SameText(st,'right') then result.align:=taRight else
+    if SameText(st,'justify') then result.align:=taJustify;
+   // Decoration
+   st:=element.GetStyleValue('text-decoration');
+   if SameText(st,'underline') then result.options:=result.options or toUnderline else
+   if SameText(st,'none') then result.options:=result.options and not toUnderline;
+   // Shadow: '<color> [dx dy]' or 'none'; an explicit shadow replaces the built-in one
+   st:=element.GetStyleValue('text-shadow');
+   if st<>'' then begin
+    result.options:=result.options and not toWithShadow;
+    if not SameText(st,'none') then begin
+     parts:=st.Split(' ');
+     n:=0;
+     for i:=0 to high(parts) do
+      if parts[i].Trim<>'' then begin
+       parts[n]:=parts[i].Trim; inc(n);
+      end;
+     if n>0 then result.shadowColor:=ParseStyleColor(parts[0]);
+     if n>=3 then begin
+      result.shadowX:=ParseStyleNumber(parts[1]);
+      result.shadowY:=ParseStyleNumber(parts[2]);
+     end;
+    end;
+   end;
+   result.ofsX:=result.ofsX*scale;
+   result.ofsY:=result.ofsY*scale;
+   result.shadowX:=result.shadowX*scale;
+   result.shadowY:=result.shadowY*scale;
+  end;
+
+ // Anchor point matching ts.align inside a horizontal span (x2 = inclusive right edge)
+ function AlignAnchor(const ts:TTextStyle;x1,x2:integer):single;
+  begin
+   case ts.align of
+    taRight:result:=x2;
+    taCenter:result:=(x1+x2)/2;
+    else result:=x1;
+   end;
+  end;
+
+ // Draw text with a resolved content style: offsets, shadow layer and options included.
+ // x matches ts.align (left edge / center / right edge), y is the baseline.
+ procedure WriteStyled(const ts:TTextStyle;x,y:single;const st:String32;targetWidth:integer=0); overload;
+  begin
+   x:=x+ts.ofsX; y:=y+ts.ofsY;
+   if ts.shadowColor<>0 then
+    txt.WriteW(ts.font,x+ts.shadowX,y+ts.shadowY,ts.shadowColor,st,ts.align,ts.options,targetWidth);
+   txt.WriteW(ts.font,x,y,ts.color,st,ts.align,ts.options,targetWidth);
+  end;
+
+ procedure WriteStyled(const ts:TTextStyle;x,y:single;const st:String8;targetWidth:integer=0); overload;
+  begin
+   x:=x+ts.ofsX; y:=y+ts.ofsY;
+   if ts.shadowColor<>0 then
+    txt.Write(ts.font,x+ts.shadowX,y+ts.shadowY,ts.shadowColor,st,ts.align,ts.options,targetWidth);
+   txt.Write(ts.font,x,y,ts.color,st,ts.align,ts.options,targetWidth);
+  end;
+
  // Resolve an image reference used by style values and TUIImage.src:
  //   tex:<name>  - registered texture (TTexture.FindByName)
  //   file:<name> - image file (loaded on first use, then found via TTexture.FindByFile)
@@ -115,13 +234,13 @@ implementation
     raise EWarning.Create('Unsupported image source: '+src);
   end;
 
- procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer);
+ procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer;context:TContext);
   var
-   color:cardinal;
+   ts:TTextStyle;
   begin
    if (element.caption<>'') and (element.ClassType=TUIElement) then begin
-    color:=element.GetStyleColor('color',$FF808080);
-    txt.WriteW(StyleFont(element),(x1+x2)/2,(y1+y2)/2,color,Str32(element.caption),taCenter,toWithShadow);
+    ts:=ResolveTextStyle(element,context,$FF808080,taCenter,toWithShadow);
+    WriteStyled(ts,AlignAnchor(ts,x1,x2),(y1+y2)/2,Str32(element.caption));
    end;
   end;
 
@@ -256,34 +375,23 @@ implementation
     end;
   end;
 
- procedure DrawUILabel(control:TUILabel;x1,y1,x2,y2:integer);
+ procedure DrawUILabel(control:TUILabel;x1,y1,x2,y2:integer;context:TContext);
   var
-   mY:integer;
+   mY,targetWidth:integer;
    wst:String32;
-   bg:cardinal;
    r:TRect;
-   font:TFontHandle;
-   color:cardinal;
+   ts:TTextStyle;
   begin
-   font:=StyleFont(control);
-   color:=control.GetStyleColor('color',$FF808080);
+   // control.align is the default: 'text-align' in the style overrides it
+   ts:=ResolveTextStyle(control,context,$FF808080,control.align);
    with control do begin
-     if autoSize then begin
-
-     end;
      r:=GetClientPosOnScreen;
      gfx.clip.Rect(r);
-     //mY:=round(y1*0.3+y2*0.7)-topOffset;
-     mY:=round((r.top+r.bottom)*0.5+txt.Height(font)*0.45)-verticalOffset;
+     mY:=round((r.top+r.bottom)*0.5+txt.Height(ts.font)*0.45)-verticalOffset;
      wst:=Str32(caption);
-     if align=taLeft then
-      txt.WriteW(font,r.left,mY,color,wst);
-     if align=taRight then
-      txt.WriteW(font,r.Right-1,mY,color,wst,taRight);
-     if align=taCenter then
-      txt.WriteW(font,(r.left+r.right)/2,mY,color,wst,taCenter);
-     if align=taJustify then
-      txt.WriteW(font,r.left,mY,color,wst,taJustify,0,r.Width);
+     if ts.align=taJustify then targetWidth:=r.Width
+      else targetWidth:=0;
+     WriteStyled(ts,AlignAnchor(ts,r.left,r.Right-1),mY,wst,targetWidth);
      gfx.clip.Restore;
     end;
   end;
@@ -296,18 +404,20 @@ implementation
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
    duration:integer;
-   col,vColor,captionColor:cardinal;
+   col,vColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
    v,ss,tt,alpha:single;
    context:TContext;
+   ts:TTextStyle;
    inTransition:boolean;
   begin
    context:=element.styleContext as TContext;
 
    col:=element.GetStyleColor('border-color',$FF808080); // box outline
-   captionColor:=element.GetStyleColor('color',col);
-   font:=StyleFont(element);
+   ts:=ResolveTextStyle(element,context,col); // caption is always left-aligned after the box
+   ts.align:=taLeft;
+   font:=ts.font;
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
    size:=round(fontH*1.2);
@@ -360,7 +470,7 @@ implementation
    // Caption
    inc(x1,round(size*1.5));
    gfx.clip.Rect(Rect(x1,y1,x2,y2));
-   txt.Write(font,x1,y,captionColor,element.caption);
+   WriteStyled(ts,x1,y,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
      draw.Rect(x1,y1,x2,y2,col xor $808080);
@@ -369,19 +479,16 @@ implementation
  procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext);
   var
    mY:integer;
-   c,c2,textBaseC:cardinal;
-   d:integer;
+   c,c2:cardinal;
    hv,av,dv:single;
    wst:String32;
-   font:TFontHandle;
+   ts:TTextStyle;
   begin
-   font:=StyleFont(control);
    with control do begin
       hv:=context.hover.Value;
       av:=context.active.Value;
       dv:=context.disabled.Value;
 
-      d:=round(av);
       // The box (fill / background-image, state-blended) is drawn by the common box path.
       // Procedural look adds a bevel on top of it; a skinned button has the bevel baked in.
       if not context.skinned then begin
@@ -392,13 +499,13 @@ implementation
        if av>=1 then { pressed, no inner frame }
         else if dv<1 then begin // enabled
           c:=Color.Mix(control.GetBaseStyleColor('border-light',$A0FFFFFF),
-                       control.style.GetStateColor('hover','border-light',$A0FFFFFF),hv);
+                       control.GetStateStyleColor('hover','border-light',$A0FFFFFF),hv);
           c2:=Color.Mix(control.GetBaseStyleColor('border-dark',$70000000),
-                        control.style.GetStateColor('hover','border-dark',$70000000),hv);
+                        control.GetStateStyleColor('hover','border-dark',$70000000),hv);
           draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
         end else begin // disabled
-          c:=control.style.GetStateColor('disabled','border-light',$A0FFFFFF);
-          c2:=control.style.GetStateColor('disabled','border-dark',$70000000);
+          c:=control.GetStateStyleColor('disabled','border-light',$A0FFFFFF);
+          c2:=control.GetStateStyleColor('disabled','border-dark',$70000000);
           draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
         end;
        // focus ring (a skin expresses focus via ':focused { background-image }')
@@ -406,21 +513,16 @@ implementation
           (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
         draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
       end;
-      // caption
+      // caption: the classic 1px nudge while pressed is now the default of
+      // ':pressed { text-offset-y }', so a style can change or drop it
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       textBaseC:=control.GetBaseStyleColor('color',clBlack);
-       c:=Color.Mix(textBaseC,control.style.GetStateColor('hover','color',$FF300000),hv);
-       if dv>0 then
-        c:=Color.Mix(c,control.style.GetStateColor('disabled','color',$80000000),dv);
-       mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
+       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000,$80000000,1);
+       // fully disabled: engraved look (light shadow under the dimmed caption)
+       if (dv>=1) and (ts.shadowColor=0) then ts.shadowColor:=$E0FFFFFF;
+       mY:=round((y1+y2)*0.5+txt.Height(ts.font)*0.45);
        wSt:=Str32(caption);
-       if dv<1 then
-        txt.WriteW(font,(x1+x2)/2,mY+d,c,wst,taCenter)
-       else begin
-        txt.WriteW(font,(x1+x2)/2+1,mY+1,$E0FFFFFF,wSt,taCenter);
-        txt.WriteW(font,(x1+x2)/2,mY,$80000000,wSt,taCenter);
-       end;
+       WriteStyled(ts,AlignAnchor(ts,x1,x2),mY,wst);
        gfx.clip.Restore;
       end;
     end;
@@ -473,13 +575,14 @@ implementation
  procedure DrawUIWindow(element:TUIWindow;x1,y1,x2,y2:integer;context:TContext);
   var
    c:cardinal;
-   tx,ty:integer;
+   ty:integer;
    col:cardinal;
-   font:TFontHandle;
+   ts:TTextStyle;
   begin
    if context.skinned then exit;
    col:=element.GetStyleColor('fill',$FFB0B0C0);
-   font:=StyleFont(element);
+   ts:=ResolveTextStyle(element,context,$FFFFFFD0,taCenter);
+   if ts.shadowColor=0 then ts.shadowColor:=$B0000000; // classic title shadow
    with element do begin
     // body: the common box path already drew 'fill' when the style defines it;
     // draw the default body only for a style without 'fill' (avoids double blending)
@@ -500,10 +603,8 @@ implementation
     draw.ShadedRect(x1,y1,x2,y2,2,$C0FFFFFF,$C0000000);
 
     gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y1+header-2));
-    tx:=(x1+x2) div 2;
     ty:=y1+round(header*0.7);
-    txt.Write(font,tx+1,ty+1,$B0000000,caption,taCenter);
-    txt.Write(font,tx,ty,$FFFFFFD0,caption,taCenter);
+    WriteStyled(ts,AlignAnchor(ts,x1,x2),ty,caption);
     gfx.clip.Restore;
    end;
   end;
@@ -537,7 +638,7 @@ implementation
     sliderRadius:=element.GetStyleNumber('radius',0)*width*sliderWidth;
     // Draw track
     trackColor:=element.GetBaseStyleColor('track-color',Color.Scale(col,0.5));
-    trackColor:=Color.Mix(trackColor,element.style.GetStateColor('hover','track-color',trackColor),context.hover.Value);
+    trackColor:=Color.Mix(trackColor,element.GetStateStyleColor('hover','track-color',trackColor),context.hover.Value);
     r.Init(x1,y1,x2,y2);
     f:=(1-trackWidth)/2;
     if element.horizontal then begin
@@ -568,7 +669,7 @@ implementation
      if hooked=element then
       col:=element.GetStyleColor('active-color',Color.Add(col,$404040)) // pressed/dragging
      else if element.sliderUnder then
-      col:=element.style.GetStateColor('hover','color',Color.Add(col,$202020)); // hover col
+      col:=element.GetStateStyleColor('hover','color',Color.Add(col,$202020)); // hover col
      if sliderRadius=0 then
       draw.FillRect(r.left,r.top,r.right,r.bottom,col)
      else begin
@@ -753,11 +854,12 @@ implementation
     end;
   end;
 
- procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox);
+ procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox;context:TContext);
   var
    st:string8;
    i,cx,cy:integer;
    c:cardinal;
+   ts:TTextStyle;
   begin
    if (undermouse=combo) or combo.frame.flags.visible then
     draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFFFFFFF,$FFE0E0DC,true)
@@ -773,7 +875,9 @@ implementation
      gfx.clip.Rect(Rect(x1+1,y1+1,x2-21,y2-1));
      if curItem>=0 then st:=items[curItem]
       else st:=defaultText;
-     txt.Write(StyleFont(combo),x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
+     ts:=ResolveTextStyle(combo,context,$FF000000);
+     ts.align:=taLeft;
+     WriteStyled(ts,x1+5,round(y2*0.7+y1*0.3),st);
      gfx.clip.Restore;
     end;
     // Arrow
@@ -820,17 +924,17 @@ implementation
   procedure BlendState(const state:String8;v:single;fillDef:cardinal);
    begin
     if v<=0 then exit;
-    fillColor:=Color.Mix(fillColor,element.style.GetStateColor(state,'fill',fillDef),v);
-    borderColor:=Color.Mix(borderColor,element.style.GetStateColor(state,'border-color',borderColor),v);
-    radius:=Lerp(radius,element.style.GetStateNumber(state,'radius',radius),v);
-    bWidth:=Lerp(bWidth,element.style.GetStateNumber(state,'border-width',bWidth),v);
+    fillColor:=Color.Mix(fillColor,element.GetStateStyleColor(state,'fill',fillDef),v);
+    borderColor:=Color.Mix(borderColor,element.GetStateStyleColor(state,'border-color',borderColor),v);
+    radius:=Lerp(radius,element.GetStateStyleNumber(state,'radius',radius),v);
+    bWidth:=Lerp(bWidth,element.GetStateStyleNumber(state,'border-width',bWidth),v);
    end;
   // Blend image offsets toward a state block (logical units)
   procedure BlendOffset(const state:String8;v:single);
    begin
     if v<=0 then exit;
-    ofsX:=Lerp(ofsX,element.style.GetStateNumber(state,'background-offset-x',ofsX),v);
-    ofsY:=Lerp(ofsY,element.style.GetStateNumber(state,'background-offset-y',ofsY),v);
+    ofsX:=Lerp(ofsX,element.GetStateStyleNumber(state,'background-offset-x',ofsX),v);
+    ofsY:=Lerp(ofsY,element.GetStateStyleNumber(state,'background-offset-y',ofsY),v);
    end;
   // Add a state image layer: same image -> blend tint only, other image -> cross-fade layer
   procedure AddImageState(const state:String8;v:single);
@@ -840,10 +944,10 @@ implementation
     tint:cardinal;
    begin
     if v<=0 then exit;
-    src:=element.style.GetStateValue(state,'background-image',baseImage);
+    src:=element.GetStateStyleValue(state,'background-image',baseImage);
     tex:=context.GetImage(src);
     if tex=nil then exit;
-    tint:=element.style.GetStateColor(state,'background-tint',layers[layerCount-1].tint);
+    tint:=element.GetStateStyleColor(state,'background-tint',layers[layerCount-1].tint);
     if tex=layers[layerCount-1].tex then begin
      layers[layerCount-1].tint:=Color.Mix(layers[layerCount-1].tint,tint,v);
      exit;
@@ -992,11 +1096,11 @@ implementation
 
    // Просто контейнер - заливка плюс рамка
    if element.ClassType=TUIElement then
-    DrawUIElement(element,x1,y1,x2,y2)
+    DrawUIElement(element,x1,y1,x2,y2,context)
    else
    // Надпись
    if element is TUILabel then
-    DrawUILabel(element as TUILabel,x1,y1,x2,y2)
+    DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
    else
    // Кнопка
    if element.ClassType=TUIButton then
@@ -1040,7 +1144,7 @@ implementation
    else
    // Combo box
    if element is TUIComboBox then
-    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox);
+    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context);
    {else
     DrawUIElement(element,x1,y1,x2,y2);}
   end;

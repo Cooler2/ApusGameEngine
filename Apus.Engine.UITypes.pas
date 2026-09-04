@@ -253,6 +253,11 @@ type
   // Base value without state overrides — for transition blending
   function GetBaseStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetBaseStyleNumber(const key:String8; defVal:single=0):single;
+  // Value declared for one specific state (own ':state' blocks + those of its @refs),
+  // whether or not that state is active — the other half of transition blending
+  function GetStateStyleValue(const state,key:String8; const defVal:String8=''):String8;
+  function GetStateStyleColor(const state,key:String8; defVal:cardinal=0):cardinal;
+  function GetStateStyleNumber(const state,key:String8; defVal:single=0):single;
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -1509,6 +1514,21 @@ function TUIElement.GetClientHeight:single;
  function TUIElement.GetStyleInt(const key:String8; defVal:integer):integer;
   begin
    result:=round(GetStyleNumber(key,defVal));
+  end;
+
+ function TUIElement.GetStateStyleValue(const state,key:String8; const defVal:String8):String8;
+  begin
+   result:=ResolveBlockStateAttr(style,state,key,defVal);
+  end;
+
+ function TUIElement.GetStateStyleColor(const state,key:String8; defVal:cardinal):cardinal;
+  begin
+   result:=ResolveBlockStateColor(style,state,key,defVal);
+  end;
+
+ function TUIElement.GetStateStyleNumber(const state,key:String8; defVal:single):single;
+  begin
+   result:=ResolveBlockStateNumber(style,state,key,defVal);
   end;
 
  function TUIElement.GetBaseStyleColor(const key:String8; defVal:cardinal):cardinal;

@@ -230,6 +230,17 @@ procedure MakeLabel(parent:TUIElement;x,y,w:single;const text:String8;muted:bool
    else lbl.style.Assign('@demo-label;');
  end;
 
+// A label with an explicit style on top of @demo-label (used for the content-key samples)
+procedure StyledLabel(parent:TUIElement;x,y,w:single;const text,styleText:String8);
+ var
+  lbl:TUILabel;
+ begin
+  lbl:=TUILabel.Create(w,20,parent);
+  lbl.Setup(text);
+  lbl.SetPos(x,y,pivotTopLeft);
+  lbl.style.Assign('@demo-label; '+styleText);
+ end;
+
 procedure StyleButton(btn:TUIButton;const styleText:String8='@demo-button;');
  begin
   btn.style.Assign(styleText);
@@ -492,7 +503,11 @@ procedure TStyleDemoScene.CreateUI;
 
   btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnDanger').Setup('Danger override');
   btn.SetPos(190,162,pivotTopLeft);
-  StyleButton(btn,'@demo-button; fill:&danger; color:&danger-text;');
+  // local state blocks win over those of @demo-button, so the button keeps its danger
+  // colors in every state; the pressed caption shift is data, not drawer code
+  StyleButton(btn,'@demo-button; fill:&danger; color:&danger-text;'+
+    ':hover { fill:&danger; color:&danger-text; }'+
+    ':pressed { fill:&danger; color:&danger-text; text-offset-x:1; text-offset-y:2; }');
 
   // Skinned button: the box is a texture (auto size, centered), states cross-fade between
   // textures, pressed = darker tint + 1px shift. No custom drawer involved.
@@ -551,8 +566,10 @@ procedure TStyleDemoScene.CreateUI;
 
   panel4:=Panel(UI,410,18,330,250,'ThemeCoverage','Styled containers');
   MakeLabel(panel4,12,40,286,'Panels, labels, inputs, lists, toggles and sliders all bind to tokens.',true);
-  MakeLabel(panel4,12,82,286,'Edit named styles in the right window to affect whole widget groups.',false);
-  MakeLabel(panel4,12,112,286,'Palette edits change every style that uses &token references.',false);
+  MakeLabel(panel4,12,72,286,'Content keys: shadow, decoration and alignment come from the style.',true);
+  StyledLabel(panel4,12,100,286,'Shadowed caption','text-shadow:$C0000000 1 1;');
+  StyledLabel(panel4,12,126,286,'Underlined caption','text-decoration:underline;');
+  StyledLabel(panel4,12,152,286,'Right-aligned by the style','text-align:right;');
 
   btn:=TUIButton.Create(120,30,panel4,'StyleDemo\Exit').Setup('Exit');
   btn.SetPos(12,188,pivotTopLeft);

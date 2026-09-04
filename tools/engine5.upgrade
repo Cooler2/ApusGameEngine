@@ -119,6 +119,10 @@ ErrorMessage -> SystemMessage [Apus.Core]
 // editbox: col->color; scrollbar: col->color, track-col->track-color, active-col->active-color, style->variant
 // any: border->border-color, inner-border->inner-border-color, hoverTime*->hover-time[-in|-out], hover->hover-target
 SetStyle( -> ?use element.style.SetAttr(key,value) [Apus.Engine.UITypes]
+// === UI style states (2026-09-05): drawers must resolve states through refs+tokens ===
+style.GetStateColor( -> ?use element.GetStateStyleColor(state,key,def) [Apus.Engine.UITypes]
+style.GetStateNumber( -> ?use element.GetStateStyleNumber(state,key,def) [Apus.Engine.UITypes]
+
 // === UI skins (2026-09-05): image-per-state is a style value, not a field ===
 // wnd.background:=tex  => wnd.style.SetAttr('background-image','tex:'+tex.name)  (or SetupSkinnedWindow(wnd,tex))
 // SetupWindow(wnd,tiledImage) removed (never drawn); use SetupSkinnedWindow with a TTexture

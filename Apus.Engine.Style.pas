@@ -14,10 +14,13 @@
 //   !state:-name  -- deactivate state
 //   Multiple patches separated by ; or newline
 //
-// Cascade priority (lowest to highest):
-//   1. @refs (earlier listed = lower priority)
-//   2. Local attributes
-//   3. Active state overrides
+// Cascade priority (lowest to highest), states beat plain values at every level:
+//   1. @ref plain attributes (earlier listed = lower priority)
+//   2. Local plain attributes
+//   3. @ref ':state' blocks for the element's active states
+//   4. Local ':state' blocks
+// So a ':hover' block inside a named style applies to every element referencing it,
+// even when that element sets the same key locally without a state.
 //
 // Canonical attribute vocabulary (kebab-case; CSS names where CSS has the concept).
 // Drawers read ONLY these keys. Keys marked [inh] are inherited from the parent chain
@@ -37,8 +40,10 @@
 //   font [inh]           font name;  font-size [inh]
 //   color [inh]          content (text/glyph) color — NEVER a box color
 //   text-align [inh]     left | center | right | justify
-//   text-shadow [inh]    shadow color [dx dy];  text-decoration [inh]  underline
-//   text-offset-x/y      caption shift (state-able: ':pressed { text-offset-y:1 }')
+//   text-shadow [inh]    '<color> [dx dy]' | none — a second text layer under the first
+//                        (dx,dy in logical units, 1 1 by default); replaces toWithShadow
+//   text-decoration [inh]  underline | none
+//   text-offset-x/y      caption shift, logical units (state-able: ':pressed { text-offset-y:1 }')
 //   tint                 TUIImage image tint (content image, not inherited)
 //   tick-color           checkbox/radio mark
 //  Scrollbar:
@@ -108,6 +113,8 @@ type
    function HasAttr(const key:String8):boolean;
    function GetValue(const key:String8; const defVal:String8=''):String8;
    function GetStateValue(const stateName,key:String8; const defVal:String8=''):String8;
+   // Value for a comma-separated state list (later listed state wins); '' if none has the key
+   function GetStatesValue(const states,key:String8):String8;
 
    // Type-specific value getters
    function GetColor(const key:String8; defVal:cardinal=0):cardinal;
@@ -156,6 +163,14 @@ function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:Str
 function ResolveBlockColor(block:TStyleBlock; const key:String8; defVal:cardinal=0):cardinal;
 function ResolveBlockNumber(block:TStyleBlock; const key:String8; defVal:single=0):single;
 
+// Resolve a value declared for one specific state, through local ':state' blocks and
+// then @refs (later listed ref = higher priority). Tokens are expanded; the parent chain
+// is not consulted (a state belongs to the element that owns it).
+// Used by drawers to blend transitions: base value + per-state value + progress.
+function ResolveBlockStateAttr(block:TStyleBlock; const stateName,key:String8; const defVal:String8=''):String8;
+function ResolveBlockStateColor(block:TStyleBlock; const stateName,key:String8; defVal:cardinal=0):cardinal;
+function ResolveBlockStateNumber(block:TStyleBlock; const stateName,key:String8; defVal:single=0):single;
+
 // Resolve base value — local attrs+refs only, ignores active state overrides
 // Useful for transition blending: base = no-state value, state = SetState override
 function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal:String8=''):String8;
@@ -164,6 +179,9 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
 // Parse color string: $AARRGGBB, $RRGGBB, #RRGGBB, #RGB, #ARGB formats
 // Returns 0 on failure
 function ParseStyleColor(const s:String8):cardinal;
+
+// Parse numeric string: plain number or percentage ('50%' -> 0.5)
+function ParseStyleNumber(const s:String8):single;
 
 // True for attributes that cascade down the element tree when not set locally
 // (typography and content color). Box chrome (fill, border*, radius...) never inherits.
@@ -447,20 +465,25 @@ function TStyleBlock.GetStateValue(const stateName,key:String8; const defVal:Str
   result:=defVal;
  end;
 
-function TStyleBlock.GetActiveStateValue(const key:String8):String8;
+function TStyleBlock.GetStatesValue(const states,key:String8):String8;
  var
-  states:Strings8;
+  list:Strings8;
   i:integer;
   v:String8;
  begin
   result:='';
-  if activeStates='' then exit;
-  states:=activeStates.Split(',');
+  if states='' then exit;
+  list:=states.Split(',');
   // later-listed states have higher priority → iterate in forward order, last wins
-  for i:=0 to high(states) do begin
-   v:=GetStateValue(states[i],key,'');
+  for i:=0 to high(list) do begin
+   v:=GetStateValue(list[i],key,'');
    if v<>'' then result:=v;
   end;
+ end;
+
+function TStyleBlock.GetActiveStateValue(const key:String8):String8;
+ begin
+  result:=GetStatesValue(activeStates,key);
  end;
 
 function TStyleBlock.GetValue(const key:String8; const defVal:String8):String8;
@@ -993,23 +1016,33 @@ function ActiveTheme:String8;
 { Resolver with @refs }
 
 // Raw resolve: local + active states + @refs, no token expansion (recursion stays raw).
-function ResolveBlockAttrRaw(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+function ResolveBlockAttrBaseRaw(block:TStyleBlock; const key:String8; const defVal:String8):String8; forward;
+
+// State phase: ':state' blocks of this block, then of its @refs (later ref wins).
+// 'states' is the element's active state list, applied at every level of the cascade.
+function ResolveStatePhase(block:TStyleBlock; const states,key:String8):String8;
  var
   i:integer;
   refBlock:TStyleBlock;
-  refVal:String8;
  begin
-  // local + active states (highest priority)
-  result:=block.GetValue(key,'');
+  result:='';
+  if (block=nil) or (states='') then exit;
+  result:=block.GetStatesValue(states,key);
   if result<>'' then exit;
-  // @refs in reverse order: later listed = higher priority among refs
   for i:=high(block.refs) downto 0 do begin
    refBlock:=FindStyleBlock(block.refs[i]);
    if refBlock=nil then continue;
-   refVal:=ResolveBlockAttrRaw(refBlock,key,'');
-   if refVal<>'' then exit(refVal);
+   result:=ResolveStatePhase(refBlock,states,key);
+   if result<>'' then exit;
   end;
-  result:=defVal;
+ end;
+
+function ResolveBlockAttrRaw(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+ begin
+  // states first (local block, then refs), then plain values (local, then refs)
+  result:=ResolveStatePhase(block,block.activeStates,key);
+  if result='' then result:=ResolveBlockAttrBaseRaw(block,key,'');
+  if result='' then result:=defVal;
  end;
 
 function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:String8):String8;
@@ -1074,6 +1107,31 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
   if s='' then exit(defVal);
   result:=ParseStyleColor(s);
   if (result=0) and (s<>'0') then result:=defVal;
+ end;
+
+function ResolveBlockStateAttr(block:TStyleBlock; const stateName,key:String8; const defVal:String8):String8;
+ begin
+  result:=ExpandToken(ResolveStatePhase(block,stateName,key));
+  if result='' then result:=defVal;
+ end;
+
+function ResolveBlockStateColor(block:TStyleBlock; const stateName,key:String8; defVal:cardinal):cardinal;
+ var
+  s:String8;
+ begin
+  s:=ResolveBlockStateAttr(block,stateName,key,'');
+  if s='' then exit(defVal);
+  result:=ParseStyleColor(s);
+  if (result=0) and (s<>'0') then result:=defVal;
+ end;
+
+function ResolveBlockStateNumber(block:TStyleBlock; const stateName,key:String8; defVal:single):single;
+ var
+  s:String8;
+ begin
+  s:=ResolveBlockStateAttr(block,stateName,key,'');
+  if s='' then exit(defVal);
+  result:=ParseStyleNumber(s);
  end;
 
 { Built-in themes — draft palettes from design doc §3.

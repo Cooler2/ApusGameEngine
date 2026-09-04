@@ -339,6 +339,55 @@ begin
   EndTest;
 end;
 
+// State blocks declared inside a named style must apply to elements referencing it,
+// both when the state is active (resolve path) and when asked for explicitly (blending).
+procedure TestStateFromRef;
+var
+  b:TStyleBlock;
+begin
+  StartTest('State blocks inside @refs');
+  Styles['btn']:='fill: $FF303030; :hover { fill: $FF808080; } :pressed { fill: $FF101010; }';
+  b:=TStyleBlock.Create;
+  b.ParseText('@btn;');
+  Check(ResolveBlockColor(b,'fill',0)=$FF303030,'base fill from ref');
+  Check(ResolveBlockStateColor(b,'hover','fill',0)=$FF808080,'ref hover value for blending');
+  Check(ResolveBlockStateColor(b,'missing','fill',$FF010101)=$FF010101,'unknown state falls back');
+  b.SetState('hover',true);
+  Check(ResolveBlockColor(b,'fill',0)=$FF808080,'ref hover applied when active');
+  b.SetState('hover',false);
+  Check(ResolveBlockColor(b,'fill',0)=$FF303030,'base fill restored');
+  // a local state block wins over the ref one
+  b.ParseText('@btn; :hover { fill: $FF00FF00; }');
+  Check(ResolveBlockStateColor(b,'hover','fill',0)=$FF00FF00,'local state beats ref state');
+  // a state (from any level) wins over a plain local value
+  b.ParseText('@btn; fill: $FF0000FF;');
+  Check(ResolveBlockColor(b,'fill',0)=$FF0000FF,'local plain fill');
+  b.SetState('hover',true);
+  Check(ResolveBlockColor(b,'fill',0)=$FF808080,'ref state beats local plain value');
+  b.Free;
+  Styles.Remove('btn');
+  EndTest;
+end;
+
+// Tokens must be expanded in state values too, not only in plain ones
+procedure TestTokenInRefState;
+var
+  b:TStyleBlock;
+begin
+  StartTest('Token in a ref state block');
+  SetToken('accent','$FF3366CC');
+  Styles['tokbtn']:='fill: $FF303030; :hover { fill: &accent; }';
+  b:=TStyleBlock.Create;
+  b.ParseText('@tokbtn;');
+  Check(ResolveBlockStateColor(b,'hover','fill',0)=$FF3366CC,'token expanded in ref state');
+  b.SetState('hover',true);
+  Check(ResolveBlockColor(b,'fill',0)=$FF3366CC,'token expanded when state is active');
+  b.Free;
+  Styles.Remove('tokbtn');
+  RemoveToken('accent');
+  EndTest;
+end;
+
 // --- Main ---
 begin
   writeln('=== TestStyle ===');
@@ -362,6 +411,8 @@ begin
   TestTokenInNumbers;
   TestThemeSwap;
   TestInheritedKeys;
+  TestStateFromRef;
+  TestTokenInRefState;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

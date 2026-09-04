@@ -3,6 +3,44 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI text styling + state blocks inside named styles (2026-09-05)
+
+**Content keys.** Drawers resolve the text part of a widget through one helper
+(`ResolveTextStyle` in `Apus.Engine.DefaultStyle`), so these keys now work on labels,
+buttons, checkboxes, containers, windows and combo boxes:
+
+| key | meaning |
+|---|---|
+| `text-align` | `left`/`center`/`right`/`justify`; overrides `TUILabel.align` |
+| `text-shadow` | `<color> [dx dy]` or `none`; dx,dy in logical units (1 1 by default) |
+| `text-decoration` | `underline` or `none` |
+| `text-offset-x/y` | caption shift in logical units, blended per state |
+
+- The button's hardcoded 1px caption nudge while pressed became the default of
+  `:pressed { text-offset-y }` — a style can change or remove it. Being a logical
+  unit, it is now 2 real pixels at scale 2 (it used to stay 1 pixel).
+- `color` (content color), text offsets and the caption color blend through the state
+  tweenings; align, decoration and shadow switch instantly.
+- `ParseStyleNumber` is exported from `Apus.Engine.Style` (compound values like
+  `text-shadow` are parsed by the drawer).
+
+**State blocks inside named styles now apply (defect fix).** A `:hover { ... }` block
+written inside `Styles['name']` was silently ignored: state lookups only ever saw the
+element's own block, and never expanded `&tokens`. Both are fixed, so
+`Styles['button']:='fill:&control; :hover { fill:&accent; }'` works as written.
+
+- New cascade order (states beat plain values at every level):
+  local `:state` > `@ref` `:state` > local plain > `@ref` plain.
+  A named style therefore keeps its hover/pressed behaviour even for an element that
+  overrides the same key without a state; to keep local colors in every state, declare
+  local `:state` blocks (they win).
+- New API: `ResolveBlockStateAttr/Color/Number` (Style) and
+  `TUIElement.GetStateStyleValue/Color/Number` — use these instead of
+  `element.style.GetStateColor/GetStateNumber`, which see neither refs nor tokens.
+- `TStyleBlock.GetStatesValue(states,key)` evaluates a comma-separated state list.
+- Visible effect: widgets whose `@ref` declares states (StyleDemo's `@demo-button`,
+  any theme-provided style) start animating between state colors.
+
 ## UI skins through the box path (2026-09-05)
 
 A widget box can now be a texture: `background-image: tex:<name>` / `file:<name>`,
