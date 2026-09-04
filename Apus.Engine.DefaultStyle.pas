@@ -27,10 +27,16 @@ implementation
    disabled:TTweening;
    hover:TTweening;
    active:TTweening;
+   skinned:boolean; // set by the box path: a background-image was drawn this frame
    destructor Destroy; override;
    constructor Create(element:TUIElement);
    procedure Update(element:TUIElement);
    function HoverState(element:TUIElement):byte;
+   // Resolve a 'background-image' value to a texture, memoized per source string
+   function GetImage(const src:String8):TTexture;
+  private
+   imgSrc:array of String8;  // memo: source string -> texture (small, linear)
+   imgTex:array of TTexture;
   end;
 
  function PrepareContext(element:TUIElement):TContext;
@@ -87,6 +93,26 @@ implementation
    name:=element.GetStyleValue('font','Default');
    size:=element.GetStyleNumber('font-size',9);
    result:=txt.GetFont(name,round(size*element.globalScale));
+  end;
+
+ // Resolve an image reference used by style values and TUIImage.src:
+ //   tex:<name>  - registered texture (TTexture.FindByName)
+ //   file:<name> - image file (loaded on first use, then found via TTexture.FindByFile)
+ // Returns nil if the reference can't be resolved (yet).
+ function ResolveStyleImage(const src:String8):TTexture;
+  var
+   lname:String8;
+  begin
+   result:=nil;
+   if src.StartsWith('tex:',true) then
+    result:=TTexture(TTexture.FindByName(copy(src,5,200)))
+   else
+   if src.StartsWith('file:',true) then begin
+    lname:=Files.FixName(copy(src,6,200));
+    result:=TTexture.FindByFile(lName);
+    if result=nil then LoadImage(result,lname);
+   end else
+    raise EWarning.Create('Unsupported image source: '+src);
   end;
 
  procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer);
@@ -343,7 +369,7 @@ implementation
  procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext);
   var
    mY:integer;
-   c,c2,baseC,textBaseC:cardinal;
+   c,c2,textBaseC:cardinal;
    d:integer;
    hv,av,dv:single;
    wst:String32;
@@ -355,34 +381,31 @@ implementation
       av:=context.active.Value;
       dv:=context.disabled.Value;
 
-      // box color ('fill'): base → hover → pressed (layered)
-      baseC:=control.GetBaseStyleColor('fill',defaultBtnColor);
-      c:=Color.Mix(baseC,control.style.GetStateColor('hover','fill',Color.Add(baseC,$101010)),hv);
-      c:=Color.Mix(c,control.style.GetStateColor('pressed','fill',Color.Sub(baseC,$282020)),av);
-      if dv>0 then
-       c:=Color.Mix(c,control.style.GetStateColor('disabled','fill',Color.Mix(baseC,$FFA0A0A0,128)),dv);
-
       d:=round(av);
-      draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,Color.Add(c,$303030),Color.Sub(c,$303030),true);
-      c:=control.GetBaseStyleColor('border-light',$60000000);
-      c2:=control.GetBaseStyleColor('border-dark',$80FFFFFF);
-      draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // outer frame
-      if av>=1 then { pressed, no inner frame }
-       else if dv<1 then begin // enabled
-         c:=Color.Mix(control.GetBaseStyleColor('border-light',$A0FFFFFF),
-                      control.style.GetStateColor('hover','border-light',$A0FFFFFF),hv);
-         c2:=Color.Mix(control.GetBaseStyleColor('border-dark',$70000000),
-                       control.style.GetStateColor('hover','border-dark',$70000000),hv);
-         draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
-       end else begin // disabled
-         c:=control.style.GetStateColor('disabled','border-light',$A0FFFFFF);
-         c2:=control.style.GetStateColor('disabled','border-dark',$70000000);
-         draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
-       end;
-      // focus ring
-      if (FocusedElement=control) or
-         (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
-       draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
+      // The box (fill / background-image, state-blended) is drawn by the common box path.
+      // Procedural look adds a bevel on top of it; a skinned button has the bevel baked in.
+      if not context.skinned then begin
+       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,$30FFFFFF,$30000000,true); // bevel gradient
+       c:=control.GetBaseStyleColor('border-light',$60000000);
+       c2:=control.GetBaseStyleColor('border-dark',$80FFFFFF);
+       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // outer frame
+       if av>=1 then { pressed, no inner frame }
+        else if dv<1 then begin // enabled
+          c:=Color.Mix(control.GetBaseStyleColor('border-light',$A0FFFFFF),
+                       control.style.GetStateColor('hover','border-light',$A0FFFFFF),hv);
+          c2:=Color.Mix(control.GetBaseStyleColor('border-dark',$70000000),
+                        control.style.GetStateColor('hover','border-dark',$70000000),hv);
+          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
+        end else begin // disabled
+          c:=control.style.GetStateColor('disabled','border-light',$A0FFFFFF);
+          c2:=control.style.GetStateColor('disabled','border-dark',$70000000);
+          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
+        end;
+       // focus ring (a skin expresses focus via ':focused { background-image }')
+       if (FocusedElement=control) or
+          (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
+        draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
+      end;
       // caption
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
@@ -420,9 +443,6 @@ implementation
   type
    TImageDrawProc=procedure(img:TUIImage);
   var
-   img:THandle;
-   lname:string;
-   p:int64;
    tex:TTexture;
    proc:TImageDrawProc;
   begin
@@ -439,19 +459,8 @@ implementation
        Signal(copy(src,7,200),PtrUInt(control));
        exit;
       end;
-      // SRC = texture name?
-      tex:=nil;
-      if src.StartsWith('tex:',true) then begin
-       tex:=TTexture(TTexture.FindByName(copy(src,5,200)));
-      end else
-      if src.StartsWith('file:',true) then begin
-       // SRC = filename?
-       lname:=Files.FixName(copy(src,6,200));
-       tex:=TTexture.FindByFile(lName);
-       if tex=nil then
-        LoadImage(tex,lname); //
-      end else
-       raise EWarning.Create('Unsupported image SRC type: '+src);
+      // SRC = texture name or file name
+      tex:=ResolveStyleImage(src);
       if tex<>nil then begin
        draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('tint',clWhite));
       end;
@@ -459,14 +468,16 @@ implementation
     end;
   end;
 
-/// TODO: rework window rendering using common style
- procedure DrawUIWindow(element:TUIWindow;x1,y1,x2,y2:integer);
+ // Window chrome (header, frame, caption). A skinned window (background-image) has its
+ // chrome painted by the artist, so only the box path draws it.
+ procedure DrawUIWindow(element:TUIWindow;x1,y1,x2,y2:integer;context:TContext);
   var
    c:cardinal;
    tx,ty:integer;
    col:cardinal;
    font:TFontHandle;
   begin
+   if context.skinned then exit;
    col:=element.GetStyleColor('fill',$FFB0B0C0);
    font:=StyleFont(element);
    with element do begin
@@ -776,12 +787,27 @@ implementation
    end;
   end;
 
+ // Common box path: fill / background-image, border, radius, inner block.
+ // All box keys are state-blended (hover/pressed/disabled) through the context tweenings.
+ // Sets context.skinned when a background-image was drawn.
  procedure DrawCommonStyle(element:TUIElement;context:TContext;outerBorder:boolean=false);
+  type
+   TImageLayer=record
+    tex:TTexture;
+    tint:cardinal;
+    weight:single; // cross-fade weight (alpha multiplier)
+   end;
   var
    fillColor,borderColor:cardinal;
    radius,bWidth,scale:single;
    x1,y1,x2,y2:integer;
-   v:single;
+   hv,av,dv:single;
+   isButton:boolean;
+   layers:array[0..3] of TImageLayer;
+   layerCount:integer;
+   baseImage:String8;
+   ofsX,ofsY:single;
+   stretch:boolean;
   procedure ImportRect(r:TRect;expand:single=0);
    var
     d:integer;
@@ -789,6 +815,64 @@ implementation
     d:=round(expand);
     x1:=r.Left-d; x2:=r.right-1+d;
     y1:=r.top-d; y2:=r.bottom-1+d;
+   end;
+  // Blend box colors/metrics toward a state block (fillDef = default fill for the state)
+  procedure BlendState(const state:String8;v:single;fillDef:cardinal);
+   begin
+    if v<=0 then exit;
+    fillColor:=Color.Mix(fillColor,element.style.GetStateColor(state,'fill',fillDef),v);
+    borderColor:=Color.Mix(borderColor,element.style.GetStateColor(state,'border-color',borderColor),v);
+    radius:=Lerp(radius,element.style.GetStateNumber(state,'radius',radius),v);
+    bWidth:=Lerp(bWidth,element.style.GetStateNumber(state,'border-width',bWidth),v);
+   end;
+  // Blend image offsets toward a state block (logical units)
+  procedure BlendOffset(const state:String8;v:single);
+   begin
+    if v<=0 then exit;
+    ofsX:=Lerp(ofsX,element.style.GetStateNumber(state,'background-offset-x',ofsX),v);
+    ofsY:=Lerp(ofsY,element.style.GetStateNumber(state,'background-offset-y',ofsY),v);
+   end;
+  // Add a state image layer: same image -> blend tint only, other image -> cross-fade layer
+  procedure AddImageState(const state:String8;v:single);
+   var
+    src:String8;
+    tex:TTexture;
+    tint:cardinal;
+   begin
+    if v<=0 then exit;
+    src:=element.style.GetStateValue(state,'background-image',baseImage);
+    tex:=context.GetImage(src);
+    if tex=nil then exit;
+    tint:=element.style.GetStateColor(state,'background-tint',layers[layerCount-1].tint);
+    if tex=layers[layerCount-1].tex then begin
+     layers[layerCount-1].tint:=Color.Mix(layers[layerCount-1].tint,tint,v);
+     exit;
+    end;
+    if layerCount>high(layers) then exit;
+    layers[layerCount].tex:=tex;
+    layers[layerCount].tint:=tint;
+    layers[layerCount].weight:=v;
+    inc(layerCount);
+   end;
+  procedure DrawImageLayers;
+   var
+    i:integer;
+    tint:cardinal;
+    w,h,cx,cy,dx,dy:single;
+   begin
+    dx:=ofsX*scale; dy:=ofsY*scale;
+    for i:=0 to layerCount-1 do begin
+     tint:=layers[i].tint;
+     if layers[i].weight<1 then tint:=Color.Scale(tint,layers[i].weight);
+     if stretch then
+      draw.Scaled(x1-0.5+dx,y1-0.5+dy,x2+0.5+dx,y2+0.5+dy,layers[i].tex,tint)
+     else begin
+      // auto: native size in logical units (scaled by globalScale), centered in the box
+      w:=layers[i].tex.width*scale; h:=layers[i].tex.height*scale;
+      cx:=(x1+x2+1)/2+dx; cy:=(y1+y2+1)/2+dy;
+      draw.Image(cx-w/2,cy-h/2,scale,layers[i].tex,tint,0,0);
+     end;
+    end;
    end;
   procedure DrawBlock;
    var
@@ -819,29 +903,64 @@ implementation
     end;
    end;
   begin
+   context.skinned:=false;
    ImportRect(element.globalRect);
    scale:=element.globalScale;
+   hv:=context.hover.Value;
+   av:=context.active.Value;
+   dv:=context.disabled.Value;
+   // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
+   isButton:=(element.ClassType=TUIButton) or ((element is TUIToggleButton) and not (element is TUICheckbox));
+
    // Outer block: base values
-   fillColor:=element.GetBaseStyleColor('fill');
+   if isButton then fillColor:=element.GetBaseStyleColor('fill',defaultBtnColor)
+    else fillColor:=element.GetBaseStyleColor('fill');
    borderColor:=element.GetBaseStyleColor('border-color');
    radius:=element.GetBaseStyleNumber('radius');
    bWidth:=element.GetBaseStyleNumber('border-width');
 
-   if (fillColor=0) and (borderColor=0) and (radius=0) and (bWidth=0) then exit; // nothing to draw
+   // Background image: base layer + state layers (cross-fade)
+   layerCount:=0;
+   baseImage:=element.GetStyleValue('background-image');
+   if baseImage<>'' then begin
+    layers[0].tex:=context.GetImage(baseImage);
+    if layers[0].tex<>nil then begin
+     layers[0].tint:=element.GetBaseStyleColor('background-tint',clNeutral);
+     layers[0].weight:=1;
+     layerCount:=1;
+     AddImageState('hover',hv);
+     AddImageState('pressed',av);
+     AddImageState('disabled',dv);
+     stretch:=SameText(element.GetStyleValue('background-size','auto'),'stretch');
+     ofsX:=element.GetBaseStyleNumber('background-offset-x');
+     ofsY:=element.GetBaseStyleNumber('background-offset-y');
+     BlendOffset('hover',hv);
+     BlendOffset('pressed',av);
+     BlendOffset('disabled',dv);
+    end;
+   end;
 
-   // hover blend
-   v:=context.hover.Value;
-   if v>0 then begin
-    fillColor:=Color.Mix(fillColor,element.style.GetStateColor('hover','fill',fillColor),v);
-    borderColor:=Color.Mix(borderColor,element.style.GetStateColor('hover','border-color',borderColor),v);
-    radius:=Lerp(radius,element.style.GetStateNumber('hover','radius',radius),v);
-    bWidth:=Lerp(bWidth,element.style.GetStateNumber('hover','border-width',bWidth),v);
+   if (fillColor=0) and (borderColor=0) and (radius=0) and (bWidth=0) and (layerCount=0) then exit; // nothing to draw
+
+   // State blend: hover -> pressed -> disabled (layered)
+   if isButton then begin
+    BlendState('hover',hv,Color.Add(fillColor,$101010));
+    BlendState('pressed',av,Color.Sub(fillColor,$282020));
+    BlendState('disabled',dv,Color.Mix(fillColor,$FFA0A0A0,128));
+   end else begin
+    BlendState('hover',hv,fillColor);
+    BlendState('pressed',av,fillColor);
+    BlendState('disabled',dv,fillColor);
    end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
    // to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
-   if Color.HasAlpha(fillColor) then SetProperBlendMode(element);
+   if Color.HasAlpha(fillColor) or (layerCount>0) then SetProperBlendMode(element);
    DrawBlock;
+   if layerCount>0 then begin
+    DrawImageLayers;
+    context.skinned:=true;
+   end;
    RestoreBlendMode;
 
    // Inner (client) block
@@ -864,10 +983,7 @@ implementation
   begin
    context:=PrepareContext(element);
    context.Update(element);
-   // Plain/toggle buttons own their box (fill+bevel) — skipping the common box path
-   // avoids double-blending translucent fills. Unifying both is the B-16 box-path step.
-   if not ((element.ClassType=TUIButton) or (element is TUIToggleButton)) or (element is TUICheckbox) then
-    DrawCommonStyle(element,context,element is TUIListBox);
+   DrawCommonStyle(element,context,element is TUIListBox);
 
    with element.globalrect do begin
     x1:=Left; x2:=right-1;
@@ -908,7 +1024,7 @@ implementation
    else
    // Window
    if element.ClassType=TUIWindow then
-    DrawUIWindow(element as TUIWindow,x1,y1,x2,y2)
+    DrawUIWindow(element as TUIWindow,x1,y1,x2,y2,context)
    else
    // Scrollbar
    if element.ClassType=TUIScrollBar then
@@ -994,6 +1110,23 @@ procedure TContext.Update(element:TUIElement);
   end;
   // sync disabled state
   element.SetState('disabled',v=1);
+  // Keyboard focus (no tweening: ':focused' blocks switch instantly)
+  element.SetState('focused',FocusedElement=element);
+ end;
+
+function TContext.GetImage(const src:String8):TTexture;
+ var
+  i,n:integer;
+ begin
+  for i:=0 to high(imgSrc) do
+   if imgSrc[i]=src then exit(imgTex[i]);
+  result:=ResolveStyleImage(src);
+  if result=nil then exit; // not available yet: retry next frame
+  n:=length(imgSrc);
+  SetLength(imgSrc,n+1);
+  SetLength(imgTex,n+1);
+  imgSrc[n]:=src;
+  imgTex[n]:=result;
  end;
 
 function TContext.HoverState(element:TUIElement):byte;

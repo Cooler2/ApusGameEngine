@@ -28,9 +28,11 @@
 //   border-color         border color; border-width; radius
 //   border-light         bevel highlight (button); border-dark  bevel shadow (button, frame)
 //   inner-fill, inner-border-color, inner-radius, inner-border-width  (client-area block)
-//   background-image     file:<name> | tex:<name>  (B-16: read by the box path)
+//   background-image     file:<name> | tex:<name>; drawn by the box path between fill and
+//                        border; state blocks cross-fade images (':hover { background-image }')
 //   background-tint      tint for background-image (neutral by default)
-//   background-size      auto | stretch;  background-offset-x/y
+//   background-size      auto (native size in logical units, centered) | stretch (fills the box)
+//   background-offset-x/y  image shift in logical units (state-able: ':pressed { ...-y:1 }')
 //  Content:
 //   font [inh]           font name;  font-size [inh]
 //   color [inh]          content (text/glyph) color — NEVER a box color

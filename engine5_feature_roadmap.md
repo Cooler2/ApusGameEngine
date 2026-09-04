@@ -156,7 +156,7 @@ Two tiers, not a version ladder:
 - Value: Declarative, reusable UI styling via inherited text-defined styles.
 - Scope: CSS-like text syntax for styles (`color: #fff; font: bold 14`), style inheritance from parent elements, `@ref` includes, state blocks (`hover:`, `pressed:`, `disabled:`), patch operations (`+key:val` / `-key`), named style catalog (`Styles['btn'] := '...'`), animated transitions via Tweenings. Drawer objects resolve styles instead of per-element draw procedures.
 - Out of scope: full web-CSS parity; advanced layout features (→ R-14).
-- Done: TStyleBlock, resolver, @refs, state blocks, patch, transitions, draw migration, StyleDemo, TStyleCatalog; font/color/styleClass removed from TUIElement; canonical key vocabulary + selective inheritance (`IsInheritedStyleKey`, 2026-09-02, driven by port blocker B-16).
+- Done: TStyleBlock, resolver, @refs, state blocks, patch, transitions, draw migration, StyleDemo, TStyleCatalog; font/color/styleClass removed from TUIElement; canonical key vocabulary + selective inheritance (`IsInheritedStyleKey`, 2026-09-02, driven by port blocker B-16); skinned widgets through the common box path (`background-image/tint/size/offset-x/y`, buttons and windows on `DrawCommonStyle`, `:focused` state, `TUIWindow.background` removed, 2026-09-05).
 - Remaining:
   - [ ] Style resolution validated on real project screens (not only StyleDemo).
   - [ ] Resolver performance profiled; caching added if needed.

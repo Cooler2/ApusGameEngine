@@ -18,7 +18,7 @@ interface
   application:TStyleDemoApp;
 
 implementation
- uses SysUtils, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Colors,
+ uses SysUtils, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Colors, Apus.Images,
    Apus.Engine.Types, Apus.Engine.Scene, Apus.Engine.SceneEffects,
    Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.Style,
    StyleThemeEditorScene;
@@ -26,6 +26,7 @@ implementation
  type
   TStyleDemoScene=class(TUIScene)
    procedure CreateUI;
+   procedure InitGfx; override; // builds the procedural button skin textures
    procedure onMouseBtn(btn:byte;pressed:boolean); override;
    procedure Render; override;
   end;
@@ -417,6 +418,44 @@ procedure DrawButtonSketchOverlay;
   end;
  end;
 
+// Procedural button skin: rounded box with a vertical gradient and a dark edge,
+// transparent corners. Two variants are registered by name ('demo-skin', 'demo-skin-hover')
+// so the button style can refer to them as 'tex:<name>'.
+function SkinPixel(tex:TTexture;x,y:integer;top,bottom:cardinal):cardinal;
+ var
+  r,dx,dy,d,t:single;
+ begin
+  r:=8;
+  dx:=Max(abs(x+0.5-tex.width/2)-(tex.width/2-r),0.0);
+  dy:=Max(abs(y+0.5-tex.height/2)-(tex.height/2-r),0.0);
+  d:=sqrt(dx*dx+dy*dy)-r; // signed distance to the rounded edge (negative = inside)
+  t:=y/(tex.height-1);
+  result:=Color.Mix(top,bottom,t);
+  if d>-1.5 then result:=Color.Mix(result,$FF202830,Clamp(d+1.5,0,1)); // dark edge
+  result:=Color.Scale(result,Clamp(-d+0.5,0,1)); // antialiased outside
+ end;
+
+function SkinBase(tex:TTexture;x,y:integer):cardinal;
+ begin
+  result:=SkinPixel(tex,x,y,$FF7890B0,$FF3A4A60);
+ end;
+
+function SkinHover(tex:TTexture;x,y:integer):cardinal;
+ begin
+  result:=SkinPixel(tex,x,y,$FFA0B8D8,$FF506888);
+ end;
+
+procedure TStyleDemoScene.InitGfx;
+ var
+  tex:TTexture;
+ begin
+  inherited;
+  tex:=AllocImage(150,32,ipfARGB,0,'demo-skin');
+  tex.Fill(@SkinBase);
+  tex:=AllocImage(150,32,ipfARGB,0,'demo-skin-hover');
+  tex.Fill(@SkinHover);
+ end;
+
 procedure TStyleDemoScene.CreateUI;
  var
   panel1,panel2,panel3,panel4,panel5:TUIElement;
@@ -454,6 +493,22 @@ procedure TStyleDemoScene.CreateUI;
   btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnDanger').Setup('Danger override');
   btn.SetPos(190,162,pivotTopLeft);
   StyleButton(btn,'@demo-button; fill:&danger; color:&danger-text;');
+
+  // Skinned button: the box is a texture (auto size, centered), states cross-fade between
+  // textures, pressed = darker tint + 1px shift. No custom drawer involved.
+  btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnSkinned').Setup('Skinned');
+  btn.SetPos(12,206,pivotTopLeft);
+  StyleButton(btn,'fill:0; border-color:0; border-width:0; radius:0; inner-fill:0; inner-border-color:0;'+
+    'color:$FFF0F4FF; background-image:tex:demo-skin;'+
+    ':hover { background-image:tex:demo-skin-hover; color:$FFFFFFFF; }'+
+    ':pressed { background-tint:$FF505050; background-offset-y:1; }');
+
+  btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnSkinnedStretch').Setup('Skinned, stretched');
+  btn.SetPos(190,206,pivotTopLeft);
+  StyleButton(btn,'fill:0; border-color:0; border-width:0; radius:0; inner-fill:0; inner-border-color:0;'+
+    'color:$FFF0F4FF; background-image:tex:demo-skin; background-size:stretch;'+
+    ':hover { background-tint:$FFA0A0A0; color:$FFFFFFFF; }'+
+    ':pressed { background-tint:$FF505050; }');
 
   panel2:=Panel(UI,18,286,370,226,'Inputs','Inputs and selection');
   MakeLabel(panel2,12,40,330,'These widgets use editable named style blocks.',true);

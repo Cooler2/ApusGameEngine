@@ -253,14 +253,7 @@ implementation
     y1:=top; y2:=bottom-1;
    end;
 
-   // Элемент - окно
-   if (item is TUIWindow) and (TUIWindow(item).background<>nil) then with item as TUIWindow do begin
-    if TranspBgnd then gfx.target.BlendMode(blMove);
-    img:=background;
-    if img is TTexture then
-     draw.Image(globalRect.Left,globalRect.Top,img as TTexture,GetStyleColor('color',$FFFFFFFF));
-    if TranspBgnd then gfx.target.BlendMode(blAlpha);
-   end;
+   // Skinned windows are drawn by the default style box path ('background-image')
 
    // Полоса прокрутки
    if item is TUIScrollBar then with item as TUIScrollBar do begin

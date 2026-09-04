@@ -119,6 +119,11 @@ ErrorMessage -> SystemMessage [Apus.Core]
 // editbox: col->color; scrollbar: col->color, track-col->track-color, active-col->active-color, style->variant
 // any: border->border-color, inner-border->inner-border-color, hoverTime*->hover-time[-in|-out], hover->hover-target
 SetStyle( -> ?use element.style.SetAttr(key,value) [Apus.Engine.UITypes]
+// === UI skins (2026-09-05): image-per-state is a style value, not a field ===
+// wnd.background:=tex  => wnd.style.SetAttr('background-image','tex:'+tex.name)  (or SetupSkinnedWindow(wnd,tex))
+// SetupWindow(wnd,tiledImage) removed (never drawn); use SetupSkinnedWindow with a TTexture
+// CustomStyle keys: image->background-image, image-color->background-tint, offset-x/y->background-offset-x/y
+.background:= -> ?TUIWindow.background removed: style 'background-image' [Apus.Engine.UIWidgets]
 
 // === TODO markers: need manual rewrite (call style changes) ===
 InitCritSect -> ?use lock.Init(name[,level]) [Apus.Threads]

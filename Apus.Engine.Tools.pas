@@ -58,8 +58,10 @@ type
  procedure MainLoop; // Infinite loop with event handling
 
 
- // установить заданное изображение в качестве фона данного окна
- procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture); overload;
+ // Turn the window into a skinned one: the image becomes its 'background-image' style
+ // (registered by name if it has none), the window takes the image size and stays hidden.
+ // Tint/state variants can then be added through wnd.style (background-tint, :hover {...}).
+ procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture);
 
  // Рисует текст с эффектом glow/shadow в заданную текстуру
  // x,y - точка, где будет центр надписи (насколько возможно)
@@ -261,23 +263,13 @@ procedure TTiledImage.Precache(part: single);
    end;
  end;
 
-procedure SetupWindow(wnd:TUIWindow;img:TTiledImage);
- begin
-  wnd.background:=img;
-  wnd.size.x:=img.width;
-  wnd.size.y:=img.height;
-  wnd.style.SetAttr('background-tint','$FF808080'); // skin tint, read by the box path (B-16)
-  wnd.flags.visible:=false;
-//  wnd.transpmode:=tmCustom;
-//  wnd.region:=TRegion.CreateFrom(img);
- end;
-
 procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture);
  begin
-  wnd.background:=img;
+  ASSERT(img<>nil);
+  if img.name='' then img.name:='skin:'+wnd.name; // the style refers to the texture by name
+  wnd.style.SetAttr('background-image','tex:'+img.name);
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
-  wnd.style.SetAttr('background-tint','$FF808080'); // skin tint, read by the box path (B-16)
   wnd.flags.visible:=false;
  end;
 

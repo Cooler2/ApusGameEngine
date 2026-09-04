@@ -3,6 +3,32 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI skins through the box path (2026-09-05)
+
+A widget box can now be a texture: `background-image: tex:<name>` / `file:<name>`,
+with `background-tint`, `background-size: auto|stretch` and `background-offset-x/y`.
+The common box path (`DrawCommonStyle` in `Apus.Engine.DefaultStyle`) reads them for
+every element and cross-fades per state (`:hover { background-image: ... }`), so a
+4-state bitmap button or a skinned window needs no custom drawer. `auto` = native size
+in logical units (scaled by `globalScale`, like `font-size`), centered in the box.
+
+- Buttons (plain and toggle) went back onto the common box path: `fill` and its
+  hover/pressed/disabled blends are drawn there, the button drawer adds only the bevel,
+  focus ring and caption. A skinned button gets no bevel/focus ring.
+- All box keys blend for `pressed` and `disabled` too (previously only `hover`).
+- `focused` is now a synced state (`:focused { ... }` works for any element).
+- Window: `background-image` turns a window into a skinned one — the drawer paints
+  only the image (no fill/header/frame/caption); hit-testing uses `dragRegion`
+  (nil = whole window is the drag area). `TUIWindow.IsSkinned` tells.
+- Removed: `TUIWindow.background:pointer` (the skin is a style value now) and
+  `SetupWindow(wnd,TTiledImage)` (nothing ever drew it).
+- `SetupSkinnedWindow(wnd,img)` now sets `background-image: tex:<img.name>` (naming the
+  texture `skin:<wnd.name>` if it has no name) and the window size; the old implicit
+  `$FF808080` tint is the default anyway. Add state variants through `wnd.style`.
+- `Apus.Engine.CustomStyle` no longer draws windows (they render through the box path).
+- New helper in DefaultStyle: `ResolveStyleImage(src)` — shared by `TUIImage.src` and the
+  box path; textures are memoized per element in the drawer context.
+
 ## UI style keys: canonical vocabulary + selective inheritance (2026-09-02)
 
 Style attribute names are now canonical (kebab-case, CSS names where CSS has the
@@ -38,9 +64,8 @@ only canonical keys — the old spellings are silently ignored (no aliases).
 | transitions | `pressTime`, `releaseTime`, `disableTime`, `enableTime` | `press-time`, `release-time`, `disable-time`, `enable-time` |
 | any | `hover: parent` | `hover-target: parent` |
 
-- Buttons (plain and toggle) no longer go through the common box path
-  (`DrawCommonStyle`); the button drawer owns its box from `fill`/`border-light`/
-  `border-dark`. Unifying both is the B-16 box-path step.
+- Buttons (plain and toggle) temporarily left the common box path (`DrawCommonStyle`);
+  they are back on it since 2026-09-05 (see above).
 - Removed: `TUIElement.SetStyle` (edited the style text without reparsing, so it never
   took effect). Use `element.style.SetAttr(key,value)`.
 - Legacy numeric `styleInfo` strings (`'60404040'`, `'FFB0C0C4 80000000'`) were never

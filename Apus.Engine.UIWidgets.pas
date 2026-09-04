@@ -179,10 +179,11 @@ interface
   end;
 
   // Basic window: moveable and optionally resizeable.
-  // When background<>nil the window operates in "skinned" mode:
-  //   - dragRegion defines the moveable area (nil = entire window)
-  //   - GetAreaType uses dragRegion for hit-testing instead of standard frame logic
-  //   - rendering of background is handled externally (e.g. by CustomStyle)
+  // A window with a 'background-image' style (or an explicit dragRegion) is "skinned":
+  //   - the drawer paints only the image (no header/frame/caption)
+  //   - GetAreaType uses dragRegion for hit-testing instead of the standard frame logic
+  //     (nil = the whole window is the drag area)
+  // See SetupSkinnedWindow in Apus.Engine.Tools.
   TUIWindow=class(TUIImage)
    header:integer;          // title bar height
    autoBringToFront:boolean; // bring to front on click (self or any child)
@@ -190,13 +191,13 @@ interface
    resizeable:boolean;      // user can drag edges to resize
    minW,minH,maxW,maxH:integer; // size constraints for resizeable windows
    dragRegion:TUIShape;     // skinned mode: drag area shape (nil = whole window)
-   background:pointer;      // skinned mode: opaque ptr to background image
 
    constructor Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='');
    destructor Destroy; override;
 
    // Returns area flags (wcXxx) and cursor for the given screen point.
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; virtual;
+   function IsSkinned:boolean; // true if the window is drawn from a 'background-image' (or has a dragRegion)
 
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -735,7 +736,7 @@ function TUILabel.Right(text:String8):TUILabel;
    dec(x,r.Left);
    dec(y,r.Top);
    // skinned mode: use dragRegion for hit-testing
-   if background<>nil then begin
+   if IsSkinned then begin
     if moveable then result:=wcHeader else result:=wcClient;
     if (dragRegion<>nil) and not dragRegion.IsOpaque(x/r.Width,y/r.Height) then
      result:=wcClient;
@@ -760,6 +761,11 @@ function TUILabel.Right(text:String8):TUILabel;
     2:cur:=CursorID.ResizeH;
     3:cur:=CursorID.ResizeHW;
    end;
+  end;
+
+ function TUIWindow.IsSkinned:boolean;
+  begin
+   result:=(dragRegion<>nil) or (GetStyleValue('background-image')<>'');
   end;
 
  procedure TUIWindow.onLostFocus;
