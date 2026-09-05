@@ -1120,6 +1120,7 @@ function ThreadStartWrapper(param:pointer):UIntPtr;
 var
   startData:PThreadStartData;
   data:PThreadData;
+  exceptionText:string;
   {$IFDEF DEBUG}
   startupTimer:int64;
   startupUs:int64;
@@ -1184,10 +1185,11 @@ begin
       end;
     except
       on e:Exception do begin // catch unhandled exceptions to prevent process termination
-        Log.Force('Unhandled exception in thread %s (%s): %s',
-          [data^.uniqueName,e.ClassName,e.Message]);
+        exceptionText:=ExceptionMsg(e);
+        Log.Force('Unhandled exception in thread %s: %s: %s',
+          [data^.uniqueName,e.ClassName,exceptionText]);
         if data^.implPtr<>nil then
-          TThreadImpl(data^.implPtr).IntSetError(e.Message);
+          TThreadImpl(data^.implPtr).IntSetError(e.ClassName+': '+exceptionText);
       end;
     end;
   finally

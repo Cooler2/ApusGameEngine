@@ -633,6 +633,7 @@ procedure TestThreadException;
 var
   th:IThread;
   st:TThreadStatus;
+  errorText:string;
 begin
   StartTest('Thread exception handling');
 
@@ -649,6 +650,10 @@ begin
   th.Wait(5000);
   st:=th.Status;
   Check(st=TThreadStatus.Error,'Unhandled raise: status should be Error');
+  errorText:=string(th.StatusText);
+  Check(Pos('Exception: [',errorText)=1,'Unhandled raise: status should include class and address');
+  Check(Pos('deliberate unhandled exception',errorText)>0,
+    'Unhandled raise: status should include exception message');
 
   EndTest;
 end;

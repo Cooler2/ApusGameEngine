@@ -81,6 +81,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-06-09):** Added shared typed row-pointer helpers in `Apus.Core` (`PByteRow`, `PWordRow`, `PIntRow`, `PCardinalRow`, `PSingleRow`) plus `TTexture.ScanLine(y)` and `TTexture.PixelPtr(x,y)` in `Apus.Engine.Resources`, so locked texture code can use explicit casts like `PCardinalRow(tex.ScanLine(y))` and direct pixel addressing without repeating raw `data+pitch` arithmetic.
 **Recent wins (2026-06-19):** Renamed engine networking modules to descriptive names: `Apus.Engine.Networking3` is now `Apus.Engine.HttpGameClient`, and `Apus.Engine.Networking2` is now `Apus.Engine.UdpTransport`.
 **Recent wins (2026-06-19):** Removed legacy `Apus.Engine.PainterGL` and `Apus.Engine.PainterGL2`; active rendering goes through `Apus.Engine.OpenGL` and the `IGraphicsSystem`/`IDrawer` stack.
+**Recent wins (2026-09-06):** Unhandled `Thread.Start` exceptions now retain their class, raw exception address, available FPC stack frames, and message in both the forced log and `IThread.StatusText`; raw-`TThread` tests use the same `Apus.Core.ExceptionMsg` path.
 
 ## Live module inventory (2026-05-29)
 

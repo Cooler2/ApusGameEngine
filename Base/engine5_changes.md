@@ -161,8 +161,9 @@ only canonical keys — the old spellings are silently ignored (no aliases).
   `Apus.Threads.Thread.Start` and tracks them as `IThread`; the legacy
   `Classes.TThread` subclass and `Resume` lifecycle are gone.
 - Unhandled exceptions escaping a `Thread.Start` callback are now written with
-  `Log.Force`, including the thread name, exception class, and message, before
-  the corresponding `IThread` enters the error state.
+  `Log.Force`, including the thread name, exception class, raw exception address,
+  available FPC stack-frame addresses, and message. The same diagnostic is kept
+  in `IThread.StatusText` before the thread enters the error state.
 - `Apus.Threads` now notifies `Apus.EventMan` when a thread exits. Any queued or
   mixed handlers still owned by that thread are removed, its pending events are
   discarded, and a warning lists each dangling event registration together with
@@ -595,7 +596,7 @@ Exception helper functions moved from `Apus.Common` to `Apus.Core`:
 
 | Old location (Common) | New location (Core) | Notes |
 |---|---|---|
-| `ExceptionMsg(e)` | `ExceptionMsg(e)` | Returns exception message with address and stack trace. For `EBaseException` uses already captured stack. |
+| `ExceptionMsg(e)` | `ExceptionMsg(e)` | Returns the message with a raw address chain safe to capture inside any worker thread. For `EBaseException` uses its already captured stack; for regular FPC exceptions includes `ExceptAddr` and available `ExceptFrames`. |
 | `NotImplemented(msg)` | `NotImplemented(msg)` | Raises `EError` with "Not implemented: msg". Inline. |
 | `NotSupported(msg)` | `NotSupported(msg)` | Raises `EError` with "Not supported: msg". Inline. |
 

@@ -332,7 +332,8 @@ type
   // Fatal error: continuation is impossible, must terminate
   EFatalError=class(EBaseException);
 
-  // Returns e.Message with exception address and call stack (if available)
+  // Returns e.Message with exception address and call stack (if available).
+  // Call inside the except handler while the RTL exception context is active.
   function ExceptionMsg(const e:Exception):string; overload;
   // Raise exception with "Not implemented" message
   procedure NotImplemented(msg:string=''); inline;
@@ -2098,11 +2099,25 @@ begin
 end;
 
 function ExceptionMsg(const e:Exception):string;
+{$IFDEF FPC}
+var
+  i,count:integer;
+  frames:PPointer;
+{$ENDIF}
 begin
   if e is EBaseException then
     result:=e.Message  // already contains stack trace
-  else
-    result:='['+string(Conv.ToStr(ExceptAddr))+'] '+e.Message;
+  else begin
+    result:='['+string(Conv.ToStr(ExceptAddr));
+    {$IFDEF FPC}
+    count:=ExceptFrameCount;
+    frames:=PPointer(ExceptFrames);
+    if frames<>nil then
+      for i:=0 to count-1 do
+        result:=result+'->'+string(Conv.ToStr(frames[i]));
+    {$ENDIF}
+    result:=result+'] '+e.Message;
+  end;
 end;
 
 procedure NotImplemented(msg:string='');

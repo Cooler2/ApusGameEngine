@@ -81,7 +81,7 @@ begin
   except
     on e:Exception do begin
       failed:=true;
-      errMsg:=e.Message;
+      errMsg:=e.ClassName+': '+ExceptionMsg(e);
       ready:=true;
     end;
   end;
@@ -158,7 +158,7 @@ begin
     end;
   except
     on e:Exception do
-      failMsg:='thread exception: '+e.Message;
+      failMsg:='thread exception: '+e.ClassName+': '+ExceptionMsg(e);
   end;
 end;
 
@@ -220,7 +220,7 @@ begin
     end;
   except
     on e:Exception do begin
-      writeln('Error: ',e.Message);
+      writeln('Error: ',e.ClassName,': ',ExceptionMsg(e));
       ExitCode:=255;
     end;
   end;
