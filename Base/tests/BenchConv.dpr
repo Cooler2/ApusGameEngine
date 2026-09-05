@@ -112,9 +112,9 @@ end;
 procedure BenchConv_IpToStr;
 var i:integer; r:String8;
 begin
-  StartBench('Conv.ToIp (format)',N_DEF);
+  StartBench('Conv.FormatIp',N_DEF);
   for i:=1 to N_DEF do
-    r:=Conv.ToIp($C0A80164);
+    r:=Conv.FormatIp($C0A80164);
   EndBench;
 end;
 

@@ -252,16 +252,16 @@ begin
 end;
 
 // ============================================================================
-// TStringQueue
+// TGenQueue<String8>
 // ============================================================================
 
 procedure BenchStringQueue_Throughput;
 var
   i:integer;
-  q:TStringQueue;
+  q:TGenQueue<String8>;
 begin
   q.Init(8);
-  StartBench('StringQueue Add+Get x4',N_DEF);
+  StartBench('GenQueue<String8> Add+Get x4',N_DEF);
   for i:=1 to N_DEF do begin
     q.Add('alpha'); q.Add('beta'); q.Add('gamma'); q.Add('delta');
     q.Get; q.Get; q.Get; q.Get;
@@ -352,7 +352,7 @@ begin
     BenchObjectList_Remove_Swap;
     BenchWriteln;
 
-    BenchWriteln('--- TStringQueue ---');
+    BenchWriteln('--- TGenQueue<String8> ---');
     BenchStringQueue_Throughput;
     BenchWriteln;
 

@@ -119,7 +119,7 @@ interface
  function ListHeaders:String8; stdcall;
 
 implementation
- uses Apus.Socket, Classes, Math, Apus.Threads, Apus.Strings, Apus.Conv,
+ uses Apus.Socket, Classes, Apus.Threads, Apus.Strings, Apus.Conv,
     Apus.ControlFiles, Apus.Log, Apus.Logging, Apus.GeoIP;
  procedure scgiLogProc(msg:String8; level:byte; msgtype:byte);
   begin

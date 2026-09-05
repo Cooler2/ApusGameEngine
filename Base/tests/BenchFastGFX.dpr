@@ -92,7 +92,7 @@ begin
   bg:=$FF112233;
   fg:=$80445566;
   for i:=1 to N_FAST do
-    r:=Blend(bg,fg);
+    r:=Color.Blend(bg,fg);
   EndBench;
 end;
 
@@ -105,7 +105,7 @@ begin
   c3:=$FF00FF00;
   c4:=$FFFF0000;
   for i:=1 to N_FAST do
-    r:=BilinearMix(c1,c2,c3,c4,0.3,0.7);
+    r:=Color.BilinearMix(c1,c2,c3,c4,0.3,0.7);
   EndBench;
 end;
 
@@ -118,7 +118,7 @@ begin
   c3:=$FF00FF00;
   c4:=$FFFF0000;
   for i:=1 to N_FAST do
-    r:=BilinearBlend(c1,c2,c3,c4,0.3,0.7);
+    r:=Color.BilinearBlend(c1,c2,c3,c4,0.3,0.7);
   EndBench;
 end;
 
@@ -162,7 +162,7 @@ var i:integer;
 begin
   StartBench('FillRect+Blend 1024x768',N_SLOW div 100);
   for i:=1 to N_SLOW div 100 do
-    FillRect(@buf32_1,WIDTH*4,100,100,923,667,$80AABBCC,Blend); // Полупрозрачный
+    FillRect(@buf32_1,WIDTH*4,100,100,923,667,$80AABBCC,blBlend); // semi-transparent
   EndBench;
 end;
 
@@ -194,7 +194,7 @@ begin
   StartBench('SimpleDraw 256x256',N_SLOW div 10);
   for i:=1 to N_SLOW div 10 do
     SimpleDraw(@smallBuf32_1,SMALL_WIDTH*4,@smallBuf32_2,SMALL_WIDTH*4,
-               0,0,SMALL_WIDTH,SMALL_HEIGHT,Blend);
+               0,0,SMALL_WIDTH,SMALL_HEIGHT,blBlend);
   EndBench;
 end;
 
