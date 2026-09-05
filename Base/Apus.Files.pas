@@ -618,7 +618,8 @@ end;
 
 class function Folder.Create(const path:String8):boolean;
 begin
-  result:=SysUtils.ForceDirectories(string(path));
+  // Delphi's ForceDirectories rejects a bare relative name (empty parent), so expand first
+  result:=SysUtils.ForceDirectories(SysUtils.ExpandFileName(string(path)));
 end;
 
 class function Folder.Writable(const path:String8):boolean;
@@ -751,7 +752,7 @@ begin
   result:=true;
   sSour:=string(sour);
   sDest:=string(dest);
-  SysUtils.ForceDirectories(sDest);
+  Folder.Create(dest); // not ForceDirectories directly: it needs an expanded path under Delphi
   if SysUtils.FindFirst(sSour+PathDelim+'*',faAnyFile,sr)=0 then begin
     repeat
       if (sr.Name='.') or (sr.Name='..') then continue;
