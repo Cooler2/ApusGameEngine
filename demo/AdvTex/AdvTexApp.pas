@@ -14,6 +14,7 @@ interface
  type
   TMainApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -73,22 +74,25 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  gameTitle:='Apus Engine: Advanced Texturing';
-  appName:='AdvTex'; // window caption is for the user, this one names the storage folders
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowWidth:=CANVAS_W;
-  windowHeight:=CANVAS_H;
-  windowSizeable:=true;
-  // the panels are laid out by hand, so the demo declares its own canvas space
-  // instead of following the client area (which is DPI-dependent)
-  SetupFixedCanvas(CANVAS_W,CANVAS_H);
-  useDefaultLoaderScene:=false;
-  useTweakerScene:=false;
   SetCurrentDir(BaseDir);
   // when running straight from the repo, assets live in the source tree
   if DirectoryExists('../demo/AdvTex') then
    SetCurrentDir('../demo/AdvTex');
+ end;
+
+procedure TMainApp.SetupApplication;
+ begin
+  inherited;
+  appSetup.title:='Apus Engine: Advanced Texturing';
+  appSetup.storageName:='AdvTex'; // window caption is for the user, this one names the storage folders
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(CANVAS_W,CANVAS_H);
+  windowSetup.resizable:=true;
+  // the panels are laid out by hand, so the demo declares its own canvas space
+  // instead of following the client area (which is DPI-dependent)
+  SetupFixedCanvas(CANVAS_W,CANVAS_H);
+  startupScenes.loader:=false;
+  startupScenes.tweaker:=false;
  end;
 
 procedure TMainApp.CreateScenes;

@@ -12,7 +12,7 @@ uses
 
 type
   TMainApp=class(TGameApplication)
-    constructor Create;
+    procedure SetupApplication; override;
     procedure SetupGameSettings(var settings:TGameSettings); override;
     procedure CreateScenes; override;
   end;
@@ -125,15 +125,12 @@ begin
     WideString('  ')+WideString(#$03B1#$00B2)+WideString('  ')+WideString(#$2116)+WideString('42');
 end;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
 begin
   inherited;
-  gameTitle:='Apus Engine: TextDemo';
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowWidth:=1620;
-  windowHeight:=920;
-  windowSizeable:=false;
+  appSetup.title:='Apus Engine: TextDemo';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(1620,920);
 end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);

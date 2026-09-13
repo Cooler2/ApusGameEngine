@@ -8,7 +8,7 @@ interface
  uses Apus.Engine.GameApp,Apus.Engine.API;
  type
   TMainApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -29,12 +29,11 @@ implementation
  var
   mainScene:TMainScene;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
  begin
-  usedPlatform:=spDefault;
   inherited;
-  gameTitle:='Tweening Demo';
-  usedAPI:=gaOpenGL2;
+  appSetup.title:='Tweening Demo';
+  requestBackend.graphicsAPI:=gaOpenGL2;
  end;
 
 procedure TMainApp.CreateScenes;

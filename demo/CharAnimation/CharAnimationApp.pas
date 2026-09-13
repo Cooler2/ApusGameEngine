@@ -11,6 +11,7 @@ interface
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -47,15 +48,18 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  // Alter some global settings
-  gameTitle:='Apus Game Engine'; // app window title
-  //configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;
-  //windowedMode:=false;
   if DirectoryExists('..\Demo\CharAnimation') then
    baseDir:='..\Demo\CharAnimation\';
+ end;
+
+procedure TMainApp.SetupApplication;
+ begin
+  inherited;
+  appSetup.title:='Apus Game Engine'; // app window title
+  //appSetup.configFile:='game.ctl';
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  //requestBackend.platform:=spSDL;
+  //windowSetup.fullscreen:=true;
  end;
 
 // Most app initialization is here. Default spinner is running

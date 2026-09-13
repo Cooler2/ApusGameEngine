@@ -21,10 +21,21 @@ program Scenes;
    procedure Render; override;
   end;
 
+  TScenesApp=class(TGameApplication)
+   procedure SetupApplication; override;
+  end;
+
  var
-  application:TGameApplication;
+  application:TScenesApp;
   mainFont:cardinal;
   blurEffect:TBlurEffect;
+
+procedure TScenesApp.SetupApplication;
+ begin
+  inherited;
+  requestBackend.graphicsAPI:=gaOpenGL2; // needed just for the Blur effect
+  //requestBackend.platform:=spSDL;
+ end;
 
 procedure CreateScenes;
  begin
@@ -161,9 +172,7 @@ procedure TSceneW.Render;
 begin
  SetEventHandler('GAMEAPP',EventHandler);
  SetEventHandler('Logic',EventHandler);
- usedAPI:=gaOpenGL2; // needed just for the Blur effect
- //usedPlatform:=spSDL;
- application:=TGameApplication.Create;
+ application:=TScenesApp.Create;
  application.Prepare;
  application.Run;
  application.Free;

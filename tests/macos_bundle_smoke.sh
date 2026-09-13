@@ -16,7 +16,7 @@ RES="$APP/Contents/Resources"
 ROBOT_IN="$RES/robot_in.txt"
 ROBOT_OUT="$RES/robot_out.txt"
 # The engine writes logs to the per-platform writable dir, not into the
-# read-only bundle Resources. For SimpleDemo (gameTitle "Simple Engine Demo")
+# read-only bundle Resources. For SimpleDemo (appSetup.title "Simple Engine Demo")
 # that is ~/Library/Logs/<title>/.
 GAME_LOG="$HOME/Library/Logs/Simple Engine Demo/game.log"
 SCREENSHOT="$OUTDIR/simpledemo_bundle.png"

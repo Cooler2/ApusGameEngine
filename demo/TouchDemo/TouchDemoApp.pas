@@ -19,6 +19,7 @@ interface
   // Custom application class
   TTouchDemoApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -51,12 +52,6 @@ implementation
 
 constructor TTouchDemoApp.Create;
  begin
-  // Platform must be selected before TGameApplication.Create chooses the backend.
-  {$IFDEF SDL}
-  usedPlatform:=spSDL;
-  {$ELSE}
-  usedPlatform:=spDefault;
-  {$ENDIF}
   inherited;
   // Start from the engine-resolved resource base (exe dir, or the .app bundle's
   // Contents/Resources when launched from a macOS/iOS bundle - BaseDir handles it).
@@ -64,10 +59,17 @@ constructor TTouchDemoApp.Create;
   // When running straight from the repo, assets live in the source tree instead.
   if DirectoryExists('../demo/TouchDemo') then
     SetCurrentDir('../demo/TouchDemo');
+ end;
 
-  gameTitle:='Touch Demo';
-  configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // OpenGL 2.0+ with shaders (GLES 3.0 on mobile)
+procedure TTouchDemoApp.SetupApplication;
+ begin
+  inherited;
+  {$IFDEF SDL}
+  requestBackend.platform:=spSDL;
+  {$ENDIF}
+  appSetup.title:='Touch Demo';
+  appSetup.configFile:='game.ctl'; // relative to the current dir set in Create
+  requestBackend.graphicsAPI:=gaOpenGL2; // OpenGL 2.0+ with shaders (GLES 3.0 on mobile)
  end;
 
 procedure TTouchDemoApp.SetupGameSettings(var settings:TGameSettings);

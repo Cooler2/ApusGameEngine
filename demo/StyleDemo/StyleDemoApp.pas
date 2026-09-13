@@ -10,6 +10,7 @@ interface
  type
   TStyleDemoApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -42,22 +43,22 @@ constructor TStyleDemoApp.Create;
  var
   st:string;
  begin
-  {$IFDEF SDL}
-  usedPlatform:=spSDL;
-  {$ELSE}
-  usedPlatform:=spDefault;
-  {$ENDIF}
   inherited;
   st:=ExtractFileDir(ParamStr(0));
   SetCurrentDir(st);
   if DirectoryExists('../demo/StyleDemo') then
     SetCurrentDir('../demo/StyleDemo');
+ end;
 
-  gameTitle:='R-05 Style System Demo';
-  usedAPI:=gaOpenGL2;
-  windowWidth:=1520;
-  windowHeight:=860;
-  windowSizeable:=false; // window size stays in logical units (scaleWindowSize default)
+procedure TStyleDemoApp.SetupApplication;
+ begin
+  inherited;
+  {$IFDEF SDL}
+  requestBackend.platform:=spSDL;
+  {$ENDIF}
+  appSetup.title:='R-05 Style System Demo';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(1520,860); // logical units: scaled by DPI (scaleForDPI default)
  end;
 
 procedure TStyleDemoApp.SetupGameSettings(var settings:TGameSettings);

@@ -14,8 +14,18 @@ uses
 
 type
   TAndroidTouchDemoApp=class(TTouchDemoApp)
+    procedure SetupApplication; override;
     procedure InitSound; override;
   end;
+
+procedure TAndroidTouchDemoApp.SetupApplication;
+begin
+  inherited;
+  appSetup.configFile:=''; // packaged demo uses defaults for the first runtime gate
+  startupScenes.console:=false;
+  startupScenes.tweaker:=false;
+  windowSetup.systemCursor:=false;
+end;
 
 procedure TAndroidTouchDemoApp.InitSound;
 begin
@@ -43,10 +53,6 @@ begin
   InitAndroid(env,activity,nil);
 
   application:=TAndroidTouchDemoApp.Create;
-  configFileName:=''; // packaged demo uses defaults for the first runtime gate
-  useConsoleScene:=false;
-  useTweakerScene:=false;
-  useSystemCursor:=false;
   try
     CopyAssetFile('sprite.png');
     SetCurrentDir(Apus.Android.appDataDir);

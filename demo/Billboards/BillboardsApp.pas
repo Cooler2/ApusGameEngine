@@ -11,6 +11,7 @@ interface
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -51,13 +52,17 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  gameTitle:='Billboards Demo'; // app window title
-  //configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;
   if DirectoryExists('..\Demo\Billboards') then
    baseDir:='..\Demo\Billboards\';
+ end;
+
+procedure TMainApp.SetupApplication;
+ begin
+  inherited;
+  appSetup.title:='Billboards Demo'; // app window title
+  //appSetup.configFile:='game.ctl';
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  //requestBackend.platform:=spSDL;
  end;
 
 // Most app initialization is here. Default spinner is running

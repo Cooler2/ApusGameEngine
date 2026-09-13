@@ -8,7 +8,7 @@ uses Apus.Engine.GameApp, Apus.Engine.API;
 
 type
   TMainApp=class(TGameApplication)
-    constructor Create;
+    procedure SetupApplication; override;
     procedure CreateScenes; override;
   end;
 
@@ -19,7 +19,7 @@ implementation
 uses
   SysUtils,
   Apus.Core, Apus.Colors, Apus.Geom2D, Apus.Geom3D,
-  Apus.EventMan, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene,
+  Apus.EventMan, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UI, Apus.Engine.UIScene,
   Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes,
   Apus.Engine.ImageTools, Apus.Engine.DebugDraw;
 
@@ -159,16 +159,14 @@ begin
   FreeImage(heightTex);
 end;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
 begin
   inherited;
-  gameTitle:='Apus Engine: Normal Mapping (R-06)';
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowWidth:=1440;
-  windowHeight:=860;
-  windowSizeable:=true;
-  useTweakerScene:=false;
+  appSetup.title:='Apus Engine: Normal Mapping (R-06)';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(1440,860);
+  windowSetup.resizable:=true;
+  startupScenes.tweaker:=false;
 end;
 
 procedure TMainApp.CreateScenes;

@@ -10,7 +10,7 @@ interface
  type
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure LoadFonts; override;
    procedure SelectFonts; override;
    procedure CreateScenes; override;
@@ -21,7 +21,7 @@ interface
 
 implementation
  uses SysUtils, Apus.Common, Apus.EventMan, Apus.Colors, Apus.Geom3d,
-   Apus.Engine.UI, Trees;
+   Apus.Engine.Types, Apus.Engine.UI, Trees;
 
  type
   // This will be our single scene
@@ -47,20 +47,15 @@ implementation
   cameraAngle,cameraHeight:single;
   mainFont,titleFont:TFontHandle;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
  begin
   inherited;
-  // Alter some global settings
-  gameTitle:='Low poly trees generator'; // app window title
-  //configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  windowWidth:=1200;
-  windowHeight:=800;
-  scaleWindowSize:=true;
-
-  //usedPlatform:=spSDL;   // alternative cross-platform solution
-  //windowedMode:=false;
+  appSetup.title:='Low poly trees generator'; // app window title
+  //appSetup.configFile:='game.ctl';
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  windowSetup.size:=MakeSize(1200,800);
+  //requestBackend.platform:=spSDL;   // alternative cross-platform solution
+  //windowSetup.fullscreen:=true;
  end;
 
 // Most app initialization is here. Default spinner is running

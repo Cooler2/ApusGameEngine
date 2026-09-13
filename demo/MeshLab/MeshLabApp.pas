@@ -21,7 +21,7 @@ uses Apus.Engine.GameApp, Apus.Engine.API;
 
 type
   TMainApp=class(TGameApplication)
-    constructor Create;
+    procedure SetupApplication; override;
     procedure CreateScenes; override;
   end;
 
@@ -33,6 +33,7 @@ uses
   Apus.Core, Apus.Conv, Apus.Geom2D, Apus.Geom3D,
   Apus.EventMan, Apus.Engine.Keys,
   Apus.Engine.Resources, // TTexFilter
+  Apus.Engine.Types,
   Apus.Engine.UI, Apus.Engine.UIScene,
   Apus.Engine.Mesh, Apus.Engine.GpuMesh, Apus.Engine.MeshShapes,
   Apus.Engine.DebugDraw;
@@ -215,16 +216,14 @@ function BuildBigGrid:TMesh;
 
 { TMainApp }
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
  begin
   inherited;
-  gameTitle:='Apus Engine: MeshLab (shapes gallery)';
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowWidth:=1280;
-  windowHeight:=800;
-  windowSizeable:=true;
-  useTweakerScene:=false;
+  appSetup.title:='Apus Engine: MeshLab (shapes gallery)';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(1280,800);
+  windowSetup.resizable:=true;
+  startupScenes.tweaker:=false;
  end;
 
 procedure TMainApp.CreateScenes;

@@ -10,7 +10,7 @@ interface
  type
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -32,16 +32,19 @@ implementation
  var
   sceneMain:TMainScene;
 
-constructor TMainApp.Create;
+// All startup settings of the project go here: Prepare calls this before it sets up
+// the log, config and platform. Defaults are already set, see TGameApplication fields.
+procedure TMainApp.SetupApplication;
  begin
   inherited;
-  // Alter some global settings
-  gameTitle:='Apus Game Engine'; // app window title
-  //configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault; // native on Windows, SDL elsewhere (needs -dSDL)
+  appSetup.title:='Apus Game Engine'; // app window title
+  //appSetup.configFile:='game.ctl';
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  requestBackend.platform:=spDefault; // native on Windows, SDL elsewhere (needs -dSDL)
+  //windowSetup.size:=MakeSize(1280,720); // client size, scaled by DPI
+  //windowSetup.resizable:=true;
   // Working surface: by default the canvas covers the whole client area and
-  // one canvas unit is one pixel. Other options (call before Prepare):
+  // one canvas unit is one pixel. Other options:
   //SetupFixedCanvas(1024,768); // fixed canvas, scaled to fit, letterboxed
   //SetupPixelArt(320,200);     // fixed canvas, integer scale, no filtering
   // Audio backends are opt-in: build with -dSDLMIX to link SDL_mixer in.

@@ -1105,3 +1105,46 @@ Design: `Work/R-31_api_design.md`.
   as a whole-file save: the three engine callers (robot `screenshot`,
   `TWindow.CaptureFrame`, `ImageTools.SaveImage`) now use `Files.Save`, which
   truncates. Saving a PNG over a longer one used to leave bytes past `IEND`.
+
+## 2026-09-14 — TGameApplication: startup settings are instance fields
+
+The startup globals of `Apus.Engine.GameApp` became protected fields of
+`TGameApplication`, grouped by meaning, and the project sets them in one place:
+the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
+
+- New protected virtual `SetupApplication`. `Prepare` calls it once, before the
+  log, config and platform are set up. Override it, call `inherited` first, then
+  assign the fields and the surface preset (`SetupFixedCanvas` etc). `Create`
+  only sets the defaults, so the order of `inherited` and the assignments no
+  longer matters for them. A second `Prepare` call raises `EError`.
+- Field groups (records with `Init`):
+  - `appSetup`: `gameTitle` → `title`, `appName` → `storageName`,
+    `configFileName` → `configFile`, `logFileName` → `logFile`;
+  - `requestBackend`: `usedPlatform` → `platform`, `usedAPI` → `graphicsAPI`.
+    The request is no longer overwritten by the resolved backend;
+  - `windowSetup`: `windowWidth/windowHeight` → `size:TSize`,
+    `windowedMode` → `fullscreen` (**inverted**, default false),
+    `windowBorderless` → `borderless`, `windowSizeable` → `resizable`,
+    `scaleWindowSize` → `scaleForDPI`, `useSystemCursor` → `systemCursor`;
+  - `requestGL`: `glCoreContext` → `coreContext`, `glDebugContext` →
+    `debugContext`, `glForwardCompatible` → `forwardCompatible`,
+    `glPreferHighest` → `preferHighest`, `glMinVersionMajor/Minor` →
+    `minMajor/minMinor`;
+  - `renderSetup`: `noVSync` → `vSync` (**inverted**, default true),
+    `useDepthTexture` → `depthTexture`;
+  - `startupScenes`: `useConsoleScene` → `console`, `useTweakerScene` →
+    `tweaker`, `useDefaultLoaderScene` → `loader`.
+- `debugMode` and `checkForSteam` are plain protected fields now.
+- Removed: `scaleScenes`, `scaleFonts` and `configDir` (never read),
+  `useCustomStyle` (led to `NotImplemented`).
+- Still global: `deviceDPI`, `deviceScale`, `instanceID`, `gameLangCode`.
+- `appSetup.configFile` keeps the old `configFileName` behaviour: after
+  `Prepare` it holds the bare file name used as the control file key.
+- Config keys (`Options\FullScreen`, `Options\scaleWindowSize`, ...) and command
+  line options are unchanged.
+- Migration: move the assignments from the constructor (or from the program,
+  before `Create`) into `SetupApplication`. A program that runs a bare
+  `TGameApplication` needs a small descendant (see `demo/01-Scenes`). Example:
+  `windowWidth:=1280; windowHeight:=720;` → `windowSetup.size:=MakeSize(1280,720);`
+  (`MakeSize` is in `Apus.Engine.Types`). Upgrader TODO rules added to
+  `tools/engine5.upgrade`.

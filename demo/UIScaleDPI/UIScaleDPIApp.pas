@@ -20,7 +20,7 @@ interface
  uses Apus.Engine.GameApp,Apus.Engine.API;
  type
   TMainApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
   end;
@@ -99,13 +99,12 @@ implementation
    application.Confirm('Does this dialog scale correctly?','','');
   end;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
 begin
   inherited;
-  gameTitle:='Apus Engine: UI Scale && DPI Demo';
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowSizeable:=true;
+  appSetup.title:='Apus Engine: UI Scale && DPI Demo';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.resizable:=true;
 end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);

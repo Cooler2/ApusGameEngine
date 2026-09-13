@@ -18,50 +18,75 @@ interface
   TFixedCanvasRender=(sharp,cheap);
   {$SCOPEDENUMS OFF}
 
+  // --- Startup configuration groups (fields of TGameApplication, set in SetupApplication) ---
+
+  // Application identity and startup files
+  TAppSetup=record
+   title:string;       // window caption, shown to the user
+   storageName:string; // name of the writable storage folders (see SetupStorageDirs); title is used when empty
+   // Config file to load (may contain a path). Prepare replaces it with the bare file name,
+   // which is then used as the control file key (configFile+':\Options\...').
+   // TODO: separate the path from the key
+   configFile:String8;
+   logFile:string;     // log file name, the folder is chosen by Prepare
+   procedure Init;
+  end;
+
+  // Requested backends. Prepare/Run resolve the request, the request itself stays unchanged
+  TBackendRequest=record
+   platform:TSystemPlatform; // spDefault: native on Windows, SDL elsewhere
+   graphicsAPI:TGraphicsAPI;
+   procedure Init;
+  end;
+
+  // Main window startup request, translated into TGameSettings by SetupGameSettings
+  TWindowSetup=record
+   size:TSize;           // client area size
+   fullscreen:boolean;   // start fullscreen ([Alt]+[Enter] switches to the window mode)
+   borderless:boolean;   // borderless frame for a non-fullscreen window
+   resizable:boolean;    // user can resize the window
+   scaleForDPI:boolean;  // enlarge the window if DPI is higher than the platform default (96 for desktop monitor); macOS window size is always in points
+   systemCursor:boolean; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
+   procedure Init;
+  end;
+
+  // OpenGL context request: the backend may create a different context
+  TGLContextRequest=record
+   coreContext:boolean;       // core profile, otherwise compatibility (ignored in GLES builds)
+   debugContext:boolean;      // debug context flag (debugMode also sets it)
+   forwardCompatible:boolean; // forward-compatible context flag
+   preferHighest:boolean;     // highest available version, with fallback to the minimal one
+   minMajor,minMinor:byte;    // minimal acceptable version
+   procedure Init;
+  end;
+
+  // Startup render policy, applied through the game settings
+  TRenderSetup=record
+   vSync:boolean;        // false: no VSync, FPS is shown
+   depthTexture:boolean; // use depth texture instead of the regular depth buffer (not available with direct render)
+   procedure Init;
+  end;
+
+  // Built-in scenes created at startup
+  TStartupScenes=record
+   console:boolean; // console scene [Win]+[~]
+   tweaker:boolean; // tweaker scene [Ctrl]+[~]
+   loader:boolean;  // default loader scene with spinner
+   procedure Init;
+  end;
+
  var
-   // Default global settings
-   gameTitle:string='Apus Game Engine Template'; // window caption, shown to the user
-   appName:string=''; // name of the writable storage folders (see SetupStorageDirs); gameTitle is used when empty
-   configFileName:string8=''; // load this config file (can contain path, which is discarded after file is loaded)
-   logFileName:string='game.log'; // default log file name
-
-   usedAPI:TGraphicsAPI=gaAuto;
-   usedPlatform:TSystemPlatform {$IFNDEF MSWINDOWS} = spSDL{$ENDIF};
-   windowedMode:boolean=true;
-   windowBorderless:boolean=false; // use borderless window for NON FULLSCREEN windows
-   windowSizeable:boolean=false; // allow user to resize window
-   windowWidth:integer=1024;
-   windowHeight:integer=768;
-   scaleWindowSize:boolean=true; // enlarge window accordingly if DPI is higher than platform default (96 for desktop monitor)
-   scaleScenes:boolean=true;  // set default scale for scenes according to DPI
-   scaleFonts:boolean=true;   // enable font scaling according to DPI
-
    deviceDPI:integer=96; // equals window.surface.dpi
    deviceScale:single=1.0; // deviceDPI/96
-   noVSync:boolean=false;
-   useDepthTexture:boolean=false; // use depth texture instead of the regular depth buffer (not available with direct render)
-   checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
-   useSystemCursor:boolean=true; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
-   useCustomStyle:boolean=false; // init cuttom style?
-   useConsoleScene:boolean=true;   // Create console scene [Win]+[~]
-   useTweakerScene:boolean=false;  // Create Tweaker scene [Ctrl]+[~]
-   useDefaultLoaderScene:boolean=true; // start with default scene with spinner
-   configDir:string;
    instanceID:integer=0;
    gameLangCode:string='en';
-   debugMode:boolean=false;
-   glCoreContext:boolean=true; // request OpenGL core profile context by default
-   glDebugContext:boolean=false; // request OpenGL debug context flag
-   glForwardCompatible:boolean=false; // request OpenGL forward-compatible context flag
-   glPreferHighest:boolean=true; // request highest available version (with fallback to minimal)
-   glMinVersionMajor:byte=3;
-   glMinVersionMinor:byte=0;
 
  type
   TGameApplication=class
    // Call these methods from external code to launch the game
    constructor Create;
-   // Basic initialization (non-visual): logs, configs, settings
+   // Basic initialization (non-visual): logs, configs, settings. Calls SetupApplication first.
+   // Can be called only once.
    procedure Prepare; virtual;
    // Creates game objects, window, starts render, create scenes and launch infinite main loop
    procedure Run; virtual;
@@ -88,7 +113,7 @@ interface
    procedure onResize; virtual;
 
    // --- Working surface declaration (R-31) ---
-   // Presets fill orientation+surfaceConfig; call them before Prepare.
+   // Presets fill orientation+surfaceConfig; call them in SetupApplication.
    procedure SetupFullWindow;  // default: canvas follows the client area
    procedure SetupFixedCanvas(w,h:integer;render:TFixedCanvasRender=TFixedCanvasRender.sharp);
    procedure SetupMobilePortrait(canvasW:integer);
@@ -111,13 +136,32 @@ interface
    orientation:TOrientation;     // main window orientation policy
    surfaceConfig:TSurfaceConfig; // project-level surface declaration (main window)
   protected
+   // --- Startup configuration ---
+   // Create fills the engine defaults, the project sets its values in SetupApplication.
+   // Then Prepare applies the config file (LoadOptions) and command line (HandleParam).
+   // The fields are read by Prepare and Run: changing them afterwards has no effect.
+   appSetup:TAppSetup;
+   requestBackend:TBackendRequest;
+   windowSetup:TWindowSetup;
+   requestGL:TGLContextRequest;
+   renderSetup:TRenderSetup;
+   startupScenes:TStartupScenes;
+   debugMode:boolean;     // -DEBUG: OpenGL debug context, critical section checks
+   checkForSteam:boolean; // check if STEAM client is running and get AppID
+
    sysPlatform:ISystemPlatform;
    {$IFDEF DARWIN}
    controlThread:Apus.Threads.IThread;
    {$ENDIF}
    screenWidth,screenHeight:integer;
    realScreenWidth,realScreenHeight:integer;
+   // The single place for project settings: called once at the beginning of Prepare,
+   // before the log, config and platform are set up. Call inherited first, then assign
+   // the startup configuration fields and the surface preset (SetupFixedCanvas etc).
+   procedure SetupApplication; virtual;
    procedure ControlLoop;
+  private
+   prepared:boolean;
   end;
 
  // Legacy GLSurfaceView shell. The SDL-first Android target does not use these bindings.
@@ -173,8 +217,7 @@ var
 
 procedure AppSurfaceChanged(env:PJNIEnv;this:jobject; width, height:jint);
  begin
-  windowWidth:=width;
-  windowHeight:=height;
+  if app<>nil then app.windowSetup.size:=MakeSize(width,height);
   // Resize window
  end;
 
@@ -185,8 +228,7 @@ procedure AppInit(env:PJNIEnv;this:jobject; view:jobject; width,height,dpi:jint;
    LogI(Format('AppInit: %d %d %d',[width,height,dpi]));
    InitAndroid(env,this,view);
 
-   windowWidth:=width;
-   windowHeight:=height;
+   if app<>nil then app.windowSetup.size:=MakeSize(width,height);
    deviceDPI:=dpi;
    Signal('Engine\InitGame');
    if @initGame<>nil then InitGame;
@@ -347,6 +389,55 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
  end;
 {$IFEND}
 
+{ Startup configuration groups }
+
+procedure TAppSetup.Init;
+ begin
+  title:='Apus Game Engine Template';
+  storageName:='';
+  configFile:='';
+  logFile:='game.log';
+ end;
+
+procedure TBackendRequest.Init;
+ begin
+  platform:={$IFDEF MSWINDOWS}spDefault{$ELSE}spSDL{$ENDIF};
+  graphicsAPI:=gaAuto;
+ end;
+
+procedure TWindowSetup.Init;
+ begin
+  size:=MakeSize(1024,768);
+  fullscreen:=false;
+  borderless:=false;
+  resizable:=false;
+  scaleForDPI:=true;
+  systemCursor:=true;
+ end;
+
+procedure TGLContextRequest.Init;
+ begin
+  coreContext:=true;
+  debugContext:=false;
+  forwardCompatible:=false;
+  preferHighest:=true;
+  minMajor:=3;
+  minMinor:=0;
+ end;
+
+procedure TRenderSetup.Init;
+ begin
+  vSync:=true;
+  depthTexture:=false;
+ end;
+
+procedure TStartupScenes.Init;
+ begin
+  console:=true;
+  tweaker:=false;
+  loader:=true;
+ end;
+
 { TGameApplication }
 
 constructor TGameApplication.Create;
@@ -354,6 +445,17 @@ constructor TGameApplication.Create;
   app:=self;
   orientation:=TOrientation.any;
   surfaceConfig.Init; // full window by default
+  appSetup.Init;
+  requestBackend.Init;
+  windowSetup.Init;
+  requestGL.Init;
+  renderSetup.Init;
+  startupScenes.Init;
+ end;
+
+procedure TGameApplication.SetupApplication;
+ begin
+  // defaults are set in Create: nothing to do here
  end;
 
 // --- Working surface presets (R-31) ---
@@ -455,28 +557,28 @@ procedure TGameApplication.HandleParam(param: string);
   param:=UpperCase {TODO: use st.ToUpper}(param);
   if param='-WND' then begin
     Log.Force('Windowed mode enabled by a command line parameter');
-    windowedMode:=true;
+    windowSetup.fullscreen:=false;
   end;
   if param='-FULLSCREEN' then begin
     Log.Force('Windowed mode disabled by a command line parameter');
-    windowedMode:=false;
+    windowSetup.fullscreen:=true;
   end;
   if param='-NOVSYNC' then begin
     Log.Force('VSYNC disabled by a command line parameter');
-    noVSync:=true;
+    renderSetup.vSync:=false;
   end;
   if param='-VSYNC' then begin
     Log.Force('VSYNC enabled by a command line parameter');
-    noVSync:=false;
+    renderSetup.vSync:=true;
   end;
   if param='-DEBUG' then begin
    debugMode:=true;
    Apus.Threads.debugCriticalSections:=true;
   end;
-  if param='-GLCORE' then glCoreContext:=true;
-  if param='-GLCOMPAT' then glCoreContext:=false;
-  if param='-GLDEBUGCTX' then glDebugContext:=true;
-  if param='-GLFORWARDCTX' then glForwardCompatible:=true;
+  if param='-GLCORE' then requestGL.coreContext:=true;
+  if param='-GLCOMPAT' then requestGL.coreContext:=false;
+  if param='-GLDEBUGCTX' then requestGL.debugContext:=true;
+  if param='-GLFORWARDCTX' then requestGL.forwardCompatible:=true;
   if param='-NOSTEAM' then checkForSteam:=false;
   if param='-ROBOT' then begin
     Apus.Engine.RobotAPI.robotAPIEnabled:=true;
@@ -493,7 +595,6 @@ procedure TGameApplication.InitCursors;
 
 procedure TGameApplication.InitStyles;
  begin
-  if useCustomStyle then NotImplemented; // InitCustomStyle('Images\'); { TODO }
   Signal('GAMEAPP\InitStyles');
  end;
 
@@ -509,22 +610,22 @@ procedure TGameApplication.LoadOptions;
  begin
   try
    // InstanceID = random constant
-   instanceID:=CtlGetInt(configFileName+':\InstanceID',0);
+   instanceID:=CtlGetInt(appSetup.configFile+':\InstanceID',0);
    if instanceID=0 then begin
     instanceID:=(1000*random(50000)+CoreTime.Ticks shl 8+round(now*1000)) mod 100000000;
-    CtlSetInt(configFileName+':\InstanceID',instanceID);
+    CtlSetInt(appSetup.configFile+':\InstanceID',instanceID);
    end;
 
    // Window or Fullscreen
-   if ctlGetBool(configFileName+':\Options\FullScreen',false) then windowedMode:=false;
+   if ctlGetBool(appSetup.configFile+':\Options\FullScreen',false) then windowSetup.fullscreen:=true;
 
    // Window size
-   i:=CtlGetInt(configFileName+':\Options\WindowWidth',-1);
+   i:=CtlGetInt(appSetup.configFile+':\Options\WindowWidth',-1);
    if i>0 then begin
-    windowWidth:=i;
-    windowHeight:=CtlGetInt(configFileName+':\Options\WindowHeight',windowHeight);
+    windowSetup.size.cx:=i;
+    windowSetup.size.cy:=CtlGetInt(appSetup.configFile+':\Options\WindowHeight',windowSetup.size.cy);
    end;
-   scaleWindowSize:=ctlGetBool(configFileName+':\Options\scaleWindowSize',scaleWindowSize);
+   windowSetup.scaleForDPI:=ctlGetBool(appSetup.configFile+':\Options\scaleWindowSize',windowSetup.scaleForDPI);
 
    Signal('GAMEAPP\OptionsLoaded');
   except
@@ -569,17 +670,21 @@ procedure TGameApplication.Prepare;
   i:integer;
   st:string;
   logPath:String8;
+  usedPlatform:TSystemPlatform;
  begin
+  if prepared then raise EError.Create('TGameApplication.Prepare can be called only once');
+  prepared:=true;
   try
    {$IFDEF MSWINDOWS}
    SetDPIAwareness; // a DPI-aware process is a precondition of the surface model
    {$ENDIF}
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    Apus.Threads.Thread.Register({$IFDEF DARWIN}'MainThread'{$ELSE}'ControlThread'{$ENDIF});
+   SetupApplication;
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
    // Resolve per-platform writable dirs now that the app name is known.
-   if appName<>'' then SetupStorageDirs(String8(appName))
-    else SetupStorageDirs(String8(gameTitle)); // a caption makes a poor folder name, but it's better than nothing
+   if appSetup.storageName<>'' then SetupStorageDirs(String8(appSetup.storageName))
+    else SetupStorageDirs(String8(appSetup.title)); // a caption makes a poor folder name, but it's better than nothing
    Randomize;
    // Log rotation
    // The log belongs next to the application, in Logs\ - that's where one looks for
@@ -595,8 +700,7 @@ procedure TGameApplication.Prepare;
     ForceDirectories(LogDir);
     logPath:=LogDir;
    end;
-   configDir:=logPath;
-   st:=logPath+logFileName;
+   st:=logPath+appSetup.logFile;
    st:=Files.FixName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));
@@ -604,10 +708,10 @@ procedure TGameApplication.Prepare;
    Logger.LogCacheMode(true);
    Logger.SetVerbosity(TSeverity.Debug);
 
-   if configFileName<>'' then begin
-    configFileName:=Files.FixName(configFileName);
-    if not FileExists(configFileName) then
-     FatalError('Config file not found: '+configFileName);
+   if appSetup.configFile<>'' then begin
+    appSetup.configFile:=Files.FixName(appSetup.configFile);
+    if not FileExists(appSetup.configFile) then
+     FatalError('Config file not found: '+appSetup.configFile);
     // Decide where the persistent config lives. Normally it stays next to the
     // shipped file (dev tree or a writable install) so behaviour is unchanged.
     // It moves to the per-platform writable AppDataDir (seeded once from the
@@ -615,40 +719,41 @@ procedure TGameApplication.Prepare;
     // directory is genuinely read-only, or we run from a macOS .app bundle whose
     // Contents/Resources is writable on disk but must stay immutable, since a
     // write there breaks the code-signing seal.
-    st:=ExtractFilePath(ExpandFileName(configFileName));
+    st:=ExtractFilePath(ExpandFileName(appSetup.configFile));
     if bundleMode or not Folder.Writable(String8(st)) then begin
      ForceDirectories(AppDataDir);
-     st:=string(AppDataDir)+ExtractFileName(string(configFileName));
+     st:=string(AppDataDir)+ExtractFileName(string(appSetup.configFile));
      if not FileExists(st) then
-      Files.CopyFile(String8(configFileName),String8(st)); // seed from shipped defaults
-     configFileName:=st;
+      Files.CopyFile(String8(appSetup.configFile),String8(st)); // seed from shipped defaults
+     appSetup.configFile:=st;
     end;
-    UseControlFile(configFileName);
-    configFileName:=ExtractFileName(configFileName);
+    UseControlFile(appSetup.configFile);
+    appSetup.configFile:=ExtractFileName(appSetup.configFile); // from now on it's the control file key
     LoadOptions;
     SaveOptions; // Save modified settings (if default values were added)
    end;
    for i:=1 to paramCount do HandleParam(paramstr(i));
    {$IFDEF MSWINDOWS}
    if HasParam('-SDL') then begin
-    usedPlatform:=spSDL;
+    requestBackend.platform:=spSDL;
     Log.Force('SDL platform requested by a command line parameter');
    end;
    if HasParam('-WINDOWS') then begin
-    usedPlatform:=spWindows;
+    requestBackend.platform:=spWindows;
     Log.Force('Windows platform requested by a command line parameter');
    end;
    st:=UpperCase(GetParam('-PLATFORM'));
    if st='SDL' then begin
-    usedPlatform:=spSDL;
+    requestBackend.platform:=spSDL;
     Log.Force('SDL platform requested by -PLATFORM=SDL');
    end else
    if (st='WINDOWS') or (st='WIN') then begin
-    usedPlatform:=spWindows;
+    requestBackend.platform:=spWindows;
     Log.Force('Windows platform requested by -PLATFORM='+st);
    end;
    {$ENDIF}
 
+   usedPlatform:=requestBackend.platform;
    {$IFDEF MSWINDOWS}
    if usedPlatform=spDefault then usedPlatform:=spWindows;
    if usedPlatform=spWindows then sysPlatform:=TWindowsPlatform.Create;
@@ -676,7 +781,7 @@ procedure TGameApplication.Prepare;
    sysPlatform.GetRealScreenSize(realScreenWidth,realScreenHeight);
 
    {$IFDEF OPENGL}
-   Apus.Engine.Game.useDepthTexture:=useDepthTexture;
+   Apus.Engine.Game.useDepthTexture:=renderSetup.depthTexture;
    {$ENDIF}
 
    {$IFDEF STEAM}
@@ -741,7 +846,7 @@ procedure MouseEventHandler(event:TEventStr;tag:TTag);
   x,y:integer;
  begin
   if app=nil then exit;
-  if windowBorderless and windowSizeable then begin // manual window sizing implementation
+  if app.windowSetup.borderless and app.windowSetup.resizable then begin // manual window sizing implementation
    if event='MOUSE\MOVE' then begin
     x:=word(Bits.GetBits(UInt64(tag),0,16));
     y:=word(Bits.GetBits(UInt64(tag),16,16));
@@ -754,18 +859,19 @@ procedure MouseEventHandler(event:TEventStr;tag:TTag);
 procedure TGameApplication.Run;
  var
   settings:TGameSettings;
+  usedAPI:TGraphicsAPI;
  begin
   {$IFDEF OPENGL}
   // OpenGL context request is configured on app level and used by platform backend.
-  oglContextTemplate.minMajor:=glMinVersionMajor;
-  oglContextTemplate.minMinor:=glMinVersionMinor;
-  oglContextTemplate.preferHighest:=glPreferHighest;
-  oglContextTemplate.debugContext:=glDebugContext or debugMode;
-  oglContextTemplate.forwardCompatible:=glForwardCompatible;
+  oglContextTemplate.minMajor:=requestGL.minMajor;
+  oglContextTemplate.minMinor:=requestGL.minMinor;
+  oglContextTemplate.preferHighest:=requestGL.preferHighest;
+  oglContextTemplate.debugContext:=requestGL.debugContext or debugMode;
+  oglContextTemplate.forwardCompatible:=requestGL.forwardCompatible;
   {$IFDEF GLES}
-  oglContextTemplate.profile:=oglpES; // GLES builds always use the ES profile, glCoreContext is ignored
+  oglContextTemplate.profile:=oglpES; // GLES builds always use the ES profile, coreContext is ignored
   {$ELSE}
-  if glCoreContext then
+  if requestGL.coreContext then
    oglContextTemplate.profile:=oglpCore
   else
    oglContextTemplate.profile:=oglpCompatibility;
@@ -774,6 +880,7 @@ procedure TGameApplication.Run;
 
   // CREATE GAME OBJECT
   // ------------------------
+  usedAPI:=requestBackend.graphicsAPI;
   {$IFDEF MSWINDOWS}
   if usedAPI=gaAuto then begin
     {$IFDEF OPENGL}
@@ -862,7 +969,7 @@ procedure TGameApplication.ControlLoop;
 
   // LOADER SCENE
   // ------------------------
-  if useDefaultLoaderScene then begin
+  if startupScenes.loader then begin
    loadingScene:=TLoadingScene.Create;
    game.AddScene(loadingScene);
   end;
@@ -875,8 +982,8 @@ procedure TGameApplication.ControlLoop;
   InitStyles;
   InitMessageScene;
   InitNotifications;
-  if useConsoleScene then AddConsoleScene;
-  if useTweakerScene then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
+  if startupScenes.console then AddConsoleScene;
+  if startupScenes.tweaker then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
   // Create scenes
   try
    CreateScenes;
@@ -940,40 +1047,41 @@ var
  winDispMode:TDisplayMode;
 begin
   with settings do begin
-   title:=GameTitle;
-   width:=windowWidth;
-   height:=windowHeight;
+   title:=appSetup.title;
+   width:=windowSetup.size.cx;
+   height:=windowSetup.size.cy;
    deviceDPI:=systemPlatform.GetScreenDPI;
    deviceScale:=deviceDPI/96;
    // SDL window dimensions on macOS are already expressed in logical points.
    // Scaling them again would create an oversized Retina window.
    {$IFNDEF DARWIN}
-   if scaleWindowSize then begin
+   if windowSetup.scaleForDPI then begin
     width:=round(width*deviceScale);
     height:=round(height*deviceScale);
    end;
    {$ENDIF}
    colorDepth:=32;
    refresh:=0;
-   if windowSizeable then winDispMode:=TDisplayMode.dmWindow
+   if windowSetup.resizable then winDispMode:=TDisplayMode.dmWindow
     else winDispMode:=TDisplayMode.dmFixedWindow;
-   if windowBorderless then winDispMode:=TDisplayMode.dmBorderless;
-   if windowedMode then mode:=winDispMode
-    else mode:=dmFullScreen;
-   if windowedMode then altMode:=dmFullScreen
-    else altMode:=winDispMode;
+   if windowSetup.borderless then winDispMode:=TDisplayMode.dmBorderless;
+   if windowSetup.fullscreen then mode:=dmFullScreen
+    else mode:=winDispMode;
+   if windowSetup.fullscreen then altMode:=winDispMode
+    else altMode:=dmFullScreen;
    surface:=surfaceConfig; // project declaration -> per-window request
 
-   showSystemCursor:=useSystemCursor;
+   showSystemCursor:=windowSetup.systemCursor;
    zbuffer:=16;
    stencil:=false;
    multisampling:=0;
    slowmotion:=false;
-   if noVSync then begin
+   if renderSetup.vSync then
+    VSync:=1
+   else begin
     VSync:=0;
     game.DebugFeature(dfShowFPS,true);
-   end else
-    VSync:=1;
+   end;
   end;
   Signal('GAMEAPP\SetGameSettings');
 end;

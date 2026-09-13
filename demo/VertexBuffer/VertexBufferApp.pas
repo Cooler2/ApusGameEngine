@@ -10,7 +10,7 @@ interface
  type
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -21,7 +21,7 @@ implementation
  uses
   SysUtils,
   Apus.Colors, Apus.Geom3D,
-  Apus.Engine.UI, Apus.Engine.Mesh, Apus.Engine.GpuMesh;
+  Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.Mesh, Apus.Engine.GpuMesh;
 
  type
   // This will be our single scene
@@ -42,17 +42,14 @@ implementation
   gpuMesh:TGpuMesh;
   trgCount:integer;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
  begin
   inherited;
-  // Alter some global settings
-  gameTitle:='Apus Game Engine: Vertex buffer demo'; // app window title
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  windowWidth:=1300;
-  windowHeight:=850;
-  //usedPlatform:=spSDL;
-  //windowedMode:=false;
+  appSetup.title:='Apus Game Engine: Vertex buffer demo'; // app window title
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  windowSetup.size:=MakeSize(1300,850);
+  //requestBackend.platform:=spSDL;
+  //windowSetup.fullscreen:=true;
  end;
 
 procedure TMainApp.CreateScenes;

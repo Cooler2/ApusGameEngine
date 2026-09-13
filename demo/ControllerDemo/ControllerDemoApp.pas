@@ -11,6 +11,7 @@ interface
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -40,14 +41,18 @@ constructor TMainApp.Create;
   a:integer;
  begin
   inherited;
-  // Alter some global settings
-  gameTitle:='Game Controllers Test'; // app window title
-  //configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spSDL; // Important!
   baseDir:='';
   if DirectoryExists('../Demo/ControllerDemo') then
    baseDir:='../Demo/ControllerDemo/';
+ end;
+
+procedure TMainApp.SetupApplication;
+ begin
+  inherited;
+  appSetup.title:='Game Controllers Test'; // app window title
+  //appSetup.configFile:='game.ctl';
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  requestBackend.platform:=spSDL; // Important!
  end;
 
 procedure OnToggleBtn;

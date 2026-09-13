@@ -22,7 +22,7 @@ uses Apus.Engine.GameApp,Apus.Engine.API;
 
 type
   TMainApp=class(TGameApplication)
-    constructor Create;
+    procedure SetupApplication; override;
     procedure SetupGameSettings(var settings:TGameSettings); override;
     procedure CreateScenes; override;
   end;
@@ -33,16 +33,14 @@ var
 implementation
 uses Apus.Engine.Types,NetCommon,NetServerScene,NetClientScene;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
 begin
   inherited;
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowSizeable:=false;
-  windowWidth:=WIN_W;          // base size; PlaceWindow rescales+repositions on the first frame
-  windowHeight:=WIN_H;
-  if HasSwitch('client') then gameTitle:='Apus Networking Demo - Client'
-  else gameTitle:='Apus Networking Demo - Server';
+  appSetup.logFile:=GetNetworkingLogFileName;
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(WIN_W,WIN_H); // base size; PlaceWindow rescales+repositions on the first frame
+  if HasSwitch('client') then appSetup.title:='Apus Networking Demo - Client'
+  else appSetup.title:='Apus Networking Demo - Server';
 end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);

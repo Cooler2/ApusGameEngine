@@ -14,7 +14,7 @@ interface
  uses Apus.Engine.GameApp, Apus.Engine.API;
  type
   TUILabApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -432,13 +432,12 @@ implementation
 
 // --- Application -------------------------------------------------------------
 
-constructor TUILabApp.Create;
+procedure TUILabApp.SetupApplication;
  begin
   inherited;
-  gameTitle:='Apus Game Engine: UI Lab';
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  useConsoleScene:=true;
+  appSetup.title:='Apus Game Engine: UI Lab';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  startupScenes.console:=true;
  end;
 
 procedure TUILabApp.SetupGameSettings(var settings:TGameSettings);

@@ -10,7 +10,7 @@ uses Apus.Engine.GameApp,Apus.Engine.API;
 
 type
   TMainApp=class(TGameApplication)
-    constructor Create;
+    procedure SetupApplication; override;
     procedure SetupGameSettings(var settings:TGameSettings); override;
     procedure CreateScenes; override;
   end;
@@ -209,15 +209,12 @@ begin
   result:=false;
 end;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
 begin
   inherited;
-  gameTitle:='Apus Engine: InputDemo';
-  usedAPI:=gaOpenGL2;
-  usedPlatform:=spDefault;
-  windowWidth:=1520;
-  windowHeight:=860;
-  windowSizeable:=false;
+  appSetup.title:='Apus Engine: InputDemo';
+  requestBackend.graphicsAPI:=gaOpenGL2;
+  windowSetup.size:=MakeSize(1520,860);
 end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);

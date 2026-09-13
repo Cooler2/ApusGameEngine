@@ -13,6 +13,7 @@ interface
  type
   TMultiWindowApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -54,21 +55,22 @@ constructor TMultiWindowApp.Create;
 var
  st:string;
 begin
- {$IFDEF SDL}
- usedPlatform:=spSDL;
- {$ELSE}
- usedPlatform:=spDefault;
- {$ENDIF}
  inherited;
  st:=ExtractFileDir(ParamStr(0));
  SetCurrentDir(st);
  if DirectoryExists('../demo/MultiWindow') then
   SetCurrentDir('../demo/MultiWindow');
+end;
 
- gameTitle:='Main';
- usedAPI:=gaOpenGL2;
- windowWidth:=640;
- windowHeight:=480;
+procedure TMultiWindowApp.SetupApplication;
+begin
+ inherited;
+ {$IFDEF SDL}
+ requestBackend.platform:=spSDL;
+ {$ENDIF}
+ appSetup.title:='Main';
+ requestBackend.graphicsAPI:=gaOpenGL2;
+ windowSetup.size:=MakeSize(640,480);
 end;
 
 procedure TMultiWindowApp.SetupGameSettings(var settings:TGameSettings);

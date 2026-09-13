@@ -304,3 +304,32 @@ mode.displayMode -> mode [Apus.Engine.Types]
 // Signal('ENGINE\RESIZE',...) => wnd.RequestResize(w,h)
 // ENGINE\BEFORERESIZE, ENGINE\RESIZED, ENGINE\DPICHANGED[\DONE] => ENGINE\SURFACECHANGED (tag=wnd, after the rebuild)
 game.RenderSize -> game.CanvasSize [Apus.Engine.API]
+
+// === TGameApplication startup settings: Apus.Engine.GameApp globals -> protected fields ===
+// Assignments move into an override of TGameApplication.SetupApplication (call inherited first).
+// Order matters: longer names first.
+useDefaultLoaderScene -> ?startupScenes.loader, set in SetupApplication
+useConsoleScene -> ?startupScenes.console, set in SetupApplication
+useTweakerScene -> ?startupScenes.tweaker, set in SetupApplication
+useSystemCursor -> ?windowSetup.systemCursor, set in SetupApplication
+useDepthTexture -> ?if GameApp global: renderSetup.depthTexture, set in SetupApplication
+noVSync -> ?renderSetup.vSync (inverted), set in SetupApplication
+windowedMode -> ?windowSetup.fullscreen (inverted), set in SetupApplication
+windowBorderless -> ?windowSetup.borderless, set in SetupApplication
+windowSizeable -> ?windowSetup.resizable, set in SetupApplication
+windowWidth -> ?if GameApp global: windowSetup.size:=MakeSize(w,h), set in SetupApplication
+windowHeight -> ?if GameApp global: windowSetup.size:=MakeSize(w,h), set in SetupApplication
+scaleWindowSize -> ?windowSetup.scaleForDPI, set in SetupApplication
+glForwardCompatible -> ?requestGL.forwardCompatible, set in SetupApplication
+glMinVersionMajor -> ?requestGL.minMajor, set in SetupApplication
+glMinVersionMinor -> ?requestGL.minMinor, set in SetupApplication
+glPreferHighest -> ?requestGL.preferHighest, set in SetupApplication
+glDebugContext -> ?requestGL.debugContext, set in SetupApplication
+glCoreContext -> ?requestGL.coreContext, set in SetupApplication
+configFileName -> ?appSetup.configFile, set in SetupApplication
+logFileName -> ?if GameApp global: appSetup.logFile, set in SetupApplication
+usedPlatform -> ?requestBackend.platform, set in SetupApplication
+usedAPI -> ?requestBackend.graphicsAPI, set in SetupApplication
+gameTitle -> ?appSetup.title, set in SetupApplication
+appName -> ?if GameApp global: appSetup.storageName, set in SetupApplication
+// Removed with no replacement: scaleScenes, scaleFonts, useCustomStyle, configDir

@@ -11,6 +11,7 @@ interface
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
   end;
 
@@ -47,17 +48,18 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  // Alter some global settings
-  useTweakerScene:=true;
-
-  gameTitle:='Simple 3D Demo'; // app window title
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  scaleWindowSize:=true;
-  //usedPlatform:=spSDL;
-  //windowedMode:=false;
   if DirectoryExists('..\Demo\Simple3D') then
    baseDir:='..\Demo\Simple3D\';
+ end;
+
+procedure TMainApp.SetupApplication;
+ begin
+  inherited;
+  startupScenes.tweaker:=true;
+  appSetup.title:='Simple 3D Demo'; // app window title
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  //requestBackend.platform:=spSDL;
+  //windowSetup.fullscreen:=true;
  end;
 
 // Most app initialization is here. Default spinner is running

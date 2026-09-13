@@ -11,6 +11,7 @@ interface
   // Let's override to have a custom app class
   TSimpleDemoApp=class(TGameApplication)
    constructor Create;
+   procedure SetupApplication; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
@@ -47,12 +48,6 @@ implementation
 
 constructor TSimpleDemoApp.Create;
  begin
-  // Platform must be selected before TGameApplication.Create chooses backend.
-  {$IFDEF SDL}
-  usedPlatform:=spSDL;
-  {$ELSE}
-  usedPlatform:=spDefault;
-  {$ENDIF}
   inherited;
   // Start from the engine-resolved resource base: the exe dir normally, or the
   // .app's Contents/Resources when launched from a macOS bundle (BaseDir handles
@@ -61,13 +56,19 @@ constructor TSimpleDemoApp.Create;
   // When running straight from the repo, assets live in the source tree instead.
   if DirectoryExists('../demo/SimpleDemo') then
     SetCurrentDir('../demo/SimpleDemo');
+ end;
 
-  // Alter some global settings
-  gameTitle:='Simple Engine Demo'; // app window title
-  configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  //useDepthTexture:=true;
-  //windowedMode:=false;
+procedure TSimpleDemoApp.SetupApplication;
+ begin
+  inherited;
+  {$IFDEF SDL}
+  requestBackend.platform:=spSDL;
+  {$ENDIF}
+  appSetup.title:='Simple Engine Demo'; // app window title
+  appSetup.configFile:='game.ctl'; // relative to the current dir set in Create
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  //renderSetup.depthTexture:=true;
+  //windowSetup.fullscreen:=true;
  end;
 
 // This is executed just before the game object is launched

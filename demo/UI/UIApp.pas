@@ -10,7 +10,7 @@ interface
  type
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
-   constructor Create;
+   procedure SetupApplication; override;
    procedure CreateScenes; override;
    procedure SetupGameSettings(var settings:TGameSettings); override;
   end;
@@ -33,16 +33,14 @@ implementation
   sceneMain:TMainScene;
   root:TUIElement;
 
-constructor TMainApp.Create;
+procedure TMainApp.SetupApplication;
  begin
   inherited;
-  // Alter some global settings
-  gameTitle:='Apus Game Engine: UI Demo'; // app window title
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;
-  //windowedMode:=false;
-  useConsoleScene:=true;
+  appSetup.title:='Apus Game Engine: UI Demo'; // app window title
+  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  //requestBackend.platform:=spSDL;
+  //windowSetup.fullscreen:=true;
+  startupScenes.console:=true;
  end;
 
 // Most app initialization is here. Default spinner is running

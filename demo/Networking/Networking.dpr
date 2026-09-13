@@ -9,7 +9,6 @@
   NetworkingApp in 'NetworkingApp.pas';
 
 begin
-  logFileName:=GetNetworkingLogFileName;
   application:=TMainApp.Create;
   application.Prepare;
   application.Run;
