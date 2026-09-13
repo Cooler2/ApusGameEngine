@@ -38,19 +38,9 @@ implementation
 
 { TStyleDemoApp }
 
-function HasParamEarly(const paramName:string):boolean;
- var
-  i:integer;
- begin
-  result:=false;
-  for i:=1 to ParamCount do
-   if UpperCase(ParamStr(i))=paramName then exit(true);
- end;
-
 constructor TStyleDemoApp.Create;
  var
   st:string;
-  hiDPI:boolean;
  begin
   {$IFDEF SDL}
   usedPlatform:=spSDL;
@@ -65,12 +55,9 @@ constructor TStyleDemoApp.Create;
 
   gameTitle:='R-05 Style System Demo';
   usedAPI:=gaOpenGL2;
-  hiDPI:=HasParamEarly('-HIDPI') or HasParamEarly('-REALDPI');
-  if HasParamEarly('-LOWDPI') then hiDPI:=false;
   windowWidth:=1520;
   windowHeight:=860;
-  windowSizeable:=false;
-  scaleWindowSize:=hiDPI;
+  windowSizeable:=false; // window size stays in logical units (scaleWindowSize default)
  end;
 
 procedure TStyleDemoApp.SetupGameSettings(var settings:TGameSettings);
@@ -562,7 +549,6 @@ procedure TStyleDemoScene.CreateUI;
 
   MakeLabel(panel3,12,118,295,'The editor window is a separate scene layered above this one.',true);
   MakeLabel(panel3,12,142,290,'Later it can become an engine module for runtime UI tuning.',true);
-  MakeLabel(panel3,12,178,290,'Launch with -HIDPI for crisp DPI-aware rendering.',true);
 
   panel4:=Panel(UI,410,18,330,250,'ThemeCoverage','Styled containers');
   MakeLabel(panel4,12,40,286,'Panels, labels, inputs, lists, toggles and sliders all bind to tokens.',true);
