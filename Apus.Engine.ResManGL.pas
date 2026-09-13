@@ -85,7 +85,7 @@ type
   procedure DownloadLevel(mipLevel:integer); virtual;
   procedure ProcessUploadRequest; virtual;
   procedure EnsureWritable(opName:string8); inline;
-  procedure EnsureNotCompressed(opName:string8); inline;
+  procedure EnsureNotCompressed(opName:string8);
  end;
 
  // OpenGL-backed vertex buffer wrapper.
