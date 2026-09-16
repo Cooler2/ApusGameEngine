@@ -541,7 +541,7 @@ implementation
    end;
   end;
 
- procedure DrawUIImage(control:TUIImage;x1,y1,x2,y2:integer);
+ procedure DrawUIImage(control:TUIImage;x1,y1,x2,y2:integer;context:TContext);
   type
    TImageDrawProc=procedure(img:TUIImage);
   var
@@ -562,7 +562,7 @@ implementation
        exit;
       end;
       // SRC = texture name or file name
-      tex:=ResolveStyleImage(src);
+      tex:=context.GetImage(src);
       if tex<>nil then begin
        draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('tint',clWhite));
       end;
@@ -1120,7 +1120,7 @@ implementation
    else
    // Произвольное изображение
    if element.ClassType=TUIImage then
-    DrawUIImage(element as TUIImage,x1,y1,x2,y2)
+    DrawUIImage(element as TUIImage,x1,y1,x2,y2,context)
    else
    // всплывающий хинт
    if element is TUIHint then
