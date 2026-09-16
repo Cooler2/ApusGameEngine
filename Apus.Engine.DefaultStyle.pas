@@ -33,11 +33,13 @@ implementation
    constructor Create(element:TUIElement);
    procedure Update(element:TUIElement);
    function HoverState(element:TUIElement):byte;
-   // Resolve a 'background-image' value to a texture, memoized per source string
+   // Resolve a 'background-image' value to a texture. 'file:' textures are loaded once
+   // and memoized (the context holds one reference each); 'tex:' ones are looked up
+   // every call and never owned (the creator of a named texture keeps it alive)
    function GetImage(const src:String8):TTexture;
   private
    imgSrc:array of String8;  // memo: source string -> texture (small, linear)
-   imgTex:array of TTexture;
+   imgTex:array of TTexture; // one reference per entry, released in the destructor
   end;
 
  function PrepareContext(element:TUIElement):TContext;
@@ -215,22 +217,20 @@ implementation
   end;
 
  // Resolve an image reference used by style values and TUIImage.src:
- //   tex:<name>  - registered texture (TTexture.FindByName)
- //   file:<name> - image file (loaded on first use, then found via TTexture.FindByFile)
+ //   tex:<name>  - registered texture (TTexture.FindByName); weak reference: the
+ //                 creator of the texture keeps it alive, nothing to free
+ //   file:<name> - image file via LoadImage: the first user loads it, later users share
+ //                 the same texture; the caller owns one reference (FreeImage when done)
  // Returns nil if the reference can't be resolved (yet).
  function ResolveStyleImage(const src:String8):TTexture;
-  var
-   lname:String8;
   begin
    result:=nil;
    if src.StartsWith('tex:',true) then
     result:=TTexture(TTexture.FindByName(copy(src,5,200)))
    else
-   if src.StartsWith('file:',true) then begin
-    lname:=Files.FixName(copy(src,6,200));
-    result:=TTexture.FindByFile(lName);
-    if result=nil then LoadImage(result,lname);
-   end else
+   if src.StartsWith('file:',true) then
+    LoadImage(result,copy(src,6,200))
+   else
     raise EWarning.Create('Unsupported image source: '+src);
   end;
 
@@ -1152,7 +1152,10 @@ implementation
 { TContext }
 
 destructor TContext.Destroy;
+ var
+  i:integer;
  begin
+  for i:=0 to high(imgTex) do FreeImage(imgTex[i]);
   hover.Free;
   active.Free;
   disabled.Free;
@@ -1222,6 +1225,7 @@ function TContext.GetImage(const src:String8):TTexture;
  var
   i,n:integer;
  begin
+  if not src.StartsWith('file:',true) then exit(ResolveStyleImage(src)); // weak reference, no memo
   for i:=0 to high(imgSrc) do
    if imgSrc[i]=src then exit(imgTex[i]);
   result:=ResolveStyleImage(src);

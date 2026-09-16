@@ -6,11 +6,8 @@
 {$I defines.inc}
 unit Apus.Engine.ImageTools;
 interface
- uses Apus.Core, Apus.Images, Apus.Engine.API,
+ uses Apus.Core, Apus.Images, Apus.Engine.API, Apus.Engine.Resources,
   Apus.Threads;
-
- var
-  defaultImagesDir:String8='Images\'; // default folder to load images from
 
  // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
  // Если sysmem=true, то загружается в поверхность в системной памяти
@@ -56,9 +53,9 @@ interface
  // Change image size while keeping its texture space (resolution change)
 // procedure ScaleImage(image:TTexture;scaleX,scaleY:single);
 
- // Обрезать изображение в указанных пределах (текстура не меняется,
- // меняется лишь область отрисовки
- procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
+ // View on the given area (x2,y2 inclusive) of an image: a clone sharing the
+ // storage; the source handle is not modified. Free the result like any texture.
+ function CropImage(image:TTexture;x1,y1,x2,y2:integer):TTexture;
 
  // Уменьшает xRGB изображение за счет вырезания из него:
  //   вертикальных полос x1..x2-1, x3..x4-1
@@ -95,7 +92,7 @@ interface
 implementation
 uses SysUtils, Apus.Lib, Apus.Strings, Apus.Geom3D, Types,
    Apus.GfxFormats, Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Colors,
-   Apus.GfxFilters, Apus.Engine.Resources, Apus.Compress;
+   Apus.GfxFilters, Apus.Compress;
 
 const
   max_subimages = 5000;
@@ -247,7 +244,7 @@ begin
    aFiles[aSubCount]:=st;
    aHash[aSubCount]:=strHash(st);
    if length(st)>15 then st:=copy(st,length(st)-14,15);
-   img.name:=Str8(st);
+   img.name:='_'+Str8(st); // non-unique label (clones never enter the name registry)
 //   if scale<>1.0 then ScaleImage(img,scale,scale);
   end;
   close(f);
@@ -414,33 +411,24 @@ function FindProperFile(fname:String8;dontFail:boolean=false):String8;
   {$ENDIF}
  end;
 
-// Make file name:
-// - relative to defaultImagesDir if it is inside defaultImagesDir
-// - relative to the executable path if possible
-// - absolute otherwise
-// Result is always in lower case
-function MakeImageFilename(filename:String8):String8;
+// Can an already loaded texture serve this request? Only frozen content is shared,
+// thread-local textures never are, and the storage settings must match the ones the
+// first loader chose (clamp mode, mip-maps)
+function ShareableImage(tex:TTexture;flags:cardinal):boolean;
  var
-  st:String8;
+  wantClamp,wantMips:boolean;
  begin
-  filename:=filename.ToLower;
-  st:=defaultImagesDir.ToLower;
-  if filename.StartsWith(st) then begin
-   delete(filename,1,length(st));
-   exit(filename);
-  end;
-  st:=String8(ExtractFilePath(ParamStr(0))).ToLower;
-  if filename.StartsWith(st) then begin
-   delete(filename,1,length(st));
-   exit(filename);
-  end;
-  result:=String8(ExpandFileName(filename)).ToLower;
+  if tex.HasFlag(tfThreadLocal) or not tex.HasFlag(tfImmutable) then exit(false);
+  if Bits.HasAll(flags,liffAllowChange) then exit(false);
+  wantClamp:=not Bits.HasAny(flags,liffTexture or liffPow2 or liffMipMaps);
+  wantMips:=Bits.HasAll(flags,liffMipMaps);
+  result:=(wantClamp=tex.HasFlag(tfClamped)) and (wantMips=tex.HasFlag(tfAutoMipMap));
  end;
 
 function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 var
  i,j,k:integer;
- texName:String8;
+ key:String8;
  tex:TTexture;
  img,txtImage,preloaded:TRawImage;
  aFlags:integer;
@@ -452,8 +440,14 @@ var
 begin
  try
   txtImage:=nil;
-  // 1. ADJUST FILE NAME AND CHECK ATLAS
+  // 1. ADJUST FILE NAME, CHECK THE SOURCE REGISTRY AND ATLASES
   fname:=Files.FixName(fname);
+  key:=TTexture.SourceKey(fname);
+  tex:=TTexture.FindByFile(key);
+  if tex<>nil then begin
+   if ShareableImage(tex,flags) then exit(tex.AddRef); // one more holder, released by FreeImage
+   Log.Warn('Image %s is already loaded with different settings - loading a private copy',[key]);
+  end;
   // Search atlases first
   i:=FindFileInAtlas(fname);
   if i>0 then begin
@@ -531,9 +525,10 @@ begin
   if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiAutoMipmap;
   if imgInfo.miplevels>1 then flags:=flags or aiAutoMipmap;
   aFlags:=aFlags or (flags and $FF0000); // keep some flags
-  texName:=MakeImageFilename(fName);
-  tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,texName) as TTexture;
-  tex.src:=texName;
+  // Non-unique label: file identity lives in the source registry (src), not in the
+  // name registry, so a private copy of the same file never collides
+  tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,'_'+key) as TTexture;
+  tex.src:=key;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
@@ -572,7 +567,8 @@ begin
 
   // 7. FINISH TEXTURE
   tex.unlock;
-  if flags and liffAllowChange=0 then tex.caps:=tex.caps or tfNoWrite; // Forbid further changes
+  // Frozen content is the default: only immutable textures can be shared
+  if not Bits.HasAll(flags,liffAllowChange) then tex.MakeImmutable;
 
  except
   on e:Exception do begin
@@ -672,12 +668,9 @@ procedure EditImage(tex:TTexture);
   SetRenderTarget(tex.data,tex.pitch,tex.width,tex.height);
  end;
 
-procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
+function CropImage(image:TTexture;x1,y1,x2,y2:integer):TTexture;
  begin
-  image.left:=image.left+x1;
-  image.top:=image.top+y1;
-  image.width:=x2-x1+1;
-  image.height:=y2-y1+1;
+  result:=image.ClonePart(Rect(x1,y1,x2+1,y2+1));
  end;
 
 {procedure ScaleImage(image:TTexture;scaleX,scaleY:single);

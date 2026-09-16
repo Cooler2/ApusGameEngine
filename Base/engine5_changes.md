@@ -3,6 +3,35 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Image loading: shared textures, source keys (2026-09-16)
+
+Loading the same image file twice used to create a second texture and, since the name
+registry became strict, failed with `Duplicate object name`. The loader now shares:
+
+- `LoadImage`/`LoadImageFromFile` look the file up in the source registry first. A hit on
+  an immutable texture with the same storage settings returns the **same object** and
+  increments its reference counter; `FreeImage` releases one holder. A mutable or
+  differently configured texture is not shared: a private copy is loaded and a warning
+  logged.
+- Loaded textures are **immutable by default** (`MakeImmutable`); pass `liffAllowChange`
+  to get a mutable private copy. Writing to a loaded texture without the flag raises, as
+  it already did through `tfNoWrite`.
+- `TTexture.AddRef` takes one more strong reference to an existing texture (returns
+  `self`, nil-safe); release it with `FreeImage`. `TTexture.FindByName` stays a weak
+  lookup: the creator keeps a named texture alive. Do not recreate a named texture while
+  strong references to the previous one exist (unique names).
+- `TTexture.SourceKey(ref)` is the canonical key of a file reference: separators fixed,
+  `defaultImagesDir`/exe dir stripped, extension stripped, case kept; lookup is
+  case-insensitive. `TTexture.FindByFile(ref)` accepts any reference form.
+- `defaultImagesDir` moved from `Apus.Engine.ImageTools` to `Apus.Engine.Resources`.
+- File textures are named `_<key>` (non-unique label). Code that looked them up by name
+  must use `FindByFile` or give the texture a name explicitly.
+- `CropImage(image,x1,y1,x2,y2)` is now a **function** returning a `ClonePart` view; the
+  source handle is not modified. Free the result like any texture.
+- Clones (`Clone`/`ClonePart`, atlas parts) get `_`-prefixed non-unique names.
+
+Design and rules: `manual/ch21_resource_system.md`.
+
 ## Immutable resource flags renamed (2026-09-16)
 
 `tfReadOnly`, `abReadOnly` and `bfReadOnly` were easy to confuse with `tfNoWrite`, which

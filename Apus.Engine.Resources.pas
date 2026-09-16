@@ -64,7 +64,7 @@ interface
    left,top:integer; // position in the underlying resource
    mipmaps:byte; // highest available mip-map level
    caps:cardinal; // capability flags
-   refCounter:integer; // number of child textures referencing this texture data
+   refCounter:integer; // extra holders of this object: shared handles (LoadImage) and clones; 0 = single owner
    parent:TTexture;    // reference to a parent texture
    // These properties are valid when texture is ONLINE (uploaded)
    u1,v1,u2,v2:single; // texture coordinates
@@ -73,6 +73,9 @@ interface
    data:pointer;   // raw data
    pitch:integer;  // offset to next scanline
 
+   // Take one more (strong) reference to this texture: the same object is returned,
+   // release it with FreeImage like any other reference. Not for thread-local textures.
+   function AddRef:TTexture;
    // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
    procedure CloneFrom(from:TTexture); virtual;
    function Clone:TTexture; // Clone this texture and return the cloned instance
@@ -106,18 +109,26 @@ interface
    function Size:TSize; // (width,height)
    procedure Dump(filename:string8=''); virtual; abstract; // for debug purposes
 
-   // File-name lookup is case-insensitive (hash map behavior). Keep resource
-   // names normalized and avoid files that differ only by letter case.
-   class function FindByFile(fileName:String8):TTexture; virtual;
+   // Source key of an image reference: separators fixed, images root (defaultImagesDir)
+   // or the executable directory stripped, extension stripped, letter case kept.
+   // Pure string function: any reference to the same file gives the same key without
+   // touching the disk. Lookup is case-insensitive; files that differ only by letter
+   // case are not allowed.
+   class function SourceKey(const ref:String8):String8; static;
+   // Find a loaded texture by its source (file reference). Any reference form is
+   // accepted (with or without extension/images root). The source registry is an
+   // index, not an owner: it lists every texture with a source, mutable or not.
+   class function FindByFile(const ref:String8):TTexture; virtual;
 
   protected
    fSrc:string8; // storage for property src
    locked:integer; // lock counter
    class function ClassHash:pointer; override;
    procedure SetSource(filename:string8);
+   procedure Unindex;
   public
    destructor Destroy; override;
-   property src:String8 read fSrc write SetSource; // file name (if loaded from a file)
+   property src:String8 read fSrc write SetSource; // source key (if loaded from a file), see SourceKey
   end;
 
  // Base class for shader object
@@ -206,8 +217,11 @@ function NeedSyncForBuffer(buf:TEngineBuffer):boolean; inline;
 function NeedSyncForBufferRead(buf:TEngineBuffer):boolean; inline;
 function NeedSyncForBufferWrite(buf:TEngineBuffer):boolean; inline;
 
+ var
+  defaultImagesDir:String8='Images\'; // default folder to load images from (relative names are resolved against it)
+
 implementation
- uses Apus.Lib;
+ uses Apus.Lib, Apus.Strings;
 
  var
   texturesHash:TObjectHash;  // Search hash: name->texture
@@ -346,7 +360,10 @@ end;
    stepU:=from.stepU; stepV:=from.stepV;
    mipmaps:=from.mipmaps;
    caps:=from.caps or tfCloned;
-   name:=from.name+'_clone';
+   if (from.name<>'') and (from.name[1]='_') then
+    name:=from.name+'_clone' // non-unique label: clones never enter the name registry
+   else
+    name:='_'+from.name+'_clone';
    if from.parent<>nil then
     parent:=from.parent
    else
@@ -354,6 +371,12 @@ end;
    inc(parent.refCounter); // decremented in ResManGL.FreeImage when clone is freed
    fSrc:=from.src; // clones keep the source path, but must not override file lookup entries
   end;
+
+function TTexture.AddRef:TTexture;
+ begin
+  if self<>nil then Atomic.Inc(refCounter); // decremented in ResManGL.FreeImage
+  result:=self;
+ end;
 
 function TTexture.HasFlag(flag:cardinal): boolean;
 begin
@@ -423,19 +446,30 @@ begin
  Bits.SetFlag(caps,tfImmutable);
 end;
 
+// Remove this object from the source index (only if it is the indexed one:
+// a private copy shares the key but never replaces the first texture)
+procedure TTexture.Unindex;
+ var
+  obj:TObject;
+ begin
+  if fSrc='' then exit;
+  if texFileHash.Get(fSrc,obj) and (obj=self) then texFileHash.Remove(fSrc);
+ end;
+
 destructor TTexture.Destroy;
  begin
-  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) then
-   texFileHash.Remove(fSrc);
+  Unindex;
   inherited;
  end;
 
 procedure TTexture.SetSource(filename:string8);
  begin
-  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) then
-   texFileHash.Remove(fSrc);
+  Unindex;
   fSrc:=filename;
-  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) then
+  // Clones and private copies keep the key as information but don't index:
+  // the first texture loaded from a source stays the one FindByFile returns
+  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) and
+     not texFileHash.HasKey(fSrc) then
    texFileHash.Put(fSrc,self);
  end;
 
@@ -469,11 +503,41 @@ function TTexture.ClonePart(part:TRect): TTexture;
   result.v2:=v1+part.bottom*stepV*2;
  end;
 
-class function TTexture.FindByFile(fileName:String8):TTexture;
+class function TTexture.SourceKey(const ref:String8):String8;
+ var
+  i:integer;
+  root:String8;
+ begin
+  result:=Files.FixName(ref);
+  // strip the images root or the executable directory (case-insensitive prefix match)
+  root:=Files.FixName(defaultImagesDir);
+  if (root<>'') and result.StartsWith(root,true) then
+   delete(result,1,length(root))
+  else begin
+   root:=Files.FixName(String8(ParamStr(0)));
+   for i:=length(root) downto 1 do
+    if root[i] in ['\','/'] then begin
+     SetLength(root,i);
+     break;
+    end;
+   if (root<>'') and result.StartsWith(root,true) then
+    delete(result,1,length(root));
+  end;
+  // strip the extension (last '.' after the last separator)
+  for i:=length(result) downto 1 do begin
+   if result[i] in ['\','/'] then break;
+   if result[i]='.' then begin
+    SetLength(result,i-1);
+    break;
+   end;
+  end;
+ end;
+
+class function TTexture.FindByFile(const ref:String8):TTexture;
 var
  obj:TObject;
 begin
- if texFileHash.Get(fileName,obj) then
+ if texFileHash.Get(SourceKey(ref),obj) then
   result:=obj as TTexture
  else
   result:=nil;
