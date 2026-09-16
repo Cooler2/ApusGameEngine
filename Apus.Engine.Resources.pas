@@ -10,12 +10,12 @@ interface
  const
   // Buffer allocation policy flags
   abThreadLocal    = $0001; // buffer is owned by a single render thread/window
-  abReadOnly       = $0002; // immutable after initial upload/finalize
+  abImmutable      = $0002; // immutable after initial upload/finalize
   abShared         = $0004; // explicit shared-intent marker (diagnostic/policy hint)
 
   // Internal buffer capability flags
   bfThreadLocal    = $0001;
-  bfReadOnly       = $0002;
+  bfImmutable      = $0002;
   bfSharedHint     = $0004;
 
   // Texture features flags
@@ -35,7 +35,7 @@ interface
   tfPixelated      = $2000; // No interpolation allowed for sampling this texture
   tfDirty          = $4000; // Texture is "dirty" - internal storage was modified
   tfThreadLocal    = $8000; // Texture is owned by a single thread/window, must not be shared
-  tfReadOnly       = $10000; // Texture content is immutable after initial upload
+  tfImmutable      = $10000; // Texture content is immutable after initial upload
 
  type
   // Texture filtering mode
@@ -217,13 +217,13 @@ implementation
 function NeedSyncForWrite(tex:TTexture):boolean;
 begin
  result:=multiWindowMode and
-         not Bits.HasAny(tex.caps,tfThreadLocal or tfReadOnly);
+         not Bits.HasAny(tex.caps,tfThreadLocal or tfImmutable);
 end;
 
 function NeedSyncForRead(tex:TTexture):boolean;
 begin
  result:=multiWindowMode and
-         not Bits.HasAny(tex.caps,tfThreadLocal or tfReadOnly);
+         not Bits.HasAny(tex.caps,tfThreadLocal or tfImmutable);
 end;
 
 function NeedSyncForBuffer(buf:TEngineBuffer):boolean;
@@ -256,8 +256,8 @@ begin
   ownerThread:=GetCurrentThreadID;
  end else
   ownerThread:=0;
- if Bits.HasAny(flags,abReadOnly) then
-  Bits.SetFlag(caps,bfReadOnly);
+ if Bits.HasAny(flags,abImmutable) then
+  Bits.SetFlag(caps,bfImmutable);
  if Bits.HasAny(flags,abShared) then
   Bits.SetFlag(caps,bfSharedHint);
  rwLock.Init;
@@ -300,12 +300,12 @@ end;
 
 procedure TEngineBuffer.MakeImmutable;
 begin
- Bits.SetFlag(caps,bfReadOnly);
+ Bits.SetFlag(caps,bfImmutable);
 end;
 
 function TEngineBuffer.IsImmutable:boolean;
 begin
- result:=Bits.HasAny(caps,bfReadOnly);
+ result:=Bits.HasAny(caps,bfImmutable);
 end;
 
 function TEngineBuffer.IsThreadLocal:boolean;
@@ -420,7 +420,7 @@ procedure TTexture.MakeImmutable;
 begin
  if IsLocked then
   raise EWarning.Create('Can''t make immutable while texture is locked: '+name);
- Bits.SetFlag(caps,tfReadOnly);
+ Bits.SetFlag(caps,tfImmutable);
 end;
 
 destructor TTexture.Destroy;

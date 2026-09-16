@@ -983,7 +983,7 @@ end;
 
 procedure TGLTexture.EnsureWritable(opName:string8);
 begin
- if HasFlag(tfReadOnly) then
+ if HasFlag(tfImmutable) then
   raise EWarning.Create(opName+' not allowed for immutable texture: '+name);
 end;
 
@@ -1091,7 +1091,7 @@ procedure TGLTexture.AddDirtyRect(rect:TRect;level:integer);
 var
  n:integer;
 begin
- if HasFlag(tfReadOnly) then
+ if HasFlag(tfImmutable) then
   raise EWarning.Create('AddDirtyRect not allowed for immutable texture: '+name);
  online:=false; Bits.SetFlag(caps,tfDirty);
  n:=dCount[level];

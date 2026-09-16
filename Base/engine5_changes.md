@@ -3,6 +3,21 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Immutable resource flags renamed (2026-09-16)
+
+`tfReadOnly`, `abReadOnly` and `bfReadOnly` were easy to confuse with `tfNoWrite`, which
+only forbids CPU writes through `Lock` (render targets carry it while the GPU keeps
+changing them). The flags set by `MakeImmutable` mean "content is frozen" and are now
+named after the method:
+
+| old | new | where |
+|---|---|---|
+| `tfReadOnly` | `tfImmutable` | texture caps (`Apus.Engine.Resources`) |
+| `abReadOnly` | `abImmutable` | buffer allocation flags (`Apus.Engine.Resources`, re-exported by `Apus.Engine.API`) |
+| `bfReadOnly` | `bfImmutable` | buffer caps (`Apus.Engine.Resources`) |
+
+`tfNoWrite` is unchanged. Design context: `manual/ch21_resource_system.md`.
+
 ## UI text styling + state blocks inside named styles (2026-09-05)
 
 **Content keys.** Drawers resolve the text part of a widget through one helper

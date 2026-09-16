@@ -29,7 +29,7 @@ const
 
  // Buffer allocation policy flags
  abThreadLocal = Apus.Engine.Resources.abThreadLocal;
- abReadOnly    = Apus.Engine.Resources.abReadOnly;
+ abImmutable    = Apus.Engine.Resources.abImmutable;
  abShared      = Apus.Engine.Resources.abShared;
 
  // DynamicAtlas dimension flags

@@ -333,3 +333,8 @@ usedAPI -> ?requestBackend.graphicsAPI, set in SetupApplication
 gameTitle -> ?appSetup.title, set in SetupApplication
 appName -> ?if GameApp global: appSetup.storageName, set in SetupApplication
 // Removed with no replacement: scaleScenes, scaleFonts, useCustomStyle, configDir
+
+// === Immutable resource flags (Apus.Engine.Resources / Apus.Engine.API) ===
+tfReadOnly -> tfImmutable [Apus.Engine.Resources]
+abReadOnly -> abImmutable [Apus.Engine.API]
+bfReadOnly -> bfImmutable [Apus.Engine.Resources]
