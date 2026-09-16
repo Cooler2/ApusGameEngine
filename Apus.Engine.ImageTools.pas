@@ -428,7 +428,7 @@ function ShareableImage(tex:TTexture;flags:cardinal):boolean;
 function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 var
  i,j,k:integer;
- key:String8;
+ ref,key:String8;
  tex:TTexture;
  img,txtImage,preloaded:TRawImage;
  aFlags:integer;
@@ -442,12 +442,10 @@ begin
   txtImage:=nil;
   // 1. ADJUST FILE NAME, CHECK THE SOURCE REGISTRY AND ATLASES
   fname:=Files.FixName(fname);
-  key:=TTexture.SourceKey(fname);
-  tex:=TTexture.FindByFile(key);
-  if tex<>nil then begin
-   if ShareableImage(tex,flags) then exit(tex.AddRef); // one more holder, released by FreeImage
-   Log.Warn('Image %s is already loaded with different settings - loading a private copy',[key]);
-  end;
+  ref:=fname;
+  // with extension: the texture loaded from this file; without: from any of its files
+  tex:=TTexture.FindByFile(ref);
+  if (tex<>nil) and ShareableImage(tex,flags) then exit(tex.AddRef); // one more holder, released by FreeImage
   // Search atlases first
   i:=FindFileInAtlas(fname);
   if i>0 then begin
@@ -468,6 +466,14 @@ begin
    if fName='' then exit(nil);
   end;
   {$ENDIF}
+  // The chosen file may already be loaded by its own name
+  if (tex=nil) and (fname<>ref) then begin
+   tex:=TTexture.FindByFile(fname);
+   if (tex<>nil) and ShareableImage(tex,flags) then exit(tex.AddRef);
+  end;
+  if tex<>nil then
+   Log.Warn('Image %s is already loaded with different settings - loading a private copy',[tex.src]);
+  key:=TTexture.SourceKey(fname);
 
   time:=CoreTime.Ticks;
   Log.Msg('Loading '+fname);

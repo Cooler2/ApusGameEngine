@@ -21,10 +21,14 @@ registry became strict, failed with `Duplicate object name`. The loader now shar
   lookup: the creator keeps a named texture alive. Do not recreate a named texture while
   strong references to the previous one exist (unique names).
 - `TTexture.SourceKey(ref)` is the canonical key of a file reference: separators fixed,
-  `defaultImagesDir`/exe dir stripped, extension stripped, case kept; lookup is
-  case-insensitive. `TTexture.FindByFile(ref)` accepts any reference form.
+  `defaultImagesDir`/exe dir stripped, extension and case kept; lookup is
+  case-insensitive. A loaded texture is indexed under its file key (`src`, with the
+  extension of the file actually read) and its image key (without extension).
+  `TTexture.FindByFile(ref)`: a reference with extension finds that file, one without
+  finds the image loaded from any of its files. `foo.tga` and `foo.dds` are different
+  textures.
 - `defaultImagesDir` moved from `Apus.Engine.ImageTools` to `Apus.Engine.Resources`.
-- File textures are named `_<key>` (non-unique label). Code that looked them up by name
+- File textures are named `_<file key>` (non-unique label). Code that looked them up by name
   must use `FindByFile` or give the texture a name explicitly.
 - `CropImage(image,x1,y1,x2,y2)` is now a **function** returning a `ClonePart` view; the
   source handle is not modified. Free the result like any texture.

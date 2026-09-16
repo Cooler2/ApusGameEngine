@@ -110,14 +110,16 @@ interface
    procedure Dump(filename:string8=''); virtual; abstract; // for debug purposes
 
    // Source key of an image reference: separators fixed, images root (defaultImagesDir)
-   // or the executable directory stripped, extension stripped, letter case kept.
+   // or the executable directory stripped, extension and letter case kept.
    // Pure string function: any reference to the same file gives the same key without
-   // touching the disk. Lookup is case-insensitive; files that differ only by letter
-   // case are not allowed.
+   // touching the disk. A key with extension names a file, a key without one names an
+   // image (any of its files). Lookup is case-insensitive; files that differ only by
+   // letter case are not allowed.
    class function SourceKey(const ref:String8):String8; static;
-   // Find a loaded texture by its source (file reference). Any reference form is
-   // accepted (with or without extension/images root). The source registry is an
-   // index, not an owner: it lists every texture with a source, mutable or not.
+   // Find a loaded texture by its source. A reference with extension finds the texture
+   // loaded from that file; one without extension finds the image loaded from any of
+   // its files. The source registry is an index, not an owner: it lists every texture
+   // with a source, mutable or not.
    class function FindByFile(const ref:String8):TTexture; virtual;
 
   protected
@@ -128,7 +130,7 @@ interface
    procedure Unindex;
   public
    destructor Destroy; override;
-   property src:String8 read fSrc write SetSource; // source key (if loaded from a file), see SourceKey
+   property src:String8 read fSrc write SetSource; // source key of the loaded file (with extension), see SourceKey
   end;
 
  // Base class for shader object
@@ -446,14 +448,33 @@ begin
  Bits.SetFlag(caps,tfImmutable);
 end;
 
-// Remove this object from the source index (only if it is the indexed one:
-// a private copy shares the key but never replaces the first texture)
+// Image key of a file key: the extension (last '.' after the last separator) stripped
+function ImageKey(const fileKey:String8):String8;
+ var
+  i:integer;
+ begin
+  result:=fileKey;
+  for i:=length(result) downto 1 do begin
+   if result[i] in ['\','/'] then break;
+   if result[i]='.' then begin
+    SetLength(result,i-1);
+    break;
+   end;
+  end;
+ end;
+
+// Remove this object from the source index: the file entry and the image entry, each
+// only if it points to this texture (a private copy shares the keys but never replaces
+// the first texture)
 procedure TTexture.Unindex;
  var
   obj:TObject;
+  key:String8;
  begin
   if fSrc='' then exit;
   if texFileHash.Get(fSrc,obj) and (obj=self) then texFileHash.Remove(fSrc);
+  key:=ImageKey(fSrc);
+  if (key<>fSrc) and texFileHash.Get(key,obj) and (obj=self) then texFileHash.Remove(key);
  end;
 
 destructor TTexture.Destroy;
@@ -463,14 +484,19 @@ destructor TTexture.Destroy;
  end;
 
 procedure TTexture.SetSource(filename:string8);
+ var
+  key:String8;
  begin
   Unindex;
   fSrc:=filename;
-  // Clones and private copies keep the key as information but don't index:
-  // the first texture loaded from a source stays the one FindByFile returns
-  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) and
-     not texFileHash.HasKey(fSrc) then
-   texFileHash.Put(fSrc,self);
+  // Clones keep the key as information but don't index
+  if (fSrc='') or (parent<>nil) or HasFlag(tfCloned) then exit;
+  // Two entries: the file itself and the image (for references without extension).
+  // An existing entry is never replaced: the first texture loaded from a file (or,
+  // for the image entry, from any of its files) stays the one FindByFile returns
+  if not texFileHash.HasKey(fSrc) then texFileHash.Put(fSrc,self);
+  key:=ImageKey(fSrc);
+  if (key<>fSrc) and not texFileHash.HasKey(key) then texFileHash.Put(key,self);
  end;
 
 function TTexture.Size:TSize;
@@ -522,14 +548,6 @@ class function TTexture.SourceKey(const ref:String8):String8;
     end;
    if (root<>'') and result.StartsWith(root,true) then
     delete(result,1,length(root));
-  end;
-  // strip the extension (last '.' after the last separator)
-  for i:=length(result) downto 1 do begin
-   if result[i] in ['\','/'] then break;
-   if result[i]='.' then begin
-    SetLength(result,i-1);
-    break;
-   end;
   end;
  end;
 
