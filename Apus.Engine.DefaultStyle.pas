@@ -20,6 +20,7 @@ implementation
  var
   hintImage,tickImage:TTexture;
   //imgHash:TObjectMap;  // hash of loaded images: filename -> TTexture
+  unsupportedImageSources:Strings8; // already reported to the log
 
   blendModeChanged:boolean;
 
@@ -221,17 +222,28 @@ implementation
  //                 creator of the texture keeps it alive, nothing to free
  //   file:<name> - image file via LoadImage: the first user loads it, later users share
  //                 the same texture; the caller owns one reference (FreeImage when done)
- // Returns nil if the reference can't be resolved (yet).
+ //   none or ''  - no image (e.g. to cancel an image set by a named style)
+ // Returns nil if the reference can't be resolved (yet). An unsupported source is
+ // reported to the log once per distinct value.
  function ResolveStyleImage(const src:String8):TTexture;
+  var
+   i:integer;
   begin
    result:=nil;
+   if (src='') or SameText(src,'none') then exit;
    if src.StartsWith('tex:',true) then
     result:=TTexture(TTexture.FindByName(copy(src,5,200)))
    else
    if src.StartsWith('file:',true) then
     LoadImage(result,copy(src,6,200))
-   else
-    raise EWarning.Create('Unsupported image source: '+src);
+   else begin
+    for i:=0 to high(unsupportedImageSources) do
+     if unsupportedImageSources[i]=src then exit;
+    i:=length(unsupportedImageSources);
+    SetLength(unsupportedImageSources,i+1);
+    unsupportedImageSources[i]:=src;
+    Log.Warn('Unsupported image source: '+src);
+   end;
   end;
 
  procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer;context:TContext);
@@ -561,7 +573,7 @@ implementation
        Signal(copy(src,7,200),PtrUInt(control));
        exit;
       end;
-      // SRC = texture name or file name
+      // SRC = image reference: 'tex:<name>' or 'file:<name>'
       tex:=context.GetImage(src);
       if tex<>nil then begin
        draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('tint',clWhite));
@@ -943,10 +955,10 @@ implementation
     tex:TTexture;
     tint:cardinal;
    begin
-    if v<=0 then exit;
+    // requested even when the state is inactive: preloads it, no file load on the first hover
     src:=element.GetStateStyleValue(state,'background-image',baseImage);
     tex:=context.GetImage(src);
-    if tex=nil then exit;
+    if (v<=0) or (tex=nil) then exit;
     tint:=element.GetStateStyleColor(state,'background-tint',layers[layerCount-1].tint);
     if tex=layers[layerCount-1].tex then begin
      layers[layerCount-1].tint:=Color.Mix(layers[layerCount-1].tint,tint,v);

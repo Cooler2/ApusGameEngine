@@ -46,6 +46,7 @@ interface
 
   // Static image or custom-rendered area. src defines what to draw:
   //   'file:name'       — load from file
+  //   'tex:name'        — registered texture (TTexture.FindByName)
   //   'event:name'      — fire event to let external code draw
   //   'proc:XXXXXXXX'   — call render procedure by pointer (see SetRenderProc)
   //   ''                — nothing drawn (use as transparent container)

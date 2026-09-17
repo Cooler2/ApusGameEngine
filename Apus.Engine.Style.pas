@@ -31,7 +31,7 @@
 //   border-color         border color; border-width; radius
 //   border-light         bevel highlight (button); border-dark  bevel shadow (button, frame)
 //   inner-fill, inner-border-color, inner-radius, inner-border-width  (client-area block)
-//   background-image     file:<name> | tex:<name>; drawn by the box path between fill and
+//   background-image     file:<name> | tex:<name> | none; drawn by the box path between fill and
 //                        border; state blocks cross-fade images (':hover { background-image }')
 //   background-tint      tint for background-image (neutral by default)
 //   background-size      auto (native size in logical units, centered) | stretch (fills the box)
