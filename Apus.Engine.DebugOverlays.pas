@@ -123,7 +123,7 @@ begin
  state.magnifierTex.Unlock;
  state.magnifierTex.SetFilter(TTexFilter.fltNearest);
  gfx.shader.UseTexture(state.magnifierTex);
- scrScale:=window.surface.dpi/96;
+ scrScale:=window.canvasDPI/96; // the magnifier is drawn in canvas units, so its own DPI rules
  mSize:=round(512*scrScale);
  mSize:=mSize and $FFFFFFF0;
  width:=Min(mSize,round(window.canvasWidth*0.4));
@@ -189,7 +189,7 @@ var
      '[Alt+F12] - take a screenshot (PNG)');
    var
     i,y,lineCount:integer;
-    platformName:String8;
+    platformName,dpiText:String8;
 
    function FlagText(enabled:boolean):String8;
     begin
@@ -275,7 +275,11 @@ var
     WriteLine('FREETYPE: '+{$IFDEF FREETYPE}'on'{$ELSE}'off'{$ENDIF});
     WriteLine('LODEPNG: '+{$IFDEF LODEPNG}'on'{$ELSE}'off'{$ENDIF}+
       ', OPENGL: '+{$IFDEF OPENGL}'on'{$ELSE}'off'{$ENDIF});
-    WriteLine('VSync: '+FlagText(settings.VSync>0)+', DPI: '+Conv.ToStr(window.surface.dpi));
+    dpiText:=Conv.ToStr(window.surface.dpi);
+    // they differ over a scaled canvas, and that difference is what engine-side sizing uses
+    if abs(window.canvasDPI-window.surface.dpi)>0.5 then
+     dpiText:=dpiText+' (canvas '+Conv.ToStr(window.canvasDPI,1)+')';
+    WriteLine('VSync: '+FlagText(settings.VSync>0)+', DPI: '+dpiText);
     txt.EndBlock;
    end;
 

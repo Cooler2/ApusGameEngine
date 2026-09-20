@@ -184,6 +184,11 @@ public
   property clientWidth:integer read surface.clientSize.cx;   // native client area
   property clientHeight:integer read surface.clientSize.cy;
   property displayRect:TRect read surface.displayRect;       // picture placement in the client area
+  // One canvas unit is not one pixel: a fixed canvas is stretched into the render
+  // surface, so it carries the DPI scaling by itself. Everything the engine sizes
+  // in canvas units (fonts, overlays, Dp) must be measured with this DPI, not with
+  // surface.dpi - otherwise the DPI factor is applied twice.
+  function canvasDPI:single; // dots per inch of one canvas unit
 
   constructor Create(windowName:String8='MainWnd');
   destructor Destroy; override;
@@ -1234,6 +1239,17 @@ begin
  screenChanged:=false;
  timings.idleRedrawAccUs:=0;
  stats.Reset;
+end;
+
+// One canvas unit covers renderSize/canvasSize real pixels, so it is that much
+// "coarser" than a physical pixel and its own DPI is that much lower. Over a
+// flexible canvas the ratio is 1 and this is plain surface.dpi.
+function TWindow.canvasDPI:single;
+begin
+ result:=surface.dpi;
+ if (surface.canvasSize.cx>0) and (surface.renderSize.cx>0) then
+  result:=result*surface.canvasSize.cx/surface.renderSize.cx;
+ if result<=0 then result:=96; // surface is not resolved yet
 end;
 
 function TWindow.FrameRect(src:TFrameSource=TFrameSource.presented):TRect;

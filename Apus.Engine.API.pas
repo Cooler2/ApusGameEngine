@@ -1040,7 +1040,8 @@ var
 
  // Returns value of the Animated Value sampled at the current frame time
  function CurValue(var av:TAnimatedValue):single; inline;
- // Convert device-independent pixels (DIP, 96 DPI baseline) to current window units.
+ // Convert device-independent pixels (DIP, 96 DPI baseline) to canvas units of the
+ // current window (a fixed canvas is scaled by itself, so its own DPI is used).
  function Dp(v:single):single; inline;
 
  // Utility functions
@@ -1249,7 +1250,7 @@ function CurValue(var av:TAnimatedValue):single;
 function Dp(v:single):single;
  begin
   ASSERT(window<>nil);
-  result:=v*window.surface.dpi/96;
+  result:=v*window.canvasDPI/96;
  end;
 
 function IsMouseBtn(btn:integer):boolean;
