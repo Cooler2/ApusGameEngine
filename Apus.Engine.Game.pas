@@ -1375,8 +1375,9 @@ begin
  if event.Same('SETGLOBALTINTCOLOR') then globalTintColor:=tag
   else
  if event.Same('SURFACECHANGED') then begin
-   // a canvas unit may have changed its size: the built-in fonts are measured in those
-   if TWindow(UIntPtr(tag))=mainWindow then UpdateDefaultFonts;
+   // a canvas unit may have changed its size: the built-in fonts are measured in those.
+   // The first surface is published before there are any fonts to update (defaultFontsDPI=0).
+   if (defaultFontsDPI>0) and (TWindow(UIntPtr(tag))=mainWindow) then UpdateDefaultFonts;
   end else
  if event.Same('MAINLOOPINIT') then begin
    InitMainLoop;
