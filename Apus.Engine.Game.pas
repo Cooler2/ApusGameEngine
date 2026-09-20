@@ -414,7 +414,7 @@ end;
 
 procedure TGame.SetVSync(divider: integer);
 begin
- if (mainThread<>nil) and (mainThread.ID<>GetCurrentThreadID) then begin
+ if (mainThread<>nil) and not mainThread.IsCurrent then begin
   Signal('ENGINE\Cmd\SetSwapInterval',divider);
   exit;
  end;
@@ -431,7 +431,7 @@ begin
  if useMainThread and (mainThread=nil) then begin
   ApplyNewSettings; exit;
  end;
- if (mainThread=nil) or (GetCurrentThreadID<>mainThread.ID) then
+ if (mainThread=nil) or not mainThread.IsCurrent then
   Signal('Engine\CMD\ChangeSettings')
  else
   ApplyNewSettings;
@@ -1310,7 +1310,6 @@ end;
 procedure TGame.Stop;
 var
  i:integer;
- h:TThreadIdent;
 begin
  Log.Force('GameStop');
  if not running then exit;
@@ -1323,8 +1322,7 @@ begin
   canExitNow:=true;
 
   // Прибить главный поток (только в случае вызова из другого потока)
-  h:=GetCurrentThreadId;
-  if h<>mainThread.ID then begin
+  if not mainThread.IsCurrent then begin
    // Ждем 2 секунды пока поток не завершится по-хорошему
    for i:=1 to 40 do
     if running then CoreTime.Sleep(50) else break;
@@ -1556,7 +1554,7 @@ begin
  t:=CoreTime.Ticks+time;
  repeat
   HandleSignals;
-  if (game<>nil) and (TGame(game).mainThread<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ID) then
+  if (game<>nil) and (TGame(game).mainThread<>nil) and TGame(game).mainThread.IsCurrent then
    window.ProcessMessages;
   CoreTime.Sleep(Clamp(t-CoreTime.Ticks,0,20));
  until CoreTime.Ticks>=t;
@@ -2259,7 +2257,7 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   try
    // Blocking call: returns only after extra-window thread reports startup success or failure.
    ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
-   callerIsMainThread:=(mainThread<>nil) and (GetCurrentThreadID=mainThread.ID);
+   callerIsMainThread:=(mainThread<>nil) and mainThread.IsCurrent;
    if callerIsMainThread then begin
     mainWindow.ReleaseGraphContext;
     mainContextReleased:=true;

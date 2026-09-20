@@ -16,6 +16,7 @@ uses
 var
   sharedLock:TLock;
   sharedCounter:integer;
+  selfThread:IThread; // handle published to the thread it describes (see IsCurrentWorker)
 
 // Minimal worker: optionally sets a boolean flag via ctx.Parameter
 function SimpleWorker(ctx:TThreadContext):UIntPtr;
@@ -32,6 +33,15 @@ begin
   Check(UIntPtr(CurrentThread.ID)<>0,'CurrentThread.ID should work');
   Check(not CurrentThread.Terminating,'CurrentThread.Terminating should be false initially');
   Check(not CurrentThread.Paused,'CurrentThread.Paused should be false initially');
+  result:=0;
+end;
+
+// Validates IThread.IsCurrent from the inside: the creator publishes the handle,
+// the thread asks the handle whether it describes itself
+function IsCurrentWorker(ctx:TThreadContext):UIntPtr;
+begin
+  Thread.WaitUntilNotNil(selfThread,1000); // set by TestIsCurrent right after Start
+  Check((selfThread<>nil) and selfThread.IsCurrent,'IsCurrent should be true inside the thread');
   result:=0;
 end;
 
@@ -402,6 +412,24 @@ begin
   EndTest;
 end;
 
+// IThread.IsCurrent must answer from both sides: true in the thread it describes,
+// false in any other thread.
+procedure TestIsCurrent;
+var
+  th:IThread;
+begin
+  StartTest('IThread.IsCurrent');
+
+  selfThread:=nil;
+  th:=Thread.Start('IsCurrentTest',TThreadFunc(@IsCurrentWorker));
+  selfThread:=th;
+  th.Wait(1000);
+  Check(not th.IsCurrent,'IsCurrent should be false for another thread');
+  selfThread:=nil;
+
+  EndTest;
+end;
+
 // Verify Parameter (pointer) and Tag (string) are delivered to TThreadContext.
 // Both ctx argument and CurrentThread threadvar must see the same values.
 procedure TestParamAndTag;
@@ -677,6 +705,7 @@ begin
     TestThreadRegistration;
     TestThreadStart;
     TestCurrentThreadContext;
+    TestIsCurrent;
     TestParamAndTag;
     TestStartProc;
     TestStartMethod;

@@ -1,4 +1,4 @@
-// Thread synchronization and management - locks, events, and thread utilities for concurrent code
+﻿// Thread synchronization and management - locks, events, and thread utilities for concurrent code
 //
 // SCOPE: Building blocks for multithreaded applications - critical sections, reader-writer locks,
 // events, thread registry with deadlock detection. Used by applications and libraries that need
@@ -186,6 +186,7 @@ type
     function GetName:String8;
     function GetID:TThreadIdent;
     function IsRunning:boolean;
+    function IsCurrent:boolean; // true if the calling thread is this one
     // Status polling
     function GetStatus:TThreadStatus;
     function GetStatusText:String8;    // spinlock-protected
@@ -340,6 +341,7 @@ type
     function GetName:String8;
     function GetID:TThreadIdent;
     function IsRunning:boolean;
+    function IsCurrent:boolean;
     // IThread: status polling
     function GetStatus:TThreadStatus;
     function GetStatusText:String8;
@@ -1780,6 +1782,11 @@ end;
 function TThreadImpl.IsRunning:boolean;
 begin
   result:=status=TThreadStatus.Running;
+end;
+
+function TThreadImpl.IsCurrent:boolean;
+begin
+  result:=threadID=GetCurrentThreadID;
 end;
 
 function TThreadImpl.GetStatus:TThreadStatus;
