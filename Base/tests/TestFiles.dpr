@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 program TestFiles;
 uses
   SysUtils,
@@ -294,6 +294,25 @@ begin
   EndTest;
 end;
 
+// A write creates the directory it writes into: the caller can't do it itself, since
+// a relative name is resolved by the provider chain and only its end knows where the
+// file lands (see CreateFileWithFolder in Apus.Files).
+procedure TestWriteCreatesFolder;
+var
+  f:TFileHandle;
+begin
+  StartTest('Write creates missing folder');
+
+  Files.Save(TestDir+'/made/up/path/file.txt','content');
+  Check(Files.LoadAsString(TestDir+'/made/up/path/file.txt')='content','Files.Save into a missing directory');
+
+  f:=Files.Open(TestDir+'/made/another/file.bin');
+  Files.Close(f);
+  Check(Files.Exists(TestDir+'/made/another/file.bin'),'Files.Open into a missing directory');
+
+  EndTest;
+end;
+
 procedure TestListFiles;
 var
   list:Strings8;
@@ -382,6 +401,7 @@ begin
     TestFileOps;
     TestGetFileInfo;
     TestFolderOps;
+    TestWriteCreatesFolder;
     TestListFiles;
     TestFind;
     TestPathUtils;

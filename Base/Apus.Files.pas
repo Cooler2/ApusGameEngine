@@ -297,6 +297,23 @@ begin
   result:=CheckHandle(SysUtils.FileOpen(string(fname),fmOpenRead or fmShareDenyNone),fname);
 end;
 
+// A missing parent directory is the usual reason a file cannot be created, and the
+// caller is in no position to create it: a relative name is resolved by the provider
+// chain, so only this end of the chain knows where the file actually lands. Creating
+// it from the caller's side means guessing - and guessing by the current directory,
+// which is not where the write goes.
+function CreateFileWithFolder(const fname:String8):THandle;
+var
+  dir:string;
+begin
+  result:=SysUtils.FileCreate(string(fname));
+  if result<>THandle(-1) then exit;
+  dir:=SysUtils.ExtractFilePath(string(fname));
+  if (dir='') or SysUtils.DirectoryExists(dir) then exit; // the failure is something else
+  if Folder.Create(String8(dir)) then
+    result:=SysUtils.FileCreate(string(fname));
+end;
+
 function TOSFileProvider.Open(const fname:String8):TFileHandle;
 var
   h:THandle;
@@ -304,14 +321,14 @@ begin
   if SysUtils.FileExists(string(fname)) then
     h:=SysUtils.FileOpen(string(fname),fmOpenReadWrite or fmShareDenyWrite)
   else
-    h:=SysUtils.FileCreate(string(fname));
+    h:=CreateFileWithFolder(fname);
   result:=CheckHandle(h,fname);
 end;
 
 function TOSFileProvider.OpenNew(const fname:String8):TFileHandle;
 begin
   // FileCreate truncates an existing file, so nothing of the old content survives
-  result:=CheckHandle(SysUtils.FileCreate(string(fname)),fname);
+  result:=CheckHandle(CreateFileWithFolder(fname),fname);
 end;
 
 procedure TOSFileProvider.Close(f:TFileHandle);
