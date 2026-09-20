@@ -1335,34 +1335,45 @@ begin
  r:=FrameRect; // the presented picture, in client pixels (may be offset by letterboxing)
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
  ReadFrameRect(r,img);
- case capture.target of
-  0:if capture.data<>nil then begin
-   Signal('Engine\FrameCaptured',UIntPtr(img));
-  end;
-  2,3:try
-   {$IFDEF OPENGL}
-   {$IFDEF MSWINDOWS}
-   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
-   PutImageToClipboard(img);
-   {$ENDIF}
-   {$ENDIF}
-   if not DirectoryExists('Screenshots') then
-    CreateDir('Screenshots');
-   saveAsJPG:=capture.target=2;
-   if saveAsJpg then ext:='.jpg' else ext:='.png';
-   st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
-   if saveAsJpg then
-    SaveJPEG(img,st,95)
-   else begin
-    res:=SavePNG(img);
-    Files.Save(st,res);
+ if capture.target=0 then begin
+  // ownership of the image passes to the receiver of the signal
+  if capture.data<>nil then Signal('Engine\FrameCaptured',UIntPtr(img))
+   else img.Free;
+  exit;
+ end;
+ try
+  case capture.target of
+   2,3:try
+    {$IFDEF OPENGL}
+    {$IFDEF MSWINDOWS}
+    // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
+    PutImageToClipboard(img);
+    {$ENDIF}
+    {$ENDIF}
+    saveAsJPG:=capture.target=2;
+    if saveAsJpg then ext:='.jpg' else ext:='.png';
+    // relative name: the file system decides where it lands, and creates the
+    // directory there - checking for it here would test the wrong place
+    st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
+    if saveAsJpg then
+     SaveJPEG(img,st,95)
+    else begin
+     res:=SavePNG(img);
+     Files.Save(st,res);
+    end;
+    capture.capturedName:=st;
+    capture.capturedTime:=CoreTime.Ticks;
+    if game<>nil then game.FireMessage('{B}Screenshot taken{/B}:~'+st,msgSuccess); // green transient toast, bold title
+   except
+    on e:Exception do begin
+     Log.Force('Error saving screenshot: '+ExceptionMsg(e));
+     // a screenshot is a user action: it must report its own failure, not leave it in the log
+     if game<>nil then game.FireMessage('{B}Screenshot failed{/B}:~'+String8(ExceptionMsg(e)),msgError);
+    end;
    end;
-   capture.capturedName:=st;
-   capture.capturedTime:=CoreTime.Ticks;
-   if game<>nil then game.FireMessage('{B}Screenshot taken{/B}:~'+st,msgSuccess); // green transient toast, bold title
-  except
-   on e:Exception do Log.Force('Error saving screenshot: '+ExceptionMsg(e));
   end;
+ finally
+  img.Free;
  end;
 end;
 
