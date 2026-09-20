@@ -1,4 +1,4 @@
-# Uncomment these types if you want even more clean repository. But be careful.
+﻿# Uncomment these types if you want even more clean repository. But be careful.
 # It can make harm to an existing project source. Read explanations below.
 #
 # Resource files are binaries containing manifest, project icon and version info.
@@ -105,6 +105,11 @@ log.txt
 
 # Local-only working material (kept out of the repo on purpose)
 /manual/*
+# ...except the normative chapters: they define the intended behaviour, the code is
+# reviewed against them ("the text wins and the code is the thing to fix"), so they
+# have to be versioned together with the code they govern.
+!/manual/ch18_application_lifecycle.md
+!/manual/ch21_resource_system.md
 !/manual/engine_signal_inventory.md
 /extra/Assimp/
 
