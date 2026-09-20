@@ -124,6 +124,8 @@ type
 
   customPoints,activeCustomPoints:array of TPoint; // custom navigation points
 
+  defaultFontsDPI:single; // canvas DPI the built-in font handles were built for
+
   // Debug utilities
   debug:TDebugState;
 
@@ -133,6 +135,9 @@ type
   // вызов только из главного потока
   procedure InitGraph; virtual; // Инициализация графической части (переключить режим и все такое прочее)
   procedure InitDefaultResources; virtual;
+  // (Re)build the built-in font handles for the current canvas DPI. Called on
+  // startup and whenever the surface changes the size of a canvas unit.
+  procedure UpdateDefaultFonts; virtual;
   procedure AfterInitGraph; virtual; // Вызывается после инициализации графики
   // Set window size/style/position
   //procedure ConfigureMainWindow; virtual;
@@ -614,7 +619,6 @@ procedure TGame.Unlock;
 procedure TGame.InitDefaultResources;
 var
  x,y:integer;
- size:single;
 begin
  // Built-in fonts
  {$IFDEF FREETYPE}
@@ -624,10 +628,7 @@ begin
  txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont10,length(defaultFont10)));
  txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont12,length(defaultFont12)));
  {$ENDIF}
- size:=2+0.056*window.surface.dpi;
- defaultFont:=txt.GetFont('Default',size);
- smallFont:=txt.GetFont('Default',size*0.8);
- largerFont:=txt.GetFont('Default',size*1.25);
+ UpdateDefaultFonts;
 
  // Default checker texture
  defaultTexture:=AllocImage(32,32,ipfARGB,aiTexture+aiAutoMipMap,'defaultTex');
@@ -651,6 +652,25 @@ begin
   RegisterCursor(CursorID.Cross,6,systemPlatform.GetSystemCursor(CursorID.Cross));
   RegisterCursor(CursorID.None,99,0);
  end;
+end;
+
+// Sizes are canvas units, so they follow the canvas DPI and not the physical one
+// (see TWindow.canvasDPI). fsIgnoreScale: the DPI growth is already in `size`, the
+// global text scale would apply it a second time.
+procedure TGame.UpdateDefaultFonts;
+var
+ wnd:TWindow;
+ size:single;
+begin
+ wnd:=mainWindow;
+ if wnd=nil then wnd:=window;
+ if wnd=nil then exit;
+ if abs(wnd.canvasDPI-defaultFontsDPI)<0.5 then exit; // same size, keep the handles
+ defaultFontsDPI:=wnd.canvasDPI;
+ size:=2+0.056*defaultFontsDPI;
+ defaultFont:=txt.GetFont('Default',size,fsIgnoreScale);
+ smallFont:=txt.GetFont('Default',size*0.8,fsIgnoreScale);
+ largerFont:=txt.GetFont('Default',size*1.25,fsIgnoreScale);
 end;
 
 procedure InitDefaultRT(wnd:TWindow);
@@ -1354,6 +1374,10 @@ begin
   end else
  if event.Same('SETGLOBALTINTCOLOR') then globalTintColor:=tag
   else
+ if event.Same('SURFACECHANGED') then begin
+   // a canvas unit may have changed its size: the built-in fonts are measured in those
+   if TWindow(UIntPtr(tag))=mainWindow then UpdateDefaultFonts;
+  end else
  if event.Same('MAINLOOPINIT') then begin
    InitMainLoop;
   end else
