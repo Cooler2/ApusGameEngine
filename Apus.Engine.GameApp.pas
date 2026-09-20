@@ -1087,9 +1087,16 @@ begin
 end;
 
 procedure TGameApplication.SetupHighDPI;
+var
+ scale:single;
 begin
-  txt.SetScale(deviceScale);
-  SetDefaultUIScale(deviceScale,deviceScale);
+  // game.screenScale is the single authority for the UI scale: over a fixed canvas
+  // the design defines its own scale and the DPI ladder stays out (R-31 8.3.3).
+  // deviceScale is the physical ratio - it sizes the window, not the UI inside it.
+  scale:=deviceScale;
+  if game<>nil then scale:=game.screenScale;
+  txt.SetScale(scale);
+  SetDefaultUIScale(scale,scale);
 end;
 
 { TLoadingScene }
