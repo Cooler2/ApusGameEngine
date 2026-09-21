@@ -1095,6 +1095,7 @@ begin
   // deviceScale is the physical ratio - it sizes the window, not the UI inside it.
   scale:=deviceScale;
   if game<>nil then scale:=game.screenScale;
+  Log.Msg('UI scale: %.2f (device DPI %d, device scale %.2f)',[scale,deviceDPI,deviceScale]);
   txt.SetScale(scale);
   SetDefaultUIScale(scale,scale);
 end;

@@ -41,7 +41,10 @@ type
   ctx:TSDL_GLContext;
   contextVAO:cardinal; // per-context VAO for shared secondary window
   terminated:boolean;
+  reportedDPI:integer; // last DPI posted by CheckDPI, 0 until the first one
   graphInfo:TOpenGLContextDesc;
+  function GetDPI:integer; // DPI of the display this window is currently on
+  procedure CheckDPI;      // re-query it and post a change
   function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWithCurrent:boolean=false):UIntPtr;
  end;
 
@@ -215,15 +218,24 @@ function TSDLPlatform.GetPlatformName:string;
   result:='SDL';
  end;
 
-function TSDLPlatform.GetScreenDPI:integer;
+// Physical DPI of a display. Some backends (a few X11/Wayland setups) never know it -
+// 96 keeps the surface model on the unscaled ladder instead of guessing.
+function DisplayDPI(displayIndex:integer):integer;
  var
   ddpi:single;
  begin
-  if SDL_GetDisplayDPI(0,@ddpi,nil,nil)<>0 then begin
-   Log.Force('SDL: DPI query failed: '+SDL_GetError+' Assume 96 DPI');
+  if SDL_GetDisplayDPI(displayIndex,@ddpi,nil,nil)<>0 then begin
+   Log.Force('SDL: DPI query failed for display %d: %s. Assume 96 DPI',[displayIndex,SDL_GetError]);
    exit(96);
   end;
   result:=round(ddpi);
+ end;
+
+// The DPI of the primary display: asked before any window exists, to size the first one.
+// Once a window is up, its own display is what matters - see TSDLGLWindow.GetDPI.
+function TSDLPlatform.GetScreenDPI:integer;
+ begin
+  result:=DisplayDPI(0);
  end;
 
 procedure TSDLPlatform.GetScreenSize(out width, height: integer);
@@ -335,6 +347,35 @@ procedure TSDLGLWindow.GetSize(out width,height:integer);
    SDL_GL_GetDrawableSize(wnd,@width,@height);
  end;
 
+function TSDLGLWindow.GetDPI:integer;
+ var
+  displayIndex:integer;
+ begin
+  if wnd=nil then exit(96);
+  displayIndex:=SDL_GetWindowDisplayIndex(wnd);
+  if displayIndex<0 then begin
+   Log.Warn('SDL: cannot tell which display window "%s" is on: %s',[name,SDL_GetError]);
+   exit(96);
+  end;
+  result:=DisplayDPI(displayIndex);
+ end;
+
+// Re-query the display DPI and post it if it changed - the SDL counterpart of
+// WM_DPICHANGED (see Apus.Engine.WindowsPlatform). SDL 2 has no single reliable event
+// for this, so every event that might mean a new DPI is funnelled here; reportedDPI
+// filters out the duplicates, which surface.dpi cannot do because it lags a frame behind.
+procedure TSDLGLWindow.CheckDPI;
+ var
+  dpi:integer;
+ begin
+  dpi:=GetDPI;
+  if dpi=reportedDPI then exit;
+  reportedDPI:=dpi;
+  Log.Msg('SDL: window "%s" is on display %d at %d DPI',
+    [name,SDL_GetWindowDisplayIndex(wnd),dpi]);
+  RequestDPI(dpi);
+ end;
+
 procedure MyLogHandler(userdata: Pointer; category: TSDL_LogCategory; priority: TSDL_LogPriority; const msg: PAnsiChar); cdecl;
  begin
   if priority>=SDL_LOG_PRIORITY_ERROR then
@@ -402,6 +443,9 @@ function TSDLPlatform.CreateWindow(title:string):TWindow;
    Log.Msg('CreateMainWindow');
    ApplyOpenGLContextAttributes(oglContextTemplate,false);
    ust:=title;
+   // NB: SDL_WINDOWS_DPI_SCALING is deliberately left off. It would make SDL express
+   // window sizes in logical points, while the engine already scales the requested size
+   // by deviceScale itself (TGameApplication.SetupGameSettings) - the two would fight.
    localWindow:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
    if localWindow=nil then
@@ -635,7 +679,15 @@ procedure TSDLGLWindow.ProcessMessages;
        if eventWindow<>nil then begin
         eventWindow.GetSize(w,h);
         eventWindow.RequestResize(w,h);
+        eventWindow.CheckDPI; // the display scale may have changed under a still window
        end;
+      end;
+      // The window may have landed on a display of a different DPI. DISPLAY_CHANGED is
+      // the precise event (SDL 2.0.18+), MOVED the fallback for older runtimes; MOVED
+      // also arrives per dragged pixel, hence the filtering inside CheckDPI.
+      SDL_WINDOWEVENT_MOVED,SDL_WINDOWEVENT_DISPLAY_CHANGED:begin
+       eventWindow:=FindSDLWindow(event.window.windowID);
+       if eventWindow<>nil then eventWindow.CheckDPI;
       end;
      end;
     end;
