@@ -17,6 +17,7 @@ var
   sharedLock:TLock;
   sharedCounter:integer;
   selfThread:IThread; // handle published to the thread it describes (see IsCurrentWorker)
+  dumpReturned:boolean; // set by DumpWorker once Thread.DumpRegistered came back
 
 // Minimal worker: optionally sets a boolean flag via ctx.Parameter
 function SimpleWorker(ctx:TThreadContext):UIntPtr;
@@ -430,6 +431,32 @@ begin
   EndTest;
 end;
 
+// Walks the whole registry, so it necessarily meets its own entry
+function DumpWorker(ctx:TThreadContext):UIntPtr;
+begin
+  Thread.DumpRegistered;
+  dumpReturned:=true;
+  result:=0;
+end;
+
+// Inspecting a thread means suspending it, and the dump walks every registered thread
+// including the one running the dump. Suspending yourself never comes back, so the
+// dump must recognise and skip its own thread. Not exercised under a debugger:
+// DumpRegistered skips the inspection entirely there.
+procedure TestSelfDump;
+var
+  th:IThread;
+begin
+  StartTest('Thread.DumpRegistered on self');
+
+  dumpReturned:=false;
+  th:=Thread.Start('SelfDumpTest',TThreadFunc(@DumpWorker));
+  th.Wait(3000); // bounded: if the dump hangs, fail instead of blocking the run
+  Check(dumpReturned,'DumpRegistered must return after reaching its own thread');
+
+  EndTest;
+end;
+
 // Verify Parameter (pointer) and Tag (string) are delivered to TThreadContext.
 // Both ctx argument and CurrentThread threadvar must see the same values.
 procedure TestParamAndTag;
@@ -706,6 +733,7 @@ begin
     TestThreadStart;
     TestCurrentThreadContext;
     TestIsCurrent;
+    TestSelfDump;
     TestParamAndTag;
     TestStartProc;
     TestStartMethod;

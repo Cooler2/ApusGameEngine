@@ -219,6 +219,10 @@ type
     class procedure Register(const name:string; handle:THandle=0); static;
     class procedure Unregister; static;
     class procedure Ping; static;
+    // Bracket a call whose duration the OS owns (the modal window move/resize loop, a
+    // system dialog): the watchdog stops watching this thread in between. Must be paired.
+    class procedure SuspendWatchdog; static;
+    class procedure ResumeWatchdog; static;
     class function GetName(threadID:TThreadIdent=0):string; static;
     class procedure DumpRegistered; static; // dump all registered threads to log
     class procedure DumpLocks; static; // dump all locks state to log
@@ -364,6 +368,7 @@ var
   // Registry of all named threads (pointers for stability)
   threads:array of PThreadData;
   lastThreadReport:int64; // time of last thread delay report
+  dumping:integer=0; // 1 while a watchdog dump is running (see Thread.Ping)
   {$IFDEF DEBUG}
   // Startup latency stats: accumulated under SpinLock, for future diagnostics
   threadStartupTotalUs:int64=0; // total startup latency in microseconds
@@ -400,6 +405,9 @@ var
   i:integer;
   p:pointer;
 begin
+  // Never inspect the calling thread: SuspendThread(self) stops this very thread right
+  // here, so the ResumeThread below is never reached and the process hangs for good.
+  if id=GetCurrentThreadID then exit('(calling thread)');
   handle:=OpenThread(THREAD_SUSPEND_RESUME+THREAD_GET_CONTEXT,false,id);
   susp:=SuspendThread(handle);
   if susp<0 then
@@ -454,6 +462,7 @@ var
   r1,r2,r3:longint;
   regs:array[0..199] of UInt64;
 begin
+  if id=GetCurrentThreadID then exit('(calling thread)'); // a thread cannot trace itself
   r1:=ptrace(PTRACE_ATTACH,id,nil,0);
   if r1=-1 then Log.Msg(Conv.ToStr(fpGetErrno));
   r2:=ptrace(PTRACE_GETREGS,id,nil,UIntPtr(@regs));
@@ -1366,10 +1375,33 @@ begin
   // logging and dumps outside lock (can be slow, may re-enter SpinLock)
   if st<>'' then
     Log.Force('Threads not responding: '+st);
-  if needDump then begin
-    Thread.DumpLocks;
-    Thread.DumpRegistered;
-  end;
+  // A dump flushes the log per line and suspends every thread in turn, so it easily
+  // outlives the watchdog period: without this guard the dumping thread misses its own
+  // ping, gets reported as hung, and the others dump in response - a cascade.
+  if needDump and (Atomic.CmpExchange(dumping,1,0)=0) then
+    try
+      Thread.DumpLocks;
+      Thread.DumpRegistered;
+    finally
+      lastThreadReport:=CoreTime.Ticks; // the quiet period starts when the dump ends
+      Atomic.Exchange(dumping,0);
+    end;
+end;
+
+class procedure Thread.SuspendWatchdog;
+var
+  d:PThreadData;
+begin
+  d:=PThreadData(CurrentThread.data);
+  if d<>nil then d^.lastPing:=0; // 0 = not monitored, see Thread.Ping
+end;
+
+class procedure Thread.ResumeWatchdog;
+var
+  d:PThreadData;
+begin
+  d:=PThreadData(CurrentThread.data);
+  if d<>nil then d^.lastPing:=CoreTime.Ticks;
 end;
 
 class function Thread.GetName(threadID:TThreadIdent=0):string;

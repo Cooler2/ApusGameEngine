@@ -1887,7 +1887,14 @@ procedure TGame.FrameLoop;
 
   StartMeasure(14);
   if window.timings.phaseMetrics then Timer.Start(phaseTimer);
-  window.ProcessMessages; // this stalls if window is moved/resized
+  // This stalls if the window is moved/resized: the OS runs its own modal loop inside,
+  // for as long as the user holds the mouse down, so the watchdog must not watch us.
+  Thread.SuspendWatchdog;
+  try
+    window.ProcessMessages;
+  finally
+    Thread.ResumeWatchdog;
+  end;
   try
     HandleSignals;
   except
@@ -2178,7 +2185,12 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     Timer.Start(wnd.timings.frameTimer);
     wnd.timings.frameTimerReady:=true;
 
-    wnd.ProcessMessages;
+    Thread.SuspendWatchdog; // the OS modal move/resize loop runs inside, see TGame.FrameLoop
+    try
+     wnd.ProcessMessages;
+    finally
+     Thread.ResumeWatchdog;
+    end;
     if wnd.IsTerminated then break;
     wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
 
