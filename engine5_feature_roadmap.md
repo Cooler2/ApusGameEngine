@@ -44,6 +44,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-28 | Audio Subsystem Activation | in-progress | ~40% | **Level-1 gate closed on Win64 (2026-08-24)**: `SDLMIX` links the backend (opt-in per project, see defines.inc), `SoundSDL` reworked, T1 core fixes done, `SoundDemo` migrated + script mode, sound verified by ear. Remaining: Linux/CI run of the new headless smoke, GUI SoundDemo (T5), diagnostics (T6), then miniaudio T3/T4 for level 2 |
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
 | R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
+| R-32 | Image Decoders: WebP / AVIF + PNG Decoder Choice | done | 100% | Opt-in `-dWEBP` static WebP decode, bundled decoders for Win64/Linux x64/Android arm64, FPC reader Mono8/A8 fix; PNG choice stays compile-time (LodePNG faster). AVIF only on demand; macOS/iOS + Android on-device run pending |
 | R-31 | Working Surface, Size & Orientation Model | in-progress | ~70% | **Schedule blocker (P1)**. API sketch rev 2 accepted; stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done — the public contract is closed. Left: C (presets/preview/CLI knobs), D (mobile safe area), E (present shader) |
 | R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache; TextDemo screen 9, GL test vs CPU reference. Port adopts on its side |
 
@@ -507,6 +508,15 @@ Two tiers, not a version ladder:
   - [ ] Renames applied per approved terminology; input↔render coordinate round-trip tests pass at displayRect edges.
   - [ ] A mobile demo declares orientation once and runs both on device and as a fitted desktop preview.
 - Design doc (RU, agreed 2026-07-20; §8.1–8.3 = accepted decisions, §8.4 = two items deferred to API sketch): `Work/surface_size_design.md`; companions: `Work/mobile_surface_orientation.md`, `Work/render_size_model.md`.
+
+### [R-32] Image Decoders: WebP / AVIF + PNG Decoder Choice
+- Status: done (2026-09-26, WebP scope) | Area: Assets / Formats
+- Wanted: smaller shipped art than PNG/JPEG where it matters (WebP first, AVIF only on demand), decode-only and opt-in like `LODEPNG`; plus a verdict on FPC `FPReadPNG` vs LodePNG and smart decoder selection in FPC builds.
+- Got: `-dWEBP` links a decode-only libwebp 1.6.0 (`LoadWebP`, `ifWebP` + static VP8/VP8L/VP8X header check, animated rejected); `.webp` accepted by `LoadImageFromFile`, the async preloader and extension probing; on/off line in the debug overlay. Decoders are built from a pinned, hash-checked source by `platform/webp/build_*` and bundled for Win64 (`bin64/`), Linux x64 and Android arm64 (`redist/`, private name `libapuswebpdecoder`, libc-only deps). Side fix: the FPC image reader now honours the target format/pitch (grayscale PNG into Mono8 used to write 4 bytes per pixel).
+- PNG verdict: LodePNG is 2.5-9x faster than the FPC reader on every sample, but decoder choice stays compile-time - runtime probing is not worth its loader/deployment cost. Numbers and limits: `Base/PNG_DECODERS.md`.
+- Proof: `TestGfxFormats` (header cases always; decode of lossless, lossy+alpha, Mono8/A8 targets under `WEBP`), Linux CI step runs it against the bundled `.so` with `$ORIGIN` rpath; Simple3D loads `cubetex.webp` when built with `WEBP`.
+- Left out: AVIF (on demand only), macOS/iOS decoders, Android on-device run, Win32 binary, animated WebP, encoding.
+- Docs: `platform/webp/README.md`, `Base/engine5_changes.md`.
 
 ### [R-33] Text with Effects (`Apus.Engine.TextEffects`)
 - Status: done (2026-09-26) | Area: Render / Text | Origin: Spectromancer port blocker B-17 (the port adopts it on its side)
