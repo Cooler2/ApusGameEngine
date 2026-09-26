@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Populate redist/macos/ with an official, self-contained SDL2 dylib for
-# building distributable macOS .app bundles (see BUILDING_BUNDLES.md).
+# building distributable macOS .app bundles (see platform/BUILDING_BUNDLES.md).
 #
 # Why not Homebrew: `brew install sdl2` is the sdl2-compat shim (needs a second
 # libSDL3 at runtime) and every Homebrew dylib carries the build host's

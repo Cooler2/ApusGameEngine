@@ -42,4 +42,4 @@ platform/
 - `ios/shell/` — minimal iOS lifecycle shell: Xcode app target + FPC static
   archive + SDL2 framework; see its README for the integration mechanics.
 - `macos/` — `make_bundle.sh` (assemble a runnable `.app`, documented in
-  `BUILDING_BUNDLES.md`) and `fetch_redist.sh` (regenerate `redist/macos`).
+  [`BUILDING_BUNDLES.md`](BUILDING_BUNDLES.md)) and `fetch_redist.sh` (regenerate `redist/macos`).
