@@ -25,6 +25,7 @@ scenes are created in `TMainApp.CreateScenes`.
    repository root:
 
    ```
+   mkdir -p demo/MyGame/_fpc
    fpc -dOPENGL -dFREETYPE -MDelphi -Sd -RIntel \
      -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra \
      -Fudemo/MyGame -FUdemo/MyGame/_fpc demo/MyGame/MyGame.dpr
