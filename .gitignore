@@ -26,6 +26,12 @@
 #*.obj
 #
 
+# Linux/macOS demo executables (no extension) next to the .dpr. Keep this block first:
+# its re-include lines would otherwise override every ignore rule above them.
+/demo/*/*
+!/demo/*/*.*
+!/demo/*/*/
+
 # Delphi compiler-generated binaries (safe to delete)
 *.exe
 *.dll
@@ -123,10 +129,6 @@ demo/*/_gles/
 demo/*/_desktop/
 demo/*/lib/
 demo/*/_dbg.txt
-# Linux/macOS demo executables (no extension) next to the .dpr
-/demo/*/*
-!/demo/*/*.*
-!/demo/*/*/
 # FPC linker scripts left in the build directory
 link*.res
 # output of the CI smoke scripts in tests/
