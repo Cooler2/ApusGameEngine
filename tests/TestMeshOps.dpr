@@ -26,7 +26,7 @@ begin
   result:=true;
   for i:=0 to high(mesh.tangents) do begin
     t:=mesh.tangents[i];
-    if IsNaN(t.x) or IsNaN(t.y) or IsNaN(t.z) or IsNaN(t.w) then begin result:=false; exit; end;
+    if Apus.Core.IsNaN(t.x) or Apus.Core.IsNaN(t.y) or Apus.Core.IsNaN(t.z) or Apus.Core.IsNaN(t.w) then begin result:=false; exit; end;
     if IsInfinite(t.x) or IsInfinite(t.y) or IsInfinite(t.z) or IsInfinite(t.w) then begin result:=false; exit; end;
   end;
 end;

@@ -9,6 +9,7 @@ unit Apus.Engine.UdpTransport;
 interface
  const
   MAX_PACKET = 1200; // 512;//1400; // reduced packet size
+ var
   MaxSendTick:integer=8192; // max 8K outgoing traffic per iteration
   HistoryMsgSize:integer=512; // history data size
  type

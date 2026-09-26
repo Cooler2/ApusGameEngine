@@ -15,11 +15,13 @@ unit Apus.Network;
 interface
  uses Classes, Apus.Core, Apus.Conv, Apus.Log;
 
-const
 {$IFDEF USE_DP}
+const
  BroadcastID=DPID_ALLPLAYERS;
 {$ENDIF}
- BroadcastAddr:cardinal=0;
+
+var
+ BroadcastAddr:cardinal=0; // set in initialization on Windows
 
 type
  // Connection modes: autocreate means that if joining fails, new session will be created
