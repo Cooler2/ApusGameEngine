@@ -111,6 +111,7 @@ log.txt
 !/manual/ch18_application_lifecycle.md
 !/manual/ch21_resource_system.md
 !/manual/engine_signal_inventory.md
+!/manual/README.md
 /extra/Assimp/
 
 # FPC leftovers and per-demo build output
