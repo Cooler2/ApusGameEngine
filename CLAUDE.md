@@ -15,7 +15,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 - Projects: `.dproj` (Delphi), `.lpi` (Lazarus/FPC)
 - FPC command-line builds: `build.cmd <Name|path>` (Windows) / `./build.sh <Name|path>` (Linux, macOS). All compiler options live in `build.cfg` (+ optional `<project>/build.cfg`); CI builds demos through the same scripts, and every `demo/*/` folder with a `.dpr` is built automatically - never duplicate the option list elsewhere
 - Defines: `DELPHI;OPENGL;LODEPNG;FREETYPE`
-- Audio backends are opt-in: nothing is linked without `-dSDLMIX` (SDL2_mixer) or `-dIMX`. Without one the sound system stays inactive; see the audio block in `defines.inc`
+- Audio backends are opt-in: nothing is linked without `-dSDLMIX` (SDL2_mixer). Without it the sound system stays inactive; see the audio block in `defines.inc` (the old IMX/BASS backends are in `legacy/` and do not build)
 - GL define family (full description in `defines.inc`): `OPENGL` = umbrella "any GL renderer"; `GLES` = ES 3.0 dialect (implies OPENGL; mobile, or `-dGLES` on desktop for debugging); `GLDESKTOP` = derived (OPENGL minus GLES), gates the desktop loader. RULE: unit `dglOpenGL` only under `{$IFDEF GLDESKTOP}`, unit `dglOpenGLES` only under `{$IFDEF GLES}`
 - Output: `bin\` (Win32), `bin64\` (Win64)
 - Entry point: `TGameApplication.Create` → `Prepare()` → `Run()`
@@ -63,52 +63,38 @@ function Foo(const st:UnicodeString):...;
 ```
 This replaces the old `ADDANSI` pattern. Use `{$IFDEF UNICODE}` directly.
 
-### Base Library (`Base/Apus.*.pas`) - 47 modules
+### Base Library (`Base/Apus.*.pas`) - 56 modules
 
-**Dependency Hierarchy:**
-
-```
-Level 0 (no Apus dependencies):
-  Types, EventMan, Colors, CPU, Crypto
-
-Level 1:
-  Classes, Common, Geom2D, FastGFX
-
-Level 2:
-  Structs, Geom3D, Images, Socket, CrossPlatform
-
-Level 3:
-  GfxFormats, Regions, AnimatedValues, TCP, HttpRequests
-
-Level 4:
-  UnicodeFont, TextUtils, Logging, Database, Translation, HtmlTree
-
-Level 5:
-  FreeTypeFont, GeoIP, Clipboard, Profiling, StackTrace
-```
+Full table with descriptions: `Base/README.md`; per-module build/test status: `Base/engine5_status.md`.
 
 **Module Groups:**
-- **Foundation**: Types, Classes, Common, EventMan
-- **Geometry**: Geom2D, Geom3D, VertexLayout
+- **Foundation**: Core, Types, Classes, Containers, HashMaps, EventMan, Lib (re-export facade)
+- **Strings**: Strings, Conv, TextUtils
+- **Geometry**: Geom2D, Geom3D, Spatial, VertexLayout
 - **Graphics**: Colors, FastGFX, Images, GfxFormats, GfxFilters, Regions
-- **Text**: TextUtils, UnicodeFont, FreeTypeFont, GlyphCaches
+- **Text**: UnicodeFont, FreeTypeFont, GlyphCache
 - **Animation**: AnimatedValues, Tweenings
-- **Network**: Socket, TCP, HttpRequests, GeoIP
-- **Platform**: CrossPlatform, Android
-- **Utilities**: Logging, Profiling, StackTrace, Clipboard, CPU
-- **Specialized**: Crypto, RSA, Database, Translation, HtmlTree, ControlFiles
-- **Auxiliary**: ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI
+- **Network**: Socket, TCP, HttpRequests, HttpServer, GeoIP (Network - deprecated)
+- **Platform**: Android
+- **Utilities**: Utils, Files, Log, Logging, Threads, Profiling, StackTrace, Clipboard, CPU, MemoryLeakUtils
+- **Specialized**: Crypto, RSA, Database, Translation, HtmlTree, ControlFiles, Publics
+- **Auxiliary**: Compress, ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI
 
-### Engine (`Apus.Engine.*.pas`) - 57 modules
+Foundation modules (Core, Types, Conv, Strings, Log, Threads, Files) have no dependencies on the
+higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintroduce them.
+
+### Engine (`Apus.Engine.*.pas`) - 52 modules
 
 **Core**: GameApp, Game, API, Types
-**Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene
-**UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, DefaultStyle
-**Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, Draw, TextDraw
+**Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene, MessageScene, Notifications
+**UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle
+**Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
-**Platform**: WindowsPlatform, SDLplatform, AndroidGame, IOSgame
+**Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller
 **3D**: Mesh, GpuMesh, MeshShapes, OBJLoader (skeletal Model3D/IQMloader/AEMLoader are in `legacy/`)
 **Audio**: Sound, SoundSDL (SoundBass/SoundImx are in `legacy/`)
+**Networking**: HttpGameClient, HttpGameServer, UdpTransport
+**Tools**: Tools, CmdProc, RobotAPI
 
 ### Key Patterns
 
@@ -125,27 +111,25 @@ Level 5:
 - `Apus.Engine.PainterGL.pas` / `Apus.Engine.PainterGL2.pas` - removed legacy painter backends
 - `Apus.Engine.UdpTransport.pas` - symmetric UDP transport (legacy name: `Apus.Engine.Networking2`)
 - `Apus.Engine.Networking3.pas` - renamed to `Apus.Engine.HttpGameClient`; no compatibility facade
-- `deprecated/` folders in Base and root
-- `bin/`, `bin64/` DLL files (moved/removed in git status)
+- `legacy/`, `demo/legacy/`, `tools/legacy/` - code on the retired `Apus.Common` that does not build; migrate it when needed (move back out of `legacy/` once it compiles), never depend on it from live code
 
 ## Test Coverage
 
 **Existing tests:**
-- `Base/tests/TestCore` - min/max, clamp, swap, alignment, memory, bits
-- `Base/tests/TestMath` - matrices, quaternions, geometry
-- `Base/tests/TestStructs` - hash tables, collections
-- `Base/tests/TestGFX` - bilinear filtering, colors
-- `Base/tests/TestMyServis` - string utils, conversions (45+ modules)
-- `tests/OpenGL` - shader pipeline, textures
-- `tests/PlatformTest` - window, events
+- `Base/tests/Test*.dpr` - one per Base module area (Core, Conv, Strings, Types, Containers, HashMaps,
+  Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, GfxFilters, GfxFormats, GlyphCache,
+  Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
+- `tests/` - engine tests: `TestStyle`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
+  `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`
+  (needs a GL window); `OpenGL`, `PlatformTest` - compile-only smoke; run by `tests/linux_smoke.sh`,
+  `tests/windows_smoke.ps1`, `tests/macos_smoke.sh`
 
 **Missing coverage:**
 - Scene lifecycle and transitions
 - UI system (widgets, layouts, rendering)
-- Audio playback
-- 3D content (models, animation, mesh)
+- Audio playback (only the CI sound smoke with SoundDemo)
+- 3D models and animation (meshes are covered)
 - Resource management (allocation/free cycles)
-- Networking (TCP, HTTP)
 - Input handling
 
 **Running tests:**
@@ -165,7 +149,7 @@ Level 5:
 - `SimpleDemo` - minimal example
 - `UI` - comprehensive UI showcase
 - `Simple3D` - 3D basics
-- `legacy/CharAnimation` - skeletal animation (does not build yet, waits for R-03)
+- `demo/legacy/CharAnimation` - skeletal animation (does not build yet, waits for R-03)
 - `ProjectTemplate` - starting point
 
 ## Refactoring Notes
