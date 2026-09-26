@@ -298,7 +298,7 @@ implementation
   begin
    result:=2166136261; // FNV-1a
    for i:=1 to length(key) do
-    result:=(result xor byte(key[i]))*16777619;
+    result:=cardinal((UInt64(result xor byte(key[i]))*16777619) and $FFFFFFFF);
   end;
 
  // Smallest integer >= v for v>=0

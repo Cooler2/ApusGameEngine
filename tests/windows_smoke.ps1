@@ -33,6 +33,7 @@ $flags=@(
   "-Fu$(Join-Path $root 'extra\sdl2')",
   "-Fu$(Join-Path $root 'Base')",
   "-Fu$(Join-Path $root 'Base\extra')",
+  '-Cr',
   '-Se1'
 )
 

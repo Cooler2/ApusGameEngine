@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 
 # Compiler settings from test.bat [cite: 1, 2]
 FPC64="fpc"
-FLAGS="-MDelphi -Sd -Fu.. -Ct -CR -Xm -gl -dTIME_OVERRIDE"
+FLAGS="-MDelphi -Sd -Fu.. -Ct -Cr -CR -Xm -gl -dTIME_OVERRIDE"
 FLAGS="$FLAGS ${TEST_FLAGS:-}"
 case "$(uname -m)" in
   x86_64|i386|i686) FLAGS="$FLAGS -RIntel" ;;
