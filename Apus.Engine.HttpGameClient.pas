@@ -23,7 +23,7 @@ var
  //                            something is wrong, see errorMessage and the error code in the tag
  //  NET\Conn3\ConnectionFailed - could not connect to the server (no internet, wrong address, server is down)
  //  NET\Conn3\ConnectionRejected - the server refused the connection (ban)
- //  NET\Conn3\ConnectionClosed - the server closed the connection
+ //  NET\Conn3\ConnectionClosed - reserved, not sent: a server-side close arrives as ConnectionBroken
  //  NET\Conn3\ConnectionBroken - an established connection was broken for technical reasons
  //  NET\Conn3\Connected - connection established but not authorized
  //  NET\Conn3\Logged - authorization passed - ready to work
@@ -45,7 +45,7 @@ var
  // true if data can be sent via SendData
  function Connected:boolean;
 
- // Get the content of a received message (the handle is passed in the tag of the Net\Conn3\UserMsg signal)
+ // Get the content of a received message (the handle is passed in the tag of the Net\Conn3\DataReceived signal)
  procedure GetNetMessage(handle:integer;var msg:TStringsReader);
 
  // Format a message string from an array of values

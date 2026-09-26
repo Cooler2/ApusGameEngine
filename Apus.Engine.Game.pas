@@ -98,7 +98,7 @@ type
   procedure StopExtraWindows;
 
   procedure SetSettings(s:TGameSettings); override; // this method changes the display mode or its parameters
-  function GetSettings:TGameSettings; override; // this method changes the display mode or its parameters
+  function GetSettings:TGameSettings; override; // returns the current display mode and its parameters
 
   procedure DPadCustomPoint(x,y:single); override;
 
