@@ -3,7 +3,7 @@
 // Each case draws text with DrawTextFX over an opaque background in a render
 // target and compares the result with a CPU reference of the Engine 2 layer
 // semantics built from the text mask (the same glyphs drawn by txt.Write):
-// shift (bilinear) -> soft 3x3 -> box X -> box Y -> power -> layer color,
+// shift (bilinear) -> round dilation (spread) -> gaussian X -> gaussian Y -> layer color,
 // layers stacked in order, text on top, the whole composite modulated by alpha.
 {$APPTYPE CONSOLE}
 program TestTextEffects;
@@ -48,20 +48,6 @@ var
   rt:TTexture;
   img:TBitmapImage;
   font:TFontHandle;
-
-function Layer(blur:single;fastblurX,fastblurY:integer;color:cardinal;power:single;
-  dx:single=0;dy:single=0):TTextEffectLayer;
-begin
-  result:=Default(TTextEffectLayer);
-  result.enabled:=true;
-  result.blur:=blur;
-  result.fastblurX:=fastblurX;
-  result.fastblurY:=fastblurY;
-  result.color:=color;
-  result.power:=power;
-  result.dx:=dx;
-  result.dy:=dy;
-end;
 
 // Read the whole render target into img. A fresh image every time: the readback
 // flips it in place (data then points to the last row), so it can't be refilled
@@ -133,54 +119,59 @@ begin
           (Sample(p,x0,y0+1)*(1-ax)+Sample(p,x0+1,y0+1)*ax)*ay;
 end;
 
-// Layer alpha (before the layer color) from the text mask
-function LayerAlpha(const mask:TPlane;const l:TTextEffectLayer):TPlane;
+// Gaussian blur along one axis (sigma = blur/3, kernel radius = ceil(3*sigma))
+function Gauss(const src:TPlane;blur:single;dirX,dirY:integer):TPlane;
 var
-  shifted,soft,boxX:TPlane;
-  x,y,cx,cy,i:integer;
-  wt,sum,s,u:single;
-  weights:array[-1..1,-1..1] of single;
+  x,y,i,r:integer;
+  sigma,sum,s:single;
+  weights:array of single;
 begin
-  SetLength(shifted,W*H);
-  for y:=0 to H-1 do
-    for x:=0 to W-1 do
-      shifted[x+y*W]:=SampleBilinear(mask,x-l.dx,y-l.dy);
-  // soft 3x3: weight 1/(0.01+blur+cx^2+cy^2), normalized
+  sigma:=blur/3;
+  r:=Ceil(3*sigma);
+  weights:=nil;
+  SetLength(weights,2*r+1);
   sum:=0;
-  for cy:=-1 to 1 do
-    for cx:=-1 to 1 do begin
-      if l.blur>0.01 then wt:=1/(0.01+l.blur+cx*cx+cy*cy)
-        else if (cx=0) and (cy=0) then wt:=1
-        else wt:=0;
-      weights[cx,cy]:=wt;
-      sum:=sum+wt;
-    end;
-  SetLength(soft,W*H);
-  for y:=0 to H-1 do
-    for x:=0 to W-1 do begin
-      s:=0;
-      for cy:=-1 to 1 do
-        for cx:=-1 to 1 do
-          s:=s+weights[cx,cy]*Sample(shifted,x+cx,y+cy);
-      soft[x+y*W]:=s/sum;
-    end;
-  SetLength(boxX,W*H);
-  for y:=0 to H-1 do
-    for x:=0 to W-1 do begin
-      s:=0;
-      for i:=-l.fastblurX to l.fastblurX do s:=s+Sample(soft,x+i,y);
-      boxX[x+y*W]:=s/(2*l.fastblurX+1);
-    end;
+  for i:=-r to r do begin
+    weights[i+r]:=Exp(-i*i/(2*sigma*sigma+1e-6));
+    sum:=sum+weights[i+r];
+  end;
   result:=nil;
   SetLength(result,W*H);
   for y:=0 to H-1 do
     for x:=0 to W-1 do begin
       s:=0;
-      for i:=-l.fastblurY to l.fastblurY do s:=s+Sample(boxX,x,y+i);
-      s:=s/(2*l.fastblurY+1);
-      u:=Min(s*(1+l.power),1);
-      result[x+y*W]:=u*(1-s)+s*s;
+      for i:=-r to r do s:=s+weights[i+r]*Sample(src,x+i*dirX,y+i*dirY);
+      result[x+y*W]:=s/sum;
     end;
+end;
+
+// Layer alpha (before the layer color) from the text mask
+function LayerAlpha(const mask:TPlane;const l:TTextEffectLayer):TPlane;
+var
+  shifted,grown:TPlane;
+  x,y,i,j,r:integer;
+  wt,s:single;
+begin
+  shifted:=nil;
+  SetLength(shifted,W*H);
+  for y:=0 to H-1 do
+    for x:=0 to W-1 do
+      shifted[x+y*W]:=SampleBilinear(mask,x-l.dx,y-l.dy);
+  // round dilation with an antialiased edge: max of w*a, w = clamp(spread+0.5-dist)
+  r:=Ceil(l.spread);
+  grown:=nil;
+  SetLength(grown,W*H);
+  for y:=0 to H-1 do
+    for x:=0 to W-1 do begin
+      s:=shifted[x+y*W];
+      for j:=-r to r do
+        for i:=-r to r do begin
+          wt:=EnsureRange(l.spread+0.5-Sqrt(i*i+j*j),0,1);
+          if wt>0 then s:=Max(s,wt*Sample(shifted,x+i,y+j));
+        end;
+      grown[x+y*W]:=s;
+    end;
+  result:=Gauss(Gauss(grown,l.blur,1,0),l.blur,0,1);
 end;
 
 function Channel(c:cardinal;shift:integer):single; inline;
@@ -251,18 +242,20 @@ var
   glow,outline,shadow,invisible:TTextEffectLayer;
 begin
   StartTest('Layer semantics vs CPU reference');
-  glow:=Layer(10,10,10,$BBFFFFFF,1);
-  outline:=Layer(2,2,2,$FF000000,0.8);
-  shadow:=Layer(1,3,3,$C0000000,0.5,4,3);
+  glow:=TTextEffectLayer.Glow($BBFFFFFF,10,1);
+  outline:=TTextEffectLayer.Outline($FF000000,2);
+  shadow:=TTextEffectLayer.Shadow($C0000000,4,3,3);
   CheckCase('glow','Version 1.2.3',taLeft,$FF303840,$FF000000,[glow]);
   CheckCase('outline','12345',taLeft,$FF808080,$FFFFE080,[outline]);
   CheckCase('shadow','Shadow',taLeft,$FFC8BCA4,$FF402010,[shadow]);
+  CheckCase('fractional spread','Spread',taLeft,$FF808080,$FFFFFFFF,[TTextEffectLayer.Outline($FF000000,1.6,0)]);
+  CheckCase('large blur','Blur',taLeft,$FF101010,$FFFFFFFF,[TTextEffectLayer.Glow($FF40A0FF,24,2)]);
   CheckCase('two layers','Glow + outline',taLeft,$FF203040,$FFFFFFFF,[glow,outline]);
-  CheckCase('fractional shift','Offset',taLeft,$FFE0E0E0,$FF000000,[Layer(0,1,1,$FF2040C0,0.4,1.5,-2.5)]);
+  CheckCase('fractional shift','Offset',taLeft,$FFE0E0E0,$FF000000,[TTextEffectLayer.Shadow($FF2040C0,1.5,-2.5,1.5)]);
   EndTest;
 
   StartTest('Anchor matches txt.Write');
-  invisible:=Layer(0,0,0,$00000000,0); // bakes a sprite with the text only
+  invisible:=TTextEffectLayer.Glow($00000000,0); // bakes a sprite with the text only
   CheckCase('left','Anchor',taLeft,$FF303030,$FFFFFFFF,[invisible]);
   CheckCase('center','Anchor',taCenter,$FF303030,$FFFFFFFF,[invisible]);
   CheckCase('right','Anchor',taRight,$FF303030,$FFFFFFFF,[invisible]);
@@ -274,7 +267,7 @@ var
   glow:TTextEffectLayer;
   i:integer;
 begin
-  glow:=Layer(2,4,4,$FFFFFF00,0.6);
+  glow:=TTextEffectLayer.Glow($FFFFFF00,6,1);
   StartTest('Cache: alpha outside the key');
   CheckCase('opaque','Fade',taLeft,$FF404040,$FF80C0FF,[glow]);
   CheckCase('alpha 0.5','Fade',taLeft,$FF404040,$8080C0FF,[glow]); // same sprite, modulated

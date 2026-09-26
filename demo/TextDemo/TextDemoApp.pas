@@ -815,20 +815,6 @@ begin
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+126,$FF90C0E8,'This screen doubles as a quick regression checklist.',taLeft,toAddBaseline);
 end;
 
-function FXLayer(blur:single;fastblurX,fastblurY:integer;color:cardinal;power:single;
-  dx:single=0;dy:single=0):TTextEffectLayer;
-begin
-  FillChar(result,sizeof(result),0);
-  result.enabled:=true;
-  result.blur:=blur;
-  result.fastblurX:=fastblurX;
-  result.fastblurY:=fastblurY;
-  result.color:=color;
-  result.power:=power;
-  result.dx:=dx;
-  result.dy:=dy;
-end;
-
 procedure TMainScene.DrawEffects(const contentRect:TRect);
 var
   area,r,innerR:TRect;
@@ -836,7 +822,7 @@ var
   glow,outline1,outline2,outline3,halo,shadow:TTextEffectLayer;
   x,y,i:integer;
   alpha:cardinal;
-  t:double;
+  t,k:double;
 
   function sc(v:integer):integer; // layout offsets follow the DPI scale
   begin
@@ -846,32 +832,33 @@ var
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
   bigFont:=txt.ScaleFont(titleFont,1.5);
-  // presets after Spectromancer; fastblur kept small: large box radii look blocky
-  glow:=FXLayer(10,4,4,$BBFFFFFF,1);
-  outline1:=FXLayer(2,2,2,$FF000000,0.4);
-  outline2:=FXLayer(2,2,2,$FF000000,0.8);
-  outline3:=FXLayer(2,2,2,$FF000000,1);
-  halo:=FXLayer(1,4,4,$FFFFFFFF,1);
-  shadow:=FXLayer(1,3,3,$C0000000,0.5,4,4);
+  // effect sizes are in render target pixels: scale them with the DPI
+  k:=layoutScale;
+  glow:=TTextEffectLayer.Glow($C0FFFFFF,12*k,1*k);
+  outline1:=TTextEffectLayer.Outline($FF000000,1*k);
+  outline2:=TTextEffectLayer.Outline($FF000000,2*k);
+  outline3:=TTextEffectLayer.Outline($FF000000,3*k);
+  halo:=TTextEffectLayer.Glow($FFFFFFFF,6*k,1.5*k);
+  shadow:=TTextEffectLayer.Shadow($A0000000,3*k,3*k,5*k);
 
   r:=GridCell(area,0,0,2,3,BLOCK_GAP);
-  DrawBlock(r,'Glow: blur 10, fastblur 4/4, $BBFFFFFF, power 1',innerR);
+  DrawBlock(r,'Glow($C0FFFFFF, blur 12, spread 1)',innerR);
   DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(60),$FF000000,'Version 1.2.3',taLeft,[glow],toAddBaseline);
   DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(120),$FF203040,'Small text with the same glow',taLeft,[glow],toAddBaseline);
 
   r:=GridCell(area,1,0,2,3,BLOCK_GAP);
-  DrawBlock(r,'Outline: blur 2, fastblur 2/2, black, power 0.4 / 0.8 / 1',innerR);
+  DrawBlock(r,'Outline(black, width 1 / 2 / 3)',innerR);
   x:=innerR.Left+sc(20);
   DrawTextFX(bigFont,x,innerR.Top+sc(60),$FFFFE080,'12',taLeft,[outline1],toAddBaseline);
   DrawTextFX(bigFont,x+sc(110),innerR.Top+sc(60),$FFFFE080,'34',taLeft,[outline2],toAddBaseline);
   DrawTextFX(bigFont,x+sc(220),innerR.Top+sc(60),$FFFFE080,'56',taLeft,[outline3],toAddBaseline);
-  DrawTextFX(bodyFont,x,innerR.Top+sc(120),$FFFFFFFF,'Two layers: outline + glow',taLeft,[glow,outline3],toAddBaseline);
+  DrawTextFX(bodyFont,x,innerR.Top+sc(120),$FFFFFFFF,'Two layers: glow + outline',taLeft,[glow,outline2],toAddBaseline);
 
   r:=GridCell(area,0,1,2,3,BLOCK_GAP);
-  DrawBlock(r,'Light background: white halo around black text',innerR);
+  DrawBlock(r,'Light background: Glow(white, blur 6, spread 1.5)',innerR);
   draw.FillRect(innerR.Left,innerR.Top+sc(8),innerR.Right,innerR.Bottom,$FFC8BCA4);
   DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(62),$FF000000,'Halo on parchment',taLeft,[halo],toAddBaseline);
-  DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(120),$FF402010,'Soft drop shadow, offset 4,4',taLeft,[shadow],toAddBaseline);
+  DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(120),$FF402010,'Shadow(offset 3,3, blur 5)',taLeft,[shadow],toAddBaseline);
 
   r:=GridCell(area,1,1,2,3,BLOCK_GAP);
   DrawBlock(r,'Anchor check: FX text overdrawn by plain red txt.Write',innerR);
@@ -879,7 +866,7 @@ begin
   draw.Line(x,innerR.Top+sc(10),x,innerR.Bottom-sc(4),$50FFFFFF);
   y:=innerR.Top+sc(44);
   for i:=0 to 2 do begin
-    DrawTextFX(bodyFont,x,y,$FFFFFFFF,'Anchor',TTextAlignment(i),[outline3],toAddBaseline);
+    DrawTextFX(bodyFont,x,y,$FFFFFFFF,'Anchor',TTextAlignment(i),[outline2],toAddBaseline);
     txt.Write(bodyFont,x,y,$C0FF4040,'Anchor',TTextAlignment(i),toAddBaseline);
     inc(y,sc(34));
   end;
@@ -888,13 +875,13 @@ begin
   DrawBlock(r,'Multiline + markup (toComplexText)',innerR);
   DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(40),$FFE5EDF7,
     'Line one: {C=FF90E0C0}{B}bold green{/B/C}'#13#10'Line two: {I}italic{!I} and {u}underline{!u}',
-    taLeft,[outline3,glow],toAddBaseline or toComplexText);
+    taLeft,[glow,outline1],toAddBaseline or toComplexText);
 
   r:=GridCell(area,1,2,2,3,BLOCK_GAP);
   DrawBlock(r,'Alpha fade: modulated at draw time, baked once',innerR);
   t:=window.frameStartMs/1000;
   alpha:=round(127.5+127.5*sin(t*2));
-  DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(62),(alpha shl 24)+$FFFFFF,'Fading glow',taLeft,[glow,outline2],toAddBaseline);
+  DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(62),(alpha shl 24)+$FFFFFF,'Fading glow',taLeft,[glow,outline1],toAddBaseline);
 end;
 
 procedure TMainScene.Render;

@@ -1,8 +1,8 @@
 ﻿// Text with effect layers: glow, soft outline, shadow (R-33)
 //
-// Layer semantics follow Engine 2 WriteEx: for each enabled layer the text alpha is
-// shifted by (dx,dy), softly blurred (3x3), box-blurred (fastblurX/Y), boosted (power)
-// and filled with the layer color; layers are stacked in order, the text goes on top.
+// For each layer the text shape is shifted by (dx,dy), grown by `spread` (round dilation),
+// blurred (gaussian, `blur` = visible radius) and filled with the layer color; layers are
+// stacked in order (the first one is the lowest), the text goes on top.
 // The composite is baked once (on GPU, through the regular txt.Write path) and cached;
 // the alpha of the text color modulates the whole composite at draw time, so fading
 // text never re-bakes.
@@ -18,16 +18,23 @@ interface
  uses Apus.Core, Apus.Engine.API;
 
  type
-  // One effect layer under the text
+  // One effect layer under the text. Sizes are in pixels of the current render target
   TTextEffectLayer=record
-   enabled:boolean; // disabled layers are skipped
-   blur:single; // soft 3x3 blur of the text alpha (spreads by 1 px at most; ~0..2 is meaningful)
-   fastblurX,fastblurY:integer; // box blur radius, pixels (strong and cheap)
-   color:cardinal; // layer fill color, alpha = layer opacity
-   emboss,embossX,embossY:single; // emboss based on the text alpha: NOT supported, must be 0
-   dx,dy:single; // layer offset, pixels
-   power:single; // alpha boost: 0 - none, 1 - strong
+   color:cardinal; // layer color, alpha = layer opacity
+   dx,dy:single; // offset
+   spread:single; // grow the text shape (round dilation), 0..MAX_SPREAD: outlines, solid glow core
+   blur:single; // gaussian blur, visible radius (sigma = blur/3), 0..MAX_BLUR
+   // Soft light around the text
+   class function Glow(color:cardinal;blur:single;spread:single=0):TTextEffectLayer; static;
+   // Outline of the given width; softness = blur of its edge
+   class function Outline(color:cardinal;width:single;softness:single=1):TTextEffectLayer; static;
+   // Offset copy of the text under it
+   class function Shadow(color:cardinal;dx,dy:single;blur:single=0):TTextEffectLayer; static;
   end;
+
+ const
+  MAX_SPREAD = 16;
+  MAX_BLUR   = 64;
 
  // Draw text with effect layers (glow, outline, soft shadow).
  // x,y is the text anchor exactly as in txt.Write: the same call without layers
@@ -54,41 +61,35 @@ implementation
   POOL_STEP   = 64;              // work render targets grow in these steps
   RT_FLAGS    = aiTexture+aiRenderTarget+aiClampUV+aiThreadLocal;
 
-  // Shift by (dx,dy) + soft 3x3 blur of the text alpha
-  SOFT_SHADER=
+  // Shift by (dx,dy) + round dilation of the text alpha by `spread` (antialiased edge)
+  SPREAD_SHADER=
    'uniform vec2 texel;'#13#10+
    'uniform vec2 shift;'#13#10+
-   'uniform vec3 weights;'#0+ // center, edge, corner
+   'uniform float spread;'#0+
    'vec2 uv = vTexCoord-shift;'#13#10+
-   'float s = weights.x*texture(tex0,uv).a'#13#10+
-   ' + weights.y*(texture(tex0,uv+vec2(texel.x,0.0)).a+texture(tex0,uv-vec2(texel.x,0.0)).a'#13#10+
-   '             +texture(tex0,uv+vec2(0.0,texel.y)).a+texture(tex0,uv-vec2(0.0,texel.y)).a)'#13#10+
-   ' + weights.z*(texture(tex0,uv+texel).a+texture(tex0,uv-texel).a'#13#10+
-   '             +texture(tex0,uv+vec2(texel.x,-texel.y)).a+texture(tex0,uv+vec2(-texel.x,texel.y)).a);'#13#10+
+   'float s = texture(tex0,uv).a;'#13#10+
+   'int r = int(ceil(spread));'#13#10+
+   'for (int j=-r; j<=r; j++)'#13#10+
+   ' for (int i=-r; i<=r; i++) {'#13#10+
+   '  float w = clamp(spread+0.5-length(vec2(float(i),float(j))),0.0,1.0);'#13#10+
+   '  if (w>0.0) s = max(s,w*texture(tex0,uv+vec2(float(i),float(j))*texel).a);'#13#10+
+   ' }'#13#10+
    'fragColor = vec4(1.0,1.0,1.0,s);';
 
-  // Box blur along one axis
-  BOX_SHADER=
+  // Gaussian blur of the alpha along one axis, filled with layerColor
+  GAUSS_SHADER=
    'uniform vec2 dir;'#13#10+
-   'uniform float radius;'#0+
-   'int r = int(radius);'#13#10+
-   'float s = 0.0;'#13#10+
-   'for (int i=-r; i<=r; i++) s += texture(tex0,vTexCoord+dir*float(i)).a;'#13#10+
-   'fragColor = vec4(1.0,1.0,1.0,s/float(2*r+1));';
-
-  // Box blur along one axis + power curve + layer color (blended over the accumulator)
-  LAYER_SHADER=
-   'uniform vec2 dir;'#13#10+
-   'uniform float radius;'#13#10+
-   'uniform float power;'#13#10+
+   'uniform float sigma;'#13#10+
    'uniform vec4 layerColor;'#0+
-   'int r = int(radius);'#13#10+
+   'int r = int(ceil(3.0*sigma));'#13#10+
    'float s = 0.0;'#13#10+
-   'for (int i=-r; i<=r; i++) s += texture(tex0,vTexCoord+dir*float(i)).a;'#13#10+
-   's = s/float(2*r+1);'#13#10+
-   'float u = min(s*(1.0+power),1.0);'#13#10+
-   's = u*(1.0-s)+s*s;'#13#10+
-   'fragColor = vec4(layerColor.rgb,layerColor.a*s);';
+   'float sum = 0.0;'#13#10+
+   'for (int i=-r; i<=r; i++) {'#13#10+
+   ' float w = exp(-float(i*i)/(2.0*sigma*sigma+1e-6));'#13#10+
+   ' s += w*texture(tex0,vTexCoord+dir*float(i)).a;'#13#10+
+   ' sum += w;'#13#10+
+   '}'#13#10+
+   'fragColor = vec4(layerColor.rgb,layerColor.a*s/sum);';
 
   // Premultiplied accumulator -> straight alpha (regular alpha blending when drawn)
   RESOLVE_SHADER=
@@ -225,18 +226,34 @@ implementation
 
  { Helpers }
 
- // True if at least one layer is enabled
- function HasEnabledLayers(const layers:array of TTextEffectLayer):boolean;
-  var
-   i:integer;
+ { TTextEffectLayer }
+
+ class function TTextEffectLayer.Glow(color:cardinal;blur:single;spread:single=0):TTextEffectLayer;
   begin
-   for i:=0 to high(layers) do
-    if layers[i].enabled then begin
-     ASSERT((layers[i].emboss=0) and (layers[i].embossX=0) and (layers[i].embossY=0),'TextFX: emboss is not supported');
-     exit(true);
-    end;
-   result:=false;
+   result:=Default(TTextEffectLayer);
+   result.color:=color;
+   result.blur:=blur;
+   result.spread:=spread;
   end;
+
+ class function TTextEffectLayer.Outline(color:cardinal;width:single;softness:single=1):TTextEffectLayer;
+  begin
+   result:=Default(TTextEffectLayer);
+   result.color:=color;
+   result.spread:=width;
+   result.blur:=softness;
+  end;
+
+ class function TTextEffectLayer.Shadow(color:cardinal;dx,dy:single;blur:single=0):TTextEffectLayer;
+  begin
+   result:=Default(TTextEffectLayer);
+   result.color:=color;
+   result.dx:=dx;
+   result.dy:=dy;
+   result.blur:=blur;
+  end;
+
+ { Helpers }
 
  procedure AddBytes(var key:String8;const data;size:integer);
   var
@@ -265,16 +282,13 @@ implementation
    AddBytes(result,scale,sizeof(scale));
    // field by field: record padding may hold garbage
    for i:=0 to high(layers) do
-    with layers[i] do
-     if enabled then begin
-      AddBytes(result,blur,sizeof(blur));
-      AddBytes(result,fastblurX,sizeof(fastblurX));
-      AddBytes(result,fastblurY,sizeof(fastblurY));
-      AddBytes(result,color,sizeof(color));
-      AddBytes(result,dx,sizeof(dx));
-      AddBytes(result,dy,sizeof(dy));
-      AddBytes(result,power,sizeof(power));
-     end;
+    with layers[i] do begin
+     AddBytes(result,color,sizeof(color));
+     AddBytes(result,dx,sizeof(dx));
+     AddBytes(result,dy,sizeof(dy));
+     AddBytes(result,spread,sizeof(spread));
+     AddBytes(result,blur,sizeof(blur));
+    end;
    result:=result+st;
   end;
 
@@ -298,13 +312,13 @@ implementation
  // Extent of a layer outside the text mask on each side
  procedure LayerSpread(const l:TTextEffectLayer;out left,top,right,bottom:integer);
   var
-   soft:single;
+   grow:single;
   begin
-   if l.blur>0.01 then soft:=1 else soft:=0; // 3x3 kernel spreads by 1 px whatever the blur value
-   left:=CeilPos(l.fastblurX+soft-l.dx);
-   right:=CeilPos(l.fastblurX+soft+l.dx);
-   top:=CeilPos(l.fastblurY+soft-l.dy);
-   bottom:=CeilPos(l.fastblurY+soft+l.dy);
+   grow:=l.spread+l.blur;
+   left:=CeilPos(grow-l.dx);
+   right:=CeilPos(grow+l.dx);
+   top:=CeilPos(grow-l.dy);
+   bottom:=CeilPos(grow+l.dy);
   end;
 
  // Bind a work target: BeginPaint + optional clear + blending
@@ -328,44 +342,36 @@ implementation
 
  procedure BakeLayer(const l:TTextEffectLayer;state:TFXState;w,h:integer;first:boolean);
   var
-   mask,src:TTexture;
-   tu,tv,w0,w1,w2,sum,radius:single;
+   mask:TTexture;
+   tu,tv,sigma,spread:single;
   begin
+   ASSERT((l.spread>=0) and (l.spread<=MAX_SPREAD),'TextFX: spread out of range');
+   ASSERT((l.blur>=0) and (l.blur<=MAX_BLUR),'TextFX: blur out of range');
    mask:=state.pool[0];
    tu:=mask.stepU*2; tv:=mask.stepV*2; // texel size in UV
-   // shift + soft 3x3 blur: mask -> pool[1]
-   if l.blur>0.01 then begin
-    w0:=1/(0.01+l.blur); w1:=1/(1.01+l.blur); w2:=1/(2.01+l.blur);
-   end else begin
-    w0:=1; w1:=0; w2:=0;
-   end;
-   sum:=w0+4*w1+4*w2;
+   spread:=Clamp(l.spread,0,MAX_SPREAD);
+   sigma:=Clamp(l.blur,0,MAX_BLUR)/3;
+   // shift + dilation: mask -> pool[1]
    BeginPass(state.pool[1],true,blMove);
-   shader.UseCustomized(SOFT_SHADER);
+   shader.UseCustomized(SPREAD_SHADER);
    shader.SetUniform('texel',TVec2.Init(tu,tv));
    shader.SetUniform('shift',TVec2.Init(l.dx*tu,l.dy*tv));
-   shader.SetUniform('weights',TVec3.Init(w0/sum,w1/sum,w2/sum));
+   shader.SetUniform('spread',spread);
    DrawPass(mask,w,h);
-   src:=state.pool[1];
-   // box blur X: pool[1] -> pool[2]
-   if l.fastblurX>0 then begin
-    BeginPass(state.pool[2],true,blMove);
-    shader.UseCustomized(BOX_SHADER);
-    shader.SetUniform('dir',TVec2.Init(tu,0));
-    radius:=l.fastblurX; // assignment, not single(): that would be a reinterpret cast in FPC
-    shader.SetUniform('radius',radius);
-    DrawPass(src,w,h);
-    src:=state.pool[2];
-   end;
-   // box blur Y + power + color, blended over the accumulator
+   // gaussian X: pool[1] -> pool[2]
+   BeginPass(state.pool[2],true,blMove);
+   shader.UseCustomized(GAUSS_SHADER);
+   shader.SetUniform('dir',TVec2.Init(tu,0));
+   shader.SetUniform('sigma',sigma);
+   shader.SetUniform('layerColor',TQuat.Init(1,1,1,1));
+   DrawPass(state.pool[1],w,h);
+   // gaussian Y + layer color, blended over the accumulator
    BeginPass(state.pool[3],first,blAlpha);
-   shader.UseCustomized(LAYER_SHADER);
+   shader.UseCustomized(GAUSS_SHADER);
    shader.SetUniform('dir',TVec2.Init(0,tv));
-   radius:=Max(l.fastblurY,0);
-   shader.SetUniform('radius',radius);
-   shader.SetUniform('power',l.power);
+   shader.SetUniform('sigma',sigma);
    shader.SetUniform('layerColor',TShader.VectorFromColor(l.color));
-   DrawPass(src,w,h);
+   DrawPass(state.pool[2],w,h);
   end;
 
  // Bake text with layers into a new texture; false if it can't be done
@@ -396,11 +402,10 @@ implementation
    fh:=Max(txt.Height(font),1);
    margin:=fh div 4+2;
    pl:=0; pt:=0; pr:=0; pb:=0;
-   for i:=0 to high(layers) do
-    if layers[i].enabled then begin
-     LayerSpread(layers[i],sl,sTop,sr,sb);
-     pl:=Max(pl,sl); pt:=Max(pt,sTop); pr:=Max(pr,sr); pb:=Max(pb,sb);
-    end;
+   for i:=0 to high(layers) do begin
+    LayerSpread(layers[i],sl,sTop,sr,sb);
+    pl:=Max(pl,sl); pt:=Max(pt,sTop); pr:=Max(pr,sr); pb:=Max(pb,sb);
+   end;
    r.Left:=r.Left-margin-pl;
    r.Right:=r.Right+margin+pr;
    r.Top:=r.Top-fh div 2-pt-1;
@@ -431,11 +436,10 @@ implementation
     end;
     // layers, in order, into the accumulator
     first:=true;
-    for i:=0 to high(layers) do
-     if layers[i].enabled then begin
-      BakeLayer(layers[i],state,w,h,first);
-      first:=false;
-     end;
+    for i:=0 to high(layers) do begin
+     BakeLayer(layers[i],state,w,h,first);
+     first:=false;
+    end;
     // text on top
     BeginPass(state.pool[3],false,blAlpha);
     try
@@ -467,7 +471,7 @@ implementation
   begin
    ASSERT(options and (toDrawToBitmap or toMeasure)=0,'TextFX: bitmap/measure options are not allowed');
    if st='' then exit;
-   if not HasEnabledLayers(layers) then begin
+   if length(layers)=0 then begin
     txt.Write(font,x,y,color,st,align,options); // no effects - plain text, nothing to bake or cache
     exit;
    end;
