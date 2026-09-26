@@ -26,7 +26,7 @@ the odd ones out: they sit where the build output needs them rather than under
 | SDL2 | 2.32.10 | `bin/sdl2.dll`, `bin64/sdl2.dll` | zlib | `redist/windows/licenses/SDL2-LICENSE.txt` |
 | SDL2_mixer | 2.8.1 | `bin/SDL2_mixer.dll`, `bin64/SDL2_mixer.dll` | zlib | `redist/windows/licenses/SDL2_mixer-LICENSE.txt` |
 | libxmp | 4.6.1 | `bin/libxmp.dll`, `bin64/libxmp.dll` | MIT | `redist/windows/licenses/libxmp-LICENSE.txt` |
-| FreeType | 2.10.0 | `Base/bin/freetype32.dll`, `Base/bin/freetype64.dll` | FTL (dual FTL/GPLv2, FTL elected) | `redist/windows/licenses/FreeType-FTL.txt` |
+| FreeType | 2.10.0 | `bin/freetype32.dll`, `bin64/freetype64.dll`, `Base/bin/freetype32.dll`, `Base/bin/freetype64.dll` | FTL (dual FTL/GPLv2, FTL elected) | `redist/windows/licenses/FreeType-FTL.txt` |
 | LodePNG | 20161127 | `Base/bin/LodePNG*.dll`, `Base/tests/LodePNG*.dll`, `Base/extra/LodePNG.lib` | zlib | `redist/windows/licenses/LodePNG-LICENSE.txt` |
 | libwebpdecoder | 1.6.0 | `bin64/libwebpdecoder.dll` | BSD-3 | `redist/windows/licenses/libwebp-LICENSE.txt`, `redist/windows/licenses/libwebp-PATENTS.txt` |
 | libwebpdecoder (Linux) | 1.6.0 | `redist/linux/libapuswebpdecoder.so` | BSD-3 | `redist/linux/licenses/libwebp-LICENSE.txt`, `redist/linux/licenses/libwebp-PATENTS.txt` |
