@@ -67,6 +67,13 @@ type
   procedure TrackElementBufferBinding(buffer:cardinal);
  end;
 
+ // Snapshot of the whole transformation state (see TTransformationAPI.SaveState)
+ TTransformState=record
+  view,invView,invVP,obj,base,proj:TMat4d;
+  objBaseIsIdentity:boolean;
+  zMin,zMax,xMax,xMin,yMax,yMin:single;
+ end;
+
  // Shared transformation state (model/view/projection) for current render context.
  // Backend-specific renderer reads matrices from here, game code writes camera/object transforms.
  TTransformationAPI=class(TInterfacedObject,ITransformation)
@@ -122,6 +129,10 @@ type
   function Depth(pnt:TVec3):single; overload; // get point depth (i.e. distance along camera view vector)
   function MinDepth:single; inline; // get minimal depth value (zMin)
   function MaxDepth:single; inline; // get maximal depth value (zMax)
+  // Engine-internal: save/restore the complete state (incl. base matrix) around a nested
+  // render pass, since EndPaint leaves the default view instead of the caller's transform
+  function SaveState:TTransformState;
+  procedure RestoreState(const st:TTransformState);
  type
   TMatrixType=(mtModelView,mtProjection);
  protected
@@ -170,6 +181,7 @@ type
   procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep); virtual;
   function DepthMode:TDepthMode;
   procedure BlendMode(blend:TBlendingMode); virtual; abstract;
+  function CurrentBlendMode:TBlendingMode; // engine-internal: mode set by the last BlendMode call
   procedure Mask(rgb:boolean;alpha:boolean); virtual;
   procedure UnMask; virtual;
 
@@ -464,6 +476,36 @@ procedure TTransformationAPI.SetProjection(proj:TMat4d);
   modifiedVP:=true;
  end;
 
+function TTransformationAPI.SaveState:TTransformState;
+ begin
+  result.view:=viewMatrix;
+  result.invView:=invViewMatrix;
+  result.invVP:=invVPMatrix;
+  result.obj:=objMatrix;
+  result.base:=baseMatrix;
+  result.proj:=projMatrix;
+  result.objBaseIsIdentity:=objBaseIsIdentity;
+  result.zMin:=zMin; result.zMax:=zMax;
+  result.xMin:=xMin; result.xMax:=xMax;
+  result.yMin:=yMin; result.yMax:=yMax;
+ end;
+
+procedure TTransformationAPI.RestoreState(const st:TTransformState);
+ begin
+  viewMatrix:=st.view;
+  invViewMatrix:=st.invView;
+  invVPMatrix:=st.invVP;
+  objMatrix:=st.obj;
+  baseMatrix:=st.base;
+  projMatrix:=st.proj;
+  objBaseIsIdentity:=st.objBaseIsIdentity;
+  zMin:=st.zMin; zMax:=st.zMax;
+  xMin:=st.xMin; xMax:=st.xMax;
+  yMin:=st.yMin; yMax:=st.yMax;
+  modified:=true;
+  modifiedVP:=true;
+ end;
+
 procedure TTransformationAPI.ResetObj;
  begin
   objMatrix:=baseMatrix; // back to the base CS (identity if no base is set)
@@ -730,6 +772,11 @@ procedure TRenderTargetAPI.SetDepthMode(test:TDepthTest;write:TDepthWrite);
 function TRenderTargetAPI.DepthMode:TDepthMode;
  begin
   result:=curDepth;
+ end;
+
+function TRenderTargetAPI.CurrentBlendMode:TBlendingMode;
+ begin
+  result:=curBlend;
  end;
 
 procedure TRenderTargetAPI.Texture(tex: TTexture);
