@@ -328,7 +328,7 @@ implementation
  procedure BakeLayer(const l:TTextEffectLayer;state:TFXState;w,h:integer;first:boolean);
   var
    mask,src:TTexture;
-   tu,tv,w0,w1,w2,sum:single;
+   tu,tv,w0,w1,w2,sum,radius:single;
   begin
    mask:=state.pool[0];
    tu:=mask.stepU*2; tv:=mask.stepV*2; // texel size in UV
@@ -351,7 +351,8 @@ implementation
     BeginPass(state.pool[2],true,blMove);
     shader.UseCustomized(BOX_SHADER);
     shader.SetUniform('dir',TVec2.Init(tu,0));
-    shader.SetUniform('radius',single(l.fastblurX));
+    radius:=l.fastblurX; // assignment, not single(): that would be a reinterpret cast in FPC
+    shader.SetUniform('radius',radius);
     DrawPass(src,w,h);
     src:=state.pool[2];
    end;
@@ -359,7 +360,8 @@ implementation
    BeginPass(state.pool[3],first,blAlpha);
    shader.UseCustomized(LAYER_SHADER);
    shader.SetUniform('dir',TVec2.Init(0,tv));
-   shader.SetUniform('radius',single(Max(l.fastblurY,0)));
+   radius:=Max(l.fastblurY,0);
+   shader.SetUniform('radius',radius);
    shader.SetUniform('power',l.power);
    shader.SetUniform('layerColor',TShader.VectorFromColor(l.color));
    DrawPass(src,w,h);

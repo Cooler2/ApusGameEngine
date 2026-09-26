@@ -31,7 +31,8 @@ uses
   Apus.Engine.Keys,
   Apus.Engine.Types,
   Apus.Engine.Scene,
-  Apus.Engine.TextDraw;
+  Apus.Engine.TextDraw,
+  Apus.Engine.TextEffects;
 
 type
   TMainScene=class(TGameScene)
@@ -70,10 +71,11 @@ type
     procedure DrawBlockAndCache(const contentRect:TRect);
     procedure DrawUnicodeComplex(const contentRect:TRect);
     procedure DrawMetrics(const contentRect:TRect);
+    procedure DrawEffects(const contentRect:TRect);
   end;
 
 const
-  SCREEN_COUNT=8;
+  SCREEN_COUNT=9;
   MENU_WIDTH=380;
   MENU_TOP=78;
   MENU_ITEM_HEIGHT=54;
@@ -90,7 +92,8 @@ const
     'Measure && Links',
     'Block && Cache',
     'Unicode && Complex',
-    'Metrics && Scale'
+    'Metrics && Scale',
+    'Text Effects'
   );
 
   SCREEN_HINTS:array[0..SCREEN_COUNT-1] of string=(
@@ -101,7 +104,8 @@ const
     'toMeasure, hyperlinks, query point and SML align modes',
     'BeginBlock/EndBlock, toDontCache and MAGIC_TEXTCACHE preview',
     'multiline Unicode + complex markup + align',
-    'Width/WidthW/Height, ScaleFont, font options'
+    'Width/WidthW/Height, ScaleFont, font options',
+    'DrawTextFX: glow, outline, shadow layers (R-33)'
   );
 
 var
@@ -147,8 +151,13 @@ begin
 end;
 
 procedure TMainScene.Load;
+var
+  i:integer;
 begin
   currentScreen:=0;
+  for i:=1 to ParamCount do // -screen=N opens screen N (1-based) at start
+    if SameText(copy(ParamStr(i),1,8),'-screen=') then
+      currentScreen:=EnsureRange(StrToIntDef(copy(ParamStr(i),9,3),1)-1,0,SCREEN_COUNT-1);
   lastDPI:=0;
   baseOpt:=toDontTranslate;
   vectorFontLoaded:=false;
@@ -262,8 +271,8 @@ end;
 
 procedure TMainScene.HandleInput;
 const
-  F_SCANS:array[0..7] of integer=(59,60,61,62,63,64,65,66); // F1..F8
-  D_SCANS:array[0..7] of integer=(2,3,4,5,6,7,8,9); // 1..8
+  F_SCANS:array[0..8] of integer=(59,60,61,62,63,64,65,66,67); // F1..F9
+  D_SCANS:array[0..8] of integer=(2,3,4,5,6,7,8,9,10); // 1..9
 var
   i,item:integer;
 begin
@@ -296,7 +305,7 @@ begin
   draw.Rect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF3B4B60);
 
   txt.Write(titleFont,20,28,$FFE8F0FA,'TextDemo Screens',taLeft,toAddBaseline or toWithShadow);
-  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [F1..F8] / [1..8]',taLeft,toAddBaseline);
+  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [F1..F9] / [1..9]',taLeft,toAddBaseline);
 
   for i:=0 to SCREEN_COUNT-1 do begin
     top:=menuTop+i*menuItemHeight;
@@ -806,6 +815,88 @@ begin
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+126,$FF90C0E8,'This screen doubles as a quick regression checklist.',taLeft,toAddBaseline);
 end;
 
+function FXLayer(blur:single;fastblurX,fastblurY:integer;color:cardinal;power:single;
+  dx:single=0;dy:single=0):TTextEffectLayer;
+begin
+  FillChar(result,sizeof(result),0);
+  result.enabled:=true;
+  result.blur:=blur;
+  result.fastblurX:=fastblurX;
+  result.fastblurY:=fastblurY;
+  result.color:=color;
+  result.power:=power;
+  result.dx:=dx;
+  result.dy:=dy;
+end;
+
+procedure TMainScene.DrawEffects(const contentRect:TRect);
+var
+  area,r,innerR:TRect;
+  bigFont:TFontHandle;
+  glow,outline1,outline2,outline3,halo,shadow:TTextEffectLayer;
+  x,y,i:integer;
+  alpha:cardinal;
+  t:double;
+
+  function sc(v:integer):integer; // layout offsets follow the DPI scale
+  begin
+    result:=round(v*layoutScale);
+  end;
+
+begin
+  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  bigFont:=txt.ScaleFont(titleFont,1.5);
+  // Spectromancer presets
+  glow:=FXLayer(10,10,10,$BBFFFFFF,1);
+  outline1:=FXLayer(2,2,2,$FF000000,0.4);
+  outline2:=FXLayer(2,2,2,$FF000000,0.8);
+  outline3:=FXLayer(2,2,2,$FF000000,1);
+  halo:=FXLayer(1,4,4,$FFFFFFFF,1);
+  shadow:=FXLayer(1,3,3,$C0000000,0.5,4,4);
+
+  r:=GridCell(area,0,0,2,3,BLOCK_GAP);
+  DrawBlock(r,'Glow: blur 10, fastblur 10/10, $BBFFFFFF, power 1',innerR);
+  DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(60),$FF000000,'Version 1.2.3',taLeft,[glow],toAddBaseline);
+  DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(120),$FF203040,'Small text with the same glow',taLeft,[glow],toAddBaseline);
+
+  r:=GridCell(area,1,0,2,3,BLOCK_GAP);
+  DrawBlock(r,'Outline: blur 2, fastblur 2/2, black, power 0.4 / 0.8 / 1',innerR);
+  x:=innerR.Left+sc(20);
+  DrawTextFX(bigFont,x,innerR.Top+sc(60),$FFFFE080,'12',taLeft,[outline1],toAddBaseline);
+  DrawTextFX(bigFont,x+sc(110),innerR.Top+sc(60),$FFFFE080,'34',taLeft,[outline2],toAddBaseline);
+  DrawTextFX(bigFont,x+sc(220),innerR.Top+sc(60),$FFFFE080,'56',taLeft,[outline3],toAddBaseline);
+  DrawTextFX(bodyFont,x,innerR.Top+sc(120),$FFFFFFFF,'Two layers: outline + glow',taLeft,[glow,outline3],toAddBaseline);
+
+  r:=GridCell(area,0,1,2,3,BLOCK_GAP);
+  DrawBlock(r,'Light background: white halo around black text',innerR);
+  draw.FillRect(innerR.Left,innerR.Top+sc(8),innerR.Right,innerR.Bottom,$FFC8BCA4);
+  DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(62),$FF000000,'Halo on parchment',taLeft,[halo],toAddBaseline);
+  DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(120),$FF402010,'Soft drop shadow, offset 4,4',taLeft,[shadow],toAddBaseline);
+
+  r:=GridCell(area,1,1,2,3,BLOCK_GAP);
+  DrawBlock(r,'Anchor check: FX text overdrawn by plain red txt.Write',innerR);
+  x:=(innerR.Left+innerR.Right) div 2;
+  draw.Line(x,innerR.Top+sc(10),x,innerR.Bottom-sc(4),$50FFFFFF);
+  y:=innerR.Top+sc(44);
+  for i:=0 to 2 do begin
+    DrawTextFX(bodyFont,x,y,$FFFFFFFF,'Anchor',TTextAlignment(i),[outline3],toAddBaseline);
+    txt.Write(bodyFont,x,y,$C0FF4040,'Anchor',TTextAlignment(i),toAddBaseline);
+    inc(y,sc(34));
+  end;
+
+  r:=GridCell(area,0,2,2,3,BLOCK_GAP);
+  DrawBlock(r,'Multiline + markup (toComplexText)',innerR);
+  DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(40),$FFE5EDF7,
+    'Line one: {C=FF90E0C0}{B}bold green{/B/C}'#13#10'Line two: {I}italic{!I} and {u}underline{!u}',
+    taLeft,[outline3,glow],toAddBaseline or toComplexText);
+
+  r:=GridCell(area,1,2,2,3,BLOCK_GAP);
+  DrawBlock(r,'Alpha fade: modulated at draw time, baked once',innerR);
+  t:=window.frameStartMs/1000;
+  alpha:=round(127.5+127.5*sin(t*2));
+  DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(62),(alpha shl 24)+$FFFFFF,'Fading glow',taLeft,[glow,outline2],toAddBaseline);
+end;
+
 procedure TMainScene.Render;
 var
   area,menuRect,contentRect:TRect;
@@ -840,6 +931,7 @@ begin
       5:DrawBlockAndCache(contentRect);
       6:DrawUnicodeComplex(contentRect);
       7:DrawMetrics(contentRect);
+      8:DrawEffects(contentRect);
     end;
   finally
     txt.EndBlock;
