@@ -168,8 +168,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # SDL2 + SDL2_mixer: the audio backend is enabled by default on desktop (defines.inc)
-          sudo apt-get install -y fpc libsdl2-dev libsdl2-mixer-dev
+          # SDL2 + SDL2_mixer for the opt-in SDLMIX audio backend (defines.inc), FreeType for text
+          sudo apt-get install -y fpc libsdl2-dev libsdl2-mixer-dev libfreetype-dev
           fpc -iV
 
       - name: Install FPC (Windows)
@@ -219,7 +219,8 @@ jobs:
             local out="demo/${demo}/_fpc"
             rm -rf "$out"
             mkdir -p "$out"
-            fpc -dOPENGL $extra -MDelphi -Sd -RIntel \
+            # same defines as demo/build_demo_fpc.cmd, the documented way to build a demo
+            fpc -dOPENGL -dFREETYPE $extra -MDelphi -Sd -RIntel \
               -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra \
               -Fu"demo/${demo}" -FU"$out" "$dpr"
           }
@@ -261,7 +262,8 @@ jobs:
             New-Item -ItemType Directory -Path $out | Out-Null
             $project=$demo
             if($projectName.ContainsKey($demo)){ $project=$projectName[$demo] }
-            $fpcArgs=@("-dOPENGL")
+            # same defines as demo/build_demo_fpc.cmd, the documented way to build a demo
+            $fpcArgs=@("-dOPENGL","-dFREETYPE")
             if($extraDefines.ContainsKey($demo)){ $fpcArgs+=$extraDefines[$demo] }
             $fpcArgs+=@("-MDelphi","-Sd","-RIntel",
               "-Fu.","-Fuextra","-Fuextra/sdl2","-FuBase","-FuBase/extra",
@@ -269,6 +271,44 @@ jobs:
             fpc @fpcArgs
             if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
           }
+
+      - name: Demo startup smoke (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          # Start every demo from the runtime folder a user runs it from (bin64/bin), next to
+          # the committed DLLs only. The runner has no GL 3.3, so a demo may fail later - that
+          # is fine here; what must not happen is the loader refusing to start it because an
+          # imported DLL or entry point is missing.
+          $targetCPU=(fpc -iTP).Trim()
+          if($targetCPU -eq "x86_64"){ $runtimeDir="bin64" }
+          elseif($targetCPU -eq "i386"){ $runtimeDir="bin" }
+          else{ throw "Unsupported Windows FPC target: $targetCPU" }
+          $loaderErrors=@{ -1073741515="DLL not found (0xC0000135)"; -1073741511="entry point not found (0xC0000139)";
+            -1073741701="bad image (0xC000007B)" }
+          # no loader error popups: a missing DLL must end the process with an exit code
+          # (the error mode is inherited by the started demos)
+          Add-Type -Namespace Win32 -Name Kernel -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetErrorMode(uint mode);'
+          [void][Win32.Kernel]::SetErrorMode(0x8003)
+          $failed=@()
+          foreach($exe in Get-ChildItem demo\*\*.exe){
+            $copy=Join-Path (Resolve-Path $runtimeDir) $exe.Name
+            Copy-Item -LiteralPath $exe.FullName -Destination $copy -Force
+            $p=Start-Process -FilePath $copy -WorkingDirectory $exe.DirectoryName -PassThru
+            if($p.WaitForExit(5000)){
+              $code=$p.ExitCode
+              if($loaderErrors.ContainsKey($code)){
+                Write-Host "[ FAIL ] $($exe.Name): $($loaderErrors[$code])"
+                $failed+=$exe.Name
+              }else{ Write-Host "[ ok ] $($exe.Name) exited with $code" }
+            }else{
+              Stop-Process -Id $p.Id -Force
+              Write-Host "[ ok ] $($exe.Name) started"
+            }
+            Start-Sleep -Milliseconds 300
+            Remove-Item -LiteralPath $copy -Force
+          }
+          if($failed.Count -gt 0){ throw "Demos that cannot start from ${runtimeDir}: $($failed -join ', ')" }
 
       - name: Sound smoke (Linux, dummy audio device)
         if: runner.os == 'Linux'
@@ -351,8 +391,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # SDL2 + SDL2_mixer: the audio backend is enabled by default on desktop (defines.inc)
-          sudo apt-get install -y fpc libsdl2-dev libsdl2-mixer-dev
+          # SDL2 + SDL2_mixer for the opt-in SDLMIX audio backend (defines.inc), FreeType for text
+          sudo apt-get install -y fpc libsdl2-dev libsdl2-mixer-dev libfreetype-dev
           fpc -iV
 
       - name: Install FPC (Windows)
