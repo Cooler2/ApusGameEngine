@@ -147,7 +147,7 @@ Two tiers, not a version ladder:
   - [ ] Runtime supports AEM model + animation for at least one production-like asset.
   - [ ] Ultra-compact encoding mode documented and loadable.
   - [ ] Blender plugin exports valid AEM without manual conversion.
-- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). This is also the home of the **3D preview vertical slice** (work-ahead Do-Next #2) — and the **`demo/CharAnimation` revival is its showcase target**: CharAnimation currently runs on the legacy `TModel3D`+`IQMloader` path (IQM was dropped by R-19), so do NOT revive it on legacy IQM — bring it back on the new `TModel`/`TModelInstance`+animation-runtime path as the skeletal-animation showcase that closes the "Engine5 looks weaker than Engine4's skeletal/shadow demos" gap. Plan: `Work/R-03_aem_pipeline_notes.md`.
+- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). This is also the home of the **3D preview vertical slice** (work-ahead Do-Next #2) — and the **`demo/CharAnimation` revival is its showcase target** (the demo is parked in `demo/legacy/CharAnimation` until then): CharAnimation currently runs on the legacy `TModel3D`+`IQMloader` path (IQM was dropped by R-19), so do NOT revive it on legacy IQM — bring it back on the new `TModel`/`TModelInstance`+animation-runtime path as the skeletal-animation showcase that closes the "Engine5 looks weaker than Engine4's skeletal/shadow demos" gap. Plan: `Work/R-03_aem_pipeline_notes.md`.
 
 ### [R-04] Robot Interaction Layer
 - Status: **done**
