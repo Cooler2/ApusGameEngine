@@ -33,9 +33,15 @@ For geometry and static 3D content use the engine5 units `Apus.Engine.Mesh`,
 `demo/Simple3D`, `demo/ShadowMap`, `demo/MeshLab`). For networking use `Base/Apus.Socket` and
 `Apus.Engine.HttpGameClient` / `HttpGameServer` (see `demo/Networking`).
 
+## Base
+
+- `Base/demo/tcp/TestTCP.dpr` -> `legacy/Base/demo/tcp/`: an old TCP demo on
+  `Apus.Common`; `Base/tests/TestTCP.dpr` covers `Apus.TCP` now.
+
 ## Remaining references
 
 - `Apus.Engine.GameApp` uses `SteamAPI` under `{$IFDEF STEAM}` - kept as is.
 - `Apus.Engine.Sound` uses `SoundImx` under `{$IFDEF IMX}` - kept as is.
-- `tools/TreeGen/Trees.pas` uses `Model3D` and does not build until it is migrated.
+- `tools/legacy/TreeGen` uses `Model3D` and does not build until it is migrated
+  (the other non-building tools are in `tools/legacy/` too).
 - `demo/legacy/CharAnimation` and `demo/legacy/EngineTest` use the 3D units.
