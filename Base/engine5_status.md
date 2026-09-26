@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-09-01)
+## Summary (last updated: 2026-09-26)
 
 **Progress:**
 - ✅ `Time.Ticks` uses the high-resolution monotonic platform counter with direct
@@ -20,8 +20,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes
 - ✅ R-07 reached working state and was merged into `engine5` (engine-level milestone)
 - ✅ EventMan migrated to Core/Log/Threads/Strings and compiles clean
-- ✅ Base library no longer depends on `Apus.Common` (outside `Base/Deprecated`)
-- ✅ `Base/Apus.Common.pas` removed; compatibility copy kept in `Base/Deprecated/Apus.Common.pas`
+- ✅ Base library no longer depends on `Apus.Common`
+- ✅ `Apus.Common` removed from the repository, including the old `Base/Deprecated` copy; remaining users live in `legacy/` folders (see below)
 - ✅ Base migration is complete (100%); no global/blocking migration tasks remain
 - 🔧 Post-merge priorities: Linux fixes + validation, benchmarks, SSE optimization of hot functions, bugfixes with test additions
 - ✅ Linux/FPC engine smoke coverage added for SDL/OpenGL compile-only paths (`tests/PlatformTest.dpr`, `tests/OpenGL.dpr`)
@@ -29,7 +29,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ Linux/FPC style test and modern SDL/OpenGL demo compile coverage verified
 - ✅ Android JNI initialization stores the VM pointer used to attach and detach
   engine worker threads
-- 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and incremental cleanup of legacy Engine/Demo/Tools references
+- ✅ Units, demos and tools still on `Apus.Common` moved to `legacy/`, `demo/legacy/`, `tools/legacy/` (preview preparation, 2026-09-26)
+- 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and migration of what is parked in the `legacy/` folders
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
 
@@ -86,69 +87,71 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 - 2026-09-26: R-32 adds static WebP decode and fixes FPC PNG grayscale target writes; Win64, Linux x64, and Android arm64 decoder binaries are bundled; Android runtime is not yet verified. See PNG_DECODERS.md for decoder comparison and deployment limits.
 
-## Live module inventory (2026-05-29)
+## Live module inventory (2026-09-26)
 
-Generated from the 56 live `Base/Apus.*.pas` files. Build sweep status is based
-on `Base/tests/buildtest.ps1` and `Base/tests/buildtest.sh`; "not in sweep"
-means the module is live but is not currently compiled by those sweep scripts.
+Generated from the 56 live `Base/Apus.*.pas` files. "Build sweep" is what
+`Base/tests/buildtest.ps1` (Win) and `Base/tests/buildtest.sh` (Linux, macOS in CI)
+compile; "not in sweep" means the module is live but only compiled through the
+tests or the engine.
 
 | Module | Build sweep | Focused tests/benches | Notes |
 |---|---|---|---|
-| `Apus.ADPCM` | Win/Linux | - | |
+| `Apus.ADPCM` | Win/Linux/macOS | - |  |
 | `Apus.Android` | not in sweep | - | Android-specific module. |
-| `Apus.AnimatedValues` | Win/Linux | - | Covered indirectly by `BenchAnimation`. |
-| `Apus.Classes` | Win/Linux | - | Foundation module; uses `Apus.HashMaps` in implementation. |
-| `Apus.Clipboard` | Win/Linux | - | |
-| `Apus.Colors` | Win/Linux | TestGFX | `Color` record static-method API (2026-06-09); no free functions except `BilinearMixF` and `BilinearMix(PCardinal)`. |
-| `Apus.Compress` | Win/Linux | TestCompress | |
-| `Apus.Containers` | Win/Linux | TestContainers, BenchContainers | |
-| `Apus.ControlFiles` | Win/Linux | - | |
-| `Apus.Conv` | Win/Linux | TestConv, BenchConv | |
-| `Apus.Core` | Win/Linux | TestCore, BenchCore, BenchMem | |
-| `Apus.CPU` | Win/Linux | - | |
-| `Apus.Crypto` | Win/Linux | - | |
-| `Apus.Database` | Win/Linux | - | |
-| `Apus.EventMan` | Win/Linux | TestEventMan | |
-| `Apus.FastGFX` | Win/Linux | BenchFastGFX | Add focused regression tests if software-rendering changes are made. |
-| `Apus.Files` | Win/Linux | TestFiles | |
-| `Apus.FreeTypeFont` | Win/Linux | - | |
-| `Apus.GeoIP` | Win/Linux | - | |
-| `Apus.Geom2D` | Win/Linux | TestGeom2D | |
-| `Apus.Geom3D` | Win/Linux | TestGeom3D | |
-| `Apus.GfxFilters` | Win/Linux | - | |
-| `Apus.GfxFormats` | Win/Linux | TestGfxFormats, BenchR32PNG | Static WebP decode is opt-in with WEBP; PNG decoder comparison in PNG_DECODERS.md. |
-| `Apus.GlyphCache` | Win/Linux | - | |
-| `Apus.HashMaps` | Win/Linux | TestHashMaps, BenchHashMaps | |
-| `Apus.HtmlTree` | Win/Linux | - | |
-| `Apus.HttpRequests` | Win/Linux | - | |
-| `Apus.Huffman` | Win/Linux | - | |
-| `Apus.Images` | Win/Linux | - | |
-| `Apus.Lib` | Win/Linux | - | |
-| `Apus.Log` | Win/Linux | - | |
-| `Apus.Logging` | Win/Linux | - | |
-| `Apus.LongMath` | Win/Linux | - | |
-| `Apus.MemoryLeakUtils` | Win/Linux | - | |
-| `Apus.Network` | not in sweep | - | Deprecated/legacy network module; prefer `Apus.Socket`. |
-| `Apus.ProdCons` | Win/Linux | - | |
-| `Apus.Profiling` | Win | - | Linux build skipped because implementation uses Windows unit. |
-| `Apus.Publics` | Win/Linux | - | |
-| `Apus.RegExpr` | Win/Linux | - | |
-| `Apus.Regions` | Win/Linux | - | |
-| `Apus.RSA` | Win/Linux | - | |
-| `Apus.SCGI` | Win/Linux | - | |
-| `Apus.Socket` | Win/Linux | - | |
-| `Apus.Spatial` | Win/Linux | TestSpatial | |
-| `Apus.StackTrace` | Win/Linux | - | |
-| `Apus.Strings` | Win/Linux | TestStrings, BenchStrings | |
-| `Apus.TCP` | Win/Linux | TestTCP | |
-| `Apus.TextUtils` | Win/Linux | - | |
-| `Apus.Threads` | Win/Linux | TestThreads | |
-| `Apus.Translation` | Win/Linux | - | |
-| `Apus.Tweenings` | Win/Linux | TestTweenings, BenchAnimation | |
-| `Apus.Types` | Win/Linux | TestTypes | |
-| `Apus.UnicodeFont` | Win/Linux | - | |
-| `Apus.Utils` | Win/Linux | - | |
-| `Apus.VertexLayout` | Win/Linux | - | |
+| `Apus.AnimatedValues` | Win/Linux/macOS | - | Covered indirectly by `BenchAnimation`. |
+| `Apus.CPU` | Win/Linux/macOS | - |  |
+| `Apus.Classes` | Win/Linux/macOS | - | Foundation module; uses `Apus.HashMaps` in implementation. |
+| `Apus.Clipboard` | Win/Linux/macOS | - |  |
+| `Apus.Colors` | Win/Linux/macOS | - | `Color` record static-method API (2026-06-09); no free functions except `BilinearMixF` and `BilinearMix(PCardinal)`. |
+| `Apus.Compress` | Linux/macOS | TestCompress | Not in the Windows sweep (`buildtest.ps1`) yet. |
+| `Apus.Containers` | Win/Linux/macOS | TestContainers, BenchContainers |  |
+| `Apus.ControlFiles` | Win/Linux/macOS | - |  |
+| `Apus.Conv` | Win/Linux/macOS | TestConv, BenchConv |  |
+| `Apus.Core` | Win/Linux/macOS | TestCore, BenchCore, BenchMem |  |
+| `Apus.Crypto` | Win/Linux/macOS | - |  |
+| `Apus.Database` | Win/Linux/macOS | - |  |
+| `Apus.EventMan` | Win/Linux/macOS | TestEventMan |  |
+| `Apus.FastGFX` | Win/Linux/macOS | BenchFastGFX | Add focused regression tests if software-rendering changes are made. |
+| `Apus.Files` | Win/Linux/macOS | TestFiles |  |
+| `Apus.FreeTypeFont` | Win/Linux/macOS | - |  |
+| `Apus.GeoIP` | Win/Linux/macOS | - |  |
+| `Apus.Geom2D` | Win/Linux/macOS | TestGeom2D, BenchGeom2D |  |
+| `Apus.Geom3D` | Win/Linux/macOS | TestGeom3D, BenchGeom3D |  |
+| `Apus.GfxFilters` | Win/Linux/macOS | TestGfxFilters |  |
+| `Apus.GfxFormats` | Win/Linux/macOS | TestGfxFormats, BenchR32PNG | Static WebP decode is opt-in with WEBP; PNG decoder comparison in PNG_DECODERS.md. |
+| `Apus.GlyphCache` | Win/Linux/macOS | TestGlyphCache |  |
+| `Apus.HashMaps` | Win/Linux/macOS | TestHashMaps, BenchHashMaps |  |
+| `Apus.HtmlTree` | Win/Linux/macOS | - |  |
+| `Apus.HttpRequests` | Win/Linux/macOS | - |  |
+| `Apus.HttpServer` | not in sweep | TestHttpServer | Minimal HTTP/1.1 server over `Apus.TCP`; compiled through `TestHttpServer`. |
+| `Apus.Huffman` | Win/Linux/macOS | - |  |
+| `Apus.Images` | Win/Linux/macOS | - |  |
+| `Apus.Lib` | Win/Linux/macOS | - |  |
+| `Apus.Log` | Win/Linux/macOS | - |  |
+| `Apus.Logging` | Win/Linux/macOS | - |  |
+| `Apus.LongMath` | Win/Linux/macOS | - |  |
+| `Apus.MemoryLeakUtils` | Win/Linux/macOS | - |  |
+| `Apus.Network` | not in sweep | - | Deprecated (prefer `Apus.Socket`); kept only for `Apus.Engine.UdpTransport`, which `tests/TestUdpTransport` compiles. |
+| `Apus.ProdCons` | Win/Linux/macOS | - |  |
+| `Apus.Profiling` | Win | - | Not built on Linux/macOS: the implementation uses the `Windows` unit. |
+| `Apus.Publics` | Win/Linux/macOS | - |  |
+| `Apus.RSA` | Win/Linux/macOS | - |  |
+| `Apus.RegExpr` | Win/Linux/macOS | - |  |
+| `Apus.Regions` | Win/Linux/macOS | - |  |
+| `Apus.SCGI` | Win/Linux/macOS | - |  |
+| `Apus.Socket` | Win/Linux/macOS | - |  |
+| `Apus.Spatial` | Win/Linux/macOS | TestSpatial |  |
+| `Apus.StackTrace` | Win/Linux/macOS | - |  |
+| `Apus.Strings` | Win/Linux/macOS | TestStrings, BenchStrings |  |
+| `Apus.TCP` | Win/Linux/macOS | TestTCP |  |
+| `Apus.TextUtils` | Win/Linux/macOS | - |  |
+| `Apus.Threads` | Win/Linux/macOS | TestThreads |  |
+| `Apus.Translation` | Win/Linux/macOS | - |  |
+| `Apus.Tweenings` | Win/Linux/macOS | TestTweenings, BenchAnimation |  |
+| `Apus.Types` | Win/Linux/macOS | TestTypes |  |
+| `Apus.UnicodeFont` | Win/Linux/macOS | - |  |
+| `Apus.Utils` | Win/Linux/macOS | - |  |
+| `Apus.VertexLayout` | Win/Linux/macOS | - |  |
 
 ## Historical summary — created in engine5 refactoring
 
@@ -185,50 +188,29 @@ are not intended to enumerate every live `Base/Apus.*.pas` unit.
 | **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: now uses Core/Types in the interface and HashMaps in implementation. Foundation module (Level 1). |
 | **Apus.Containers** | 1051 | TestContainers | Trees, heaps, queues and object list containers split from old `Apus.Structs`. |
 
-## Apus.Common Status (2026-05-29)
+## Apus.Common Status (2026-09-26)
 
-- `Base/*.pas` has **no** `Apus.Common` dependency outside `Base/Deprecated`.
-- Active compatibility unit is only `Base/Deprecated/Apus.Common.pas`.
-- Remaining non-deprecated references are outside Base:
-  - **Engine:** 19 files
-  - **Demo:** 8 files
-  - **Base demo:** 1 file
-  - **Root tests:** 2 files
-  - **Tools:** 6 files
+`Apus.Common` and `Apus.CrossPlatform` are gone from the repository (the
+`Base/Deprecated` compatibility copy was removed as well). No live file references
+them: every remaining user was either migrated or moved to a `legacy/` folder,
+where it does not build until migrated:
 
-### Remaining `Apus.Common` references (live files)
+- `legacy/` - engine units (skeletal models `Model3D`/`IQMloader`/`AEMLoader`,
+  `SoundBass`, `SoundImx`, `SteamAPI`, `UDict`, `BitmapStyle`, `ComplexText`,
+  `Objects`, `SpritePacker`) and `legacy/Base/` (old TCP demo, ListFonts);
+  see `legacy/README.md`.
+- `demo/legacy/` - 8 demos; see `demo/legacy/README.md` and `demo/demo_inventory.md`.
+- `tools/legacy/` - 7 tools; see `tools/legacy/README.md`.
 
-Generated with `rg "Apus\.Common"` over `*.pas`, `*.dpr`, `*.lpr`, and `*.inc`,
-excluding `tmp/**` and `Base/Deprecated/**`.
-
-**Engine (19):** `Apus.Engine.AEMLoader.pas`, `Apus.Engine.AndroidGame.pas`,
-`Apus.Engine.BitmapStyle.pas`, `Apus.Engine.ComplexText.pas`,
-`Apus.Engine.IOSgame.pas`,
-`Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`,
-`Apus.Engine.UdpTransport.pas`, `Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`,
-`Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`,
-`Apus.Engine.SoundSDL.pas`, `Apus.Engine.SpritePacker.pas`,
-`Apus.Engine.SteamAPI.pas`, `Apus.Engine.UDict.pas`.
-
-**Demo (8):** `demo/AdvTex/AdvTex.dpr`, `demo/ControllerDemo/MainScene.pas`,
-`demo/EngineTest/EngineDemo.dpr`, `demo/NinePatch/MainScene.pas`,
-`demo/Particles/MainScene.pas`, `demo/ShadowMap/MainScene.pas`,
-`demo/Simple3D/MainScene.pas`, `demo/SoundDemo/soundDemo.dpr`.
-
-**Base demo (1):** `Base/demo/tcp/TestTCP.dpr`.
-
-**Root tests (2):** `tests/OpenGL.dpr`, `tests/PlatformTest.dpr`.
-
-**Tools (6):** `tools/Convert3d.dpr`, `tools/ConvertStr.dpr`,
-`tools/SliceImg.dpr`, `tools/TreeGen/MainScene.pas`,
-`tools/TreeGen/Trees.pas`, `tools/upgrade.dpr`.
+Checked with `grep -rlE "\bApus\.(Common|CrossPlatform)\b"` over `*.pas`, `*.dpr`,
+`*.lpr`, `*.inc` outside the `legacy/` folders: no matches.
 
 ## Next priorities (updated)
 
 1. Stabilize current Base APIs on Windows/Linux and close remaining edge cases.
 2. Expand targeted automated tests and benchmarks for already-migrated modules.
 3. Continue performance work (SSE hot paths, timing/profile-guided optimizations).
-4. Do incremental cleanup of legacy `Apus.Common` references in Engine/Demo/Tools without treating it as a blocking track.
+4. Migrate what is parked in `legacy/`, `demo/legacy/` and `tools/legacy/` when it is needed (skeletal models go with R-03), without treating it as a blocking track.
 
 ## TODO — important tasks
 
