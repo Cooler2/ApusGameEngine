@@ -78,14 +78,17 @@ license          = zlib (licenses/LodePNG-LICENSE.txt)
 normalization    = built in-house as a DLL wrapper - no upstream binary exists.
                    Sources are not vendored here; the PDB paths in the DLLs point
                    at a local build tree (K:\Apus\3RDPARTY\LodePNG).
-installed_to     = Base/bin/LodePNG.dll, Base/bin/LodePNG64.dll
+installed_to     = bin/LodePNG.dll, bin64/LodePNG64.dll (next to Delphi executables)
+                   Base/bin/LodePNG.dll, Base/bin/LodePNG64.dll
                    Base/tests/LodePNG.dll, Base/tests/LodePNG64.dll
                    Base/extra/LodePNG.lib (static, Win32 Delphi link)
-committed_sha256 = e372f5653a892c96c46622c4e064e944814c95eab326f7e9d18bb999e9d2e96c (32, both copies)
-                   51e644618897e51185c4c5ab832a0f6a68cfe6d7fc8d833ba3c0e6873d9a6c86 (64, Base/bin)
-                   90992d9bf581d69a868332e995e28f59b9ec328c80b140abd793d5918c82e6d2 (64, Base/tests)
-notes            = the two x64 copies are different builds of the same LodePNG
-                   version; Base/tests/ has drifted from Base/bin/.
+committed_sha256 = e372f5653a892c96c46622c4e064e944814c95eab326f7e9d18bb999e9d2e96c (32, all copies)
+                   51e644618897e51185c4c5ab832a0f6a68cfe6d7fc8d833ba3c0e6873d9a6c86 (64, all copies)
+notes            = only Delphi builds use it (-dLODEPNG; FPC reads PNG with its own
+                   reader). The DLL is a static import, so every export must be
+                   present: free_mem, lodepng_decode32, lodepng_decode_memory,
+                   lodepng_encode32, lodepng_encode_memory. Base/tests/ once held
+                   an older x64 build without the *_memory exports.
 
 [libwebpdecoder]
 version          = 1.6.0 (WebM libwebp, decoder-only)
