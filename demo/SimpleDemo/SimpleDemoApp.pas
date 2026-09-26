@@ -21,7 +21,7 @@ interface
 
 implementation
  uses SysUtils, Apus.Core, Apus.EventMan, Apus.Colors, Apus.Strings,
-   Apus.Engine.Types,Apus.Engine.SceneEffects,Apus.Engine.UI;
+   Apus.Engine.Types,Apus.Engine.UI;
 
  type
   TParticleData=record
@@ -99,7 +99,8 @@ procedure TSimpleDemoApp.CreateScenes;
   // just wait a second so you can notice the default loader scene with spinner :-)
   Sleep(1000);
   // switch to the main scene using fade transition effect
-  TTransitionEffect.Create(mainScene,250);
+  // (this waits in a separate thread until the scene's Load() is done)
+  game.SwitchToScene(mainScene.name);
  end;
 
 { TMainScene }

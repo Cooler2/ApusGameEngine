@@ -1108,6 +1108,7 @@ begin
  inherited Create(true);
  v.Init;
  zOrder:=-1; // place it below others
+ loaded:=true; // nothing to load: it is shown while the other scenes load
  SetStatus(TSceneStatus.ssActive);
 end;
 
