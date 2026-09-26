@@ -45,7 +45,8 @@ if not defined DPR (
   if not exist "!DPR!" (
     set "DPR="
     set "COUNT=0"
-    for %%F in ("!DIR!\*.dpr") do (
+    rem the extension check skips .dproj, which *.dpr also matches via 8.3 names
+    for %%F in ("!DIR!\*.dpr") do if /I "%%~xF"==".dpr" (
       set "DPR=%%~fF"
       set /a COUNT+=1
     )

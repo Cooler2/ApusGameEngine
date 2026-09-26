@@ -1170,8 +1170,8 @@ Design: `Work/R-31_api_design.md`.
 - With no backend compiled in, `InitSoundSystem(slDefault,...)` logs one line
   and returns instead of raising. An explicit backend request (`slSDL`,
   `slIMixer`) still raises, as before.
-- Builds that need sound: CI and `demo\build_demo_fpc.cmd` pass `-dSDLMIX` for
-  `SoundDemo`; the script's `snd` mode enables it for any demo.
+- Builds that need sound: put `-dSDLMIX` in the project's `build.cfg` (as
+  `demo/SoundDemo/build.cfg` does) or pass it to `build.cmd`/`build.sh`.
 
 ## 2026-08-31 — Files: the open mode is part of the function name
 
