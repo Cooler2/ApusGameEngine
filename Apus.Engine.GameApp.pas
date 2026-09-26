@@ -191,6 +191,7 @@ implementation
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
+  // SteamAPI lives in legacy/ (not migrated yet): STEAM builds are unsupported until then
   {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF},
   Apus.Conv,
   Apus.Files,

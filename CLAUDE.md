@@ -106,8 +106,8 @@ Level 5:
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, Draw, TextDraw
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: WindowsPlatform, SDLplatform, AndroidGame, IOSgame
-**3D**: Model3D, Mesh, OBJLoader, IQMloader, AEMLoader
-**Audio**: Sound, SoundBass, SoundSDL, SoundImx
+**3D**: Mesh, GpuMesh, MeshShapes, OBJLoader (skeletal Model3D/IQMloader/AEMLoader are in `legacy/`)
+**Audio**: Sound, SoundSDL (SoundBass/SoundImx are in `legacy/`)
 
 ### Key Patterns
 
@@ -164,7 +164,7 @@ Level 5:
 - `SimpleDemo` - minimal example
 - `UI` - comprehensive UI showcase
 - `Simple3D` - 3D basics
-- `CharAnimation` - skeletal animation
+- `legacy/CharAnimation` - skeletal animation (does not build yet, waits for R-03)
 - `ProjectTemplate` - starting point
 
 ## Refactoring Notes

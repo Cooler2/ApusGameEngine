@@ -58,7 +58,7 @@ intact:
 | dglOpenGL / dglOpenGLES | `extra/dglOpenGL.pas`, `extra/dglOpenGLES.pas` | MPL-2.0 | desktop GL loader |
 | PasMP | `extra/PasMP.pas` | zlib | not referenced by engine code |
 | SDLmini | `extra/SDLmini.pas` | SDL 1.3 header miniport, no licence header | not referenced by engine code |
-| BASS 2.3 headers | `extra/bass.pas` | proprietary (see below) | `Apus.Engine.SoundBass.pas` |
+| BASS 2.3 headers | `extra/bass.pas` | proprietary (see below) | `legacy/Apus.Engine.SoundBass.pas` |
 
 `extra/sdl2/sdl2_mixer.pas` carries local modifications, each marked with an
 `APUS:` comment and described in `extra/sdl2/README.md`.
@@ -87,7 +87,7 @@ declares — nothing is inferred:
 | `ZLIBEX.PAS` | ZLibEx, Roberto Della Pasqua / base2 / Borland | **none stated** — copyrights only | `Apus.HttpRequests` |
 | `jni.pas` | JNI header translation | **none stated** | `Apus.Android`, Android audio |
 | `mysql.pas` + `mysql_win32.inc` | translation of MySQL AB's C headers | header points at **MySQL's own GPL notice** | `Apus.Database`, `Apus.SCGI` |
-| `IMixEx.pas` | IMixerPro header, Igor Lobanchikov | proprietary library, header only | `Apus.Engine.SoundImx` (legacy) |
+| `IMixEx.pas` | IMixerPro header, Igor Lobanchikov | proprietary library, header only | `legacy/Apus.Engine.SoundImx.pas` |
 
 The last five are the ones to look at before any commercial redistribution — not
 because a problem is known, but because the files themselves do not settle the

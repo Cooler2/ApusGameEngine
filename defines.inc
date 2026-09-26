@@ -72,7 +72,8 @@
 //   SDLMIX - SDL2_mixer backend (Apus.Engine.SoundSDL): plays samples, streams
 //            music, controls volume. The recommended desktop backend: add
 //            -dSDLMIX to the project build to enable audio.
-//   IMX    - legacy Win32-only IMixerPro backend (opt-in, being retired).
+//   IMX    - legacy Win32-only IMixerPro backend; Apus.Engine.SoundImx was moved
+//            to legacy/ and does not build until migrated.
 // Nothing is defined here on purpose. A backend binding is a load-time import,
 // so linking one makes the executable depend on its library (SDL2_mixer.dll
 // ships in bin*/, Linux uses the distro package) - a project that does not
