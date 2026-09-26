@@ -11,7 +11,7 @@ Relevance categories:
 ## Build status (FPC 3.2.2, Win64, 2026-08-31)
 
 Checked with `demo\build_demo_fpc.cmd <Name>` for every demo whose project file
-matches its folder name, plus `01-Scenes` and `EngineTest` by hand. Relevance
+matches its folder name, plus `01-Scenes` and `legacy/EngineTest` by hand. Relevance
 above says how current a demo is *meant* to be; this table says whether it
 compiles today.
 
@@ -21,21 +21,22 @@ Builds (21): `01-Scenes`, `AdvTex`, `Draw2D`, `InputDemo`, `MeshLab`, `MultiWind
 `UI`, `UIScaleDPI`, `UILab`, `VertexBuffer`.
 
 These 21 are exactly what CI compiles on Linux, Windows and macOS (`demo-build`
-job, plus `tests/macos_smoke.sh`). When a demo below moves to "builds", add it
-to both lists.
+job, plus `tests/macos_smoke.sh`). When a demo below moves to "builds", move it back
+from `demo/legacy/` to `demo/` and add it to both lists.
 
-Broken (8) - all of them still sit on the retired foundation modules:
+Broken (8) - all of them still sit on the retired foundation modules. They live in
+`demo/legacy/` (see `demo/legacy/README.md`) until they are migrated:
 
 | Demo | Blocker |
 |---|---|
-| `Billboards` | uses the retired `Apus.CrossPlatform` |
-| `Borderless` | uses the retired `Apus.CrossPlatform` |
-| `CharAnimation` | blocked by the engine, not the demo: `Apus.Engine.Model3D` still uses `Apus.Common` |
-| `ControllerDemo` | uses the retired `Apus.Common` |
-| `EngineTest` | uses the retired `Apus.Common` (legacy demo) |
-| `NinePatch` | uses the retired `Apus.Common` |
-| `Particles` | uses the retired `Apus.Common` |
-| `Shaders` | uses the retired `Apus.CrossPlatform` |
+| `legacy/Billboards` | uses the retired `Apus.CrossPlatform` |
+| `legacy/Borderless` | uses the retired `Apus.CrossPlatform` |
+| `legacy/CharAnimation` | blocked by the engine, not the demo: `Apus.Engine.Model3D` still uses `Apus.Common` |
+| `legacy/ControllerDemo` | uses the retired `Apus.Common` |
+| `legacy/EngineTest` | uses the retired `Apus.Common` (legacy demo) |
+| `legacy/NinePatch` | uses the retired `Apus.Common` |
+| `legacy/Particles` | uses the retired `Apus.Common` |
+| `legacy/Shaders` | uses the retired `Apus.CrossPlatform` |
 
 ## 1. Core Validation Demos (highest priority)
 
@@ -56,26 +57,26 @@ Broken (8) - all of them still sit on the retired foundation modules:
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
 | `UI` | UI widgets, layouts, and interactions; primary UI showcase on the old path. | `engine4` |
-| `NinePatch` | Nine-patch rendering and stress checks for UI size/scaling behavior. | `engine4` |
+| `legacy/NinePatch` | Nine-patch rendering and stress checks for UI size/scaling behavior. | `engine4` |
 | `Tweenings` | Tweening API: click-to-move animation, basic interpolation/easing verification. | `engine5` |
-| `Borderless` | Borderless/resizable window mode plus basic UI (exit button). | `engine4` |
+| `legacy/Borderless` | Borderless/resizable window mode plus basic UI (exit button). | `engine4` |
 
 ## 3. Graphics and Rendering Feature Demos
 
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
-| `Particles` | Particle scenarios (basic/galaxy/soft), 2D/3D particles and effects. | `engine4` |
-| `Shaders` | Shader rendering checks (including round-rect/custom shader snippets). | `engine4` |
+| `legacy/Particles` | Particle scenarios (basic/galaxy/soft), 2D/3D particles and effects. | `engine4` |
+| `legacy/Shaders` | Shader rendering checks (including round-rect/custom shader snippets). | `engine4` |
 | `AdvTex` | Texture assets: manual mip levels under the three filters, texture array with a custom shader, compressed texture from DDS (S3TC), direct upload/fill. Migrated to the foundation API in B-10; declares a fixed canvas and self-checks the direct-access panel by reading the frame back. | `engine5` |
-| `Billboards` | 3D billboards, camera/zoom behavior, sprite rendering in 3D space. | `engine4` |
-| `CharAnimation` | Loading/rendering animated character (`IQM`), basic 3D character pipeline. | `engine4` |
+| `legacy/Billboards` | 3D billboards, camera/zoom behavior, sprite rendering in 3D space. | `engine4` |
+| `legacy/CharAnimation` | Loading/rendering animated character (`IQM`), basic 3D character pipeline. | `engine4` |
 | `ShadowMap` | 3D scene with shadow map pass, custom shader files, and OBJ geometry loaded through the engine5 `TGpuMesh` path. | `engine5` |
 
 ## 4. Platform and Subsystem Demos (specialized)
 
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
-| `ControllerDemo` | Gamepad/joystick input, SDL platform path, UI navigation from controller. | `engine4` |
+| `legacy/ControllerDemo` | Gamepad/joystick input, SDL platform path, UI navigation from controller. | `engine4` |
 | `SoundDemo` | Console audio-system check (backend selection, music/samples, SOUND signals). Migrated to the foundation API in R-28; script mode runs headless in CI. Audio backends are opt-in, so it builds with `-dSDLMIX`. | `engine5` |
 
 ## 5. Incomplete / Transitional / Historical (lowest priority)
@@ -84,7 +85,7 @@ Broken (8) - all of them still sit on the retired foundation modules:
 |---|---|---|
 | `MultiWindow` | Multi-window support (R-02): main window + tool windows, `AddWindow`/window-scene flow. | `engine5` |
 | `ProjectTemplate` | Minimal starter project skeleton (window + simple scene + Exit button). Updated 2026-08-31: current API, R-31 surface presets, Lazarus project added. | `engine5` |
-| `EngineTest` | Large old set of manual graphics/resource tests (many modes, includes deprecated API paths). | `legacy` |
+| `legacy/EngineTest` | Large old set of manual graphics/resource tests (many modes, includes deprecated API paths). | `legacy` |
 
 ## Classification notes
 

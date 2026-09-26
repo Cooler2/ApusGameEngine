@@ -46,8 +46,8 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  if DirectoryExists('..\Demo\Particles') then
-   baseDir:='..\Demo\Particles\';
+  if DirectoryExists('..\demo\legacy\Particles') then
+   baseDir:='..\demo\legacy\Particles\';
  end;
 
 procedure TMainApp.SetupApplication;

@@ -204,10 +204,10 @@ procedure TMainScene.TryLoadDemoFonts;
 const
   TTF_PATHS:array[0..4] of string=(
     'res\arial.ttf',
-    '..\EngineTest\res\arial.ttf',
-    'demo\EngineTest\res\arial.ttf',
-    '..\..\demo\EngineTest\res\arial.ttf',
-    '..\..\..\demo\EngineTest\res\arial.ttf'
+    '..\legacy\EngineTest\res\arial.ttf',
+    'demo\legacy\EngineTest\res\arial.ttf',
+    '..\..\demo\legacy\EngineTest\res\arial.ttf',
+    '..\..\..\demo\legacy\EngineTest\res\arial.ttf'
   );
 var
   i:integer;

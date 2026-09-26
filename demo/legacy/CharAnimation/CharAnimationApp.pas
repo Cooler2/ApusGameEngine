@@ -48,8 +48,8 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  if DirectoryExists('..\Demo\CharAnimation') then
-   baseDir:='..\Demo\CharAnimation\';
+  if DirectoryExists('..\demo\legacy\CharAnimation') then
+   baseDir:='..\demo\legacy\CharAnimation\';
  end;
 
 procedure TMainApp.SetupApplication;

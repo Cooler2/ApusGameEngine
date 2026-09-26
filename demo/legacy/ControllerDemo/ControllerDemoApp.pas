@@ -42,8 +42,8 @@ constructor TMainApp.Create;
  begin
   inherited;
   baseDir:='';
-  if DirectoryExists('../Demo/ControllerDemo') then
-   baseDir:='../Demo/ControllerDemo/';
+  if DirectoryExists('../demo/legacy/ControllerDemo') then
+   baseDir:='../demo/legacy/ControllerDemo/';
  end;
 
 procedure TMainApp.SetupApplication;

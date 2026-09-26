@@ -65,8 +65,8 @@ procedure TMainApp.CreateScenes;
  begin
   st:=ExtractFileDir(ParamStr(0));
   SetCurrentDir(st);
-  if DirectoryExists('../demo/NinePatch') then
-    SetCurrentDir('../demo/NinePatch');
+  if DirectoryExists('../demo/legacy/NinePatch') then
+    SetCurrentDir('../demo/legacy/NinePatch');
   st:=GetCurrentDir;
 
   inherited;

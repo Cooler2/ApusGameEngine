@@ -41,12 +41,12 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\..\bin64\NinePatch_fpc"/>
+      <Filename Value="..\..\..\bin64\NinePatch_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <Libraries Value=".;..\..\bin;..\..\bin64"/>
-      <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
+      <Libraries Value=".;..\..\..\bin;..\..\..\bin64"/>
+      <OtherUnitFiles Value="..\..\..;..\..\..\extra;..\..\..\extra\sdl2;..\..\..\Base;..\..\..\Base\extra"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>
