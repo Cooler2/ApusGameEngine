@@ -14,7 +14,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 - Defines: `DELPHI;OPENGL;LODEPNG;FREETYPE`
 - GL define family (full description in `defines.inc`): `OPENGL` = umbrella "any GL renderer"; `GLES` = ES 3.0 dialect (implies OPENGL; mobile, or `-dGLES` on desktop for debugging); `GLDESKTOP` = derived (OPENGL minus GLES), gates the desktop loader. RULE: unit `dglOpenGL` only under `{$IFDEF GLDESKTOP}`, unit `dglOpenGLES` only under `{$IFDEF GLES}`
 - Output: `bin\` (Win32), `bin64\` (Win64)
-- Entry point: `TGameApplication.Create` в†’ `Prepare()` в†’ `Run()`
+- Entry point: `TGameApplication.Create` → `Prepare()` → `Run()`
 
 ## Code Style
 
@@ -34,9 +34,9 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 
 ### String Types
 
-- **Primary**: `String8` (UTF-8) вЂ” main string type for all text
-- **Alternative**: `String32` (UCS-4) вЂ” not used yet, but plan to support in future
-- **Compatibility**: built-in `string` вЂ” use when String8 doesn't fit (e.g. RTL interop)
+- **Primary**: `String8` (UTF-8) — main string type for all text
+- **Alternative**: `String32` (UCS-4) — not used yet, but plan to support in future
+- **Compatibility**: built-in `string` — use when String8 doesn't fit (e.g. RTL interop)
 - Focus on String8 for new code
 
 **Function overloads for string parameters:**
@@ -101,14 +101,14 @@ Level 5:
 
 - **Interfaces**: `ISystemPlatform`, `IGraphicsSystem`, `IDrawer` for abstraction
 - **Signals**: `"UI\Element\Click"` via `Link()` and `Apus.EventMan`
-- **Scene lifecycle**: `Load()` (async) в†’ `Initialize()` (fast) в†’ `Process()` в†’ `Render()`
+- **Scene lifecycle**: `Load()` (async) → `Initialize()` (fast) → `Process()` → `Render()`
 - **Resources**: Reference counted, call `Free` when done
 - **Singleton**: Global `game` object (NOT thread-safe, use `RunAsync`)
 
 ## Deprecated Code
 
 **To remove/replace:**
-- `Apus.Network.pas` в†’ use `Apus.Socket` (marked deprecated 2023)
+- `Apus.Network.pas` → use `Apus.Socket` (marked deprecated 2023)
 - `Apus.Engine.PainterGL.pas` / `Apus.Engine.PainterGL2.pas` - removed legacy painter backends
 - `Apus.Engine.UdpTransport.pas` - symmetric UDP transport (legacy name: `Apus.Engine.Networking2`)
 - `Apus.Engine.Networking3.pas` - renamed to `Apus.Engine.HttpGameClient`; no compatibility facade
@@ -136,10 +136,10 @@ Level 5:
 - Input handling
 
 **Running tests:**
-- `Base/tests/test.bat <TestName>` вЂ” compile and run tests (default: TestCore)
+- `Base/tests/test.bat <TestName>` — compile and run tests (default: TestCore)
 - Output: `test_results_64.txt` and `test_results_32.txt` (old files deleted on each run)
 - Running .bat from Claude Code: use `cmd //c "full\path\to\test.bat Args"` (double slash required in Git Bash). Single-slash `cmd /c` opens interactive session and doesn't execute.
-- IMPORTANT: always verify result files are fresh after running tests вЂ” stale results from previous runs can be misleading
+- IMPORTANT: always verify result files are fresh after running tests — stale results from previous runs can be misleading
 
 **Test conventions:**
 - Output format: `Testing XXX... OK` or `Testing XXX... FAIL` on single line
@@ -187,7 +187,7 @@ Level 5:
 3. Fix each error: replace old calls with new API (from Apus.Core/Conv/Strings/Log/Threads), or extract missing functions to the appropriate new module
 
 **Build tools:**
-- Do NOT create `.lpi` files вЂ” project uses FPC via `test.bat` or Delphi `.dproj` (created manually)
+- Do NOT create `.lpi` files — project uses FPC via `test.bat` or Delphi `.dproj` (created manually)
 - Compile individual module: `fpc -MDelphi -Sd -Fu.. -FU<out_dir> <Module.pas>` (run from `Base/tests/`)
 - Compile standalone engine unit: `fpc -dOPENGL -MDelphi -Sd -RIntel -Fu<repo> -Fu<repo>\extra -Fu<repo>\extra\sdl2 -Fu<repo>\Base -Fu<repo>\Base\extra -FU<out_dir> <Module.pas>` (`-dSDL` only for SDL-specific checks)
 - Run tests: `test.bat <TestName>` (e.g. `test.bat EventMan`)
@@ -199,7 +199,7 @@ Level 5:
 - Do NOT use `{$IFOPT R+}` for custom checks — prefer `ASSERT` for centralized control.
 
 
-- use `UIntPtr` for pointerв†”integer conversion
+- use `UIntPtr` for pointer↔integer conversion
 - add comments after `{$ELSE}` when far from condition
 - short end-of-line comments start lowercase: `a:=1; // initialize`
 - do not add unit finalization unless needed
