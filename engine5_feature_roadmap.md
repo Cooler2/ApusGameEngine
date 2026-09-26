@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-08-24
+Last updated: 2026-09-26
 
 Language policy: this roadmap is maintained in English.
 
@@ -45,6 +45,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
 | R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
 | R-31 | Working Surface, Size & Orientation Model | in-progress | ~70% | **Schedule blocker (P1)**. API sketch rev 2 accepted; stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done — the public contract is closed. Left: C (presets/preview/CLI knobs), D (mobile safe area), E (present shader) |
+| R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache; TextDemo screen 9, GL test vs CPU reference. Port adopts on its side |
 
 ## GL Version Policy (locked 2026-07-03)
 
@@ -506,3 +507,11 @@ Two tiers, not a version ladder:
   - [ ] Renames applied per approved terminology; input↔render coordinate round-trip tests pass at displayRect edges.
   - [ ] A mobile demo declares orientation once and runs both on device and as a fitted desktop preview.
 - Design doc (RU, agreed 2026-07-20; §8.1–8.3 = accepted decisions, §8.4 = two items deferred to API sketch): `Work/surface_size_design.md`; companions: `Work/mobile_surface_orientation.md`, `Work/render_size_model.md`.
+
+### [R-33] Text with Effects (`Apus.Engine.TextEffects`)
+- Status: done (2026-09-26) | Area: Render / Text | Origin: Spectromancer port blocker B-17 (the port adopts it on its side)
+- Wanted: glow / outline / shadow around text for the port (loading-screen version string, fading outlined combat numbers) as in Engine 2 `WriteEx`, without reviving the lagging `toDrawToBitmap` CPU path.
+- Got: `DrawTextFX(font,x,y,color,st,align,layers,options)` + `FlushTextFXCache`. A layer is color + offset + spread (round dilation) + gaussian blur (value = visible radius), with `Glow`/`Outline`/`Shadow` constructors; the Engine 2 parameters were dropped (no compatibility kept). The text is baked once on GPU through the regular `txt.Write` path (same glyphs, SML, multi-line and anchor as plain text) and cached as a sprite in a per-thread LRU; alpha is applied at draw time, so fading never re-bakes.
+- Proof: TextDemo screen 9 (visual sign-off 2026-09-26); `tests/TestTextEffects.dpr` matches a CPU reference within 2/255 (run locally - needs a GL window; CI only compiles it).
+- Left out: uncached mode for volatile text, cache atlas, `TTextObject`/`DrawTextWithGlow` migration, SDF fonts (engine6), manual section (chapter 24 "Text and Fonts" is not written yet).
+- Design (RU): `Work/R-33_text_effects_design.md`.

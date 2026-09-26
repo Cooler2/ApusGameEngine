@@ -82,8 +82,9 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-06-19):** Renamed engine networking modules to descriptive names: `Apus.Engine.Networking3` is now `Apus.Engine.HttpGameClient`, and `Apus.Engine.Networking2` is now `Apus.Engine.UdpTransport`.
 **Recent wins (2026-06-19):** Removed legacy `Apus.Engine.PainterGL` and `Apus.Engine.PainterGL2`; active rendering goes through `Apus.Engine.OpenGL` and the `IGraphicsSystem`/`IDrawer` stack.
 **Recent wins (2026-09-06):** Unhandled `Thread.Start` exceptions now retain their class, raw exception address, available FPC stack frames, and message in both the forced log and `IThread.StatusText`; raw-`TThread` tests use the same `Apus.Core.ExceptionMsg` path.
+**Recent wins (2026-09-26):** New `Apus.Engine.TextEffects` (R-33): `DrawTextFX` draws text with effect layers (glow, outline, shadow): each layer is color + offset + spread (round dilation) + gaussian blur, with `Glow`/`Outline`/`Shadow` constructors. The text is baked once on GPU through the regular `txt.Write` path (so SML, fallback fonts, multi-line and glyph positions match plain text) and cached as a sprite; alpha is applied at draw time. Showcase: TextDemo screen 9; `tests/TestTextEffects.dpr` checks it against a CPU reference within 2/255.
 
-- 2026-09-26: R-32 adds static WebP decode and fixes FPC PNG grayscale target writes; Win64 and Linux x64 decoder binaries are bundled. See PNG_DECODERS.md for decoder comparison and deployment limits.
+- 2026-09-26: R-32 adds static WebP decode and fixes FPC PNG grayscale target writes; Win64, Linux x64, and Android arm64 decoder binaries are bundled; Android runtime is not yet verified. See PNG_DECODERS.md for decoder comparison and deployment limits.
 
 ## Live module inventory (2026-05-29)
 

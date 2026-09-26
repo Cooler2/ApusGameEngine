@@ -343,3 +343,6 @@ bfReadOnly -> bfImmutable [Apus.Engine.Resources]
 // CropImage is a function now: returns a ClonePart view, the argument is not modified
 CropImage -> ?view:=CropImage(image,x1,y1,x2,y2) [Apus.Engine.ImageTools]
 defaultImagesDir -> defaultImagesDir [Apus.Engine.Resources]
+
+// === Text effects (R-33): layer type moved out of Apus.Engine.API ===
+TTextEffectLayer -> TTextEffectLayer [Apus.Engine.TextEffects]

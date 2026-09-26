@@ -70,6 +70,7 @@ run_test() {
 
 compile_only tests/PlatformTest.dpr
 compile_only tests/OpenGL.dpr
+compile_only tests/TestTextEffects.dpr # needs a GL window: run locally
 run_test tests/TestStyle.dpr
 run_test tests/TestSurface.dpr
 run_test tests/TestGpuLayout.dpr

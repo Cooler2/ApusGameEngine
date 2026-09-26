@@ -12,16 +12,34 @@ Use it as the primary reference when updating old code.
   Define WEBP to link libwebpdecoder; without it the API raises NotImplemented.
   The engine file loader and preloader accept .webp. Save/encode is not added.
   An opt-in build must ship the decoder under the binding name:
-  libwebpdecoder.dll on Windows, libapuswebpdecoder.so on Linux, or
+  libwebpdecoder.dll on Windows, libapuswebpdecoder.so on Linux/Android, or
   libwebpdecoder.dylib on macOS. Windows x64 and Linux x64 binaries are built
   from pinned libwebp source and bundled in bin64/ and redist/linux/.
-  Other target binaries are not bundled.
+  Android arm64-v8a is bundled in redist/android/; macOS and iOS are deferred.
   Extensionless file probing includes .webp only in WEBP builds.
 - The shared FPC image reader now respects the target pixel format and row pitch,
   including Mono8 and A8 targets, for PNG and JPEG. Previously it wrote four
   bytes per pixel even into one-byte grayscale PNG targets.
 - PNG decoder measurements, limits, and the compile-time selection decision are
   documented in [PNG_DECODERS.md](PNG_DECODERS.md). LODEPNG behavior is unchanged.
+
+## Text effects: `TTextEffectLayer` moved and redesigned (2026-09-26)
+
+`TTextEffectLayer` moved from `Apus.Engine.API` to the new module `Apus.Engine.TextEffects`
+(R-33): add it to `uses`. Layers are passed explicitly to `DrawTextFX`; there is no
+`textEffects[]` state in the text drawer (Engine 2 `WriteEx` has no direct counterpart).
+
+The fields changed, there is no mechanical mapping - re-tune the values by eye:
+
+| Engine 2 field | Engine 5 |
+|---|---|
+| `enabled` | removed: pass only the layers you want |
+| `blur` (soft 3x3), `fastblurX/Y` (box), `power` | `blur` (gaussian, visible radius) + `spread` (round dilation) |
+| `emboss`, `embossX/Y` | removed |
+| `color`, `dx`, `dy` | unchanged |
+
+Typical layers: `TTextEffectLayer.Glow(color,blur,spread)`, `.Outline(color,width)`,
+`.Shadow(color,dx,dy,blur)`.
 
 ## Image loading: shared textures, source keys (2026-09-16)
 
