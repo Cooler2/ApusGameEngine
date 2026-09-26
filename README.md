@@ -16,30 +16,25 @@ Cross-platform 2D/3D game engine written in Delphi/Pascal by Ivan Polyacov ([Apu
 
 **Requirements:** [FPC](https://www.freepascal.org/) 3.2.2+ or Delphi 12+. No other setup is needed: the engine is used from source.
 
-**Windows** (FPC) - from the repository root:
+**Build a demo with FPC** - from the repository root:
 
 ```
-demo\build_demo_fpc.cmd SimpleDemo
+build.cmd SimpleDemo          (Windows: the exe goes to bin64\, next to the DLLs it needs)
 bin64\SimpleDemo.exe
-```
 
-The exe goes to `bin64\`, next to the DLLs it needs (SDL2, FreeType, SDL_mixer). With Delphi, open `demo\SimpleDemo\SimpleDemo.dproj`.
-
-**Linux** (FPC) - install `libsdl2-dev libfreetype-dev` (plus `libsdl2-mixer-dev` for audio), then from the repository root:
-
-```
-mkdir -p demo/SimpleDemo/_fpc
-fpc -dOPENGL -dFREETYPE -MDelphi -Sd -RIntel \
-  -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra \
-  -Fudemo/SimpleDemo -FUdemo/SimpleDemo/_fpc demo/SimpleDemo/SimpleDemo.dpr
+./build.sh SimpleDemo         (Linux: the exe goes next to the .dpr)
 demo/SimpleDemo/SimpleDemo
 ```
 
-**macOS** - see [`platform/`](platform/) and [`platform/BUILDING_BUNDLES.md`](platform/BUILDING_BUNDLES.md).
+On Linux install `libsdl2-dev libfreetype-dev` first (plus `libsdl2-mixer-dev` for audio). The compiler options live in one place, [`build.cfg`](build.cfg), shared by both scripts and CI; a project can add its own in `<project>/build.cfg`. Extra options can be passed after the name, e.g. `./build.sh SimpleDemo -dDEBUG`.
+
+With Delphi, open `demo\SimpleDemo\SimpleDemo.dproj`; with Lazarus, the `.lpi` next to it.
+
+**macOS** - `./build.sh` works as on Linux (SDL2 and FreeType from Homebrew); for a proper `.app` see [`platform/`](platform/) and [`platform/BUILDING_BUNDLES.md`](platform/BUILDING_BUNDLES.md).
 
 **Your own project:** copy [`demo/ProjectTemplate`](demo/ProjectTemplate/) - its [README](demo/ProjectTemplate/README.md) has the steps. Other demos are listed in [`demo/demo_inventory.md`](demo/demo_inventory.md).
 
-Opt-in defines (see `defines.inc`): `SDLMIX` - audio via SDL_mixer; `WEBP` - `.webp` image loading; `SDL` - SDL platform layer on Windows (Linux and macOS always use it).
+Opt-in defines (see `defines.inc`), passed as `-d<NAME>`: `SDLMIX` - audio via SDL_mixer; `WEBP` - `.webp` image loading; `SDL` - SDL platform layer on Windows (Linux and macOS always use it).
 
 ---
 

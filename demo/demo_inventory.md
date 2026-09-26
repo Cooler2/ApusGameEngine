@@ -10,8 +10,8 @@ Relevance categories:
 
 ## Build status (FPC 3.2.2, Win64, 2026-08-31)
 
-Checked with `demo\build_demo_fpc.cmd <Name>` for every demo whose project file
-matches its folder name, plus `01-Scenes` and `legacy/EngineTest` by hand. Relevance
+Checked by building every demo with FPC (today: `build.cmd <Name>` / `./build.sh <Name>`),
+plus `legacy/EngineTest` by hand. Relevance
 above says how current a demo is *meant* to be; this table says whether it
 compiles today.
 
@@ -20,9 +20,10 @@ Builds (21): `01-Scenes`, `AdvTex`, `Draw2D`, `InputDemo`, `MeshLab`, `MultiWind
 `SimpleDemo`, `SoundDemo`, `StyleDemo`, `TextDemo`, `TouchDemo`, `Tweenings`,
 `UI`, `UIScaleDPI`, `UILab`, `VertexBuffer`.
 
-These 21 are exactly what CI compiles on Linux, Windows and macOS (`demo-build`
-job, plus `tests/macos_smoke.sh`). When a demo below moves to "builds", move it back
-from `demo/legacy/` to `demo/` and add it to both lists.
+CI compiles every folder in `demo/` that has a project file, on Linux, Windows and
+macOS (`demo-build` job and `tests/macos_smoke.sh`, both through `build.sh`/`build.cmd`),
+so a demo is in CI simply by living in `demo/`. When a demo below builds again, move it
+back from `demo/legacy/` to `demo/`.
 
 Broken (8) - all of them still sit on the retired foundation modules. They live in
 `demo/legacy/` (see `demo/legacy/README.md`) until they are migrated:

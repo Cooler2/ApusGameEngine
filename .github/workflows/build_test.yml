@@ -203,72 +203,27 @@ jobs:
           brew install fpc
           fpc -iV
 
-      # Every demo that currently builds. The ones left out don't compile yet -
-      # they are listed with their blocker in demo/demo_inventory.md.
+      # Every demo folder with a project file is built - demos that don't compile
+      # yet live in demo/legacy/ (no project at that level, so they are skipped).
+      # Options come from build.cfg (+ demo/<Name>/build.cfg), same as for users.
       - name: Compile demos (Linux)
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          compile_demo() {
-            local demo="$1"
-            # extra defines, if any: audio backends are opt-in (see defines.inc)
-            local extra="${2:-}"
-            # project name, when it differs from the folder name
-            local project="${3:-$demo}"
-            local dpr="demo/${demo}/${project}.dpr"
-            local out="demo/${demo}/_fpc"
-            rm -rf "$out"
-            mkdir -p "$out"
-            # same defines as demo/build_demo_fpc.cmd, the documented way to build a demo
-            fpc -dOPENGL -dFREETYPE $extra -MDelphi -Sd -RIntel \
-              -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra \
-              -Fu"demo/${demo}" -FU"$out" "$dpr"
-          }
-          compile_demo "SimpleDemo"
-          compile_demo "Draw2D"
-          compile_demo "InputDemo"
-          compile_demo "TextDemo"
-          compile_demo "Simple3D"
-          compile_demo "ShadowMap"
-          compile_demo "SoundDemo" "-dSDLMIX"
-          compile_demo "01-Scenes" "" "scenes"
-          compile_demo "AdvTex"
-          compile_demo "MeshLab"
-          compile_demo "MultiWindow"
-          compile_demo "Networking"
-          compile_demo "NormalMap"
-          compile_demo "ProjectTemplate"
-          compile_demo "StyleDemo"
-          compile_demo "TouchDemo"
-          compile_demo "Tweenings"
-          compile_demo "UI"
-          compile_demo "UILab"
-          compile_demo "UIScaleDPI"
-          compile_demo "VertexBuffer"
+          for dir in demo/*/; do
+            compgen -G "${dir}*.dpr" > /dev/null || continue
+            echo "::group::${dir}"
+            ./build.sh "$dir"
+            echo "::endgroup::"
+          done
 
       - name: Compile demos (Windows)
         if: runner.os == 'Windows'
         run: |
-          $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo","Simple3D","ShadowMap","SoundDemo",
-            "01-Scenes","AdvTex","MeshLab","MultiWindow","Networking","NormalMap","ProjectTemplate",
-            "StyleDemo","TouchDemo","Tweenings","UI","UILab","UIScaleDPI","VertexBuffer")
-          # extra defines per demo: audio backends are opt-in (see defines.inc)
-          $extraDefines=@{ "SoundDemo"="-dSDLMIX" }
-          # project name where it differs from the folder name
-          $projectName=@{ "01-Scenes"="scenes" }
-          foreach($demo in $demos){
-            $out="demo/$demo/_fpc"
-            if(Test-Path $out){ Remove-Item $out -Recurse -Force }
-            New-Item -ItemType Directory -Path $out | Out-Null
-            $project=$demo
-            if($projectName.ContainsKey($demo)){ $project=$projectName[$demo] }
-            # same defines as demo/build_demo_fpc.cmd, the documented way to build a demo
-            $fpcArgs=@("-dOPENGL","-dFREETYPE")
-            if($extraDefines.ContainsKey($demo)){ $fpcArgs+=$extraDefines[$demo] }
-            $fpcArgs+=@("-MDelphi","-Sd","-RIntel",
-              "-Fu.","-Fuextra","-Fuextra/sdl2","-FuBase","-FuBase/extra",
-              "-Fudemo/$demo","-FU$out","demo/$demo/$project.dpr")
-            fpc @fpcArgs
+          # executables go to bin64/bin (build.cmd), next to the committed DLLs
+          foreach($dir in Get-ChildItem demo -Directory){
+            if(-not (Get-ChildItem $dir.FullName -Filter *.dpr)){ continue }
+            cmd /c build.cmd $dir.FullName
             if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
           }
 
@@ -291,10 +246,8 @@ jobs:
           Add-Type -Namespace Win32 -Name Kernel -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetErrorMode(uint mode);'
           [void][Win32.Kernel]::SetErrorMode(0x8003)
           $failed=@()
-          foreach($exe in Get-ChildItem demo\*\*.exe){
-            $copy=Join-Path (Resolve-Path $runtimeDir) $exe.Name
-            Copy-Item -LiteralPath $exe.FullName -Destination $copy -Force
-            $p=Start-Process -FilePath $copy -WorkingDirectory $exe.DirectoryName -PassThru
+          foreach($exe in Get-ChildItem "$runtimeDir\*.exe"){
+            $p=Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -PassThru
             if($p.WaitForExit(5000)){
               $code=$p.ExitCode
               if($loaderErrors.ContainsKey($code)){
@@ -306,7 +259,6 @@ jobs:
               Write-Host "[ ok ] $($exe.Name) started"
             }
             Start-Sleep -Milliseconds 300
-            Remove-Item -LiteralPath $copy -Force
           }
           if($failed.Count -gt 0){ throw "Demos that cannot start from ${runtimeDir}: $($failed -join ', ')" }
 
@@ -337,14 +289,8 @@ jobs:
           }else{
             throw "Unsupported Windows FPC target: $targetCPU"
           }
-          $runtimeDlls=@(
-            (Join-Path $runtimeDir "sdl2.dll"),
-            (Join-Path $runtimeDir "SDL2_mixer.dll"),
-            (Join-Path $runtimeDir "libxmp.dll")
-          )
           Write-Host "Using $runtimeDir audio runtime for FPC target $targetCPU"
-          Copy-Item -LiteralPath $runtimeDlls -Destination demo\SoundDemo -Force
-          Set-Location demo\SoundDemo
+          Set-Location $runtimeDir
           .\SoundDemo.exe 5 w300 1 w800 2 w1500 check:music 4 w300
           $soundExitCode=$LASTEXITCODE
           Write-Host "SoundDemo exit code: $soundExitCode"

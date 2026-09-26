@@ -74,15 +74,23 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "demos" ]; then
-  # Every demo that currently builds, as <folder>/<project>. The ones left out
-  # don't compile yet - see demo/demo_inventory.md for their blockers.
-  for target in SimpleDemo/SimpleDemo Draw2D/Draw2D InputDemo/InputDemo TextDemo/TextDemo \
-                Simple3D/Simple3D ShadowMap/ShadowMap 01-Scenes/scenes AdvTex/AdvTex \
-                MeshLab/MeshLab MultiWindow/MultiWindow Networking/Networking \
-                NormalMap/NormalMap ProjectTemplate/ProjectTemplate StyleDemo/StyleDemo \
-                TouchDemo/TouchDemo Tweenings/Tweenings UI/UI UILab/UILab \
-                UIScaleDPI/UIScaleDPI VertexBuffer/VertexBuffer; do
-    compile_only "demo/${target}.dpr" "demo/${target%/*}"
+  # Every demo folder with a project file, built the way users build it
+  # (build.sh: build.cfg + demo/<Name>/build.cfg), compile-only. Demos that
+  # don't compile yet live in demo/legacy/ and are skipped.
+  for dir in demo/*/; do
+    compgen -G "${dir}*.dpr" > /dev/null || continue
+    name="$(basename "$dir")"
+    log="$OUTDIR/demo_$name.log"
+    mkdir -p "$OUTDIR/demo_$name"
+    if "$ROOT/build.sh" "$dir" -Cn -Cr -Se1 -FU"$OUTDIR/demo_$name" > "$log" 2>&1; then
+      printf '[ ---- ] %s\n' "$dir"
+      ((pass++))
+    else
+      printf '[ FAIL ] %s\n' "$dir"
+      tail -n 50 "$log"
+      ((fail++))
+      failed+=("$dir")
+    fi
   done
 fi
 
