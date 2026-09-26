@@ -12,7 +12,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
 fi
 
 FPC="${FPC:-fpc}"
-FLAGS=(-MDelphi -Sd -Ct -CR -Xm -gl -dTIME_OVERRIDE -Fu.. -Fu../extra)
+FLAGS=(-MDelphi -Sd -Ct -Cr -CR -Xm -gl -dTIME_OVERRIDE -Fu.. -Fu../extra)
 OUTDIR="out_macos"
 BINDIR="bin_macos"
 LOG="test_results_M64.txt"

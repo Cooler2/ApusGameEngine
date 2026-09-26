@@ -17,6 +17,7 @@ FLAGS=(
   -Fuextra/sdl2
   -FuBase
   -FuBase/extra
+  -Cr
   -Se1
 )
 
