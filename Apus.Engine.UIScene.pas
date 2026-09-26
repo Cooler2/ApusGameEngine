@@ -58,6 +58,9 @@ type
 
  // Create a popup window and attach it to the given parent
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
+ // Hint created by the last ShowSimpleHint in this thread (TUIHint), nil if none.
+ // Valid until the next ShowSimpleHint, which frees it.
+ function CurrentHint:TUIElement;
 
 implementation
  uses SysUtils, Apus.Lib, Types,
@@ -111,6 +114,11 @@ function UIScene(name:String8):TUIScene;
   ASSERT(scene is TUIScene,'Scene '+name+' is not a TUIScene');
   result:=scene as TUIScene;
  end;
+
+ function CurrentHint:TUIElement;
+  begin
+   result:=curHint;
+  end;
 
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   var

@@ -117,6 +117,8 @@ type
   // -------
   // Create a popup window and attach it to the given parent
   procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
+  // Hint created by the last ShowSimpleHint, nil if none; valid until the next call
+  function CurrentHint:TUIHint;
 
   // Shortcut to the element under mouse
   function UnderMouse:TUIElement;
@@ -162,6 +164,11 @@ implementation
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   begin
    Apus.Engine.UIScene.ShowSimpleHint(msg,parent,x,y,time,font);
+  end;
+
+ function CurrentHint:TUIHint;
+  begin
+   result:=TUIHint(Apus.Engine.UIScene.CurrentHint);
   end;
 
  function CreateVerticalContainer(width:single;parent:TUIElement;padding,spacing:single;centering:boolean;name:string8):TUIElement;
