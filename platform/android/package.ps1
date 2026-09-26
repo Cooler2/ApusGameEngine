@@ -92,6 +92,11 @@ if (-not (Test-Path -LiteralPath $probeLibrary -PathType Leaf)) {
   throw "Engine probe not found: $probeLibrary"
 }
 Copy-Item -LiteralPath $probeLibrary -Destination (Join-Path $jniLibDir "libapus_android_engine_probe.so")
+$webpLibrary = Join-Path $repoRoot 'redist/android/arm64-v8a/libapuswebpdecoder.so'
+if (-not (Test-Path -LiteralPath $webpLibrary -PathType Leaf)) {
+  throw "WebP decoder not found: $webpLibrary"
+}
+Copy-Item -LiteralPath $webpLibrary -Destination (Join-Path $jniLibDir 'libapuswebpdecoder.so')
 
 $task = "assemble$Configuration"
 Write-Host "Building Android package ($task)..."
@@ -117,7 +122,8 @@ try {
     "AndroidManifest.xml",
     "classes.dex",
     "lib/arm64-v8a/libSDL2.so",
-    "lib/arm64-v8a/libapus_android_engine_probe.so"
+    "lib/arm64-v8a/libapus_android_engine_probe.so",
+    "lib/arm64-v8a/libapuswebpdecoder.so"
   )
   $missingEntries = @($requiredEntries | Where-Object { $_ -notin $entries })
   if ($missingEntries.Count -gt 0) {
@@ -134,4 +140,4 @@ try {
 }
 
 Write-Host "[OK] Android APK: $apk"
-Write-Host "[OK] SDL2 and the Engine5 SDL_main library are packaged for arm64-v8a"
+Write-Host "[OK] SDL2, Engine5 SDL_main, and WebP decoder libraries are packaged for arm64-v8a"

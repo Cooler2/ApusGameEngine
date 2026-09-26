@@ -98,7 +98,8 @@ installed_to     = bin64/libwebpdecoder.dll (x64)
 committed_sha256 = 52afc4a4ad09a04d903a338299d519c0ebf1b13d9da0319c3eb17e10cc914e2f
 imports          = KERNEL32.dll, msvcrt.dll (Windows system components only)
 notes            = WEBP remains opt-in; no libgcc or other third-party runtime.
-                   Win32 is not packaged. Linux/macOS/Android builds remain open.
+                   Win32 is not packaged. Linux x64 and Android arm64 binaries are in
+                   redist/; macOS remains open.
 
 [zlib]
 version          = 1.1.4

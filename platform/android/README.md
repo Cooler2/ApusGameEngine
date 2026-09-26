@@ -63,7 +63,9 @@ pwsh ./platform/android/package.ps1
 The packaging script downloads and verifies the SDL 2.30.9 source archive,
 stages its official Android project under `tmp/android/package/`, builds SDL for
 `arm64-v8a`, links TouchDemo against it, and adds both libraries plus
-`sprite.png` to the APK. At startup the asset is copied through `Apus.Android`
+`sprite.png` and the bundled ARM64 WebP decoder to the APK. The decoder
+is built by `platform/webp/build_android.ps1` and staged from
+`redist/android/arm64-v8a/`. At startup the asset is copied through `Apus.Android`
 to the app-private `app_Data` directory before the resource system loads it.
 Gradle 8.11.1, Android
 Gradle Plugin 8.10.1, compile/target SDK 36, NDK r27d, and minimum API 21 are

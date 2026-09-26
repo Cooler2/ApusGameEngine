@@ -1,0 +1,16 @@
+﻿# Android ARM64 WebP decoder distributed with the engine
+
+[libapuswebpdecoder]
+version          = 1.6.0 (WebM libwebp, decoder-only)
+source_url       = https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz
+source_sha256    = e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564
+build_script     = platform/webp/build_android.ps1 (NDK r27d, CMake static decoder target, private shared wrapper)
+target           = arm64-v8a, minimum Android API 21
+license          = BSD-3 (licenses/libwebp-LICENSE.txt)
+patents          = licenses/libwebp-PATENTS.txt
+installed_to     = redist/android/arm64-v8a/libapuswebpdecoder.so
+committed_sha256 = 981a7261826db1c7e1a4c7057b85d83625658ec4fa383f72facda8bbfc115ee3
+soname           = libapuswebpdecoder.so
+needed           = libdl.so, libc.so (Android system components only)
+notes            = Packaged by platform/android/package.ps1. Runtime decoding
+                   on an Android device or emulator remains unverified.

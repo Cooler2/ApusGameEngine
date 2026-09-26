@@ -30,7 +30,15 @@ library beside the executable. The private name prevents the linker from
 choosing a system libwebpdecoder. GfxFormats passes with that layout and no
 LD_LIBRARY_PATH.
 
+On Android arm64-v8a, run `./platform/webp/build_android.ps1` with NDK r27d,
+CMake, and Ninja installed. It verifies the pinned source archive, builds
+the decoder-only static target, then links a private
+`redist/android/arm64-v8a/libapuswebpdecoder.so` for API 21+. The build
+checks AArch64, SONAME, exports, and system-only dependencies (`libdl.so`
+and `libc.so`). `platform/android/package.ps1` puts it in the APK.
+Android runtime decoding still needs an emulator/device smoke test.
+
 macOS still needs an app-bundle dylib with a controlled install name and
-signing. Android needs a shared library for each packaged ABI. Keep WEBP
-disabled on those targets until their binaries and loaders are tested.
+signing, plus validation on an available Mac. Keep WEBP disabled there until
+the binary and loader are tested.
 iOS currently uses PNG rather than a WebP decoder.
