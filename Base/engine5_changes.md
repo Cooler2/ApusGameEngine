@@ -3,12 +3,23 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
-## Text effects: `TTextEffectLayer` moved (2026-09-26)
+## Text effects: `TTextEffectLayer` moved and redesigned (2026-09-26)
 
 `TTextEffectLayer` moved from `Apus.Engine.API` to the new module `Apus.Engine.TextEffects`
-(R-33); fields unchanged. It is consumed only by `DrawTextFX` there, so add
-`Apus.Engine.TextEffects` to `uses`. Layers are passed explicitly to `DrawTextFX`; there is
-no `textEffects[]` state in the text drawer (Engine 2 `WriteEx` has no direct counterpart).
+(R-33): add it to `uses`. Layers are passed explicitly to `DrawTextFX`; there is no
+`textEffects[]` state in the text drawer (Engine 2 `WriteEx` has no direct counterpart).
+
+The fields changed, there is no mechanical mapping - re-tune the values by eye:
+
+| Engine 2 field | Engine 5 |
+|---|---|
+| `enabled` | removed: pass only the layers you want |
+| `blur` (soft 3x3), `fastblurX/Y` (box), `power` | `blur` (gaussian, visible radius) + `spread` (round dilation) |
+| `emboss`, `embossX/Y` | removed |
+| `color`, `dx`, `dy` | unchanged |
+
+Typical layers: `TTextEffectLayer.Glow(color,blur,spread)`, `.Outline(color,width)`,
+`.Shadow(color,dx,dy,blur)`.
 
 ## Image loading: shared textures, source keys (2026-09-16)
 
