@@ -60,6 +60,13 @@
   {$DEFINE GLDESKTOP}
 {$ENDIF}
 
+// Platform layer: SDL is the only platform backend outside Windows (spDefault
+// resolves to spSDL there), so it is always compiled in. On Windows it is opt-in
+// (-dSDL) next to the native backend.
+{$IFNDEF MSWINDOWS}
+  {$DEFINE SDL}
+{$ENDIF}
+
 // ---------------------------------------------------------------------------
 // Audio backend family - all backends are opt-in, no audio is linked by default
 //   SDLMIX - SDL2_mixer backend (Apus.Engine.SoundSDL): plays samples, streams
