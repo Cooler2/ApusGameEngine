@@ -39,8 +39,8 @@ procedure TMainApp.SetupApplication;
   inherited;
   appSetup.title:='Apus Game Engine'; // app window title
   //appSetup.configFile:='game.ctl';
-  requestBackend.graphicsAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  requestBackend.platform:=spDefault; // native on Windows, SDL elsewhere (needs -dSDL)
+  requestBackend.graphicsAPI:=gaOpenGL2; // the shader GL renderer: GL 3.3 core, or GLES 3.0 with -dGLES
+  requestBackend.platform:=spDefault; // native on Windows, SDL elsewhere (spSDL on Windows needs -dSDL)
   //windowSetup.size:=MakeSize(1280,720); // client size, scaled by DPI
   //windowSetup.resizable:=true;
   // Working surface: by default the canvas covers the whole client area and

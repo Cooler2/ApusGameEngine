@@ -76,6 +76,7 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL
+-dFREETYPE
 -dSDL"/>
     </Other>
   </CompilerOptions>
