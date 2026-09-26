@@ -1329,7 +1329,7 @@ function CheckFileFormat(fname:string):TImageFileType;
    {$IF DEFINED(DARWIN) OR DEFINED(MACOS)}
  const WebPLib='libwebpdecoder.dylib';
    {$ELSE}
- const WebPLib='libwebpdecoder.so.0';
+ const WebPLib='libapuswebpdecoder.so';
    {$ENDIF}
  {$ENDIF}
  function WebPGetInfo(data:PByte;dataSize:NativeUInt;out width,height:integer):integer;

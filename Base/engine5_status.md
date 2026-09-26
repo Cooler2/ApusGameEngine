@@ -83,7 +83,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-06-19):** Removed legacy `Apus.Engine.PainterGL` and `Apus.Engine.PainterGL2`; active rendering goes through `Apus.Engine.OpenGL` and the `IGraphicsSystem`/`IDrawer` stack.
 **Recent wins (2026-09-06):** Unhandled `Thread.Start` exceptions now retain their class, raw exception address, available FPC stack frames, and message in both the forced log and `IThread.StatusText`; raw-`TThread` tests use the same `Apus.Core.ExceptionMsg` path.
 
-- 2026-09-26: R-32 adds static WebP decode and fixes FPC PNG grayscale target writes; see PNG_DECODERS.md for decoder comparison and deployment limits.
+- 2026-09-26: R-32 adds static WebP decode and fixes FPC PNG grayscale target writes; Win64 and Linux x64 decoder binaries are bundled. See PNG_DECODERS.md for decoder comparison and deployment limits.
 
 ## Live module inventory (2026-05-29)
 

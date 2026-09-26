@@ -1,0 +1,16 @@
+# Linux x64 WebP decoder distributed with the engine
+
+[libapuswebpdecoder]
+version          = 1.6.0 (WebM libwebp, decoder-only)
+source_url       = https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz
+source_sha256    = e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564
+build_script     = platform/webp/build_linux.sh (upstream makefile.unix, decoder target)
+build_platform   = Ubuntu 24.04 x86_64; highest required glibc symbol GLIBC_2.14
+license          = BSD-3 (licenses/libwebp-LICENSE.txt)
+patents          = licenses/libwebp-PATENTS.txt
+installed_to     = redist/linux/libapuswebpdecoder.so
+committed_sha256 = b28ae674a68300c3769a35b17379eb806bf5eedc40cde21eda3118bbacf0fc78
+soname           = libapuswebpdecoder.so
+needed           = libc.so.6 (Linux system component only)
+notes            = No third-party runtime dependencies. Games must copy the
+                   library beside the executable and link with RUNPATH=$ORIGIN.

@@ -98,6 +98,20 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Test bundled Linux WebP decoder
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          echo 'b28ae674a68300c3769a35b17379eb806bf5eedc40cde21eda3118bbacf0fc78  redist/linux/libapuswebpdecoder.so' | sha256sum -c -
+          needed="$(readelf -d redist/linux/libapuswebpdecoder.so | sed -n 's/.*(NEEDED).*\[\([^]]*\)\].*/\1/p')"
+          test "$needed" = 'libc.so.6'
+          export TEST_FLAGS="-dWEBP -Fl$PWD/redist/linux -k-rpath -k\$ORIGIN"
+          export TEST_RUNTIME_LIB="$PWD/redist/linux/libapuswebpdecoder.so"
+          unset LD_LIBRARY_PATH
+          bash Base/tests/test.sh GfxFormats
+          readelf -d Base/tests/bin64/TestGfxFormats | grep -F 'Shared library: [libapuswebpdecoder.so]'
+          readelf -d Base/tests/bin64/TestGfxFormats | grep -F 'Library runpath: [$ORIGIN]'
+
       - name: Run Base tests (Windows)
         if: runner.os == 'Windows'
         shell: cmd

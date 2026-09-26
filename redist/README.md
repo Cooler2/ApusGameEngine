@@ -18,7 +18,7 @@ redist/
     SOURCES.txt           # provenance: version, URL, sha256, normalization
 ```
 
-Currently populated: `macos/`, `ios/` and `ios-simulator/` (SDL2), plus
+Currently populated: `linux/` (WebP), `macos/`, `ios/` and `ios-simulator/` (SDL2), plus
 `windows/` — which is paperwork only. The Windows DLLs stay in `bin/`, `bin64/`
 and `Base/bin/`, where the build output needs them; re-vendoring them here would
 double their weight, and moving them would not reclaim any repository size
@@ -41,11 +41,12 @@ binary and source, and points at the notice file for each.
 
 ## Regenerating / auditing
 
-Each platform directory is produced by a `platform/<platform>/fetch_redist.sh`
-script that downloads the official upstream, verifies its SHA-256, normalizes it
-into our canonical layout, and records provenance in `SOURCES.txt`. To update a
+The platform scripts download pinned upstream releases, verify SHA-256, and
+place the resulting libraries in their canonical locations. Provenance and
+committed binary hashes are recorded in `SOURCES.txt`. To update a
 library, bump the version in the script and re-run it; commit the result.
 
+- Linux WebP: `platform/webp/build_linux.sh`
 - macOS: `platform/macos/fetch_redist.sh`
 - Windows WebP: `platform/webp/build_windows.ps1` downloads a pinned source
   archive, builds the decoder DLL, checks its imports, and installs it in `bin64/`.

@@ -21,10 +21,16 @@ builds with the same GCC 15.2.0 toolchain produced the same SHA-256;
 other toolchain versions may produce different bytes. Win32 is
 optional and has no WebP binary in this repository.
 
-Linux, macOS, and Android need separate binaries built from the same pinned
-source and checked for third-party runtime dependencies. The current
-compiler opt-in does not by itself package these binaries. Linux needs
-executable-relative library lookup; macOS needs its app-bundle install name
-and signing; Android needs a shared library for each packaged ABI. Keep
-WEBP disabled on those targets until their binaries and loaders are tested.
+On Linux x64, run bash platform/webp/build_linux.sh. It builds the upstream
+decoder-only archive with PIC, links one private libapuswebpdecoder.so, and
+rejects dependencies other than libc.so.6. The checked binary is committed in
+redist/linux/. For an FPC game, define WEBP, add
+`-Fl<repo>/redist/linux` and `-k-rpath -k'$ORIGIN'` at link time, and copy the
+library beside the executable. The private name prevents the linker from
+choosing a system libwebpdecoder. GfxFormats passes with that layout and no
+LD_LIBRARY_PATH.
+
+macOS still needs an app-bundle dylib with a controlled install name and
+signing. Android needs a shared library for each packaged ABI. Keep WEBP
+disabled on those targets until their binaries and loaders are tested.
 iOS currently uses PNG rather than a WebP decoder.

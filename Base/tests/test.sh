@@ -10,6 +10,7 @@ cd "$(dirname "$0")"
 # Compiler settings from test.bat [cite: 1, 2]
 FPC64="fpc"
 FLAGS="-MDelphi -Sd -Fu.. -Ct -CR -Xm -gl -dTIME_OVERRIDE"
+FLAGS="$FLAGS ${TEST_FLAGS:-}"
 case "$(uname -m)" in
   x86_64|i386|i686) FLAGS="$FLAGS -RIntel" ;;
 esac
@@ -50,7 +51,11 @@ if [ $STATUS -ne 0 ]; then
 else
   echo "" >> "$LOG64"
   echo "=== Running ===" >> "$LOG64"
-  # Execute the compiled binary 
+  # Place an optional runtime dependency beside the freshly built test.
+  if [ -n "${TEST_RUNTIME_LIB:-}" ]; then
+    cp "$TEST_RUNTIME_LIB" bin64/ || exit 1
+  fi
+  # Execute the compiled binary
   ./bin64/"$TEST" >> "$LOG64" 2>&1
   STATUS=$?
   echo "Exit code: $STATUS" >> "$LOG64"

@@ -29,6 +29,7 @@ the odd ones out: they sit where the build output needs them rather than under
 | FreeType | 2.10.0 | `Base/bin/freetype32.dll`, `Base/bin/freetype64.dll` | FTL (dual FTL/GPLv2, FTL elected) | `redist/windows/licenses/FreeType-FTL.txt` |
 | LodePNG | 20161127 | `Base/bin/LodePNG*.dll`, `Base/tests/LodePNG*.dll`, `Base/extra/LodePNG.lib` | zlib | `redist/windows/licenses/LodePNG-LICENSE.txt` |
 | libwebpdecoder | 1.6.0 | `bin64/libwebpdecoder.dll` | BSD-3 | `redist/windows/licenses/libwebp-LICENSE.txt`, `redist/windows/licenses/libwebp-PATENTS.txt` |
+| libwebpdecoder (Linux) | 1.6.0 | `redist/linux/libapuswebpdecoder.so` | BSD-3 | `redist/linux/licenses/libwebp-LICENSE.txt`, `redist/linux/licenses/libwebp-PATENTS.txt` |
 | zlib | 1.1.4 | `Base/extra/zlib/*.obj` (Win32 Delphi only) | zlib | `redist/windows/licenses/zlib-LICENSE.txt` |
 | SDL2 (macOS) | 2.30.9 | `redist/macos/libSDL2-2.0.0.dylib` | zlib | `redist/macos/licenses/SDL2-LICENSE.txt` |
 | SDL2 (iOS) | 2.30.12 | `redist/ios*/SDL2.framework/` | zlib | `redist/ios*/licenses/SDL2-LICENSE.txt` |
@@ -41,8 +42,8 @@ Two notes worth carrying downstream:
 - **libxmp** was LGPL-2.1 until version 4.5.0 and is MIT from 4.5.0 onward. The
   version shipped here is MIT — do not copy a licence claim from older sources.
 
-Linux builds link the distribution's own SDL2/SDL2_mixer packages; nothing is
-vendored for that platform. Files sitting in `bin/`/`bin64/` from local builds
+Linux builds link the distribution's own SDL2/SDL2_mixer packages; the
+WebP decoder is vendored under redist/linux/. Files sitting in `bin/`/`bin64/` from local builds
 but *not* tracked by git (assimp, steam_api, ImxEx, D3DX8 and other leftovers)
 are not part of the repository and are not covered here.
 
