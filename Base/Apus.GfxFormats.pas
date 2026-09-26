@@ -993,7 +993,7 @@ function CheckFileFormat(fname:string):TImageFileType;
      sp:=img.GetScanline(i);
      inc(sp);
      for j:=0 to w-1 do begin
-      // The FPC reader exposes 16-bit B, G, R, A samples.
+      // TFPColor holds 16-bit R, G, B, A samples; take the high bytes
       c:=sp^; inc(sp,2);
       c:=c shl 8+sp^; inc(sp,2);
       c:=c shl 8+sp^; inc(sp,2);
