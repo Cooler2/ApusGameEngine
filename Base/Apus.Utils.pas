@@ -47,7 +47,7 @@ type
   function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
 
   // Arbitrary spline: 0->v0, 1.0->v1
-  //   k0,k1 - касательные на концах (0 - горизонталь), v - вес деления (0..1, 0.5 - среднее)
+  //   k0,k1 - tangents at the ends (0 - horizontal), v - division weight (0..1, 0.5 - middle)
   function Spline(x:double;v0,k0,v1,k1:double;v:double=0.5):double;
 
 type

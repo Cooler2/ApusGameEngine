@@ -39,7 +39,7 @@ procedure DraftBlur32Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
 // Perform 4/8 blur of the rectangle on 8-bit image
 function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true):pointer;
 
-// Perform 0/4 blur of the rectangle on 8-bit image (если target=nil - запишет результат в исходный буфер)
+// Perform 0/4 blur of the rectangle on 8-bit image (if target=nil, the result is written to the source buffer)
 function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:integer=0):pointer;
 //procedure Blur8(buf:pointer;x1,y1,x2,y2,lPitch:integer);
 
@@ -91,7 +91,7 @@ procedure Maximum8(buf:pointer;x1,y1,x2,y2,lPitch,sizeX,sizeY:integer);
 // Additional filters
 // -------------------
 
-// Выделяет 8-битный буфер размером (width+padding*2)*(height*padding*2) и заполняет его значением альфаканала из источника
+// Allocate an 8-bit buffer of size (width+padding*2)*(height*padding*2) and fill it with the alpha channel of the source
 function ExtractAlpha(buf:pointer;pitch:integer;width,height:integer;padding:integer=0):pointer;
 
 // --------------

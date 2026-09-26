@@ -7,39 +7,39 @@ unit Apus.Publics;
 interface
  uses Apus.Core;
  type
-  // Такой класс обслуживает все переменные одного конкретного типа
-  // (один тип переменной не обязательно соответствует одному типу языка)
+  // Such a class handles all variables of one specific type
+  // (one variable type does not necessarily correspond to one language type)
   TVarClass=class of TVarType;
   TVarClassStruct=class of TVarTypeStruct;
-  // Простой тип данных (обычная переменная какого-либо типа)
+  // Simple data type (a regular variable of some type)
   TVarType=class
-   // Запись значения (из строки) в переменную
+   // Write a value (from a string) to the variable
    class procedure SetValue(variable:pointer;v:String8); virtual; abstract;
-   // Чтение значения переменной в виде строки
+   // Read the variable value as a string
    class function GetValue(variable:pointer):String8; virtual;
   end;
 
-  // Перечисляемый тип - принимает одно из нескольких возможных значений
+  // Enumerated type - takes one of several possible values
   TVarTypeEnum=class(TVarType)
-   // возвращает список возможных значений (через запятую)
+   // returns the list of possible values (comma-separated)
    class function ListValues:String8; virtual;
   end;
 
-  // Структурный тип данных - содержит поля
+  // Structured data type - contains fields
   TVarTypeStruct=class(TVarType)
-   // Чтение значения переменной в виде строки
+   // Read the variable value as a string
    class function GetValue(variable:pointer):String8; override;
-   // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
+   // Check whether a field with the given name exists (returns the type class and the address of the value itself)
    class function GetField(variable:pointer;fieldName:String8;out varClass:TVarClass):pointer; virtual;
-   // Возвращает список всех полей (через запятую)
+   // Return the list of all fields (comma-separated)
    class function ListFields:String8; virtual;
   end;
 
   // List type, syntax: name[index] where index is string (may be integer)
   TVarTypeList=class(TVarType)
-   // Чтение значения переменной в виде строки
+   // Read the variable value as a string
    class function GetValue(variable:pointer):String8; override;
-   // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
+   // Check whether a field with the given name exists (returns the type class and the address of the value itself)
    class function GetField(variable:pointer;index:String8;out varClass:TVarClass):pointer; virtual;
    // Returns list of indices (integer or strings, in any readable form)
    class function ListIndices:String8; virtual;
@@ -95,10 +95,10 @@ interface
    class function GetValue(variable:pointer):String8; override;
   end;
 
-  TVarFunc=function(name:String8):double; // ф-ция для получения значения переменной по имени (для Eval)
-  TFunction=function(params:String8;tag:integer;context:pointer;contextClass:TVarClassStruct):double; // произвольная ф-ция (context is passed for use in Eval)
+  TVarFunc=function(name:String8):double; // function that returns a variable value by name (for Eval)
+  TFunction=function(params:String8;tag:integer;context:pointer;contextClass:TVarClassStruct):double; // arbitrary function (context is passed for use in Eval)
 
-  // Опубликованная переменная
+  // Published variable
   TPublishedVariable=record
    addr:pointer;         // pointer to variable (nil - empty)
    name,lowname:String8; // variable name (original and lowercase)
@@ -106,7 +106,7 @@ interface
    next:integer;         // index of the next variable with the same hash value, or next free item
   end;
 
-  // Опубликованная константа
+  // Published constant
   TPublishedConstant=record
    name,lowname,value:String8;
   end;
@@ -118,17 +118,17 @@ interface
 
  // Main routines
  procedure PublishVar(variable:pointer;name:String8;vtype:TVarClass);
- procedure UnpublishVar(variable:pointer); // нужно при удалении объектов
+ procedure UnpublishVar(variable:pointer); // needed when objects are deleted
  procedure PublishConst(name:String8;value:String8);
  procedure UnpublishConst(name:String8);
- procedure PublishFunction(name:String8;f:TFunction;tag:integer=0); // например f=sin(x): PublishFunction('sin',f);
+ procedure PublishFunction(name:String8;f:TFunction;tag:integer=0); // e.g. f=sin(x): PublishFunction('sin',f);
  function FindVar(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
  function FindConstValue(name:String8):String8;
  // Get index of a published constant (in publicConsts)
  function FindConst(name:String8):integer;
 
- // Вычисляет значение выражения (выражение состоит из арифметических операций, скобок, констант и переменных)
- // VarFunc используется для получения значений переменных, если nil - используется механизм опубликованных переменных
+ // Evaluate an expression (the expression consists of arithmetic operations, parentheses, constants and variables)
+ // VarFunc is used to get variable values; if nil, the published variables mechanism is used
  function EvalFloat(expression:String8;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
 
  // Get string value of a variable, constant or expression
@@ -144,9 +144,9 @@ interface
   gI0,gI1,gI2,gI3:integer;
   gC0,gC1,gC2,gC3:cardinal;
 
- // Присваивает значения глобальным переменным.
- // Команда имеет вид: "gF3=3.14; gI1=1;gC2=$FF807060; gi0(0..2)=2"
- // Такая команда называется контекстом
+ // Assign values to global variables.
+ // The command looks like: "gF3=3.14; gI1=1;gC2=$FF807060; gi0(0..2)=2"
+ // Such a command is called a context
  procedure SetGlobals(cmd:String8;contextName:String8);
 
  // List of global contexts

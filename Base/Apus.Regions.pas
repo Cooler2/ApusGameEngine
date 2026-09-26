@@ -8,13 +8,13 @@ unit Apus.Regions;
 interface
  uses Apus.Images, Types;
 type
- // область произвольной формы
+ // region of arbitrary shape
  TRegion=class
   procedure Invert; virtual; abstract;
   function TestPoint(x,y:single):boolean; virtual; abstract;
  end;
 
- // регион, основанный на прямоугольниках
+ // region based on rectangles
  TRectRegion=class(TRegion)
   width,height:integer;
   r1,r2:array of TRect;

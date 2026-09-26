@@ -10,17 +10,17 @@ interface
   uses Apus.Utils;
 
   type
-    // Одиночная анимация значения
+    // Single value animation
     TSingleAnimation=record
       startTime,endTime:int64;
       value1,value2:single;
       spline:TSplineFunc;
     end;
 
-    // Произвольная анимация значения
+    // Arbitrary value animation
     PAnimatedValue=^TAnimatedValue;
     TAnimatedValue=object
-      logName:string; // Если строка не пустая - все операции будут логироваться
+      logName:string; // if the string is not empty, all operations are logged
       // Init object with given value (not for assignment!)
       constructor Init(initValue:single=0);
       // Init object by copying another object
@@ -28,30 +28,30 @@ interface
       // Assign new value (removes any current animations)
       constructor Assign(initValue:single);
       procedure Free; // no need to call this if value is not animating now
-      // Начать новую анимацию: к указанному значению в течение указанного времени
-      // Если текущая анимация приводит к тому же значению - новая не создаётся
-      // Если конечное значение совпадает с начальным - анимация не создаётся
+      // Start a new animation: to the given value over the given time
+      // If the current animation leads to the same value, no new one is created
+      // If the final value equals the initial one, no animation is created
       procedure Animate(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
         delay:integer=0);
-      // То же самое, что animate, но сработает только если finalvalue<>newValue
+      // Same as animate, but works only if finalvalue<>newValue
       procedure AnimateIf(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
         delay:integer=0);
-      // Возвращает значение анимируемой величины в текущий момент времени
+      // Return the value of the animated quantity at the current moment
       function Value:single;
       function IntValue:integer; inline;
-      // Возвращает значение величины в указанный момент (0 - текущий момент)
+      // Return the value at the given moment (0 - current moment)
       function ValueAt(time:int64):single;
       function FinalValue:single; // What the value will be when animation finished?
       function IsAnimating(time:int64=0):boolean; // Is value animating now?
-      // Производная (скорость изменения) в текущий (указанный) момент времени
-      // Если анимации нет - то 0
+      // Derivative (rate of change) at the current (given) moment
+      // 0 if there is no animation
       function Derivative:double;
       function DerivativeAt(time:int64):double;
     private
       lock:integer;
       initialValue:single;
       animations: array of TSingleAnimation;
-      // Запоминает последние значения чтобы не вычислять повторно
+      // Remembers the last values to avoid recalculation
       lastValue:single;
       lastTime:cardinal;
       function InternalValueAt(time:int64):single; // No lock!

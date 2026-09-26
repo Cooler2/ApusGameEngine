@@ -12,7 +12,7 @@ interface
  uses Apus.FastGFX;
 
 type
- // Форматы представления изображения
+ // Image representation formats
  TImagePixelFormat=(ipfNone,    // Default format or no image data
                    ipf1Bit,     // 1bpp (2 colors) - monochrome
                    ipf4Bit,     // 4bpp (16 colors, indexed)
@@ -31,7 +31,7 @@ type
                    ipfDXT5,     // DXT5 (interpolated alpha)
                    ipfPVRTC,    // PVR TC (compressed 4bpp texture)
                    ipfA4,       // 4bpp (alpha)
-                   ipfA8,       // 8bpp (альфаканал)
+                   ipfA8,       // 8bpp (alpha channel)
                    ipfL4A4,     // 8bpp (luminance+alpha)
                    ipf4444r,    // 16bpp 4-4-4-4 format with $BGRA structure
                    ipfABGR,     // 32bpp
@@ -48,11 +48,11 @@ type
                    ipfDepth32f, // 32bit float depth
                    ipf32bpp);   // generic 32bpp: XRGB or ARGB
 
- // Форматы представления палитры
- ImagePaletteFormat=(palNone,   // Палитры нет
-                     palRGB,    // Палитра из триад
-                     palXRGB,   // Палитра с 4-байтными эл-тами, последний байт не используется
-                     palARGB);  // Палитра с 4-байтными эл-ми, 4-й байт содержит альфа
+ // Palette representation formats
+ ImagePaletteFormat=(palNone,   // no palette
+                     palRGB,    // palette of triads
+                     palXRGB,   // palette with 4-byte entries, the last byte is unused
+                     palARGB);  // palette with 4-byte entries, the 4th byte contains alpha
 
 type
  TPaletteEntry=record
@@ -62,67 +62,67 @@ type
  end;
  TPalette=array[0..255] of TPaletteEntry;
 
- TRawImage=class; // предопределение типа
+ TRawImage=class; // forward declaration
 
 
- // Это базовый класс для описания изображений различных типов
- // Изображения могут иметь различное представление, быть упакованными и
- // т.п.
- // Общие свойства всех изображений: размер и метод рисования по умолчанию
+ // Base class for describing images of different types
+ // Images can have different representations, be packed and
+ // so on
+ // Common properties of all images: size and default drawing method
  TBaseImage=class
   width,height:integer;
   tag:UIntPtr;
  end;
 
- // Абстрактный класс, определяющий анимированное изображение
- // Основными методами являются NextFrame/ChangePos и Draw, конкретные
- // форматы могут иметь свои, более оптимальные способы рисования
+ // Abstract class that defines an animated image
+ // The main methods are NextFrame/ChangePos and Draw; specific
+ // formats may have their own, more optimal ways of drawing
  TAnimatedImage=class(TBaseImage)
-  // true если формат поддерживает случайный доступ к кадрам
+  // true if the format supports random access to frames
   class function RandomAccess:boolean; virtual; abstract;
-  // true если можно переходить по кадрам как вперед, так и назад
+  // true if frames can be navigated both forward and backward
   class function RevDirection:boolean; virtual; abstract;
 
-  // Перейти к указанной позиции относительно начала анимации
+  // Go to the given position relative to the start of the animation
   procedure SetPos(time:single); virtual; abstract;
-  // Переместить позицию относительно текущего момента
+  // Move the position relative to the current moment
   procedure ChangePos(delta:single); virtual; abstract;
-  // Перейти к следующему/предыдущему кадрам
+  // Go to the next/previous frame
   procedure NextFrame; virtual; abstract;
   procedure PrevFrame; virtual; abstract;
 
-  // Управление нелинейной анимацией (зависит от формата):
+  // Nonlinear animation control (depends on the format):
   // --------------------------------
-  // установить положение указанной развилки: развилка - это триггер на кадре,
-  // который указывает на следующий кадр
-  // Существует две развилки по умолчанию:
-  // 0 - на 1-м кадре (по умолчанию указывает на 2-й кадр)
-  // 1 - на последнем (по умолчанию указывает на 1-й кадр)
-  // Значения развилки - это не номера кадров, а номера возможных вариантов:
-  // 0 - оставаться на месте, -1 - двигаться в обратном направлении, 1..n - ветви
+  // set the state of the given branch point: a branch point is a trigger on a frame
+  // that points to the next frame
+  // There are two default branch points:
+  // 0 - on the 1st frame (points to the 2nd frame by default)
+  // 1 - on the last one (points to the 1st frame by default)
+  // Branch point values are not frame numbers but numbers of possible variants:
+  // 0 - stay in place, -1 - move backward, 1..n - branches
   procedure SetFork(fork,value:byte); virtual; abstract;
  end;
 
- // RawImage - это статическое изображение, имеющее линейную неупакованную структуру
- // Основная особенность таких изображений - на них можно рисовать (в.т.ч. используя
- // прямой доступ к памяти и формат пикселя)
- // Это тоже абстрактный класс, который не определяет конкретного способа создания
- // и хранения изображения
+ // RawImage is a static image with a linear unpacked structure
+ // The main feature of such images is that they can be drawn on (including via
+ // direct memory access and the pixel format)
+ // This is an abstract class too; it does not define a specific way to create
+ // and store the image
  // This object doesn't own data
  TRawImage=class(TBaseImage)
   pixelFormat:TImagePixelFormat;
   paletteFormat:ImagePaletteFormat;
 
-  // Следующие данные не обязательно всегда доступны, это зависит от типа изображения
-  data:pointer;  // Указатель на данные (пиксель 0,0)
-  pitch:integer; // смещение к очередной строке
+  // The following data is not necessarily always available, it depends on the image type
+  data:pointer;  // pointer to the data (pixel 0,0)
+  pitch:integer; // offset to the next row
   dataSize:integer; // size of data (in bytes)
-  palette:pointer; // указатель на палитру, nil если ее нет
-  palSize:integer; // размер палитры (число эл-тов)
+  palette:pointer; // pointer to the palette, nil if there is none
+  palSize:integer; // palette size (number of entries)
 
   constructor Copy(src:TRawImage);
-  class function NeedLock:boolean; virtual;  // true - если нужно лочить для доступа к данным
-  procedure Lock; virtual;  // заполняет поля действующими значениями
+  class function NeedLock:boolean; virtual;  // true if locking is required to access the data
+  procedure Lock; virtual;  // fills the fields with actual values
   procedure Unlock; virtual;
   procedure Clear(color:cardinal); virtual;
   procedure Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal=0); virtual; abstract;
@@ -148,17 +148,17 @@ type
   constructor Assign(w,h:integer;_data:pointer;_pitch:integer;_pf:TImagePixelFormat);
   destructor Destroy; override;
 
-  class function NeedLock:boolean; override; // true - если нужно лочить для доступа к данным
+  class function NeedLock:boolean; override; // true if locking is required to access the data
   procedure Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal); override;
  end;
 
  var
-  // Преобразование цвета из RGBA в заданный формат
+  // Convert a color from RGBA to the given format
   colorTo:array[TImagePixelFormat] of TColorConv;
   colorFrom:array[TImagePixelFormat] of TColorConv;
 
  const
-  // Размер пикселя в битах
+  // Pixel size in bits
   pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,8,16,16,16,16,32,64,128,32,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 

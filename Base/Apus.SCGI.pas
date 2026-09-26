@@ -33,17 +33,17 @@ interface
   workerID:integer;
   // Per-request values
   requestIdx:integer;
-  headers:String8;    // заголовки из SCGI-запроса (as-is, разделены #0)
+  headers:String8;    // headers from the SCGI request (as-is, separated by #0)
   requestBody:String8;
-  uri,query:String8; // Запрос (до знака ? и после него)
+  uri,query:String8; // request (before and after the ? sign)
   clientIP:String8;  // remote IP address
   clientCountry:String8;
   httpMethod:String8;   // 'GET', 'POST'
-  setCookies:String8; // Сюда заносятся куки, которые нужно установить юзеру (используется в FormatHeaders)
-  userID:integer; // обнуляется при каждом запросе, служит для определения авторизации юзеров (ID профиля)
-  uploadedFileName:String8; // при вызове Param() для поля с файлом - сюда заносится исходное имя загруженного файла
+  setCookies:String8; // cookies to be set for the user go here (used in FormatHeaders)
+  userID:integer; // reset on every request, used to determine user authorization (profile ID)
+  uploadedFileName:String8; // when Param() is called for a file field, the original name of the uploaded file is stored here
 
-  // Язык клиента (xx) - определяется по куке, либо по заголовкам
+  // Client language (xx) - determined from the cookie or from the headers
   clientLang:String8;
 
  type
@@ -83,7 +83,7 @@ interface
  function IntParam(name:String8;default:integer=-1):integer;
  // Extract value of cookie [name] from [headers] (name is case insensitive)
  function Cookie(name:String8):String8;
- // Установить куку (будет отправлено при формировании заголовков через FormatHeaders)
+ // Set a cookie (sent when the headers are built via FormatHeaders)
  procedure SetCookie(name,value:String8;permanent:boolean;httpOnly:boolean=true);
  procedure DeleteCookie(name:String8);
  // Extract value of SCGI request header [name] from [headers] (name is case-insensitive)

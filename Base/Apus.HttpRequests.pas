@@ -24,7 +24,7 @@ interface
  var
   httpUseCookies:boolean=false; // send/store cookies
   // Statistics
-  avgResponseTime,maxResponseTime:integer; // среднее и максимальное время (успешного, если указан таймаут) выполнения запросов в ms
+  avgResponseTime,maxResponseTime:integer; // average and maximum execution time of requests in ms (of successful ones, if a timeout is set)
   requestsFailed,requestsSucceed,requestsTime,requestsTimeCount:integer;
 
  // Perform HTTP GET request and wait for data
@@ -43,9 +43,9 @@ interface
  // If request is completed - this destroys request object, so it's ID and data can't be used anymore
  // returns request status
  function GetRequestResult(ID:integer;out response:String8;httpStatus:PInteger=nil):integer;
- // Если статут запроса - Sent или Completed - возвращает кол-во скачанных байт
+ // If the request status is Sent or Completed, return the number of bytes downloaded
  function GetRequestState(ID:integer):integer;
- // Возвращает код ошибки запроса, который завершился неудачей
+ // Return the error code of a request that failed
  function GetRequestError(ID:integer):integer;
 
  // Format POST body with specified parameters using specified content type

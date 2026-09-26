@@ -12,13 +12,13 @@ type
  Word128=array[0..3] of cardinal;
 
  // Protected container
- // Это буфер, хранящий данные в слабошифрованном виде
+ // A buffer that stores data in weakly encrypted form
  TProtContainer=class
-  constructor Create(startSize:integer); // Создать буфер с указанным размером
-  procedure SetSize(newSize:integer); // Изменить размер буфера (данные не теряются)
-  procedure WriteTo(posit,count:integer;var sour); // записать данные в буфер (начиная с позиции posit)
-  procedure ReadFrom(posit,count:integer;var dest); // прочитать данные из буфера (начиная с позиции posit)
-  destructor Destroy; override; // Освободить буфер
+  constructor Create(startSize:integer); // create a buffer of the given size
+  procedure SetSize(newSize:integer); // change the buffer size (data is preserved)
+  procedure WriteTo(posit,count:integer;var sour); // write data to the buffer (starting at position posit)
+  procedure ReadFrom(posit,count:integer;var dest); // read data from the buffer (starting at position posit)
+  destructor Destroy; override; // free the buffer
  private
   size,bias:integer;
   buffer:pointer;

@@ -17,41 +17,41 @@ type
   b,g,r,a:byte;
  end;
 
- // Процедура рисования простой горизонтальной линии (без отсечения, x2>=x1)
+ // Draw a simple horizontal line (no clipping, x2>=x1)
  THLine=procedure(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
- // Процедура рисования простой вертикальной линии (без отсечения, y2>=y1)
+ // Draw a simple vertical line (no clipping, y2>=y1)
  TVLine=procedure(buf:pointer;pitch:integer;x,y1,y2:integer;color:cardinal); pascal;
 
- // Процедура рисования простой линии (без отсечения)
+ // Draw a simple line (no clipping)
  TSimpleLine=procedure(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
 
  TColorConv=function(color:cardinal):cardinal;
 
- // Функция смешения цвета слоя с цветом подложки
+ // Function that blends the layer color with the background color
  TBlenderFunc=function(background,foreground:cardinal):cardinal;
 
 var
  blBlend,blCopy:TBlenderFunc;
  blender:TBlenderFunc;
 
- // Горизонтальная линия - цвет задается в формате приемника!
+ // Horizontal line - the color is in the destination format!
  procedure HLine32(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
  procedure HLine16(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
 
- // Вертикальная линия - цвет задается в формате приемника!
+ // Vertical line - the color is in the destination format!
  procedure VLine32(buf:pointer;pitch:integer;x,y1,y2:integer;color:cardinal); pascal;
  procedure VLine16(buf:pointer;pitch:integer;x,y1,y2:integer;color:cardinal); pascal;
 
- // Линия рисуется прямым копированием цвета (цвет задается в формате приемника!)
+ // The line is drawn by copying the color directly (the color is in the destination format!)
  procedure SimpleLine32(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
  procedure SimpleLine16(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
 
- // Линия рисуется с учетом прозрачности цвета (цвет задается в режиме RGBA!)
+ // The line is drawn with color transparency (the color is in RGBA!)
  procedure SimpleLine32A(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
  procedure SimpleLine16A(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
 
 
- // Преобразование 32-битного ARGB-цвета в заданный формат
+ // Convert a 32-bit ARGB color to the given format
  function ColorTo32(color:cardinal):cardinal;
  function ColorTo24(color:cardinal):cardinal;
  function ColorTo16(color:cardinal):cardinal;
@@ -59,7 +59,7 @@ var
  function ColorTo15(color:cardinal):cardinal;
  function ColorTo12(color:cardinal):cardinal;
 
- // Получение 32-битного ARGB-цвета из заданного формата
+ // Get a 32-bit ARGB color from the given format
  function ColorFrom32(color:cardinal):cardinal;
  function ColorFrom24(color:cardinal):cardinal;
  function ColorFrom16(color:cardinal):cardinal;
@@ -67,7 +67,7 @@ var
  function ColorFrom15(color:cardinal):cardinal;
  function ColorFrom12(color:cardinal):cardinal;
 
- // Преобразование строки 32-битных ARGB-пикселей в строку заданного формата
+ // Convert a row of 32-bit ARGB pixels to a row of the given format
  procedure PixelsTo24(var sour,dest;count:integer); pascal;
  procedure PixelsTo24R(var sour,dest;count:integer); pascal;
  procedure PixelsTo16(var sour,dest;count:integer); pascal;
@@ -75,7 +75,7 @@ var
  procedure PixelsTo15(var sour,dest;count:integer); pascal;
  procedure PixelsTo12(var sour,dest;count:integer); pascal;
 
- // Преобразование строки заданного формата в строку 32-битных ARGB-пикселей
+ // Convert a row of the given format to a row of 32-bit ARGB pixels
  // ----
  procedure PixelsFrom24(var sour,dest;count:integer); pascal;  // RGB -> ARGB
  procedure PixelsFrom24R(var sour,dest;count:integer); pascal; // BGR -> ARGB
@@ -83,8 +83,8 @@ var
  procedure PixelsFrom15A(var sour,dest;count:integer); pascal;
  procedure PixelsFrom15(var sour,dest;count:integer); pascal;
  procedure PixelsFrom12(var sour,dest;count:integer); pascal;
- procedure PixelsFrom8P(var sour,dest,palette;count:integer); pascal; // Палитра 32-битная!
- procedure PixelsFrom8P24(var sour,dest,palette;count:integer); pascal; // Палитра 24-битная (медленно!)
+ procedure PixelsFrom8P(var sour,dest,palette;count:integer); pascal; // 32-bit palette!
+ procedure PixelsFrom8P24(var sour,dest,palette;count:integer); pascal; // 24-bit palette (slow!)
 
  // Calculates address of 32-bit pixel
  function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer; inline;
@@ -95,13 +95,13 @@ var
  function CropImage(sour:pointer;sPitch:integer;width,height:integer):TRect;
 
  // Copy rectangular area of 32bpp pixels from one surface to another surface
- // (аналогично SimpleDraw с blMove)
+ // (same as SimpleDraw with blMove)
  procedure CopyRect(sour:pointer;sPitch:integer;
                     dest:pointer;dPitch:integer;
                     x,y,width,height:integer;
                     targetX,targetY:integer);
 
- // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения пикселя в источнике
+ // Same, but allows 90-degree rotation and flip by specifying the pixel offset in the source
  procedure CopyRectEx(sour:pointer;sNext,sPitch:integer;
                       dest:pointer;dPitch:integer;
                       x,y,width,height:integer;
@@ -114,42 +114,42 @@ var
                      x,y,width,height:integer;
                      targetX,targetY:integer);
 
- // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения пикселя в источнике
+ // Same, but allows 90-degree rotation and flip by specifying the pixel offset in the source
  procedure CopyRect8Ex(sour:pointer;sNext,sPitch:integer;
                        dest:pointer;dPitch:integer;
                        x,y,width,height:integer;
                        targetX,targetY:integer);
 
 
- // Заполнение прямоугольника заданным цветом (буфер любой 32-битный)
+ // Fill a rectangle with the given color (any 32-bit buffer)
  // Fills all pixel in range [x1..x2, y1..y2]
  procedure FillRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal); overload;
 
- // То же с использованием функции блендинга
+ // Same, using a blending function
  procedure FillRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc); overload;
 
- // То же - в текущий render target, с проверками координат (отсечение) и альфа-блендингом
+ // Same - into the current render target, with coordinate checks (clipping) and alpha blending
  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc); overload;
 
- // Отрисовка периметра
+ // Draw the outline
  procedure DrawRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc);
 
- // Заполнение цветом используя заданный альфаканал (замена фона)
+ // Fill with a color using the given alpha channel (replaces the background)
  procedure FillUsingAlpha(buf:pointer;pitch:integer;
                           alpha:pointer;aPitch:integer;
                           width,height:integer;
                           color:cardinal);
 
- // Заполнение цветом используя заданный альфаканал (блендинг цвета на фон)
+ // Fill with a color using the given alpha channel (blends the color onto the background)
  procedure BlendUsingAlpha(buf:pointer;pitch:integer;
                           alpha:pointer;aPitch:integer;
                           width,height:integer;
                           color:cardinal;
                           blender:TBlenderFunc);
 
- // Заполняет область width*height в dest смешанным изображением, таким что
- // вероятность пикселей из sour1 линейно убывает, а вероятность пикселей из sour2 - возрастает
+ // Fill a width*height area in dest with a mixed image such that
+ // the probability of pixels from sour1 decreases linearly, and the probability of pixels from sour2 increases
  procedure TransitionRect(sour1:pointer;sPitch1:integer;
                           sour2:pointer;sPitch2:integer;
                           dest:pointer;dPitch:integer;
@@ -157,52 +157,52 @@ var
                           horizontal:boolean;
                           blender:TBlenderFunc);
 
- // Отрисовка в ARGB (без клиппинга!)
+ // Draw into ARGB (no clipping!)
  procedure SimpleDraw(sour:pointer;sPitch:integer;
                       dest:pointer;dPitch:integer;
-                      x,y, // точка вывода в dest
-                      width,height:integer; // размер рисуемого изображения
+                      x,y, // output point in dest
+                      width,height:integer; // size of the drawn image
                       blender:TBlenderFunc);
 
- // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения адреса след. пикселя в источнике
+ // Same, but allows 90-degree rotation and flip by specifying the address offset of the next pixel in the source
  procedure SimpleDrawEx(sour:pointer;sNext,sPitch:integer;
                         dest:pointer;dPitch:integer;
-                        x,y, // точка вывода в dest
-                        width,height:integer; // размер рисуемого изображения
+                        x,y, // output point in dest
+                        width,height:integer; // size of the drawn image
                         blender:TBlenderFunc);
 
 
- // Отрисовка с билинейной интерполяцией (ОСТОРОЖНО С ТЕКСТУРНЫМИ К-МИ ПРИ РАСТЯЖЕНИИ!)
- procedure StretchDraw(sour:pointer;sPitch:integer; // текстура
+ // Draw with bilinear interpolation (CAREFUL WITH TEXTURE COORDINATES WHEN STRETCHING!)
+ procedure StretchDraw(sour:pointer;sPitch:integer; // texture
                        dest:pointer;dPitch:integer;
-                       x1,y1,x2,y2:integer; // область вывода в dest (целочисленная!)
-                       u1,v1,u2,v2:single;  // текстурные к-ты, соответствующие краям области вывода
-                       blender:TBlenderFunc);   // (в текселях! т.е. [0.5,0.5] - центр углового текселя)
+                       x1,y1,x2,y2:integer; // output area in dest (integer!)
+                       u1,v1,u2,v2:single;  // texture coordinates corresponding to the edges of the output area
+                       blender:TBlenderFunc);   // (in texels! i.e. [0.5,0.5] is the center of the corner texel)
 
- // Вариант для целочисленного растяжения: параметры таковы, что 1-й пиксел строго совпадает с 1-м текселом
- // а последний пиксел - с последним текселом. Степень растяжения при этом нарушается.
- procedure StretchDraw1(sour:pointer;sPitch:integer; // текстура
+ // Variant for integer stretching: the parameters are such that the 1st pixel exactly matches the 1st texel
+ // and the last pixel matches the last texel. The stretch ratio is not preserved exactly.
+ procedure StretchDraw1(sour:pointer;sPitch:integer; // texture
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:integer;   // область вывода в dest (в целых пикселях)
-                        u1,v1,u2,v2:integer;   // область текстуры (в целых текселях)
+                        x1,y1,x2,y2:integer;   // output area in dest (in whole pixels)
+                        u1,v1,u2,v2:integer;   // texture area (in whole texels)
                         blender:TBlenderFunc);
 
- // Более привычная форма, соответствующая отрисовке прямоугольника из текстуры на произвольный прямоугольник
- procedure StretchDraw2(sour:pointer;sPitch:integer; // текстура
+ // A more familiar form: draw a rectangle from a texture onto an arbitrary rectangle
+ procedure StretchDraw2(sour:pointer;sPitch:integer; // texture
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:single;   // область вывода в dest
-                        u1,v1,u2,v2:integer;  // текстурные к-ты, соответствующие краям области вывода
+                        x1,y1,x2,y2:single;   // output area in dest
+                        u1,v1,u2,v2:integer;  // texture coordinates corresponding to the edges of the output area
                         blender:TBlenderFunc);
 
- // Производит уменьшение в 2 раза (ARGB)
+ // Downscale 2x (ARGB)
  procedure DownSample2X(sour:pointer;sPitch:integer;
                         dest:pointer;dPitch:integer;
-                        width,height:integer); // размеры исходного изображения
+                        width,height:integer); // source image size
 
- // Производит уменьшение в 2 раза (8bit)
+ // Downscale 2x (8bit)
  procedure DownSample2X8(sour:pointer;sPitch:integer;
                          dest:pointer;dPitch:integer;
-                         width,height:integer); // размеры исходного изображения
+                         width,height:integer); // source image size
 
  // Set active render target buffer
  procedure SetRenderTarget(buf:pointer;pitch:integer;width,height:integer);

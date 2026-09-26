@@ -5,57 +5,57 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 //
-// Основные категории иерархии:
-//  debug\ - отладочные события
-//  kbd\ - события связанные с клавой (KeyDown, KeyUp)
-//  mouse\ - события, связанные с мышью (Move, Delta, BtnDown, BtnUp)
-//  net\ - события, связанные с приемом/передачей данных в сети
-//  error\ - ошибки
-//  engine\ - события в движке
-//  UI\ - события интерфейса пользователя
+// Main hierarchy categories:
+//  debug\ - debug events
+//  kbd\ - keyboard events (KeyDown, KeyUp)
+//  mouse\ - mouse events (Move, Delta, BtnDown, BtnUp)
+//  net\ - network data send/receive events
+//  error\ - errors
+//  engine\ - engine events
+//  UI\ - user interface events
 {$I defines.inc}
 unit Apus.EventMan;
 interface
 uses Apus.Core;
 type
- // Режим обработки (режим привязывается обработчиком событий)
- TEventMode=(emQueued,   // события помещаются в очередь потока
-             emInstant,  // обработчик вызывается немедленно в контексте того потока, где произошло событие
-             emMixed); // если событие произошло в том же потоке - обрабатывается немедленно, иначе - в очередь
+ // Processing mode (bound by the event handler)
+ TEventMode=(emQueued,   // events are put into the thread queue
+             emInstant,  // the handler is called immediately in the context of the thread where the event occurred
+             emMixed); // if the event occurred in the same thread, it is handled immediately, otherwise queued
 
- // Строка, определяющая событие
- // Имеет формат: category\subcategory\..\sub..subcategory\name
+ // String that identifies an event
+ // Format: category\subcategory\..\sub..subcategory\name
 // EventStr=string[127];
  TEventStr=String8;
  TTag=NativeInt;
 
- // Функция обработки события. Для блокировки обработки на более общих уровнях, должна вернуть false
+ // Event handler function. To block handling at more general levels, it must return false
  // In fact, return value is ignored
  TEventHandler=procedure(event:TEventStr;tag:TTag);
 
  // Set event handling procedure
  // event may contain multiple values (comma-separated)
  procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
- // Убрать обработчик
+ // Remove a handler
  procedure RemoveEventHandler(handler:TEventHandler;event:TEventStr='');
 
- // Сигнал о возникновении события (обрабатывается немедленно - в контексте текущего потока)
+ // Signal that an event occurred (handled immediately - in the context of the current thread)
  procedure Signal(event:TEventStr;tag:TTag=0);
  procedure DelayedSignal(event:TEventStr;delay:integer;tag:TTag=0);
 
- // Обработать сигналы синхронно (если поток регистрирует синхронные обработчики, то он обязан регулярно вызывать эту функцию)
+ // Process signals synchronously (a thread that registers synchronous handlers must call this regularly)
  procedure HandleSignals;
 
  // Called by Apus.Threads when a registered thread exits.
  // Removes queued/mixed handlers and discards events which can no longer be handled.
  procedure ThreadFinished(threadID:TThreadIdent;const threadName:String8);
 
- // Связать событие с другим событием (тэг при этом может быть новым, но если это -1, то сохраняется старый)
- // Если redirect=true - при наличии линка отменет обработку сигнала на более общих уровнях
+ // Link an event to another event (the tag may be new; if it is -1, the old one is kept)
+ // If redirect=true and a link exists, handling of the signal at more general levels is cancelled
  procedure Link(event,newEvent:TEventStr;tag:TTag=-1;redirect:boolean=false);
- // Удалить связь между событиями
+ // Remove a link between events
  procedure Unlink(event,linkedEvent:TEventStr);
- // Удалить все связанные события (втч для всех подсобытий)
+ // Remove all linked events (including those of all subevents)
  procedure UnlinkAll(event:TEventStr='');
 
  //procedure LinkProc(event:TEventStr;handler:TProcedure); // TODO: fix string type mismatch

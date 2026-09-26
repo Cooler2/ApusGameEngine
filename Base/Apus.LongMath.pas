@@ -39,7 +39,7 @@ type
  function bPowMod(a,b,m:TBigInt):TBigInt; // a^b mod m
  function bPowMod2(a,b,m:TBigInt2):TBigInt2; // a^b mod m
 
- function bLastBit(a:TBigInt):integer; inline; // кол-во значащих битов
+ function bLastBit(a:TBigInt):integer; inline; // number of significant bits
  function bLastBit2(a:TBigInt2):integer; inline;
  function IsZero(v:TBigInt):boolean; inline;
  function IsZero2(v:TBigInt2):boolean; inline;

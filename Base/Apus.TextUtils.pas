@@ -1,5 +1,5 @@
 ﻿
-// Функции для более тщательной работы с текстом
+// Functions for more careful text processing
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
@@ -13,7 +13,7 @@ interface
  function ExtractPlainText(const html:string):string;
  // Builds list of unique words
  function SplitToWords(const text:WideString):Strings16;
- // Является ли символ "алфавитно-цифровым" (соединительная пунктуация тоже считается) или же какие-то другим
+ // Whether the character is "alphanumeric" (connector punctuation also counts) or something else
  function IsWordChar(const wch:WideChar):boolean;
  // Returns edit distance between 2 words
  function GetWordsDistance(const w1,w2:WideString):integer;

@@ -5,7 +5,7 @@
 unit Apus.MemoryLeakUtils;
 interface
 
- // Процедуры для выслеживания утечек памяти (Delphi-only)
+ // Routines for tracking down memory leaks (Delphi-only)
  {$IFDEF DELPHI} {$IFDEF CPU386}
  procedure BeginMemoryCheck(id:string);
  procedure EndMemoryCheck;

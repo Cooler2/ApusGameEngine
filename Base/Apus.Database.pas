@@ -36,22 +36,22 @@ interface
    lastErrorCode:integer;
    constructor Create;
    procedure Connect; virtual; abstract;
-   // Выполняет запрос, возвращает массив строк размером rowCount * colCount
-   // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
-   // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
-   // пустой массив (0 строк)
+   // Execute a query, return an array of strings of size rowCount * colCount
+   // On error returns an array of one string: ERROR: <error text>, and rowCount=0
+   // If the query returns no data and succeeds, returns
+   // an empty array (0 rows)
    function Query(DBquery:string8):Strings8; overload; virtual; abstract;
    // Sugar: Query(Format(DBQuery,params)) - all string items pass through SQLsafe()
    function Query(DBquery:string;params:array of const):Strings8; overload; virtual;
-   // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
-   // Условие может также содержать сортировку и т.п.
-   // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
+   // Query rows (the fields in fields) from the table that match the given condition and put them into a hash
+   // The condition may also contain ordering etc.
+   // The hash is reinitialized, i.e. its previous content is lost
    procedure QueryHash(var h:THash;table,keyField,fields,condition:RawByteString); virtual;
-   // Для каждого ключа хэша H, соответствующего полю keyField в таблице table
-   // запрашивает значение поля valueField (можно перечислить несколько полей через запятую, тогда будут выбраны все)
-   // quoteKeys используется чтобы заключать значения ключей в " " (необходимо если ключи - строкового типа)
-   // condition - дополнительное условие для WHERE clause
-   // Если значения для ключа не найдено, ключ в хэше остаётся с пустым значением
+   // For each key of hash H that corresponds to the keyField field in table table
+   // query the value of valueField (several fields can be listed separated by commas, then all of them are selected)
+   // quoteKeys is used to put key values in " " (required if the keys are strings)
+   // condition - additional condition for the WHERE clause
+   // If no value is found for a key, the key stays in the hash with an empty value
    procedure QueryValues(var h:THash;table,keyField,valueField:RawByteString;quoteKeys:boolean=false;condition:RawByteString=''); virtual;
 
    procedure Disconnect; virtual; abstract;
@@ -74,7 +74,7 @@ interface
   // MySQL interface
   TMySQLDatabase=class(TDatabase)
    logSelects,logChanges:boolean;
-   time1,time2,time3:integer; // время выполнения real_query и время получения результатов
+   time1,time2,time3:integer; // execution time of real_query and time to fetch the results
    constructor Create;
    procedure Connect; override;
    function Query(DBquery:string8):Strings8; override;
@@ -82,7 +82,7 @@ interface
    destructor Destroy; override;
   private
    ms:pointer;
-   reserve:array[0..255] of integer; // резерв для структуры ms
+   reserve:array[0..255] of integer; // reserve for the ms structure
   end;
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)

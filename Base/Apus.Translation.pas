@@ -14,17 +14,17 @@
 // Source string 2
 // Translated string 2
 // -----
-// Принцип работы перевода
-// К исходной строке применяются последовательно все правила по порядку.
-// %* матчит любые символы, поэтому имеет смысл только в середине выражения.
-// %w матчит любые символы, кроме неотображаемых (пробел и т.п)
-// %d матчит только цифры
-// Т.о. порядок правил в словаре имеет значение.
-// По умолчанию подстроки %n при переносе не переводятся, но если нужно перевести -
-// нужно использовать формат %n{s}, где s - номер набора правил (0..9), которым следует перевести подстроку
-// В самом конце удаляются подстроки вида `d (метки контекста, содержащие 1 цифру)
-// Если в начале исходной строки стоит цифра с двоеточием и пробелом - то это цифра
-// обозначает номер набора для конкретно этого правила
+// How translation works
+// All rules are applied to the source string one by one, in order.
+// %* matches any characters, so it makes sense only in the middle of an expression.
+// %w matches any characters except non-printable ones (space etc.)
+// %d matches digits only
+// Thus the order of rules in the dictionary matters.
+// By default %n substrings are not translated when carried over; to translate one,
+// use the format %n{s}, where s is the number of the rule set (0..9) to translate the substring with
+// At the very end, substrings like `d (context marks containing 1 digit) are removed
+// If the source string starts with a digit followed by a colon and a space, that digit
+// is the rule set number for this particular rule
 {$I defines.inc}
 unit Apus.Translation;
 interface
