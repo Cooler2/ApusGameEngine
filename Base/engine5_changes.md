@@ -3,6 +3,13 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Text effects: `TTextEffectLayer` moved (2026-09-26)
+
+`TTextEffectLayer` moved from `Apus.Engine.API` to the new module `Apus.Engine.TextEffects`
+(R-33); fields unchanged. It is consumed only by `DrawTextFX` there, so add
+`Apus.Engine.TextEffects` to `uses`. Layers are passed explicitly to `DrawTextFX`; there is
+no `textEffects[]` state in the text drawer (Engine 2 `WriteEx` has no direct counterpart).
+
 ## Image loading: shared textures, source keys (2026-09-16)
 
 Loading the same image file twice used to create a second texture and, since the name

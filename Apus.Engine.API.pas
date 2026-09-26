@@ -578,16 +578,6 @@ type
  end;
  PCharAttr=^TCharAttr;
 
- TTextEffectLayer=record
-  enabled:boolean; // включение эффекта
-  blur:single;  // Размытие альфаканала надписи в пикселях (не более 1.9)
-  fastblurX,fastblurY:integer; // быстрое сильное размытие
-  color:cardinal; // заполнение данным цветом
-  emboss,embossX,embossY:single; // Выдавливание (в цвете) на основе альфаканала
-  dx,dy:single; // сдвиг эффекта
-  power:single; // Усиление эффекта
- end;
-
  // Basic vertex format for regular primitives
  PVertex = Apus.VertexLayout.PVertex;
  TVertex = Apus.VertexLayout.TVertex;
