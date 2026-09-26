@@ -846,8 +846,8 @@ var
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
   bigFont:=txt.ScaleFont(titleFont,1.5);
-  // Spectromancer presets
-  glow:=FXLayer(10,10,10,$BBFFFFFF,1);
+  // presets after Spectromancer; fastblur kept small: large box radii look blocky
+  glow:=FXLayer(10,4,4,$BBFFFFFF,1);
   outline1:=FXLayer(2,2,2,$FF000000,0.4);
   outline2:=FXLayer(2,2,2,$FF000000,0.8);
   outline3:=FXLayer(2,2,2,$FF000000,1);
@@ -855,7 +855,7 @@ begin
   shadow:=FXLayer(1,3,3,$C0000000,0.5,4,4);
 
   r:=GridCell(area,0,0,2,3,BLOCK_GAP);
-  DrawBlock(r,'Glow: blur 10, fastblur 10/10, $BBFFFFFF, power 1',innerR);
+  DrawBlock(r,'Glow: blur 10, fastblur 4/4, $BBFFFFFF, power 1',innerR);
   DrawTextFX(bigFont,innerR.Left+sc(20),innerR.Top+sc(60),$FF000000,'Version 1.2.3',taLeft,[glow],toAddBaseline);
   DrawTextFX(bodyFont,innerR.Left+sc(20),innerR.Top+sc(120),$FF203040,'Small text with the same glow',taLeft,[glow],toAddBaseline);
 
