@@ -61,7 +61,8 @@
             </Options>
           </Linking>
           <Other>
-            <CustomOptions Value="-dOPENGL"/>
+            <CustomOptions Value="-dOPENGL
+-dFREETYPE"/>
             <OtherDefines Count="1">
               <Define0 Value="OPENGL"/>
             </OtherDefines>
@@ -112,7 +113,8 @@
             </Options>
           </Linking>
           <Other>
-            <CustomOptions Value="-dOPENGL"/>
+            <CustomOptions Value="-dOPENGL
+-dFREETYPE"/>
             <OtherDefines Count="1">
               <Define0 Value="OPENGL"/>
             </OtherDefines>
@@ -182,7 +184,8 @@
       </Options>
     </Linking>
     <Other>
-      <CustomOptions Value="-dOPENGL"/>
+      <CustomOptions Value="-dOPENGL
+-dFREETYPE"/>
       <OtherDefines Count="1">
         <Define0 Value="OPENGL"/>
       </OtherDefines>

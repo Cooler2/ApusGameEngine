@@ -73,13 +73,13 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL
+-dFREETYPE
 -dSDL
 -dSDLMIX"/>
-      <OtherDefines Count="4">
+      <OtherDefines Count="3">
         <Define0 Value="OPENGL"/>
         <Define1 Value="SDL"/>
-        <Define2 Value="IMX"/>
-        <Define3 Value="SDLMIX"/>
+        <Define2 Value="SDLMIX"/>
       </OtherDefines>
     </Other>
   </CompilerOptions>

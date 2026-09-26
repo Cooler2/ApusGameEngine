@@ -62,6 +62,7 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
+-dFREETYPE
 -dSDL"/>
             <OtherDefines Count="2">
               <Define0 Value="OPENGL"/>
@@ -115,6 +116,7 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
+-dFREETYPE
 -dSDL"/>
             <OtherDefines Count="2">
               <Define0 Value="OPENGL"/>
@@ -161,6 +163,7 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
+-dFREETYPE
 -dSDL"/>
             <OtherDefines Count="2">
               <Define0 Value="OPENGL"/>
@@ -234,6 +237,7 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL
+-dFREETYPE
 -dSDL
 -al"/>
       <OtherDefines Count="2">
