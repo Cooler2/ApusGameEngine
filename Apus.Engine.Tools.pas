@@ -16,26 +16,26 @@ var
  rootDir:string='';
 
 type
- // Большое изображение, состоящее из нескольких текстур
+ // Large image made of several textures
  TTiledImage=class
-  tiles:array[0..15,0..15] of TTexture; // первый индекс - по X, второй - по Y
+  tiles:array[0..15,0..15] of TTexture; // first index - by X, second - by Y
   width,height:integer;
   stepx,stepy:integer;
   cntX,cntY:integer;
 
-  // Загрузить большое изображение в набор текстур
-  // указывается размер ячеек для разбиения, размер ячеек, куда будут складываться неполные куски
-  // и доля для закачки в видеопамять (от 0 до 1)
+  // Load a large image into a set of textures
+  // specify the cell size for splitting, the size of cells where incomplete pieces go
+  // and the share to upload to video memory (from 0 to 1)
   constructor Create(fname:string;ForceFormat:TImagePixelFormat;
                 cellsize:integer;flags:integer=0;precache:single=0);
   destructor Destroy; override;
   procedure Draw(x,y:integer;color:cardinal); virtual;
   procedure Precache(part:single); virtual;
-  // получить регион, определяющий непрозрачную часть (прозрачность <50%)
+  // get a region that defines the opaque part (transparency <50%)
   function GetRegion:TUIShape; virtual;
  end;
 
- // Изображение, состоящее из нескольких кусков цельной текстуры
+ // Image made of several pieces of a single texture
  TPatchedImage=class(TTiledImage)
   points:array[1..8] of TPoint;
   rects:array[1..8] of TRect;
@@ -63,18 +63,18 @@ type
  // Tint/state variants can then be added through wnd.style (background-tint, :hover {...}).
  procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture);
 
- // Рисует текст с эффектом glow/shadow в заданную текстуру
- // x,y - точка, где будет центр надписи (насколько возможно)
+ // Draw text with a glow/shadow effect into the given texture
+ // x,y - the point where the center of the text will be (as far as possible)
  procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:String32;
      textColor,glowColor,glowDepth,glowBlur:cardinal;glowOfsX,glowOfsY:integer);
 
- // Создает текстуру с заданной надписью на прозрачном фоне, текст с эффектом glow/shadow
+ // Create a texture with the given text on a transparent background, text with a glow/shadow effect
  function BuildTextWithGlow(font:cardinal;st:String32;
     textColor,glowColor,glowDepth,glowBlur:cardinal;
     glowOfsX,glowOfsY:integer):TTexture;
 
- // Возвращает хэндл шрифта с измененным размером
- // Например, если scale = 1.2, то вернет шрифт такой же, но на 20% крупнее
+ // Return a handle of the font with a changed size
+ // E.g. if scale = 1.2, it returns the same font but 20% larger
  function ScaleFont(fontHandle:cardinal;scale:single):cardinal;
 
  // Camera transformations
@@ -104,7 +104,7 @@ type
  procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
  procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
 
- // Формирует значение, содержащее координаты курсора для передачи в draw.TextOut
+ // Build a value containing the cursor coordinates to pass to draw.TextOut
  function EncodeMousePos:cardinal;
 
 

@@ -27,21 +27,21 @@ var
 type
  { TGame }
  TGame=class(TGameBase)
-  constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem); // Создать экземпляр
-  procedure Run; override; // запустить движок (создание окна, переключение режима и пр.)
+  constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem); // create an instance
+  procedure Run; override; // start the engine (create the window, switch the display mode etc.)
   {$IFDEF DARWIN}
   procedure RunCurrentThread; // run window/event/render lifecycle on the calling OS thread
   procedure AllowMainThreadExit; // control lifecycle finished; graphics may be finalized
   {$ENDIF}
-  procedure Stop; override; // остановить и освободить все ресурсы (требуется повторный запуск через Run)
-  destructor Destroy; override; // автоматически останавливает, если это не было сделано
+  procedure Stop; override; // stop and release all resources (Run is required to start again)
+  destructor Destroy; override; // stops automatically if it was not done
 
   procedure SwitchToAltSettings; override; // Alt+Enter
 
   // Events
-  // Этот метод вызывается из главного цикла всякий раз перед попыткой рендеринга кадра, даже если программа неактивна или девайс потерян
-  function OnFrame:boolean; override; // true означает что на экране что-то должно изменится поэтому экран нужно перерисовать. Иначе перерисовка выполнена не будет (движение мыши отслеживается отдельно)
-  procedure RenderFrame; override; // этот метод должен отрисовать кадр в backbuffer
+  // This method is called from the main loop before every attempt to render a frame, even if the program is inactive or the device is lost
+  function OnFrame:boolean; override; // true means something on the screen has to change, so the screen must be redrawn. Otherwise no redraw is done (mouse movement is tracked separately)
+  procedure RenderFrame; override; // this method must render a frame into the backbuffer
 
   // Scenes
   procedure SwitchToScene(name:string); override;
@@ -67,7 +67,7 @@ type
   procedure Lock; override;
   procedure Unlock; override;
 
-  // Устанавливает флаги о необходимости сделать скриншот (JPEG or PNG)
+  // Set the flags requesting a screenshot (JPEG or PNG)
   procedure RequestScreenshot(saveAsJpeg:boolean=true); override;
   procedure RequestFrameCapture(obj:TObject=nil); override;
   procedure StartVideoCap(filename:string); override;
@@ -97,15 +97,15 @@ type
   procedure RenderScenesForWindow(wnd:TWindow);
   procedure StopExtraWindows;
 
-  procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
-  function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
+  procedure SetSettings(s:TGameSettings); override; // this method changes the display mode or its parameters
+  function GetSettings:TGameSettings; override; // this method changes the display mode or its parameters
 
   procedure DPadCustomPoint(x,y:single); override;
 
  protected
   useMainThread:boolean; // true - launch "main" thread with main loop,
                          // false - no main thread, catch frame events
-  canExitNow:boolean; // флаг того, что теперь можно начать деинициализацию
+  canExitNow:boolean; // flag that deinitialization can start now
   mainLoopExitRequested:boolean;
   params,newParams:TGameSettings;
   altWidth,altHeight:integer; // saved window size for Alt+Enter
@@ -115,7 +115,7 @@ type
   cursors:array of TObject;
   crSect:TLock;
 
-  curPrior:integer; // приоритет текущего отображаемого курсора
+  curPrior:integer; // priority of the currently displayed cursor
   wndCursor:THandle; // current system cursor
   suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
 
@@ -132,30 +132,30 @@ type
   procedure ApplyNewSettings; virtual; // apply newParams to params - must be called from main thread!
   procedure SetVSync(divider:integer);
 
-  // вызов только из главного потока
-  procedure InitGraph; virtual; // Инициализация графической части (переключить режим и все такое прочее)
+  // call only from the main thread
+  procedure InitGraph; virtual; // initialize graphics (switch the display mode and so on)
   procedure InitDefaultResources; virtual;
   // (Re)build the built-in font handles for the current canvas DPI. Called on
   // startup and whenever the surface changes the size of a canvas unit.
   procedure UpdateDefaultFonts; virtual;
-  procedure AfterInitGraph; virtual; // Вызывается после инициализации графики
+  procedure AfterInitGraph; virtual; // called after graphics initialization
   // Set window size/style/position
   //procedure ConfigureMainWindow; virtual;
-  // Настраивает отрисовку
-  // Производит настройку подчинённых объектов/интерфейсов (Painter, UI и т.д)
-  // Вызывается после инициализации а также при изменения размеров окна, области или режима отрисовки
+  // Set up rendering
+  // Configure the subordinate objects/interfaces (Painter, UI etc.)
+  // Called after initialization and when the window size, rendering area or mode changes
   procedure InitMainLoop; virtual;
 
   procedure FrameLoop; virtual; // One iteration of the frame loop
   procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
-  procedure DoneGraph; virtual; // Финализация графической части
-  // Производит захват кадра и производит с ним необходимые действия
+  procedure DoneGraph; virtual; // finalize graphics
+  // Capture a frame and do whatever is needed with it
   procedure CaptureFrame; virtual;
   procedure DrawCursor; virtual;
   procedure DrawOverlays; virtual;
 
-  // находит сцену, которая должна получать сигналы о клавиатурном вводе
+  // find the scene that should receive keyboard input signals
   function TopmostSceneForKbd:TGameScene; virtual;
 
   // Events
@@ -187,7 +187,7 @@ type
   procedure MainThreadLoop;
  end;
 
- // Для использования из главного потока
+ // For use from the main thread
  procedure Delay(time:integer);
 
 implementation

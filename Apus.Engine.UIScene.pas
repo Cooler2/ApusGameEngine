@@ -56,7 +56,7 @@ type
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
 
- // Создать всплывающее окно, прицепить его к указанному предку
+ // Create a popup window and attach it to the given parent
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
 implementation

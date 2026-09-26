@@ -21,15 +21,15 @@ type
   handler:TKeyHandler;
  end;
 
- // Базовый эффект для background-сцены
+ // Base effect for a background scene
  TSceneEffect=class
-  timer:integer; // время (в тысячных секунды), прошедшее с момента начала эффекта
-  duration:integer;  // время, за которое эффект должен выполнится
-  done:boolean;  // Флаг, сигнализирующий о том, что эффект завершен
+  timer:integer; // time (in ms) elapsed since the effect started
+  duration:integer;  // time the effect should take
+  done:boolean;  // flag signalling that the effect is finished
   target:TGameScene;
   name:String8; // description for debug reasons
-  constructor Create(scene:TGameScene;TotalTime:integer); // создать эффект на заданное время (в мс.)
-  procedure DrawScene; virtual; abstract; // Процедура должна полностью выполнить отрисовку сцены с эффектом (в текущий RT)
+  constructor Create(scene:TGameScene;TotalTime:integer); // create an effect for the given time (in ms)
+  procedure DrawScene; virtual; abstract; // must fully draw the scene with the effect (into the current RT)
   destructor Destroy; override;
  end;
 
@@ -62,17 +62,17 @@ TGameScene=class(TNamedObject)
   ownerWindow:pointer; // window that owns this scene (Apus.Engine.Window.TWindow)
   status:TSceneStatus;
   fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
-  frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
-  effect:TSceneEffect; // Эффект, применяемый при выводе сцены
-  zOrder:integer; // Определяет порядок отрисовки сцен
-  activated:boolean; // true если сцена уже начала показываться или показалась, но еще не имеет эффекта закрытия
-  shadowColor:cardinal; // если не 0, то рисуется перед отрисовкой сцены
-  ignoreKeyboardEvents:boolean; // если true - такая сцена не будет получать сигналы о клавиатурном вводе, даже будучи верхней
+  frequency:integer; // how many times per second the scene handler should be called (0 - every frame)
+  effect:TSceneEffect; // effect applied when the scene is drawn
+  zOrder:integer; // defines the scene drawing order
+  activated:boolean; // true if the scene has started showing or is shown, but has no closing effect yet
+  shadowColor:cardinal; // if not 0, it is drawn before the scene is drawn
+  ignoreKeyboardEvents:boolean; // if true, the scene doesn't receive keyboard input signals even when it is on top
   gfxInitialized:boolean; // true after InitGfx was called by the render loop
   loaded:boolean; // true after Load has completed
 
-  // Внутренние величины
-  accumTime:integer; // накопленное время (в мс)
+  // Internal values
+  accumTime:integer; // accumulated time (in ms)
 
   constructor Create(fullscreen:boolean=true); overload;
   // Unified constructor: optional scene name and optional owner window object.
@@ -80,11 +80,11 @@ TGameScene=class(TNamedObject)
   constructor Create(sceneName:string='';fullscreen:boolean=true;wnd:TObject=nil); overload;
   destructor Destroy; override;
 
-  // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
+  // Called from the constructor; can be overridden to initialize without touching the constructor
   // !!! Call this manually from constructor!
   procedure onCreate; virtual;
 
-  // Для изменения статуса использовать только это!
+  // Use only this to change the status!
   procedure SetStatus(st:TSceneStatus); virtual;
 
   // status=ssActive
@@ -101,10 +101,10 @@ TGameScene=class(TNamedObject)
   // Can return false if scene doesn't change and doesn't need to be rendered
   function Process:boolean; virtual;
 
-  // Рисование сцены. Вызывается каждый кадр только если сцена активна и изменилась
-  // На момент вызова установлен RenderTarget и все готово к рисованию
-  // Если сцена соержит свой слой UI, то этот метод должен вызвать
-  // рисовалку UI для его отображения
+  // Draw the scene. Called every frame, only if the scene is active and has changed
+  // When called, the RenderTarget is set and everything is ready for drawing
+  // If the scene has its own UI layer, this method must call
+  // the UI renderer to display it
   procedure Render; virtual;
 
   // --- Keyboard callbacks (synchronous; dispatched by the engine once per frame) ---
@@ -127,19 +127,19 @@ TGameScene=class(TNamedObject)
   // Read buffered text char: 0xAAAABBCC or 0 if none.
   // AAAA - unicode char, BB - scancode, CC - ansi char
   function ReadKey:cardinal; virtual;
-  // Записать клавишу (нажатие/отпускание) в буфер клавиш (упаковка: keyCode|scancode<<16|pressed<<24)
+  // Put a key (press/release) into the key buffer (packing: keyCode|scancode<<16|pressed<<24)
   procedure WriteKey(key:cardinal); virtual;
-  // Записать введённый символ в буфер текста (для polling через ReadKey)
+  // Put an entered character into the text buffer (for polling via ReadKey)
   procedure WriteChar(ch:cardinal); virtual;
-  // Очистить буферы ввода
+  // Clear the input buffers
   procedure ClearKeyBuf; virtual;
 
-  // Смена режима (что именно изменилось - можно узнать косвенно)
+  // Display mode change (what exactly changed can be found out indirectly)
   procedure ModeChanged; virtual;
 
-  // Сообщение о том, что область отрисовки (она может быть частью окна) изменила размер, сцена может отреагировать на это
+  // Notification that the rendering area (it can be a part of the window) changed its size; the scene can react to it
   procedure onResize; virtual;
-  // События мыши
+  // Mouse events
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
   procedure onMouseWheel(delta:integer); virtual;

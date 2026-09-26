@@ -77,8 +77,8 @@ type
 
   procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
 
-  // Поиск элементов по имени. Если элемент не найден, то...
-  // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
+  // Find elements by name. If an element is not found, then...
+  // mustExists=true - exception, false - it is created (and a message is written to the log)
   function UIElement(name:string8;autoCreate:boolean=false):TUIElement;
   function UIButton(name:string8;mustExist:boolean=false):TUIButton;
   function UIEditBox(name:string8;mustExist:boolean=false):TUIEditBox;
@@ -96,7 +96,7 @@ type
   procedure SetupEditBox(edit:TUIEditBox;text:string8;cursor,maxlength:integer;
              enabled,password,noborder:boolean);
 
-  // Установка свойств элемента по имени
+  // Set element properties by name
   procedure SetElementState(name:string8;visible:boolean;enabled:boolean=true);
   procedure SetElementText(name:string8;text:string8);
 
@@ -113,9 +113,9 @@ type
 
   function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;name:string8=''):TUIElement; overload;
 
-  // Полезные функции общего применения
+  // Useful general-purpose functions
   // -------
-  // Создать всплывающее окно, прицепить его к указанному предку
+  // Create a popup window and attach it to the given parent
   procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
   // Shortcut to the element under mouse
@@ -125,14 +125,14 @@ type
   procedure SetFocusTo(e:TUIElement);
   function ModalElement:TUIElement; // active modal root of the current window (render thread)
 
-  // Найти элемент по имени (через хэш - среди всех)
+  // Find an element by name (via hash - among all elements)
   function FindElement(name:string8;mustExist:boolean=true):TUIElement;
   function FindControl(name:string8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
-  // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
-  // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
+  // Find an element at the given screen point (returns true if an element is found and it is
+  // enabled, taking all parents into account); ignores elements that are "transparent" at that point
   function FindElementAt(x,y:integer;out c:TUIElement):boolean;
   function FindControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindElementAt';
-  // Поиск элемента в данной точке не игнорируя "прозрачные" (полезно для отладки)
+  // Find an element at the given point without ignoring "transparent" ones (useful for debugging)
   function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
   function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindAnyElementAt';
 

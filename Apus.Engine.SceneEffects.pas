@@ -37,7 +37,7 @@ type
  end;
 
  // Fade effect with rotation and scaling
- // сцена начинает приближаться и поворачиваться теряя при этом прозрачность
+ // the scene starts approaching and rotating while losing transparency
  TRotScaleEffect=class(TSwitchScreenEffect)
   newscene:TGameScene;
   constructor Create(scene,nextScene:TGameScene;TotalTime:integer);
@@ -49,12 +49,12 @@ type
   initialized,DontPlay:boolean;
  end;
 
- // Режим показа окнонной сцены (сцена должна быть UI-шной)
- TShowMode=(sweShow,       // просто показать
-            sweShowModal,  // показать и сделать окно модальным
-            sweHide);      // спрятать
+ // Show mode of a window scene (the scene must be a UI scene)
+ TShowMode=(sweShow,       // just show
+            sweShowModal,  // show and make the window modal
+            sweHide);      // hide
  TShowWindowEffect=class(TSceneEffect)
-  // показать или спрятать сцену
+  // show or hide the scene
   constructor Create(scene:TUIScene;duration:integer;effMode:TShowMode;effect:integer);
   procedure Initialize;
   procedure DrawScene; override;

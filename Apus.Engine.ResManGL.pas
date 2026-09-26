@@ -11,7 +11,7 @@ interface
 type
  // OpenGL texture object with CPU-side storage and upload/sync helpers.
  // Managed by TGLResourceManager, can also represent RT/depth/array layers.
- // Текстура OpenGL
+ // OpenGL texture
  TGLTexture=class(TTexture)
  const
   MAX_LEVEL = 5;  // maximal number of supported mip level [0..MAX_LEVEL]
@@ -26,10 +26,10 @@ type
   procedure CloneFrom(src:TTexture); override;
   procedure MakeImmutable; override;
   procedure SetAsRenderTarget; virtual;
-  procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // 0-й уровень - самый верхний
+  procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // level 0 is the top one
   procedure AddDirtyRect(rect:TRect;level:integer); override;
   procedure Unlock; override;
-  function GetRawImage:TRawImage; override; // Создать RAW image и назначить его на верхний уровень текстуры (только когда текстура залочна!!!)
+  function GetRawImage:TRawImage; override; // create a RAW image and assign it to the top texture level (only while the texture is locked!!!)
   function Describe:string;
   procedure SetFilter(filter:TTexFilter); override;
   procedure Dump(filename:string8=''); override;
@@ -167,10 +167,10 @@ type
 
   function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean;
 
-  // Вспомогательные функции (для отладки/получения инфы)
-  function GetStatus(line:byte):string; // Формирует строки статуса
+  // Helper functions (for debugging/getting info)
+  function GetStatus(line:byte):string; // build status lines
 
-  // Создает дамп использования и распределения видеопамяти
+  // Create a dump of video memory usage and allocation
   procedure Dump(st:string='');
 
   // Data buffers
@@ -188,8 +188,8 @@ type
   //CurTag:integer;
   //data:TObject;
   //texFilters:array[0..15] of TTexFilter;
-  procedure FreeVidMem; // Освободить некоторое кол-во видеопамяти
-  procedure FreeMetaTexSpace(n:integer); // Освободить некоторое пространство в указанной метатекстуре
+  procedure FreeVidMem; // free some amount of video memory
+  procedure FreeMetaTexSpace(n:integer); // free some space in the given metatexture
   procedure AllocRenderTarget(tex:TGLTexture;flags:cardinal);
  end;
 

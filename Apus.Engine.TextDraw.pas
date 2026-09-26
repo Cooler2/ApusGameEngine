@@ -13,20 +13,20 @@ interface
   DEFAULT_FONT_UPSCALE = 1.1;
   TXT_TEXTURE_8BIT = false;
 
-  // FT-шрифты не имеют "базового" размера, поэтому scale задается относительно произвольно зафиксированного размера
-  FTF_DEFAULT_LINE_HEIGHT = 24; // Высота строки, соответствующей scale=100
+  // FT fonts have no "base" size, so scale is relative to an arbitrarily fixed size
+  FTF_DEFAULT_LINE_HEIGHT = 24; // line height that corresponds to scale=100
   // Fallback for GetFont(name,0) when the best match is a vector font: those have no
   // native size, so "default font size" has to be an actual number. Same default as
   // DefaultStyle uses for a missing 'font-size'.
   DEFAULT_UI_FONT_SIZE = 9;
 
  type
-  // Функция вычисления цвета в точке (для раскраски текста)
+  // Function that computes the color at a point (for text coloring)
   TColorFunc=function(x,y:single;color:cardinal):cardinal;
-  // Процедура модификации стиля отрисовки ссылок
+  // Procedure that modifies the link drawing style
   TTextLinkStyleProc=procedure(link:cardinal;var sUnderline:boolean;var color:cardinal);
 
-  // Вставка картинок в текст (8 байт)
+  // Images inlined in text (8 bytes)
   TInlineImage=packed record
    width:byte;
    padTop,padBottom:byte;
@@ -61,11 +61,11 @@ interface
    constructor Create;
    destructor Destroy; override;
 
-   function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
-   function LoadRasterFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
-   function LoadVectorFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
+   function LoadFont(fname:string;asName:string=''):string; overload; // returns the font name
+   function LoadRasterFont(const font:TBuffer;asName:string=''):string; overload; // returns the font name
+   function LoadVectorFont(const font:TBuffer;asName:string=''):string; overload; // returns the font name
    procedure SetScale(scale:single);
-   function GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+   function GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):TFontHandle; // returns the font handle
    function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
@@ -113,8 +113,8 @@ threadvar
  // Thread-local callbacks for text styling/coloring in multi-window render mode.
  textColorFunc:TColorFunc;
  textLinkStyleProc:TTextLinkStyleProc;
- // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
- // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
+ // If a query with point coordinates is passed when drawing text and the point falls on a drawn link,
+ // the number of that link is stored here. Reset before drawing a frame
  curTextLink:cardinal;
  curTextLinkRect:TRect;
 

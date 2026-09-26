@@ -21,9 +21,9 @@ interface
   TCmdFunc=procedure(cmd:string8);
 
   // Operator placement in a command
-  TOperatorPos=(opFirst,   // оператор - первое слово (символ) в строке (например 'use ')
-                opLast,    // оператор - последнее слово (символ) в строке (например '?')
-                opMiddle); // оператор разделяет строку на две части (например '=')
+  TOperatorPos=(opFirst,   // operator is the first word (symbol) in the line (e.g. 'use ')
+                opLast,    // operator is the last word (symbol) in the line (e.g. '?')
+                opMiddle); // operator splits the line into two parts (e.g. '=')
 
   // Representation type
   TReprType=(rtDecimal,rtHex,rtBin);

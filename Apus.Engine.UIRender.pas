@@ -34,13 +34,13 @@ interface
  procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);
 
  var
-  // Глобальная переменная для отрисовщиков: может содержать время, прошедшее с
-  // предыдущей отрисовки (время кадра), но может содержать и 0
+  // Global variable for renderers: may contain the time elapsed since
+  // the previous render (frame time), but may also contain 0
   //frameTime:int64;
 
   transpBgnd:boolean=false; // render target is (probably) transparent so blMove should be used to fill it
 
-  defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
+  defaultHintFont:cardinal=0; // font used to show hints
 
 implementation
  uses Apus.Images, SysUtils, Types,

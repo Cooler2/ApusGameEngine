@@ -9,8 +9,8 @@ interface
  uses Apus.Core, Apus.Images, Apus.Engine.API, Apus.Engine.Resources,
   Apus.Threads;
 
- // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
- // Если sysmem=true, то загружается в поверхность в системной памяти
+ // Load an image from a file into a texture (in the optimal format, if not specified explicitly)
+ // If sysmem=true, it is loaded into a surface in system memory
  // function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;
  //           ForceFormat:TImagePixelFormat=ipfNone):TTexture;
  function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
@@ -25,25 +25,25 @@ interface
  // Create image from STR format
  function CreateImageFromString(st:string8;padding:integer=0;flags:cardinal=0):TTexture;
 
- // Создать новую текстуру из куска данной (copy pixel data). Новая текстура размещается в доступной для
- // рендеринга памяти, тогда как источник может быть где угодно
+ // Create a new texture from a part of the given one (copy pixel data). The new texture is placed in
+ // renderable memory, while the source can be anywhere
  function CreateSubImage(source:TTexture;x,y,width,height:integer;flags:integer=0):TTexture;
 
- // Частный случай - копия изображения целиком (данные копируются)
+ // Special case - a copy of the whole image (the data is copied)
  function CreateImageCopy(source:TTexture):TTexture;
 
- // Обёртка для CopyRect
+ // Wrapper for CopyRect
  procedure CopyImageRect(source,dest:TTexture;sx,sy,width,height,targetX,targetY:integer);
 
- // загрузить текстуру с мип-мапами из файла (сперва ищется DDS, затем другие)
- // размер текстуры должен быть степенями 2
- // если мип-мапы в файле отсутствуют - будут созданы
- // если формат загружаемой картинки не соответствует финальному - будет сохранен DDS в нужном формате
+ // load a texture with mipmaps from a file (DDS is looked up first, then other formats)
+ // texture size must be a power of 2
+ // if the file has no mipmaps, they are generated
+ // if the format of the loaded image differs from the final one, a DDS in the required format is saved
  function LoadTexture(fname:string8;downscale:single;format:TImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
 
- // Загрузить текстурный атлас
- // Далее при загрузке изображений, которые уже есть в атласе, вместо загрузки из файла будут
- // создаваться текстурные объекты, ссылающиеся на атлас
+ // Load a texture atlas
+ // After that, loading an image that is already in the atlas creates a texture object referencing
+ // the atlas instead of loading it from a file
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
  procedure LoadAtlas(fname:string8;scale:single=1.0);
 
@@ -57,11 +57,11 @@ interface
  // storage; the source handle is not modified. Free the result like any texture.
  function CropImage(image:TTexture;x1,y1,x2,y2:integer):TTexture;
 
- // Уменьшает xRGB изображение за счет вырезания из него:
- //   вертикальных полос x1..x2-1, x3..x4-1
- //   горизонтальных полос y1..y2-1, y3..y4-1
- // При этом производится наложение (методом dissolve) частей на глубину overlap точек
- // Полосы могут быть нулевой ширины (x1=x2), однако все координаты должны быть упорядочены (0 < x1 <= x2 < x3 <= x4 < width)
+ // Shrink an xRGB image by cutting out:
+ //   vertical stripes x1..x2-1, x3..x4-1
+ //   horizontal stripes y1..y2-1, y3..y4-1
+ // The parts are blended (dissolve) over a depth of overlap pixels
+ // Stripes may have zero width (x1=x2), but all coordinates must be ordered (0 < x1 <= x2 < x3 <= x4 < width)
  function ShrinkImage(image:TTexture;x1,x2,x3,x4,y1,y2,y3,y4:integer;overlap:integer):TTexture;
 
  // Expands image this way: where y1..y2 = 456 band, and x1..x2 is 258 band (can also be used for shrinking)
@@ -71,7 +71,7 @@ interface
  //           7889
  function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture; overload;
 
- // Создает растянутую/сжатую копию изображения (все в ARGB)
+ // Create a stretched/shrunk copy of an image (everything in ARGB)
  function ResampleImage(image:TTexture;newWidth,newHeight:integer;sysMem:boolean=false):TTexture;
 
  // strength: 0..256 (ARGB and xRGB only!)

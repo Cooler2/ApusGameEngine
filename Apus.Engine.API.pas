@@ -153,7 +153,7 @@ type
   const
    Default        =  0;  // Default arrow
    Link           =  1;  // Link-over (hand/finger)
-   Wait           =  2;  // Курсор в режиме ожидания (часы)
+   Wait           =  2;  // busy cursor (hourglass)
    Input          =  3;  // Text input cursor (beam)
    Help           =  4;  // Arrow with question mark
    ResizeH        = 10;  // E-W arrows
@@ -208,7 +208,7 @@ type
                   spWindows, // Native Windows
                   spSDL);    // SDL-2 library (cross-platform)
 
- // Режим блендинга (действие, применяемое к фону)
+ // Blending mode (operation applied to the background)
  TBlendingMode=(blNone,   // background not modified
                 blAlpha,  // regular alpha blending
                 blAdd,    // additive mode ("Screen"
@@ -217,7 +217,7 @@ type
                 blModulate2X,  // "Multiply" mode with 2x factor
                 blMove     // Direct move
                 );
- // Режим блендинга текстуры (действие, применяемое к отдельной стадии текстурирования, к альфе либо цвету отдельно)
+ // Texture blending mode (operation applied to a single texturing stage, separately for alpha or color)
  TTexBlendingMode=(tblNone,  // undefined (don't change current value)
                    tblDisable, // disable texture stage
                    tblKeep,  // keep previous pixel value (previous=diffuse for stage 0)
@@ -226,14 +226,14 @@ type
                    tblModulate2X, // previous*texture*2
                    tblAdd,     // previous+texture
                    tblSub,     // previous-texture
-                   tblInterpolate // previous*factor+texture*(1-factor) текстурные стадии смешиваются между собой
+                   tblInterpolate // previous*factor+texture*(1-factor): texture stages are blended with each other
                    );
 { TTexInterpolateMode=(tintFactor, // factor=constant
                       tintDiffuse, // factor=diffuse alpha
                       tintTexture, // factor=texture alpha
                       tintCurrent); // factor=previous stage alpha}
 
- // Режим интерполяции текстур
+ // Texture interpolation (filtering) mode
  TTexFilter = Apus.Engine.Resources.TTexFilter;
 
  // Access mode for locked resources
@@ -389,7 +389,7 @@ type
   // zMin, zMax - near and far Z plane
   // xMin,xMax - x coordinate range on the zScreen Z plane
   // yMin,yMax - y coordinate range on the zScreen Z plane
-  // Т.е. точки (x,y,zScreen), где xMin <= x <= xMax, yMin <= y <= yMax - покрывают всю область вывода и только её
+  // I.e. the points (x,y,zScreen) with xMin <= x <= xMax, yMin <= y <= yMax cover the whole output area and only it
   procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload;
   // Set orthographic projection matrix
   // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
@@ -516,10 +516,10 @@ type
  end;
 
  // -------------------------------------------------------------------
- // ResourceManager - менеджер изображений (фактически, менеджер текстурной памяти)
+ // ResourceManager - image manager (effectively, a texture memory manager)
  // -------------------------------------------------------------------
  IResourceManager=interface
-  // Создать изображение (в случае ошибки будет исключение)
+  // Create an image (raises an exception on error)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
      flags:cardinal;name:String8):TTexture; overload;
   function AllocImage(width,height,mipLevels:integer;PixFmt:TImagePixelFormat;
@@ -555,9 +555,9 @@ type
   // Set ib=nil to disable index buffer
   procedure UseIndexBuffer(ib:TIndexBuffer);
 
-  // Формирует строки статуса
+  // Build status lines
   function GetStatus(line:byte):string;
-  // Создает дамп использования и распределения видеопамяти
+  // Create a dump of video memory usage and allocation
   procedure Dump(st:string='');
  end;
 
@@ -599,7 +599,7 @@ type
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record
   texture:TTexture;
-  matrix:TMat32;  // матрица трансформации текстурных к-т
+  matrix:TMat32;  // texture coordinates transformation matrix
   next:PMultiTexLayer;
  end;
 
@@ -678,7 +678,7 @@ type
   procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
 
   // Textured primitives ---------------
-  // Указываются к-ты тех пикселей, которые будут зарисованы (без границы)
+  // Coordinates specify the pixels that will be drawn (excluding the border)
   procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=clNeutral); overload;
   procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=clNeutral;pivotX:single=0;pivotY:single=0); overload;
   procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=clNeutral);
@@ -722,14 +722,14 @@ type
 
 
   // Multitexturing functions ------------------
-  // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
-  // а затем сброшен с помощью SetTexMode(1,tblDisable)
-  // Рисует два изображения, наложенных друг на друга, за один проход (если размер отличается, будет видна лишь общая часть)
+  // Multitexturing mode must be configured beforehand with SetTexMode / SetTexInterpolationMode
+  // and reset afterwards with SetTexMode(1,tblDisable)
+  // Draw two images blended over each other in one pass (if the sizes differ, only the common part is visible)
   procedure DoubleTex(x,y:integer;image1,image2:TTexture;color:cardinal=clNeutral);
-  // Рисует два изображения (каждое - с индвидуальным масштабом), повёрнутых на одинаковый угол. ЯЕсли итоговый размер отличается - будет видна лишь общая часть)
+  // Draw two images (each with its own scale) rotated by the same angle. If the resulting sizes differ, only the common part is visible
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=clNeutral);
-  // Заполнение прямоугольника несколькими текстурами (из списка)
+  // Fill a rectangle with several textures (from a list)
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=clNeutral);
 
   // Particles ------------------------------------------
@@ -852,8 +852,8 @@ type
 
   // Start/stop game
   // ---------------
-  procedure Run; virtual; abstract; // запустить движок (создание окна, переключение режима и пр.)
-  procedure Stop; virtual; abstract; // остановить и освободить все ресурсы (требуется повторный запуск через Run)
+  procedure Run; virtual; abstract; // start the engine (create the window, switch the display mode etc.)
+  procedure Stop; virtual; abstract; // stop and release all resources (Run is required to start again)
   // Change mode (Alt+Enter)
   procedure SwitchToAltSettings; virtual; abstract;
 
@@ -893,7 +893,7 @@ type
 
   // Debug tools
   // -----------
-  // Добавляет строку в "кадровый лог" - невидимый лог, который обнуляется каждый кадр, но может быть сохранен в случае какой-либо аварийной ситуации
+  // Add a line to the "frame log" - an invisible log that is cleared every frame but can be saved in case of a crash
   procedure FLog(st:string); virtual; abstract;
   function GetStatus(n:integer):string; virtual; abstract;
   // Show message in engine-driven pop-up toast. severity: msgInfo/Success/Warning/Error.
@@ -908,7 +908,7 @@ type
 
   // Screen capturing
   // ----------------
-  // Устанавливает флаги о необходимости сделать скриншот (JPEG или TGA)
+  // Set the flags requesting a screenshot (JPEG or TGA)
   procedure RequestScreenshot(saveAsJpeg:boolean=true); virtual; abstract;
   procedure RequestFrameCapture(obj:TObject=nil); virtual; abstract;
   procedure StartVideoCap(filename:string); virtual; abstract;
@@ -982,14 +982,14 @@ var
  Translate32:function(s:String32):String32;
 
  // Selected pixel formats for different tasks
- // Используемые форматы пикселя (в какие форматы грузить графику)
- pfTrueColorAlpha:TImagePixelFormat; // Формат для загрузки true-color изображений с прозрачностью
- pfTrueColor:TImagePixelFormat; // то же самое, но без прозрачности
- pfTrueColorAlphaLow:TImagePixelFormat; // То же самое, но для картинок, качеством которых можно пожертвовать
- pfTrueColorLow:TImagePixelFormat; // То же самое, но для картинок, качеством которых можно пожертвовать
- // форматы для отрисовки в текстуру
- pfRenderTarget:TImagePixelFormat;       // обычное изображение
- pfRenderTargetAlpha:TImagePixelFormat;  // вариант с альфаканалом
+ // Pixel formats in use (which formats to load graphics into)
+ pfTrueColorAlpha:TImagePixelFormat; // format for loading true-color images with transparency
+ pfTrueColor:TImagePixelFormat; // the same, without transparency
+ pfTrueColorAlphaLow:TImagePixelFormat; // the same, for images whose quality can be sacrificed
+ pfTrueColorLow:TImagePixelFormat; // the same, for images whose quality can be sacrificed
+ // formats for rendering into a texture
+ pfRenderTarget:TImagePixelFormat;       // regular image
+ pfRenderTargetAlpha:TImagePixelFormat;  // variant with an alpha channel
 
  // Shortcuts to the most used functions
  // ------------------------------------

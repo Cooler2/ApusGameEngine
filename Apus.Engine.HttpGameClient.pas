@@ -10,55 +10,55 @@ interface
 uses Apus.Core, Apus.Strings;
 
 var
- HGCErrorMessage:string; // текст последней ошибки (если был сигнал Net\Conn3\Error)
- mainLoopDelay:integer=10; // периодичность главного цикла в мс (вносит задержку в отправку/приём
-                           // сообщений, но помогает объединять их в один запрос
+ HGCErrorMessage:string; // text of the last error (if there was a Net\Conn3\Error signal)
+ mainLoopDelay:integer=10; // main loop period in ms (delays sending/receiving
+                           // messages, but helps to batch them into one request
 
- failedRequests:integer; // каждый сбойный запрос увеличивает счётчик, успешный - обнуляет
- lastPollSent:TDateTime; // время отправки последнего POLL-запроса
+ failedRequests:integer; // every failed request increments the counter, a successful one resets it
+ lastPollSent:TDateTime; // time the last POLL request was sent
 
- // Перечень всех возможных сигналов:
- //  NET\Conn3\AccountCreated - аккаунт успешно создан (CreateAccount)
- //  NET\Conn3\AccountFailed - запрос создания аккаунта принят (CreateAccount), но отклонён -
- //                            что-то не так, см. errorMessage и код ошибки в тэге
- //  NET\Conn3\ConnectionFailed - не удалось подключиться к серверу (нет интернета, неправильный адрес, сервер лежит)
- //  NET\Conn3\ConnectionRejected - сервер отказал в подключении (бан)
- //  NET\Conn3\ConnectionClosed - сервер закрыл соединение
- //  NET\Conn3\ConnectionBroken - установленное соединение разорвано по техническим причинам
- //  NET\Conn3\Connected - соединение установлено, но не авторизовано
- //  NET\Conn3\Logged - авторизация успешно пройдена - можно работать
- //  NET\Conn3\AccessDenied - авторизация не прошла, соединение закрыто, причина - в тексте ошибки
- //  NET\Conn3\Error - произошла какая-то иная ошибка
- //  NET\Conn3\DataReceived - получено сообщение (хэндл в тэге)
+ // List of all possible signals:
+ //  NET\Conn3\AccountCreated - account created successfully (CreateAccount)
+ //  NET\Conn3\AccountFailed - account creation request accepted (CreateAccount) but rejected -
+ //                            something is wrong, see errorMessage and the error code in the tag
+ //  NET\Conn3\ConnectionFailed - could not connect to the server (no internet, wrong address, server is down)
+ //  NET\Conn3\ConnectionRejected - the server refused the connection (ban)
+ //  NET\Conn3\ConnectionClosed - the server closed the connection
+ //  NET\Conn3\ConnectionBroken - an established connection was broken for technical reasons
+ //  NET\Conn3\Connected - connection established but not authorized
+ //  NET\Conn3\Logged - authorization passed - ready to work
+ //  NET\Conn3\AccessDenied - authorization failed, connection closed, the reason is in the error text
+ //  NET\Conn3\Error - some other error occurred
+ //  NET\Conn3\DataReceived - a message was received (handle in the tag)
 
- // Создание нового аккаунта. (extras - набор дополнительных полей, разделённых #9 (\t)
+ // Create a new account (extras - a set of additional fields separated by #9 (\t))
  procedure CreateAccount(server,login,password,name,extras:string);
 
- // Устанавливает соединение с сервером по указанному адресу/порту.
- // Подключение происходит асинхронно, уведомление о результате придёт сигналом
- // возможно подключение с авторизацией или без неё
+ // Connect to the server at the given address/port.
+ // Connection is asynchronous, the result is reported with a signal
+ // connecting with or without authorization is possible
  procedure Connect(server,login,password,clientinfo:string);
 
- // Отправка массива данных
+ // Send a data array
  procedure SendData(data:array of const);
 
- // true - если возможна отправка данных через SendData
+ // true if data can be sent via SendData
  function Connected:boolean;
 
- // Получить содержимое поступившего сообщения (хэндл передается в тэге сигнала Net\Conn3\UserMsg)
+ // Get the content of a received message (the handle is passed in the tag of the Net\Conn3\UserMsg signal)
  procedure GetNetMessage(handle:integer;var msg:TStringsReader);
 
- // Форматирует строку сообщения из массива значений
+ // Format a message string from an array of values
 // function FormatMessage(data:array of const):string;
 
- // Закрывает соединение, в нормальных условиях сервер максимально быстро об этом узнаёт
+ // Close the connection; under normal conditions the server learns about it as fast as possible
  procedure Disconnect(extraInfo:string='');
 
- // Проверка незанятости имени (не требует установки соединения)
+ // Check whether a name is free (does not require a connection)
 // procedure CheckName(name:string);
 
- // Парсит и ресолвит (если необходимо) адрес, заданный в виде строки
- // Внимание!!! Может занять много времени!
+ // Parse and resolve (if needed) an address given as a string
+ // Warning!!! May take a long time!
  procedure GetInternetAddress(address:String8;var ip:cardinal;var port:word);
 
  // Is internet connection available? positive - yes, negative - no

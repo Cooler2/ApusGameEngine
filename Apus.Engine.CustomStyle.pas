@@ -1,5 +1,5 @@
-﻿// Стандартный стиль для UI, позволяющий определять внешний вид элементов
-// с использованием изображений
+﻿// Standard UI style that allows defining the look of elements
+// using images
 //
 // Copyright (C) 2006 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -12,8 +12,8 @@ interface
  var
   loadScrollBarTextures:boolean=false;
 
- // Инициализация стиля (id - на какой номер регистрировать стиль)
- // Вызывать ПОСЛЕ инициализации движка
+ // Initialize the style (id - the number to register the style under)
+ // Call AFTER the engine is initialized
  procedure InitCustomStyle(imgpath:string8='Images\cstyle\';styleID:integer=1);
  procedure ApplyCustomStyle(item:TUIElement;styleName:string);
 
