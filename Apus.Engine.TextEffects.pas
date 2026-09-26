@@ -39,7 +39,8 @@ interface
  procedure DrawTextFX(font:TFontHandle;x,y:single;color:cardinal;const st:String8;
    align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal=0);
 
- // Drop all cached sprites of the calling render thread (context loss, font reload, global text scale change)
+ // Drop all cached sprites of the calling render thread: call after SetFontOption,
+ // font reload or dictionary switch (txt.SetScale is part of the cache key, no flush needed)
  procedure FlushTextFXCache;
 
 implementation
