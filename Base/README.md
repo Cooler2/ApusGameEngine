@@ -7,29 +7,29 @@ All modules are written in Pascal (compatible with Delphi 12+ and FPC 3.2+).
 
 | Group | Modules | Description |
 |-------|---------|-------------|
-| **Foundation** | Core, Types, Classes, Structs, EventMan | Basic types, collections, event system |
-| **Strings** | Strings, Conv | UTF-8 string operations, type conversions |
-| **Geometry** | Geom2D, Geom3D, VertexLayout | 2D/3D math, vectors, matrices |
+| **Foundation** | Core, Types, Classes, Containers, HashMaps, EventMan, Lib | Basic types, collections, event system (`Lib` re-exports the foundation modules) |
+| **Strings** | Strings, Conv, TextUtils | UTF-8 string operations, type conversions |
+| **Geometry** | Geom2D, Geom3D, Spatial, VertexLayout | 2D/3D math, vectors, matrices, intersection tests |
 | **Graphics** | Colors, FastGFX, Images, GfxFormats, GfxFilters, Regions | Image processing, pixel formats |
-| **Text** | TextUtils, UnicodeFont, FreeTypeFont, GlyphCaches | Font rendering and text layout |
+| **Text** | UnicodeFont, FreeTypeFont, GlyphCache | Font rendering and glyph caching |
 | **Animation** | AnimatedValues, Tweenings | Value interpolation and easing |
-| **Networking** | Socket, TCP, HttpRequests, GeoIP | Network communication |
-| **Platform** | CrossPlatform | OS abstraction layer |
-| **Utilities** | Utils, Logging, Files, HashMaps, Threads, Profiling, StackTrace, Clipboard, CPU | General-purpose tools |
-| **Specialized** | Crypto, RSA, Database, Translation, HtmlTree, ControlFiles | Domain-specific modules |
-| **Auxiliary** | ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI | Compression, codecs, math |
+| **Networking** | Socket, TCP, HttpRequests, HttpServer, GeoIP | Network communication |
+| **Platform** | Android | Android integration |
+| **Utilities** | Utils, Files, Log, Logging, Threads, Profiling, StackTrace, Clipboard, CPU, MemoryLeakUtils | General-purpose tools |
+| **Specialized** | Crypto, RSA, Database, Translation, HtmlTree, ControlFiles, Publics | Domain-specific modules (`Publics`: named variables and expression evaluation) |
+| **Auxiliary** | Compress, ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI | Compression, codecs, math |
+
+`Network` is deprecated (use `Socket`); it stays only for `Apus.Engine.UdpTransport`.
 
 ## Directory Structure
 
 ```
 Base/
-  *.pas          — library source files (Apus.*.pas)
-  deprecated/    — old units kept for reference, not for use in new projects
+  Apus.*.pas     — library source files
   extra/         — third-party units and build-time libraries
   tests/         — unit tests and benchmarks (see tests/README.md)
-  tools/         — standalone utility tool projects
-  doc/           — additional documentation
-  bin/           — compiled output and runtime libraries
+  tools/         — small HTML helpers (bin2pas, sql2pas)
+  bin/           — runtime libraries for Base tests and tools
 ```
 
 ## Primary String Type

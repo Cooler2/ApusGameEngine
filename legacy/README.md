@@ -37,6 +37,8 @@ For geometry and static 3D content use the engine5 units `Apus.Engine.Mesh`,
 
 - `Base/demo/tcp/TestTCP.dpr` -> `legacy/Base/demo/tcp/`: an old TCP demo on
   `Apus.Common`; `Base/tests/TestTCP.dpr` covers `Apus.TCP` now.
+- `Base/tools/ListFonts` -> `legacy/Base/tools/ListFonts/`: font listing tool on the
+  pre-engine4 `MyServis` unit.
 
 ## Remaining references
 
