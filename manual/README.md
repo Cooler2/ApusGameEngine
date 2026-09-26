@@ -7,7 +7,7 @@ The engine5 manual is being written; only these chapters are published so far:
 - [Chapter 21. Resource System: Images and Textures](ch21_resource_system.md) - how
   images are loaded, found, shared and released.
 - [Engine signal inventory](engine_signal_inventory.md) - snapshot of the signals the
-  engine sends and handles (currently in Russian).
+  engine sends and handles.
 
 Until the rest is written, these are the best places to learn the engine:
 
