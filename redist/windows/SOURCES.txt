@@ -65,7 +65,9 @@ license          = FreeType License (licenses/FreeType-FTL.txt); FreeType is dua
                    shipping these DLLs owes the same credit downstream.
 normalization    = freetype.dll -> freetype32.dll / freetype64.dll (both files are
                    named freetype.dll upstream, one per architecture directory)
-installed_to     = Base/bin/freetype32.dll, Base/bin/freetype64.dll
+installed_to     = Base/bin/freetype32.dll, Base/bin/freetype64.dll (Base tests),
+                   bin/freetype32.dll, bin64/freetype64.dll (engine and demo executables;
+                   byte-identical copies, git stores them as one object)
 committed_sha256 = d039f727e82a4570883dba2069f9dd95518ba580f16f891fcc5fd6c07624bf35 (32)
                    58aae1f69ea5c2adca3cf0314d01e14353f674755b9d1098c1ebbf478207b672 (64)
 
