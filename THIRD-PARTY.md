@@ -28,6 +28,7 @@ the odd ones out: they sit where the build output needs them rather than under
 | libxmp | 4.6.1 | `bin/libxmp.dll`, `bin64/libxmp.dll` | MIT | `redist/windows/licenses/libxmp-LICENSE.txt` |
 | FreeType | 2.10.0 | `Base/bin/freetype32.dll`, `Base/bin/freetype64.dll` | FTL (dual FTL/GPLv2, FTL elected) | `redist/windows/licenses/FreeType-FTL.txt` |
 | LodePNG | 20161127 | `Base/bin/LodePNG*.dll`, `Base/tests/LodePNG*.dll`, `Base/extra/LodePNG.lib` | zlib | `redist/windows/licenses/LodePNG-LICENSE.txt` |
+| libwebpdecoder | 1.6.0 | `bin64/libwebpdecoder.dll` | BSD-3 | `redist/windows/licenses/libwebp-LICENSE.txt` |
 | zlib | 1.1.4 | `Base/extra/zlib/*.obj` (Win32 Delphi only) | zlib | `redist/windows/licenses/zlib-LICENSE.txt` |
 | SDL2 (macOS) | 2.30.9 | `redist/macos/libSDL2-2.0.0.dylib` | zlib | `redist/macos/licenses/SDL2-LICENSE.txt` |
 | SDL2 (iOS) | 2.30.12 | `redist/ios*/SDL2.framework/` | zlib | `redist/ios*/licenses/SDL2-LICENSE.txt` |
@@ -102,7 +103,7 @@ an own implementation would close the question outright.
 ## What a product built on the engine redistributes
 
 If a game ships the Windows build output, it ships SDL2, SDL2_mixer, libxmp,
-FreeType and LodePNG. Practically that means: keep the licence texts from
+FreeType, LodePNG, and libwebpdecoder. Practically that means: keep the licence texts from
 `redist/windows/licenses/` with the distribution (a `licenses/` folder or an
 in-game credits screen), and credit FreeType. Nothing else is required.
 

@@ -76,7 +76,11 @@ constructor TMainScene.Create;
   inherited Create;
   cameraZoom.Init(1);
   // Load resources
+  {$IFDEF WEBP}
+  texture:=LoadImageFromFile(baseDir+'res\cubetex.webp');
+  {$ELSE}
   texture:=LoadImageFromFile(baseDir+'res\cubetex.png');
+  {$ENDIF}
  end;
 
 destructor TMainScene.Destroy;
@@ -193,6 +197,11 @@ procedure TMainScene.Render;
   gfx.SetCullMode(TCullMode.DrawAll);
 
   txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
+  {$IFDEF WEBP}
+  txt.Write(0,10,40,$FFD0D0D0,'Texture: res/cubetex.webp (WebP)');
+  {$ELSE}
+  txt.Write(0,10,40,$FFD0D0D0,'Texture: res/cubetex.png (PNG)');
+  {$ENDIF}
   inherited;
  end;
 

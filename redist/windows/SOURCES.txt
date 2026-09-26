@@ -1,4 +1,4 @@
-# redist/windows provenance - third-party runtime DLLs committed to this repository.
+﻿# redist/windows provenance - third-party runtime DLLs committed to this repository.
 #
 # Unlike the other platform directories, the binaries are NOT stored here: they
 # live where the build output expects to find them (bin/, bin64/, Base/bin/,
@@ -84,6 +84,19 @@ committed_sha256 = e372f5653a892c96c46622c4e064e944814c95eab326f7e9d18bb999e9d2e
                    90992d9bf581d69a868332e995e28f59b9ec328c80b140abd793d5918c82e6d2 (64, Base/tests)
 notes            = the two x64 copies are different builds of the same LodePNG
                    version; Base/tests/ has drifted from Base/bin/.
+
+[libwebpdecoder]
+version          = 1.6.0-1 (MSYS2 mingw-w64-libwebp)
+upstream_x64     = https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-libwebp-1.6.0-1-any.pkg.tar.zst
+upstream_x64_sha256 = 360b1690d41eb497dfe50526460a2424600a6a806cbb76c5b0fec9f14623ac59
+license          = BSD-3 (licenses/libwebp-LICENSE.txt)
+normalization    = libwebpdecoder-3.dll -> libwebpdecoder.dll (the Pascal binding name)
+installed_to     = bin64/libwebpdecoder.dll (x64)
+committed_sha256 = 13ae915d60002b8fc78789e82504b4846d4449636b3f2bd4cdc20ab3266d26c6 (x64)
+notes            = decode-only DLL; WEBP remains an opt-in compiler define.
+                   x86 DLL is not bundled because its decoder
+                   requires libgcc_s_dw2-1.dll. The x64 package archive hash matches
+                   the MSYS2 package index.
 
 [zlib]
 version          = 1.1.4
