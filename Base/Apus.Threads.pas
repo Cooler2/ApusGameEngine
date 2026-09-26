@@ -176,6 +176,8 @@ type
   TThreadFunc=function(ctx:TThreadContext):UIntPtr; // full form: receives context, returns value
   TThreadProc=procedure;                            // simple procedure, no params
   TThreadMethod=procedure of object;                // method of object
+  // Notification that a registered thread exits (see onThreadFinished)
+  TThreadFinishedProc=procedure(threadID:TThreadIdent;const threadName:String8);
 
   // Thread control interface for thread creator
   IThread=interface ['{B8E5C8A0-1234-4567-89AB-123456789ABC}']
@@ -247,13 +249,18 @@ var
   // This slows down critical sections - use carefully
   debugCriticalSections:boolean=false;
 
+  // Called from the exiting thread when a registered thread finishes. Apus.EventMan sets it
+  // to drop the thread's handlers and queued events. A unit that sets this hook must clear
+  // it in its finalization: threads may still exit after that unit is finalized.
+  onThreadFinished:TThreadFinishedProc;
+
 threadvar
   // Current thread context (accessible from within thread procedure)
   CurrentThread:TThreadContext;
 
 // Configuration
 implementation
-uses Classes, Apus.Strings, Apus.Conv, Apus.Log, Apus.EventMan
+uses Classes, Apus.Strings, Apus.Conv, Apus.Log
     {$IFDEF UNIX}, unixtype, BaseUnix{$ENDIF}
     {$IFDEF LINUX}, Syscall{$ENDIF}
     {$IFDEF ANDROID}, Apus.Android{$ENDIF};
@@ -1089,6 +1096,7 @@ var
   id:TThreadIdent;
   data:PThreadData;
   threadName:String8;
+  finishedHook:TThreadFinishedProc;
 begin
   id:=GetCurrentThreadID;
   data:=nil;
@@ -1111,7 +1119,8 @@ begin
 
   // Cleanup outside lock (Dispose + Log can be slow)
   if data<>nil then begin
-    Apus.EventMan.ThreadFinished(id,threadName);
+    finishedHook:=onThreadFinished;
+    if Assigned(finishedHook) then finishedHook(id,threadName);
     Log.Msg('Thread %s unregistered',[threadName]);
     {$IFDEF ANDROID}
     AndroidDoneThread;

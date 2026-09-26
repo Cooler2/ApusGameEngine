@@ -46,10 +46,6 @@ type
  // Process signals synchronously (a thread that registers synchronous handlers must call this regularly)
  procedure HandleSignals;
 
- // Called by Apus.Threads when a registered thread exits.
- // Removes queued/mixed handlers and discards events which can no longer be handled.
- procedure ThreadFinished(threadID:TThreadIdent;const threadName:String8);
-
  // Link an event to another event (the tag may be new; if it is -1, the old one is kept)
  // If redirect=true and a link exists, handling of the signal at more general levels is cancelled
  procedure Link(event,newEvent:TEventStr;tag:TTag=-1;redirect:boolean=false);
@@ -139,6 +135,7 @@ var
  links:array[0..255] of PLink;
 
  critSect:TLock;
+ finalized:boolean; // set in finalization: threads that outlive this unit must not touch its state
 
 function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
  begin
@@ -301,6 +298,8 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
   end;
 
+ // Apus.Threads.onThreadFinished hook: called when a registered thread exits.
+ // Removes queued/mixed handlers and discards events which can no longer be handled.
  procedure ThreadFinished(threadID:TThreadIdent;const threadName:String8);
   var
    i,n,last,removed,queued,delayed:integer;
@@ -313,6 +312,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    handlerList:='';
    CritSect.Enter;
    try
+    if finalized then exit; // e.g. LogFlush, stopped by Apus.Log after this unit is finalized
     n:=-1;
     for i:=0 to threadCnt-1 do
      if threads[i].threadID=threadID then begin
@@ -702,9 +702,15 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
 initialization
  critSect.Init('EventMan',300);
+ onThreadFinished:=ThreadFinished;
  SetEventHandler('Event',EventHandler);
 
 finalization
- critSect.Cleanup;
+ critSect.Enter;
+ finalized:=true;
+ onThreadFinished:=nil;
+ critSect.Leave;
+ // critSect is intentionally not destroyed: a thread that stops after this unit is finalized
+ // may still be entering ThreadFinished. The process is exiting, the OS releases the lock.
 end.
 
