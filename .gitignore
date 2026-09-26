@@ -31,6 +31,10 @@
 /demo/*/*
 !/demo/*/*.*
 !/demo/*/*/
+# ...except IDE-generated Delphi resources/objects there (model .obj files live
+# in subfolders and are not affected)
+/demo/*/*.res
+/demo/*/*.obj
 
 # Delphi compiler-generated binaries (safe to delete)
 *.exe
