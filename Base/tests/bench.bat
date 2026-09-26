@@ -6,6 +6,7 @@ REM
 REM Usage:
 REM   bench.bat              - compile and run BenchStrings.dpr (default)
 REM   bench.bat Strings      - compile and run BenchStrings.dpr
+REM   bench.bat R32PNG -dLODEPNG - optional compiler define
 REM
 REM Output:
 REM   bench_Strings_64.txt - 64-bit results
@@ -21,7 +22,7 @@ set FPC32=ppc386.exe
 set FPC64=fpc.exe
 rem set FPC32=g:\lazarus\fpc\3.2.2\bin\i386-win32\fpc.exe
 rem set FPC64=g:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe
-set FLAGS=-MDelphi -Sd -O3 -RIntel -Fu..
+set FLAGS=-MDelphi -Sd -O3 -RIntel -Fu.. %2
 
 if "%1"=="" (
   set BENCH=BenchStrings

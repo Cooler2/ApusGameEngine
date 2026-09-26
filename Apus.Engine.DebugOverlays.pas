@@ -273,7 +273,8 @@ var
     WriteLine('Build: '+BuildModeText+' / '+CompilerText+' / '+OSText+' '+CPUText);
     WriteLine('SDL: '+{$IFDEF SDL}'compiled'{$ELSE}'not compiled'{$ENDIF});
     WriteLine('FREETYPE: '+{$IFDEF FREETYPE}'on'{$ELSE}'off'{$ENDIF});
-    WriteLine('LODEPNG: '+{$IFDEF LODEPNG}'on'{$ELSE}'off'{$ENDIF}+
+    WriteLine('WEBP: '+{$IFDEF WEBP}'on'{$ELSE}'off'{$ENDIF}+
+      ', LODEPNG: '+{$IFDEF LODEPNG}'on'{$ELSE}'off'{$ENDIF}+
       ', OPENGL: '+{$IFDEF OPENGL}'on'{$ELSE}'off'{$ENDIF});
     dpiText:=Conv.ToStr(window.surface.dpi);
     // they differ over a scaled canvas, and that difference is what engine-side sizing uses

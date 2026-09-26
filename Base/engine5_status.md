@@ -83,6 +83,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-06-19):** Removed legacy `Apus.Engine.PainterGL` and `Apus.Engine.PainterGL2`; active rendering goes through `Apus.Engine.OpenGL` and the `IGraphicsSystem`/`IDrawer` stack.
 **Recent wins (2026-09-06):** Unhandled `Thread.Start` exceptions now retain their class, raw exception address, available FPC stack frames, and message in both the forced log and `IThread.StatusText`; raw-`TThread` tests use the same `Apus.Core.ExceptionMsg` path.
 
+- 2026-09-26: R-32 adds static WebP decode and fixes FPC PNG grayscale target writes; see PNG_DECODERS.md for decoder comparison and deployment limits.
+
 ## Live module inventory (2026-05-29)
 
 Generated from the 56 live `Base/Apus.*.pas` files. Build sweep status is based
@@ -113,7 +115,7 @@ means the module is live but is not currently compiled by those sweep scripts.
 | `Apus.Geom2D` | Win/Linux | TestGeom2D | |
 | `Apus.Geom3D` | Win/Linux | TestGeom3D | |
 | `Apus.GfxFilters` | Win/Linux | - | |
-| `Apus.GfxFormats` | Win/Linux | - | |
+| `Apus.GfxFormats` | Win/Linux | TestGfxFormats, BenchR32PNG | Static WebP decode is opt-in with WEBP; PNG decoder comparison in PNG_DECODERS.md. |
 | `Apus.GlyphCache` | Win/Linux | - | |
 | `Apus.HashMaps` | Win/Linux | TestHashMaps, BenchHashMaps | |
 | `Apus.HtmlTree` | Win/Linux | - | |

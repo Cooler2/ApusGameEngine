@@ -11,7 +11,7 @@ interface
      {$IFDEF TXTIMAGES}Apus.UnicodeFont,{$ENDIF}
      Apus.Images;
  type
-  TImageFileType=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG);
+  TImageFileType=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG,ifWebP);
   TImageFileInfo=record
    width,height:integer;
    format:TImagePixelFormat;
@@ -58,6 +58,8 @@ interface
  // Grayscale (color type 0) is loaded as ipfMono8, so its tRNS transparency (if any) is lost.
  // Any other color type is loaded as 32-bit RGBA and converted to the target image format.
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
+ // Decode a static WebP image using libwebpdecoder when WEBP is defined.
+ procedure LoadWebP(data:ByteArray;var image:TRawImage);
  function SavePNG(image:TRawImage):ByteArray;
 
  // ICO/CUR file format
@@ -776,6 +778,7 @@ function CheckFileFormat(fname:string):TImageFileType;
    tga:^TGAheader;
    pvr:^PVRheader;
    i,j:integer;
+   riffSize,chunkSize:UInt64;
    fl:boolean;
   begin
    result:=ifUnknown;
@@ -785,6 +788,38 @@ function CheckFileFormat(fname:string):TImageFileType;
    imginfo.height:=0;
    imginfo.format:=ipfNone;
    imginfo.palformat:=palNone;
+   // WebP RIFF header with a VP8, VP8L, or VP8X image chunk.
+   if (length(data)>=25) and
+      (data[0]=82) and (data[1]=73) and (data[2]=70) and (data[3]=70) and
+      (data[8]=87) and (data[9]=69) and (data[10]=66) and (data[11]=80) then begin
+    riffSize:=UInt64(data[4])+(UInt64(data[5]) shl 8)+
+      (UInt64(data[6]) shl 16)+(UInt64(data[7]) shl 24);
+    chunkSize:=UInt64(data[16])+(UInt64(data[17]) shl 8)+
+      (UInt64(data[18]) shl 16)+(UInt64(data[19]) shl 24);
+    if (riffSize+8>UInt64(length(data))) or (chunkSize+20>riffSize+8) then exit;
+    if (data[12]=86) and (data[13]=80) and (data[14]=56) then begin
+     if (data[15]=88) and (chunkSize>=10) and (length(data)>=30) then begin // VP8X
+      if (data[20] and 2)<>0 then exit; // animated WebP needs a separate decoder
+      imgInfo.width:=1+data[24]+(data[25] shl 8)+(data[26] shl 16);
+      imgInfo.height:=1+data[27]+(data[28] shl 8)+(data[29] shl 16);
+     end else
+     if (data[15]=76) and (chunkSize>=5) and (data[20]=47) then begin // VP8L
+      imgInfo.width:=1+data[21]+((data[22] and 63) shl 8);
+      imgInfo.height:=1+(data[22] shr 6)+(data[23] shl 2)+((data[24] and 15) shl 10);
+     end else
+     if (data[15]=32) and (chunkSize>=10) and (length(data)>=30) and
+        (data[23]=$9D) and (data[24]=$01) and (data[25]=$2A) then begin // VP8
+      imgInfo.width:=data[26]+((data[27] and 63) shl 8);
+      imgInfo.height:=data[28]+((data[29] and 63) shl 8);
+     end;
+    end;
+    if (imgInfo.width>0) and (imgInfo.height>0) and
+       (UInt64(imgInfo.width)*UInt64(imgInfo.height)<=UInt64(High(integer)) div 4) then begin
+     imgInfo.format:=ipfARGB;
+     result:=ifWebP;
+    end;
+    exit;
+   end;
    // Check for PNG
    if (length(data)>=4) and (data[0]=$89) and (data[1]=$50) and (data[2]=$4E) and (data[3]=$47) then begin
     result:=ifPNG;
@@ -898,62 +933,86 @@ function CheckFileFormat(fname:string):TImageFileType;
    if fl then result:=ifTXT;
   end;
 
+ // Convert a decoded ARGB row into any supported raw image target.
+ procedure CopyARGBRow(src:PCardinal;dest:PByte;width:integer;destFormat:TImagePixelFormat);
+ var
+  j:integer;
+  c:cardinal;
+ begin
+  case destFormat of
+   ipfMono8:
+    for j:=0 to width-1 do begin
+     c:=src^;
+     dest^:=((c shr 16 and $FF)*77+(c shr 8 and $FF)*150+
+       (c and $FF)*29) shr 8;
+     inc(src);
+     inc(dest);
+    end;
+   ipfA8:
+    for j:=0 to width-1 do begin
+     dest^:=src^ shr 24;
+     inc(src);
+     inc(dest);
+    end;
+   ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipfRGB,ipfBGR,
+   ipf555,ipf1555,ipf565,ipf4444:
+    ConvertLine(src^,dest^,ipfARGB,destFormat,width);
+   else
+    raise EWarning.Create('Unsupported target image format');
+  end;
+ end;
+
  {$IFDEF FPC}
  procedure LoadImageUsingReader(reader:TFPCustomImageReader;data:ByteArray;hasAlpha:boolean;
     var image:TRawImage);
-  var
-   img:TMyFPImage;
-   src:TMemoryStream;
-   sp,dp:PByte;
-   i,j,w,h:integer;
-   c:cardinal;
-  begin
-   // Source data as TMemoryStream
-   src:=TMemoryStream.Create;
+ var
+  img:TMyFPImage;
+  src:TMemoryStream;
+  sp,dp:PByte;
+  row:array of cardinal;
+  i,j,w,h:integer;
+  c:cardinal;
+ begin
+  src:=TMemoryStream.Create;
+  img:=nil;
+  try
    src.Write(data[0],length(data));
    src.Seek(0,soFromBeginning);
-
-   // Load image
-   img:=TMyFPImage.create(0,0);
+   img:=TMyFPImage.Create(0,0);
    img.LoadFromStream(src,reader);
-   src.Free;
-
-   // Allocate dest image if needed
    if image=nil then
-    if hasAlpha then
-     image:=TBitmapImage.Create(img.Width,img.Height,ipfARGB)
-    else
-     image:=TBitmapImage.Create(img.Width,img.Height,ipfXRGB);
-
-   // Copy/convert bitmap data
+    if hasAlpha then image:=TBitmapImage.Create(img.Width,img.Height,ipfARGB)
+     else image:=TBitmapImage.Create(img.Width,img.Height,ipfXRGB);
    w:=Min(image.width,img.Width);
    h:=Min(image.height,img.Height);
-   for i:=0 to h-1 do begin
-    sp:=img.GetScanline(i);
-    inc(sp);
-    dp:=image.data;
-    inc(dp,image.pitch*i);
-    for j:=0 to w-1 do begin
-     // BGR16 to RGB8 conversion
-     c:=sp^;
-     inc(sp,2);
-     c:=c shl 8+sp^;
-     inc(sp,2);
-     c:=c shl 8+sp^;
-     if hasAlpha then begin
+   if (w<=0) or (h<=0) then exit;
+   SetLength(row,w);
+   image.Lock;
+   try
+    for i:=0 to h-1 do begin
+     sp:=img.GetScanline(i);
+     inc(sp);
+     for j:=0 to w-1 do begin
+      // The FPC reader exposes 16-bit B, G, R, A samples.
+      c:=sp^; inc(sp,2);
+      c:=c shl 8+sp^; inc(sp,2);
+      c:=c shl 8+sp^; inc(sp,2);
+      if hasAlpha then row[j]:=(sp^ shl 24) or c
+       else row[j]:=$FF000000 or c;
       inc(sp,2);
-      PCardinal(dp)^:=(sp^ shl 24) or c;
-      inc(sp,2);
-     end else begin
-      inc(sp,4);
-      PCardinal(dp)^:=$FF000000 or c;
      end;
-     inc(dp,4);
+     dp:=image.scanline(i);
+     CopyARGBRow(@row[0],dp,w,image.PixelFormat);
     end;
+   finally
+    image.Unlock;
    end;
+  finally
    img.Free;
    reader.Free;
+   src.Free;
   end;
+ end;
 
  function SaveImageUsingWriter(writer:TFPCustomImageWriter;image:TRawImage):ByteArray;
   var
@@ -1263,6 +1322,56 @@ function CheckFileFormat(fname:string):TImageFileType;
 
  {$ENDIF}
 
+ {$IFDEF WEBP}
+ {$IFDEF MSWINDOWS}
+ const WebPLib='libwebpdecoder.dll';
+ {$ELSE}
+   {$IF DEFINED(DARWIN) OR DEFINED(MACOS)}
+ const WebPLib='libwebpdecoder.dylib';
+   {$ELSE}
+ const WebPLib='libwebpdecoder.so.0';
+   {$ENDIF}
+ {$ENDIF}
+ function WebPGetInfo(data:PByte;dataSize:NativeUInt;out width,height:integer):integer;
+   cdecl; external WebPLib;
+ function WebPDecodeRGBAInto(data:PByte;dataSize:NativeUInt;output:PByte;
+   outputSize:NativeUInt;stride:integer):PByte; cdecl; external WebPLib;
+ {$ENDIF}
+
+ procedure LoadWebP(data:ByteArray;var image:TRawImage);
+ {$IFDEF WEBP}
+ var
+  width,height,y:integer;
+  pixels:ByteArray;
+ {$ENDIF}
+ begin
+  {$IFDEF WEBP}
+  if (length(data)=0) or (CheckImageFormat(data)<>ifWebP) then
+   raise EWarning.Create('Invalid or unsupported WebP image');
+  if WebPGetInfo(@data[0],length(data),width,height)=0 then
+   raise EWarning.Create('Invalid WebP image');
+  if (width<>imgInfo.width) or (height<>imgInfo.height) then
+   raise EWarning.Create('WebP dimensions do not match the header');
+  if (NativeUInt(width)*NativeUInt(height)>NativeUInt(High(integer)) div 4) then
+   raise EWarning.Create('WebP image is too large');
+  SetLength(pixels,width*height*4);
+  if WebPDecodeRGBAInto(@data[0],length(data),@pixels[0],length(pixels),width*4)=nil then
+   raise EWarning.Create('WebP decoder failed');
+  SwapRB(pixels[0],width*height); // decoded RGBA bytes become ARGB pixels
+  if image=nil then image:=TBitmapImage.Create(width,height,ipfARGB);
+  image.Lock;
+  try
+   for y:=0 to Min(height,image.height)-1 do
+    CopyARGBRow(@pixels[y*width*4],image.scanline(y),
+      Min(width,image.width),image.PixelFormat);
+  finally
+   image.Unlock;
+  end;
+  {$ELSE}
+  NotImplemented('Use WEBP to load WebP images');
+  {$ENDIF}
+ end;
+
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
   begin
    CheckImageFormat(data);
@@ -1276,7 +1385,7 @@ function CheckFileFormat(fname:string):TImageFileType;
     LoadPNG32(data,image);
    {$ELSE}
     {$IFDEF FPC}
-    LoadImageUsingReader(TFPReaderPng.Create,data,true,image); // always ARGB
+    LoadImageUsingReader(TFPReaderPng.Create,data,true,image); // ARGB if no target was supplied
     {$ELSE}
     NotImplemented('No method to load PNG file format');
     {$ENDIF}

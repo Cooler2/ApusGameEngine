@@ -254,6 +254,7 @@ procedure TUnpackThread.Execute;
       if format=ifTGA then LoadTGA(srcData,img,true) else
       if format=ifJPEG then LoadJPEG(srcData,img) else
       if format=ifPNG then LoadPNG(srcData,img) else
+      if format=ifWebP then LoadWebP(srcData,img) else
       if format=ifPVR then LoadPVR(srcData,img,true) else
       if format=ifDDS then LoadDDS(srcData,img,true) else begin
        Log.Force('Image format not supported for async load: '+fname);

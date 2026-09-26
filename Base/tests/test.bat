@@ -6,6 +6,7 @@ REM
 REM Usage:
 REM   test.bat              - compile and run TestCore.dpr (default)
 REM   test.bat TestStrings  - compile and run TestStrings.dpr
+REM   test.bat GfxFormats -dWEBP 64only - optional define and x64-only runtime
 REM
 REM Output:
 REM   test_results_64.txt - 64-bit compilation and test results
@@ -19,7 +20,7 @@ setlocal
 cd /d "%~dp0"
 set FPC32=ppc386.exe
 set FPC64=fpc.exe
-set FLAGS=-MDelphi -Sd -RIntel -Fu.. -Ct -CR -dTIME_OVERRIDE
+set FLAGS=-MDelphi -Sd -RIntel -Fu.. -Ct -CR -dTIME_OVERRIDE %2
 set LOG64=test_results_64.txt
 set LOG32=test_results_32.txt
 
@@ -62,6 +63,10 @@ bin64\%TEST%.exe %REV% >> %LOG64% 2>&1
 echo Exit code: %errorlevel% >> %LOG64%
 
 :compile32
+if /I "%3"=="64only" (
+  echo 32-bit run SKIPPED - 64only > %LOG32%
+  goto done
+)
 REM === 32-bit ===
 echo Testing %TEST% (32-bit) - %date% %time% > %LOG32%
 echo Revision: %REV%  Flags: %FLAGS% >> %LOG32%

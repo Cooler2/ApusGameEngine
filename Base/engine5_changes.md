@@ -3,6 +3,24 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Image loading: WebP and PNG fallback (2026-09-26)
+
+- TImageFileType now includes ifWebP. CheckImageFormat recognizes static
+  RIFF/WEBP VP8, VP8L, and VP8X headers and reports dimensions and ARGB output.
+  Animated WebP is rejected.
+- LoadWebP(data,image) decodes a static WebP to a new or caller-provided image.
+  Define WEBP to link libwebpdecoder; without it the API raises NotImplemented.
+  The engine file loader and preloader accept .webp. Save/encode is not added.
+  An opt-in build must ship the decoder under the binding name:
+  libwebpdecoder.dll on Windows, libwebpdecoder.so.0 on Linux, or
+  libwebpdecoder.dylib on macOS. These binaries are not bundled here.
+  Extensionless file probing includes .webp only in WEBP builds.
+- The shared FPC image reader now respects the target pixel format and row pitch,
+  including Mono8 and A8 targets, for PNG and JPEG. Previously it wrote four
+  bytes per pixel even into one-byte grayscale PNG targets.
+- PNG decoder measurements, limits, and the compile-time selection decision are
+  documented in [PNG_DECODERS.md](PNG_DECODERS.md). LODEPNG behavior is unchanged.
+
 ## Image loading: shared textures, source keys (2026-09-16)
 
 Loading the same image file twice used to create a second texture and, since the name

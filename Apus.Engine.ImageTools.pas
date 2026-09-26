@@ -376,6 +376,9 @@ function FindProperFile(fname:String8;dontFail:boolean=false):String8;
   if Files.Exists(fname+'.tga') then result:=fname+'.tga' else
   if Files.Exists(fname+'.jpg') then result:=fname+'.jpg' else
   if Files.Exists(fname+'.png') then result:=fname+'.png' else
+  {$IFDEF WEBP}
+  if Files.Exists(fname+'.webp') then result:=fname+'.webp' else
+  {$ENDIF}
   if Files.Exists(fname+'.txt') then result:=fname+'.txt';
   {$ELSE}
   maxAge:=-1; st2:='';
@@ -394,6 +397,13 @@ function FindProperFile(fname:String8;dontFail:boolean=false):String8;
   if age>maxAge then begin
    maxAge:=age; st2:=st;
   end;
+  {$IFDEF WEBP}
+  st:=fname+'.webp';
+  age:=FileAge(st);
+  if age>maxAge then begin
+   maxAge:=age; st2:=st;
+  end;
+  {$ENDIF}
   st:=fname+'.jpg';
   age:=FileAge(st);
   if age>maxAge then begin
@@ -458,6 +468,9 @@ begin
   {$IFDEF IOS}
   if not FileExists(fname) then
    if FileExists(fname+'.tga') then fname:=fname+'.tga'
+    {$IFDEF WEBP}
+    else if FileExists(fname+'.webp') then fname:=fname+'.webp'
+    {$ENDIF}
     else if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
      else raise EError.Create(fname+' not found');
   {$ELSE}
@@ -488,7 +501,7 @@ begin
    if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
    format:=CheckImageFormat(data);
-   if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
+   if not (format in [ifTGA,ifJPEG,ifPNG,ifWebP,ifTXT,ifDDS,ifPVR]) then
     raise EError.Create('image format not supported');
 
    // Загрузка TXT
@@ -546,6 +559,7 @@ begin
    if format=ifTGA then LoadTGA(data,img) else
    if format=ifJPEG then LoadJPEG(data,img) else
    if format=ifPNG then LoadPNG(data,img) else
+   if format=ifWebP then LoadWebP(data,img) else
    if format=ifPVR then LoadPVR(data,img) else
    if format=ifDDS then LoadDDS(data,img) else
    if format=ifTXT then begin

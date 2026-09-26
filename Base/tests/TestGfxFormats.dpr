@@ -42,6 +42,26 @@ begin
   // 26..28: compression, filter, interlace; 29..32: CRC - all left zero
 end;
 
+// Build a WebP extended header. The test checks only signature and dimensions.
+function MakeWebP(width,height:cardinal;animated:boolean=false):ByteArray;
+begin
+  SetLength(result,30);
+  FillChar(result[0],length(result),0);
+  result[0]:=82; result[1]:=73; result[2]:=70; result[3]:=70; // RIFF
+  PutLE(result,4,22);
+  result[8]:=87; result[9]:=69; result[10]:=66; result[11]:=80; // WEBP
+  result[12]:=86; result[13]:=80; result[14]:=56; result[15]:=88; // VP8X
+  PutLE(result,16,10);
+  if animated then result[20]:=2;
+  dec(width); dec(height);
+  result[24]:=width and $FF;
+  result[25]:=(width shr 8) and $FF;
+  result[26]:=(width shr 16) and $FF;
+  result[27]:=height and $FF;
+  result[28]:=(height shr 8) and $FF;
+  result[29]:=(height shr 16) and $FF;
+end;
+
 // build a DDS file: 'DDS ' + 124-byte DDSURFACEDESC2 + pixel data filled with a pattern
 function MakeDDS(width,height:cardinal;const fourCC:string;mipLevels:cardinal;dataSize:integer):ByteArray;
 var
@@ -94,6 +114,128 @@ begin
   EndTest;
 end;
 
+// Two grayscale pixels (0 and 255) exercise the FPC reader's target stride.
+procedure TestPNGGrayDecode;
+const
+  png:array[0..67] of byte=(
+    $89,$50,$4E,$47,$0D,$0A,$1A,$0A,$00,$00,$00,$0D,$49,$48,$44,$52,
+    $00,$00,$00,$02,$00,$00,$00,$01,$08,$00,$00,$00,$00,$D1,$49,$20,
+    $56,$00,$00,$00,$0B,$49,$44,$41,$54,$78,$9C,$63,$60,$F8,$0F,$00,
+    $01,$02,$01,$00,$42,$BE,$BC,$68,$00,$00,$00,$00,$49,$45,$4E,$44,
+    $AE,$42,$60,$82);
+var
+  data:ByteArray;
+  image:TRawImage;
+  pixels:PByte;
+begin
+  StartTest('PNG grayscale decode');
+  SetLength(data,SizeOf(png));
+  Move(png[0],data[0],SizeOf(png));
+  image:=TBitmapImage.Create(2,1,ipfMono8);
+  try
+    LoadPNG(data,image);
+    pixels:=image.data;
+    Check(pixels[0]=0,'black grayscale pixel');
+    Check(pixels[1]=255,'white grayscale pixel');
+  finally
+    image.Free;
+  end;
+  EndTest;
+end;
+
+function MakeWebPPixel:ByteArray;
+const
+  webp:array[0..37] of byte=(
+    $52,$49,$46,$46,$1E,$00,$00,$00,$57,$45,$42,$50,$56,$50,$38,$4C,
+    $11,$00,$00,$00,$2F,$00,$00,$00,$10,$07,$50,$91,$46,$74,$A6,$44,
+    $81,$88,$E8,$7F,$00,$00);
+begin
+  SetLength(result,SizeOf(webp));
+  Move(webp[0],result[0],SizeOf(webp));
+end;
+
+function MakeWebPLossyAlpha:ByteArray;
+const
+  webp:array[0..123] of byte=(
+    $52,$49,$46,$46,$74,$00,$00,$00,$57,$45,$42,$50,$56,$50,$38,$58,
+    $0A,$00,$00,$00,$10,$00,$00,$00,$01,$00,$00,$01,$00,$00,$41,$4C,
+    $50,$48,$05,$00,$00,$00,$00,$FF,$00,$80,$FF,$00,$56,$50,$38,$20,
+    $48,$00,$00,$00,$70,$02,$00,$9D,$01,$2A,$02,$00,$02,$00,$00,$80,
+    $08,$25,$A0,$02,$74,$BA,$01,$F8,$01,$FA,$00,$03,$32,$95,$DF,$00,
+    $00,$FE,$FF,$7C,$0F,$FC,$A6,$7F,$D5,$33,$FF,$51,$7F,$F9,$B8,$FF,
+    $FB,$8A,$FF,$FD,$C1,$2F,$BE,$3F,$FF,$5E,$71,$78,$B5,$83,$BF,$FA,
+    $F3,$9F,$FF,$4B,$7B,$77,$EE,$E9,$FF,$4A,$40,$00);
+begin
+  SetLength(result,SizeOf(webp));
+  Move(webp[0],result[0],SizeOf(webp));
+end;
+
+procedure TestWebPHeader;
+var
+  data:ByteArray;
+begin
+  StartTest('WebP header');
+  Check(CheckImageFormat(MakeWebP(1024,768))=ifWebP,'VP8X signature');
+  Check((imgInfo.width=1024) and (imgInfo.height=768),'VP8X dimensions');
+  Check(imgInfo.format=ipfARGB,'WebP output is RGBA');
+  Check(CheckImageFormat(MakeWebPPixel)=ifWebP,'lossless VP8L signature');
+  Check((imgInfo.width=1) and (imgInfo.height=1),'VP8L dimensions');
+  Check(CheckImageFormat(MakeWebPLossyAlpha)=ifWebP,'VP8X lossy+alpha signature');
+  Check((imgInfo.width=2) and (imgInfo.height=2),'VP8X lossy+alpha dimensions');
+  Check(CheckImageFormat(MakeWebP(100000,1000))=ifWebP,'24-bit dimensions');
+  Check((imgInfo.width=100000) and (imgInfo.height=1000),'large dimensions');
+  Check(CheckImageFormat(MakeWebP(16,16,true))=ifUnknown,'animation rejected');
+  data:=MakeWebP(16,16);
+  SetLength(data,24);
+  Check(CheckImageFormat(data)=ifUnknown,'truncated header rejected');
+  data:=MakeWebP(16,16);
+  data[8]:=0;
+  Check(CheckImageFormat(data)=ifUnknown,'RIFF without WEBP rejected');
+  EndTest;
+end;
+
+{$IFDEF WEBP}
+procedure TestWebPDecode;
+var
+  image:TRawImage;
+begin
+  StartTest('WebP decode');
+  image:=nil;
+  try
+    LoadWebP(MakeWebPPixel,image);
+    Check((image<>nil) and (image.width=1) and (image.height=1),
+      'image allocated');
+    Check(PCardinal(image.data)^=$44112233,'RGBA pixel converted to ARGB');
+  finally
+    image.Free;
+  end;
+  image:=nil;
+  try
+    LoadWebP(MakeWebPLossyAlpha,image);
+    Check((image.width=2) and (image.height=2),'lossy+alpha image allocated');
+    Check(PByte(image.scanline(0))[7]=0,'transparent lossy pixel');
+    Check(PByte(image.scanline(1))[3]=128,'partial alpha lossy pixel');
+  finally
+    image.Free;
+  end;
+  image:=TBitmapImage.Create(1,1,ipfMono8);
+  try
+    LoadWebP(MakeWebPPixel,image);
+    Check(PByte(image.data)^=30,'RGBA pixel converted to Mono8');
+  finally
+    image.Free;
+  end;
+  image:=TBitmapImage.Create(1,1,ipfA8);
+  try
+    LoadWebP(MakeWebPPixel,image);
+    Check(PByte(image.data)^=68,'alpha extracted to A8');
+  finally
+    image.Free;
+  end;
+  EndTest;
+end;
+{$ENDIF}
+
 // DDSHeader must be exactly 124 bytes, otherwise every field starting from
 // the pixel format is read from a wrong offset (used to break on x64)
 procedure TestDDSHeader;
@@ -137,6 +279,9 @@ begin
     writeln;
 
     TestPNGHeader;
+    TestPNGGrayDecode;
+    TestWebPHeader;
+    {$IFDEF WEBP}TestWebPDecode;{$ENDIF}
     TestDDSHeader;
     TestDDSData;
 
