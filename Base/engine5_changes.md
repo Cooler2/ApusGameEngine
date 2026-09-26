@@ -13,7 +13,7 @@ Use it as the primary reference when updating old code.
   The engine file loader and preloader accept .webp. Save/encode is not added.
   An opt-in build must ship the decoder under the binding name:
   libwebpdecoder.dll on Windows, libwebpdecoder.so.0 on Linux, or
-  libwebpdecoder.dylib on macOS. The Windows x64 DLL is bundled in bin64/; other target binaries are not bundled.
+  libwebpdecoder.dylib on macOS. The Windows x64 DLL is built from pinned libwebp source and bundled in bin64/; other target binaries are not bundled.
   Extensionless file probing includes .webp only in WEBP builds.
 - The shared FPC image reader now respects the target pixel format and row pitch,
   including Mono8 and A8 targets, for PNG and JPEG. Previously it wrote four

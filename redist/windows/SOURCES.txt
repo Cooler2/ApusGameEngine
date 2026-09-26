@@ -86,17 +86,19 @@ notes            = the two x64 copies are different builds of the same LodePNG
                    version; Base/tests/ has drifted from Base/bin/.
 
 [libwebpdecoder]
-version          = 1.6.0-1 (MSYS2 mingw-w64-libwebp)
-upstream_x64     = https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-libwebp-1.6.0-1-any.pkg.tar.zst
-upstream_x64_sha256 = 360b1690d41eb497dfe50526460a2424600a6a806cbb76c5b0fec9f14623ac59
+version          = 1.6.0 (WebM libwebp, decoder-only)
+source_url       = https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz
+source_sha256    = e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564
+build_script     = platform/webp/build_windows.ps1 (CMake webpdecoder target)
+build_toolchain  = MSYS2 MinGW-w64 GCC 15.2.0, x64
+link_flags       = -static-libgcc -Wl,--no-insert-timestamp
 license          = BSD-3 (licenses/libwebp-LICENSE.txt)
-normalization    = libwebpdecoder-3.dll -> libwebpdecoder.dll (the Pascal binding name)
+patents          = licenses/libwebp-PATENTS.txt
 installed_to     = bin64/libwebpdecoder.dll (x64)
-committed_sha256 = 13ae915d60002b8fc78789e82504b4846d4449636b3f2bd4cdc20ab3266d26c6 (x64)
-notes            = decode-only DLL; WEBP remains an opt-in compiler define.
-                   x86 DLL is not bundled because its decoder
-                   requires libgcc_s_dw2-1.dll. The x64 package archive hash matches
-                   the MSYS2 package index.
+committed_sha256 = 52afc4a4ad09a04d903a338299d519c0ebf1b13d9da0319c3eb17e10cc914e2f
+imports          = KERNEL32.dll, msvcrt.dll (Windows system components only)
+notes            = WEBP remains opt-in; no libgcc or other third-party runtime.
+                   Win32 is not packaged. Linux/macOS/Android builds remain open.
 
 [zlib]
 version          = 1.1.4

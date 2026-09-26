@@ -47,9 +47,9 @@ into our canonical layout, and records provenance in `SOURCES.txt`. To update a
 library, bump the version in the script and re-run it; commit the result.
 
 - macOS: `platform/macos/fetch_redist.sh`
-- Windows: no script — the binaries are not re-vendored, so there is nothing
-  to normalize; `redist/windows/SOURCES.txt` records the upstream artifacts,
-  their hashes and the commands to re-verify them.
+- Windows WebP: `platform/webp/build_windows.ps1` downloads a pinned source
+  archive, builds the decoder DLL, checks its imports, and installs it in `bin64/`.
+  Other Windows binaries are documented in `redist/windows/SOURCES.txt`.
 
 Note the committed files are **not byte-identical to upstream** where
 normalization was required (e.g. macOS install-id rewrite + ad-hoc re-sign);
