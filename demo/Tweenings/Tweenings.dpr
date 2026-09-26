@@ -3,7 +3,6 @@ program Tweenings;
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   TweeningsApp in 'TweeningsApp.pas';
 
-{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMainApp.Create;
