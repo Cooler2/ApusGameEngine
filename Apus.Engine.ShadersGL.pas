@@ -409,7 +409,7 @@ procedure AddShaderPreamble(var st:String8;fragment:boolean);
 // (MeshSemanticLocation), so they are SPARSE and stable regardless of which
 // attributes are present; the binder (BindMeshLayout) enables exactly those.
 function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:cardinal;
-   useTable:boolean=false;hasTangent:boolean=false):String8;
+   useTable:boolean=false;hasTangent:boolean=false;hasUV2:boolean=false):String8;
  var
   ch:AnsiChar;
   depthPass,shadowMap:boolean;
@@ -421,7 +421,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
  begin
   depthPass:=Bits.HasAll(lighting,LIGHT_DEPTHPASS);
   if depthPass then begin
-   hasNormal:=false; hasColor:=false; hasUV:=false;
+   hasNormal:=false; hasColor:=false; hasUV:=false; hasUV2:=false;
   end;
   shadowMap:=Bits.HasAll(lighting,LIGHT_SHADOWMAP);
   // Now build shader source
@@ -448,6 +448,11 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
    AddLine(result,'layout (location='+Loc(ch,LOC_TEXCOORD0)+') in vec2 texCoord;');
    AddLine(result,'out vec2 vTexCoord;');
   end;
+  if hasUV2 then begin
+   inc(ch);
+   AddLine(result,'layout (location='+Loc(ch,LOC_TEXCOORD1)+') in vec2 texCoord2;');
+   AddLine(result,'out vec2 vTexCoord2;');
+  end;
   if hasTangent then begin // only emitted for mesh shaders (useTable=true)
    AddLine(result,'layout (location='+Conv.ToStr(LOC_TANGENT)+') in vec4 tangent;');
    AddLine(result,'out vec4 vTangent;');
@@ -461,12 +466,13 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   AddLine(result,'   vNormal = NormalMatrix*normal;',hasNormal); // inverse-transpose model 3x3 (not mat3(ModelMatrix)) - correct under non-uniform scale; see UpdateMatrices
   AddLine(result,'   vColor = color;',hasColor);
   AddLine(result,'   vTexCoord = texCoord;',hasUV);
+  AddLine(result,'   vTexCoord2 = texCoord2;',hasUV2);
   AddLine(result,'   vTangent = vec4(mat3(ModelMatrix)*tangent.xyz,tangent.w);',hasTangent); // tangents are real directions: transform by M, not M^-T
   AddLine(result,'   vLightPos = vec3(ShadowMapMatrix * ModelMatrix * vec4(position,1.0));',shadowMap);
   AddLine(result,'}');
  end;
 
-function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:boolean;texMode:TTexMode;hasNormalMap:boolean=false):String8;
+function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:boolean;texMode:TTexMode;hasNormalMap:boolean=false;hasUV2:boolean=false):String8;
  var
   i:integer;
   m,colorMode,alphaMode:byte;
@@ -514,6 +520,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
   AddLine(result,'in vec3 vNormal;',hasNormal);
   AddLine(result,'in vec4 vColor;',hasColor);
   AddLine(result,'in vec2 vTexCoord;',hasUV);
+  AddLine(result,'in vec2 vTexCoord2;',hasUV2);
   AddLine(result,'in vec4 vTangent;',hasNormalMap);
   AddLine(result,'in vec3 vLightPos;',shadowMap);
   AddLine(result,'out vec4 fragColor;');
@@ -557,8 +564,12 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
     if m<>0 then begin
      colorMode:=m and $0F; // blending function for color component
      alphaMode:=m shr 4; // blending function for alpha component
-     if (colorMode>=ord(tblReplace)) or (alphaMode>=ord(tblReplace)) then // texture is used in blending stage
+     if (colorMode>=ord(tblReplace)) or (alphaMode>=ord(tblReplace)) then begin // texture is used in blending stage
+      if (i=1) and hasUV2 then
+       AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord2);')
+      else
        AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord);');
+     end;
      case colorMode of
       ord(tblReplace)    : AddLine(result,'   c = vec3(t.r, t.g, t.b);');
       ord(tblModulate)   : AddLine(result,'   c = c*vec3(t.r, t.g, t.b);');
@@ -589,17 +600,18 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
 function TGLShadersAPI.CreateShaderFor:TGLShader;
  var
   vSrc,fSrc,notes:String8;
-  hasNormal,hasColor,hasUV:boolean;
+  hasNormal,hasColor,hasUV,hasUV2:boolean;
  begin
   hasNormal:=actualVertexLayout and $F0>0;
   hasColor:=actualVertexLayout and $F00>0;
   hasUV:=actualVertexLayout and $F000>0;
+  hasUV2:=actualVertexLayout and $F0000>0;
   if Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED) then notes:='Cust '
    else notes:='Std ';
   notes:=notes+'shader for mode '+Conv.ToHex(curTexMode.mode)+' layout='+Conv.ToHex(actualVertexLayout);
   Log.Msg('Building: '+notes);
-  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
-  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,false,curTexMode);
+  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting,false,false,hasUV2);
+  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,false,curTexMode,false,hasUV2);
   result:=Build(vSrc,fSrc) as TGLShader;
   // TNamedObject names are global; include GL handle to avoid cross-thread duplicates.
   result.name:=notes+' h'+Conv.ToHex(result.handle);
