@@ -448,9 +448,9 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
    AddLine(result,'layout (location='+Loc(ch,LOC_TEXCOORD0)+') in vec2 texCoord;');
    AddLine(result,'out vec2 vTexCoord;');
   end;
-  if hasUV2 then begin // second UV set in the legacy painter layout
+  if hasUV2 then begin
    inc(ch);
-   AddLine(result,'layout (location='+ch+') in vec2 texCoord2;');
+   AddLine(result,'layout (location='+Loc(ch,LOC_TEXCOORD1)+') in vec2 texCoord2;');
    AddLine(result,'out vec2 vTexCoord2;');
   end;
   if hasTangent then begin // only emitted for mesh shaders (useTable=true)
@@ -564,9 +564,9 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
     if m<>0 then begin
      colorMode:=m and $0F; // blending function for color component
      alphaMode:=m shr 4; // blending function for alpha component
-     if (colorMode>=ord(tblReplace)) or (alphaMode>=ord(tblReplace)) then begin
+     if (colorMode>=ord(tblReplace)) or (alphaMode>=ord(tblReplace)) then begin // texture is used in blending stage
       if (i=1) and hasUV2 then
-       AddLine(result,'  t = texture(tex1,vTexCoord2);')
+       AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord2);')
       else
        AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord);');
      end;

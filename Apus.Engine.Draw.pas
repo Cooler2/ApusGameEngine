@@ -710,21 +710,21 @@ begin
 
  scale1X:=w/(scale1X*(image1.width)/2);
  u:=0.5*(au2-au1)*(1-scale1X);
- au1:=image1.u1+image1.stepU*u;
- au2:=image1.u2-image1.stepU*u;
+ au1:=image1.u1+u;
+ au2:=image1.u2-u;
  scale1Y:=h/(scale1Y*(image1.height)/2);
  v:=0.5*(av2-av1)*(1-scale1Y);
- av1:=image1.v1+image1.stepV+v;
- av2:=image1.v2-image1.stepV-v;
+ av1:=image1.v1+v;
+ av2:=image1.v2-v;
 
  scale2X:=w/(scale2X*(image2.width)/2);
  u:=0.5*(bu2-bu1)*(1-scale2X);
- bu1:=image2.u1+image2.stepU+u;
- bu2:=image2.u2-image2.stepU-u;
+ bu1:=image2.u1+u;
+ bu2:=image2.u2-u;
  scale2Y:=h/(scale2Y*(image2.height)/2);
  v:=0.5*(bv2-bv1)*(1-scale2Y);
- bv1:=image2.v1+image2.stepV+v;
- bv2:=image2.v2-image2.stepV-v;
+ bv1:=image2.v1+v;
+ bv2:=image2.v2-v;
 
  c:=cos(angle); s:=sin(angle);
  h:=-h;
