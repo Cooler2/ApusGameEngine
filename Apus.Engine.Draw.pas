@@ -97,6 +97,11 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure DoubleTex(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080);
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=$FF808080);
+  // Inclusive rectangle borders. Each matrix maps normalized rectangle UV (0..1)
+  // to normalized UV in its texture, including cloned texture subregions.
+  // Caller configures TexMode and restores it after drawing.
+  procedure DoubleTexturedRect(x1,y1,x2,y2:integer;const layer1,layer2:TMultiTexLayer;
+      color:cardinal=clNeutral);
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
   procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture); overload;
   procedure TrgList(vertices:pointer;layout:TVertexLayout;trgCount:integer;tex:TTexture); overload;
@@ -631,6 +636,40 @@ begin
   au1,av2, bu1,bv2,
   color);
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertexDT.Layout);
+end;
+
+procedure TDrawer.DoubleTexturedRect(x1,y1,x2,y2:integer;
+  const layer1,layer2:TMultiTexLayer;color:cardinal);
+var
+ vrt:array[0..3] of TVertexDT;
+ a,b:TVec2;
+ i:integer;
+ const corners:array[0..3,0..1] of single=((0,0),(1,0),(1,1),(0,1));
+ function LayerUV(const layer:TMultiTexLayer;x,y:single):TVec2;
+ var u,v:single;
+ begin
+  u:=x*layer.matrix[0,0]+y*layer.matrix[1,0]+layer.matrix[2,0];
+  v:=x*layer.matrix[0,1]+y*layer.matrix[1,1]+layer.matrix[2,1];
+  result.x:=layer.texture.u1+u*(layer.texture.u2-layer.texture.u1);
+  result.y:=layer.texture.v1+v*(layer.texture.v2-layer.texture.v1);
+ end;
+begin
+ ASSERT((layer1.texture<>nil) and (layer2.texture<>nil));
+ if (x2<x1) or (y2<y1) then exit;
+ if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
+ for i:=0 to 3 do begin
+  a:=LayerUV(layer1,corners[i,0],corners[i,1]);
+  b:=LayerUV(layer2,corners[i,0],corners[i,1]);
+  vrt[i].Init(x1-0.5+corners[i,0]*(x2-x1+1),
+    y1-0.5+corners[i,1]*(y2-y1+1),zPlane,a.x,a.y,b.x,b.y,color);
+ end;
+ shader.UseTexture(layer1.texture,0);
+ shader.UseTexture(layer2.texture,1);
+ try
+  renderDevice.Draw(TRG_FAN,2,@vrt,TVertexDT.Layout);
+ finally
+  shader.UseTexture(nil,1);
+ end;
 end;
 
 procedure TDrawer.DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;

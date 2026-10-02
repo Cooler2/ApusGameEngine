@@ -729,6 +729,11 @@ type
   // Draw two images (each with its own scale) rotated by the same angle. If the resulting sizes differ, only the common part is visible
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=clNeutral);
+  // Inclusive rectangle borders. Each matrix maps normalized rectangle UV (0..1)
+  // to normalized UV in its texture, including cloned texture subregions.
+  // Caller configures TexMode and restores it after drawing.
+  procedure DoubleTexturedRect(x1,y1,x2,y2:integer;const layer1,layer2:TMultiTexLayer;
+      color:cardinal=clNeutral);
   // Fill a rectangle with several textures (from a list)
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=clNeutral);
 
