@@ -191,7 +191,7 @@ begin
   newCount:=length(requests);
   pendingCount:=length(pendingRequests);
   requestCount:=newCount+pendingCount;
-  if requestCount=0 then exit;
+  if (requestCount=0) and (batchResponse='') then exit; // retry a response whose file was temporarily locked
 
   SetLength(allRequests,requestCount);
   for i:=0 to pendingCount-1 do

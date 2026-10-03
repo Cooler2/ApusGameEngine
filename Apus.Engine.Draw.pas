@@ -1388,6 +1388,7 @@ var
  startU,startV,sizeU,sizeV:integer;
  color:cardinal;
 begin
+ if count<=0 then exit; // no vertices/indices in an empty batch
  EnsureThreadState;
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
@@ -1497,6 +1498,7 @@ var
  frontVec:TVec3;
  d,realDepthRange:single;
 begin
+ if count<=0 then exit; // no vertices/indices in an empty batch
  EnsureThreadState;
  // Shader
  shader.UseCustom(partShader3D);

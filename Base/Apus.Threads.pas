@@ -401,61 +401,46 @@ stdcall; external 'kernel32.dll' {$IFNDEF FPC}delayed{$ENDIF};
 
 function GetThreadStateInfo(id:TThreadIdent):string8;
 const
-  THREAD_GET_CONTEXT       = 08;
-  THREAD_SUSPEND_RESUME    = 02;
+  THREAD_GET_CONTEXT = 08;
+  THREAD_SUSPEND_RESUME = 02;
 var
   handle:THandle;
-  context:^TContext; // use dynamic variable to make sure it's 16-byte aligned (important!)
-  susp:integer;
-  _ip,_bp,sbp:NativeUInt;
-  st:string8;
-  i:integer;
-  p:pointer;
+  context:^TContext;
+  _ip,_bp,_sp:NativeUInt;
 begin
-  // Never inspect the calling thread: SuspendThread(self) stops this very thread right
-  // here, so the ResumeThread below is never reached and the process hangs for good.
   if id=GetCurrentThreadID then exit('(calling thread)');
   handle:=OpenThread(THREAD_SUSPEND_RESUME+THREAD_GET_CONTEXT,false,id);
-  susp:=SuspendThread(handle);
-  if susp<0 then
-    result:=GetLastErrorDesc;
-  New(context);
-  context.ContextFlags:=$00010007;
-  if GetThreadContext(handle,context^) then begin
-    {$IFDEF CPUX64}
-    _ip:=context.Rip;
-    _bp:=context.Rbp;
-    sbp:=_bp;
-    p:=pointer(PUInt64(_bp-8)^);
-    st:=Conv.ToStr(p)+'<-';
-    for i:=1 to 2 do begin
-      inc(_bp,$20);
-      p:=pointer(_bp+8);
-      p:=pointer(PUInt64(p)^);
-      if p=nil then break;
-      st:=st+Conv.ToStr(p)+'<-';
-      _bp:=PUInt64(_bp)^;
-      if (_bp>sbp+$1000) or (_bp<sbp) then break;
+  if handle=0 then exit(GetLastErrorDesc);
+  try
+    if SuspendThread(handle)=DWORD(-1) then exit(GetLastErrorDesc);
+    try
+      New(context);
+      try
+        FillChar(context^,SizeOf(TContext),0);
+        context.ContextFlags:=CONTEXT_FULL;
+        if not GetThreadContext(handle,context^) then exit(GetLastErrorDesc);
+        {$IFDEF CPUX64}
+        _ip:=context.Rip;
+        _bp:=context.Rbp;
+        _sp:=context.Rsp;
+        {$ENDIF}
+        {$IFDEF CPU386}
+        _ip:=context.Eip;
+        _bp:=context.Ebp;
+        _sp:=context.Esp;
+        {$ENDIF}
+        // Frame pointers are optional, especially inside system DLLs. Never
+        // dereference guessed frames: a fault would leave this thread suspended.
+        result:=UTF8.Format('ip=%x bp=%x sp=%x',[_ip,_bp,_sp]);
+      finally
+        Dispose(context);
+      end;
+    finally
+      ResumeThread(handle);
     end;
-    {$ENDIF}
-    {$IFDEF CPU386}
-    _ip:=context.Eip;
-    _bp:=context.Ebp;
-    for i:=1 to 3 do begin
-      p:=pointer(_bp+4);
-      if p=nil then break;
-      p:=pointer(PCardinal(p)^);
-      if p=nil then break;
-      st:=st+Conv.ToStr(p)+'<-';
-      _bp:=PCardinal(_bp)^;
-    end;
-    {$ENDIF}
-    result:=UTF8.Format('stack: %s ip=%x bp=%x',[st,_ip,sbp]);
-  end else
-    result:=GetLastErrorDesc;
-  Dispose(context);
-  ResumeThread(handle);
-  CloseHandle(handle);
+  finally
+    CloseHandle(handle);
+  end;
 end;
 {$ELSEIF Defined(UNIX) AND Defined(CPUAMD64)}
 const
