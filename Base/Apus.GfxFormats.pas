@@ -748,24 +748,12 @@ const
 
 function CheckFileFormat(fname:string):TImageFileType;
   var
-   f:file;
    buf:ByteArray;
-   size:integer;
   begin
    result:=ifUnknown;
    try
-    Assign(f,fname);
-    Reset(f,1);
-    try
-     size:=filesize(f);
-     if size>0 then begin
-      SetLength(buf,size);
-      BlockRead(f,buf[0],size);
-      result:=CheckImageFormat(buf);
-     end;
-    finally
-     Close(f);
-    end;
+    buf:=Files.LoadAsBytes(String8(fname));
+    if length(buf)>0 then result:=CheckImageFormat(buf);
    except
     result:=ifUnknown;
    end;
@@ -1058,6 +1046,7 @@ function CheckFileFormat(fname:string):TImageFileType;
   var
    jpg:TJpegImage;
    bmp:TBitMap;
+   stream:TMemoryStream;
    i,y:integer;
    pb:PByte;
   begin
@@ -1076,7 +1065,13 @@ function CheckFileFormat(fname:string):TImageFileType;
    jpg.Assign(bmp);
    jpg.CompressionQuality:=quality;
    jpg.Compress;
-   jpg.SaveToFile(filename);
+   stream:=TMemoryStream.Create;
+   try
+    jpg.SaveToStream(stream);
+    Files.Save(String8(filename),stream.memory,stream.size);
+   finally
+    stream.Free;
+   end;
    jpg.Free;
    bmp.Free;
   end;

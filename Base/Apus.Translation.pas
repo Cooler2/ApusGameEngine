@@ -57,6 +57,7 @@ implementation
  uses SysUtils,StrUtils,
   Apus.Conv,
   Apus.Strings,
+  Apus.Files,
   Apus.Log;
  type
   // single rule
@@ -96,30 +97,28 @@ implementation
 
  procedure LoadDictionary(filename:string);
   var
-   f:text;
-   st8:string;
+   data:ByteArray;
+   raw:String8;
+   lines:Strings8;
    st,sour:MyString;
    i,curSet,localSet:integer;
    hasBOM:boolean;
   begin
-   assign(f,filename);
    try
-    SetTextCodePage(f,CP_UTF8);
-    reset(f);
+    data:=Files.LoadAsBytes(String8(filename));
+    SetLength(raw,length(data));
+    if length(data)>0 then move(data[0],raw[1],length(data));
+    // a file with BOM is UTF-8, without it - Windows-1251
+    hasBOM:=UTF8.HasBOM(raw);
+    if hasBOM then delete(raw,1,3);
+    lines:=raw.SplitLines;
     curSet:=0;
     localSet:=-1;
     sour:='';
-    hasBOM:=false;
     // Parse file
-    while not eof(f) do begin
-     readln(f,st8);
-     // convert 8-bit string to unicode
-     if not hasBOM and (length(st8)>=3) and (st8[1]=#$EF) and (st8[2]=#$BB) and (st8[3]=#$BF) then begin
-      hasBOM:=true;
-      delete(st8,1,3); // remove BOM
-     end;
-     if hasBOM then st:=UTF8.ToWide(String8(st8))
-      else st:=UnicodeFrom(String8(st8),TTextEncoding.teWin1251);
+    for i:=0 to high(lines) do begin
+     if hasBOM then st:=UTF8.ToWide(lines[i])
+      else st:=UnicodeFrom(lines[i],TTextEncoding.teWin1251);
 
      if length(st)=0 then begin // empty string
       sour:=''; continue;
@@ -150,7 +149,6 @@ implementation
      end else
       sour:=st;
     end;
-    close(f);
    except
     on e:exception do raise EError.Create('Error in LoadDictionary '+filename+': '+e.message);
    end;

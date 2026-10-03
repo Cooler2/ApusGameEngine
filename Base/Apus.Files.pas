@@ -31,6 +31,7 @@ type
     value:pointer;
   public
     class function Init(raw:pointer):TFileHandle; static; inline;
+    function Raw:pointer; inline; // what the provider passed to Init
     function Read(var buf; size:integer):integer; overload; inline;
     function Write(const buf; size:integer):integer; overload; inline;
     function ReadMem(buf:pointer; size:integer):integer; inline;
@@ -174,6 +175,11 @@ type
 class function TFileHandle.Init(raw:pointer):TFileHandle;
 begin
   result.value:=raw;
+end;
+
+function TFileHandle.Raw:pointer;
+begin
+  result:=value;
 end;
 
 { Helpers }

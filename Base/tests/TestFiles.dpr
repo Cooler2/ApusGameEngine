@@ -3,8 +3,12 @@ program TestFiles;
 uses
   SysUtils,
   Apus.Core,
+  Apus.Types,
   Apus.Threads,
-  Apus.Files;
+  Apus.Strings,
+  Apus.Files,
+  Apus.ControlFiles,
+  Apus.Translation;
 
 {$INCLUDE Test.inc}
 
@@ -388,6 +392,325 @@ begin
   EndTest;
 end;
 
+type
+  // A file opened in TMemFileProvider
+  TMemOpenFile=class
+    index:integer; // in TMemFileProvider.names
+    data:ByteArray;
+    pos:integer;
+    writable:boolean;
+  end;
+
+  // Keeps files under "vfs/" in memory and passes everything else to the previous provider.
+  // Code that bypasses Files can't see these files at all.
+  TMemFileProvider=class(TInterfacedObject,IFileProvider)
+    fallback:IFileProvider;
+    names:Strings8;
+    contents:array of ByteArray;
+    constructor Create(prev:IFileProvider);
+    function Key(const fname:String8):String8;
+    function IsMine(const fname:String8):boolean;
+    function IndexOf(const fname:String8):integer;
+    function OpenMem(const fname:String8;writable,truncate:boolean):TFileHandle;
+    function Mine(f:TFileHandle):TMemOpenFile;
+    // IFileProvider
+    function FileExists(const fname:String8):boolean;
+    function GetFileInfo(const fname:String8; out info:TFileInfo):boolean;
+    procedure Delete(const fname:String8);
+    procedure Rename(const curName,newName:String8);
+    function ListFiles(const path:String8; const mask:String8='*'):Strings8;
+    function Map(const fname:String8; readOnly:boolean):TBuffer;
+    procedure UnMap(fileData:TBuffer);
+    function OpenRead(const fname:String8):TFileHandle;
+    function Open(const fname:String8):TFileHandle;
+    function OpenNew(const fname:String8):TFileHandle;
+    procedure Close(f:TFileHandle);
+    function Read(f:TFileHandle; buf:pointer; size:integer):integer;
+    function Seek(f:TFileHandle; offset:int64; origin:integer):int64;
+    function Position(f:TFileHandle):int64;
+    function FileSize(f:TFileHandle):int64;
+    function Write(f:TFileHandle; buf:pointer; size:integer):integer;
+    procedure SetSize(f:TFileHandle; newSize:int64);
+  end;
+
+var
+  memOpened:array of TMemOpenFile;
+
+constructor TMemFileProvider.Create(prev:IFileProvider);
+begin
+  fallback:=prev;
+end;
+
+function TMemFileProvider.Key(const fname:String8):String8;
+begin
+  result:=fname.ReplaceAll('\','/').ToLower;
+end;
+
+function TMemFileProvider.IsMine(const fname:String8):boolean;
+begin
+  result:=Key(fname).StartsWith('vfs/');
+end;
+
+function TMemFileProvider.IndexOf(const fname:String8):integer;
+var
+  i:integer;
+begin
+  for i:=0 to high(names) do
+    if names[i]=Key(fname) then exit(i);
+  result:=-1;
+end;
+
+function TMemFileProvider.OpenMem(const fname:String8;writable,truncate:boolean):TFileHandle;
+var
+  mf:TMemOpenFile;
+  i:integer;
+begin
+  i:=IndexOf(fname);
+  if i<0 then begin
+    if not writable then raise EError.Create('VFS: file not found '+fname);
+    i:=length(names);
+    SetLength(names,i+1);
+    SetLength(contents,i+1);
+    names[i]:=Key(fname);
+  end;
+  if truncate then contents[i]:=nil;
+  mf:=TMemOpenFile.Create;
+  mf.index:=i;
+  mf.data:=Copy(contents[i]);
+  mf.writable:=writable;
+  SetLength(memOpened,length(memOpened)+1);
+  memOpened[high(memOpened)]:=mf;
+  result:=TFileHandle.Init(mf);
+end;
+
+function TMemFileProvider.Mine(f:TFileHandle):TMemOpenFile;
+var
+  i:integer;
+begin
+  for i:=0 to high(memOpened) do
+    if pointer(memOpened[i])=f.Raw then exit(memOpened[i]);
+  result:=nil;
+end;
+
+function TMemFileProvider.FileExists(const fname:String8):boolean;
+begin
+  if IsMine(fname) then result:=IndexOf(fname)>=0
+    else result:=fallback.FileExists(fname);
+end;
+
+function TMemFileProvider.GetFileInfo(const fname:String8; out info:TFileInfo):boolean;
+var
+  i:integer;
+begin
+  if not IsMine(fname) then exit(fallback.GetFileInfo(fname,info));
+  i:=IndexOf(fname);
+  result:=i>=0;
+  if not result then exit;
+  info.size:=length(contents[i]);
+  info.timestamp:=0;
+  info.isDirectory:=false;
+end;
+
+procedure TMemFileProvider.Delete(const fname:String8);
+begin
+  if IsMine(fname) then raise EError.Create('VFS: not supported');
+  fallback.Delete(fname);
+end;
+
+procedure TMemFileProvider.Rename(const curName,newName:String8);
+begin
+  if IsMine(curName) then raise EError.Create('VFS: not supported');
+  fallback.Rename(curName,newName);
+end;
+
+function TMemFileProvider.ListFiles(const path:String8; const mask:String8):Strings8;
+begin
+  result:=fallback.ListFiles(path,mask);
+end;
+
+function TMemFileProvider.Map(const fname:String8; readOnly:boolean):TBuffer;
+begin
+  if IsMine(fname) then raise EError.Create('VFS: not supported');
+  result:=fallback.Map(fname,readOnly);
+end;
+
+procedure TMemFileProvider.UnMap(fileData:TBuffer);
+begin
+  fallback.UnMap(fileData);
+end;
+
+function TMemFileProvider.OpenRead(const fname:String8):TFileHandle;
+begin
+  if IsMine(fname) then result:=OpenMem(fname,false,false)
+    else result:=fallback.OpenRead(fname);
+end;
+
+function TMemFileProvider.Open(const fname:String8):TFileHandle;
+begin
+  if IsMine(fname) then result:=OpenMem(fname,true,false)
+    else result:=fallback.Open(fname);
+end;
+
+function TMemFileProvider.OpenNew(const fname:String8):TFileHandle;
+begin
+  if IsMine(fname) then result:=OpenMem(fname,true,true)
+    else result:=fallback.OpenNew(fname);
+end;
+
+procedure TMemFileProvider.Close(f:TFileHandle);
+var
+  mf:TMemOpenFile;
+  i:integer;
+begin
+  mf:=Mine(f);
+  if mf=nil then begin
+    fallback.Close(f); exit;
+  end;
+  if mf.writable then contents[mf.index]:=mf.data;
+  for i:=0 to high(memOpened) do
+    if memOpened[i]=mf then begin
+      memOpened[i]:=memOpened[high(memOpened)];
+      SetLength(memOpened,high(memOpened));
+      break;
+    end;
+  mf.Free;
+end;
+
+function TMemFileProvider.Read(f:TFileHandle; buf:pointer; size:integer):integer;
+var
+  mf:TMemOpenFile;
+begin
+  mf:=Mine(f);
+  if mf=nil then exit(fallback.Read(f,buf,size));
+  result:=length(mf.data)-mf.pos;
+  if result>size then result:=size;
+  if result<0 then result:=0;
+  if result>0 then move(mf.data[mf.pos],buf^,result);
+  inc(mf.pos,result);
+end;
+
+function TMemFileProvider.Seek(f:TFileHandle; offset:int64; origin:integer):int64;
+var
+  mf:TMemOpenFile;
+begin
+  mf:=Mine(f);
+  if mf=nil then exit(fallback.Seek(f,offset,origin));
+  case origin of
+    1:mf.pos:=mf.pos+offset;
+    2:mf.pos:=length(mf.data)+offset;
+    else mf.pos:=offset;
+  end;
+  result:=mf.pos;
+end;
+
+function TMemFileProvider.Position(f:TFileHandle):int64;
+var
+  mf:TMemOpenFile;
+begin
+  mf:=Mine(f);
+  if mf=nil then exit(fallback.Position(f));
+  result:=mf.pos;
+end;
+
+function TMemFileProvider.FileSize(f:TFileHandle):int64;
+var
+  mf:TMemOpenFile;
+begin
+  mf:=Mine(f);
+  if mf=nil then exit(fallback.FileSize(f));
+  result:=length(mf.data);
+end;
+
+function TMemFileProvider.Write(f:TFileHandle; buf:pointer; size:integer):integer;
+var
+  mf:TMemOpenFile;
+begin
+  mf:=Mine(f);
+  if mf=nil then exit(fallback.Write(f,buf,size));
+  if mf.pos+size>length(mf.data) then SetLength(mf.data,mf.pos+size);
+  if size>0 then move(buf^,mf.data[mf.pos],size);
+  inc(mf.pos,size);
+  result:=size;
+end;
+
+procedure TMemFileProvider.SetSize(f:TFileHandle; newSize:int64);
+var
+  mf:TMemOpenFile;
+begin
+  mf:=Mine(f);
+  if mf=nil then begin
+    fallback.SetSize(f,newSize); exit;
+  end;
+  SetLength(mf.data,newSize);
+end;
+
+// Base units that read data files must go through the provider chain: these files exist only in memory
+procedure TestProviderChain;
+const
+  MAIN_CTL=
+    '# test config'#13#10+
+    'Width   800'#13#10+
+    'Name    "Apus"'#13#10+
+    '$Section Sub'#13#10+
+    '  Flag  ON'#13#10+
+    '$EndOfSection'#13#10+
+    'List    ("a","b",'#13#10+
+    '         "c")'#13#10+
+    '$Include sub.ctl'#13#10;
+var
+  prev:IFileProvider;
+  h:integer;
+  size1,size2:integer;
+  data:ByteArray;
+begin
+  StartTest('Provider chain');
+  prev:=Files.GetProvider;
+  Files.SetProvider(TMemFileProvider.Create(prev));
+  try
+    Files.Save('vfs/main.ctl',MAIN_CTL,false);
+    Files.Save('vfs/sub.ctl','Depth 3'#13#10,true);
+    Check(Files.Exists('vfs/main.ctl') and not Folder.Exists('vfs'),'memory file is visible only through Files');
+
+    // Textual control file with a section, a multiline list and an include
+    h:=UseControlFile('vfs/main.ctl');
+    Check(ctlGetInt('main.ctl:\Width')=800,'ctl: int value');
+    Check(ctlGetStr('main.ctl:\Name')='Apus','ctl: string value');
+    Check(ctlGetBool('main.ctl:\Sub\Flag'),'ctl: value in a section');
+    Check((ctlGetStrCnt('main.ctl:\List')=3) and (ctlGetStrInd('main.ctl:\List',2)='c'),'ctl: multiline list');
+    Check(ctlGetInt('sub.ctl:\Depth')=3,'ctl: included file');
+
+    // Save twice: the file must not grow (no extra empty line per round trip)
+    ctlSetInt('main.ctl:\Width',1024);
+    SaveControlFile(h,fmText);
+    size1:=length(Files.LoadAsBytes('vfs/main.ctl'));
+    FreeControlFile(h);
+    h:=UseControlFile('vfs/main.ctl');
+    Check(ctlGetInt('main.ctl:\Width')=1024,'ctl: textual save and reload');
+    SaveControlFile(h,fmText);
+    size2:=length(Files.LoadAsBytes('vfs/main.ctl'));
+    Check(size1=size2,'ctl: textual round trip is stable');
+
+    // Binary format
+    SaveControlFile(h,fmBinary);
+    FreeControlFile(h);
+    data:=Files.LoadAsBytes('vfs/main.ctl');
+    Check((length(data)>0) and (data[0]<>ord('#')),'ctl: binary save');
+    h:=UseControlFile('vfs/main.ctl');
+    Check((ctlGetInt('main.ctl:\Width')=1024) and ctlGetBool('main.ctl:\Sub\Flag'),'ctl: binary reload');
+    FreeControlFile(h);
+
+    // Translation dictionary (UTF-8 with BOM)
+    Files.Save('vfs/dict.txt','LanguageID: fr'#13#10'; comment'#13#10'Hello'#13#10'Bonjour'#13#10);
+    LoadDictionary('vfs/dict.txt');
+    Check(Translate('Hello')='Bonjour','dictionary loaded');
+    Check(languageID='fr','dictionary language');
+  finally
+    Files.SetProvider(prev);
+  end;
+  Check(not Folder.Exists('vfs'),'nothing written to disk');
+  EndTest;
+end;
+
 begin
   try
     Cleanup;
@@ -405,6 +728,7 @@ begin
     TestListFiles;
     TestFind;
     TestPathUtils;
+    TestProviderChain;
 
     Cleanup;
 

@@ -74,6 +74,7 @@ type
   // --- Apus.Files ---
   Files = Apus.Files.Files;
   Folder = Apus.Files.Folder;
+  TFileInfo = Apus.Files.TFileInfo;
 
   // --- Apus.Containers ---
   TObjectList = Apus.Containers.TObjectList;

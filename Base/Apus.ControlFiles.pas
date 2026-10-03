@@ -111,7 +111,7 @@ procedure ctlDeleteKey(key:String8);
 
 implementation
  uses SysUtils, StrUtils, Classes, Apus.Containers, Apus.HashMaps, Apus.Crypto, Apus.Threads,
-  Apus.Strings, Apus.Conv;
+  Apus.Strings, Apus.Conv, Apus.Files;
 
 type
  // комментарий
@@ -633,6 +633,13 @@ end;
 
 { Main interface }
 
+// A bare include name refers to the including file's directory
+function IncludeName(const ctlName,incl:String8):String8;
+ begin
+  if (pos('\',incl)=0) and (pos('/',incl)=0) then result:=String8(ExtractFilePath(string(ctlName)))+incl
+   else result:=incl;
+ end;
+
 function UseControlFile;
  var
   code:cardinal;
@@ -642,7 +649,7 @@ function UseControlFile;
  // Загрузить указанный файл, вернуть его handle
  function Load(filename:String8;code:cardinal):integer;
   var
-   f:file;
+   data:ByteArray;
    h:TBinaryHeader;
 
    i:integer;
@@ -651,10 +658,12 @@ function UseControlFile;
   // Загрузить файл текстового формата в указанный объект
   procedure LoadTextual(filename:String8;item:TGenericTree);
    var
-    f:TextFile;
+    st:String8;
+    lines:Strings8;
+    ln:integer; // lines read so far
 
-   // Загрузить секцию в указанный объект, path - путь объекта (без слэша в конце)
-   procedure LoadSection(var f:TextFile;item:TGenericTree;path:String8);
+   // Load a section into the given object, path - object path (without trailing slash)
+   procedure LoadSection(item:TGenericTree;path:String8);
     var
      st,arg,uArg,st2:String8;
      sa:Strings8;
@@ -662,15 +671,13 @@ function UseControlFile;
      incl:TInclude;
      sect:TSection;
      value:TNamedValue;
-     i,n,ln:integer;
+     i,n:integer;
 
     begin
-     ln:=0;
-     // Последовательно обрабатываем все строки файла
-     while not eof(f) do begin
+     // Process the file line by line
+     while ln<length(lines) do begin
+      st:=lines[ln].Trim;
       inc(ln);
-      readln(f,st);
-      st:=st.Trim;
       // Comment line
       if (length(st)=0) or (st[1] in ['#',';']) then begin
        comment:=TCommentLine.Create;
@@ -700,18 +707,14 @@ function UseControlFile;
         i:=item.AddChild(sect);
          sect.fullname:=string((path+'\'+arg).ToUpper);
         hash.Put(sect.fullname,item.GetChild(i));
-        LoadSection(f,item.GetChild(i),sect.fullname);
+        LoadSection(item.GetChild(i),sect.fullname);
         continue;
        end;
        // Include command
        if (System.Length(st)>=8) and (System.Copy(st,1,8).ToUpper='$INCLUDE') then begin
         incl:=TInclude.Create;
         incl.include:=arg;
-        // Correct path so file is in the same directory
-        if pos('\',arg)=0 then begin
-         arg:=ExtractFilePath(filename)+arg;
-        end;
-        n:=useControlFile(arg,'');
+        n:=useControlFile(IncludeName(filename,arg),'');
         incl.handle:=n;
         if n=-1 then raise EWarning.Create('CTL2: include command failed - '+arg);
         item.AddChild(incl);
@@ -743,10 +746,10 @@ function UseControlFile;
         if arg[length(arg)]<>')' then begin
          // Multiline record
          repeat
-          readln(f,st2);
-          st2:=st2.Trim;
+          st2:=lines[ln].Trim;
+          inc(ln);
           arg:=arg+st2;
-         until eof(f) or (st2[length(st2)]=')');
+         until (ln>=length(lines)) or ((st2<>'') and (st2[length(st2)]=')'));
         end;
         // Delete '(' and ')'
         delete(arg,1,1);
@@ -775,17 +778,19 @@ function UseControlFile;
     end;
 
    begin // LoadTextual
-    // Открыть файл и загрузить его как секцию
-    assignfile(f,filename);
-    SetTextCodePage(f,CP_UTF8);
-    reset(f);
-    LoadSection(f,item,String8(UpperCase(string(ExtractFileName(filename))))+':');
-    closefile(f);
+    // Load the whole file as a section
+    SetLength(st,length(data));
+    if length(data)>0 then move(data[0],st[1],length(data));
+    if UTF8.HasBOM(st) then delete(st,1,3);
+    lines:=st.SplitLines;
+    // a line break at the end doesn't start one more line
+    if lines[high(lines)]='' then SetLength(lines,high(lines));
+    ln:=0;
+    LoadSection(item,String8(UpperCase(string(ExtractFileName(filename))))+':');
    end;
 
   procedure LoadBinary(filename:String8;item:TGenericTree;code:cardinal);
    var
-    f:file;
     h:TBinaryHeader;
     ms:TMemoryStream;
     mat:TMatrix32;
@@ -827,7 +832,7 @@ function UseControlFile;
          o:=TInclude.Create;
          with o as TInclude do begin
           include:=ReadString;
-          handle:=UseControlFile(include,'');
+          handle:=UseControlFile(IncludeName(filename,include),'');
          end;
          item.AddChild(o);
        end;
@@ -885,9 +890,9 @@ function UseControlFile;
     end;
 
    begin
-    assignfile(f,filename);
-    reset(f,1);
-    blockread(f,h,sizeof(h));
+    if length(data)<sizeof(h) then
+     raise EError.Create('Invalid file header');
+    move(data[0],h,sizeof(h));
     p:=(h.sign2 xor h.sign1)-28301740;
     if p>=20 then
      raise EError.Create('Invalid file header');
@@ -897,29 +902,25 @@ function UseControlFile;
     GenMatrix32(mat,Conv.ToStr(c));
     mat:=InvertMatrix32(mat);
     // Read rest of the file and decrypt it
-    size:=filesize(f)-sizeof(h);
+    size:=length(data)-sizeof(h);
     ms:=TMemoryStream.Create;
     ms.SetSize(size);
-    blockread(f,ms.memory^,size);
+    if size>0 then move(data[sizeof(h)],ms.memory^,size);
     Decrypt32A(ms.memory^,size,mat);
 
     ReadSection(item,UpperCase(ExtractFileName(filename))+':');
     ms.Destroy;
-    closefile(f);
    end;
 
   begin // Load
    result:=-1;
-   // Проверка формата файла
-   assignfile(f,filename);
-   reset(f,1);
-   if filesize(f)>=8 then begin
-    blockread(f,h,8);
-    if (h.sign1<=100000000) and (abs((h.sign2 xor h.sign1)-28301740)<=100) then mode:=fmBinary
-     else mode:=fmText;
-   end else
-    mode:=fmText;
-   closefile(f);
+   // Check the file format
+   data:=Files.LoadAsBytes(filename);
+   mode:=fmText;
+   if length(data)>=8 then begin
+    move(data[0],h,8);
+    if (h.sign1<=100000000) and (abs((h.sign2 xor h.sign1)-28301740)<=100) then mode:=fmBinary;
+   end;
 
    // Создаем объект и добавляем его в структуры
    ctl:=TCtlFile.Create(filename,mode);
@@ -941,8 +942,8 @@ function UseControlFile;
 
 begin
  try
-  // Проверим, не был ли файл уже загружен ранее
-  filename:=ExpandFileName(filename);
+  // Was the file already loaded? The key is the VFS name: the file doesn't have to exist on disk
+  filename:=Files.FixName(filename);
   for i:=0 to items.GetChildrenCount-1 do begin
    ctl:=items.GetChild(i).data;
    if ctl.fname=filename then begin
@@ -970,7 +971,12 @@ var
 
  procedure SaveTextual(item:TGenericTree;filename:String8);
   var
-   f:TextFile;
+   content:String8;
+
+  procedure WriteLine(const line:String8);
+   begin
+    content:=content+line+sLineBreak;
+   end;
 
   // Сохранить в файл содержимое секции (с указанным отступом)
   procedure SaveSection(item:TGenericTree;indent:integer);
@@ -987,19 +993,19 @@ var
       pad[j]:=' ';
      // Save comment line
      if o is TCommentLine then begin
-      writeln(f,pad,(o as TCommentLine).line);
+      WriteLine(pad+(o as TCommentLine).line);
       continue;
      end;
      // Директивы
      if o is TInclude then begin
-      writeln(f,pad,'$Include ',(o as TInclude).include);
+      WriteLine(pad+'$Include '+(o as TInclude).include);
       SaveControlFile((o as TInclude).handle);
       continue;
      end;
      if o is TSection then begin
-      writeln(f,pad,'$Section ',(o as TSection).name);
+      WriteLine(pad+'$Section '+(o as TSection).name);
       SaveSection(item.GetChild(i),indent+2);
-      writeln(f,pad,'$EndOfSection');
+      WriteLine(pad+'$EndOfSection');
       continue;
      end;
      // Format String8 for named value
@@ -1012,19 +1018,19 @@ var
      if o is TBoolValue then begin
       if (o as TBoolValue).Value then st:=st+'ON'
        else st:=st+'OFF';
-      writeln(f,st);
+      WriteLine(st);
       continue;
      end;
      // Save integer value
      if o is TIntValue then begin
       st:=st+Conv.ToStr((o as TIntValue).Value);
-      writeln(f,st);
+      WriteLine(st);
       continue;
      end;
      // Save float value
      if o is TFloatValue then begin
       st:=st+floattostrf((o as TFloatValue).Value,ffFixed,9,6);
-      writeln(f,st);
+      WriteLine(st);
       continue;
      end;
      // Save String8 value
@@ -1032,7 +1038,7 @@ var
       //st:=st+QuoteStr((o as TStringValue).value);
       // Принудительное заключение в кавычки чтобы избежать конфликта с числами
       st:=st+'"'+(o as TStringValue).value+'"';
-      writeln(f,st);
+      WriteLine(st);
       continue;
      end;
      // Save String8 array value
@@ -1047,27 +1053,26 @@ var
        st:=st+value[j-1].Quote;
        if j<count then st:=st+',' else st:=st+')';
        if length(st)>75 then begin
-        writeln(f,st);
+        WriteLine(st);
         st:=pad;
        end;
       end;
       // если осталась незаписанная строка
-      if (length(st)<=75) and (st<>pad) then writeln(f,st);
+      if (length(st)<=75) and (st<>pad) then WriteLine(st);
       continue;
      end;
     end;
    end;
 
   begin
-   assignfile(f,filename);
-   rewrite(f);
+   content:='';
    SaveSection(item,0);
-   closefile(f);
+   Files.Save(filename,content,false);
   end;
 
  procedure SaveBinary(item:TGenericTree;filename:String8);
   var
-   f:file;
+   data:ByteArray;
    h:TBinaryHeader;
    p:byte;
    i:integer;
@@ -1168,8 +1173,6 @@ var
      end;
     end;
   begin
-   assignfile(f,filename);
-   rewrite(f,1);
    p:=random(20);
    h.sign1:=random(100000000);
    h.sign2:=h.sign1 xor (28301740+p);
@@ -1182,10 +1185,11 @@ var
    GenMatrix32(mat,Conv.ToStr(code));
    SaveSection(item);
    Encrypt32A(ms.memory^,ms.size,mat);
-   blockwrite(f,h,sizeof(h));
-   blockwrite(f,ms.memory^,ms.size);
-   closefile(f);
+   SetLength(data,sizeof(h)+ms.size);
+   move(h,data[0],sizeof(h));
+   if ms.size>0 then move(ms.memory^,data[sizeof(h)],ms.size);
    ms.Destroy;
+   Files.Save(filename,data);
   end;
 
 begin
