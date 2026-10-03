@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-09-26
+Last updated: 2026-10-03
 
 Language policy: this roadmap is maintained in English.
 
@@ -43,11 +43,13 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
 | R-28 | Audio Subsystem Activation | in-progress | ~40% | **Level-1 gate closed on Win64 (2026-08-24)**: `SDLMIX` links the backend (opt-in per project, see defines.inc), `SoundSDL` reworked, T1 core fixes done, `SoundDemo` migrated + script mode, sound verified by ear. File playback verbs (`PlayFile`/`StopFile`/groups with ducking/`FilePlayed`/`ClearCache`) + generation-checked channel handles done 2026-10-03. Remaining: Linux/CI run of the new headless smoke, GUI SoundDemo (T5), diagnostics (T6), then miniaudio T3/T4 for level 2 |
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
-| R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
+| R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
 | R-31 | Working Surface, Size & Orientation Model | in-progress | ~70% | **Schedule blocker (P1)**. API sketch rev 2 accepted; stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done — the public contract is closed. Left: C (presets/preview/CLI knobs), D (mobile safe area), E (present shader) |
 | R-32 | Image Decoders: WebP / AVIF + PNG Decoder Choice | done | 100% | Opt-in `-dWEBP` static WebP decode, bundled decoders for Win64/Linux x64/Android arm64, FPC reader Mono8/A8 fix; PNG choice stays compile-time (LodePNG faster). AVIF only on demand; macOS/iOS + Android on-device run pending |
 | R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache; TextDemo screen 9, GL test vs CPU reference. Port adopts on its side |
 
+| R-34 | Steam Integration, then Platform Store Entitlements | idea | 0% | Port blocker B-24. Stage 1: migrate the `legacy/` Steam binding onto the current Steamworks SDK + DLC ownership calls, engine-pumped callbacks. Stage 2 (with mobile stores): platform-neutral ownership API |
+| R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | idea | 0% | Port blocker B-28 (theme switch, deferred by the port). Layer 1 (overlay data roots in `Files`) goes with B-03; layer 2 (in-place texture reload) waits for its first real consumer - Android context restore (R-24) or asset hot-reload; themes stay game policy |
 ## GL Version Policy (locked 2026-07-03)
 
 Two tiers, not a version ladder:
@@ -525,3 +527,26 @@ Two tiers, not a version ladder:
 - Proof: TextDemo screen 9 (visual sign-off 2026-09-26); `tests/TestTextEffects.dpr` matches a CPU reference within 2/255 (run locally - needs a GL window; CI only compiles it).
 - Left out: uncached mode for volatile text, cache atlas, `TTextObject`/`DrawTextWithGlow` migration, SDF fonts (engine6), manual section (chapter 24 "Text and Fonts" is not written yet).
 - Design (RU): `Work/R-33_text_effects_design.md`.
+
+### [R-34] Steam Integration, then Platform Store Entitlements
+- Status: idea | Priority: P2 (stage 1 before the port release) | Area: Platform | Origin: Spectromancer port blocker B-24
+- Value: the game asks "does the player own product X" (Spectromancer: three expansions, Steam DLC 22510/22520/22521) and gets the store's answer; on mobile the same question is an in-app purchase with restore.
+- Stage 1 - Steam: migrate `legacy/Apus.Engine.SteamAPI` (the newest copy of the Astral Heroes / Engine 3 binding: init, SteamID, game language, persona name, auth ticket, achievements, microtransaction callback):
+  - off `Apus.Common` onto the foundation modules;
+  - target the current Steamworks SDK and its redistributable `steam_api`; the binding was written against a ~10 year old DLL - no compatibility with it is kept (interface versions, flat function names and init are taken from the current SDK);
+  - add `ISteamApps` ownership calls (`BIsDlcInstalled`, `BIsSubscribedApp`) and the DLC-installed callback;
+  - callbacks: replace the fake C++ object passed to `SteamAPI_RegisterCallback` (a one-parameter `stdcall` in a hand-made VMT slot works only on Win32: on Win64 the handler receives `this` instead of the payload, on Linux the slot order differs too) with manual callback dispatch, pumped by the engine every frame (today the game had to call `SteamAPI_RunCallbacks` itself);
+  - client achievements need `RequestCurrentStats`/`StoreStats` around `SetAchievement`, or they are dropped from the client binding (Astral Heroes set them server-side through the Web API);
+  - GameApp's `{$IFDEF STEAM}` path (language on first launch) moves with it.
+- Stage 2 - store-neutral API, together with the first mobile store (StoreKit for R-30, Play Billing for R-24): an ownership query by a game product id (the product -> store id map belongs to the game) and an "entitlements changed" signal, because mobile stores answer asynchronously; a build without a store reports "no store" and the game decides what that means. Steam becomes one backend of it.
+- Out of scope: purchase/checkout UI, server-side receipt validation (Astral Heroes did microtransactions through its own server), leaderboards/workshop.
+
+### [R-35] Resource Sets: Overlay Data Roots + In-Place Texture Reload
+- Status: idea - scope agreed, layer 1 goes with B-03 | Area: Assets / Resources | Origin: Spectromancer port blocker B-28 (deferred by the port)
+- Wanted by the port: switch the graphics theme at runtime (`Mods/<theme>/` first, base data second; ~30 themes, most replace only `Cards.pak`/`Faces.pak` and a loading background, one re-skins the whole UI), already loaded images update while every holder keeps its reference, switching back restores the originals. Engine 2 did it by reloading every texture with its saved load options and swapping object instances in memory.
+- Scope split (agreed 2026-10-03):
+  1. **Overlay data roots in `Files`** ("look in `Mods/X/` first, then the base data"), added and removed at runtime - engine, cheap, the same provider-chain mechanism as the B-03 PAK provider (the port's themes are mostly PAKs); also serves mods, DLC content, localized images, HD packs. Built together with B-03.
+  2. **Reloading already loaded file-sourced textures in place** (every holder keeps its object) - engine, but not for themes: its first real consumers are GL context restore on Android (R-24, nothing exists for it today) and asset hot-reload during development; themes get it for free. Needs a design doc first (data ownership of `TTexture` and its clones, the render-thread swap point, size/format change), reviewed by Codex; not planned before R-24 needs it.
+  3. **The theme itself** (theme list, dictionary, combat script, UI lock while reloading) - game policy, not engine.
+- Engine 2 swapped object instances in memory (`SwapTextures`) - not portable: the reload must change `TTexture` contents through the normal API.
+- Known hard parts: render-thread swap vs async loaders, shared immutable sources, `ClonePart` clones that copy parent UVs, size/format change of a replaced file, atlases and UI caches.
