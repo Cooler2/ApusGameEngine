@@ -729,6 +729,11 @@ type
   // Draw two images (each with its own scale) rotated by the same angle. If the resulting sizes differ, only the common part is visible
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=clNeutral);
+  // Fill a rectangle (inclusive borders) with two images blended in one pass.
+  // uv1/uv2 map normalized rectangle coordinates (0..1) to normalized coordinates (0..1) of each image,
+  // cloned image parts included. Points mapped outside 0..1 sample neighbouring texels of the parent texture
+  procedure DoubleTexturedRect(x1,y1,x2,y2:integer;image1:TTexture;const uv1:TMat32;
+      image2:TTexture;const uv2:TMat32;color:cardinal=clNeutral);
   // Fill a rectangle with several textures (from a list)
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=clNeutral);
 

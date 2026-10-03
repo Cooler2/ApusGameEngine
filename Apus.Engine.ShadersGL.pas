@@ -565,7 +565,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
      colorMode:=m and $0F; // blending function for color component
      alphaMode:=m shr 4; // blending function for alpha component
      if (colorMode>=ord(tblReplace)) or (alphaMode>=ord(tblReplace)) then begin // texture is used in blending stage
-      if (i=1) and hasUV2 then
+      if (i=1) and hasUV2 then // only stage 1 has its own UV set (TVertexDT); stage 2 reuses the first one
        AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord2);')
       else
        AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord);');

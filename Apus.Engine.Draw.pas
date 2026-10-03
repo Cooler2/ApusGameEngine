@@ -97,6 +97,8 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure DoubleTex(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080);
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=$FF808080);
+  procedure DoubleTexturedRect(x1,y1,x2,y2:integer;image1:TTexture;const uv1:TMat32;
+      image2:TTexture;const uv2:TMat32;color:cardinal=$FF808080);
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
   procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture); overload;
   procedure TrgList(vertices:pointer;layout:TVertexLayout;trgCount:integer;tex:TTexture); overload;
@@ -630,6 +632,40 @@ begin
   x_-0.5,y_+h-0.5,zPlane,
   au1,av2, bu1,bv2,
   color);
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertexDT.Layout);
+end;
+
+procedure TDrawer.DoubleTexturedRect(x1,y1,x2,y2:integer;image1:TTexture;const uv1:TMat32;
+  image2:TTexture;const uv2:TMat32;color:cardinal);
+const
+ corners:array[0..3,0..1] of single=((0,0),(1,0),(1,1),(0,1));
+var
+ vrt:array[0..3] of TVertexDT;
+ a,b:TVec2;
+ i:integer;
+
+ function MapUV(image:TTexture;const m:TMat32;x,y:single):TVec2;
+ var
+  u,v:single;
+ begin
+  u:=x*m[0,0]+y*m[1,0]+m[2,0];
+  v:=x*m[0,1]+y*m[1,1]+m[2,1];
+  result.x:=image.u1+u*(image.u2-image.u1);
+  result.y:=image.v1+v*(image.v2-image.v1);
+ end;
+
+begin
+ ASSERT((image1<>nil) and (image2<>nil));
+ if (x2<x1) or (y2<y1) then exit;
+ if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
+ for i:=0 to 3 do begin
+  a:=MapUV(image1,uv1,corners[i,0],corners[i,1]);
+  b:=MapUV(image2,uv2,corners[i,0],corners[i,1]);
+  vrt[i].Init(x1-0.5+corners[i,0]*(x2-x1+1),y1-0.5+corners[i,1]*(y2-y1+1),zPlane,
+    a.x,a.y,b.x,b.y,color);
+ end;
+ shader.UseTexture(image1,0);
+ shader.UseTexture(image2,1);
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertexDT.Layout);
 end;
 

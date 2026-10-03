@@ -25,6 +25,7 @@ uses
   Apus.Core,
   Apus.Images,
   Apus.Colors,
+  Apus.Geom2D,
   Apus.Engine.Keys,
   Apus.Engine.Types,
   Apus.Engine.NinePatch,
@@ -33,6 +34,7 @@ uses
 type
   TMainScene=class(TUIScene)
     checkerTex,helperTex,atlasTex:TTexture;
+    atlasPart:TTexture; // cloned part of atlasTex (2x2 cells)
     stretchPatch,tiledPatch:TNinePatch;
     particles:array[0..47] of TParticle;
     bandParts:array[0..15] of TParticle;
@@ -333,6 +335,7 @@ begin
   BuildCheckerTexture;
   BuildHelperTexture;
   BuildAtlasTexture;
+  atlasPart:=atlasTex.ClonePart(Rect(32,32,96,96));
   BuildNinePatches;
   InitParticles;
   loaded:=true;
@@ -792,6 +795,8 @@ var
   area,r,innerR:TRect;
   uvRect:TRect;
   cScale,iScale:single;
+  c,s:single;
+  uv:TMat32;
   cx,cy:integer;
 begin
   area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
@@ -853,13 +858,20 @@ begin
   txt.Write(bodyFont,innerR.Left+14,innerR.Bottom-12,$FFCFE2F8,
     'Inside='+FormatFloat('0.00',iScale),taLeft,0);
 
-  // row 1, col 2: draw.DoubleTex / draw.DoubleRotScaled
-  // DoubleTex requires caller to enable stage 1 via shader.TexMode before drawing.
+  // row 1, col 2: draw.DoubleTex / draw.DoubleTexturedRect / draw.DoubleRotScaled
+  // Double* require caller to enable stage 1 via shader.TexMode before drawing.
   r:=GridCell(area,2,1,3,2,BLOCK_GAP);
-  DrawBlock(r,'draw.DoubleTex / draw.DoubleRotScaled',innerR);
+  DrawBlock(r,'draw.DoubleTex / DoubleTexturedRect / DoubleRotScaled',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   shader.TexMode(1,tblModulate,tblModulate);
-  draw.DoubleTex(cx-48,innerR.Top+10,checkerTex,helperTex,$FFE8F8FF);
+  draw.DoubleTex(cx-104,innerR.Top+10,checkerTex,helperTex,$FFE8F8FF);
+  // atlas part rotated around its center; scale 0.7 keeps the corners inside the part
+  c:=0.7*cos(animTime*1.2); s:=0.7*sin(animTime*1.2);
+  uv[0,0]:=c; uv[0,1]:=s;
+  uv[1,0]:=-s; uv[1,1]:=c;
+  uv[2,0]:=0.5-0.5*(c-s); uv[2,1]:=0.5-0.5*(s+c);
+  draw.DoubleTexturedRect(cx+8,innerR.Top+10,cx+103,innerR.Top+105,
+    checkerTex,IdentMat32,atlasPart,uv,$FFE8F8FF);
   draw.DoubleRotScaled(cx,(innerR.Top+innerR.Bottom) div 2+60,
     1.0,1.0,1.2,0.8,animTime*1.8,checkerTex,helperTex,$FFE8F8FF);
   shader.DefaultTexMode;
