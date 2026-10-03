@@ -71,6 +71,7 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
   compile_only tests/PlatformTest.dpr
   compile_only tests/OpenGL.dpr
   compile_only tests/TestTextEffects.dpr # needs a GL window: run locally
+  compile_only tests/TestSteam.dpr
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "demos" ]; then

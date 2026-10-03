@@ -168,7 +168,8 @@ If `MUSIC\PLAY` is used in project scripts/configs, it is usually an external al
 |---|---|---|---|---|
 | `GLIMAGES\UPLOAD` | command | OpenGL resource manager (`TGLTexture`) | `TTag(texture)` | Marshals an upload to the thread with the active GL context. |
 | `GLIMAGES\DELETETEXTURE` | command | OpenGL resource manager (`TGLResourceManager`) | `TTag(texture)` | Marshals a texture deletion to the GL thread. |
-| `STEAM\MICROTXNAUTHORIZATION\{OrderId}` | notification | Steam integration callback (`legacy/`, not built) | `authorized(0/1)` | Result of a Steam microtransaction authorization. |
+| `STEAM\DLCINSTALLED` | notification | `Apus.Engine.SteamAPI` (callback dispatch on `ENGINE\FRAME\BEGIN`) | `appID` | The user gained a DLC and it is installed. |
+| `STEAM\MICROTXNAUTHORIZATION\{OrderId}` | notification | `Apus.Engine.SteamAPI` (callback dispatch on `ENGINE\FRAME\BEGIN`) | `authorized(0/1)` | Result of a Steam microtransaction authorization. |
 
 ## Proxied/user-defined dynamic signals
 

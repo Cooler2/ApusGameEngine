@@ -346,3 +346,14 @@ defaultImagesDir -> defaultImagesDir [Apus.Engine.Resources]
 
 // === Text effects (R-33): layer type moved out of Apus.Engine.API ===
 TTextEffectLayer -> TTextEffectLayer [Apus.Engine.TextEffects]
+
+// === Steam (Apus.Engine.SteamAPI, SDK 1.65) ===
+// Signal rename (string, not an identifier): 'Engine\onFrame' -> 'Engine\RunFrame'
+InitSteamAPI -> Steam.Init [Apus.Engine.SteamAPI]
+DoneSteamAPI -> Steam.Shutdown [Apus.Engine.SteamAPI]
+steamAvailable -> Steam.available [Apus.Engine.SteamAPI]
+steamUserName -> Steam.userName [Apus.Engine.SteamAPI]
+steamGameLang -> Steam.gameLanguage [Apus.Engine.SteamAPI]
+SetSteamAchievement -> ?Steam.SetAchievement(name) / Steam.ClearAchievement(name), then Steam.StoreStats [Apus.Engine.SteamAPI]
+GetSteamAuthTicket -> ?removed: use GetAuthTicketForWebApi (not wrapped yet) [Apus.Engine.SteamAPI]
+// steamID -> Steam.userID (not a rule: the name is too common)

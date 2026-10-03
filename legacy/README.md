@@ -21,7 +21,6 @@ of API changes is in [`Base/engine5_changes.md`](../Base/engine5_changes.md).
 | `AEM specification.txt` | AEM file format description | input for R-03 |
 | `Apus.Engine.SoundBass` | BASS audio backend (declarations only) | use `Apus.Engine.SoundSDL` (`-dSDLMIX`) |
 | `Apus.Engine.SoundImx` | IMixerPro audio backend (Win32 only, `-dIMX`) | use `Apus.Engine.SoundSDL` (`-dSDLMIX`) |
-| `Apus.Engine.SteamAPI` | Steam client integration (`-dSTEAM`) | not migrated; `STEAM` builds are unsupported until it is |
 | `Apus.Engine.UDict` | old UI localization dictionary | `Base/Apus.Translation` |
 | `Apus.Engine.BitmapStyle` | old image-based UI style | no replacement yet (see `Apus.Engine.DefaultStyle` / `CustomStyle`) |
 | `Apus.Engine.ComplexText` | helpers for complex (marked-up) text strings | markup is handled by `Apus.Engine.TextDraw` (`toComplexText`) |
@@ -42,7 +41,6 @@ For geometry and static 3D content use the engine5 units `Apus.Engine.Mesh`,
 
 ## Remaining references
 
-- `Apus.Engine.GameApp` uses `SteamAPI` under `{$IFDEF STEAM}` - kept as is.
 - `Apus.Engine.Sound` uses `SoundImx` under `{$IFDEF IMX}` - kept as is.
 - `tools/legacy/TreeGen` uses `Model3D` and does not build until it is migrated
   (the other non-building tools are in `tools/legacy/` too).

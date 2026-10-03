@@ -147,7 +147,7 @@ interface
    renderSetup:TRenderSetup;
    startupScenes:TStartupScenes;
    debugMode:boolean;     // -DEBUG: OpenGL debug context, critical section checks
-   checkForSteam:boolean; // check if STEAM client is running and get AppID
+   checkForSteam:boolean; // connect to the Steam client in Prepare (needs -dSTEAM, see Apus.Engine.SteamAPI)
 
    sysPlatform:ISystemPlatform;
    {$IFDEF DARWIN}
@@ -191,7 +191,6 @@ implementation
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
-  // SteamAPI lives in legacy/ (not migrated yet): STEAM builds are unsupported until then
   {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF},
   Apus.Conv,
   Apus.Files,
@@ -528,6 +527,7 @@ destructor TGameApplication.Destroy;
  begin
   if game<>nil then game.Stop;
   DoneSoundSystem;
+  {$IFDEF STEAM}Steam.Shutdown;{$ENDIF}
   inherited;
  end;
 
@@ -786,13 +786,11 @@ procedure TGameApplication.Prepare;
    {$ENDIF}
 
    {$IFDEF STEAM}
-   if checkForSteam then InitSteamAPI;
-   if steamAvailable then
-    // Выбор языка при установке из Стима
-    if Files.Exists('SelectLang') and (steamID<>0) then begin
-     st:=string(String8(AnsiString(steamGameLang)).ToLower);
-     if st='russian' then gameLangCode:='ru';
-     if st='english' then gameLangCode:='en';
+   if checkForSteam and Steam.Init then
+    // first launch after a Steam install: take the language chosen in Steam
+    if Files.Exists('SelectLang') then begin
+     if Steam.gameLanguage.Same('russian') then gameLangCode:='ru';
+     if Steam.gameLanguage.Same('english') then gameLangCode:='en';
      Log.Msg('First time launch: Steam language is '+gameLangCode);
      SaveOptions;
      Files.Delete('SelectLang');

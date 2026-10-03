@@ -1234,3 +1234,23 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   `windowWidth:=1280; windowHeight:=720;` → `windowSetup.size:=MakeSize(1280,720);`
   (`MakeSize` is in `Apus.Engine.Types`). Upgrader TODO rules added to
   `tools/engine5.upgrade`.
+
+## 2026-10-04 — Frame signals, Steam integration migrated
+
+- `Engine\onFrame` (the command that runs one frame where the platform owns the main
+  loop: Android, iOS) is renamed to `Engine\RunFrame`.
+- New notifications from the main window's frame: `Engine\Frame\Begin`,
+  `Engine\Frame\BeforeRender` (only for a rendered frame), `Engine\Frame\End`;
+  the tag is `window.frameNum`.
+- `Apus.Engine.SteamAPI` is back from `legacy/`, rewritten for Steamworks SDK 1.65.
+  The library is loaded at run time (no link-time dependency, the game runs without
+  it), callbacks are dispatched manually on `Engine\Frame\Begin`. API is the `Steam`
+  record: `InitSteamAPI` → `Steam.Init`, `DoneSteamAPI` → `Steam.Shutdown` (called by
+  `TGameApplication`), `steamAvailable` → `Steam.available`, `steamID` →
+  `Steam.userID`, `steamUserName` → `Steam.userName`, `steamGameLang` →
+  `Steam.gameLanguage`, `SetSteamAchievement(name,enable)` →
+  `Steam.SetAchievement`/`Steam.ClearAchievement` + `Steam.StoreStats`. New:
+  `Steam.IsDlcInstalled`, `Steam.IsSubscribedApp`, `Steam.RestartAppIfNecessary`,
+  signal `Steam\DlcInstalled`. Removed: `GetSteamAuthTicket` (SDK 1.57+ requires
+  the asynchronous `GetAuthTicketForWebApi` for Web API checks - add it when a
+  server needs it) and the raw `SteamAPI_*` imports.

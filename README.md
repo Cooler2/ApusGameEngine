@@ -97,7 +97,6 @@ Build notes and platform-specific tooling live under [`platform/`](platform/). T
 #### Known limitations
 
 - Skeletal 3D models (`Model3D`, IQM/AEM loaders) are not migrated yet - see [`legacy/`](legacy/README.md). Static meshes and OBJ work.
-- Steam integration is not migrated (`legacy/Apus.Engine.SteamAPI.pas`).
 - Some old demos do not build yet - they are kept in [`demo/legacy/`](demo/legacy/README.md).
 - The WebP decoder is not bundled for macOS and iOS.
 - UI widget colors are only partly themeable (the style system is in progress).

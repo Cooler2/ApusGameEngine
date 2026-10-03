@@ -196,7 +196,7 @@ them: every remaining user was either migrated or moved to a `legacy/` folder,
 where it does not build until migrated:
 
 - `legacy/` - engine units (skeletal models `Model3D`/`IQMloader`/`AEMLoader`,
-  `SoundBass`, `SoundImx`, `SteamAPI`, `UDict`, `BitmapStyle`, `ComplexText`,
+  `SoundBass`, `SoundImx`, `UDict`, `BitmapStyle`, `ComplexText`,
   `Objects`, `SpritePacker`) and `legacy/Base/` (old TCP demo, ListFonts);
   see `legacy/README.md`.
 - `demo/legacy/` - 8 demos; see `demo/legacy/README.md` and `demo/demo_inventory.md`.
