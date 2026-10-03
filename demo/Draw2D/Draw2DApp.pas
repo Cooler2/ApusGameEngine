@@ -324,9 +324,14 @@ begin
 end;
 
 procedure TMainScene.Load;
+var
+  i:integer;
 begin
   lastDPI:=0;
   currentScreen:=0;
+  for i:=1 to ParamCount do // -screen=N opens screen N (1-based) at start
+    if SameText(copy(ParamStr(i),1,8),'-screen=') then
+      currentScreen:=EnsureRange(StrToIntDef(copy(ParamStr(i),9,3),1)-1,0,SCREEN_COUNT-1);
   animTime:=0;
   animTimeFrame:=-1;
   blockClipActive:=false;
