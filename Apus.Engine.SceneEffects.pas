@@ -334,10 +334,10 @@ begin
  initialized:=false;
  buffer:=nil;
  // Показ модального окна
- game.Lock;
+ wnd:=scene.UI.GetWindow;
+ wnd.Lock;
  try
-  // TODO: align this path with the LockUI-based fullscreen switch flow so
-  // all global UI state changes follow one synchronization rule.
+  // RenderFrame and effect replacement must use the same owning-window lock.
   Log.Msg('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]);
   inherited Create(scene,duration);
   dontPlay:=DisableEffects or (duration<=0);
@@ -389,7 +389,7 @@ begin
  if duration=0 then onDone; // Immediate action
 
  finally
-  game.Unlock;
+  wnd.Unlock;
  end;
  except
   on e:exception do Log.Force('Failed to create SWE effect: '+ExceptionMsg(e));
@@ -426,7 +426,7 @@ begin
  end;
  try
   Log.Msg('WndEffect: allocating %d x %d buffer',[w,h]);
-  buffer:=AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
+  buffer:=AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'_WndEffect');
   if buffer=nil then raise EError.Create('WndEffect: buffer not allocated!');
  except
    on e:exception do begin

@@ -69,6 +69,7 @@ interface
 
   // Built-in scenes created at startup
   TStartupScenes=record
+   message:boolean; // built-in dialogs; disable when the application provides its own
    console:boolean; // console scene [Win]+[~]
    tweaker:boolean; // tweaker scene [Ctrl]+[~]
    loader:boolean;  // default loader scene with spinner
@@ -433,6 +434,7 @@ procedure TRenderSetup.Init;
 
 procedure TStartupScenes.Init;
  begin
+  message:=true;
   console:=true;
   tweaker:=false;
   loader:=true;
@@ -979,7 +981,7 @@ procedure TGameApplication.ControlLoop;
   LoadFonts;
   SelectFonts;
   InitStyles;
-  InitMessageScene;
+  if startupScenes.message then InitMessageScene;
   InitNotifications;
   if startupScenes.console then AddConsoleScene;
   if startupScenes.tweaker then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
