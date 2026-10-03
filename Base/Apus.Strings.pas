@@ -342,6 +342,9 @@ end;
 // ============================================================================
 // String8Helper
 // ============================================================================
+// Self is passed by reference and may be a caller's const parameter. Read it through
+// PAnsiChar(Pointer(self)), never as Move(self[i],...): Delphi makes the string unique
+// for that, which releases a reference the const parameter never held.
 
 function String8Helper.Length:integer;
 begin result:=System.Length(self); end;
@@ -521,7 +524,7 @@ begin
     SetLength(result,totalWidth);
     FillChar(result[1],pad,paddingChar);
     if System.Length(self)>0 then
-      Move(self[1],result[pad+1],System.Length(self));
+      Move(PAnsiChar(Pointer(self))[0],result[pad+1],System.Length(self));
   end;
 end;
 
@@ -532,7 +535,7 @@ begin
   if totalWidth<=oldLen then result:=self
   else begin
     SetLength(result,totalWidth);
-    if oldLen>0 then Move(self[1],result[1],oldLen);
+    if oldLen>0 then Move(PAnsiChar(Pointer(self))[0],result[1],oldLen);
     FillChar(result[oldLen+1],totalWidth-oldLen,paddingChar);
   end;
 end;
@@ -563,10 +566,10 @@ begin
   newLen:=System.Length(newStr);
   selfLen:=System.Length(self);
   SetLength(result,selfLen-oldLen+newLen);
-  if p>1 then Move(self[1],result[1],p-1);
+  if p>1 then Move(PAnsiChar(Pointer(self))[0],result[1],p-1);
   if newLen>0 then Move(newStr[1],result[p],newLen);
   if p+oldLen<=selfLen then
-    Move(self[p+oldLen],result[p+newLen],selfLen-p-oldLen+1);
+    Move(PAnsiChar(Pointer(self))[p+oldLen-1],result[p+newLen],selfLen-p-oldLen+1);
 end;
 
 function String8Helper.ReplaceAll(const oldStr,newStr:String8):String8;
@@ -593,14 +596,14 @@ begin
     nextP:=IndexOf(oldStr,p);
     if nextP=0 then break;
     segLen:=nextP-src;
-    if segLen>0 then Move(self[src],result[dst],segLen);
+    if segLen>0 then Move(PAnsiChar(Pointer(self))[src-1],result[dst],segLen);
     inc(dst,segLen);
     if newLen>0 then Move(newStr[1],result[dst],newLen);
     inc(dst,newLen);
     src:=nextP+oldLen;
     p:=src;
   until false;
-  if src<=selfLen then Move(self[src],result[dst],selfLen-src+1);
+  if src<=selfLen then Move(PAnsiChar(Pointer(self))[src-1],result[dst],selfLen-src+1);
 end;
 
 function String8Helper.Split(delimiter:AnsiChar;quoteChar:AnsiChar):Strings8;
@@ -753,7 +756,7 @@ begin
   len:=System.Length(self);
   SetLength(result,len+2);
   result[1]:=quoteChar;
-  if len>0 then Move(self[1],result[2],len);
+  if len>0 then Move(PAnsiChar(Pointer(self))[0],result[2],len);
   result[len+2]:=quoteChar;
 end;
 
@@ -912,7 +915,7 @@ begin
   len:=System.Length(self);
   SetLength(result,len*count);
   for i:=0 to count-1 do
-    if len>0 then Move(self[1],result[i*len+1],len);
+    if len>0 then Move(PAnsiChar(Pointer(self))[0],result[i*len+1],len);
 end;
 
 function String8Helper.Printable:String8;
