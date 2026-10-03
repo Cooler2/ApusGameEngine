@@ -34,7 +34,7 @@ type
     // TODO: document or redesign the synchronization contract; the class currently
     // relies on a global lock and RenderGlyph still returns borrowed bitmap data.
     function Interval(ch1,ch2:Char32;size:single):integer; // spacing between start point of ch1 and the next ch2
-    function GetTextWidth(st:String32;size:single):integer;
+    function GetTextWidth(st:String32;size:single):integer; // up to the ink edge of the last glyph, same as TUnicodeFont
     function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
     function CharPadding(ch:Char32;size:single):integer; // spacing in pixels between cursor point and actual glyph image start
     // Text/Glyph rendering  (no any clipping!)
@@ -170,6 +170,8 @@ begin
    end;
    result:=result+Interval(st[i],st[i+1],size);
   end;
+  // lastCharW is the advance of the last glyph: -1 turns the next pen position into
+  // the ink edge (the convention of TUnicodeFont); Engine 2 returned the pen position
   result:=max(maxLineWidth,result+lastCharW)-1;
 end;
 

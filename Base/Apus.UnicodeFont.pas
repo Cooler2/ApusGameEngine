@@ -85,7 +85,7 @@ type
   function IndexOfChar(ch:Char32):integer;
   function Interval(ch1,ch2:Char32):integer; // distance between start of ch1 and start of ch2
   procedure CalculateAdvKerning(index:integer);
-  function GetTextWidth(st:String32):integer;
+  function GetTextWidth(st:String32):integer; // up to the ink edge of the last glyph (a trailing space counts by its advance)
   function GetHeight:integer; // Height of characters like '0' or 'A'
   // Text/Glyph rendering  (no any clipping!)
   procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:String32;color:cardinal;scale:single=1);
@@ -398,6 +398,7 @@ function TUnicodeFont.GetTextWidth(st:String32):integer;
   for i:=0 to length(st)-2 do begin
    inc(result,Interval(st[i],st[i+1]));
   end;
+  // the last glyph counts up to its ink edge, not to the next pen position (Engine 2 added width+1)
   index:=IndexOfChar(st[length(st)-1]);
   if st[length(st)-1]=ord(' ') then
    inc(result,chars[index].width)

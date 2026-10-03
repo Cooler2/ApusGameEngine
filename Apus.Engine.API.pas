@@ -631,7 +631,8 @@ type
   procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
   // Centered: x is the center
   procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
-  // Measure text dimensions
+  // Measure text dimensions. Width ends at the right edge of the last glyph's ink,
+  // not at the pen position for a next char (Engine 2 returned 1 pixel more)
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
   function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
