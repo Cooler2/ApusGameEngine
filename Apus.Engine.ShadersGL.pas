@@ -866,9 +866,9 @@ function TGLShadersAPI.Load(filename,extra:String8):TShader;
   i,mode:integer;
  begin
   fName:=fileName+'.glsl';
-  if not FileExists(fName) then
+  if not Files.Exists(fName) then
    fName:=fileName+'.shader';
-  if not FileExists(fName) then begin
+  if not Files.Exists(fName) then begin
    // load separate shader files
    fname:=ChangeFileExt(filename,'.vsh');
    vSrc:=Files.LoadAsString(fName);

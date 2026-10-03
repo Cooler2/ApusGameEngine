@@ -207,31 +207,43 @@ begin
   ext:=ExtractFileExt8(fname);
   if ext<>'' then fname:=fname.Replace(ext,'');
   {$IFDEF IOS}
-  fname:=fname.Replace('\','/');
+  fname:=fname.ReplaceAll('\','/');
   {$ENDIF}
 end;
 
 procedure LoadAtlas(fname:string8;scale:single=1.0);
 var
-  f:text;
-  x,y,w,h,aw,ah:integer;
+  lines:Strings8;
+  i,x,y,w,h,aw,ah:integer;
   img,atlas:TTexture;
   st,path:String8;
+
+ // Take the next whitespace-separated integer from the line
+ function NextInt(var line:String8):integer;
+  var
+   p:integer;
+  begin
+   line:=line.TrimLeft;
+   p:=pos(' ',line);
+   if p=0 then p:=length(line)+1;
+   result:=Conv.ToInt(copy(line,1,p-1));
+   delete(line,1,p-1);
+  end;
+
 begin
  try
   path:=ExtractFilePath8(fname);
-  assign(f,Files.FixName(fname+'.atl'));
-  SetTextCodePage(f,CP_UTF8);
-  reset(f);
-  readln(f,aw,ah,st);
-  st:=st.Trim;
+  lines:=Files.LoadAsString(Files.FixName(fname+'.atl')).ReplaceAll(#9,' ').SplitLines;
+  st:=lines[0];
+  aw:=NextInt(st); ah:=NextInt(st);
   if aCount>=high(atlases) then
    raise EError.Create('Too many atlases loaded: '+fname);
   inc(aCount);
   atlas:=LoadImageFromFile(fname);
   atlases[aCount]:=atlas;
-  while not eof(f) do begin
-   readln(f,x,y,w,h,st);
+  for i:=1 to high(lines) do begin
+   st:=lines[i];
+   x:=NextInt(st); y:=NextInt(st); w:=NextInt(st); h:=NextInt(st);
    st:=st.Trim;
    if (st='') or (w=0) or (h=0) then continue;
    if aSubCount>=high(aImages) then
@@ -247,7 +259,6 @@ begin
    img.name:='_'+Str8(st); // non-unique label (clones never enter the name registry)
 //   if scale<>1.0 then ScaleImage(img,scale,scale);
   end;
-  close(f);
  except
   on e:Exception do raise EError.Create('Failed to load atlas '+fname+': '+ExceptionMsg(e));
  end;
@@ -270,7 +281,7 @@ begin
  ftype:=0;
  if pos('.DDS',fname)>0 then ftype:=1;
  if pos('.',fname)=0 then begin
-  if fileexists(fname+'.dds') then begin
+  if Files.Exists(fname+'.dds') then begin
    fname:=fname+'.dds'; ftype:=1;
   end;
  end;
@@ -367,58 +378,28 @@ begin
     end;
 end;
 
+// Find the image file for a name without extension. The newest candidate wins; on equal
+// timestamps (or a provider that has none) the earlier extension in the list does
 function FindProperFile(fname:String8;dontFail:boolean=false):String8;
+ const
+  EXTENSIONS:array[0..6] of String8=('.dds','.tga','.png','.webp','.jpg','.pvr','.txt');
  var
-  maxAge,age:integer;
-  st,st2:String8;
+  i:integer;
+  info:TFileInfo;
+  newest:TDateTime;
  begin
-  {$IFDEF ANDROID}
-  if Files.Exists(fname+'.tga') then result:=fname+'.tga' else
-  if Files.Exists(fname+'.jpg') then result:=fname+'.jpg' else
-  if Files.Exists(fname+'.png') then result:=fname+'.png' else
-  {$IFDEF WEBP}
-  if Files.Exists(fname+'.webp') then result:=fname+'.webp' else
-  {$ENDIF}
-  if Files.Exists(fname+'.txt') then result:=fname+'.txt';
-  {$ELSE}
-  maxAge:=-1; st2:='';
-  st:=fname+'.dds';
-  age:=FileAge(st);
-  if age>maxAge then begin
-   maxAge:=age; st2:=st;
+  result:=''; newest:=0;
+  for i:=0 to high(EXTENSIONS) do begin
+   {$IFNDEF WEBP}if EXTENSIONS[i]='.webp' then continue;{$ENDIF}
+   {$IFNDEF IOS}if EXTENSIONS[i]='.pvr' then continue;{$ENDIF}
+   if not Files.GetFileInfo(fname+EXTENSIONS[i],info) or info.isDirectory then continue;
+   if (result='') or (info.timestamp>newest) then begin
+    result:=fname+EXTENSIONS[i];
+    newest:=info.timestamp;
+   end;
   end;
-  st:=fname+'.tga';
-  age:=FileAge(st);
-  if age>maxAge then begin
-   maxAge:=age; st2:=st;
-  end;
-  st:=fname+'.png';
-  age:=FileAge(st);
-  if age>maxAge then begin
-   maxAge:=age; st2:=st;
-  end;
-  {$IFDEF WEBP}
-  st:=fname+'.webp';
-  age:=FileAge(st);
-  if age>maxAge then begin
-   maxAge:=age; st2:=st;
-  end;
-  {$ENDIF}
-  st:=fname+'.jpg';
-  age:=FileAge(st);
-  if age>maxAge then begin
-   maxAge:=age; st2:=st;
-  end;
-  st:=fname+'.txt';
-  age:=FileAge(st);
-  if age>maxAge then begin
-   st2:=st;
-  end;
-  if st2='' then
-   if dontFail then exit('')
-    else raise EWarning.Create(fname+' not found');
-  result:=st2;
-  {$ENDIF}
+  if (result='') and not dontFail then
+   raise EWarning.Create(fname+' not found');
  end;
 
 // Can an already loaded texture serve this request? Only frozen content is shared,
@@ -465,20 +446,10 @@ begin
   {$IFNDEF MSWINDOWS} // Use root dir
   //if (defaultImagesDir<>'') and (fname[1]<>'/') then fname:=defaultImagesDir+fname;
   {$ENDIF}
-  {$IFDEF IOS}
-  if not FileExists(fname) then
-   if FileExists(fname+'.tga') then fname:=fname+'.tga'
-    {$IFDEF WEBP}
-    else if FileExists(fname+'.webp') then fname:=fname+'.webp'
-    {$ENDIF}
-    else if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
-     else raise EError.Create(fname+' not found');
-  {$ELSE}
   if ExtractFileExt8(fname)='' then begin // find file
    fName:=FindProperFile(fName,Bits.HasAll(flags,liffNoFail));
    if fName='' then exit(nil);
   end;
-  {$ENDIF}
   // The chosen file may already be loaded by its own name
   if (tex=nil) and (fname<>ref) then begin
    tex:=TTexture.FindByFile(fname);

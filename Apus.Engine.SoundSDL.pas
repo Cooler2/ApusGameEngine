@@ -32,6 +32,7 @@ type
 implementation
 uses SysUtils, SDL2, sdl2_mixer,
   Apus.Core,
+  Apus.Files,
   Apus.Log,
   Apus.Types;
 
@@ -50,6 +51,7 @@ type
  TMediaFileSDL=class(TMediaFile)
   chunk:PMix_Chunk;   // loaded sample
   music:PMix_Music;   // music stream
+  data:ByteArray;     // file content the music stream decodes from while playing
   destructor Destroy; override;
  end;
 
@@ -210,19 +212,33 @@ procedure TSoundLibSDL.Done;
 
 function TSoundLibSDL.OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaFile;
  var
-  st:String8;
+  data:ByteArray;
+  rw:PSDL_RWops;
   chunk:PMix_Chunk;
   music:PMix_Music;
   media:TMediaFileSDL;
  begin
   result:=nil;
-  st:=fname;
+  // The file is read through the engine's file system, so it can come from any provider
+  try
+   data:=Files.LoadAsBytes(String8(fname));
+  except
+   on e:Exception do begin
+    Log.Error('[SDL_MIX] Failed to read media file %s: %s',[fname,ExceptionMsg(e)]);
+    exit;
+   end;
+  end;
+  if length(data)=0 then begin
+   Log.Error('[SDL_MIX] Media file %s is empty',[fname]);
+   exit;
+  end;
+  rw:=SDL_RWFromConstMem(@data[0],length(data));
 
   media:=TMediaFileSDL.Create;
   if mode=mlmLoadUnpack then begin
    // Load as sample: any format SDL_mixer decodes. Never fall back to a music
    // stream here - a sample loaded that way would replace the current music
-   chunk:=Mix_LoadWAV(PAnsiChar(st));
+   chunk:=Mix_LoadWAV_RW(rw,1);
    if chunk=nil then begin
     Log.Error('[SDL_MIX] Failed to load media file %s: %s',[fName,string(Mix_GetError)]);
     media.Free;
@@ -230,21 +246,22 @@ function TSoundLibSDL.OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaF
    end;
    media.chunk:=chunk;
   end else begin
-   // Load as music
-   music:=Mix_LoadMUS(PAnsiChar(st));
+   // Load as music: it's decoded while playing, so the buffer must live as long as the media
+   music:=Mix_LoadMUS_RW(rw,1);
    if music=nil then begin
     Log.Error('[SDL_MIX] Failed to load music file %s: %s',[fname,string(Mix_GetError)]);
     media.Free;
     exit(nil);
    end;
    media.music:=music;
+   media.data:=data;
   end;
 
   media.source:=fName;
   // Fill in numChannels/sampleRate/bitDepth: the engine needs sampleRate to
   // convert the "freq=" playback parameter into a speed factor
   try
-   media.DetectParams(fName);
+   media.DetectParams(TBuffer.CreateFrom(data));
   except
    on e:Exception do
     Log.Warn('[SDL_MIX] Cannot detect params of %s: %s',[fName,ExceptionMsg(e)]);

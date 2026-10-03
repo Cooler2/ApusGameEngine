@@ -698,7 +698,7 @@ procedure TGameApplication.Prepare;
     if not (Folder.Create(logPath) and Folder.Writable(logPath)) then logPath:='';
    end;
    if logPath='' then begin
-    ForceDirectories(LogDir);
+    Folder.Create(LogDir);
     logPath:=LogDir;
    end;
    st:=logPath+appSetup.logFile;
@@ -711,7 +711,7 @@ procedure TGameApplication.Prepare;
 
    if appSetup.configFile<>'' then begin
     appSetup.configFile:=Files.FixName(appSetup.configFile);
-    if not FileExists(appSetup.configFile) then
+    if not Files.Exists(appSetup.configFile) then
      FatalError('Config file not found: '+appSetup.configFile);
     // Decide where the persistent config lives. Normally it stays next to the
     // shipped file (dev tree or a writable install) so behaviour is unchanged.
@@ -722,9 +722,9 @@ procedure TGameApplication.Prepare;
     // write there breaks the code-signing seal.
     st:=ExtractFilePath(ExpandFileName(appSetup.configFile));
     if bundleMode or not Folder.Writable(String8(st)) then begin
-     ForceDirectories(AppDataDir);
+     Folder.Create(AppDataDir);
      st:=string(AppDataDir)+ExtractFileName(string(appSetup.configFile));
-     if not FileExists(st) then
+     if not Files.Exists(String8(st)) then
       Files.CopyFile(String8(appSetup.configFile),String8(st)); // seed from shipped defaults
      appSetup.configFile:=st;
     end;
@@ -789,13 +789,13 @@ procedure TGameApplication.Prepare;
    if checkForSteam then InitSteamAPI;
    if steamAvailable then
     // Выбор языка при установке из Стима
-    if FileExists('SelectLang') and (steamID<>0) then begin
+    if Files.Exists('SelectLang') and (steamID<>0) then begin
      st:=string(String8(AnsiString(steamGameLang)).ToLower);
      if st='russian' then gameLangCode:='ru';
      if st='english' then gameLangCode:='en';
      Log.Msg('First time launch: Steam language is '+gameLangCode);
      SaveOptions;
-     DeleteFile('SelectLang');
+     Files.Delete('SelectLang');
     end;
    {$ENDIF}
 

@@ -1141,7 +1141,7 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForP
    exit;
   end;
   {$IFEND}
-  if not FileExists(soundConfigFile) then begin
+  if not Files.Exists(soundConfigFile) then begin
    Log.Msg('[SOUND] No config file found (%s). Sound system won''t initialize.',[soundConfigFile]);
    exit;
   end;

@@ -45,7 +45,7 @@ var
  shapeFull:TUIShape;  // persistent: always opaque (captures all mouse events)
 
 implementation
- uses Apus.Conv, Apus.Files;
+ uses Apus.Core, Apus.Conv, Apus.Files;
 
 type
  TUIFullShape=class(TUIShape)
@@ -89,19 +89,18 @@ type
   compression:word;
  end;
 var
- f:file;
+ bmp:ByteArray;
  hdr:TBitmapHeader;
  size:integer;
  begin
-  assign(f,Files.FixName(fname));
-  reset(f,1);
-  blockread(f,hdr,sizeof(hdr));
+  bmp:=Files.LoadAsBytes(Files.FixName(fname));
+  if length(bmp)<sizeof(hdr) then raise EError.Create('Bad BMP file: '+fname);
+  move(bmp[0],hdr,sizeof(hdr));
   linesize:=4*((hdr.width*hdr.bpp+31) div 32);
-  seek(f,hdr.dataOffset);
   size:=linesize*hdr.height;
+  if int64(hdr.dataOffset)+size>length(bmp) then raise EError.Create('Bad BMP file: '+fname);
   setLength(data,size);
-  blockread(f,data[0],size);
-  close(f);
+  move(bmp[hdr.dataOffset],data[0],size);
   bmWidth:=hdr.width;
   bmHeight:=hdr.height;
   flipY:=true;
