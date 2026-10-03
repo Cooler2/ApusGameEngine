@@ -9,6 +9,19 @@
 //
 // Sound\PlayMusic\MusicName
 //
+// Sound\PlayFile\Path[,vol=N][,group=Name]
+//  Load a file (VFS path, not inside the audio folder) and play it once as a sample;
+//  it is unloaded when finished. Group "file" is used by default
+// Sound\StopFile\Path, Sound\StopGroup\Name, Sound\StopAllFiles (= StopGroup\file)
+//  Stop file playback (short fade-out), no notification is sent
+// Sound\SetGroup\Name[,duck=N][,exclusive=0|1]
+//  Group playback policy: duck = music volume (in %) while any file of the group plays,
+//  exclusive = a new file stops other files of the group. Default: no ducking, not exclusive
+// Sound\ClearCache[\EventName]
+//  Unload the sample of this event (or all samples): it is loaded again when played
+//
+// Outgoing: Sound\FilePlayed\Path - a file played to the end (not sent if it was stopped)
+//
 
 {$I defines.inc}
 unit Apus.Engine.Sound;
@@ -43,7 +56,10 @@ type
  TChannelAttributes = set of TChannelAttribute;
 
 
- TChannel=TObject;
+ // Playback handle: an opaque value defined by the backend, 0 = no channel.
+ // A handle is not reused right after its playback ends, so a stale handle stays
+ // safe for a reasonable time: IsPlaying returns false and other operations ignore it
+ TChannel=type cardinal;
  TMediaFile=class
   source:string;
   numChannels,sampleRate,bitDepth:integer;
@@ -75,8 +91,7 @@ type
   procedure SetVolume(volumeType:TVolumeType;volume:single); // 0..1
   function OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaFile;
   function PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
-  // Stops playback and clears the reference. The channel object belongs to the
-  // backend (it can be pooled and reused), so callers must never free it.
+  // Stops playback and clears the handle
   procedure StopChannel(var channel:TChannel);
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
   // Which channel attributes can be slided
@@ -86,7 +101,7 @@ type
   // Can several music streams play at the same time? If not, starting a new
   // track implicitly ends the previous one.
   function HasSingleMusicStream:boolean;
-  // Is this channel still playing? (a stale channel reference yields false)
+  // Is this playback still going on? (paused counts as playing, a stale handle yields false)
   function IsPlaying(channel:TChannel):boolean;
   // timeInterval - in seconds
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
@@ -151,11 +166,34 @@ type
   {$IFEND}
  end;
 
+ // Group of file playbacks: the playback policy belongs to the group, not to the verbs
+ TFileGroup=class
+  name:string8; // uppercase
+  duck:single;  // music volume factor while a file of the group plays (1.0 = no ducking)
+  exclusive:boolean; // a new file stops the other files of the group
+ end;
+
+ // One-shot file playback (Sound\PlayFile)
+ TFilePlayback=class
+  path:string8; // as given by the caller: Sound\FilePlayed carries it back
+  group:TFileGroup;
+  media:TMediaFile; // owned: unloaded together with the playback
+  channel:TChannel;
+  stopped:boolean; // stopped explicitly: fading out, no notification
+  destructor Destroy; override;
+ end;
+
  // Thread processing sound events
  TSoundThread=class(TThread)
   waitForPreload:boolean;
   procedure Execute; override;
  end;
+
+const
+ DEFAULT_FILE_GROUP = 'FILE';
+ FILE_FADE_TIME = 0.1; // fade-out of a stopped file (sec)
+ DUCK_DOWN_TIME = 1000; // music ducking (ms)
+ DUCK_RESTORE_TIME = 1500;
 
 var
  soundLib:ISoundLib;
@@ -181,6 +219,12 @@ var
  // Global volume levels (multiply by particular volume)
  soundVolume:single=1.0;
  musicVolume:single=1.0;
+
+ // File playback (sound thread only)
+ fileGroups:array of TFileGroup;
+ filePlaybacks:array of TFilePlayback;
+ musicDuck:TAnimatedValue; // music volume factor requested by playing files
+ appliedDuck:single=1.0;   // the factor music volume is currently set with
 
 // Cross-thread boolean flags
 procedure RaiseFlag(var flag:integer); inline;
@@ -729,7 +773,7 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    st:=MusHash.FirstKey;
    while st<>'' do begin
     mus:=MusHash.Get(st);
-    if mus.channel<>nil then begin
+    if mus.channel<>0 then begin
      {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
      if pause then begin
       Log.Msg('Pause music track '+mus.name);
@@ -744,11 +788,207 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    end;
   end;
 
+{ TFilePlayback }
+
+destructor TFilePlayback.Destroy;
+ begin
+  soundLib.StopChannel(channel);
+  media.Free;
+  inherited;
+ end;
+
+// Find a group by name, create it with the default policy if needed
+function GetFileGroup(name:string8):TFileGroup;
+ var
+  g:TFileGroup;
+ begin
+  name:=UpperCase(name);
+  for g in fileGroups do
+   if g.name=name then exit(g);
+  result:=TFileGroup.Create;
+  result.name:=name;
+  result.duck:=1.0;
+  SetLength(fileGroups,length(fileGroups)+1);
+  fileGroups[high(fileGroups)]:=result;
+ end;
+
+// Name[,duck=N][,exclusive=0|1]
+procedure SetFileGroup(const params:string8);
+ var
+  sa:Strings8;
+  par:TNameValue;
+  g:TFileGroup;
+  i:integer;
+ begin
+  sa:=params.Split(',','"');
+  if (length(sa)=0) or (sa[0]='') then exit;
+  g:=GetFileGroup(sa[0]);
+  for i:=1 to high(sa) do begin
+   par.InitFrom(sa[i]);
+   if par.Named('duck') then g.duck:=Clamp(par.GetInt/100,0.0,1.0)
+   else
+   if par.Named('exclusive') then g.exclusive:=par.GetBool
+   else
+    Log.Warn('[SOUND] SetGroup: unknown parameter '+sa[i]);
+  end;
+ end;
+
+procedure StopFilePlayback(pb:TFilePlayback);
+ begin
+  if pb.stopped then exit;
+  pb.stopped:=true;
+  // the playback is unloaded when the fade-out ends
+  if (caVolume in soundLib.CanSlide) or soundLib.CanFadeMusic then
+   soundLib.SlideChannel(pb.channel,caVolume,0,FILE_FADE_TIME)
+  else
+   soundLib.StopChannel(pb.channel);
+ end;
+
+// Stop files matching the path (any if empty) and the group (any if nil)
+procedure StopFiles(const path:string8;group:TFileGroup);
+ var
+  pb:TFilePlayback;
+ begin
+  for pb in filePlaybacks do
+   if ((group=nil) or (pb.group=group)) and
+      ((path='') or SameText(Files.FixName(path),Files.FixName(pb.path))) then
+    StopFilePlayback(pb);
+ end;
+
+// Path[,vol=N][,group=Name]
+procedure PlayFile(const params:string8);
+ var
+  sa:Strings8;
+  par:TNameValue;
+  group:TFileGroup;
+  settings:TPlaySettings;
+  media:TMediaFile;
+  pb:TFilePlayback;
+  i:integer;
+ begin
+  sa:=params.Split(',','"');
+  if (length(sa)=0) or (sa[0]='') then exit;
+  group:=GetFileGroup(DEFAULT_FILE_GROUP);
+  settings:=DefaultSettings;
+  for i:=1 to high(sa) do begin
+   par.InitFrom(sa[i]);
+   if par.Named('vol') or par.Named('v') then settings.volume:=par.GetInt/100
+   else
+   if par.Named('group') then group:=GetFileGroup(par.value)
+   else
+    Log.Warn('[SOUND] PlayFile: unknown parameter '+sa[i]);
+  end;
+  Log.Msg('[SOUND] Play file '+sa[0]);
+  media:=soundLib.OpenMediaFile(Files.FixName(sa[0]),mlmLoadUnpack);
+  if media=nil then exit; // the backend has logged the reason
+  if group.exclusive then StopFiles('',group);
+  pb:=TFilePlayback.Create;
+  pb.path:=sa[0];
+  pb.group:=group;
+  pb.media:=media;
+  pb.channel:=soundLib.PlayMedia(media,settings);
+  if pb.channel=0 then begin
+   pb.Free;
+   exit;
+  end;
+  SetLength(filePlaybacks,length(filePlaybacks)+1);
+  filePlaybacks[high(filePlaybacks)]:=pb;
+ end;
+
+// Drop finished playbacks (notify about the natural ends) and duck music while files play
+procedure UpdateFilePlaybacks;
+ var
+  i:integer;
+  pb:TFilePlayback;
+  duck,v:single;
+ begin
+  duck:=1.0;
+  i:=0;
+  while i<length(filePlaybacks) do begin
+   pb:=filePlaybacks[i];
+   if not soundLib.IsPlaying(pb.channel) then begin
+    if not pb.stopped then begin
+     Log.Msg('[SOUND] File played: '+pb.path);
+     Signal('Sound\FilePlayed\'+pb.path);
+    end;
+    pb.Free;
+    filePlaybacks[i]:=filePlaybacks[high(filePlaybacks)];
+    SetLength(filePlaybacks,length(filePlaybacks)-1);
+    continue;
+   end;
+   if not pb.stopped and (pb.group.duck<duck) then duck:=pb.group.duck;
+   inc(i);
+  end;
+
+  if duck<>musicDuck.FinalValue then begin
+   Log.Msg('[SOUND] Music ducking: %d%%',[round(duck*100)]);
+   if duck<musicDuck.FinalValue then musicDuck.Animate(duck,DUCK_DOWN_TIME)
+    else musicDuck.Animate(duck,DUCK_RESTORE_TIME);
+  end;
+  v:=musicDuck.Value;
+  if v=appliedDuck then exit;
+  appliedDuck:=v;
+  // a fading out track is left alone, a fading in one takes the factor in AnimateMusicVolume
+  if (curMusic<>nil) and (curMusic.stopTime=0) and not curMusic.curVolume.IsAnimating then
+   soundLib.SetChannelAttribute(curMusic.channel,caVolume,curMusic.volume*v);
+ end;
+
+procedure FreeFilePlaybacks;
+ var
+  pb:TFilePlayback;
+  g:TFileGroup;
+ begin
+  for pb in filePlaybacks do pb.Free;
+  filePlaybacks:=nil;
+  for g in fileGroups do g.Free;
+  fileGroups:=nil;
+ end;
+
+// Unload a sample: the events using it load it again when played
+procedure UnloadSample(const key:string);
+ var
+  p:int64;
+  media:TMediaFile;
+  list:PointerArray;
+  i:integer;
+ begin
+  p:=mediaFilesHash.Get(key);
+  if p=-1 then exit;
+  media:=TMediaFile(pointer(p));
+  mediaFilesHash.Remove(key);
+  list:=evtHash.GetValues;
+  for i:=0 to high(list) do
+   with TSoundEvent(list[i]) do
+    if sample=media then begin
+     sample:=nil;
+     lastChannel:=0;
+    end;
+  Log.Msg('[SOUND] Unload sample '+key);
+  media.Free; // stops its playback
+ end;
+
+// Unload the sample of the event, or all samples if no event is given
+procedure ClearCache(const eventName:string8);
+ var
+  evt:TSoundEvent;
+  keys:Strings;
+  st:string;
+ begin
+  if eventName<>'' then begin
+   evt:=evtHash.Get(eventName);
+   if evt<>nil then UnloadSample(UpperCase(evt.fileName));
+  end else begin
+   keys:=Copy(mediaFilesHash.keys); // the hash changes while unloading
+   for st in keys do
+    if st<>'' then UnloadSample(st);
+  end;
+ end;
+
 procedure AnimateMusicVolume(mus:TMusicEntry);
  var
   v:single;
  begin
-  v:=mus.curVolume.Value;
+  v:=mus.curVolume.Value*appliedDuck;
   soundLib.SetChannelAttribute(mus.channel,caVolume,v);
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
   rVol:=mus.curVolume.Value/100;
@@ -763,30 +1003,44 @@ procedure AnimateMusicVolume(mus:TMusicEntry);
 procedure EventHandler(event:TEventStr;tag:TTag);
  var
   i,p,v,freq,vol,pan,newpan,newfreq,slide:integer;
+  orig:TEventStr;
  begin
   try
   delete(event,1,6);
+  orig:=event; // file paths keep their case
   event:=UpperCase {TODO: use st.ToUpper}(event);
 
   if event='ANIMATEMUSICVOL' then AnimateMusicVolume(TMusicEntry(tag));
 
-(* TODO
-  // Unload all loaded audio samples
-  if pos('CLEARCACHE\',event)=1 then begin
-   delete(event,1,11);
-   evt:=evtHash.Get(event);
-   if evt<>nil then begin
-
-    {$IFDEF IMX}
-    IMXSampleUnload(evt.sample.handle);
-    {$ENDIF}
-    {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
-    pools[evt.sample.pool].UnloadSound(evt.sample.handle);
-    {$IFEND}
-    evt.sample.handle:=0;
-   end;
+  // File playback
+  if event.StartsWith('PLAYFILE\') then begin
+   PlayFile(copy(orig,10,length(orig)));
    exit;
-  end; *)
+  end;
+  if event.StartsWith('STOPFILE\') then begin
+   StopFiles(copy(orig,10,length(orig)),nil);
+   exit;
+  end;
+  if event.StartsWith('STOPGROUP\') then begin
+   StopFiles('',GetFileGroup(copy(event,11,length(event))));
+   exit;
+  end;
+  if event='STOPALLFILES' then begin
+   StopFiles('',GetFileGroup(DEFAULT_FILE_GROUP));
+   exit;
+  end;
+  if event.StartsWith('SETGROUP\') then begin
+   SetFileGroup(copy(orig,10,length(orig)));
+   exit;
+  end;
+  if event='CLEARCACHE' then begin
+   ClearCache('');
+   exit;
+  end;
+  if event.StartsWith('CLEARCACHE\') then begin
+   ClearCache(copy(event,12,length(event)));
+   exit;
+  end;
 
   // Play sound sample (load if not loaded)
   if event.StartsWith('PLAY\') then
@@ -873,7 +1127,7 @@ function IsMusicPlaying:boolean;
   mus:TMusicEntry;
  begin
   mus:=curMusic;
-  result:=(soundLib<>nil) and (mus<>nil) and (mus.channel<>nil) and soundLib.IsPlaying(mus.channel);
+  result:=(soundLib<>nil) and (mus<>nil) and soundLib.IsPlaying(mus.channel);
  end;
 
 procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
@@ -938,8 +1192,8 @@ begin
  keys:=musHash.GetKeys;
  for st in keys do begin
   mus:=TMusicEntry(musHash.Get(st));
-  if (mus<>keep) and (mus.channel<>nil) then begin
-   mus.channel:=nil;
+  if (mus<>keep) and (mus.channel<>0) then begin
+   mus.channel:=0;
    mus.stopTime:=0;
   end;
  end;
@@ -952,7 +1206,7 @@ begin
  if needMusic=nil then exit;
  needMusic.stopTime:=0;
  settings:=DefaultSettings;
- if needSlide=0 then settings.volume:=needMusic.volume
+ if needSlide=0 then settings.volume:=needMusic.volume*appliedDuck
   else settings.volume:=0;
  if needMusic.loop then begin
   settings.loop:=true;
@@ -961,11 +1215,11 @@ begin
  end;
  curMusic:=needMusic;
  curMusic.channel:=soundLib.PlayMedia(needMusic.media,settings);
- if (curMusic.channel<>nil) and soundLib.HasSingleMusicStream then
+ if (curMusic.channel<>0) and soundLib.HasSingleMusicStream then
   DropOtherMusicChannels(curMusic);
  if needSlide>0 then begin
   if caVolume in soundLib.CanSlide then
-   soundLib.SlideChannel(curMusic.channel,caVolume,curMusic.volume,needSlide/1000)
+   soundLib.SlideChannel(curMusic.channel,caVolume,curMusic.volume*appliedDuck,needSlide/1000)
   else begin
    curMusic.curVolume.Init(0);
    curMusic.curVolume.Animate(curMusic.volume,needSlide,spline0);
@@ -986,7 +1240,7 @@ begin
  keys:=musHash.GetKeys;
  for st in keys do begin
   mus:=TMusicEntry(musHash.Get(st));
-  if (mus.channel<>nil) and (mus.stopTime>0) and (t>mus.stopTime) then begin
+  if (mus.channel<>0) and (mus.stopTime>0) and (t>mus.stopTime) then begin
    mus.stopTime:=0;
    soundLib.StopChannel(mus.channel);
   end;
@@ -1008,6 +1262,7 @@ begin
   {$IFEND}
 
   ctl:=UseControlFile(soundConfigFile,'');
+  musicDuck.Init(1.0);
   SetEventHandler('SOUND',EventHandler,emQueued);
   if not waitForPreload then RaiseFlag(initialized);
   LoadConfig;
@@ -1026,13 +1281,14 @@ begin
 
     if (needmusic<>nil) and (CoreTime.Ticks>needMusicStartTime) then PlayNeededMusic;
     StopMusicChannels;
+    UpdateFilePlaybacks;
    except
     on e:exception do Log.Force('[SOUND] Error: '+ExceptionMsg(e));
    end;
    CoreTime.Sleep(5);
   until Terminated;
   // Termination
-
+  FreeFilePlaybacks;
   soundLib.Done;
 
   FreeControlFile(ctl);

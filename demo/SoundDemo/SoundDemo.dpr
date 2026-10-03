@@ -5,8 +5,10 @@
 //   SoundDemo                 - interactive mode: type commands or 1..N
 //   SoundDemo 5 w2000 1 w5000 - script mode: run the listed commands, then exit
 // A script item is either a command ("Play\Sample"), a predefined command
-// number, a delay in milliseconds ("w2000"), or the check "check:music"
-// which fails the run unless a music track is playing at that moment.
+// number, a delay in milliseconds ("w2000"), or a check:
+//   check:music    - fails the run unless a music track is playing at that moment
+//   check:played=N - fails the run unless exactly N Sound\FilePlayed notifications came
+// "%res%" in a command is replaced with the resource folder.
 {$APPTYPE CONSOLE}
 
 program SoundDemo;
@@ -22,7 +24,7 @@ uses
   Apus.Engine.Sound;
 
 const
- defaultCmd:array[1..10] of string=(
+ defaultCmd:array[1..14] of string=(
   'PlayMusic\testOGG',
   'PlayMusic\testMP3',
   'PlayMusic\testMOD::3',
@@ -32,7 +34,20 @@ const
   'Play\Low',
   'Play\Wav',
   'Play\sampleLeft',
-  'Play\sampleQuiet');
+  'Play\sampleQuiet',
+  'SetGroup\file,duck=20,exclusive=1',
+  'PlayFile\%res%sampleStereo.ogg',
+  'StopAllFiles',
+  'ClearCache');
+
+var
+ filesPlayed:integer; // Sound\FilePlayed notifications received
+
+procedure OnFilePlayed(event:TEventStr;tag:TTag);
+ begin
+  Atomic.Inc(filesPlayed);
+  writeln(event);
+ end;
 
 // Resolve a numeric shortcut into a real command
 function ExpandCommand(cmd:string):string;
@@ -55,7 +70,14 @@ procedure RunCommand(cmd:string);
     Log.Error('[SOUNDDEMO] check:music failed - no music is playing');
    exit;
   end;
-  cmd:=ExpandCommand(cmd);
+  if SameText(copy(cmd,1,13),'check:played=') then begin
+   if Atomic.Add(filesPlayed,0)=Conv.ToInt(copy(cmd,14,10)) then
+    writeln(cmd+' - ok')
+   else
+    Log.Error('[SOUNDDEMO] %s failed - %d file(s) played',[cmd,Atomic.Add(filesPlayed,0)]);
+   exit;
+  end;
+  cmd:=StringReplace(ExpandCommand(cmd),'%res%',soundFolderPath,[rfIgnoreCase]);
   writeln('SOUND\'+cmd);
   Signal('SOUND\'+cmd);
  end;
@@ -106,6 +128,7 @@ begin
   if not FileExists(soundConfigFile) then
    raise EError.Create('Sound configuration not found: '+soundConfigFile);
   InitSoundSystem(slDefault); // whichever backend is compiled in
+  SetEventHandler('SOUND\FILEPLAYED',OnFilePlayed,emInstant);
 
   if ParamCount>0 then RunScript
    else RunInteractive;

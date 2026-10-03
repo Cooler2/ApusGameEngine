@@ -270,7 +270,7 @@ jobs:
           set -uo pipefail
           cd demo/SoundDemo
           sound_exit=0
-          ./SoundDemo 5 w300 1 w800 2 w1500 check:music 4 w300 || sound_exit=$?
+          ./SoundDemo 5 w300 1 w800 11 12 w500 12 w3500 check:played=1 12 w500 13 w800 check:played=1 14 5 w300 2 w1500 check:music 4 w300 || sound_exit=$?
           echo '--- SoundDemo.log ---'
           if [[ -f SoundDemo.log ]]; then cat SoundDemo.log; else echo 'SoundDemo.log not found'; fi
           exit "$sound_exit"
@@ -291,7 +291,7 @@ jobs:
           }
           Write-Host "Using $runtimeDir audio runtime for FPC target $targetCPU"
           Set-Location $runtimeDir
-          .\SoundDemo.exe 5 w300 1 w800 2 w1500 check:music 4 w300
+          .\SoundDemo.exe 5 w300 1 w800 11 12 w500 12 w3500 check:played=1 12 w500 13 w800 check:played=1 14 5 w300 2 w1500 check:music 4 w300
           $soundExitCode=$LASTEXITCODE
           Write-Host "SoundDemo exit code: $soundExitCode"
           if($soundExitCode -ne 0){ exit $soundExitCode }

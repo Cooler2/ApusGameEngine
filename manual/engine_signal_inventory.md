@@ -128,6 +128,11 @@
 | `SOUND\PAUSE` / `SOUND\RESUME` | command | `TGameApplication` | `0` | Audio subsystem commands when the application is minimized/restored. |
 | `SOUND\PLAY\{event}` | command | Sound event endpoint (`EventHandler` in the sound subsystem) | packed playback parameters | Plays a sound event/sample. One of the main external sound APIs. |
 | `SOUND\PLAYMUSIC\{track}` | command | Sound event endpoint (`EventHandler` in the sound subsystem) | transition/fade mode | Starts/switches a music track (including fade/crossfade scenarios). |
+| `SOUND\PLAYFILE\{path}[,vol=N][,group=Name]` | command | Sound event endpoint (`PlayFile`) | `0` | Loads a file by VFS path (not inside the audio folder), plays it once and unloads it. Default group: `file`. |
+| `SOUND\STOPFILE\{path}` / `SOUND\STOPGROUP\{name}` / `SOUND\STOPALLFILES` | command | Sound event endpoint (`StopFiles`) | `0` | Stops file playback with a short fade-out; `STOPALLFILES` = `STOPGROUP\file`. No `FILEPLAYED` for stopped files. |
+| `SOUND\SETGROUP\{name}[,duck=N][,exclusive=0\|1]` | command | Sound event endpoint (`SetFileGroup`) | `0` | Group policy: music volume in % while a file of the group plays; whether a new file stops the others. |
+| `SOUND\CLEARCACHE[\{event}]` | command | Sound event endpoint (`ClearCache`) | `0` | Unloads the sample of the event (or all samples); it is loaded again when played. |
+| `SOUND\FILEPLAYED\{path}` | notification | Sound thread (`UpdateFilePlaybacks`) | `0` | A file started by `PLAYFILE` played to the end; carries the path as given. |
 | `SOUND\ANIMATEMUSICVOL` (`DelayedSignal`) | command | Sound subsystem (`AnimateMusicVolume`) | `TTag(TMusicEntry)` | Step-by-step music volume animation when there is no native slide. |
 | `SOUND\SAMPLELOADING\{file}` | notification | BASS backend helper (`LoadSample`; `legacy/`, not built) | `0` | Sample loading started. |
 | `SOUND\SAMPLELOADED\{file}` | notification | BASS backend helper (`LoadSample`; `legacy/`, not built) | `0` | Sample loading finished. |

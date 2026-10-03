@@ -38,8 +38,13 @@ uses SysUtils, SDL2, sdl2_mixer,
 const
  // Number of simultaneously playing samples
  SAMPLE_CHANNELS = 32;
- // Sample channel index marking the (single) music stream
- MUSIC_CHANNEL = -1;
+ // Slot of the (single) music stream: slots 0..SAMPLE_CHANNELS-1 are SDL_mixer channels
+ MUSIC_SLOT = SAMPLE_CHANNELS;
+ // Channel handle layout: low 8 bits = slot+1 (so 0 is "no channel"),
+ // high 24 bits = generation of the slot at the moment the playback started
+ SLOT_BITS = 8;
+ SLOT_MASK = $FF;
+ GENERATION_MASK = $FFFFFF;
 
 type
  TMediaFileSDL=class(TMediaFile)
@@ -48,20 +53,16 @@ type
   destructor Destroy; override;
  end;
 
- // Channel objects are owned by the backend and reused: one per SDL_mixer
- // channel plus one for the music stream. StopChannel only clears the caller's
- // reference, it never frees the object.
- TChannelSDL=class(TChannel)
-  sampleChannel:integer; // MUSIC_CHANNEL for the music stream
-  relVolume:single;      // volume requested for this channel (before the global one)
-  constructor Create(channelIndex:integer);
+ // Mixing slot: an SDL_mixer channel or the music stream
+ TSlotSDL=record
+  generation:cardinal; // bumped on every playback start, so older handles of the slot become stale
+  relVolume:single;    // volume requested for the current playback (before the global one)
  end;
 
 var
  globalMusicVolume:single=1.0;
  globalSoundVolume:single=1.0;
- channels:array[0..SAMPLE_CHANNELS-1] of TChannelSDL;
- musicChannel:TChannelSDL;
+ slots:array[0..MUSIC_SLOT] of TSlotSDL;
  ownAudioSubsystem:boolean; // did this backend initialize SDL's audio subsystem?
 
 { TMediaFileSDL }
@@ -75,15 +76,22 @@ destructor TMediaFileSDL.Destroy;
   inherited;
  end;
 
-{ TChannelSDL }
+{ Helpers }
 
-constructor TChannelSDL.Create(channelIndex:integer);
+// Slot of a live channel handle, -1 for an empty or stale one
+function SlotOf(channel:TChannel):integer;
  begin
-  sampleChannel:=channelIndex;
-  relVolume:=1.0;
+  result:=integer(cardinal(channel) and SLOT_MASK)-1;
+  if (result<0) or (result>MUSIC_SLOT) then exit(-1);
+  if slots[result].generation<>cardinal(channel) shr SLOT_BITS then result:=-1;
  end;
 
-{ Helpers }
+// Start a new playback in the slot: the previous handles of the slot become stale
+function NewHandle(slot:integer):TChannel;
+ begin
+  slots[slot].generation:=(slots[slot].generation+1) and GENERATION_MASK;
+  result:=TChannel((slots[slot].generation shl SLOT_BITS) or cardinal(slot+1));
+ end;
 
 // Panning: -1 = full left, 0 = center, 1 = full right
 procedure SetPanning(channel:integer;pan:single);
@@ -95,12 +103,12 @@ procedure SetPanning(channel:integer;pan:single);
   Mix_SetPanning(channel,left,right);
  end;
 
-procedure ApplyChannelVolume(ch:TChannelSDL);
+procedure ApplySlotVolume(slot:integer);
  begin
-  if ch.sampleChannel=MUSIC_CHANNEL then
-   Mix_VolumeMusic(round(ch.relVolume*globalMusicVolume*MIX_MAX_VOLUME))
+  if slot=MUSIC_SLOT then
+   Mix_VolumeMusic(round(slots[slot].relVolume*globalMusicVolume*MIX_MAX_VOLUME))
   else
-   Mix_Volume(ch.sampleChannel,round(ch.relVolume*globalSoundVolume*MIX_MAX_VOLUME));
+   Mix_Volume(slot,round(slots[slot].relVolume*globalSoundVolume*MIX_MAX_VOLUME));
  end;
 
 // Report which decoders are actually available in the linked SDL2_mixer build
@@ -145,16 +153,14 @@ function TSoundLibSDL.HasSingleMusicStream:boolean;
 
 function TSoundLibSDL.IsPlaying(channel:TChannel):boolean;
  var
-  ch:integer;
+  slot:integer;
  begin
-  result:=false;
-  if channel=nil then exit;
-  ASSERT(channel is TChannelSDL);
-  ch:=TChannelSDL(channel).sampleChannel;
-  if ch=MUSIC_CHANNEL then
+  slot:=SlotOf(channel);
+  if slot<0 then exit(false);
+  if slot=MUSIC_SLOT then
    result:=Mix_PlayingMusic<>0
   else
-   result:=Mix_Playing(ch)<>0;
+   result:=Mix_Playing(slot)<>0; // a paused channel counts as playing
  end;
 
 procedure TSoundLibSDL.Init(windowHandle:THandle);
@@ -174,9 +180,8 @@ procedure TSoundLibSDL.Init(windowHandle:THandle);
   if Mix_OpenAudio(44100,AUDIO_S16,2,1024)<>0 then
    raise EError.Create('[SDL_MIX] open audio error: '+Mix_GetError);
   Mix_AllocateChannels(SAMPLE_CHANNELS);
-  for i:=0 to SAMPLE_CHANNELS-1 do
-   if channels[i]=nil then channels[i]:=TChannelSDL.Create(i);
-  if musicChannel=nil then musicChannel:=TChannelSDL.Create(MUSIC_CHANNEL);
+  // generations are kept: handles from an earlier Init must stay stale
+  for i:=0 to MUSIC_SLOT do slots[i].relVolume:=1.0;
   // Diagnostics: what the device actually gave us
   ver:=Mix_Linked_Version;
   if ver<>nil then
@@ -191,8 +196,6 @@ procedure TSoundLibSDL.Init(windowHandle:THandle);
  end;
 
 procedure TSoundLibSDL.Done;
- var
-  i:integer;
  begin
   Log.Info('[SDL_MIX] stopping');
   Mix_HaltChannel(-1);
@@ -203,8 +206,6 @@ procedure TSoundLibSDL.Done;
    SDL_QuitSubSystem(SDL_INIT_AUDIO);
    ownAudioSubsystem:=false;
   end;
-  for i:=0 to SAMPLE_CHANNELS-1 do FreeAndNil(channels[i]);
-  FreeAndNil(musicChannel);
  end;
 
 function TSoundLibSDL.OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaFile;
@@ -213,15 +214,14 @@ function TSoundLibSDL.OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaF
   chunk:PMix_Chunk;
   music:PMix_Music;
   media:TMediaFileSDL;
-  ext:string;
  begin
   result:=nil;
   st:=fname;
-  ext:=LowerCase(ExtractFileExt(fName));
 
   media:=TMediaFileSDL.Create;
-  if (mode=mlmLoadUnpack) and ((ext='.wav') or (ext='.ogg')) then begin
-   // Load as sample
+  if mode=mlmLoadUnpack then begin
+   // Load as sample: any format SDL_mixer decodes. Never fall back to a music
+   // stream here - a sample loaded that way would replace the current music
    chunk:=Mix_LoadWAV(PAnsiChar(st));
    if chunk=nil then begin
     Log.Error('[SDL_MIX] Failed to load media file %s: %s',[fName,string(Mix_GetError)]);
@@ -265,12 +265,12 @@ function TSoundLibSDL.PlayMedia(media:TMediaFile;const settings:TPlaySettings):T
    res:=Mix_PlayChannel(-1,m.chunk,loops);
    if res<0 then begin
     Log.Error('[SDL_MIX] failed to play sample %s: %s',[m.source,string(Mix_GetError)]);
-    exit(nil);
+    exit(0);
    end;
-   channels[res].relVolume:=settings.volume;
-   ApplyChannelVolume(channels[res]);
+   slots[res].relVolume:=settings.volume;
+   ApplySlotVolume(res);
    SetPanning(res,settings.pan);
-   result:=channels[res];
+   result:=NewHandle(res);
   end else begin
    // Play music (SDL_mixer has a single music stream).
    // A fade-out started for the previous track keeps its own timer running: it
@@ -279,28 +279,27 @@ function TSoundLibSDL.PlayMedia(media:TMediaFile;const settings:TPlaySettings):T
    if Mix_FadingMusic<>MIX_NO_FADING then Mix_HaltMusic;
    if Mix_PlayMusic(m.music,loops)<>0 then begin
     Log.Error('[SDL_MIX] failed to play music %s: %s',[m.source,string(Mix_GetError)]);
-    exit(nil);
+    exit(0);
    end;
-   musicChannel.relVolume:=settings.volume;
-   ApplyChannelVolume(musicChannel);
-   result:=musicChannel;
+   slots[MUSIC_SLOT].relVolume:=settings.volume;
+   ApplySlotVolume(MUSIC_SLOT);
+   result:=NewHandle(MUSIC_SLOT);
   end;
  end;
 
 procedure TSoundLibSDL.SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
  var
-  ch:TChannelSDL;
+  slot:integer;
  begin
-  if channel=nil then exit;
-  ASSERT(channel is TChannelSDL);
-  ch:=TChannelSDL(channel);
+  slot:=SlotOf(channel);
+  if slot<0 then exit;
   case attr of
    caVolume:begin
-    ch.relVolume:=value;
-    ApplyChannelVolume(ch);
+    slots[slot].relVolume:=value;
+    ApplySlotVolume(slot);
    end;
    caPanning:
-    if ch.sampleChannel<>MUSIC_CHANNEL then SetPanning(ch.sampleChannel,value);
+    if slot<>MUSIC_SLOT then SetPanning(slot,value);
    // caSpeed is not supported by SDL_mixer
   end;
  end;
@@ -314,28 +313,27 @@ procedure TSoundLibSDL.SetVolume(volumeType:TVolumeType;volume:single);
     globalSoundVolume:=volume;
     // Per-channel volumes are relative to the global one, so reapply them
     for i:=0 to SAMPLE_CHANNELS-1 do
-     if (channels[i]<>nil) and (Mix_Playing(i)<>0) then ApplyChannelVolume(channels[i]);
+     if Mix_Playing(i)<>0 then ApplySlotVolume(i);
    end;
    vtMusic:begin
     globalMusicVolume:=volume;
-    if musicChannel<>nil then ApplyChannelVolume(musicChannel);
+    ApplySlotVolume(MUSIC_SLOT);
    end;
   end;
  end;
 
 procedure TSoundLibSDL.SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue,timeInterval:single);
  var
-  ch:integer;
+  slot:integer;
  begin
   // SDL_mixer has no generic slide: only a fade-out is available (CanSlide=[])
-  if channel=nil then exit;
-  ASSERT(channel is TChannelSDL);
+  slot:=SlotOf(channel);
+  if slot<0 then exit;
   if (attr<>caVolume) or (newValue>0) then exit;
-  ch:=TChannelSDL(channel).sampleChannel;
-  if ch=MUSIC_CHANNEL then
+  if slot=MUSIC_SLOT then
    Mix_FadeOutMusic(round(timeInterval*1000))
   else
-   Mix_FadeOutChannel(ch,round(timeInterval*1000));
+   Mix_FadeOutChannel(slot,round(timeInterval*1000));
  end;
 
 procedure TSoundLibSDL.Pause(pause:boolean);
@@ -351,17 +349,16 @@ procedure TSoundLibSDL.Pause(pause:boolean);
 
 procedure TSoundLibSDL.StopChannel(var channel:TChannel);
  var
-  ch:integer;
+  slot:integer;
  begin
-  if channel=nil then exit;
-  ASSERT(channel is TChannelSDL);
-  ch:=TChannelSDL(channel).sampleChannel;
-  if ch=MUSIC_CHANNEL then begin
+  slot:=SlotOf(channel);
+  channel:=0;
+  if slot<0 then exit; // this playback has already ended
+  if slot=MUSIC_SLOT then begin
    Log.Info('[SDL_MIX] halt music');
    Mix_HaltMusic;
   end else
-   Mix_HaltChannel(ch);
-  channel:=nil; // the object itself is owned by the backend
+   Mix_HaltChannel(slot);
  end;
 
 end.
