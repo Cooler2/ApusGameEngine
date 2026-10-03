@@ -21,14 +21,26 @@ interface
  type
   TSteamAppID=cardinal;
 
+  {$SCOPEDENUMS ON}
+  // Outcome of Steam.Init
+  TSteamInitResult=(NotInitialized, // Init was not called (or Shutdown was)
+                    OK,
+                    NoLibrary,      // steam_api library is absent or of another SDK version
+                    NoClient,       // the Steam client is not running
+                    ClientOutdated, // the Steam client is older than the SDK: the user should update Steam
+                    Failed);        // any other failure, see initError
+  {$SCOPEDENUMS OFF}
+
   // Steam client access. While Steam is not available every query returns false/empty.
   Steam=record
    class var available:boolean; // the library is loaded and connected to the running client
    class var userID:uint64;     // SteamID of the current user
    class var userName:String8;  // persona name of the current user
    class var gameLanguage:String8; // language the user chose for this game in Steam, like 'english', 'russian'
-   // Load the library and connect to the running Steam client. Returns false (and logs why)
-   // when the library is absent or the client is not running.
+   class var initResult:TSteamInitResult; // why Steam is (not) available, e.g. to ask the user to update Steam
+   class var initError:String8; // non-localized details of a failed Init, for the log or a support report
+   // Load the library and connect to the running Steam client. Returns false when the
+   // library is absent or the client is not available; initResult/initError tell why.
    class function Init:boolean; static;
    class procedure Shutdown; static;
    // Restart the game through Steam if it was not launched by it: call before Init, quit when true.
@@ -146,7 +158,9 @@ implementation
    {$ENDIF}
    lib:=LoadLibrary(STEAM_LIB);
    if lib=0 then begin
-    Log.Msg('Steam: '+STEAM_LIB+' not found');
+    Steam.initResult:=TSteamInitResult.NoLibrary;
+    Steam.initError:=STEAM_LIB+' not found';
+    Log.Msg('Steam: '+Steam.initError);
     exit;
    end;
    missing:='';
@@ -172,7 +186,9 @@ implementation
    Bind(SteamAPI_ISteamUserStats_StoreStats,'SteamAPI_ISteamUserStats_StoreStats');
    if missing<>'' then begin
     // another SDK version: the versioned accessors differ
-    Log.Error('Steam: '+STEAM_LIB+' lacks'+missing);
+    Steam.initResult:=TSteamInitResult.NoLibrary;
+    Steam.initError:=STEAM_LIB+' lacks'+missing;
+    Log.Error('Steam: '+Steam.initError);
     UnloadLib;
     exit;
    end;
@@ -218,11 +234,18 @@ class function Steam.Init:boolean;
   fillchar(errMsg,sizeof(errMsg),0);
   res:=SteamAPI_InitFlat(@errMsg);
   if res<>STEAM_INIT_OK then begin
-   // 1 - generic failure, 2 - no Steam client running, 3 - the client is out of date
-   Log.Msg('Steam: not available, code %d: %s',[res,String8(PAnsiChar(@errMsg))]);
+   case res of // ESteamAPIInitResult
+    2:initResult:=TSteamInitResult.NoClient;
+    3:initResult:=TSteamInitResult.ClientOutdated;
+    else initResult:=TSteamInitResult.Failed;
+   end;
+   initError:=String8(PAnsiChar(@errMsg));
+   Log.Msg('Steam: not available, code %d: %s',[res,initError]);
    UnloadLib;
    exit;
   end;
+  initResult:=TSteamInitResult.OK;
+  initError:='';
   SteamAPI_ManualDispatch_Init;
   pipe:=SteamAPI_GetHSteamPipe;
   steamUser:=SteamAPI_SteamUser_v023;
@@ -246,6 +269,8 @@ class procedure Steam.Shutdown;
    SteamAPI_Shutdown;
   end;
   UnloadLib;
+  initResult:=TSteamInitResult.NotInitialized;
+  initError:='';
  end;
 
 class function Steam.RestartAppIfNecessary(appID:TSteamAppID):boolean;

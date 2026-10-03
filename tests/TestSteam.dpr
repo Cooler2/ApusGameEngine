@@ -18,6 +18,8 @@ procedure TestUnavailable;
  begin
   StartTest('Steam unavailable');
   Check(not Steam.available,'not available');
+  Check(not (Steam.initResult in [TSteamInitResult.NotInitialized,TSteamInitResult.OK]),'initResult tells why');
+  Check(Steam.initError<>'','initError is filled');
   Check(not Steam.IsDlcInstalled(22510),'IsDlcInstalled is false');
   Check(not Steam.IsSubscribedApp(22500),'IsSubscribedApp is false');
   Check(not Steam.SetAchievement('ACH_TEST'),'SetAchievement is false');
@@ -25,8 +27,10 @@ procedure TestUnavailable;
   Check(Steam.userName='','no user name');
   Signal('Engine\Frame\Begin'); // the frame pump must ignore an unavailable Steam
   Steam.Shutdown;
+  Check(Steam.initResult=TSteamInitResult.NotInitialized,'Shutdown resets initResult');
   Check(not Steam.Init,'second Init fails too');
   EndTest;
+  writeln('  reason: ',ord(Steam.initResult),' (1=OK 2=NoLibrary 3=NoClient 4=ClientOutdated 5=Failed): ',Steam.initError);
  end;
 
 procedure TestAvailable;
@@ -35,6 +39,7 @@ procedure TestAvailable;
   appID:integer;
  begin
   StartTest('Steam available');
+  Check(Steam.initResult=TSteamInitResult.OK,'initResult is OK');
   Check(Steam.userID<>0,'SteamID is known');
   Check(Steam.gameLanguage<>'','game language is known');
   for i:=1 to 10 do Signal('Engine\Frame\Begin'); // dispatch pending callbacks

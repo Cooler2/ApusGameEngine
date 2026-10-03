@@ -48,7 +48,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-32 | Image Decoders: WebP / AVIF + PNG Decoder Choice | done | 100% | Opt-in `-dWEBP` static WebP decode, bundled decoders for Win64/Linux x64/Android arm64, FPC reader Mono8/A8 fix; PNG choice stays compile-time (LodePNG faster). AVIF only on demand; macOS/iOS + Android on-device run pending |
 | R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache; TextDemo screen 9, GL test vs CPU reference. Port adopts on its side |
 
-| R-34 | Steam Integration, then Platform Store Entitlements | in-progress | ~40% | Port blocker B-24. Stage 1 implemented: `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded, DLC ownership, callbacks dispatched on `Engine\Frame\Begin`; left: a run against the Steam client (DLC answers), port adoption. Stage 2 (with mobile stores): platform-neutral ownership API |
+| R-34 | Steam Integration, then Platform Store Entitlements | in-progress | ~50% | Port blocker B-24. Stage 1 done: `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded, DLC ownership verified against the Steam client (Spectromancer DLCs), callbacks dispatched on `Engine\Frame\Begin`; left: port adoption. Stage 2 (with mobile stores): platform-neutral ownership API |
 | R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | idea | 0% | Port blocker B-28 (theme switch, deferred by the port). Layer 1 (overlay data roots in `Files`) goes with B-03; layer 2 (in-place texture reload) waits for its first real consumer - Android context restore (R-24) or asset hot-reload; themes stay game policy |
 ## GL Version Policy (locked 2026-07-03)
 
@@ -529,7 +529,7 @@ Two tiers, not a version ladder:
 - Design (RU): `Work/R-33_text_effects_design.md`.
 
 ### [R-34] Steam Integration, then Platform Store Entitlements
-- Status: in-progress - stage 1 implemented 2026-10-04, waits for a run against the Steam client | Priority: P2 (stage 1 before the port release) | Area: Platform | Origin: Spectromancer port blocker B-24
+- Status: in-progress - stage 1 done 2026-10-04 (verified against the Steam client: user, language, ownership of the three Spectromancer DLCs) | Priority: P2 (stage 1 before the port release) | Area: Platform | Origin: Spectromancer port blocker B-24
 - Value: the game asks "does the player own product X" (Spectromancer: three expansions, Steam DLC 22510/22520/22521) and gets the store's answer; on mobile the same question is an in-app purchase with restore.
 - Stage 1 - Steam: migrate `legacy/Apus.Engine.SteamAPI` (the newest copy of the Astral Heroes / Engine 3 binding: init, SteamID, game language, persona name, auth ticket, achievements, microtransaction callback):
   - off `Apus.Common` onto the foundation modules;
