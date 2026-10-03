@@ -534,7 +534,7 @@ begin
  {$IFDEF IOS}
  // UIKit owns the main run loop, so we can't spin our own blocking loop.
  // Run() sets everything up and returns; frames are driven externally by the
- // display-link callback signalling 'Engine\onFrame'.
+ // display-link callback signalling 'Engine\RunFrame'.
  useMainThread:=false;
  {$ENDIF}
  controlThreadId:=GetCurrentThreadId;
@@ -1363,7 +1363,7 @@ procedure Timing;
  end;
 begin
  event:=Copy(event,8,200);
- if event.Same('ONFRAME') then begin
+ if event.Same('RUNFRAME') then begin
   try
    FrameLoop;
   except
@@ -1912,7 +1912,9 @@ procedure TGame.FrameLoop;
   window.ApplyPendingSurface; // rebuild the surface (if requested) before anything reads it
   window.SamplePointer; // poll cursor once per frame (frame-synced mouse input)
   window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
+  Signal('Engine\Frame\Begin',window.frameNum); // input is in, scenes not processed yet
   RenderAndPresentFrame;
+  Signal('Engine\Frame\End',window.frameNum);
 
   t:=CoreTime.Ticks-t;
   if t<500 then avgTime:=avgTime*0.9+t*0.1;
@@ -1991,6 +1993,7 @@ procedure TGame.RenderAndPresentFrame;
      try
       window.prevFrameLog:=window.frameLog;
       window.frameLog:='';
+      Signal('Engine\Frame\BeforeRender',window.frameNum); // scenes processed, no draw call issued yet
       StartMeasure(2);
       RenderFrame;
       EndMeasure2(2);

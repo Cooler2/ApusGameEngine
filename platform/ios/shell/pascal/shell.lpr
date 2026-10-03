@@ -7,7 +7,7 @@
 // README "FPC static archive specifics"), so by the time ApusMain runs the
 // engine is fully initialized.
 //
-// The engine drives frames from the 'Engine\onFrame' signal when
+// The engine drives frames from the 'Engine\RunFrame' signal when
 // useMainThread=false (forced on iOS in TGame.Create). UIKit owns the main
 // run loop, so instead of a blocking loop we register a display-link callback
 // (SDL_iPhoneSetAnimationCallback) that signals one engine frame per refresh.
@@ -36,7 +36,7 @@ var
 // events (touch->mouse), samples input, renders and presents.
 procedure ApusFrame(param:Pointer); cdecl;
 begin
-  Signal('Engine\onFrame');
+  Signal('Engine\RunFrame');
 end;
 
 // SDL "main", invoked by SDL_UIKitRunApp on the main thread once UIKit is up.

@@ -297,10 +297,17 @@ to the first `Render`.
 3. `HandleSignals` — queued signals addressed to this thread;
 4. `window.ApplyPendingSurface` — **before anything reads the surface**;
 5. sample the pointer, flush aggregated mouse input to the scenes;
-6. render and present: `OnFrame` (scene `Process` and input dispatch), then
-   `RenderFrame` — for each active scene by Z order: `InitGfx` if it has not run,
-   then `Render` — then the cursor and the overlays, then `PresentFrame`;
-7. poll the Robot API.
+6. signal `Engine\Frame\Begin`;
+7. render and present: `OnFrame` (scene `Process` and input dispatch), then — if the
+   frame is rendered — `Engine\Frame\BeforeRender` and `RenderFrame` — for each
+   active scene by Z order: `InitGfx` if it has not run, then `Render` — then the
+   cursor and the overlays, then `PresentFrame`;
+8. poll the Robot API;
+9. signal `Engine\Frame\End`.
+
+The frame signals carry `window.frameNum` in the tag and are sent from the main
+window's thread only. A subsystem that needs a per-frame step without owning a scene
+subscribes to them instead of being called from the engine.
 
 **Extra window** (`ExtraWindowLoop`, once per frame): the same shape without the
 application-wide parts — `ProcessMessages`, `ApplyPendingSurface`, `OnFrame`, and,

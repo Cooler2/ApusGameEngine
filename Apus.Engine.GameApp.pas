@@ -243,7 +243,7 @@ procedure AppDrawFrame(env:PJNIEnv;this:jobject);
  begin
   try
    //Log.Force('DrawFrame!');
-   Signal('Engine\onFrame');
+   Signal('Engine\RunFrame');
   except
    on e:exception do LogI('Error in AppDrawFrame: '+ExceptionMsg(e));
   end;

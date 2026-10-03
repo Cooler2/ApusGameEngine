@@ -20,7 +20,10 @@
 | `ENGINE\CMD\SETSWAPINTERVAL` | command | `TGame` | `divider` | Request to change VSync/SwapInterval from a non-main thread. |
 | `ENGINE\CMD\UPDATEMOUSEPOS` | command | UI subsystem (`TUIScene`) | `0` | Force a mouse position refresh through the platform API when the local state may be stale. |
 | `ENGINE\INITGAME` | command | `TGameApplication` (platform bootstrap) | `0` | Start engine/game initialization once the platform layer is ready. |
-| `ENGINE\ONFRAME` | command | `TGameApplication` (platform draw callback) | `0` | Main loop tick: triggers `FrameLoop`. |
+| `ENGINE\RUNFRAME` | command | Platform frame callbacks (Android `AppDrawFrame`, iOS display link) | `0` | Run one frame (`FrameLoop`) where the platform owns the main loop. |
+| `ENGINE\FRAME\BEGIN` | notification | `TGame.FrameLoop` (main window) | `frameNum` | Frame start: OS messages, queued signals and input are in, scenes are not processed yet. Per-frame pumps of subsystems without a scene (e.g. Steam callbacks) hook here. |
+| `ENGINE\FRAME\BEFORERENDER` | notification | `TGame.RenderAndPresentFrame` | `frameNum` | Scenes are processed and the frame is about to be rendered (sent only for a frame that is rendered); no draw call issued yet. |
+| `ENGINE\FRAME\END` | notification | `TGame.FrameLoop` (main window) | `frameNum` | The frame is finished (presented if it was rendered). |
 | `ENGINE\ACTIVATEWND` | notification | `TGame`, `TGameApplication` | `0/1` | The window/application activity changed (foreground/background). |
 | `ENGINE\SETACTIVE` | command | Platform backend (`TWindowsPlatform`, `TSDLPlatform`) | `0/1` | Tells the core to apply the active/inactive window state (internal control signal). |
 | `ENGINE\RESIZE` | command | Platform backend (`TWindowsPlatform`, `TSDLPlatform`) | packed `width,height` | Tells the core to recalculate sizes/render area. Source: system window events. |
