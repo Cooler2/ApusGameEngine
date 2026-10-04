@@ -1274,6 +1274,11 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   - `Acquire`/`Release` - keep a reference to the window across threads.
   - `closing`, `ownerThreadID`, `IsOwnerThread`; engine side: `BeginClose`,
     `RunQueuedCalls`, `WaitReleased`.
+- The window thread holds the window lock on the frame segments that touch window state:
+  queued signals, input, `OnFrame`/`Process`, scene and UI drawing. Subscribers of
+  `Engine\Frame\Begin` and `Engine\Frame\BeforeRender` run under it; `Engine\Frame\End`
+  (after Present) runs outside it. Present, `gfx.BeginPaint` and sleeping are outside, so
+  a worker's `Lock` waits at most about one segment.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
   (use `element.GetWindow`, which resolves the window through the scene only).
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become
