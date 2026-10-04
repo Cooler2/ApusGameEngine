@@ -380,7 +380,7 @@ var
 
  begin
   settings:=game.GetSettings;
-  game.Lock;
+  window.Lock; // overlays read window state (scene list, UI)
   try
   showHelp:=(window=mainWindow) and IsDebugHotkeyModifierHeld;
   case state.overlay of
@@ -498,7 +498,7 @@ var
   // Screenshot confirmation is now a toast (see Window screenshot path -> ShowToast).
 
  finally
-  game.Unlock;
+  window.Unlock;
  end;
 end;
 

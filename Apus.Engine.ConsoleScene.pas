@@ -409,7 +409,7 @@ procedure AddConsoleScene;
  var
   i:integer;
  begin
-  conLock.Init('Console');
+  conLock.Init('Console',900); // log sink: entered under any lock, only Log (1000) inside
   i:=wcTitleHeight;
   wcTitleHeight:=20;
   consoleScene:=TConsoleScene.Create;

@@ -351,8 +351,10 @@ constructor TWindow.Create(windowName:String8='MainWnd');
  begin
   inherited Create;
   name:=windowName;
+  // levels (higher = inner): the window lock is the outermost engine runtime lock,
+  // pending surface data and the game object are entered inside it
   runtimeLock.Init('Window',20);
-  pendingLock.Init('WndSurface',20);
+  pendingLock.Init('WndSurface',25);
   config.Init;
   surfaceInput.Init(0,0,96);
   Mem.Clear(surface,sizeof(surface));
@@ -588,28 +590,38 @@ procedure TWindow.AddScene(scene:TGameScene);
  begin
   if scene=nil then
    raise EError.Create('Cannot add nil scene');
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i]=scene then
-    raise EWarning.Create('Scene already added: '+scene.name);
-  i:=length(scenes);
-  SetLength(scenes,i+1);
-  scenes[i]:=scene;
-  scene.ownerWindow:=pointer(self);
+  Lock;
+  try
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i]=scene then
+     raise EWarning.Create('Scene already added: '+scene.name);
+   i:=length(scenes);
+   SetLength(scenes,i+1);
+   scenes[i]:=scene;
+   scene.ownerWindow:=pointer(self);
+  finally
+   Unlock;
+  end;
  end;
 
 function TWindow.RemoveScene(scene:TGameScene):boolean;
  var
   i,n:integer;
  begin
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i]=scene then begin
-    n:=length(scenes)-1;
-    scenes[i]:=scenes[n];
-    SetLength(scenes,n);
-    if scene.ownerWindow=pointer(self) then scene.ownerWindow:=nil;
-    exit(true);
-   end;
   result:=false;
+  Lock;
+  try
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i]=scene then begin
+     n:=length(scenes)-1;
+     scenes[i]:=scenes[n];
+     SetLength(scenes,n);
+     if scene.ownerWindow=pointer(self) then scene.ownerWindow:=nil;
+     exit(true);
+    end;
+  finally
+   Unlock;
+  end;
  end;
 
 function TWindow.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
@@ -617,14 +629,19 @@ function TWindow.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
   i:integer;
  begin
   result:=nil;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].IsActive then begin
-    if fullScreenOnly and not scenes[i].fullscreen then continue;
-    if result=nil then
-     result:=scenes[i]
-    else
-     if scenes[i].zorder>result.zorder then result:=scenes[i];
-   end;
+  Lock;
+  try
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].IsActive then begin
+     if fullScreenOnly and not scenes[i].fullscreen then continue;
+     if result=nil then
+      result:=scenes[i]
+     else
+      if scenes[i].zorder>result.zorder then result:=scenes[i];
+    end;
+  finally
+   Unlock;
+  end;
  end;
 
 procedure TWindow.NotifyScenesModeChanged;

@@ -541,7 +541,7 @@ begin
  // TODO: window fields initialized here before window is created - move to post-CreateWindow init
  mainThread:=nil;
  params.VSync:=1;
- crSect.Init('MainGameObj',20);
+ crSect.Init('MainGameObj',30); // inside the window lock (20), see TWindow.Create
  // Primary display
  systemPlatform.GetScreenSize(screenWidth,screenHeight);
  Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,systemPlatform.GetScreenDPI]);
@@ -1168,7 +1168,7 @@ var
   end;
 begin
   with game do begin
-   Lock;
+   window.Lock; // scene list and UI tree belong to the window
    try
      // Frame log
      assign(f,'framelog.log');
@@ -1193,7 +1193,7 @@ begin
 
      gfx.resman.Dump('User request');
    finally
-    Unlock;
+    window.Unlock;
    end;
  end;
 end;

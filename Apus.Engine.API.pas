@@ -1118,36 +1118,23 @@ constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSyst
    debugHotkey:=dhAltFx;
   end;
 
+// The scene list belongs to the window and is guarded by its lock: taking the game lock
+// here would nest game -> window against the window -> game order
 procedure TGameBase.AddScene(scene:TGameScene);
  begin
-  Lock;
-  try
-   if scene=nil then raise EWarning.Create('Can''t add nil scene');
-   scene.accumTime:=0;
-   mainWindow.AddScene(scene);
-  finally
-   Unlock;
-  end;
+  if scene=nil then raise EWarning.Create('Can''t add nil scene');
+  scene.accumTime:=0;
+  mainWindow.AddScene(scene);
  end;
 
 procedure TGameBase.RemoveScene(scene:TGameScene);
  begin
-  Lock;
-  try
-   mainWindow.RemoveScene(scene);
-  finally
-   Unlock;
-  end;
+  mainWindow.RemoveScene(scene);
  end;
 
 function TGameBase.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
  begin
-  Lock;
-  try
-   result:=mainWindow.TopmostVisibleScene(fullScreenOnly);
-  finally
-   Unlock;
-  end;
+  result:=mainWindow.TopmostVisibleScene(fullScreenOnly);
  end;
 
 function TGameBase.GetScene(name:string):TGameScene;
