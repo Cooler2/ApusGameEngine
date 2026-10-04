@@ -14,6 +14,12 @@ type
     id:String8;
     cmd:String8;
     params:TNameValueList;
+    // Identity of this request inside the process (unique, increasing): a handler that
+    // postpones itself keys its own state by it, IDs are chosen by the client.
+    serial:int64;
+    // How many times the handler was called for this request before: 0 on the first
+    // call, side effects (queueing input etc.) belong there - a pending request is retried.
+    attempt:integer;
     function Param(const key:String8):String8;
   end;
 
@@ -24,11 +30,20 @@ const
   // A handler that can't answer yet returns true with this token as the body:
   // the request is kept and retried on the next frame, nothing is written out.
   PENDING_TOKEN='@PENDING@';
+  // Same, and the requests after this one (in this batch and in later ones) are not
+  // run until it is answered: for commands with effects that the next commands must see
+  // (input simulation).
+  PENDING_ORDERED_TOKEN='@PENDING-ORDERED@';
 
   procedure InitRobotAPI;
-  procedure PollRobotAPI;
+  // Main loop thread, after a frame is presented. Checks the input file at most every
+  // 100..500 ms; immediate - check now (tests).
+  procedure PollRobotAPI(immediate:boolean=false);
   procedure DoneRobotAPI;
   procedure RegisterRobotCommand(const name:String8; handler:TRobotCommandHandler);
+  // Called by DoneRobotAPI after the pending requests are dropped unanswered: a handler
+  // that keeps state for postponed requests releases it here.
+  procedure RegisterRobotShutdownHandler(handler:TProcedure);
 
 var
   robotAPIEnabled:boolean = {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
@@ -54,6 +69,8 @@ type
 var
   commands:array of TCommandEntry;
   commandCount:integer;
+  shutdownHandlers:array of TProcedure;
+  lastSerial:int64;
   pendingRequests:TRequestArray;
   batchResponse:String8; // accumulated responses: written out when nothing is pending anymore
   lastCheckTime:int64;
@@ -64,6 +81,15 @@ var
 function TRobotRequest.Param(const key:String8):String8;
 begin
   result:=params.Item[key];
+end;
+
+procedure RegisterRobotShutdownHandler(handler:TProcedure);
+var
+  n:integer;
+begin
+  n:=length(shutdownHandlers);
+  SetLength(shutdownHandlers,n+1);
+  shutdownHandlers[n]:=handler;
 end;
 
 procedure RegisterRobotCommand(const name:String8; handler:TRobotCommandHandler);
@@ -117,6 +143,9 @@ begin
       if cur.cmd<>'' then begin
         if reqCount>=length(result) then
           SetLength(result,reqCount+8);
+        inc(lastSerial);
+        cur.serial:=lastSerial;
+        cur.attempt:=0;
         result[reqCount]:=cur;
         inc(reqCount);
       end;
@@ -138,13 +167,14 @@ begin
   SetLength(result,reqCount);
 end;
 
-function HandleRequest(const req:TRobotRequest; out pending:boolean):String8;
+function HandleRequest(const req:TRobotRequest; out pending,ordered:boolean):String8;
 var
   i:integer;
   body:String8;
   ok:boolean;
 begin
   pending:=false;
+  ordered:=false;
   if req.id='' then begin
     result:='ID: '+req.id+LineBreak+'STATUS: ERROR'+LineBreak+'MSG: ID parameter required'+LineBreak+'==='+LineBreak;
     exit;
@@ -156,6 +186,12 @@ begin
       if ok then begin
         if body.Trim.StartsWith(PENDING_TOKEN) then begin
           pending:=true;
+          result:='';
+          exit;
+        end;
+        if body.Trim.StartsWith(PENDING_ORDERED_TOKEN) then begin
+          pending:=true;
+          ordered:=true;
           result:='';
           exit;
         end;
@@ -174,7 +210,7 @@ var
   content,response:String8;
   requests,newPending,allRequests:TRequestArray;
   i,requestCount,newCount,pendingCount:integer;
-  isPending:boolean;
+  isPending,isOrdered,blocked:boolean;
 begin
   SetLength(requests,0);
   if Files.Exists(INPUT_FILE) then begin
@@ -201,8 +237,14 @@ begin
 
   SetLength(newPending,0);
   response:='';
+  blocked:=false; // an ordered request is pending: the following ones wait unhandled
   for i:=0 to high(allRequests) do begin
-    response:=response+HandleRequest(allRequests[i],isPending);
+    isPending:=true;
+    if not blocked then begin
+      response:=response+HandleRequest(allRequests[i],isPending,isOrdered);
+      inc(allRequests[i].attempt);
+      blocked:=isPending and isOrdered;
+    end;
     if isPending then begin
       SetLength(newPending,length(newPending)+1);
       newPending[high(newPending)]:=allRequests[i];
@@ -255,13 +297,13 @@ begin
   Log.Msg('RobotAPI: initialized (%d commands registered)',[commandCount]);
 end;
 
-procedure PollRobotAPI;
+procedure PollRobotAPI(immediate:boolean=false);
 var
   now:int64;
 begin
   if not initialized then exit;
   now:=CoreTime.Ticks;
-  if now-lastCheckTime<GetCheckInterval then exit;
+  if not immediate and (now-lastCheckTime<GetCheckInterval) then exit;
   lastCheckTime:=now;
   if fastMode and (lastActivityTime>0) and (now-lastActivityTime>FAST_TIMEOUT) then begin
     fastMode:=false;
@@ -276,11 +318,19 @@ begin
 end;
 
 procedure DoneRobotAPI;
+var
+  i:integer;
 begin
   if not initialized then exit;
   initialized:=false;
   SetLength(pendingRequests,0);
   batchResponse:='';
+  for i:=0 to high(shutdownHandlers) do
+    try
+      shutdownHandlers[i]();
+    except
+      on e:Exception do Log.Warn('RobotAPI: shutdown handler failed: '+String8(e.Message));
+    end;
   Log.Msg('RobotAPI: shutdown');
 end;
 

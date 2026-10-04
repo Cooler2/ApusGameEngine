@@ -28,7 +28,7 @@ type
    function IsTerminated:boolean; override;
    procedure ScreenToClient(var p:TPoint); override;
    procedure ClientToScreen(var p:TPoint); override;
-   procedure SamplePointer; override;
+   procedure SampleOSPointer; override;
     // Graphics lifecycle (implemented via WGL)
   procedure InitGraph; override;
   procedure InitGraphShared(primary:TWindow;mainContextReleased:boolean=false); override;
@@ -256,24 +256,18 @@ begin
     if message=wm_LButtonDown then i:=1 else
     if message=wm_RButtonDown then i:=2 else
     if message=wm_MButtonDown then i:=3;
-    Signal('MOUSE\BTNDOWN',i); // for external subscribers
-    if Apus.Engine.API.window<>nil then begin
-     Apus.Engine.API.window.SamplePointer; // fresh coords for hit-test at click moment
-     Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
-    end;
+    // signals MOUSE\BTNDOWN, samples the pointer and dispatches (not in the virtual mouse mode)
+    if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseButton(i,true)
+     else Signal('MOUSE\BTNDOWN',i); // for external subscribers
   end;
   WM_XBUTTONDOWN:begin
     SetCapture(window);
     i:=0;
     if HiWord(wParam)=XBUTTON1 then i:=4 else
     if HiWord(wParam)=XBUTTON2 then i:=5;
-    if i>0 then begin
-     Signal('MOUSE\BTNDOWN',i);
-     if Apus.Engine.API.window<>nil then begin
-      Apus.Engine.API.window.SamplePointer;
-      Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
-     end;
-    end;
+    if i>0 then
+     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseButton(i,true)
+      else Signal('MOUSE\BTNDOWN',i);
     exit(0);
   end;
 
@@ -283,33 +277,23 @@ begin
     if message=wm_LButtonUp then i:=1 else
     if message=wm_RButtonUp then i:=2 else
     if message=wm_MButtonUp then i:=3;
-    Signal('MOUSE\BTNUP',i); // for external subscribers
-    if Apus.Engine.API.window<>nil then begin
-     Apus.Engine.API.window.SamplePointer;
-     Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
-    end;
+    if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseButton(i,false)
+     else Signal('MOUSE\BTNUP',i); // for external subscribers
   end;
   WM_XBUTTONUP:begin
     ReleaseCapture;
     i:=0;
     if HiWord(wParam)=XBUTTON1 then i:=4 else
     if HiWord(wParam)=XBUTTON2 then i:=5;
-    if i>0 then begin
-     Signal('MOUSE\BTNUP',i);
-     if Apus.Engine.API.window<>nil then begin
-      Apus.Engine.API.window.SamplePointer;
-      Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
-     end;
-    end;
+    if i>0 then
+     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseButton(i,false)
+      else Signal('MOUSE\BTNUP',i);
     exit(0);
   end;
 
   WM_MOUSEWHEEL:begin
-   Signal('MOUSE\SCROLL',smallint(wParam shr 16)); // for external subscribers
-   if Apus.Engine.API.window<>nil then begin
-    Apus.Engine.API.window.SamplePointer;
-    Apus.Engine.API.window.NotifyScenesMouseWheel(smallint(wParam shr 16));
-   end;
+   if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseWheel(smallint(wParam shr 16))
+    else Signal('MOUSE\SCROLL',smallint(wParam shr 16)); // for external subscribers
   end;
 
   WM_SIZE:if lParam<>0 then begin
@@ -448,7 +432,7 @@ procedure TWinGLWindow.ScreenToClient(var p: TPoint);
   windows.ScreenToClient(window,p);
  end;
 
-procedure TWinGLWindow.SamplePointer;
+procedure TWinGLWindow.SampleOSPointer;
  var
   pnt:TPoint;
   captured:boolean;

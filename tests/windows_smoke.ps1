@@ -90,6 +90,7 @@ Invoke-FpcTarget 'tests/TestBlendModes.dpr' -CompileOnly # needs a GL window: ru
 Invoke-FpcTarget 'tests/TestStyle.dpr'
 Invoke-FpcTarget 'tests/TestUIHint.dpr'
 Invoke-FpcTarget 'tests/TestWindowLock.dpr'
+Invoke-FpcTarget 'tests/TestVirtualMouse.dpr'
 Invoke-FpcTarget 'tests/TestSurface.dpr'
 Invoke-FpcTarget 'tests/TestGpuLayout.dpr'
 Invoke-FpcTarget 'tests/TestHttpGameClient.dpr'

@@ -28,7 +28,7 @@ type
   function IsTerminated:boolean; override;
   procedure ScreenToClient(var p:TPoint); override;
   procedure ClientToScreen(var p:TPoint); override;
-  procedure SamplePointer; override;
+  procedure SampleOSPointer; override;
   procedure InitGraph; override;
   procedure InitGraphShared(primary:TWindow;mainContextReleased:boolean=false); override;
   procedure DoneGraph; override;
@@ -186,12 +186,12 @@ procedure TSDLGLWindow.ScreenToClient(var p:TPoint);
   dec(p.y,y);
  end;
 
-procedure TSDLGLWindow.SamplePointer;
+procedure TSDLGLWindow.SampleOSPointer;
  var
   pnt:TPoint;
   logicalWidth,logicalHeight:integer;
  begin
-  // TODO: match WindowsPlatform.SamplePointer (deferred until SDL-on-Windows, see
+  // TODO: match WindowsPlatform.SampleOSPointer (deferred until SDL-on-Windows, see
   // Work/engine_work_ahead.md P1):
   //  1) gate on SDL_GetMouseFocus<>wnd → off-screen sentinel (clears stale hover when
   //     our window is covered, fixes cross-read between app windows);
@@ -775,9 +775,8 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     mbtn:=GetMouseButtonNum(event.button.button);
     if mBtn in [1..5] then
      mouseState:=mouseState or (1 shl (mbtn-1));
-    Signal('MOUSE\BTNDOWN',mbtn); // for external subscribers
-    SamplePointer; // fresh coords for hit-test at click moment
-    NotifyScenesMouseBtn(mbtn,true);
+    // signals MOUSE\BTNDOWN, samples the pointer and dispatches (not in the virtual mouse mode)
+    PlatformMouseButton(mbtn,true);
    end;
 
    SDL_MOUSEBUTTONUP:begin
@@ -785,15 +784,11 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     mbtn:=GetMouseButtonNum(event.button.button);
     if mBtn in [1..5] then
      mouseState:=mouseState and not (1 shl (mbtn-1));
-    Signal('MOUSE\BTNUP',mbtn); // for external subscribers
-    SamplePointer;
-    NotifyScenesMouseBtn(mbtn,false);
+    PlatformMouseButton(mbtn,false);
    end;
 
    SDL_MOUSEWHEEL:begin
-    Signal('MOUSE\SCROLL',event.wheel.y); // for external subscribers
-    SamplePointer;
-    NotifyScenesMouseWheel(event.wheel.y);
+    PlatformMouseWheel(event.wheel.y);
    end;
 
    SDL_KEYDOWN:begin

@@ -40,6 +40,13 @@ answer. A command may postpone itself (see `fps` with `METRICS`, and `screenshot
 answers are still delivered together. Blocks are ordered by the moment each answer
 became available, not by the request order — match them by `ID`.
 
+Requests run in the order they are given. Most postponed commands do not hold the
+others back, but **input commands do** (`mouse.*` waiting for their input, see
+[Mouse input](#mouse-input-virtual-mouse)): the requests after such a command - in
+this batch and in the batches that arrive meanwhile - run only once it is answered.
+So `mouse.click` followed by `ui.element` in one batch reports the state after the
+click, and the answers come in the request order.
+
 ## Activation
 
 - DEBUG builds: on by default. Release: only with `-ROBOT` flag.
@@ -49,7 +56,9 @@ became available, not by the request order — match them by `ID`.
 ## Commands
 
 ### `windows` — window/render dimensions, DPI, screenScale, displayRect.
-- Returns per window: `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`, `screenDPI`, `screenScale`, `displayRect`.
+- Returns for the main window (`WINDOW: 0`): `name` (accepted by the `WINDOW` parameter
+  of `mouse.*`), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`,
+  `screenDPI`, `screenScale`, `displayRect`.
 
 ### `window.move` - move main window, optionally with resize in one call.
 - Scope: main window only (RobotAPI is polled in the main-loop thread, so thread-local `window` points to `mainWindow`).
@@ -117,7 +126,7 @@ became available, not by the request order — match them by `ID`.
     - repeated `HIERARCHY: <index>` blocks with full element details for ancestors only (`1=parent`, then up to root)
 
 ### `ui.hittest` — find element at screen coordinates.
-- `X`, `Y`: screen coordinates.
+- `X`, `Y`: canvas coordinates (the same space as `ui.element` rects and `mouse.*`).
 - Returns: hit element name/class, chain from root, enabled state, modal element.
 
 ### `cmd` — execute engine command via CmdProc.
@@ -158,6 +167,197 @@ size instead of returning the stale one.
 - `X`, `Y`: coordinates in that space.
 - Returns: x, y (as requested), space, pixel (`x,y` in real pixels), color (AARRGGBB hex).
 
+## Mouse input (virtual mouse)
+
+Simulated pointer input that does not touch the OS: the system cursor never moves,
+no focus is taken, no `SendInput`/`XTest`-like API is used, so it works the same on
+every platform. The input goes through the regular mouse routing of the engine -
+hit-test, hover (`underMouse`, `onMouseOver`/`onMouseOut`), pressed state, modal
+dialogs, disabled/hidden elements, mouse capture (drags), clicks, gameplay scenes'
+`onMouseMove`/`onMouseBtn`, `window.mouseButtons`, `MOUSE\BTNDOWN`/`MOUSE\BTNUP`
+signals. Nothing calls a click handler directly.
+
+It does not replace a check of the real OS input path: keep small OS-input smoke tests
+for that. Keyboard and touch are not simulated.
+
+### Virtual mode
+
+The virtual mouse belongs to a window and is an explicit mode of that window:
+
+- `mouse.mode` with `MODE: virtual` switches it on. From then on the window ignores the
+  physical pointer and buttons (polling and OS button/wheel events, touch included):
+  they neither move the virtual pointer nor produce events in this window. A physical
+  gesture in progress is cancelled (see reset); the virtual pointer starts outside the
+  canvas with no buttons down.
+- `mouse.mode` with `MODE: physical` cancels the virtual gesture (see reset) and gives
+  the window back to the physical input. With the mode off, the physical input works
+  exactly as before.
+- `mouse.move`, `mouse.down`, `mouse.up`, `mouse.click` need the virtual mode (as
+  requested so far - a `mouse.mode` earlier in the same batch counts); without it they
+  return `STATUS: ERROR` and do nothing.
+
+**Reset** (`mouse.reset`, also part of every mode switch) cancels the gesture without
+activating anything: the mouse capture is dropped the way it is when the captor gets
+hidden (the captor gets `onLostFocus`), the pointer leaves the canvas (hovered and
+pressed elements reset, so a pressed button does not click), then the held buttons are
+released - with nothing under the pointer, only gameplay scenes see the releases.
+
+### Target window
+
+Every `mouse.*` command takes an optional `WINDOW`: empty, `0` or `main` - the main
+window; otherwise the window name (`TWindow.name`: the title an extra window was
+created with), case-insensitive. Each window has its own virtual pointer and mode:
+input of one window never reaches another.
+
+### Coordinates
+
+`X`, `Y` are canvas coordinates by default (`SPACE: canvas`): the space of `ui.tree`,
+`ui.element` (`globalRect`) and `ui.hittest`. A point outside the canvas puts the
+pointer outside (nothing hovered) - unless a button is held: then it is clamped to the
+canvas edge, so a drag keeps going, exactly like the OS pointer.
+
+`SPACE: client` takes real pixels of the window client area (as `screenshot` /
+`pixel`) and maps them with the surface the window has **when it applies the input**
+(canvas size, DPI scaling, letterbox placement - `displayRect` of `windows`). A point
+in the letterbox bars is outside the canvas.
+
+### Execution order and timing
+
+Commands queue operations for the window; the window's own thread applies them in
+order, **one operation per frame**, at the input step of the frame (before scenes are
+processed). `mouse.move` is one operation, `mouse.down` / `mouse.up` with `X`, `Y` are
+two (a move, then the button), `mouse.click` is a move (if `X`, `Y` are given), down
+and up: three frames, so the UI sees every transition and a click is never collapsed
+into "button up". No command sleeps or blocks a frame.
+
+By default (`WAIT: yes`) a command is answered once its last operation has been
+applied, the UI has processed it and the hover is up to date: the next command can
+query the UI state. Being an input command, it also holds back the requests after it
+(see [Response Format](#response-format)). With `WAIT: no` the command is answered
+right after queueing (`state: queued`); `mouse.wait` then waits for the queue.
+
+A postponed request is re-checked every frame but its input is queued only once: the
+operations of a request are applied exactly once whatever the number of checks.
+
+### Commands
+
+#### `mouse.mode` - switch the input mode of a window
+- `MODE`: `virtual` or `physical` (required).
+- `WINDOW`, `WAIT`: see above.
+
+#### `mouse.move` - move the pointer
+- `X`, `Y`: required; `SPACE`: `canvas` (default) or `client`.
+
+#### `mouse.down` / `mouse.up` - press / release a button
+- `BUTTON`: `left` (default), `right`, `middle`.
+- `X`, `Y` (+ `SPACE`): optional - move there first.
+- `mouse.down` of a button that is already down and `mouse.up` of a button that is not
+  down are errors.
+
+#### `mouse.click` - move (optional), press and release
+- Same parameters as `mouse.down`. Whether it is a click is decided by the UI: a
+  disabled, hidden or modal-blocked element does not click, a push button reacts to
+  the left button only.
+
+#### `mouse.reset` - cancel the gesture (see above)
+- Does nothing (answers at once) in the physical mode.
+
+#### `mouse.state` - current state of the virtual mouse, answered at once
+#### `mouse.wait` - answered once every operation queued for the window is applied
+
+### Answers
+
+All `mouse.*` commands answer with the window's virtual mouse state:
+
+```
+window: main            (or the window name)
+ticket: 12              (commands that queued input: the id of their last operation)
+state: done             (done - applied; queued - WAIT: no)
+mode: virtual           (or physical)
+position: 150,115       (canvas; "outside" - outside the canvas)
+buttons: left           (left,right,middle or none)
+under: OkButton         (UI element under the pointer: name, "(none)" if nothing)
+underClass: TUIButton   (absent when nothing is under the pointer)
+queued: 0               (operations not applied yet)
+frame: 1234             (window frame of the last applied operation)
+```
+
+The state is the one published by the window after its last applied operation (at
+the time of the answer), so in a batch every answer may already show a later state.
+
+`STATUS: ERROR` answers:
+- bad or missing parameters (`MODE`, `X`/`Y`, `SPACE`, `BUTTON`, `WAIT`);
+- `window not found: <name>` - no such window, or it is closing;
+- `virtual mouse is off: ...` - the command needs the virtual mode;
+- `button is already down` / `button is not down`;
+- `window closed before the input was applied` - the window closed while the command
+  was waiting; its remaining operations were dropped.
+
+### Lifetime
+
+- **Window closed** with operations still queued (or a command waiting): the
+  operations are dropped, waiting commands are answered with `STATUS: ERROR`; nothing
+  waits forever. Pending requests keep no reference to the window itself, so a closed
+  and freed window is never touched.
+- **Robot API shut down** (`DoneRobotAPI`, e.g. on exit): pending requests are dropped
+  unanswered (as for every command), queued operations are cancelled and every window
+  the robot switched to the virtual mode goes back to the physical input with a reset -
+  no button stays held, no capture stays.
+- A client that stops talking leaves the window in the virtual mode: switch it back
+  with `mouse.mode` (`MODE: physical`).
+
+### Example
+
+Click a button by its rect, drag a scrollbar slider beyond the bar, then go back to
+the physical mouse:
+
+```
+ID: 1
+CMD: mouse.mode
+MODE: virtual
+---
+ID: 2
+CMD: ui.element
+NAME: OkButton
+===
+```
+`globalRect: 440,318,584,354` -> its center is `512,336`:
+```
+ID: 3
+CMD: mouse.click
+X: 512
+Y: 336
+---
+ID: 4
+CMD: ui.element
+NAME: OkButton
+===
+```
+Hold and drag (the slider keeps the capture outside the bar), then cancel:
+```
+ID: 5
+CMD: mouse.down
+X: 105
+Y: 205
+---
+ID: 6
+CMD: mouse.move
+X: 700
+Y: 500
+---
+ID: 7
+CMD: mouse.state
+---
+ID: 8
+CMD: mouse.reset
+---
+ID: 9
+CMD: mouse.mode
+MODE: physical
+===
+```
+(`mouse.up` instead of `mouse.reset` would end the drag normally.)
+
 ## Error Handling
 
 Any command can return `STATUS: ERROR` with `MSG:` describing the problem.
@@ -166,8 +366,15 @@ Any command can return `STATUS: ERROR` with `MSG:` describing the problem.
 
 Game code can register additional commands via `RegisterRobotCommand(name, @Handler)`.
 
+A handler is called again every poll while it returns `PENDING_TOKEN` (or
+`PENDING_ORDERED_TOKEN`, which also holds back the requests after it). Side effects
+belong to the first call: `TRobotRequest.attempt` is 0 there, and `TRobotRequest.serial`
+identifies the request for the state kept between the calls (`ID` is chosen by the
+client and may repeat). State kept for postponed requests is released in a handler
+registered with `RegisterRobotShutdownHandler`.
+
 ## Future Extensions
 
-- `ui.click`, `ui.type`, `ui.focus`, `ui.scroll` — input simulation
+- `ui.type`, `ui.focus`, `ui.scroll`, mouse wheel - more input simulation
 - `var.get` / `var.set` — published variable access
 - `log` — recent log messages
