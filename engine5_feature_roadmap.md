@@ -50,6 +50,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 
 | R-34 | Steam Integration, then Platform Store Entitlements | in-progress | ~50% | Port blocker B-24. Stage 1 done: `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded, DLC ownership verified against the Steam client (Spectromancer DLCs), callbacks dispatched on `Engine\Frame\Begin`; left: port adoption. Stage 2 (with mobile stores): platform-neutral ownership API |
 | R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | idea | 0% | Port blocker B-28 (theme switch, deferred by the port). Layer 1 (overlay data roots in `Files`) goes with B-03; layer 2 (in-place texture reload) waits for its first real consumer - Android context restore (R-24) or asset hot-reload; themes stay game policy |
+| R-36 | UI Actions: Commands with Scoped Hotkeys | idea | 0% | One action object (execute, enabled/checked, caption, shortcut) shared by buttons, menu items and keys; hotkeys bind to actions with an explicit scope; replaces the threadvar `SetHotKey` registry |
 ## GL Version Policy (locked 2026-07-03)
 
 Two tiers, not a version ladder:
@@ -550,3 +551,16 @@ Two tiers, not a version ladder:
   3. **The theme itself** (theme list, dictionary, combat script, UI lock while reloading) - game policy, not engine.
 - Engine 2 swapped object instances in memory (`SwapTextures`) - not portable: the reload must change `TTexture` contents through the normal API.
 - Known hard parts: render-thread swap vs async loaders, shared immutable sources, `ClonePart` clones that copy parent UVs, size/format change of a replaced file, atlases and UI caches.
+
+### [R-36] UI Actions: Commands with Scoped Hotkeys
+- Status: idea | Priority: P2 | Area: UI / Input
+- Goal: one action object - execute, availability (enabled), checked, caption/icon, shortcut - shared by buttons, menu items and keys. Hotkeys bind to actions, each binding has an explicit scope: focused subtree, element, scene, window, application.
+- Value: editors (a 4X map editor, a texture editor) and game dialogs get one consistent command system: Undo keeps working when the toolbar is hidden, a button shows its action's shortcut and state, commands without a UI element use the same mechanism as element-bound ones.
+- Replaces the hotkey part of the UI thread-safety work: `TUIElement.SetHotKey` registers into a threadvar list (`Apus.Engine.UITypes`); its relation to the scene table `TGameScene.RegisterHotKey` (R-23) is to be decided.
+- Known defects of the current hotkeys (not fixed, left for this card):
+  - the registry is threadvar: `MessageScene` registers Enter/Escape on the control thread, so the window thread never sees them (per code reading);
+  - `ProcessHotKey` ignores which scene/window an element belongs to; order = registration order, reshuffled by removals;
+  - a focused element suppresses scene hotkeys as well as gameplay keys;
+  - extra modifiers match (a `Z` binding fires on `Ctrl+Z`); buffered keys use the modifiers of pump time.
+- Design questions: binding storage (on the scope owner - no global registry - vs a per-window registry), dispatch order (focus -> scoped bindings -> scene -> window -> app -> gameplay), modal dialog as a dispatch boundary, conflict ranking, key-held tools (Space-pan, Alt-picker: begin/end, release to the original owner, cancel on focus loss), shortcut display, Robot API exposure.
+- Design note: `Work/R-36_ui_actions.md` (use cases, framework survey, Codex review 2026-10-04).
