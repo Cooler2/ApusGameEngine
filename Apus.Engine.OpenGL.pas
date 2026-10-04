@@ -79,7 +79,7 @@ type
  protected
   glVersion,glRenderer:string8;
   glVersionNum:single;
-  wnd:TWindow;
+  wnd:TWindow; // window the backend was initialized for (main); per-frame work uses `window`
   class threadvar
    canPaint:integer;
   // Explicit owners for interfaced singletons created in Init.
@@ -390,7 +390,6 @@ procedure TOpenGL.Init(window:TWindow);
 
 procedure TOpenGL.InitThreadContext(window:TWindow);
 begin
- wnd:=window;
  // Prime per-thread backend state for deterministic startup.
  // Keep lazy EnsureThreadState as fallback in all subsystems.
  target.Resized(window.clientWidth,window.clientHeight);
@@ -460,7 +459,7 @@ procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
 procedure TOpenGL.PresentFrame;
  begin
   PostDebugMsg('PresentFrame');
-  wnd.PresentFrame;
+  window.PresentFrame; // the calling thread's window: gfx is shared by all window threads
  end;
 
 function TOpenGL.QueryMaxRTSize:integer;
