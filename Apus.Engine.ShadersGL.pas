@@ -97,6 +97,8 @@ type
   // (usually you don't need to call this manually unless you're using a custom shader)
   procedure UseTexture(tex:TTexture;stage:integer=0); overload;
   procedure UseTexture(tex:TTexture;uniformName:string8;stage:integer=0); overload; // use custom sampler name
+  // Drop the calling thread's references to a texture that is being freed
+  procedure ForgetTexture(tex:TTexture);
 
   // Set ambient light
   procedure AmbientLight(color:cardinal);
@@ -835,6 +837,20 @@ procedure TGLShadersAPI.NormalMap(tex:TTexture;strength:single);
   normalStrength:=strength;
   normalMapModified:=true;
   Bits.Modify(curTexMode.lighting,LIGHT_NORMALMAP,tex<>nil);
+ end;
+
+procedure TGLShadersAPI.ForgetTexture(tex:TTexture);
+ var
+  i:integer;
+ begin
+  if not threadStateReady then exit;
+  for i:=0 to high(curTextures) do
+   if curTextures[i]=tex then begin
+    curTextures[i]:=nil;
+    Bits.Clear(curTexChanged,i);
+   end;
+  if shadowMap=tex then shadowMap:=nil;
+  if normalMapTex=tex then normalMapTex:=nil;
  end;
 
 procedure TGLShadersAPI.NormalMapOff;

@@ -206,7 +206,7 @@ type
  {$ENDIF}
 
 implementation
- uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.GfxFormats,
+ uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.GfxFormats, Apus.Engine.ShadersGL,
    {$IFDEF GLDESKTOP}dglOpenGL{$ENDIF}
    {$IFDEF GLES}dglOpenGLES{$ENDIF}
    ,
@@ -1863,6 +1863,7 @@ begin
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
   tex.texname:=0;
   UnbindTex(tex);
+  if shadersAPI<>nil then shadersAPI.ForgetTexture(tex); // a later shader switch rebinds the current textures
   tex.Free;
   image:=nil;
  end else
