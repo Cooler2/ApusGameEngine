@@ -1279,6 +1279,10 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   `Engine\Frame\Begin` and `Engine\Frame\BeforeRender` run under it; `Engine\Frame\End`
   (after Present) runs outside it. Present, `gfx.BeginPaint` and sleeping are outside, so
   a worker's `Lock` waits at most about one segment.
+- `onClickAsync` threads (`TUIButton`, `TUIToggleButton`) start with `window` set to the
+  clicked element's window (it was nil) and `TUIElement.sender` set to the element (it was
+  not set). The window is kept alive until the handler returns, its lock is not held. A
+  click on an element of a closing window does not start the handler.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
   (use `element.GetWindow`, which resolves the window through the scene only).
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become

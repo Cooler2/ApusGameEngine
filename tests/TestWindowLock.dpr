@@ -1,6 +1,6 @@
 // TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
-// Acquire/Release and the close protocol (BeginClose, WaitReleased). No native window:
-// only the platform-independent part of TWindow is used.
+// Acquire/Release, the close protocol (BeginClose, WaitReleased) and the context of
+// onClickAsync threads. No native window: only the platform-independent part of TWindow.
 {$APPTYPE CONSOLE}
 program TestWindowLock;
 uses
@@ -8,7 +8,10 @@ uses
   Apus.Core,
   Apus.Threads,
   Apus.Engine.API,
-  Apus.Engine.Window;
+  Apus.Engine.Window,
+  Apus.Engine.Scene,
+  Apus.Engine.UITypes,
+  Apus.Engine.UIWidgets;
 
 {$I ..\Base\tests\Test.inc}
 
@@ -24,6 +27,9 @@ var
   workerWnd:TWindow;
   workerState:integer;
   workerSawWindow,workerRestored,workerLockResult:boolean;
+  asyncState:integer; // 0 - not run, 1 - running, 2 - done
+  asyncWindow:TWindow;
+  asyncSender:TUIElement;
 
 procedure TCounter.Increment;
  begin
@@ -56,6 +62,67 @@ function NewWindow(const name:String8):TWindow;
   {$WARN 4046 OFF} // constructing a class with abstract methods: they are never called here
   result:=TWindow.Create(name);
   {$WARN 4046 ON}
+ end;
+
+procedure AsyncClick;
+ begin
+  asyncWindow:=window;
+  asyncSender:=TUIElement.sender;
+  Atomic.Exchange(asyncState,2);
+ end;
+
+// click the button and wait for its onClickAsync thread; false if it didn't run
+function ClickAndWait(btn:TUIButton):boolean;
+ var
+  t:integer;
+ begin
+  asyncState:=0;
+  asyncWindow:=nil;
+  asyncSender:=nil;
+  btn.Click;
+  t:=0;
+  while (Atomic.CmpExchange(asyncState,2,2)<>2) and (t<200) do begin
+   Sleep(5); inc(t);
+  end;
+  result:=asyncState=2;
+ end;
+
+procedure TestAsyncClick;
+ var
+  w:TWindow;
+  scene:TGameScene;
+  root:TUIElement;
+  btn,detached:TUIButton;
+ begin
+  StartTest('onClickAsync: window and sender');
+  w:=NewWindow('Async');
+  scene:=TGameScene.Create(false);
+  scene.ownerWindow:=pointer(w);
+  root:=TUIElement.Create(200,100,nil,'AsyncRoot');
+  root.ownerScene:=scene;
+  btn:=TUIButton.Create(50,20,root,'AsyncBtn');
+  btn.onClickAsync:=AsyncClick;
+  window:=nil;
+  Check(ClickAndWait(btn),'async handler runs');
+  Check(asyncWindow=w,'handler gets the button window as context');
+  Check(asyncSender=btn,'handler gets the button as sender');
+  Check(w.WaitReleased(1000),'window is released after the handler'); // waits for the thread
+
+  detached:=TUIButton.Create(50,20,nil,'Detached');
+  detached.onClickAsync:=AsyncClick;
+  window:=w; // dispatcher's context must not leak into the handler
+  Check(ClickAndWait(detached),'handler of a detached button runs');
+  Check(asyncWindow=nil,'detached button gives no window context');
+  window:=nil;
+
+  w.BeginClose;
+  Sleep(60); // DoClick ignores clicks within 50 ms of the previous one
+  Check(not ClickAndWait(btn),'click of a closing window does not start the handler');
+  Check(w.WaitReleased(0),'dropped click holds no reference');
+  detached.Free;
+  root.Free;
+  w.Free;
+  EndTest;
  end;
 
 procedure TestLockContext;
@@ -213,5 +280,6 @@ begin
   TestQueueCall;
   TestClose;
   TestWorkerThread;
+  TestAsyncClick;
   if IsDebuggerPresent then readln;
 end.

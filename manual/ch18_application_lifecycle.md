@@ -54,9 +54,16 @@ A window's thread never renders another window.
 **Worker threads.** Anything else: the image loading queue (`StartLoadingThreads`
 starts one loader plus N unpackers), asynchronous UI click handlers
 (`onClickAsync` runs in a `UIClick:<element>` thread), your own background tasks. A
-worker has no window context and no GL context. It may read shared immutable data and
-send signals; it may not draw, and it may not write per-thread engine state expecting
-a render thread to see it (section 2.3 explains why).
+worker has no GL context and, by default, no window context. It may read shared
+immutable data and send signals; it may not draw, and it may not write per-thread
+engine state expecting a render thread to see it (section 2.3 explains why).
+
+A worker gets a window context in two ways. An `onClickAsync` thread starts with
+`window` set to the window of the clicked element (not of the thread that dispatched
+the click) and with that element as `TUIElement.sender`; the window is kept alive until
+the handler returns, but its lock is not held. Any worker enters a window with
+`wnd.Lock` … `wnd.Unlock`: the window lock plus `window` set to `wnd`, the previous
+context restored on `Unlock`. `Lock` returns false if the window is closing.
 
 ### 1.1 The platform note about "main"
 
@@ -85,7 +92,9 @@ Two consequences worth remembering:
 - `TGame.mainThread` is `nil` whenever the main window's loop runs on a thread the
   engine did not start — on macOS and on iOS, always. It is a handle for terminating
   and signalling that thread, not a way to identify it. Code asking "am I the main
-  window's render thread?" compares `window=mainWindow` instead.
+  window's render thread?" asks `mainWindow.IsOwnerThread` instead. `window=mainWindow`
+  is not that test: the control thread and workers inside `mainWindow` (`Lock`,
+  `onClickAsync`) have the same context.
 - To identify a thread, ask the thread: `CurrentThread.Name`, or `th.IsCurrent` for an
   `IThread` you hold. Never compare against the OS main thread.
 

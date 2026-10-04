@@ -110,14 +110,16 @@ interface
 
   // Push button: fires onClick/onClickAsync once on click (not latching).
   // Use onClick for inline UI updates (runs on render thread).
-  // Use onClickAsync for slow work (runs in a new thread).
+  // Use onClickAsync for slow work (runs in a new thread). That thread gets the button's
+  // window as its `window` context and the button as `sender`; it does not hold the
+  // window lock (take window.Lock around UI changes). The button must outlive the handler.
   TUIButton=class(TUIElement)
    default:boolean;          // default button (affects rendering only)
    pressed:boolean;          // transient: true while mouse is held down
    pending:boolean;          // temporarily unavailable (ignores input)
    autoPendingTime:integer;  // ms to stay pending after click (0 = disabled)
    onClick:TProcedure;       // called inline on render thread (use for UI updates)
-   onClickAsync:TProcedure;  // called in a new thread (use for slow work)
+   onClickAsync:TProcedure;  // called in a new thread (use for slow work), see above
    onClickEvent:String8;
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
    function Setup(caption:String8):TUIButton;
@@ -412,6 +414,50 @@ implementation
    src:='proc:'+Conv.ToHex(UIntPtr(proc));
   end;
 
+ { onClickAsync }
+
+ type
+  // launch data of an async click handler, owned by its thread
+  TAsyncClick=record
+   proc:TProcedure;
+   wnd:TWindow; // the element's window, acquired; nil if the element is not in a window
+   sender:TUIElement;
+  end;
+  PAsyncClick=^TAsyncClick;
+
+ function AsyncClickThread(ctx:TThreadContext):UIntPtr;
+  var
+   p:PAsyncClick;
+  begin
+   result:=0;
+   p:=ctx.Parameter;
+   try
+    window:=p.wnd; // the clicked element's window, not the one of the dispatching thread
+    TUIElement.sender:=p.sender;
+    p.proc;
+   finally
+    window:=nil;
+    if p.wnd<>nil then p.wnd.Release;
+    Dispose(p);
+   end;
+  end;
+
+ // The click may be dispatched by any thread (Click from a worker) and the element may
+ // belong to another window, so the context comes from the element itself.
+ procedure StartAsyncClick(element:TUIElement;proc:TProcedure);
+  var
+   p:PAsyncClick;
+   wnd:TWindow;
+  begin
+   wnd:=element.GetWindow;
+   if (wnd<>nil) and not wnd.Acquire then exit; // the window is closing: drop the click
+   New(p);
+   p.proc:=proc;
+   p.wnd:=wnd;
+   p.sender:=element;
+   Thread.Start('UIClick:'+String8(element.name),@AsyncClickThread,p);
+  end;
+
  { TUIButton }
 
  procedure TUIButton.Click;
@@ -447,7 +493,7 @@ implementation
     Signal('UI\'+name+'\OnClick',byte(pressed));
     Signal('UI\Button\Click\'+name,TTag(self));
     if Assigned(onClick) then onClick;
-    if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
+    if Assigned(onClickAsync) then StartAsyncClick(self,onClickAsync);
     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     lastPressed:=CoreTime.Ticks;
    end;
@@ -569,7 +615,7 @@ implementation
     Signal('UI\'+name+'\OnClick',byte(toggled));
     Signal('UI\Button\Down\'+name,TTag(self));
     if Assigned(onClick) then onClick;
-    if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
+    if Assigned(onClickAsync) then StartAsyncClick(self,onClickAsync);
     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
    end;
   end;
