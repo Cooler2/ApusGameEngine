@@ -15,6 +15,8 @@ uses
 {$I ..\Base\tests\Test.inc}
 
 procedure TestUnavailable;
+ var
+  achieved:boolean;
  begin
   StartTest('Steam unavailable');
   Check(not Steam.available,'not available');
@@ -22,6 +24,7 @@ procedure TestUnavailable;
   Check(Steam.initError<>'','initError is filled');
   Check(not Steam.IsDlcInstalled(22510),'IsDlcInstalled is false');
   Check(not Steam.IsSubscribedApp(22500),'IsSubscribedApp is false');
+  Check(not Steam.GetAchievement('ACH_TEST',achieved) and not achieved,'GetAchievement is false');
   Check(not Steam.SetAchievement('ACH_TEST'),'SetAchievement is false');
   Check(not Steam.StoreStats,'StoreStats is false');
   Check(Steam.userName='','no user name');

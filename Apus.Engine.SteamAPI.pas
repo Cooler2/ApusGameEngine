@@ -48,6 +48,12 @@ interface
    class function RestartAppIfNecessary(appID:TSteamAppID):boolean; static;
    class function IsDlcInstalled(appID:TSteamAppID):boolean; static; // the user owns the DLC and it is installed
    class function IsSubscribedApp(appID:TSteamAppID):boolean; static; // the user owns the app
+   // Achievement state of the user's account, e.g. to restore unlocked badges. Call it any
+   // time after Init: since SDK 1.61 the Steam client synchronizes stats and achievements
+   // before the game process starts, so there is no RequestCurrentStats and no callback to
+   // wait for. Returns false (achieved=false) for a name unknown to the app or when Steam
+   // is not available - then the local state should be kept as is.
+   class function GetAchievement(const name:String8;out achieved:boolean):boolean; static;
    // Achievements change locally; StoreStats sends them to the server
    class function SetAchievement(const name:String8):boolean; static;
    class function ClearAchievement(const name:String8):boolean; static;
@@ -125,6 +131,7 @@ implementation
   SteamAPI_ISteamApps_GetCurrentGameLanguage:function(self:pointer):PAnsiChar; cdecl;
   SteamAPI_ISteamApps_BIsDlcInstalled:function(self:pointer;appID:TSteamAppID):boolean; cdecl;
   SteamAPI_ISteamApps_BIsSubscribedApp:function(self:pointer;appID:TSteamAppID):boolean; cdecl;
+  SteamAPI_ISteamUserStats_GetAchievement:function(self:pointer;name:PAnsiChar;var achieved:boolean):boolean; cdecl;
   SteamAPI_ISteamUserStats_SetAchievement:function(self:pointer;name:PAnsiChar):boolean; cdecl;
   SteamAPI_ISteamUserStats_ClearAchievement:function(self:pointer;name:PAnsiChar):boolean; cdecl;
   SteamAPI_ISteamUserStats_StoreStats:function(self:pointer):boolean; cdecl;
@@ -181,6 +188,7 @@ implementation
    Bind(SteamAPI_ISteamApps_GetCurrentGameLanguage,'SteamAPI_ISteamApps_GetCurrentGameLanguage');
    Bind(SteamAPI_ISteamApps_BIsDlcInstalled,'SteamAPI_ISteamApps_BIsDlcInstalled');
    Bind(SteamAPI_ISteamApps_BIsSubscribedApp,'SteamAPI_ISteamApps_BIsSubscribedApp');
+   Bind(SteamAPI_ISteamUserStats_GetAchievement,'SteamAPI_ISteamUserStats_GetAchievement');
    Bind(SteamAPI_ISteamUserStats_SetAchievement,'SteamAPI_ISteamUserStats_SetAchievement');
    Bind(SteamAPI_ISteamUserStats_ClearAchievement,'SteamAPI_ISteamUserStats_ClearAchievement');
    Bind(SteamAPI_ISteamUserStats_StoreStats,'SteamAPI_ISteamUserStats_StoreStats');
@@ -286,6 +294,12 @@ class function Steam.IsDlcInstalled(appID:TSteamAppID):boolean;
 class function Steam.IsSubscribedApp(appID:TSteamAppID):boolean;
  begin
   result:=available and SteamAPI_ISteamApps_BIsSubscribedApp(steamApps,appID);
+ end;
+
+class function Steam.GetAchievement(const name:String8;out achieved:boolean):boolean;
+ begin
+  achieved:=false;
+  result:=available and SteamAPI_ISteamUserStats_GetAchievement(steamUserStats,PAnsiChar(name),achieved);
  end;
 
 class function Steam.SetAchievement(const name:String8):boolean;

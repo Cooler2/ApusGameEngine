@@ -1250,7 +1250,7 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   `Steam.userID`, `steamUserName` → `Steam.userName`, `steamGameLang` →
   `Steam.gameLanguage`, `SetSteamAchievement(name,enable)` →
   `Steam.SetAchievement`/`Steam.ClearAchievement` + `Steam.StoreStats`. New:
-  `Steam.IsDlcInstalled`, `Steam.IsSubscribedApp`, `Steam.RestartAppIfNecessary`,
+  `Steam.GetAchievement` (account state, available right after Init), `Steam.IsDlcInstalled`, `Steam.IsSubscribedApp`, `Steam.RestartAppIfNecessary`,
   signal `Steam\DlcInstalled`, `Steam.initResult`/`Steam.initError` (why Init
   failed: no library, no client, client outdated). Removed: `GetSteamAuthTicket` (SDK 1.57+ requires
   the asynchronous `GetAuthTicketForWebApi` for Web API checks - add it when a
