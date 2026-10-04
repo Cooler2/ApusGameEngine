@@ -1329,6 +1329,12 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   shadows dims the screen with one fill (the top one) instead of one per scene; the area
   under a scene is dimmed by the strongest shadow among it and the scenes above. Scenes of
   extra windows draw their shadows too (they were skipped).
+- `gfx.CopyFromBackbuffer(srcX,srcY,image)`: srcY now counts from the TOP of the surface
+  (it counted from the bottom); a bound render target comes out top-down like the
+  backbuffer (it came out bottom-up). The image is no longer flipped by moving `data` and
+  negating `pitch`: an image can be read into repeatedly, and any pitch works.
+  `TWindow.ReadFrameRect` is unchanged for callers; with `TFrameSource.rendering` and a
+  presentation RT it now reads the right rows.
 - Removed: the unused global "under modal" shadow - `modalShadowColor` (UIScene) and the
   `UI\SetGlobalShadow` signal.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`

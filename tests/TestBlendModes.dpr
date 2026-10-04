@@ -50,18 +50,17 @@ begin
     else result:=SOLID_TEXEL;
 end;
 
-// Read the whole render target into img (a fresh image: the readback flips it in place)
+// Read the whole render target into img (the same image is refilled every time)
 procedure ReadTarget;
 begin
-  FreeAndNil(img);
-  img:=TBitmapImage.Create(W,H,ipfARGB);
+  if img=nil then img:=TBitmapImage.Create(W,H,ipfARGB);
   gfx.CopyFromBackbuffer(0,0,img);
 end;
 
-// Pixel (x,y) of the render target, y from the top (the readback of a render target is bottom-up)
+// Pixel (x,y) of the render target, y from the top
 function Pixel(x,y:integer):cardinal;
 begin
-  result:=PCardinal(UIntPtr(img.data)+UIntPtr((H-1-y)*img.pitch+x*4))^;
+  result:=PCardinal(UIntPtr(img.ScanLine(y))+UIntPtr(x*4))^;
 end;
 
 function SameColor(a,b:cardinal):boolean;
@@ -160,6 +159,43 @@ begin
   EndTest;
 end;
 
+// Readback contract: rows top-down, srcX/srcY from the top-left corner, any image pitch
+procedure TestReadback;
+const
+  BLUE=$FF0000FF;
+var
+  flipped:TBitmapImage;
+
+  function FlippedPixel(y:integer):cardinal;
+  begin
+    result:=PCardinal(flipped.ScanLine(y))^;
+  end;
+
+begin
+  StartTest('Readback orientation and image pitch');
+  flipped:=TBitmapImage.Create(W,H div 2,ipfARGB);
+  try
+    flipped.FlipVertical; // pitch<0: data points to the last row
+    gfx.BeginPaint(rt);
+    try
+      gfx.target.Clear(GRAY,-1,-1);
+      draw.FillRect(0,0,W-1,H div 2-1,BLUE); // top half
+      ReadTarget;
+      gfx.CopyFromBackbuffer(0,2,flipped); // rows 2..H/2+1: H/2-2 blue rows, then gray
+    finally
+      gfx.EndPaint;
+    end;
+    Check(CountWrong(0,0,W-1,H div 2-1,BLUE)=0,'top half is not on top');
+    Check(CountWrong(0,H div 2,W-1,H-1,GRAY)=0,'bottom half is not at the bottom');
+    Check(SameColor(FlippedPixel(0),BLUE) and SameColor(FlippedPixel(H div 2-3),BLUE) and
+      SameColor(FlippedPixel(H div 2-2),GRAY) and SameColor(FlippedPixel(H div 2-1),GRAY),
+      'negative pitch or srcY from the top: wrong rows');
+  finally
+    flipped.Free;
+  end;
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -197,6 +233,7 @@ begin
       TestFillRect;
       TestTexture;
       TestModeSwitch;
+      TestReadback;
     finally
       FreeAndNil(img);
       FreeImage(tex);

@@ -567,25 +567,63 @@ procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,
   rtTrueColor:=ipfXRGB;
   rtTrueColorAlpha:=ipfARGB;
  end;
+// Swap the rows of a 32bpp image top to bottom in memory (data and pitch stay as they are)
+procedure FlipRows(image:TRawImage);
+ var
+  y,rowSize:integer;
+  row:array of byte;
+  a,b:pointer;
+ begin
+  rowSize:=image.width*4;
+  SetLength(row,rowSize);
+  for y:=0 to image.height div 2-1 do begin
+   a:=image.ScanLine(y);
+   b:=image.ScanLine(image.height-1-y);
+   move(a^,row[0],rowSize);
+   move(b^,a^,rowSize);
+   move(row[0],b^,rowSize);
+  end;
+ end;
+
 procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
  var
   fbo:gluint;
+  stride,glY:integer;
+  lowest:pointer;
+  {$IFDEF GLES}
+  y:integer;
+  {$ENDIF}
  begin
   ASSERT(image.pixelFormat in [ipfARGB,ipfXRGB]);
+  stride:=abs(image.pitch);
+  ASSERT(stride mod 4=0,'Image pitch must be a whole number of pixels');
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@fbo);
   glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
-  if fbo=0 then glReadBuffer(GL_BACK)
-   else glReadBuffer(GL_COLOR_ATTACHMENT0);
+  // GL counts rows from the bottom of the backbuffer, but from the top of a render target:
+  // the engine draws into textures without the Y flip
+  if fbo=0 then begin
+   glReadBuffer(GL_BACK);
+   glY:=TGLRenderTargetAPI.backBufferHeight-srcY-image.height;
+  end else begin
+   glReadBuffer(GL_COLOR_ATTACHMENT0);
+   glY:=srcY;
+  end;
   image.Lock;
+  // glReadPixels fills rows upward from the lowest address, whatever the sign of the pitch
+  if image.pitch>0 then lowest:=image.data
+   else lowest:=image.ScanLine(image.height-1);
+  if stride<>image.width*4 then glPixelStorei(GL_PACK_ROW_LENGTH,stride div 4);
   {$IFDEF GLES}
   // GLES has no GL_BGRA readback format: read RGBA, then swap R/B on CPU.
-  glReadPixels(srcX,srcY,image.Width,image.Height,GL_RGBA,GL_UNSIGNED_BYTE,image.data);
-  SwapRedBlue8888(image.data,image.Width*image.Height);
+  glReadPixels(srcX,glY,image.Width,image.Height,GL_RGBA,GL_UNSIGNED_BYTE,lowest);
+  for y:=0 to image.height-1 do
+   SwapRedBlue8888(image.ScanLine(y),image.Width);
   {$ELSE}
-  glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
+  glReadPixels(srcX,glY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,lowest);
   {$ENDIF}
-  // glReadPixels returns rows bottom-up, so the result is always flipped to top-down
-  image.FlipVertical;
+  if stride<>image.width*4 then glPixelStorei(GL_PACK_ROW_LENGTH,0);
+  // the lowest address got the bottom row of the backbuffer or the top row of a render target
+  if (fbo=0)=(image.pitch>0) then FlipRows(image);
   image.Unlock;
   CheckForGLError(021);
  end;

@@ -156,7 +156,6 @@ private
   procedure EnsureDefaultRT; // create the default RT if the surface needs one
   procedure UpdateSurfaceRT; // keep the default RT in sync with surface.renderSize
   procedure UpdateScreenScale; // DPI -> uiScale ladder (main window only)
-  function FrameSurfaceHeight(src:TFrameSource):integer; // physical height of the readback surface
 public
   // Working surface (R-31): declared axes + resolved snapshot.
   config:TSurfaceConfig; // runtime authority for this window (a copy of TGameSettings.surface)
@@ -1548,13 +1547,6 @@ begin
   result:=surface.displayRect;
 end;
 
-// Full height of the surface being read - glReadPixels counts rows from its bottom
-function TWindow.FrameSurfaceHeight(src:TFrameSource):integer;
-begin
- if (src=TFrameSource.rendering) and (dRT<>nil) then result:=dRT.height
-  else result:=surface.clientSize.cy;
-end;
-
 function TWindow.CanvasToPixels(const r:TRect;src:TFrameSource=TFrameSource.presented):TRect;
 var
  pic:TRect;
@@ -1580,7 +1572,7 @@ end;
 procedure TWindow.ReadFrameRect(const pixRect:TRect;image:TRawImage;src:TFrameSource=TFrameSource.presented);
 begin
  ASSERT((image.width=pixRect.Width) and (image.height=pixRect.Height),'Image size must match the rect');
- gfx.CopyFromBackbuffer(pixRect.Left,FrameSurfaceHeight(src)-pixRect.Bottom,image);
+ gfx.CopyFromBackbuffer(pixRect.Left,pixRect.Top,image);
 end;
 
 procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);

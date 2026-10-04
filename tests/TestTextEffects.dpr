@@ -49,20 +49,17 @@ var
   img:TBitmapImage;
   font:TFontHandle;
 
-// Read the whole render target into img. A fresh image every time: the readback
-// flips it in place (data then points to the last row), so it can't be refilled
+// Read the whole render target into img (the same image is refilled every time)
 procedure ReadTarget;
 begin
-  FreeAndNil(img);
-  img:=TBitmapImage.Create(W,H,ipfARGB);
+  if img=nil then img:=TBitmapImage.Create(W,H,ipfARGB);
   gfx.CopyFromBackbuffer(0,0,img);
 end;
 
-// Pixel (x,y) of the render target, y from the top. The readback of a render
-// target comes out bottom-up (render targets are drawn flipped), so rows are mirrored
+// Pixel (x,y) of the render target, y from the top
 function Pixel(x,y:integer):cardinal;
 begin
-  result:=PCardinal(UIntPtr(img.data)+UIntPtr((H-1-y)*img.pitch+x*4))^;
+  result:=PCardinal(UIntPtr(img.ScanLine(y))+UIntPtr(x*4))^;
 end;
 
 // Text mask: glyph coverage of txt.Write at the test anchor
