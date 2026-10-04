@@ -312,6 +312,7 @@ var
   end;
 begin
  if gamepadNavigationMode=gnmDisabled then exit;
+ window.LockState; // walks the UI tree (called after Present, which is outside the lock)
  Lock;
  try
   activeCustomPoints:=customPoints;
@@ -324,6 +325,7 @@ begin
   end;
  finally
   Unlock;
+  window.UnlockState;
  end;
 end;
 
@@ -1898,10 +1900,15 @@ procedure TGame.FrameLoop;
   finally
     Thread.ResumeWatchdog;
   end;
+  window.LockState; // queued signal handlers may touch the UI
   try
-    HandleSignals;
-  except
-    on e:exception do Log.Force('Error in FrameLoop 1: %s',[ExceptionMsg(e)]);
+    try
+      HandleSignals;
+    except
+      on e:exception do Log.Force('Error in FrameLoop 1: %s',[ExceptionMsg(e)]);
+    end;
+  finally
+    window.UnlockState;
   end;
   if window.timings.phaseMetrics then
     window.timings.pendingMsgUs:=round(Timer.Get(phaseTimer)*1000000)
@@ -1912,10 +1919,16 @@ procedure TGame.FrameLoop;
   EndMeasure2(14);
 
   if useMainThread and CurrentThread.Terminating then exit;
-  window.ApplyPendingSurface; // rebuild the surface (if requested) before anything reads it
-  window.SamplePointer; // poll cursor once per frame (frame-synced mouse input)
-  window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
-  Signal('Engine\Frame\Begin',window.frameNum); // input is in, scenes not processed yet
+  // surface-change handlers lay the UI out, mouse input and frame subscribers touch it too
+  window.LockState;
+  try
+    window.ApplyPendingSurface; // rebuild the surface (if requested) before anything reads it
+    window.SamplePointer; // poll cursor once per frame (frame-synced mouse input)
+    window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
+    Signal('Engine\Frame\Begin',window.frameNum); // input is in, scenes not processed yet
+  finally
+    window.UnlockState;
+  end;
   RenderAndPresentFrame;
   Signal('Engine\Frame\End',window.frameNum);
 
@@ -1940,7 +1953,12 @@ procedure TGame.RenderAndPresentFrame;
   try
    // Also covers the WM_PAINT path: the OS modal move/resize loop renders through
    // here without running FrameLoop, and the surface must follow the live size.
-   window.ApplyPendingSurface;
+   window.LockState; // surface-change handlers lay the UI out
+   try
+    window.ApplyPendingSurface;
+   finally
+    window.UnlockState;
+   end;
    onFrameUs:=0;
    renderUs:=0;
    presentUs:=0;
@@ -1966,18 +1984,23 @@ procedure TGame.RenderAndPresentFrame;
    if window.frameDeltaUs>500000 then
     Log.Msg('Warning: main loop stall for %d ms',[window.frameDeltaMs]);
 
-   // Обработка кадра
-   if window.timings.phaseMetrics then Timer.Start(phaseTimer);
-   StartMeasure(3);
-   if OnFrame then window.screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
-   EndMeasure(3);
-   if window.timings.phaseMetrics then onFrameUs:=round(Timer.Get(phaseTimer)*1000000);
-  try
-   HandleSignals;
-  except
-   on e:exception do Log.Force('Error in FrameLoop 2: %s',[ExceptionMsg(e)]);
-  end;
-  if window.IsTerminated then exit;
+   // Frame logic: scenes and the UI change here - under the window lock
+   window.LockState;
+   try
+    if window.timings.phaseMetrics then Timer.Start(phaseTimer);
+    StartMeasure(3);
+    if OnFrame then window.screenChanged:=true; // so that other places can set the flag too
+    EndMeasure(3);
+    if window.timings.phaseMetrics then onFrameUs:=round(Timer.Get(phaseTimer)*1000000);
+    try
+     HandleSignals;
+    except
+     on e:exception do Log.Force('Error in FrameLoop 2: %s',[ExceptionMsg(e)]);
+    end;
+   finally
+    window.UnlockState;
+   end;
+   if window.IsTerminated then exit;
 
    if not window.screenChanged then begin
     if minRedrawIntervalMs>0 then begin
@@ -1996,9 +2019,14 @@ procedure TGame.RenderAndPresentFrame;
      try
       window.prevFrameLog:=window.frameLog;
       window.frameLog:='';
-      Signal('Engine\Frame\BeforeRender',window.frameNum); // scenes processed, no draw call issued yet
+      window.LockState; // subscribers may touch the UI
+      try
+       Signal('Engine\Frame\BeforeRender',window.frameNum); // scenes processed, no draw call issued yet
+      finally
+       window.UnlockState;
+      end;
       StartMeasure(2);
-      RenderFrame;
+      RenderFrame; // takes the window lock itself, see TWindow.RenderFrame
       EndMeasure2(2);
      except
       on E:Exception do CriticalError(Format('Error in renderframe: %s framelog: %s',[ExceptionMsg(e),window.frameLog]));
@@ -2208,10 +2236,14 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
      Thread.ResumeWatchdog;
     end;
     if wnd.IsTerminated then break;
-    wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
-
-    if wnd.OnFrame then
-     wnd.screenChanged:=true;
+    wnd.LockState; // surface-change handlers and scene processing touch window state
+    try
+     wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
+     if wnd.OnFrame then
+      wnd.screenChanged:=true;
+    finally
+     wnd.UnlockState;
+    end;
 
     if not wnd.screenChanged then begin
      if minRedrawIntervalMs>0 then begin

@@ -310,7 +310,11 @@ public
   // Frame log
   procedure FLog(st:string);
 
-  // Frame processing and scene rendering
+  // Frame processing and scene rendering. The window thread holds the window lock only on
+  // the frame segments that touch window state: input dispatch, queued signals, OnFrame
+  // (takes it itself), rendering (RenderFrame takes it around the scene parts, leaving
+  // gfx.BeginPaint outside: with vsync the driver may block there; the caller of
+  // RenderScenes holds it). Present, sleeping and the OS message pump run outside it.
   function OnFrame:boolean;
   procedure RenderFrame(const params:TGameSettings;
     drawCursor,drawOverlays:TRenderProc);
@@ -1097,41 +1101,36 @@ var
  deltaTime:integer;
 begin
  result:=false;
- DestroyQueuedElements;
-
+ // one segment: queued deletions, scene order, keyboard and Process all touch window state
  LockState;
  try
+  DestroyQueuedElements;
   // sort scenes by zOrder
   if high(scenes)>1 then
    for n:=1 to high(scenes) do
     for i:=0 to n-1 do
      if scenes[i+1].zorder>scenes[i].zorder then
       Swap(scenes[i],scenes[i+1],sizeof(scenes[i]));
- finally
-  UnlockState;
- end;
 
- LockState;
- try
   // sync UI root order with scene zOrder
   for i:=0 to high(scenes) do
    if (scenes[i] is TUIScene) then
     with scenes[i] as TUIScene do
      if (UI<>nil) then
       ui.order:=scenes[i].zorder;
+
+  // Drain keyboard buffers and dispatch synchronously, before Process.
+  // Only the kbd-topmost scene ever has buffered keys (see TGame.KeyPressed),
+  // so iterating active scenes naturally respects single-scene keyboard routing.
+  for i:=low(scenes) to high(scenes) do
+   if scenes[i].IsActive then
+    scenes[i].PumpInput(shiftState);
+
+  deltaTime:=integer(frameDeltaMs);
+  result:=ProcessScenes(deltaTime);
  finally
   UnlockState;
  end;
-
- // Drain keyboard buffers and dispatch synchronously, before Process.
- // Only the kbd-topmost scene ever has buffered keys (see TGame.KeyPressed),
- // so iterating active scenes naturally respects single-scene keyboard routing.
- for i:=low(scenes) to high(scenes) do
-  if scenes[i].IsActive then
-   scenes[i].PumpInput(shiftState);
-
- deltaTime:=integer(frameDeltaMs);
- result:=ProcessScenes(deltaTime);
 end;
 
 procedure TWindow.FLog(st:string);
@@ -1190,7 +1189,15 @@ begin
   except
    on e:exception do CriticalError('RFrame2 '+ExceptionMsg(e));
   end;
+ finally
+  UnlockState;
+ end;
 
+ // outside the window lock: with vsync the driver may block here until a buffer is free
+ gfx.BeginPaint(dRT);
+ SetupViewport;
+ LockState; // scene list and UI tree are read from here to the end of drawing
+ try
   // sort active scenes by Z order
   FLog('Sorting');
   n:=0;
@@ -1213,45 +1220,43 @@ begin
   end;
   if n>0 then topmostScene:=sc[n]
    else topmostScene:=nil;
+
+  // draw all active scenes
+  for i:=1 to n do try
+   // draw shadow
+   if sc[i].shadowColor<>0 then
+    draw.FillRect(0,0,canvasWidth,canvasHeight,sc[i].shadowColor);
+
+   if not sc[i].gfxInitialized then try
+    sc[i].InitGfx;
+    sc[i].gfxInitialized:=true;
+   except
+    on e:Exception do CriticalError('Scene '+sc[i].name+' InitGfx error: '+ExceptionMsg(e));
+   end;
+
+   if IsTerminated then exit;
+   if sc[i].effect<>nil then begin
+    FLog('Drawing eff on '+sc[i].name);
+    sc[i].effect.DrawScene;
+    FLog('Drawing ret');
+   end else begin
+    FLog('Drawing '+sc[i].ClassName);
+    sc[i].Render;
+    FLog('Drawing ret');
+   end;
+  except
+   on e:exception do begin
+    if sc[i] is TUIScene then CriticalError('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
+     else CriticalError('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
+    halt;
+   end;
+  end;
+
+  if Assigned(drawCursor) then drawCursor;
+  if Assigned(drawOverlays) then drawOverlays;
  finally
   UnlockState;
  end;
-
- gfx.BeginPaint(dRT);
- SetupViewport;
- // draw all active scenes
- for i:=1 to n do try
-  // draw shadow
-  if sc[i].shadowColor<>0 then
-   draw.FillRect(0,0,canvasWidth,canvasHeight,sc[i].shadowColor);
-
-  if not sc[i].gfxInitialized then try
-   sc[i].InitGfx;
-   sc[i].gfxInitialized:=true;
-  except
-   on e:Exception do CriticalError('Scene '+sc[i].name+' InitGfx error: '+ExceptionMsg(e));
-  end;
-
-  if IsTerminated then exit;
-  if sc[i].effect<>nil then begin
-   FLog('Drawing eff on '+sc[i].name);
-   sc[i].effect.DrawScene;
-   FLog('Drawing ret');
-  end else begin
-   FLog('Drawing '+sc[i].ClassName);
-   sc[i].Render;
-   FLog('Drawing ret');
-  end;
- except
-  on e:exception do begin
-   if sc[i] is TUIScene then CriticalError('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
-    else CriticalError('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
-   halt;
-  end;
- end;
-
- if Assigned(drawCursor) then drawCursor;
- if Assigned(drawOverlays) then drawOverlays;
 
  gfx.EndPaint;
  FLog('RDone');
