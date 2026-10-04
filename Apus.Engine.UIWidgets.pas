@@ -87,6 +87,10 @@ interface
    constructor Create(x,y:single;text:String8;parent_:TUIElement);
    destructor Destroy; override;
    procedure Hide;
+   // Hint shown by ShowSimpleHint in this thread, nil if none. Destroying the hint by any
+   // path (including the destruction of its parent) resets it, so it never dangles.
+   class function Current:TUIHint; static;
+   procedure MakeCurrent; // the previous current hint is not freed
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onTimer; override;
   end;
@@ -374,6 +378,9 @@ implementation
 
  var
   comboPop:TUIComboBox;      // если существует выпавший комбобокс (а он может быть только один) - он тут
+
+ threadvar
+  currentHint:TUIHint; // see TUIHint.Current
 
 { TUISpacer }
 
@@ -1512,7 +1519,18 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
  destructor TUIHint.Destroy;
   begin
+   if currentHint=self then currentHint:=nil;
    inherited;
+  end;
+
+ class function TUIHint.Current:TUIHint;
+  begin
+   result:=currentHint;
+  end;
+
+ procedure TUIHint.MakeCurrent;
+  begin
+   currentHint:=self;
   end;
 
  procedure TUIHint.Hide;

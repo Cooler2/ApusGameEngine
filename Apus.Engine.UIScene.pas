@@ -57,10 +57,8 @@ type
  procedure InitUI;
 
  // Create a popup window and attach it to the given parent
+ // Only one such hint exists per thread: the next call frees the previous one (see TUIHint.Current)
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
- // Hint created by the last ShowSimpleHint in this thread (TUIHint), nil if none.
- // Valid until the next ShowSimpleHint, which frees it.
- function CurrentHint:TUIElement;
 
 implementation
  uses SysUtils, Apus.Lib, Types,
@@ -90,7 +88,6 @@ threadvar
 
 
  // параметры хинтов
- curHint:TUIHint;
  hintRect:tRect; // область, к которой относится хинт
  // переменные для работы с хинтами элементов
  hintMode:cardinal; // время (в тиках), до которого длится режим показа хинтов
@@ -115,11 +112,6 @@ function UIScene(name:String8):TUIScene;
   result:=scene as TUIScene;
  end;
 
- function CurrentHint:TUIElement;
-  begin
-   result:=curHint;
-  end;
-
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   var
    hint:TUIHint;
@@ -142,17 +134,16 @@ function UIScene(name:String8):TUIScene;
      parent:=parent.GetRoot;
    end;
    if parent=nil then exit;
-   if curhint<>nil then begin
+   if TUIHint.Current<>nil then begin
      Log.Debug('Free previous hint');
-    curHint.Free;
-    curHint:=nil;
+    TUIHint.Current.Free; // resets TUIHint.Current
    end;
    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
 
    if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
    hint.timer:=time;
    hint.order:=10000; // Top
-   curhint:=hint;
+   hint.MakeCurrent;
     Log.Debug('Hint created '+inttohex(UIntPtr(hint),16));
   end;
 
@@ -363,8 +354,8 @@ function UIScene(name:String8):TUIScene;
 
     // hide hint if mouse left hint rect
     {$IFNDEF IOS}
-    if moved and (curHint<>nil) and curHint.flags.visible and
-       not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curHint.Hide;
+    if moved and (TUIHint.Current<>nil) and TUIHint.Current.flags.visible and
+       not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then TUIHint.Current.Hide;
     {$ENDIF}
 
     // design mode drag

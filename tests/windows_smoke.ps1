@@ -87,6 +87,7 @@ Invoke-FpcTarget 'tests/PlatformTest.dpr' -CompileOnly
 Invoke-FpcTarget 'tests/OpenGL.dpr' -CompileOnly
 Invoke-FpcTarget 'tests/TestTextEffects.dpr' -CompileOnly # needs a GL window: run locally
 Invoke-FpcTarget 'tests/TestStyle.dpr'
+Invoke-FpcTarget 'tests/TestUIHint.dpr'
 Invoke-FpcTarget 'tests/TestSurface.dpr'
 Invoke-FpcTarget 'tests/TestGpuLayout.dpr'
 Invoke-FpcTarget 'tests/TestHttpGameClient.dpr'
