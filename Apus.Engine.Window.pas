@@ -1258,7 +1258,7 @@ begin
    if IsTerminated then exit;
    if sc[i].effect<>nil then begin
     FLog('Drawing eff on '+sc[i].name);
-    sc[i].effect.DrawScene;
+    sc[i].effect.Paint;
     FLog('Drawing ret');
    end else begin
     FLog('Drawing '+sc[i].ClassName);
@@ -1319,7 +1319,7 @@ begin
     sc[i].gfxInitialized:=true;
    end;
    if sc[i].effect<>nil then
-    sc[i].effect.DrawScene
+    sc[i].effect.Paint
    else
     sc[i].Render;
   except

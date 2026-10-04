@@ -1317,6 +1317,13 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   constructor chain (it was inserted by the base constructor, before the derived fields
   were set); `UI\ItemCreated` is sent at that point too. A derived constructor still has
   `parent` set but does not find itself in `parent.children`.
+- Scene effects: the engine draws an effect through `TSceneEffect.Paint` (it called
+  `DrawScene` directly). A new effect created from inside the running effect's
+  `DrawScene` (a handler run by the scene's `Process`/`Render`) no longer frees it
+  mid-draw: the replaced effect is freed when `DrawScene` returns. An effect that changes
+  scene state hands it back in `Replace` (protected, virtual), not only in its destructor,
+  so the new effect starts from the restored state; `TShowWindowEffect` does this and
+  skips the rest of its `DrawScene` once `replaced` is set.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
   (use `element.GetWindow`, which resolves the window through the scene only).
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become

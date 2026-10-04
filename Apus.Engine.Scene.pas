@@ -28,9 +28,15 @@ type
   done:boolean;  // flag signalling that the effect is finished
   target:TGameScene;
   name:String8; // description for debug reasons
-  constructor Create(scene:TGameScene;TotalTime:integer); // create an effect for the given time (in ms)
+  constructor Create(scene:TGameScene;TotalTime:integer); // create an effect for the given time (in ms), replacing the current effect of the scene
   procedure DrawScene; virtual; abstract; // must fully draw the scene with the effect (into the current RT)
+  procedure Paint; // the engine draws the scene through this, not DrawScene directly
   destructor Destroy; override;
+ protected
+  replaced:boolean; // replaced by a new effect from inside its own DrawScene: freed when DrawScene returns
+  procedure Replace; virtual; // a new effect takes the scene: free now, or after DrawScene if it is running
+ private
+  drawing:boolean; // DrawScene in progress
  end;
 
  // Base scene switcher interface
@@ -450,12 +456,31 @@ class procedure TGameScene.LoadAllScenes;
    timer:=0;
    if scene.effect<>nil then begin
     Log.Force('New scene effect replaces old one! '+scene.name+' previous='+scene.effect.name);
-    scene.effect.Free;
+    scene.effect.Replace;
    end;
    scene.effect:=self;
    target:=scene;
    name:=self.ClassName+' for '+scene.name+' created '+FormatDateTime('nn:ss.zzz',Now);
    Log.Msg('Effect %s: %s',[Conv.ToStr(self),name]);
+  end;
+
+ procedure TSceneEffect.Paint;
+  begin
+   drawing:=true;
+   try
+    DrawScene;
+   finally
+    drawing:=false;
+    if replaced then Free;
+   end;
+  end;
+
+ // The scene's Process/Render (called from DrawScene) may create a new effect for the
+ // same scene: the running effect must survive until its DrawScene returns
+ procedure TSceneEffect.Replace;
+  begin
+   if drawing then replaced:=true
+    else Free;
   end;
 
  destructor TSceneEffect.Destroy;

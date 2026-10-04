@@ -1,7 +1,8 @@
 // TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
 // Acquire/Release, the close protocol (BeginClose, WaitReleased), the context of
 // onClickAsync threads, deferred removal of UI elements (TUIElement.Remove), keyboard
-// focus as window state and the window thread's mouse state of removed elements.
+// focus as window state, the window thread's mouse state of removed elements and
+// a scene effect replaced from its own DrawScene.
 // No native window: only the platform-independent part of TWindow.
 {$APPTYPE CONSOLE}
 program TestWindowLock;
@@ -34,6 +35,13 @@ type
     destructor Destroy; override;
   end;
 
+  // replaces itself from DrawScene, as a handler run by the scene's Process/Render may do
+  TReplacingEffect=class(TSceneEffect)
+    replaceInDraw:boolean;
+    procedure DrawScene; override;
+    destructor Destroy; override;
+  end;
+
 var
   callCount:integer;
   queueTarget:TWindow; // window the re-queueing call adds to
@@ -48,6 +56,9 @@ var
   removeTarget:TUIElement;
   focusTarget:TUIElement;
   testScene:TGameScene;
+  effectsFreed:integer;
+  aliveAfterReplace:boolean; // DrawScene saw itself not freed after the replacement
+  newEffect:TSceneEffect;
 
 procedure TCounter.Increment;
  begin
@@ -460,6 +471,42 @@ procedure TestRemovedMouseState;
   EndTest;
  end;
 
+procedure TReplacingEffect.DrawScene;
+ begin
+  if not replaceInDraw then exit;
+  newEffect:=TReplacingEffect.Create(target,100);
+  aliveAfterReplace:=effectsFreed=0;
+ end;
+
+destructor TReplacingEffect.Destroy;
+ begin
+  inc(effectsFreed);
+  inherited;
+ end;
+
+procedure TestEffectReplace;
+ var
+  sc:TGameScene;
+  old:TReplacingEffect;
+ begin
+  StartTest('Scene effect replaced from its own DrawScene');
+  sc:=TGameScene.Create(false);
+  sc.name:='EffectScene';
+  effectsFreed:=0;
+  old:=TReplacingEffect.Create(sc,100);
+  old.replaceInDraw:=true;
+  old.Paint;
+  Check(aliveAfterReplace,'the running effect survives its replacement');
+  Check(effectsFreed=1,'and is freed when DrawScene returns');
+  Check(sc.effect=newEffect,'the new effect owns the scene');
+  TReplacingEffect.Create(sc,100);
+  Check(effectsFreed=2,'outside DrawScene the replaced effect is freed at once');
+  sc.effect.Free;
+  sc.effect:=nil;
+  sc.Free;
+  EndTest;
+ end;
+
 procedure TestLockContext;
  var
   w1,w2:TWindow;
@@ -620,5 +667,6 @@ begin
   TestRemoveInHandlers;
   TestFocus;
   TestRemovedMouseState;
+  TestEffectReplace;
   if IsDebuggerPresent then readln;
 end.

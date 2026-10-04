@@ -60,6 +60,8 @@ type
   procedure DrawScene; override;
   destructor Destroy; override;
   procedure onDone;
+ protected
+  procedure Replace; override;
  private
   buffer:TTexture;
   mode:TShowMode;
@@ -68,6 +70,8 @@ type
   initialized,dontPlay:boolean;
   shadow:cardinal;
   savedSceneStatus:TSceneStatus;
+  restored:boolean; // scene state handed back
+  procedure RestoreScene;
  end;
 
  {$IFDEF OPENGL}
@@ -435,14 +439,28 @@ begin
  initialized:=true;
 end;
 
+// Finish the show/hide and restore the scene shadow (once)
+procedure TShowWindowEffect.RestoreScene;
+begin
+ if restored then exit;
+ restored:=true;
+ if not done then onDone;
+ if target<>nil then target.shadowColor:=shadow;
+end;
+
+// The scene state is handed back at once: the new effect starts from it even if
+// this object lives until its DrawScene returns
+procedure TShowWindowEffect.Replace;
+begin
+ RestoreScene;
+ inherited;
+end;
+
 destructor TShowWindowEffect.Destroy;
 begin
  try
-  if not done then onDone;
+  RestoreScene;
   if initialized and (buffer<>nil) then FreeImage(buffer);
-  if target<>nil then begin
-   target.shadowColor:=shadow;
-  end;
   inherited;
  except
   on e:exception do Log.Force('Failed to delete SWE effect: '+ExceptionMsg(e));
@@ -486,6 +504,7 @@ begin
    Log.Force('Error: SWE:D '+ExceptionMsg(e));
   end;
  end;
+ if replaced then exit; // a new effect took the scene from inside Process/Render
 
  stage:=round(255*timer/duration);
  if stage<0 then stage:=0;
