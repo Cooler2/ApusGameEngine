@@ -53,6 +53,9 @@ type
  procedure DispatchMouseMove(wnd:TWindow);
  procedure DispatchMouseButton(wnd:TWindow;btn:byte;pressed:boolean);
  procedure DispatchMouseWheel(wnd:TWindow;delta:integer);
+ // Drop the mouse capture of wnd without a button release (its captor gets onLostFocus,
+ // as when it is hidden) and stop a design-mode drag. Window's thread.
+ procedure CancelMouseCapture(wnd:TWindow);
 
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
@@ -442,6 +445,22 @@ function UIScene(name:String8):TUIScene;
     for i:=low(wnd.scenes) to high(wnd.scenes) do
      if wnd.scenes[i].IsActive then
       wnd.scenes[i].onMouseMove(curMouseX,curMouseY);
+  end;
+
+ procedure CancelMouseCapture(wnd:TWindow);
+  begin
+   wnd.LockState;
+   try
+    DropRemovedMouseState;
+    if hooked<>nil then begin
+     hooked.onLostFocus;
+     hooked:=nil;
+    end;
+    clipMouse:=cmNo;
+    hookedItem:=nil;
+   finally
+    wnd.UnlockState;
+   end;
   end;
 
  // Window-level UI wheel dispatch: the topmost UI element gets the wheel once; a
@@ -1008,6 +1027,386 @@ begin
   result:=true;
 end;
 
+// --- Robot API: virtual mouse (robot_api_protocol.md, "Mouse input") ---
+// The handlers run in the main loop thread only, so the lists below need no lock.
+// They never touch a window: only its TVirtualMouse, which outlives it.
+
+type
+ TRobotMouseRequest=record
+  serial:int64;        // TRobotRequest.serial
+  mouse:TVirtualMouse; // AddRef'ed
+  ticket:int64;        // the request is answered once this operation is done
+ end;
+
+var
+ robotMouseRequests:array of TRobotMouseRequest; // postponed (waiting) requests
+ robotMice:array of TVirtualMouse; // mice the robot switched to the virtual mode (AddRef'ed)
+
+function RobotFlag(const st:String8;default:boolean;out value:boolean):boolean;
+ var
+  v:String8;
+ begin
+  v:=st.Trim.ToLower;
+  result:=true;
+  if v='' then value:=default
+  else if (v='1') or (v='yes') or (v='y') or (v='true') or (v='on') then value:=true
+  else if (v='0') or (v='no') or (v='n') or (v='false') or (v='off') then value:=false
+  else result:=false;
+ end;
+
+function RobotButtonsStr(buttons:byte):String8;
+ const
+  names:array[0..4] of String8=('left','right','middle','x1','x2');
+ var
+  i:integer;
+ begin
+  result:='';
+  for i:=0 to 4 do
+   if (buttons and (1 shl i))<>0 then begin
+    if result<>'' then result:=result+',';
+    result:=result+names[i];
+   end;
+  if result='' then result:='none';
+ end;
+
+function RobotMouseReport(vm:TVirtualMouse;ticket:int64;done:boolean):String8;
+ var
+  st:TVirtualMouseState;
+  wndName:String8;
+ begin
+  st:=vm.State;
+  if vm.IsMainWindow then wndName:='main' else wndName:=vm.windowName;
+  result:='window: '+wndName+LineBreak;
+  if ticket>0 then begin
+   result:=result+'ticket: '+Conv.ToStr(ticket)+LineBreak;
+   if done then result:=result+'state: done'+LineBreak
+    else result:=result+'state: queued'+LineBreak;
+  end;
+  if st.active then result:=result+'mode: virtual'+LineBreak
+   else result:=result+'mode: physical'+LineBreak;
+  if (st.pos.x>=$3FFF) or (st.pos.y>=$3FFF) then result:=result+'position: outside'+LineBreak
+   else result:=result+'position: '+Conv.ToStr(st.pos.x)+','+Conv.ToStr(st.pos.y)+LineBreak;
+  result:=result+'buttons: '+RobotButtonsStr(st.buttons)+LineBreak;
+  if st.underClass='' then result:=result+'under: (none)'+LineBreak
+   else result:=result+'under: '+st.under+LineBreak+'underClass: '+st.underClass+LineBreak;
+  result:=result+'queued: '+Conv.ToStr(vm.QueuedCount)+LineBreak+
+   'frame: '+Conv.ToStr(st.frame)+LineBreak;
+ end;
+
+// Mouse of the WINDOW parameter (AddRef'ed); needVirtual - the virtual mode must be on
+// (as requested, i.e. after the operations queued so far)
+function RobotMouseTarget(const req:TRobotRequest;needVirtual:boolean;
+  out vm:TVirtualMouse;out err:String8):boolean;
+ begin
+  vm:=FindVirtualMouse(req.Param('WINDOW'));
+  if vm=nil then begin
+   err:='window not found: '+req.Param('WINDOW');
+   exit(false);
+  end;
+  if needVirtual and not vm.RequestedActive then begin
+   vm.Release;
+   vm:=nil;
+   err:='virtual mouse is off: send mouse.mode with MODE: virtual first';
+   exit(false);
+  end;
+  result:=true;
+ end;
+
+procedure RobotMouseTrack(vm:TVirtualMouse;enabled:boolean);
+ var
+  i:integer;
+ begin
+  for i:=high(robotMice) downto 0 do
+   if (robotMice[i]=vm) or robotMice[i].IsClosed then begin
+    robotMice[i].Release;
+    robotMice[i]:=robotMice[high(robotMice)];
+    SetLength(robotMice,high(robotMice));
+   end;
+  if enabled then begin
+   vm.AddRef;
+   i:=length(robotMice);
+   SetLength(robotMice,i+1);
+   robotMice[i]:=vm;
+  end;
+ end;
+
+// Queue the operations of a request, answer at once (WAIT: no) or postpone it until the
+// last one is applied. Takes over the caller's reference to vm.
+function RobotMouseQueue(const req:TRobotRequest;vm:TVirtualMouse;
+  const ops:array of TVirtualMouseOp;out body:String8):boolean;
+ var
+  i,n:integer;
+  ticket:int64;
+  wait:boolean;
+ begin
+  result:=false;
+  try
+   if not RobotFlag(req.Param('WAIT'),true,wait) then begin
+    body:='WAIT should be yes or no';
+    exit;
+   end;
+   ticket:=0;
+   for i:=0 to high(ops) do begin
+    ticket:=vm.Queue(ops[i]);
+    if ticket=0 then begin
+     body:='window is closing';
+     exit;
+    end;
+   end;
+   if not wait then begin
+    body:=RobotMouseReport(vm,ticket,vm.TicketState(ticket)=vmtDone);
+    exit(true);
+   end;
+   n:=length(robotMouseRequests);
+   SetLength(robotMouseRequests,n+1);
+   robotMouseRequests[n].serial:=req.serial;
+   robotMouseRequests[n].mouse:=vm;
+   robotMouseRequests[n].ticket:=ticket;
+   vm:=nil; // the entry holds the reference now
+   body:=PENDING_ORDERED_TOKEN;
+   result:=true;
+  finally
+   if vm<>nil then vm.Release;
+  end;
+ end;
+
+// A postponed request is retried every poll: it only checks its operations, never
+// queues them again
+function RobotMouseContinue(const req:TRobotRequest;out body:String8):boolean;
+ var
+  i:integer;
+  vm:TVirtualMouse;
+  state:TVirtualMouseTicket;
+ begin
+  for i:=0 to high(robotMouseRequests) do
+   if robotMouseRequests[i].serial=req.serial then begin
+    vm:=robotMouseRequests[i].mouse;
+    state:=vm.TicketState(robotMouseRequests[i].ticket);
+    if state=vmtPending then begin
+     body:=PENDING_ORDERED_TOKEN;
+     exit(true);
+    end;
+    if state=vmtDone then begin
+     body:=RobotMouseReport(vm,robotMouseRequests[i].ticket,true);
+     result:=true;
+    end else begin
+     if vm.IsClosed then body:='window closed before the input was applied'
+      else body:='input was cancelled before it was applied';
+     result:=false;
+    end;
+    vm.Release;
+    robotMouseRequests[i]:=robotMouseRequests[high(robotMouseRequests)];
+    SetLength(robotMouseRequests,high(robotMouseRequests));
+    exit;
+   end;
+  body:='request state lost';
+  result:=false;
+ end;
+
+function RobotParseButton(const req:TRobotRequest;out btn:byte;out err:String8):boolean;
+ var
+  st:String8;
+ begin
+  st:=req.Param('BUTTON').Trim.ToLower;
+  result:=true;
+  if (st='') or (st='left') or (st='1') then btn:=1
+  else if (st='right') or (st='2') then btn:=2
+  else if (st='middle') or (st='3') then btn:=3
+  else begin
+   err:='unknown BUTTON: '+st+' (expected left, right or middle)';
+   result:=false;
+  end;
+ end;
+
+// X,Y (+SPACE) into a move operation; optional - both may be absent (hasPos=false)
+function RobotParseMove(const req:TRobotRequest;optional:boolean;out op:TVirtualMouseOp;
+  out hasPos:boolean;out err:String8):boolean;
+ var
+  sx,sy,space:String8;
+  x,y:integer;
+ begin
+  result:=false;
+  FillChar(op,sizeof(op),0);
+  op.kind:=vmoMove;
+  sx:=req.Param('X').Trim;
+  sy:=req.Param('Y').Trim;
+  hasPos:=(sx<>'') or (sy<>'');
+  if not hasPos then begin
+   if not optional then err:='X and Y parameters required'
+    else result:=true;
+   exit;
+  end;
+  if (sx='') or (sy='') then begin
+   err:='X and Y should be both specified or both omitted';
+   exit;
+  end;
+  if not (TryStrToInt(string(sx),x) and TryStrToInt(string(sy),y)) then begin
+   err:='X and Y should be integers';
+   exit;
+  end;
+  op.pos:=Types.Point(x,y);
+  space:=req.Param('SPACE').Trim.ToLower;
+  if (space<>'') and (space<>'canvas') and (space<>'client') then begin
+   err:='unknown SPACE: '+space+' (expected canvas or client)';
+   exit;
+  end;
+  op.clientSpace:=space='client';
+  result:=true;
+ end;
+
+function ButtonOp(btn:byte;pressed:boolean):TVirtualMouseOp;
+ begin
+  FillChar(result,sizeof(result),0);
+  result.kind:=vmoButton;
+  result.button:=btn;
+  result.pressed:=pressed;
+ end;
+
+function RobotCmdMouseMode(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+  mode:String8;
+  op:TVirtualMouseOp;
+ begin
+  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  mode:=req.Param('MODE').Trim.ToLower;
+  if (mode<>'virtual') and (mode<>'physical') then begin
+   body:='MODE should be virtual or physical';
+   exit(false);
+  end;
+  if not RobotMouseTarget(req,false,vm,body) then exit(false);
+  FillChar(op,sizeof(op),0);
+  op.kind:=vmoMode;
+  op.enable:=mode='virtual';
+  RobotMouseTrack(vm,op.enable);
+  result:=RobotMouseQueue(req,vm,[op],body);
+ end;
+
+function RobotCmdMouseReset(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+  op:TVirtualMouseOp;
+ begin
+  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if not RobotMouseTarget(req,false,vm,body) then exit(false);
+  if not vm.RequestedActive then begin // physical mode: nothing to reset
+   body:=RobotMouseReport(vm,0,true);
+   vm.Release;
+   exit(true);
+  end;
+  FillChar(op,sizeof(op),0);
+  op.kind:=vmoReset;
+  result:=RobotMouseQueue(req,vm,[op],body);
+ end;
+
+function RobotCmdMouseMove(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+  op:TVirtualMouseOp;
+  hasPos:boolean;
+ begin
+  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if not RobotParseMove(req,false,op,hasPos,body) then exit(false);
+  if not RobotMouseTarget(req,true,vm,body) then exit(false);
+  result:=RobotMouseQueue(req,vm,[op],body);
+ end;
+
+// mouse.down, mouse.up, mouse.click
+function RobotMouseButtonCmd(const req:TRobotRequest;down,up:boolean;out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+  move:TVirtualMouseOp;
+  ops:array of TVirtualMouseOp;
+  hasPos,isDown:boolean;
+  btn:byte;
+ begin
+  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if not RobotParseButton(req,btn,body) then exit(false);
+  if not RobotParseMove(req,true,move,hasPos,body) then exit(false);
+  if not RobotMouseTarget(req,true,vm,body) then exit(false);
+  isDown:=(vm.RequestedButtons and (1 shl (btn-1)))<>0;
+  if down and isDown then body:='button is already down: '+req.Param('BUTTON')
+  else if up and not down and not isDown then body:='button is not down: '+req.Param('BUTTON')
+  else body:='';
+  if body<>'' then begin
+   vm.Release;
+   exit(false);
+  end;
+  SetLength(ops,0);
+  if hasPos then ops:=[move];
+  if down then ops:=ops+[ButtonOp(btn,true)];
+  if up then ops:=ops+[ButtonOp(btn,false)];
+  result:=RobotMouseQueue(req,vm,ops,body);
+ end;
+
+function RobotCmdMouseDown(const req:TRobotRequest; out body:String8):boolean;
+ begin
+  result:=RobotMouseButtonCmd(req,true,false,body);
+ end;
+
+function RobotCmdMouseUp(const req:TRobotRequest; out body:String8):boolean;
+ begin
+  result:=RobotMouseButtonCmd(req,false,true,body);
+ end;
+
+function RobotCmdMouseClick(const req:TRobotRequest; out body:String8):boolean;
+ begin
+  result:=RobotMouseButtonCmd(req,true,true,body);
+ end;
+
+function RobotCmdMouseState(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+ begin
+  if not RobotMouseTarget(req,false,vm,body) then exit(false);
+  body:=RobotMouseReport(vm,0,true);
+  vm.Release;
+  result:=true;
+ end;
+
+// Postponed until every operation queued for the window so far is applied
+function RobotCmdMouseWait(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+  n:integer;
+ begin
+  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if not RobotMouseTarget(req,false,vm,body) then exit(false);
+  if vm.TicketState(vm.LastTicket)<>vmtPending then begin
+   body:=RobotMouseReport(vm,0,true);
+   vm.Release;
+   exit(true);
+  end;
+  n:=length(robotMouseRequests);
+  SetLength(robotMouseRequests,n+1);
+  robotMouseRequests[n].serial:=req.serial;
+  robotMouseRequests[n].mouse:=vm;
+  robotMouseRequests[n].ticket:=vm.LastTicket;
+  body:=PENDING_ORDERED_TOKEN;
+  result:=true;
+ end;
+
+// Robot API is shutting down: its pending requests are gone, and no window must stay
+// in the virtual mode with nobody to drive it
+procedure RobotMouseShutdown;
+ var
+  i:integer;
+  op:TVirtualMouseOp;
+ begin
+  for i:=0 to high(robotMouseRequests) do
+   robotMouseRequests[i].mouse.Release;
+  SetLength(robotMouseRequests,0);
+  FillChar(op,sizeof(op),0);
+  op.kind:=vmoMode;
+  op.enable:=false;
+  for i:=0 to high(robotMice) do begin
+   robotMice[i].Cancel;
+   robotMice[i].Queue(op); // no-op for a closed window
+   robotMice[i].Release;
+  end;
+  SetLength(robotMice,0);
+ end;
+
 // update UI scale for all scenes of the rebuilt window after a DPI change
 procedure OnSurfaceChanged(event:TEventStr;tag:TTag);
  var
@@ -1039,4 +1438,13 @@ initialization
  RegisterRobotCommand('ui.tree',@RobotCmdUITree);
  RegisterRobotCommand('ui.element',@RobotCmdUIElement);
  RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);
+ RegisterRobotCommand('mouse.mode',@RobotCmdMouseMode);
+ RegisterRobotCommand('mouse.reset',@RobotCmdMouseReset);
+ RegisterRobotCommand('mouse.move',@RobotCmdMouseMove);
+ RegisterRobotCommand('mouse.down',@RobotCmdMouseDown);
+ RegisterRobotCommand('mouse.up',@RobotCmdMouseUp);
+ RegisterRobotCommand('mouse.click',@RobotCmdMouseClick);
+ RegisterRobotCommand('mouse.state',@RobotCmdMouseState);
+ RegisterRobotCommand('mouse.wait',@RobotCmdMouseWait);
+ RegisterRobotShutdownHandler(RobotMouseShutdown);
  end.

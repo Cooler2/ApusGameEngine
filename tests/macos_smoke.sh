@@ -72,6 +72,7 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
   compile_only tests/OpenGL.dpr
   compile_only tests/TestTextEffects.dpr # needs a GL window: run locally
   compile_only tests/TestBlendModes.dpr # needs a GL window: run locally
+  compile_only tests/TestVirtualMouse.dpr
   compile_only tests/TestSteam.dpr
 fi
 

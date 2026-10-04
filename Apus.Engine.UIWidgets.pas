@@ -1470,6 +1470,9 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
     delta:=-1;
     clipMouse:=cmVirtual;
     clipMouseRect:=globalrect;
+    // grab offset at the press point: on the first move it would swallow that move
+    // (a fast drag, a virtual mouse jump)
+    onMouseMove;
    end;
    // Mouse released when slider is hooked - release it
    if (hooked=self) and not state then begin

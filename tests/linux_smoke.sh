@@ -76,6 +76,7 @@ compile_only tests/TestBlendModes.dpr # needs a GL window: run locally
 run_test tests/TestStyle.dpr
 run_test tests/TestUIHint.dpr
 run_test tests/TestWindowLock.dpr
+run_test tests/TestVirtualMouse.dpr
 run_test tests/TestSurface.dpr
 run_test tests/TestGpuLayout.dpr
 run_test tests/TestHttpGameClient.dpr

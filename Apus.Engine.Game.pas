@@ -765,6 +765,7 @@ function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
   body:='WINDOW: 0'+LineBreak+
+    '  name: '+window.name+LineBreak+ // the WINDOW parameter of mouse.* accepts it
     '  clientWidth: '+Conv.ToStr(window.clientWidth)+LineBreak+
     '  clientHeight: '+Conv.ToStr(window.clientHeight)+LineBreak+
     '  canvasWidth: '+Conv.ToStr(window.canvasWidth)+LineBreak+
@@ -1385,6 +1386,9 @@ begin
  if event.Same('MAINLOOPDONE') then begin
    DoneGraph;
   end else
+ if event.StartsWith('SINGLETOUCH',true) and window.virtualMouse.IsActive then begin
+   // touch drives the pointer too: not while the virtual mouse owns it
+ end else
  if event.Same('SINGLETOUCHSTART') then begin
     t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
@@ -1882,10 +1886,7 @@ procedure TGame.FrameLoop;
   window.timings.phaseMetrics:=fpsMetricsPending or
     ((dfShowFPS in debug.features) and Bits.HasAll(window.shiftState,sscShift));
   mb:=systemPlatform.GetMouseButtons;
-  if mb<>window.mouseButtons then begin
-    window.oldMouseButtons:=window.mouseButtons;
-    window.mouseButtons:=mb;
-  end;
+  window.SetPolledMouseButtons(mb); // ignored in the virtual mouse mode
 
   for i:=0 to High(window.keyState) do
    window.keyState[i]:=window.keyState[i] and 1+(window.keyState[i] and 1) shl 1;
@@ -1923,8 +1924,9 @@ procedure TGame.FrameLoop;
   window.LockState;
   try
     window.ApplyPendingSurface; // rebuild the surface (if requested) before anything reads it
-    window.SamplePointer; // poll cursor once per frame (frame-synced mouse input)
-    window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
+    // poll cursor once per frame (frame-synced mouse input) or apply the next virtual
+    // mouse operation, then aggregate the move and notify scenes once per frame
+    window.FrameMouseInput(true);
     Signal('Engine\Frame\Begin',window.frameNum); // input is in, scenes not processed yet
   finally
     window.UnlockState;
@@ -2239,6 +2241,8 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd.LockState; // surface-change handlers and scene processing touch window state
     try
      wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
+     // no per-frame pointer sampling here (buttons sample it), only the virtual mouse
+     wnd.FrameMouseInput(false);
      if wnd.OnFrame then
       wnd.screenChanged:=true;
     finally
