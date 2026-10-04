@@ -39,6 +39,7 @@ type
 
  private
   lastRenderTime:int64;
+  lastHandleTime:int64; // when Process last advanced the element timers, 0 - not yet
 //  prevModal:TUIControl;
  end;
 
@@ -84,8 +85,6 @@ var
 
 threadvar
  threadHandlersRegistered:boolean; // true after emQueued handlers registered for this render thread
-
- LastHandleTime:int64;
 
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIElement; // element to drag with mouse
@@ -258,6 +257,7 @@ function UIScene(name:String8):TUIScene;
   begin
    wnd.LockState;
    try
+    DropRemovedMouseState;
     // sync UI coords from window — button events arrive before FlushMouseInput
     curMouseX:=wnd.mousePos.x;
     curMouseY:=wnd.mousePos.y;
@@ -338,6 +338,7 @@ function UIScene(name:String8):TUIScene;
    wnd.LockState;
    time:=CoreTime.Ticks;
    try
+    DropRemovedMouseState;
     x:=wnd.mousePos.x; y:=wnd.mousePos.y;
     // apply mouse clipping
     if ClipMouse<>cmNo then with clipMouseRect do begin
@@ -454,6 +455,7 @@ function UIScene(name:String8):TUIScene;
    consumed:=false;
    wnd.LockState;
    try
+    DropRemovedMouseState;
     // sync UI coords from window — wheel events arrive before FlushMouseInput
     curMouseX:=wnd.mousePos.x;
     curMouseY:=wnd.mousePos.y;
@@ -529,6 +531,7 @@ function UIScene(name:String8):TUIScene;
      until (c=nil) or (c.parent=nil);
     end;
     // Capture handling: if mouse captor is hidden or disabled, clear capture and focus.
+    DropRemovedMouseState;
     if hooked<>nil then begin
      if not (hooked.IsVisible and hooked.IsEnabled) or
       ((window.modal.Root<>nil) and (hooked.GetRoot<>window.modal.Root)) then begin
@@ -538,16 +541,16 @@ function UIScene(name:String8):TUIScene;
      end;
     end;
 
-    if LastHandleTime=0 then begin // первая обработка скипается
-     LastHandleTime:=CoreTime.Ticks;
+    if lastHandleTime=0 then begin // the first call only starts the clock
+     lastHandleTime:=CoreTime.Ticks;
      exit;
     end;
     time:=CoreTime.Ticks;
-    delta:=time-LastHandleTime;
+    delta:=time-lastHandleTime;
     ProcessElementTree(UI);
 
     // обработка хинтов
-    if (window.hint.showTime>LastHandleTime) and (window.hint.showTime<=Time) then begin
+    if (window.hint.showTime>lastHandleTime) and (window.hint.showTime<=Time) then begin
      FindElementAt(window.mousePos.x,window.mousePos.y,c);
      if (c<>nil) then begin
       if c.flags.enabled then st:=c.hint
@@ -560,10 +563,17 @@ function UIScene(name:String8):TUIScene;
       end;
      end;
     end;
-    LastHandleTime:=time;
+    lastHandleTime:=time;
    finally
     window.UnlockState;
    end;
+  end;
+
+  // the design-mode drag item must not outlive its element; elements are freed in their
+  // window's thread, which owns hookedItem
+  procedure onItemDestroyed(event:TEventStr;tag:TTag);
+  begin
+   if TObject(tag)=hookedItem then hookedItem:=nil;
   end;
 
   // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
@@ -677,6 +687,7 @@ function UIScene(name:String8):TUIScene;
    // and the engine drains it via TGameScene.PumpInput → TUIScene.DispatchKey (see below).
    SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
    SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
+   SetEventHandler('UI\ItemDestroyed',onItemDestroyed,emInstant);
    initialized:=true;
   end;
 

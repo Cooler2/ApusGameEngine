@@ -165,7 +165,7 @@ that is **written by the same thread that renders that window**.
 | clip stack, render target stack, viewport, blend/depth state | `Apus.Engine.Graphics` |
 | transformation matrices (view, projection, object, MVP) | `TTransformationAPI` |
 | glyph caches, text measurement results, text vertex buffers | `Apus.Engine.TextDraw` |
-| `underMouse`, `hooked`, cursor coordinates | `Apus.Engine.UITypes` |
+| mouse dispatch state: `underMouse`, `hooked`, `clipMouse`, cursor coordinates | `Apus.Engine.UITypes` |
 | font handles resolved for drawing | see section 8 |
 
 **The trap.** A `threadvar` works as window state only under the "written by the
@@ -174,7 +174,14 @@ breaks silently: the writer updates its own copy, the renderer keeps reading its
 This is not hypothetical — `modalElement` was a `threadvar` written from
 `onClickAsync` worker threads, so the render thread's copy stayed `nil`, modal
 hit-test gating never engaged, and clicks passed through modal dialogs to the widgets
-underneath. The fix was to move it to genuine window state (`TWindow.modal`).
+underneath. The fix was to move it to genuine window state (`TWindow.modal`). Keyboard
+focus moved for the same reason (`TWindow.focus`): startup scenes set it from the control
+thread, workers set it after loading.
+
+The mouse dispatch state stays a `threadvar`: only the window's thread writes it, while
+dispatching input and in the handlers it calls, and only that thread reads it. Another
+thread sees its own empty copy. When another thread removes an element that holds the
+mouse capture (`TUIElement.Remove`), the window's dispatch drops the capture itself.
 
 So, before declaring a `threadvar`, answer: *is every writer the thread that renders
 this window?* If not, it is window state, and it is resolved through an explicit
@@ -507,9 +514,7 @@ The following differ from the contract above and are the things to fix.
 | 3 | No generation counter exists; triggers call the phase directly | `game.renderGen` plus a per-thread `lastRenderGen` |
 | 4 | `TTextDrawer.globalScale` is a `class threadvar` carrying both the per-window DPI scale and the program-wide preference | split the two roles; the preference is global, the DPI scale is per-window |
 | 5 | `game.screenScale` is application-global but computed only from `mainWindow` (`UpdateScreenScale` returns early for any other window) | per-window UI scale |
-| 6 | `TUIElement` keyboard focus (`fControl`) is a `threadvar` although it can be set from a worker thread | window state, like `TWindow.modal` |
-| 7 | The control thread relies on `window` being set to `mainWindow` for scene and UI setup | pass the window explicitly |
+| 6 | The control thread relies on `window` being set to `mainWindow` for scene and UI setup | pass the window explicitly |
 
 Items 1, 3, 4 and 5 are one piece of work; the analysis, the options and the staged
-plan are in `Work/text_scale_design.md`. Item 6 is the known remaining case of the
-`threadvar`-as-window-state mistake described in section 2.3.
+plan are in `Work/text_scale_design.md`.

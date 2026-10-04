@@ -1301,6 +1301,18 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   any window shows nothing. The cursor position comes from the window, not from the
   calling thread. Each window has its own hint; the hint element is named `_hint` (not a
   unique name).
+- Keyboard focus is window state (`TWindow.focus`, it was a threadvar of
+  `Apus.Engine.UITypes`): `SetFocus`, `HasFocus` and `IsActiveWindow` use the element's
+  window, `FocusedElement` and `SetFocusTo(nil)` the thread's window. Focus set from any
+  thread (the control thread at startup, a worker) is seen by the window. An element
+  outside any window doesn't take the focus. New `ClearFocus(wnd)`.
+- `underMouse`, `hooked`, `clipMouse`, `clipMouseRect` and the cursor coordinates stay
+  threadvars: mouse dispatch state of the window's thread, valid in that thread only. A
+  mouse captor removed from another thread is dropped by the window's dispatch
+  (`DropRemovedMouseState`). The open combo box drop-down is tracked per window thread (it
+  was one global).
+- Each `TUIScene` keeps its own clock for element timers: a clock shared by all UI scenes
+  of a thread stalled the timers of every scene processed after the first.
 - A UI element enters its parent's `children` in `AfterConstruction`, after the whole
   constructor chain (it was inserted by the base constructor, before the derived fields
   were set); `UI\ItemCreated` is sent at that point too. A derived constructor still has

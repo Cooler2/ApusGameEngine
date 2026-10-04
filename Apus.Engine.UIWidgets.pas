@@ -338,6 +338,7 @@ interface
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
    constructor Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil);
+   destructor Destroy; override;
    procedure AddItem(item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure SetItem(index:integer;item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure ClearItems;
@@ -379,8 +380,10 @@ implementation
    function GetPageSize:single;
   end;
 
- var
-  comboPop:TUIComboBox;      // если существует выпавший комбобокс (а он может быть только один) - он тут
+ threadvar
+  // combo box with its drop-down open (one per window): mouse dispatch state of the window
+  // thread, like underMouse - clicks open and close it
+  comboPop:TUIComboBox;
 
 { TUISpacer }
 
@@ -1913,6 +1916,12 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
 
    SetEventHandler('MOUSE\BTNDOWN',ComboEventHandler,emInstant);
    SetEventHandler('UI\ListBox\onSelect\_ComboBoxPopUp',ComboEventHandler,emInstant); // commit on line click
+  end;
+
+ destructor TUIComboBox.Destroy;
+  begin
+   if comboPop=self then comboPop:=nil; // the window thread frees elements (see TUIElement.Destroy)
+   inherited;
   end;
 
  procedure TUIComboBox.onDropDown;

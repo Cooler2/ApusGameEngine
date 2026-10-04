@@ -1,6 +1,7 @@
 // TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
 // Acquire/Release, the close protocol (BeginClose, WaitReleased), the context of
-// onClickAsync threads and deferred removal of UI elements (TUIElement.Remove).
+// onClickAsync threads, deferred removal of UI elements (TUIElement.Remove), keyboard
+// focus as window state and the window thread's mouse state of removed elements.
 // No native window: only the platform-independent part of TWindow.
 {$APPTYPE CONSOLE}
 program TestWindowLock;
@@ -45,6 +46,7 @@ var
   freedCount:integer;
   asyncGate:integer; // the async handler waits while 0
   removeTarget:TUIElement;
+  focusTarget:TUIElement;
   testScene:TGameScene;
 
 procedure TCounter.Increment;
@@ -126,7 +128,10 @@ function ClickAndWait(btn:TUIButton):boolean;
 // (one scene for all tests: scene names are unique)
 function NewSceneRoot(w:TWindow;const name:String8):TUIElement;
  begin
-  if testScene=nil then testScene:=TGameScene.Create(false);
+  if testScene=nil then begin
+   testScene:=TGameScene.Create(false);
+   testScene.name:='TestScene'; // scene names are unique
+  end;
   testScene.ownerWindow:=pointer(w);
   result:=TUIElement.Create(400,300,nil,name);
   result.ownerScene:=testScene;
@@ -340,6 +345,121 @@ procedure TestRemoveInHandlers;
   EndTest;
  end;
 
+procedure FocusWorker;
+ begin
+  focusTarget.SetFocus;
+  Atomic.Exchange(workerState,1);
+ end;
+
+procedure RunWorker(proc:TProcedure);
+ var
+  th:IThread;
+ begin
+  workerState:=0;
+  th:=Thread.Start('UIFocusWorker',TThreadProc(proc));
+  th.Wait(2000);
+ end;
+
+procedure TestFocus;
+ var
+  w1,w2:TWindow;
+  scene2:TGameScene;
+  root1,root2,e2,loose:TUIElement;
+  e1,e3:TProbe;
+ begin
+  StartTest('Focus is window state');
+  w1:=NewWindow('Focus1');
+  w2:=NewWindow('Focus2');
+  root1:=NewSceneRoot(w1,'FocusRoot1');
+  scene2:=TGameScene.Create(false);
+  scene2.name:='FocusScene2';
+  scene2.ownerWindow:=pointer(w2);
+  root2:=TUIElement.Create(400,300,nil,'FocusRoot2');
+  root2.ownerScene:=scene2;
+  e1:=TProbe.Create(10,10,root1,'Focus1A');
+  e2:=TUIElement.Create(10,10,root2,'Focus2A');
+
+  // focus set by another thread (startup scenes are built on the control thread)
+  focusTarget:=e1;
+  RunWorker(FocusWorker);
+  Check(workerState=1,'worker finished');
+  window:=w1;
+  Check(FocusedElement=e1,'focus set by a worker is seen in the window');
+  Check(e1.HasFocus and root1.HasFocus,'element and its ancestors have the focus');
+
+  // windows keep their own focus
+  e2.SetFocus;
+  Check(FocusedElement=e1,'focusing in another window keeps this window''s focus');
+  window:=w2;
+  Check(FocusedElement=e2,'the other window has its own focus');
+  SetFocusTo(nil);
+  Check((w2.focus.element=nil) and (w1.focus.element=e1),'SetFocusTo(nil) clears the thread''s window only');
+
+  // an element outside any window can't take the focus
+  window:=w1;
+  loose:=TUIElement.Create(10,10,nil,'FocusLoose');
+  loose.SetFocus;
+  Check(FocusedElement=e1,'detached element does not take the focus');
+  loose.Free;
+
+  // removal by a worker drops the focus at once
+  removeTarget:=e1;
+  RunWorker(RemoveWorker);
+  Check(workerState=1,'remove worker finished');
+  Check(w1.focus.element=nil,'focus of a removed element is dropped');
+  DestroyQueuedElements(w1);
+
+  // freeing the focused element drops the focus
+  e3:=TProbe.Create(10,10,root1,'Focus1B');
+  e3.SetFocus;
+  Check(FocusedElement=e3,'focus moved');
+  e3.Free;
+  Check(w1.focus.element=nil,'focus of a freed element is dropped');
+  window:=nil;
+
+  root1.Free;
+  root2.Free;
+  scene2.Free;
+  w1.Free;
+  w2.Free;
+  EndTest;
+ end;
+
+procedure TestRemovedMouseState;
+ var
+  w:TWindow;
+  root:TUIElement;
+  a:TProbe;
+ begin
+  StartTest('Mouse state of removed elements');
+  w:=NewWindow('MouseState');
+  root:=NewSceneRoot(w,'MouseStateRoot');
+  window:=w;
+  // this thread plays the window thread: it holds the mouse state
+  a:=TProbe.Create(10,10,root,'Captor');
+  hooked:=a;
+  underMouse:=a;
+  clipMouse:=cmVirtual;
+  removeTarget:=a;
+  RunWorker(RemoveWorker);
+  Check(workerState=1,'remove worker finished');
+  Check(hooked=a,'a worker can''t reach the window thread''s capture');
+  DropRemovedMouseState;
+  Check((hooked=nil) and (clipMouse=cmNo),'mouse dispatch drops the capture of a removed element');
+  Check(underMouse=nil,'and its hover');
+  DestroyQueuedElements(w);
+
+  // freeing in the window thread clears the capture as well
+  a:=TProbe.Create(10,10,root,'Captor2');
+  hooked:=a;
+  a.Free;
+  Check(hooked=nil,'freed captor releases the mouse');
+  window:=nil;
+  root.Free;
+  w.Free;
+  EndTest;
+ end;
+
 procedure TestLockContext;
  var
   w1,w2:TWindow;
@@ -498,5 +618,7 @@ begin
   TestAsyncClick;
   TestRemove;
   TestRemoveInHandlers;
+  TestFocus;
+  TestRemovedMouseState;
   if IsDebuggerPresent then readln;
 end.

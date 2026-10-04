@@ -339,9 +339,11 @@ type
 
 
 threadvar
-  // These variables are per-window, thus declared as threadvar.
-  // NOTE: modal state is NOT here — it lives in TWindow.modal (window state),
-  // because modal dialogs may be opened from any thread (e.g. onClickAsync).
+  // Mouse dispatch state of the thread's window. Only the window's thread writes it (mouse
+  // dispatch and the handlers it calls) and reads it (handlers, rendering), so a threadvar
+  // is the window's state here; other threads see their own empty copies.
+  // State that code sets from any thread lives in TWindow: modal dialogs (TWindow.modal),
+  // keyboard focus (TWindow.focus, see FocusedElement), hint (TWindow.hint).
   underMouse:TUIElement;     // element currently under mouse cursor
   hooked:TUIElement;         // if set, receives mouse events even without focus
 
@@ -353,8 +355,15 @@ threadvar
   lastGroupBox:TUIGroupBox; // last created TUIGroupBox (convenience reference for UI building)
 
 function DescribeElement(c:TUIElement):String8;
+// Element with keyboard focus in the thread's window (nil if none or no window context)
 function FocusedElement:TUIElement;
+// Focus the element in its window; nil - drop the focus of the thread's window
 procedure SetFocusTo(control:TUIElement);
+// Drop the keyboard focus of wnd (any thread)
+procedure ClearFocus(wnd:TWindow);
+// Drop the mouse capture of an element removed from another thread (TUIElement.Remove
+// can't reach the window thread's mouse state). Called by the window's mouse dispatch.
+procedure DropRemovedMouseState;
 
  // Keycode - virtual key
  // Returns true if a hotkey matched and consumed the key
@@ -384,9 +393,6 @@ implementation
 threadvar
   // Hotkeys
   hotKeys:array of THotKey;
-
-  fControl:TUIElement;  // element with keyboard focus (set automatically or manually)
-  activeWnd:TUIElement; // active window (set automatically when focus moves)
 
  var
   // deleted elements outside any window that were held at the time: freed by the next
@@ -513,18 +519,46 @@ function DescribeElement(c:TUIElement):String8;
 
  function FocusedElement;
   begin
-   result:=fControl;
+   if window<>nil then result:=TUIElement(window.focus.element)
+    else result:=nil;
   end;
 
  procedure SetFocusTo(control:TUIElement);
+  var
+   wnd:TWindow;
   begin
+   if control=nil then begin
+    if window<>nil then ClearFocus(window);
+    exit;
+   end;
+   wnd:=control.GetWindow;
+   if wnd=nil then exit; // focus is window state
+   wnd.LockState;
    try
-    if control<>nil then control.SetFocus
-     else begin
-      if fControl<>nil then fControl.onLostFocus;
-     end;
+    control.SetFocus;
    finally
-    fcontrol:=control;
+    wnd.focus.element:=control;
+    wnd.UnlockState;
+   end;
+  end;
+
+ procedure ClearFocus(wnd:TWindow);
+  begin
+   wnd.LockState;
+   try
+    if wnd.focus.element<>nil then TUIElement(wnd.focus.element).onLostFocus;
+   finally
+    wnd.focus.element:=nil;
+    wnd.UnlockState;
+   end;
+  end;
+
+ procedure DropRemovedMouseState;
+  begin
+   if (underMouse<>nil) and underMouse.deleted then underMouse:=nil;
+   if (hooked<>nil) and hooked.deleted then begin
+    hooked:=nil;
+    clipMouse:=cmNo;
    end;
   end;
 
@@ -648,9 +682,12 @@ function DescribeElement(c:TUIElement):String8;
   end;
 
  procedure TUIElement.CheckAndSetFocus;
+  var
+   wnd:TWindow;
   begin
-   if flags.canHaveFocus and (FocusedElement=nil) then
-    SetFocus;
+   if not flags.canHaveFocus then exit;
+   wnd:=GetWindow;
+   if (wnd<>nil) and (wnd.focus.element=nil) then SetFocus;
   end;
 
  class function TUIElement.ClassHash:pointer;
@@ -804,11 +841,17 @@ destructor TUIElement.Destroy;
    wnd:=GetWindow;
    ASSERT((wnd=nil) or wnd.IsOwnerThread,'UI element '+name+' freed from another thread: use Remove');
    try
-    if (wnd<>nil) and (wnd.hint.element=self) then wnd.hint.element:=nil;
-    if fControl=self then begin
-     onLostFocus;
-     fControl:=nil;
+    if wnd<>nil then begin
+     wnd.LockState;
+     try
+      if wnd.hint.element=self then wnd.hint.element:=nil;
+      if wnd.focus.activeWnd=self then wnd.focus.activeWnd:=nil;
+      if wnd.focus.element=self then ClearFocus(wnd);
+     finally
+      wnd.UnlockState;
+     end;
     end;
+    // mouse state is the window thread's, and so is this call (see the ASSERT above)
     if underMouse=self then underMouse:=parent;
     if hooked=self then hooked:=nil; // drop mouse capture so we never deref a freed element
     if parent<>nil then
@@ -1175,16 +1218,22 @@ function TUIElement.IsEnabled:boolean;
   end;
 
  function TUIElement.IsActiveWindow: boolean;
+  var
+   wnd:TWindow;
   begin
-   result:=activeWnd=self;
+   wnd:=GetWindow;
+   result:=(wnd<>nil) and (wnd.focus.activeWnd=self);
   end;
 
  function TUIElement.HasFocus:boolean;
   var
    c:TUIElement;
+   wnd:TWindow;
   begin
    result:=false;
-   c:=fControl;
+   wnd:=GetWindow;
+   if wnd=nil then exit;
+   c:=TUIElement(wnd.focus.element);
    while c<>nil do begin
     if c=self then begin
       result:=true; exit;
@@ -1665,8 +1714,11 @@ procedure TUIElement.MarkDeleted;
       if (stack[i]<>nil) and InSubtree(TUIElement(stack[i])) then Pop(TUIElement(stack[i]));
      if InSubtree(Root) then Pop(Root);
     end;
-   if InSubtree(fControl) then SetFocusTo(nil);
-   if InSubtree(activeWnd) then activeWnd:=nil;
+   if wnd<>nil then begin
+    if InSubtree(TUIElement(wnd.focus.element)) then ClearFocus(wnd);
+    if InSubtree(TUIElement(wnd.focus.activeWnd)) then wnd.focus.activeWnd:=nil;
+   end;
+   // the calling thread's mouse state; the window thread drops its own via DropRemovedMouseState
    if InSubtree(underMouse) then underMouse:=parent;
    if InSubtree(hooked) then begin
     hooked:=nil;
@@ -1795,49 +1847,58 @@ procedure TUIElement.MarkDeleted;
 
  procedure TUIElement.SetFocus;
   var
-   c:TUIElement;
+   c,old:TUIElement;
    i:integer;
+   wnd:TWindow;
   begin
    if not (flags.enabled and flags.visible) then exit;
-   // Сигнал о потере фокуса
-   if (fControl<>nil) and (fControl<>self) then with fControl do begin
-    onLostFocus;
-    if hooked<>nil then hooked.onLostFocus;
-   end;
-   // Первым делом нужно запомнить элемент, владеющий фокусом в окне (если он в окне)
-   if FocusedElement<>nil then begin
-    c:=FocusedElement;
+   wnd:=GetWindow;
+   if wnd=nil then exit; // focus is window state: an element outside any window can't get it
+   wnd.LockState;
+   try
+    // notify the element losing the focus
+    old:=TUIElement(wnd.focus.element);
+    if (old<>nil) and (old<>self) then begin
+     old.onLostFocus;
+     if hooked<>nil then hooked.onLostFocus;
+    end;
+    // remember the focused element of its window (if it's inside one)
+    old:=TUIElement(wnd.focus.element);
+    if old<>nil then begin
+     c:=old;
+     while (c.parent<>nil) and not c.IsWindow do c:=c.parent;
+     c.focusedChild:=old;
+    end;
+    wnd.focus.element:=nil; // allows recursive calls
+
+    // an element inside a window makes that window active
+    c:=self;
     while (c.parent<>nil) and not c.IsWindow do c:=c.parent;
-    c.focusedChild:=FocusedElement;
-   end;
-   fControl:=nil; // это для возможности рекурсивных вызовов
-
-   // Если данный элемент вложен в окно - сделаем это окно активным
-   c:=self;
-   while (c.parent<>nil) and not c.IsWindow do c:=c.parent;
-   if c.IsWindow then begin
-    activeWND:=c;
-    if self=c then begin // установка фокуса на окно
-     if focusedChild<>nil then begin
-      focusedChild.SetFocus; exit
-     end else // установка фокуса на первый доступный элемент
-      {$IFNDEF IOS}  // don't auto set focus for mobile devices
-      for i:=0 to length(children)-1 do
-       if children[i].flags.canHaveFocus then begin
-        children[i].SetFocus;
-        exit;
-       end;
-      {$ENDIF}
-  //   fControl:=self;
-     exit;
-    end
-     else fControl:=self;
-   end else begin
-    activeWND:=nil;
-    fControl:=self;
+    if c.IsWindow then begin
+     wnd.focus.activeWnd:=c;
+     if self=c then begin // focusing the window itself
+      if focusedChild<>nil then begin
+       focusedChild.SetFocus; exit
+      end else // focus the first focusable child
+       {$IFNDEF IOS}  // don't auto set focus for mobile devices
+       for i:=0 to length(children)-1 do
+        if children[i].flags.canHaveFocus then begin
+         children[i].SetFocus;
+         exit;
+        end;
+       {$ENDIF}
+      exit;
+     end
+      else wnd.focus.element:=self;
+    end else begin
+     wnd.focus.activeWnd:=nil;
+     wnd.focus.element:=self;
+    end;
+   finally
+    wnd.UnlockState;
    end;
 
-   // Сигнал о получении фокуса
+   // focus gained signal
    if (sendSignals=ssAll) and (name<>'') then Signal('UI\'+name+'\Focus',1);
   end;
 

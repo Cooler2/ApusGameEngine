@@ -166,8 +166,8 @@ var
  flags:cardinal;
 begin
  if prevscene is TUIScene then begin
-  if (FocusedElement<>nil) and (FocusedElement.GetRoot=(prevscene as TUIscene).UI) then
-   SetFocusTo(nil);
+  with (prevscene as TUIScene).UI do
+   if HasFocus then ClearFocus(GetWindow);
   (prevscene as TUIscene).UI.flags.enabled:=false;
  end;
  width:=game.GetSettings.width;
@@ -356,7 +356,7 @@ begin
 
  if mode=sweShowModal then begin
   scene.shadowColor:=0;
-  SetFocusTo(nil); // simulate mouse buttons release
+  ClearFocus(wnd); // simulate mouse buttons release
   // first modal opened? raise the global "under modal" shadow
   if wnd.modal.Root=nil then
    Signal('UI\SetGlobalShadow',$FF+duration shl 8);
@@ -373,8 +373,7 @@ begin
  end;
  // scene is being closed
  if (mode=sweHide) then begin
-  if (focusedElement<>nil) and (focusedElement.GetRoot=scene.UI) then
-    SetFocusTo(nil);
+  if scene.UI.HasFocus then ClearFocus(wnd);
   scene.activated:=false;
   wnd.modal.Pop(scene.UI); // remove from the modal stack, reactivate previous (if any)
   Log.Msg('ModalStack: %s',[wnd.modal.Info]);

@@ -112,6 +112,12 @@ type
   lastText:String8; // hint text of the element under the mouse in the previous frame
  end;
 
+ // Keyboard focus of a window (typed access: FocusedElement, TUIElement.SetFocus/HasFocus)
+ TWindowFocusState=record
+  element:TObject;   // element with keyboard focus (TUIElement), nil if none
+  activeWnd:TObject; // TUIWindow that holds the focus, nil if the focus is outside any
+ end;
+
  // Base class for engine windows.
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
@@ -196,6 +202,7 @@ public
   topmostScene:TGameScene; // last topmost active scene for this window
   modal:TModalState; // modal dialog state for this window (see TModalStateHelper)
   hint:TWindowHintState; // hint state for this window (see TUIHint.Current)
+  focus:TWindowFocusState; // keyboard focus in this window (see FocusedElement)
   deletedUI:array of TObject; // UI elements deleted in this window, freed at frame start (TUIElement.Remove)
   // Frame timing (per-window, read-only from outside):
   // - `*Us` is the single source of truth (high precision)
