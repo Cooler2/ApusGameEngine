@@ -231,7 +231,7 @@ function UIScene(name:String8):TUIScene;
    result:=Rect(0,0,0,0); // empty
    if UI=nil then exit;
    if UI.shape<>shapeEmpty then
-    result:=Rect(0,0,round(UI.size.x),round(UI.size.y));
+    result:=UI.GetPosOnScreen;
    for i:=0 to high(UI.children) do
     with UI.children[i] do
      if shape<>shapeEmpty then begin
@@ -241,7 +241,7 @@ function UIScene(name:String8):TUIScene;
       else
        UnionRect(result,result,r); // именно в таком порядке, иначе - косяк!
      end;
-   OffsetRect(result,round(UI.position.x),round(UI.position.y)); // actually, UI root shouldn't be displaced, but...
+   // Root and children are already in screen coordinates.
   end;
 
  // Window-level UI button dispatch: run the global hit-test once, deliver the
