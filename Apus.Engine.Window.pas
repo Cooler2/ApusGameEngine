@@ -327,9 +327,7 @@ type
 var
  surfaceConfigHook:TSurfaceConfigHook;
 
-function FindWindowForScene(scene:TGameScene):TWindow;
 function FindWindowByHandle(handle:THandle):TWindow;
-function FindWindowForUIRoot(root:TObject):TWindow;
 function ListWindows:TWindowArray;
 
 implementation
@@ -1394,81 +1392,6 @@ begin
  capture.videoMode:=false;
  {$ENDIF}
 end;
-
-function FindWindowForScene(scene:TGameScene):TWindow;
- var
-  i,j:integer;
-  list:TNamedObjects;
-  wnd:TWindow;
- begin
-  if scene=nil then exit(nil);
-  if scene.ownerWindow<>nil then
-   exit(TWindow(scene.ownerWindow));
-  if mainWindow<>nil then begin
-   mainWindow.Lock;
-   try
-    for j:=0 to high(mainWindow.scenes) do
-     if mainWindow.scenes[j]=scene then
-      exit(mainWindow);
-   finally
-    mainWindow.Unlock;
-   end;
-  end;
-  list:=windowHash.ListObjects;
-  for i:=0 to high(list) do begin
-   if not (list[i] is TWindow) then continue;
-   wnd:=list[i] as TWindow;
-   if wnd=mainWindow then continue;
-   wnd.Lock;
-   try
-    for j:=0 to high(wnd.scenes) do
-     if wnd.scenes[j]=scene then
-      exit(wnd);
-   finally
-    wnd.Unlock;
-   end;
-  end;
-  result:=nil;
- end;
-
-function FindWindowForUIRoot(root:TObject):TWindow;
- var
-  i,j:integer;
-  list:TNamedObjects;
-  wnd:TWindow;
-  scene:TGameScene;
- begin
-  if root=nil then exit(nil);
-  if mainWindow<>nil then begin
-   mainWindow.Lock;
-   try
-    for j:=0 to high(mainWindow.scenes) do begin
-     scene:=mainWindow.scenes[j];
-     if scene.GetUIRoot=root then
-      exit(mainWindow);
-    end;
-   finally
-    mainWindow.Unlock;
-   end;
-  end;
-  list:=windowHash.ListObjects;
-  for i:=0 to high(list) do begin
-   if not (list[i] is TWindow) then continue;
-   wnd:=list[i] as TWindow;
-   if wnd=mainWindow then continue;
-   wnd.Lock;
-   try
-    for j:=0 to high(wnd.scenes) do begin
-     scene:=wnd.scenes[j];
-     if scene.GetUIRoot=root then
-      exit(wnd);
-    end;
-   finally
-    wnd.Unlock;
-   end;
-  end;
-  result:=nil;
- end;
 
 function FindWindowByHandle(handle:THandle):TWindow;
  var

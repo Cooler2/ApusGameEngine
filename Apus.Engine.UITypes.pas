@@ -158,7 +158,7 @@ type
   function GetPrev:TUIElement; virtual;     // previous sibling by order
   function GetRoot:TUIElement;              // topmost ancestor
   function GetScene:TGameScene;             // owning scene
-  function GetWindow:TWindow;              // owning window
+  function GetWindow:TWindow;              // owning window, nil outside a scene tree
   function ChildIndex:integer;              // index in parent.children (-1 if no parent)
   function IsVisible:boolean;              // visible including all ancestors
   function IsEnabled:boolean;              // enabled including all ancestors
@@ -1050,11 +1050,13 @@ function TUIElement.GetWindow:TWindow;
  var
   scene:TGameScene;
  begin
- scene:=GetScene;
-  if (scene<>nil) and (scene.ownerWindow<>nil) then
+  // only through ownership links: an element outside a scene tree (detached, not built
+  // into a scene yet) has no window, so resolving it never locks or scans other windows
+  scene:=GetScene;
+  if scene<>nil then
    result:=TWindow(scene.ownerWindow)
   else
-   result:=FindWindowForUIRoot(GetRoot);
+   result:=nil;
  end;
 
 procedure TUIElement.Show;

@@ -105,8 +105,6 @@ var
  wnd:TWindow;
 begin
  wnd:=TWindow(scene.ownerWindow);
- if wnd=nil then
-  wnd:=FindWindowForScene(scene);
  ASSERT(wnd<>nil,'Can''t resolve owner window for scene '+scene.name);
  wnd.Lock({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
