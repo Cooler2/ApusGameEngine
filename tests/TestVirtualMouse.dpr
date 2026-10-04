@@ -172,13 +172,18 @@ function NewButton(parent:TUIElement;const name:String8;x,y:integer):TProbeButto
 
 // --- Robot API client ---
 
-// Send a batch (requests separated by '---') and run frames until it is answered
+// Send a batch (requests separated by '---') and run frames until it is answered.
+// The limit is in time, not in frames: window B runs its frames in its own thread at
+// the Sleep(1) granularity (~15 ms on Windows), window A here runs them back to back.
 function Robot(const requests:String8;out frames:integer):String8; overload;
+ var
+  start:int64;
  begin
   if Files.Exists(ROBOT_OUT) then Files.Delete(ROBOT_OUT);
   Files.Save(ROBOT_IN,requests+LineBreak+'==='+LineBreak);
   frames:=0;
   result:='';
+  start:=CoreTime.Ticks;
   repeat
    RunFrame(wndA);
    inc(frames);
@@ -189,7 +194,7 @@ function Robot(const requests:String8;out frames:integer):String8; overload;
     Files.Delete(ROBOT_OUT);
     exit;
    end;
-  until frames>=300;
+  until CoreTime.Ticks-start>5000;
  end;
 
 function Robot(const requests:String8):String8; overload;
