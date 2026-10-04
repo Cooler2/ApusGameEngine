@@ -47,6 +47,8 @@ type
   uMaterialColor:integer; // material tint (named "materialColor", mesh shaders only)
   uNormalMap:integer;      // normalMap sampler (unit 3, mesh shaders with LIGHT_NORMALMAP)
   uNormalStrength:integer; // normalStrength float (scales XY of the sampled tangent-space normal)
+  uAlphaCut:integer; // discard threshold (named "alphaCut"): fragments with lower alpha are dropped
+  alphaCut:single;   // value last uploaded to uAlphaCut
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
   matrixRevision:integer; // used to determine if matrix uniforms should be updated
@@ -203,6 +205,11 @@ const
  LIGHT_SHADOWMAP  = 32; // use shadowmap for light calculations (use ambient light only for pixels in shadow)
  LIGHT_DEPTHPASS  = 64; // use empty shader for rendering into a depth texture
  LIGHT_CUSTOMIZED = 128; // customized color calculation (low 4 bits contain index of customized shader code)
+
+ // Values of the stock shader "alphaCut" uniform
+ ALPHA_CUT_DEFAULT = 0.01; // drop transparent fragments: they must not dirty the depth buffer
+ ALPHA_CUT_NONE = -1.0;    // write every fragment (blMove replaces the target, transparent pixels included)
+ ALPHA_CUT_UNSET = -2.0;   // nothing uploaded yet
 
 procedure SetGLProgramLabel(handle:GLuint;const labelText:String8); inline;
  begin
@@ -363,6 +370,8 @@ constructor TGLShader.Create(h:TGLShaderHandle);
   uMaterialColor:=glGetUniformLocation(h,'materialColor');
   uNormalMap:=glGetUniformLocation(h,'normalMap');
   uNormalStrength:=glGetUniformLocation(h,'normalStrength');
+  uAlphaCut:=glGetUniformLocation(h,'alphaCut');
+  alphaCut:=ALPHA_CUT_UNSET;
  end;
 
 destructor TGLShader.Destroy;
@@ -507,6 +516,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
     AddLine(result,'uniform sampler2D tex'+inttostr(i)+';');
   AddLine(result,'uniform sampler2DShadow texShadowMap;',shadowMap);
   AddLine(result,'uniform float uFactor;');
+  AddLine(result,'uniform float alphaCut;');
   AddLine(result,'uniform vec3 ambientColor;',Bits.HasAll(texMode.lighting,LIGHT_AMBIENT_ON));
   if Bits.HasAll(texMode.lighting,LIGHT_DIRECT_ON) then begin
    AddLine(result,'uniform vec3 lightDir;');
@@ -590,7 +600,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV,hasMaterial:
    end;
   // Lighting
   AddLine(result,'  c = c*(lightColor*diff+ambientColor);',lighting);
-  AddLine(result,'  if (a<0.01) discard;'); // don't dirty depth buffer with transparent pixels
+  AddLine(result,'  if (a<alphaCut) discard;'); // see ALPHA_CUT_xxx
   AddLine(result,'  fragColor = vec4(c.r, c.g, c.b, a);');
 //  AddLine(result,'  fragColor = vec4(vLightPos.xyz, vColor.a);',shadowMap); // for debug output
   AddLine(result,'}');
@@ -1183,6 +1193,7 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
  var
   i:integer;
   tex:TTexture;
+  cut:single;
  begin
   // Transformations
   if transformationAPI.Update then
@@ -1192,6 +1203,15 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
    activeShader.UpdateMatrices(matrixRevision,shadowMapMatrix);
   end;
   if IsCustomized then ApplyCustomizedUniforms;
+  // Transparent fragments: dropped, except in blMove where they replace the target
+  if activeShader.uAlphaCut>=0 then begin
+   if renderTargetAPI.CurrentBlendMode=blMove then cut:=ALPHA_CUT_NONE
+    else cut:=ALPHA_CUT_DEFAULT;
+   if activeShader.alphaCut<>cut then begin
+    glUniform1f(activeShader.uAlphaCut,cut);
+    activeShader.alphaCut:=cut;
+   end;
+  end;
   // Textures (may have issues if shader changes but texture does not)
   curTexChanged:=curTexChanged and $FFFF;
   for i:=0 to high(curTextures) do begin

@@ -72,6 +72,7 @@ run_test() {
 compile_only tests/PlatformTest.dpr
 compile_only tests/OpenGL.dpr
 compile_only tests/TestTextEffects.dpr # needs a GL window: run locally
+compile_only tests/TestBlendModes.dpr # needs a GL window: run locally
 run_test tests/TestStyle.dpr
 run_test tests/TestUIHint.dpr
 run_test tests/TestWindowLock.dpr
