@@ -357,3 +357,9 @@ steamGameLang -> Steam.gameLanguage [Apus.Engine.SteamAPI]
 SetSteamAchievement -> ?Steam.SetAchievement(name) / Steam.ClearAchievement(name), then Steam.StoreStats [Apus.Engine.SteamAPI]
 GetSteamAuthTicket -> ?removed: use GetAuthTicketForWebApi (not wrapped yet) [Apus.Engine.SteamAPI]
 // steamID -> Steam.userID (not a rule: the name is too common)
+
+// === Window lock, cross-thread entry (Apus.Engine.Window) ===
+// TWindow.Lock/Unlock (internal reentrant lock) -> LockState/UnlockState: not a rule
+// (the names are too common); new TWindow.Lock/Unlock = worker entry (returns boolean)
+FindWindowForScene -> ?scene.ownerWindow [Apus.Engine.Window]
+FindWindowForUIRoot -> ?element.GetWindow [Apus.Engine.Window]

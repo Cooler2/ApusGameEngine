@@ -120,7 +120,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 - `Base/tests/Test*.dpr` - one per Base module area (Core, Conv, Strings, Types, Containers, HashMaps,
   Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, GfxFilters, GfxFormats, GlyphCache,
   Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
-- `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
+- `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestWindowLock`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
   `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`
   (needs a GL window); `OpenGL`, `PlatformTest` - compile-only smoke; run by `tests/linux_smoke.sh`,
   `tests/windows_smoke.ps1`, `tests/macos_smoke.sh`

@@ -24,6 +24,15 @@ type
  TWindowArray=array of TWindow;
  TRenderProc=procedure of object;
 
+ // Deferred call run on a window's own thread (see TWindow.QueueCall)
+ TWindowCall=procedure(param:pointer);
+ TWindowMethod=procedure of object;
+ TWindowQueuedCall=record
+  call:TWindowCall;     // either call (with param)...
+  method:TWindowMethod; // ...or method
+  param:pointer;
+ end;
+
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
   // 0 - keep in data, 2 - save as JPEG, 3 - save as PNG
@@ -119,6 +128,15 @@ private
   frameDeltaMsValue:int64;
   frameStartSecValue:double;
   frameDeltaSecValue:double;
+  // Lifetime and cross-thread entry (see Acquire, Lock, QueueCall, BeginClose)
+  ownerThread:TThreadIdent;
+  usageCount:integer;   // references taken by Acquire
+  closingValue:integer; // 1 once BeginClose was called
+  callLock:TLock;       // guards callQueue; a leaf lock: nothing is entered inside
+  callQueue:array of TWindowQueuedCall;
+  queuedCount:integer;  // length of callQueue, readable without callLock
+  function GetClosing:boolean;
+  function AddQueuedCall(const c:TWindowQueuedCall):boolean;
   procedure SetupViewport;   // apply the current surface to the graphics backend
   procedure EnsureDefaultRT; // create the default RT if the surface needs one
   procedure UpdateSurfaceRT; // keep the default RT in sync with surface.renderSize
@@ -195,8 +213,36 @@ public
   procedure SetFrameTiming(startUs,deltaUs:int64);
   procedure ResetFrameTiming;
 
+  // Window state lock (scene list, UI tree, window UI state): reentrant, no lifetime
+  // guarantee, no context switch. Engine code; worker threads use Lock/Unlock.
   procedure LockState(caller:pointer=nil);
   procedure UnlockState;
+
+  // Thread that runs this window's frames - the one that created it (main window too)
+  property ownerThreadID:TThreadIdent read ownerThread;
+  function IsOwnerThread:boolean;
+  // Set once the window starts closing; never cleared. From then on Acquire, Lock and
+  // QueueCall fail.
+  property closing:boolean read GetClosing;
+  // Keep a reference to the window across time or threads: false once it is closing.
+  // A raw window pointer kept by another thread without Acquire is unsafe.
+  function Acquire:boolean;
+  procedure Release;
+  // Worker entry: Acquire + LockState + this thread's `window` context. Returns false
+  // (holding nothing) if the window is closing. Reentrant. Unlock restores the previous
+  // context; an Unlock without a matching successful Lock in this thread does nothing.
+  function Lock:boolean;
+  procedure Unlock;
+  // Run the call on this window's thread at the start of its next frame, under the
+  // window lock. Any thread. False if the window is closing: the call will not run and
+  // param stays with the caller. Every accepted call runs exactly once - at a frame
+  // start or, at the latest, while the window closes (check `closing` there).
+  function QueueCall(call:TWindowCall;param:pointer=nil):boolean; overload;
+  function QueueCall(method:TWindowMethod):boolean; overload;
+  // Engine side of the above
+  procedure RunQueuedCalls; // window's thread at frame start; the closer after its thread stopped
+  procedure BeginClose;     // first step of closing: refuse new Acquire/Lock/QueueCall
+  function WaitReleased(timeoutMs:integer):boolean; // all Acquire references released?
   procedure ResetSceneData;
   procedure AddScene(scene:TGameScene);
   function RemoveScene(scene:TGameScene):boolean;
@@ -355,6 +401,8 @@ constructor TWindow.Create(windowName:String8='MainWnd');
   // pending surface data and the game object are entered inside it
   runtimeLock.Init('Window',20);
   pendingLock.Init('WndSurface',25);
+  callLock.Init('WndCalls',800);
+  ownerThread:=GetCurrentThreadID; // windows are created by the thread that runs their frames
   config.Init;
   surfaceInput.Init(0,0,96);
   Mem.Clear(surface,sizeof(surface));
@@ -363,6 +411,7 @@ constructor TWindow.Create(windowName:String8='MainWnd');
 
 destructor TWindow.Destroy;
  begin
+  callLock.Cleanup;
   pendingLock.Cleanup;
   runtimeLock.Cleanup;
   inherited;
@@ -401,6 +450,177 @@ procedure TWindow.LockState(caller:pointer=nil);
 procedure TWindow.UnlockState;
  begin
   runtimeLock.Leave;
+ end;
+
+threadvar
+ // windows entered by this thread through TWindow.Lock (innermost last)
+ enteredWindows:array[0..7] of record
+  wnd:TWindow;
+  depth:integer;
+  prevWindow:TWindow; // `window` context to restore
+ end;
+ enteredCount:integer;
+
+function TWindow.IsOwnerThread:boolean;
+ begin
+  result:=GetCurrentThreadID=ownerThread;
+ end;
+
+function TWindow.GetClosing:boolean;
+ begin
+  result:=closingValue<>0;
+ end;
+
+function TWindow.Acquire:boolean;
+ begin
+  Atomic.Inc(usageCount);
+  // the closer sets the flag first and then waits for usageCount=0
+  if closingValue<>0 then begin
+   Atomic.Dec(usageCount);
+   exit(false);
+  end;
+  result:=true;
+ end;
+
+procedure TWindow.Release;
+ begin
+  ASSERT(usageCount>0,'Window '+name+': Release without Acquire');
+  Atomic.Dec(usageCount);
+ end;
+
+function TWindow.Lock:boolean;
+ var
+  i:integer;
+ begin
+  for i:=0 to enteredCount-1 do
+   if enteredWindows[i].wnd=self then begin
+    LockState({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+    inc(enteredWindows[i].depth);
+    exit(true);
+   end;
+  if not Acquire then exit(false);
+  LockState({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+  if closing then begin // started closing while we were waiting for the lock
+   UnlockState;
+   Release;
+   exit(false);
+  end;
+  ASSERT(enteredCount<=high(enteredWindows),'Too many windows entered by one thread');
+  with enteredWindows[enteredCount] do begin
+   wnd:=self;
+   depth:=1;
+   prevWindow:=window;
+  end;
+  inc(enteredCount);
+  window:=self;
+  result:=true;
+ end;
+
+procedure TWindow.Unlock;
+ var
+  i,j:integer;
+ begin
+  for i:=enteredCount-1 downto 0 do
+   if enteredWindows[i].wnd=self then begin
+    UnlockState;
+    dec(enteredWindows[i].depth);
+    if enteredWindows[i].depth=0 then begin
+     window:=enteredWindows[i].prevWindow;
+     for j:=i to enteredCount-2 do enteredWindows[j]:=enteredWindows[j+1];
+     dec(enteredCount);
+     Release;
+    end;
+    exit;
+   end;
+  // no matching successful Lock in this thread (e.g. Lock failed while closing): nothing to undo
+ end;
+
+function TWindow.AddQueuedCall(const c:TWindowQueuedCall):boolean;
+ var
+  n:integer;
+ begin
+  callLock.Enter;
+  try
+   if closingValue<>0 then exit(false);
+   n:=length(callQueue);
+   SetLength(callQueue,n+1);
+   callQueue[n]:=c;
+   queuedCount:=n+1;
+   result:=true;
+  finally
+   callLock.Leave;
+  end;
+ end;
+
+function TWindow.QueueCall(call:TWindowCall;param:pointer=nil):boolean;
+ var
+  c:TWindowQueuedCall;
+ begin
+  ASSERT(Assigned(call));
+  c.call:=call;
+  c.method:=nil;
+  c.param:=param;
+  result:=AddQueuedCall(c);
+ end;
+
+function TWindow.QueueCall(method:TWindowMethod):boolean;
+ var
+  c:TWindowQueuedCall;
+ begin
+  ASSERT(Assigned(method));
+  c.call:=nil;
+  c.method:=method;
+  c.param:=nil;
+  result:=AddQueuedCall(c);
+ end;
+
+procedure TWindow.RunQueuedCalls;
+ var
+  calls:array of TWindowQueuedCall;
+  i:integer;
+ begin
+  if queuedCount=0 then exit; // a call queued right now runs next time
+  callLock.Enter;
+  try
+   calls:=callQueue;
+   callQueue:=nil;
+   queuedCount:=0;
+  finally
+   callLock.Leave;
+  end;
+  LockState;
+  try
+   for i:=0 to high(calls) do
+    try
+     if Assigned(calls[i].call) then
+      calls[i].call(calls[i].param)
+     else
+      calls[i].method();
+    except
+     on e:Exception do Log.Error('Window %s: queued call failed: %s',[name,ExceptionMsg(e)]);
+    end;
+  finally
+   UnlockState;
+  end;
+ end;
+
+procedure TWindow.BeginClose;
+ begin
+  callLock.Enter; // so that no call is accepted after the final RunQueuedCalls
+  try
+   Atomic.Exchange(closingValue,1);
+  finally
+   callLock.Leave;
+  end;
+ end;
+
+function TWindow.WaitReleased(timeoutMs:integer):boolean;
+ var
+  t:int64;
+ begin
+  t:=CoreTime.Ticks+timeoutMs;
+  while (usageCount>0) and (CoreTime.Ticks<t) do CoreTime.Sleep(1);
+  result:=usageCount=0;
  end;
 
 procedure TWindow.ReleaseGraphContext;

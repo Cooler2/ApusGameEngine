@@ -1255,3 +1255,27 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   failed: no library, no client, client outdated). Removed: `GetSteamAuthTicket` (SDK 1.57+ requires
   the asynchronous `GetAuthTicketForWebApi` for Web API checks - add it when a
   server needs it) and the raw `SteamAPI_*` imports.
+
+## 2026-10-04 — Window lock, cross-thread entry into a window
+
+- The window lock is the outermost engine runtime lock (level 20; window surface data
+  25, the game object 30). The scene list is guarded by it: `TGameBase.AddScene`,
+  `RemoveScene` and `TopmostVisibleScene` no longer take the game lock.
+- The internal reentrant lock `TWindow.Lock(caller)`/`Unlock` is renamed to
+  **`LockState`/`UnlockState`**. It still gives no lifetime guarantee and does not
+  switch the `window` context.
+- New cross-thread API of `TWindow`:
+  - `Lock:boolean`/`Unlock` - worker entry: keeps the window alive, takes its lock
+    and sets the thread's `window` context; false if the window is closing. Reentrant;
+    `Unlock` restores the previous context and does nothing without a matching `Lock`.
+  - `QueueCall(proc,param)`/`QueueCall(method)` - run a call on the window's thread at
+    the start of its next frame, under the window lock. Every accepted call runs
+    exactly once (at the latest while the window closes); false if closing.
+  - `Acquire`/`Release` - keep a reference to the window across threads.
+  - `closing`, `ownerThreadID`, `IsOwnerThread`; engine side: `BeginClose`,
+    `RunQueuedCalls`, `WaitReleased`.
+- Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
+  (use `element.GetWindow`, which resolves the window through the scene only).
+- Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become
+  `LockState`/`UnlockState`; a worker thread that changes UI uses `Lock`/`Unlock` and
+  checks the result. No upgrader rule: `Lock`/`Unlock` are too common to rename blindly.

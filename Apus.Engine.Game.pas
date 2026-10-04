@@ -1724,8 +1724,10 @@ begin
  list:=ListWindows;
 
  for i:=0 to high(list) do
-  if (list[i]<>nil) and (list[i]<>mainWindow) and (list[i].renderThread<>nil) then
+  if (list[i]<>nil) and (list[i]<>mainWindow) and (list[i].renderThread<>nil) then begin
+   list[i].BeginClose;
    list[i].renderThread.Terminate;
+  end;
 
  for i:=0 to high(list) do
   if (list[i]<>nil) and (list[i]<>mainWindow) and (list[i].renderThread<>nil) then begin
@@ -1872,6 +1874,7 @@ procedure TGame.FrameLoop;
  begin
   t:=CoreTime.Ticks;
   Thread.Ping;
+  window.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
   // Обновление ввода с клавиатуры (и кнопок мыши)
   window.shiftState:=systemPlatform.GetShiftKeysState;
   window.timings.phaseMetrics:=fpsMetricsPending or
@@ -2078,12 +2081,21 @@ procedure TGame.MainThreadLoop;
    Log.Force('Finalization');
 
    // Финализация
+   if window<>nil then begin
+    window.BeginClose;
+    window.RunQueuedCalls;
+   end;
    gameEx.StopExtraWindows;
    gameEx.DoneGraph;
    wnd:=window;
    if wnd<>nil then begin
     wnd.Close;
-    FreeAndNil(window);
+    if wnd.WaitReleased(2000) then
+     FreeAndNil(window)
+    else begin
+     Log.Error('Main window is still acquired by another thread: not freed');
+     window:=nil;
+    end;
     if mainWindow=wnd then mainWindow:=nil;
    end;
   except
@@ -2170,6 +2182,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    // frame loop
    repeat
    Thread.Ping;
+    wnd.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
     presented:=false;
     if wnd.timings.frameTimerReady then
      deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000)
@@ -2241,6 +2254,8 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
 
    // cleanup
    Log.Msg('Extra window closing: %s',[wnd.name]);
+   wnd.BeginClose; // also when the user closed it: no new calls, run the accepted ones
+   wnd.RunQueuedCalls;
    wnd.DoneGraph;
    wnd.Close;
   except
@@ -2309,14 +2324,22 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   end;
  end;
 
+// Close protocol: refuse new Acquire/Lock/QueueCall -> stop the window's thread (it runs
+// the accepted calls on its way out) -> wait for Acquire references -> free
 procedure TGame.RemoveWindow(wnd:TWindow);
  begin
   if wnd=nil then exit;
+  wnd.BeginClose;
   if wnd.renderThread<>nil then begin
    wnd.renderThread.Terminate;
    while wnd.renderThread.IsRunning do
     CoreTime.Sleep(1);
    wnd.renderThread:=nil;
+  end;
+  wnd.RunQueuedCalls; // if the thread died before draining them
+  if not wnd.WaitReleased(2000) then begin
+   Log.Error('Window %s is still acquired by another thread: not freed',[wnd.name]);
+   exit;
   end;
   FreeAndNil(wnd);
  end;
