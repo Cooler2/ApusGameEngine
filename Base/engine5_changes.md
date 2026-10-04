@@ -1295,6 +1295,16 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   `DeleteChildren` now removes the children this way. `DestroyQueuedElements` takes the
   window. `Detach` builds a new `children` array, so loops over a snapshot
   (`list:=children`) survive removals made by the handlers they call.
+- Hint state is window state (`TWindow.hint`): **`TUIHint.Current` -> `TUIHint.Current(wnd)`**;
+  `UI.CurrentHint` reads the thread's window. `ShowSimpleHint` works from any thread under
+  the window lock of the parent's window (no parent: the thread's window); a parent outside
+  any window shows nothing. The cursor position comes from the window, not from the
+  calling thread. Each window has its own hint; the hint element is named `_hint` (not a
+  unique name).
+- A UI element enters its parent's `children` in `AfterConstruction`, after the whole
+  constructor chain (it was inserted by the base constructor, before the derived fields
+  were set); `UI\ItemCreated` is sent at that point too. A derived constructor still has
+  `parent` set but does not find itself in `parent.children`.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
   (use `element.GetWindow`, which resolves the window through the scene only).
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become

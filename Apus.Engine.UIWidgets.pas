@@ -87,10 +87,10 @@ interface
    constructor Create(x,y:single;text:String8;parent_:TUIElement);
    destructor Destroy; override;
    procedure Hide;
-   // Hint shown by ShowSimpleHint in this thread, nil if none. Destroying the hint by any
-   // path (including the destruction of its parent) resets it, so it never dangles.
-   class function Current:TUIHint; static;
-   procedure MakeCurrent; // the previous current hint is not freed
+   // Hint shown by ShowSimpleHint in the window, nil if none. Removing or freeing the hint
+   // by any path (including with its parent) resets it, so it never dangles.
+   class function Current(wnd:TWindow):TUIHint; static;
+   procedure MakeCurrent; // current in its window; the previous current hint is not freed
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onTimer; override;
   end;
@@ -381,9 +381,6 @@ implementation
 
  var
   comboPop:TUIComboBox;      // если существует выпавший комбобокс (а он может быть только один) - он тут
-
- threadvar
-  currentHint:TUIHint; // see TUIHint.Current
 
 { TUISpacer }
 
@@ -1584,7 +1581,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
  constructor TUIHint.Create(x,y:single;text:String8;parent_:TUIElement);
   begin
-   inherited Create(1,1,parent_,'hint');
+   inherited Create(1,1,parent_,'_hint'); // not a unique name: every window may show a hint
    SetPos(x,y,pivotTopLeft);
    shape:=shapeEmpty;
    simpleText:=text;
@@ -1596,18 +1593,23 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
  destructor TUIHint.Destroy;
   begin
-   if currentHint=self then currentHint:=nil;
-   inherited;
+   inherited; // drops the window's reference
   end;
 
- class function TUIHint.Current:TUIHint;
+ class function TUIHint.Current(wnd:TWindow):TUIHint;
   begin
-   result:=currentHint;
+   if wnd<>nil then
+    result:=TUIHint(wnd.hint.element)
+   else
+    result:=nil;
   end;
 
  procedure TUIHint.MakeCurrent;
+  var
+   wnd:TWindow;
   begin
-   currentHint:=self;
+   wnd:=GetWindow;
+   if wnd<>nil then wnd.hint.element:=self;
   end;
 
  procedure TUIHint.Hide;

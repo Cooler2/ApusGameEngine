@@ -56,8 +56,9 @@ type
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
 
- // Create a popup window and attach it to the given parent
- // Only one such hint exists per thread: the next call frees the previous one (see TUIHint.Current)
+ // Create a popup hint and attach it to the given parent (nil: the root under the mouse of
+ // the thread's window). Any thread. One such hint per window: the next call removes the
+ // previous one (see TUIHint.Current). A parent outside any window shows nothing.
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
 implementation
@@ -86,15 +87,6 @@ threadvar
 
  LastHandleTime:int64;
 
-
- // параметры хинтов
- hintRect:tRect; // область, к которой относится хинт
- // переменные для работы с хинтами элементов
- hintMode:cardinal; // время (в тиках), до которого длится режим показа хинтов
-                   // в этом режиме хинты выпадают гораздо быстрее
- itemShowHintTime:cardinal; // момент времени, когда элемент должен показать хинт
- lastHint:String8; // text of the hint for the element under cursor in the previous frame
-
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIElement; // element to drag with mouse
 
@@ -115,36 +107,48 @@ function UIScene(name:String8):TUIScene;
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   var
    hint:TUIHint;
-   i:integer;
+   wnd:TWindow;
+   area:TRect;
   begin
-    Log.Debug('ShowHint: '+msg);
+   Log.Debug('ShowHint: '+msg);
    msg:=Translate(msg);
-   if (x=-1) or (y=-1) then begin
-    x:=curMouseX; y:=curMouseY;
-    hintRect:=Rect(x-8,y-8,x+8,y+8);
-   end else begin
-    hintRect:=Rect(0,0,4000,4000);
+   // the parent's window; without a parent the hint goes under the mouse of the thread's window
+   if parent<>nil then wnd:=parent.GetWindow
+    else wnd:=window;
+   if wnd=nil then begin
+    Log.Msg('ShowSimpleHint: no window for "'+msg+'"');
+    exit;
    end;
-   if parent=nil then begin
-    FindElementAt(x,y,parent);
-    if parent=nil then begin
-     if (window<>nil) and (window.topmostScene is TUIScene) then
-      parent:=TUIScene(window.topmostScene).UI;
+   wnd.LockState;
+   try
+    if (x=-1) or (y=-1) then begin
+     x:=wnd.mousePos.x; y:=wnd.mousePos.y;
+     area:=Rect(x-8,y-8,x+8,y+8);
     end else
-     parent:=parent.GetRoot;
-   end;
-   if parent=nil then exit;
-   if TUIHint.Current<>nil then begin
-     Log.Debug('Free previous hint');
-    TUIHint.Current.Remove; // MakeCurrent below replaces TUIHint.Current
-   end;
-   hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
-
-   if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
-   hint.timer:=time;
-   hint.order:=10000; // Top
-   hint.MakeCurrent;
+     area:=Rect(0,0,4000,4000);
+    if parent=nil then begin
+     FindElementAt(x,y,parent);
+     if parent=nil then begin
+      if wnd.topmostScene is TUIScene then
+       parent:=TUIScene(wnd.topmostScene).UI;
+     end else
+      parent:=parent.GetRoot;
+     if parent=nil then exit;
+    end;
+    if TUIHint.Current(wnd)<>nil then begin
+     Log.Debug('Remove previous hint');
+     TUIHint.Current(wnd).Remove;
+    end;
+    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
+    if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
+    hint.timer:=time;
+    hint.order:=10000; // Top
+    wnd.hint.area:=area;
+    hint.MakeCurrent;
     Log.Debug('Hint created '+inttohex(UIntPtr(hint),16));
+   finally
+    wnd.UnlockState;
+   end;
   end;
 
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
@@ -354,8 +358,8 @@ function UIScene(name:String8):TUIScene;
 
     // hide hint if mouse left hint rect
     {$IFNDEF IOS}
-    if moved and (TUIHint.Current<>nil) and TUIHint.Current.flags.visible and
-       not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then TUIHint.Current.Hide;
+    if moved and (TUIHint.Current(wnd)<>nil) and TUIHint.Current(wnd).flags.visible and
+       not PtInRect(wnd.hint.area,types.Point(curMouseX,curMouseY)) then TUIHint.Current(wnd).Hide;
     {$ENDIF}
 
     // design mode drag
@@ -402,17 +406,19 @@ function UIScene(name:String8):TUIScene;
        not curUnder.flags.enabled and (curUnder.attributes.Item['hintIfDisabled']<>'')) then begin
      if curUnder.flags.enabled then st:=curUnder.hint
       else st:=curUnder.attributes.Item['hintIfDisabled'];
-     if st<>lastHint then begin
-      if st='' then itemShowHintTime:=0
-      else begin
-       if time<hintMode then itemShowHintTime:=time+250
-        else itemShowHintTime:=time+Conv.ToInt(curUnder.attributes.Item['hintDelay'],1000);
+     with wnd.hint do begin
+      if st<>lastText then begin
+       if st='' then showTime:=0
+       else begin
+        if time<fastUntil then showTime:=time+250
+         else showTime:=time+Conv.ToInt(curUnder.attributes.Item['hintDelay'],1000);
+       end;
       end;
+      lastText:=st;
      end;
-     lastHint:=st;
     end else begin
-     itemShowHintTime:=0;
-     lastHint:='';
+     wnd.hint.showTime:=0;
+     wnd.hint.lastText:='';
     end;
 
     // consumer model: a real control (not a fullscreen root) consumes the move;
@@ -541,15 +547,15 @@ function UIScene(name:String8):TUIScene;
     ProcessElementTree(UI);
 
     // обработка хинтов
-    if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
+    if (window.hint.showTime>LastHandleTime) and (window.hint.showTime<=Time) then begin
      FindElementAt(window.mousePos.x,window.mousePos.y,c);
      if (c<>nil) then begin
       if c.flags.enabled then st:=c.hint
        else st:=c.attributes.Item['hintIfDisabled'];
       if st<>'' then begin
        ShowSimpleHint(st,nil,-1,-1,Conv.ToInt(c.attributes.Item['hintDuration'],3000));
-       HintRect:=c.globalRect;
-       HintMode:=time+5000;
+       window.hint.area:=c.globalRect;
+       window.hint.fastUntil:=time+5000;
        Signal('UI\onHint\'+c.ClassName+'\'+c.name);
       end;
      end;

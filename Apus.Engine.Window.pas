@@ -103,6 +103,15 @@ type
   stackSize:integer;
  end;
 
+ // Hint state of a window (typed access: TUIHint.Current, ShowSimpleHint)
+ TWindowHintState=record
+  element:TObject;  // hint (TUIHint) shown by the last ShowSimpleHint, nil if none
+  area:TRect;       // leaving this area (canvas coordinates) hides the hint
+  fastUntil:int64;  // until then element hints pop up faster (right after one was shown)
+  showTime:int64;   // when the hint of the element under the mouse is due, 0 - none
+  lastText:String8; // hint text of the element under the mouse in the previous frame
+ end;
+
  // Base class for engine windows.
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
@@ -186,6 +195,7 @@ public
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
   modal:TModalState; // modal dialog state for this window (see TModalStateHelper)
+  hint:TWindowHintState; // hint state for this window (see TUIHint.Current)
   deletedUI:array of TObject; // UI elements deleted in this window, freed at frame start (TUIElement.Remove)
   // Frame timing (per-window, read-only from outside):
   // - `*Us` is the single source of truth (high precision)

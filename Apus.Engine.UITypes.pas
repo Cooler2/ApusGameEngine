@@ -149,7 +149,10 @@ type
   class threadvar sender:TUIElement; // sender element in callback handlers
 
   // --- Lifecycle ---
+  // The element enters its parent's children in AfterConstruction - only when the whole
+  // constructor chain has finished, so no thread sees it half-built
   constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
+  procedure AfterConstruction; override;
   destructor Destroy; override;
   // Delete the element: take it out of the tree now, free it later - on its window's
   // thread at the start of the next frame (right away if it is not in a window). Any
@@ -701,10 +704,8 @@ procedure TUIElement.DeleteChildren(filter:String8='');
   begin
    list:=children;
    children:=nil;
-   for i:=0 to high(list) do begin
-    list[i].parent:=nil; // already out of the children list
-    list[i].Free;
-   end;
+   for i:=0 to high(list) do
+    list[i].Free; // parent stays set: the child resolves its window in Destroy
   end;
 
 constructor TUIGroupBox.Create(width,height:single;parent_:TUIElement;name_:String8='');
@@ -756,15 +757,9 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    focusedChild:=nil;
    ownerScene:=nil;
 
-   wnd:=GetWindow;
-   if wnd<>nil then wnd.LockState;
-   try
-   if parent<>nil then begin // add to the parents children
-    ASSERT(not parent.deleted,'Creating a UI element in a deleted parent');
-    n:=length(parent.children);
-    inc(n); order:=n;
-    SetLength(parent.children,n);
-    parent.children[n-1]:=self;
+   // not in the tree yet (see AfterConstruction): no window lock needed
+   if parent<>nil then begin
+    order:=length(parent.children)+1;
     if width=FILL_PARENT then begin
      size.x:=parent.clientWidth;
      anchors.left:=0; anchors.right:=1;
@@ -778,8 +773,25 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    end;
    fInitialSize:=size;
    globalRect:=GetPosOnScreen;
-   finally
-   if wnd<>nil then wnd.UnlockState;
+  end;
+
+ procedure TUIElement.AfterConstruction;
+  var
+   n:integer;
+   wnd:TWindow;
+  begin
+   inherited;
+   if parent<>nil then begin // publish: add to the parent's children
+    wnd:=GetWindow;
+    if wnd<>nil then wnd.LockState;
+    try
+     ASSERT(not parent.deleted,'Creating a UI element in a deleted parent');
+     n:=length(parent.children);
+     SetLength(parent.children,n+1);
+     parent.children[n]:=self;
+    finally
+     if wnd<>nil then wnd.UnlockState;
+    end;
    end;
    Signal('UI\ItemCreated',TTag(self));
   end;
@@ -792,6 +804,7 @@ destructor TUIElement.Destroy;
    wnd:=GetWindow;
    ASSERT((wnd=nil) or wnd.IsOwnerThread,'UI element '+name+' freed from another thread: use Remove');
    try
+    if (wnd<>nil) and (wnd.hint.element=self) then wnd.hint.element:=nil;
     if fControl=self then begin
      onLostFocus;
      fControl:=nil;
@@ -1637,7 +1650,7 @@ procedure TUIElement.MarkDeleted;
      if child.SubtreeHeld then exit(true);
   end;
 
- // The window's own state is cleared here. Thread-local UI state (focus, mouse, hotkeys)
+ // The window's own state (modal, hint) is cleared here. Thread-local UI state (focus, mouse, hotkeys)
  // can only be cleared for the calling thread; the window thread's copies are cleared by
  // Destroy at the next frame start - until then they point to a detached, live element.
  procedure TUIElement.ForgetSubtree(wnd:TWindow);
@@ -1645,6 +1658,7 @@ procedure TUIElement.MarkDeleted;
    i,max:integer;
    c:TUIElement;
   begin
+   if (wnd<>nil) and InSubtree(TUIElement(wnd.hint.element)) then wnd.hint.element:=nil;
    if wnd<>nil then
     with wnd.modal do begin
      for i:=stackSize downto 1 do
