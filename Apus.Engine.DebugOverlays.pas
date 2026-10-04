@@ -291,7 +291,7 @@ var
    sList:array of TGameScene;
    s:TGameScene;
  begin
-   game.Lock;
+   window.Lock;
    try
     n:=length(window.scenes);
     SetLength(sList,n);
