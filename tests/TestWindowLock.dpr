@@ -7,6 +7,7 @@
 {$APPTYPE CONSOLE}
 program TestWindowLock;
 uses
+  {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   SysUtils,
   Apus.Core,
   Apus.Threads,
