@@ -106,7 +106,7 @@ var
 begin
  wnd:=TWindow(scene.ownerWindow);
  ASSERT(wnd<>nil,'Can''t resolve owner window for scene '+scene.name);
- wnd.Lock({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+ wnd.LockState({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
  if scene.effect<>nil then begin
   Log.Force('Scene '+scene.name+' already has an effect!');
@@ -118,12 +118,12 @@ begin
  if prevScene is TUIScene then Log.Msg('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
  finally
-  wnd.Unlock;
+  wnd.UnlockState;
  end;
 
  target.SetStatus(TSceneStatus.ssActive);
 
- wnd.Lock({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+ wnd.LockState({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
  if target is TUIScene then (target as TUIScene).UI.flags.enabled:=false;
 
@@ -139,7 +139,7 @@ begin
  dontPlay:=disableEffects;
  if pfRenderTarget=ipfNone then dontPlay:=true;
  finally
-  wnd.Unlock;
+  wnd.UnlockState;
  end;
 end;
 
@@ -333,7 +333,7 @@ begin
  buffer:=nil;
  // Показ модального окна
  wnd:=scene.UI.GetWindow;
- wnd.Lock;
+ wnd.LockState;
  try
   // RenderFrame and effect replacement must use the same owning-window lock.
   Log.Msg('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]);
@@ -387,7 +387,7 @@ begin
  if duration=0 then onDone; // Immediate action
 
  finally
-  wnd.Unlock;
+  wnd.UnlockState;
  end;
  except
   on e:exception do Log.Force('Failed to create SWE effect: '+ExceptionMsg(e));

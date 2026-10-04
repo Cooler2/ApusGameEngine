@@ -122,7 +122,7 @@ procedure UseParentCmd(cmd:string8);
  var
   c:TUIElement;
  begin
-  window.Lock;
+  window.LockState;
   try
   delete(cmd,1,10);
   cmd:=UpperCase {TODO: use st.ToUpper}(cmd);
@@ -132,7 +132,7 @@ procedure UseParentCmd(cmd:string8);
    raise EWarning.Create('Object not found - '+cmd);
   defaults.parentObj:=c;
   finally
-   window.Unlock;
+   window.UnlockState;
   end;
  end;
 
@@ -140,7 +140,7 @@ procedure SetFocusCmd(cmd:string8);
  var
   c:TUIElement;
  begin
-  window.Lock;
+  window.LockState;
   try
    if length(cmd)=8 then c:=curobj
    else begin
@@ -153,7 +153,7 @@ procedure SetFocusCmd(cmd:string8);
    if not c.flags.canHaveFocus then raise EError.Create('This object can''t have focus!');
    c.SetFocus;
   finally
-   window.Unlock;
+   window.UnlockState;
   end;
  end;
 
@@ -162,7 +162,7 @@ procedure CreateCmd(cmd:string8);
   sa:Strings8;
   c:TUIElement;
  begin
-  window.Lock;
+  window.LockState;
   try
    if defaults.parentObj=nil then raise EError.Create('No object selected, use "UseParent" to select parent object first!');
    delete(cmd,1,7);
@@ -204,7 +204,7 @@ procedure CreateCmd(cmd:string8);
    curObjClass:=TVarTypeUIElement;
    curobjname:=c.name;
   finally
-   window.Unlock;
+   window.UnlockState;
   end;
  end;
 
@@ -254,7 +254,7 @@ procedure SetHotKeyCmd(cmd:string8);
   sa:Strings8;
   obj:TUIElement;
  begin
-  window.Lock;
+  window.LockState;
   try
    delete(cmd,1,10);
    cmd:=UpperCase {TODO: use st.ToUpper}(cmd);
@@ -279,7 +279,7 @@ procedure SetHotKeyCmd(cmd:string8);
     obj.SetHotKey(key,shift);
    end;
   finally
-   window.Unlock;
+   window.UnlockState;
   end;
  end;
 

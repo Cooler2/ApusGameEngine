@@ -401,7 +401,7 @@ implementation
    enabl:boolean;
   begin
    c:=nil; maxZ:=-1;
-   window.Lock;
+   window.LockState;
    try
    CollectUIRoots(roots,zOrders,true);
    // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
@@ -422,7 +422,7 @@ implementation
    end;
    result:=(c<>nil) and c.flags.enabled;
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
   end;
 
@@ -566,7 +566,7 @@ implementation
    wnd:=e.GetWindow;
    if wnd=nil then
     raise EError.Create('Can''t resolve window for UI command target '+value);
-   wnd.Lock;
+   wnd.LockState;
    try
     if SameText(event,'toggle') then
       e.Toggle
@@ -586,7 +586,7 @@ implementation
     if SameText(event,'show') then
      e.Show;
    finally
-    wnd.Unlock;
+    wnd.UnlockState;
    end;
   end;
 

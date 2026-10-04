@@ -648,7 +648,7 @@ procedure TUIElement.DeleteChildren(filter:String8='');
     end;
   begin
    wnd:=GetWindow;
-   if wnd<>nil then wnd.Lock;
+   if wnd<>nil then wnd.LockState;
    try
     if filter<>'' then begin
      SetLength(keep,length(children));
@@ -673,7 +673,7 @@ procedure TUIElement.DeleteChildren(filter:String8='');
      children:=keep;
     end;
    finally
-    if wnd<>nil then wnd.Unlock;
+    if wnd<>nil then wnd.UnlockState;
    end;
   end;
 
@@ -727,7 +727,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    ownerScene:=nil;
 
    wnd:=GetWindow;
-   if wnd<>nil then wnd.Lock;
+   if wnd<>nil then wnd.LockState;
    try
    if parent<>nil then begin // add to the parents children
     n:=length(parent.children);
@@ -748,7 +748,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    fInitialSize:=size;
    globalRect:=GetPosOnScreen;
    finally
-   if wnd<>nil then wnd.Unlock;
+   if wnd<>nil then wnd.UnlockState;
    end;
    Signal('UI\ItemCreated',TTag(self));
   end;
@@ -1263,7 +1263,7 @@ procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
    wnd:TWindow;
   begin
    wnd:=GetWindow;
-   if wnd<>nil then wnd.Lock;
+   if wnd<>nil then wnd.LockState;
    try
    i:=0; max:=high(hotkeys);
    while i<=max do
@@ -1277,7 +1277,7 @@ procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
      inc(i);
     SetLength(hotkeys,max+1);
    finally
-    if wnd<>nil then wnd.Unlock;
+    if wnd<>nil then wnd.UnlockState;
    end;
   end;
 
@@ -1741,11 +1741,11 @@ procedure DestroyQueuedElements;
   wnd:TWindow;
   begin
     wnd:=window;
-    if wnd<>nil then wnd.Lock;
+    if wnd<>nil then wnd.LockState;
     try
      toDelete.FreeAll;
     finally
-     if wnd<>nil then wnd.Unlock;
+     if wnd<>nil then wnd.UnlockState;
     end;
   end;
 

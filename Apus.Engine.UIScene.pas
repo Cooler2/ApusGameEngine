@@ -149,12 +149,12 @@ function UIScene(name:String8):TUIScene;
 
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
   begin
-   window.Lock;
+   window.LockState;
    try
     if tag=0 then
      SetFocusTo(nil);
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
  end;
 
@@ -252,7 +252,7 @@ function UIScene(name:String8):TUIScene;
    st:String8;
    i:integer;
   begin
-   wnd.Lock;
+   wnd.LockState;
    try
     // sync UI coords from window — button events arrive before FlushMouseInput
     curMouseX:=wnd.mousePos.x;
@@ -306,7 +306,7 @@ function UIScene(name:String8):TUIScene;
      if e and (c<>nil) then c.onMouseButtons(btn,false);
     end;
    finally
-    wnd.Unlock;
+    wnd.UnlockState;
    end;
    // forward the raw button to gameplay scenes (custom onMouseBtn overrides).
    // The UI element above already got its onMouseButtons exactly once, so this
@@ -331,7 +331,7 @@ function UIScene(name:String8):TUIScene;
    i:integer;
   begin
    deliver:=false;
-   wnd.Lock;
+   wnd.LockState;
    time:=CoreTime.Ticks;
    try
     x:=wnd.mousePos.x; y:=wnd.mousePos.y;
@@ -428,7 +428,7 @@ function UIScene(name:String8):TUIScene;
     end;
     wnd.mouseOverUI:=overUI;
    finally
-    wnd.Unlock;
+    wnd.UnlockState;
    end;
    // forward the move to gameplay scenes (they read wnd.moveKind to know the kind)
    if deliver then
@@ -446,7 +446,7 @@ function UIScene(name:String8):TUIScene;
    i:integer;
   begin
    consumed:=false;
-   wnd.Lock;
+   wnd.LockState;
    try
     // sync UI coords from window — wheel events arrive before FlushMouseInput
     curMouseX:=wnd.mousePos.x;
@@ -456,7 +456,7 @@ function UIScene(name:String8):TUIScene;
      consumed:=c.parent<>nil; // a real control swallowed the wheel
     end;
    finally
-    wnd.Unlock;
+    wnd.UnlockState;
    end;
    if not consumed then
     for i:=low(wnd.scenes) to high(wnd.scenes) do
@@ -495,7 +495,7 @@ function UIScene(name:String8):TUIScene;
   begin
    result:=true;
    Signal('Scenes\ProcessScene\'+name);
-   window.Lock;
+   window.LockState;
    // deferred removal of UI elements
 
    // Root UI element covers the whole screen.
@@ -556,7 +556,7 @@ function UIScene(name:String8):TUIScene;
     end;
     LastHandleTime:=time;
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
   end;
 
@@ -577,7 +577,7 @@ function UIScene(name:String8):TUIScene;
    if window=nil then exit;
    delete(event,1,length('UI\SETFOCUS\'));
    eName:=event;
-   window.Lock;
+   window.LockState;
    try
     if (eName='') or (eName='NIL') then begin
      SetFocusTo(nil);
@@ -589,7 +589,7 @@ function UIScene(name:String8):TUIScene;
     if TGameScene(e.GetRoot.ownerScene).ownerWindow<>window then exit;
     e.setFocus;
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
   end;
 
@@ -612,7 +612,7 @@ function UIScene(name:String8):TUIScene;
    // StartMeasure(11); {TODO Migrate this}
    if UI<>nil then begin
     Signal('Scenes\'+name+'\BeforeUIRender');
-    window.Lock;
+    window.LockState;
     try
      try
       gfx.SetCullMode(TCullMode.DrawAll);
@@ -621,7 +621,7 @@ function UIScene(name:String8):TUIScene;
       on e:exception do raise EError.Create('UI.DrawUI '+name+' Err '+e.message);
      end;
     finally
-     window.Unlock;
+     window.UnlockState;
     end;
     Signal('Scenes\'+name+'\AfterUIRender');
    end;
@@ -638,7 +638,7 @@ function UIScene(name:String8):TUIScene;
    if window=nil then exit;
    name:=copy(event,length('UI\CLICK\')+1,length(event));
    if name='' then exit;
-   window.Lock;
+   window.LockState;
    try
      e:=FindElement(name,false);
      if e=nil then exit;
@@ -649,7 +649,7 @@ function UIScene(name:String8):TUIScene;
      e.onMouseButtons(1,true);
      e.onMouseButtons(1,false);
    finally
-     window.Unlock;
+     window.UnlockState;
    end;
  end;
 
@@ -711,7 +711,7 @@ function UIScene(name:String8):TUIScene;
    uiConsumed:=false;
    hasFocus:=false;
    keyc:=ord(key);
-   window.Lock;
+   window.LockState;
    try
     if (UI<>nil) and UI.flags.enabled then begin
      if pressed and (keyc=ord('S')) and (shift=8+2) then PrintUILog; // Win+Ctrl+S
@@ -731,7 +731,7 @@ function UIScene(name:String8):TUIScene;
       if pressed then uiConsumed:=ProcessHotKey(keyc,shift);
     end;
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
    if uiConsumed then exit(true);
    if hasFocus then exit(false); // a focused element captures input → gameplay is suppressed
@@ -823,7 +823,7 @@ begin
   sceneName:=req.Param('SCENE');
   maxDepth:=Conv.ToInt(req.Param('DEPTH'));
   body:='';
-   window.Lock;
+   window.LockState;
   try
     if sceneName<>'' then begin
       root:=FindUISceneRoot(sceneName);
@@ -839,7 +839,7 @@ begin
           DumpTree(TUIScene(window.scenes[i]).UI,0,maxDepth,body);
     end;
    finally
-    window.Unlock;
+    window.UnlockState;
   end;
   result:=true;
 end;
@@ -933,7 +933,7 @@ begin
   eName:=req.Param('NAME');
   includeHierarchy:=IsTrueValue(req.Param('HIERARCHY'));
   if eName='' then begin body:='NAME parameter required'; exit(false) end;
- window.Lock;
+ window.LockState;
   try
     e:=FindElement(eName,false);
     if e=nil then begin body:='element not found: '+eName; exit(false) end;
@@ -955,7 +955,7 @@ begin
       end;
     end;
  finally
-  window.Unlock;
+  window.UnlockState;
   end;
   result:=true;
 end;
@@ -1001,7 +1001,7 @@ procedure OnSurfaceChanged(event:TEventStr;tag:TTag);
   wnd:=TWindow(UIntPtr(tag));
   if wnd=nil then exit;
   if not (TSurfaceChange.dpi in wnd.surface.changes) then exit;
-  wnd.Lock;
+  wnd.LockState;
   try
    for i:=0 to high(wnd.scenes) do begin
     scene:=wnd.scenes[i];
@@ -1013,7 +1013,7 @@ procedure OnSurfaceChanged(event:TEventStr;tag:TTag);
       end;
    end;
   finally
-   wnd.Unlock;
+   wnd.UnlockState;
   end;
  end;
 

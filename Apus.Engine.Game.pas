@@ -943,7 +943,7 @@ begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
   activeOnly:=req.Param('ACTIVE_ONLY')<>'';
   body:='';
-  window.Lock;
+  window.LockState;
   try
     for s in window.scenes do begin
       if activeOnly and (s.status<>ssActive) then continue;
@@ -955,7 +955,7 @@ begin
         '  class: '+String8(s.ClassName)+LineBreak;
     end;
   finally
-    window.Unlock;
+    window.UnlockState;
   end;
   if body='' then begin body:='no scenes available'; exit(false) end;
   result:=true;
@@ -1168,7 +1168,7 @@ var
   end;
 begin
   with game do begin
-   window.Lock; // scene list and UI tree belong to the window
+   window.LockState; // scene list and UI tree belong to the window
    try
      // Frame log
      assign(f,'framelog.log');
@@ -1193,7 +1193,7 @@ begin
 
      gfx.resman.Dump('User request');
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
  end;
 end;
@@ -1838,7 +1838,7 @@ var
  sc:TUIScene;
  modal:TUIElement;
 begin
- window.Lock;
+ window.LockState;
  try
   result:=nil;
   maxZ:=-10000000;
@@ -1859,7 +1859,7 @@ begin
     end;
    end;
  finally
-  window.Unlock;
+  window.UnlockState;
  end;
 end;
 
@@ -2214,11 +2214,11 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     if wnd.active and wnd.screenChanged then begin
      gfx.BeginPaint(nil);
      try
-      wnd.Lock;
+      wnd.LockState;
       try
        gameEx.RenderScenesForWindow(wnd);
       finally
-       wnd.Unlock;
+       wnd.UnlockState;
       end;
      finally
       gfx.EndPaint;

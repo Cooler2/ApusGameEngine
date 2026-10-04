@@ -150,12 +150,12 @@ var
    if scene=nil then exit;
    if window=nil then exit;
    if not (TSurfaceChange.dpi in window.surface.changes) then exit;
-   window.Lock;
+   window.LockState;
    try
     if (curMsg<>nil) and scene.IsActive then
      scene.UpdateUI(curMsg.msg,curMsg.mType,curMsg.x,curMsg.y);
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
   end;
 

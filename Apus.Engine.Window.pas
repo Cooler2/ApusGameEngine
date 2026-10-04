@@ -195,8 +195,8 @@ public
   procedure SetFrameTiming(startUs,deltaUs:int64);
   procedure ResetFrameTiming;
 
-  procedure Lock(caller:pointer=nil);
-  procedure Unlock;
+  procedure LockState(caller:pointer=nil);
+  procedure UnlockState;
   procedure ResetSceneData;
   procedure AddScene(scene:TGameScene);
   function RemoveScene(scene:TGameScene):boolean;
@@ -391,14 +391,14 @@ class function TWindow.ClassHash:pointer;
   result:=@windowHash;
  end;
 
-procedure TWindow.Lock(caller:pointer=nil);
+procedure TWindow.LockState(caller:pointer=nil);
  begin
   if caller=nil then
    caller:={$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF};
   runtimeLock.Enter(caller);
  end;
 
-procedure TWindow.Unlock;
+procedure TWindow.UnlockState;
  begin
   runtimeLock.Leave;
  end;
@@ -590,7 +590,7 @@ procedure TWindow.AddScene(scene:TGameScene);
  begin
   if scene=nil then
    raise EError.Create('Cannot add nil scene');
-  Lock;
+  LockState;
   try
    for i:=low(scenes) to high(scenes) do
     if scenes[i]=scene then
@@ -600,7 +600,7 @@ procedure TWindow.AddScene(scene:TGameScene);
    scenes[i]:=scene;
    scene.ownerWindow:=pointer(self);
   finally
-   Unlock;
+   UnlockState;
   end;
  end;
 
@@ -609,7 +609,7 @@ function TWindow.RemoveScene(scene:TGameScene):boolean;
   i,n:integer;
  begin
   result:=false;
-  Lock;
+  LockState;
   try
    for i:=low(scenes) to high(scenes) do
     if scenes[i]=scene then begin
@@ -620,7 +620,7 @@ function TWindow.RemoveScene(scene:TGameScene):boolean;
      exit(true);
     end;
   finally
-   Unlock;
+   UnlockState;
   end;
  end;
 
@@ -629,7 +629,7 @@ function TWindow.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
   i:integer;
  begin
   result:=nil;
-  Lock;
+  LockState;
   try
    for i:=low(scenes) to high(scenes) do
     if scenes[i].IsActive then begin
@@ -640,7 +640,7 @@ function TWindow.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
       if scenes[i].zorder>result.zorder then result:=scenes[i];
     end;
   finally
-   Unlock;
+   UnlockState;
   end;
  end;
 
@@ -879,7 +879,7 @@ begin
  result:=false;
  DestroyQueuedElements;
 
- Lock;
+ LockState;
  try
   // sort scenes by zOrder
   if high(scenes)>1 then
@@ -888,10 +888,10 @@ begin
      if scenes[i+1].zorder>scenes[i].zorder then
       Swap(scenes[i],scenes[i+1],sizeof(scenes[i]));
  finally
-  Unlock;
+  UnlockState;
  end;
 
- Lock;
+ LockState;
  try
   // sync UI root order with scene zOrder
   for i:=0 to high(scenes) do
@@ -900,7 +900,7 @@ begin
      if (UI<>nil) then
       ui.order:=scenes[i].zorder;
  finally
-  Unlock;
+  UnlockState;
  end;
 
  // Drain keyboard buffers and dispatch synchronously, before Process.
@@ -934,7 +934,7 @@ begin
  deltaTime:=integer(frameDeltaMs);
  FLog('RF1');
 
- Lock;
+ LockState;
  try
   txt.ClearLink;
   try
@@ -994,7 +994,7 @@ begin
   if n>0 then topmostScene:=sc[n]
    else topmostScene:=nil;
  finally
-  Unlock;
+  UnlockState;
  end;
 
  gfx.BeginPaint(dRT);
@@ -1314,25 +1314,25 @@ end;
 
 procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
- Lock;
+ LockState;
  try
   if saveAsJPEG then capture.target:=2
    else capture.target:=3;
   capture.singleFrame:=true;
  finally
-  Unlock;
+  UnlockState;
  end;
 end;
 
 procedure TWindow.RequestFrameCapture(obj:TObject=nil);
 begin
- Lock;
+ LockState;
  try
   capture.singleFrame:=true;
   capture.target:=0;
   capture.data:=obj;
  finally
-  Unlock;
+  UnlockState;
  end;
 end;
 

@@ -291,13 +291,13 @@ var
    sList:array of TGameScene;
    s:TGameScene;
  begin
-   window.Lock;
+   window.LockState;
    try
     n:=length(window.scenes);
     SetLength(sList,n);
     for i:=0 to high(window.scenes) do sList[i]:=window.scenes[i];
    finally
-    window.Unlock;
+    window.UnlockState;
    end;
    y:=0;
    draw.FillRect(0,0,game.screenScale*360,(n+0.4)*game.screenScale*16,$80000000);
@@ -380,7 +380,7 @@ var
 
  begin
   settings:=game.GetSettings;
-  window.Lock; // overlays read window state (scene list, UI)
+  window.LockState; // overlays read window state (scene list, UI)
   try
   showHelp:=(window=mainWindow) and IsDebugHotkeyModifierHeld;
   case state.overlay of
@@ -498,7 +498,7 @@ var
   // Screenshot confirmation is now a toast (see Window screenshot path -> ShowToast).
 
  finally
-  window.Unlock;
+  window.UnlockState;
  end;
 end;
 
