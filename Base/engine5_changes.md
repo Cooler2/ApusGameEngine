@@ -1324,6 +1324,13 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   scene state hands it back in `Replace` (protected, virtual), not only in its destructor,
   so the new effect starts from the restored state; `TShowWindowEffect` does this and
   skips the rest of its `DrawScene` once `replaced` is set.
+- Scene shadows (`TGameScene.shadowColor`): a scene draws only the part of its shadow not
+  covered by the shadows of the scenes above it, so a stack of modal scenes with equal
+  shadows dims the screen with one fill (the top one) instead of one per scene; the area
+  under a scene is dimmed by the strongest shadow among it and the scenes above. Scenes of
+  extra windows draw their shadows too (they were skipped).
+- Removed: the unused global "under modal" shadow - `modalShadowColor` (UIScene) and the
+  `UI\SetGlobalShadow` signal.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
   (use `element.GetWindow`, which resolves the window through the scene only).
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become

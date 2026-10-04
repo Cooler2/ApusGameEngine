@@ -1159,11 +1159,32 @@ begin
  frameLog:=frameLog+st+#13#10;
 end;
 
+// Shadows (dimming layers) to draw under the scenes sc[0..n-1], sorted bottom to top.
+// A scene draws only the part of its shadow not covered by the shadows above it: the area
+// under scene i ends up dimmed by the strongest shadow among scenes i..n-1. A stack of modal
+// scenes costs one full-screen fill instead of one per scene, and a shadow fading in or out
+// above another one does not make the dimming jump.
+procedure GetSceneShadows(const sc:array of TGameScene;n:integer;var shadows:array of cardinal);
+var
+ i:integer;
+ a,top:single; // alpha of this scene's shadow; strongest alpha above it
+begin
+ top:=0;
+ for i:=n-1 downto 0 do begin
+  shadows[i]:=0;
+  a:=(sc[i].shadowColor shr 24)/255;
+  if a<=top then continue;
+  shadows[i]:=(sc[i].shadowColor and $FFFFFF) or (cardinal(round(255*(a-top)/(1-top))) shl 24);
+  top:=a;
+ end;
+end;
+
 procedure TWindow.RenderFrame(const params:TGameSettings;
   drawCursor,drawOverlays:TRenderProc);
 var
  i,j,n:integer;
  sc:array[1..50] of TGameScene;
+ shadows:array[1..50] of cardinal;
  effect:TSceneEffect;
  deltaTime:integer;
  fl:boolean;
@@ -1243,10 +1264,10 @@ begin
    else topmostScene:=nil;
 
   // draw all active scenes
+  GetSceneShadows(sc,n,shadows);
   for i:=1 to n do try
-   // draw shadow
-   if sc[i].shadowColor<>0 then
-    draw.FillRect(0,0,canvasWidth,canvasHeight,sc[i].shadowColor);
+   if shadows[i]<>0 then
+    draw.FillRect(0,0,canvasWidth,canvasHeight,shadows[i]);
 
    if not sc[i].gfxInitialized then try
     sc[i].InitGfx;
@@ -1287,6 +1308,7 @@ procedure TWindow.RenderScenes(drawOverlays:TRenderProc);
 var
  i,j,n:integer;
  sc:array[1..50] of TGameScene;
+ shadows:array[1..50] of cardinal;
  fl:boolean;
  oldWindow:TWindow;
 begin
@@ -1313,7 +1335,10 @@ begin
    else topmostScene:=nil;
 
   // render scenes
+  GetSceneShadows(sc,n,shadows);
   for i:=1 to n do try
+   if shadows[i]<>0 then
+    draw.FillRect(0,0,canvasWidth,canvasHeight,shadows[i]);
    if not sc[i].gfxInitialized then begin
     sc[i].InitGfx;
     sc[i].gfxInitialized:=true;

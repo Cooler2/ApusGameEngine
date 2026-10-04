@@ -361,9 +361,6 @@ begin
  if mode=sweShowModal then begin
   scene.shadowColor:=0;
   ClearFocus(wnd); // simulate mouse buttons release
-  // first modal opened? raise the global "under modal" shadow
-  if wnd.modal.Root=nil then
-   Signal('UI\SetGlobalShadow',$FF+duration shl 8);
   // Push handles order layering and stack insertion. It must run before the
   // zorder/order sync below, which reads the possibly bumped scene.UI.order.
   if not wnd.modal.Push(scene.UI) then begin
@@ -381,9 +378,6 @@ begin
   scene.activated:=false;
   wnd.modal.Pop(scene.UI); // remove from the modal stack, reactivate previous (if any)
   Log.Msg('ModalStack: %s',[wnd.modal.Info]);
-  // last modal closed? drop the global "under modal" shadow
-  if wnd.modal.Root=nil then
-    Signal('UI\SetGlobalShadow',duration shl 8);
  end;
 
  eff:=effect;

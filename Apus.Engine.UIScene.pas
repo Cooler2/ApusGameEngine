@@ -13,7 +13,6 @@ var
 
 const
  defaultHintStyle:integer=0; // style of hints, can be changed
- modalShadowColor:cardinal=0; // color of global "under modal" shadow
 
 type
  // Very useful simple scene that contains an UI layer
@@ -88,9 +87,6 @@ threadvar
 
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIElement; // element to drag with mouse
-
- curShadowValue,oldShadowValue,needShadowValue:integer; // 0..255
- startShadowChange,shadowChangeDuration:int64;
 
 
 function UIScene(name:String8):TUIScene;
@@ -576,15 +572,6 @@ function UIScene(name:String8):TUIScene;
    if TObject(tag)=hookedItem then hookedItem:=nil;
   end;
 
-  // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-  procedure onSetGlobalShadow(event:TEventStr;tag:TTag);
-  begin
-   startShadowChange:=CoreTime.Ticks;
-   shadowChangeDuration:=tag shr 8;
-   oldShadowValue:=curShadowValue;
-   needShadowValue:=tag and $FF;
-  end;
-
   // registered with emQueued from each render thread (see TUIScene.Create)
   // safe to call from any thread: runs in the render thread owning the target element
   procedure onSetFocus(event:TEventStr;tag:TTag);
@@ -686,7 +673,6 @@ function UIScene(name:String8):TUIScene;
    // Keyboard is no longer consumed here: TGame buffers KBD\* into the kbd-topmost scene
    // and the engine drains it via TGameScene.PumpInput → TUIScene.DispatchKey (see below).
    SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
-   SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
    SetEventHandler('UI\ItemDestroyed',onItemDestroyed,emInstant);
    initialized:=true;
   end;
