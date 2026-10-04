@@ -1499,14 +1499,18 @@ end;
 class procedure Thread.CheckTimeouts;
 var
   i:integer;
-  t:int64;
+  t,deadline:int64;
 begin
   {$IFDEF MSWINDOWS}
   if IsDebuggerPresent then exit; // prevent termination because of timeout during debug
   {$ENDIF}
   t:=CoreTime.Ticks;
   for i:=1 to crSectCount do begin
-    if (crSections[i].timeout>0) and (crSections[i].timeout<t) and (crSections[i].timeout>t-1000000) then begin
+    // Enter clears timeout as soon as the waiter acquires the lock. Read once:
+    // repeated reads can combine a nonzero first value with zero later values
+    // and report a false timeout during the first 1000000 ticks.
+    deadline:=crSections[i].timeout;
+    if (deadline>0) and (deadline<t) and (deadline>t-1000000) then begin
       Log.Force(UTF8.Format('Timeout for: %s thread: %s',[crSections[i].name,Thread.GetName]));
       Thread.DumpLocks;
       raise EWarning.Create('Critical section timeout!');
