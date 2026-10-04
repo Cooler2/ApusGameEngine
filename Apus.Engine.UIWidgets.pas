@@ -112,7 +112,8 @@ interface
   // Use onClick for inline UI updates (runs on render thread).
   // Use onClickAsync for slow work (runs in a new thread). That thread gets the button's
   // window as its `window` context and the button as `sender`; it does not hold the
-  // window lock (take window.Lock around UI changes). The button must outlive the handler.
+  // window lock (take window.Lock around UI changes). The button is held (Acquire) until
+  // the handler returns, even if onClick deletes it.
   TUIButton=class(TUIElement)
    default:boolean;          // default button (affects rendering only)
    pressed:boolean;          // transient: true while mouse is held down
@@ -421,7 +422,7 @@ implementation
   TAsyncClick=record
    proc:TProcedure;
    wnd:TWindow; // the element's window, acquired; nil if the element is not in a window
-   sender:TUIElement;
+   sender:TUIElement; // acquired
   end;
   PAsyncClick=^TAsyncClick;
 
@@ -437,25 +438,48 @@ implementation
     p.proc;
    finally
     window:=nil;
+    p.sender.Release;
     if p.wnd<>nil then p.wnd.Release;
     Dispose(p);
    end;
   end;
 
- // The click may be dispatched by any thread (Click from a worker) and the element may
- // belong to another window, so the context comes from the element itself.
- procedure StartAsyncClick(element:TUIElement;proc:TProcedure);
+ // Capture the element and its window for an async click handler. Called before the
+ // inline handlers, which may delete the element. The click may be dispatched by any
+ // thread (Click from a worker) and the element may belong to another window, so the
+ // context comes from the element itself. Nil: nothing to run.
+ function PrepareAsyncClick(element:TUIElement;proc:TProcedure):PAsyncClick;
   var
-   p:PAsyncClick;
    wnd:TWindow;
+   held:boolean;
   begin
+   result:=nil;
+   if not Assigned(proc) then exit;
    wnd:=element.GetWindow;
-   if (wnd<>nil) and not wnd.Acquire then exit; // the window is closing: drop the click
-   New(p);
-   p.proc:=proc;
-   p.wnd:=wnd;
-   p.sender:=element;
-   Thread.Start('UIClick:'+String8(element.name),@AsyncClickThread,p);
+   if wnd<>nil then begin
+    if not wnd.Acquire then exit; // the window is closing: drop the click
+    wnd.LockState; // deleted elements are freed under it: Acquire must not race with that
+    try
+     held:=element.Acquire;
+    finally
+     wnd.UnlockState;
+    end;
+    if not held then begin
+     wnd.Release;
+     exit;
+    end;
+   end else
+    if not element.Acquire then exit;
+   New(result);
+   result.proc:=proc;
+   result.wnd:=wnd;
+   result.sender:=element;
+  end;
+
+ procedure StartAsyncClick(p:PAsyncClick);
+  begin
+   if p<>nil then
+    Thread.Start('UIClick:'+String8(p.sender.name),@AsyncClickThread,p);
   end;
 
  { TUIButton }
@@ -486,14 +510,17 @@ implementation
   end;
 
  procedure TUIButton.DoClick;
+  var
+   async:PAsyncClick;
   begin
    TUIElement.sender:=self;
    if pending then exit;
    if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin
+    async:=PrepareAsyncClick(self,onClickAsync); // before the handlers: they may delete the button
     Signal('UI\'+name+'\OnClick',byte(pressed));
     Signal('UI\Button\Click\'+name,TTag(self));
     if Assigned(onClick) then onClick;
-    if Assigned(onClickAsync) then StartAsyncClick(self,onClickAsync);
+    StartAsyncClick(async);
     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     lastPressed:=CoreTime.Ticks;
    end;
@@ -600,22 +627,26 @@ implementation
 
  procedure TUIToggleButton.DoClick;
   var
-   i:integer;
+   list:TUIElements;
+   c:TUIElement;
+   async:PAsyncClick;
   begin
    TUIElement.sender:=self;
    if parent is TUIGroupBox then begin
-    // radio group: untoggle all siblings, activate self
-    for i:=0 to length(parent.children)-1 do
-     if (parent.children[i] is TUIToggleButton) and (parent.children[i]<>self) then
-      TUIToggleButton(parent.children[i]).SetToggled(false);
+    // radio group: untoggle all siblings, activate self (a snapshot: toggle signals run handlers)
+    list:=parent.children;
+    for c in list do
+     if (c is TUIToggleButton) and (c<>self) then
+      TUIToggleButton(c).SetToggled(false);
     SetToggled(true);
    end else
     SetToggled(not toggled);
    if sendSignals<>ssNone then begin
+    async:=PrepareAsyncClick(self,onClickAsync); // before the handlers: they may delete the button
     Signal('UI\'+name+'\OnClick',byte(toggled));
     Signal('UI\Button\Down\'+name,TTag(self));
     if Assigned(onClick) then onClick;
-    if Assigned(onClickAsync) then StartAsyncClick(self,onClickAsync);
+    StartAsyncClick(async);
     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
    end;
   end;

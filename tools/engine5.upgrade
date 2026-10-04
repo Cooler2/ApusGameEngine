@@ -363,3 +363,6 @@ GetSteamAuthTicket -> ?removed: use GetAuthTicketForWebApi (not wrapped yet) [Ap
 // (the names are too common); new TWindow.Lock/Unlock = worker entry (returns boolean)
 FindWindowForScene -> ?scene.ownerWindow [Apus.Engine.Window]
 FindWindowForUIRoot -> ?element.GetWindow [Apus.Engine.Window]
+
+// === Deferred removal of UI elements (Apus.Engine.UITypes) ===
+SafeDestroy -> Remove [Apus.Engine.UITypes]

@@ -163,7 +163,10 @@ begin
  // Delete old trackers
  ui.height:=listBox.height+20;
  for i:=0 to edCount-1 do
-  FreeAndNil(editors[i]);
+  if editors[i]<>nil then begin
+   editors[i].Remove; // may run from an editor's own handler
+   editors[i]:=nil;
+  end;
 
  // Create new trackers
  if (listbox.selectedLine>=0) then begin

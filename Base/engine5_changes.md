@@ -1283,6 +1283,18 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   clicked element's window (it was nil) and `TUIElement.sender` set to the element (it was
   not set). The window is kept alive until the handler returns, its lock is not held. A
   click on an element of a closing window does not start the handler.
+- **`TUIElement.SafeDestroy` -> `Remove`** with new semantics: the element and its subtree
+  leave the tree at once (marked `deleted`), the window's focus, mouse capture, modal and
+  hotkey references into the subtree are dropped, and the memory is freed by the window's
+  thread at the start of the next frame (right away if the element is not in a window).
+  Callable from any thread; an element may remove itself in its own handler. Removing
+  again does nothing; attaching a removed element is an ASSERT. Direct `Free` stays for
+  the window's own thread outside handlers (ASSERT from another thread).
+  `TUIElement.Acquire`/`Release` keep an element from being freed across threads (a held
+  removed element waits); `onClickAsync` holds its button, so `onClick` may remove it.
+  `DeleteChildren` now removes the children this way. `DestroyQueuedElements` takes the
+  window. `Detach` builds a new `children` array, so loops over a snapshot
+  (`list:=children`) survive removals made by the handlers they call.
 - Removed: `FindWindowForScene` (use `scene.ownerWindow`) and `FindWindowForUIRoot`
   (use `element.GetWindow`, which resolves the window through the scene only).
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become

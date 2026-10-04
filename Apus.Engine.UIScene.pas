@@ -136,7 +136,7 @@ function UIScene(name:String8):TUIScene;
    if parent=nil then exit;
    if TUIHint.Current<>nil then begin
      Log.Debug('Free previous hint');
-    TUIHint.Current.Free; // resets TUIHint.Current
+    TUIHint.Current.Remove; // MakeCurrent below replaces TUIHint.Current
    end;
    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
 

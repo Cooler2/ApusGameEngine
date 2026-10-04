@@ -1,6 +1,7 @@
 // TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
-// Acquire/Release, the close protocol (BeginClose, WaitReleased) and the context of
-// onClickAsync threads. No native window: only the platform-independent part of TWindow.
+// Acquire/Release, the close protocol (BeginClose, WaitReleased), the context of
+// onClickAsync threads and deferred removal of UI elements (TUIElement.Remove).
+// No native window: only the platform-independent part of TWindow.
 {$APPTYPE CONSOLE}
 program TestWindowLock;
 uses
@@ -21,6 +22,17 @@ type
     procedure Increment;
   end;
 
+  // counts destructions
+  TProbe=class(TUIElement)
+    hotKeyCalls:integer;
+    removeOnHotKey:boolean;
+    destructor Destroy; override;
+    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
+  end;
+  TProbeButton=class(TUIButton)
+    destructor Destroy; override;
+  end;
+
 var
   callCount:integer;
   queueTarget:TWindow; // window the re-queueing call adds to
@@ -30,10 +42,33 @@ var
   asyncState:integer; // 0 - not run, 1 - running, 2 - done
   asyncWindow:TWindow;
   asyncSender:TUIElement;
+  freedCount:integer;
+  asyncGate:integer; // the async handler waits while 0
+  removeTarget:TUIElement;
+  testScene:TGameScene;
 
 procedure TCounter.Increment;
  begin
   inc(count);
+ end;
+
+destructor TProbe.Destroy;
+ begin
+  Atomic.Inc(freedCount);
+  inherited;
+ end;
+
+function TProbe.onHotKey(keycode:byte;shiftstate:byte):boolean;
+ begin
+  inc(hotKeyCalls);
+  if removeOnHotKey then Remove;
+  result:=false; // not consumed: the next hotkey with this key is tried
+ end;
+
+destructor TProbeButton.Destroy;
+ begin
+  Atomic.Inc(freedCount);
+  inherited;
  end;
 
 procedure CountCall(param:pointer);
@@ -87,19 +122,25 @@ function ClickAndWait(btn:TUIButton):boolean;
   result:=asyncState=2;
  end;
 
+// a window with one scene whose UI root is returned
+// (one scene for all tests: scene names are unique)
+function NewSceneRoot(w:TWindow;const name:String8):TUIElement;
+ begin
+  if testScene=nil then testScene:=TGameScene.Create(false);
+  testScene.ownerWindow:=pointer(w);
+  result:=TUIElement.Create(400,300,nil,name);
+  result.ownerScene:=testScene;
+ end;
+
 procedure TestAsyncClick;
  var
   w:TWindow;
-  scene:TGameScene;
   root:TUIElement;
   btn,detached:TUIButton;
  begin
   StartTest('onClickAsync: window and sender');
   w:=NewWindow('Async');
-  scene:=TGameScene.Create(false);
-  scene.ownerWindow:=pointer(w);
-  root:=TUIElement.Create(200,100,nil,'AsyncRoot');
-  root.ownerScene:=scene;
+  root:=NewSceneRoot(w,'AsyncRoot');
   btn:=TUIButton.Create(50,20,root,'AsyncBtn');
   btn.onClickAsync:=AsyncClick;
   window:=nil;
@@ -120,6 +161,180 @@ procedure TestAsyncClick;
   Check(not ClickAndWait(btn),'click of a closing window does not start the handler');
   Check(w.WaitReleased(0),'dropped click holds no reference');
   detached.Free;
+  root.Free;
+  w.Free;
+  EndTest;
+ end;
+
+procedure TestRemove;
+ var
+  w:TWindow;
+  root:TUIElement;
+  a,b,child:TProbe;
+ begin
+  StartTest('Remove: detach now, free at frame start');
+  w:=NewWindow('Remove');
+  root:=NewSceneRoot(w,'RemoveRoot');
+  freedCount:=0;
+  a:=TProbe.Create(10,10,root,'A');
+  child:=TProbe.Create(5,5,a,'AChild');
+  a.Remove;
+  Check(length(root.children)=0,'removed element leaves the tree at once');
+  Check(a.deleted and child.deleted,'element and its subtree are marked deleted');
+  Check(freedCount=0,'nothing is freed before the frame start');
+  a.Remove; // again: nothing happens
+  DestroyQueuedElements(w);
+  Check(freedCount=2,'element and child are freed at the frame start');
+
+  // "list -> remove all" with a parent and its child, in both orders
+  freedCount:=0;
+  a:=TProbe.Create(10,10,root,'P1');
+  child:=TProbe.Create(5,5,a,'P1Child');
+  child.Remove;
+  a.Remove;
+  b:=TProbe.Create(10,10,root,'P2');
+  child:=TProbe.Create(5,5,b,'P2Child');
+  b.Remove;
+  child.Remove; // already deleted with its parent
+  DestroyQueuedElements(w);
+  Check(freedCount=4,'parent and child removed together are freed once each');
+
+  // the name of a removed element is free at once (rebuild with the same names)
+  a:=TProbe.Create(10,10,root,'SameName');
+  a.Remove;
+  Check(TUIElement.FindByName('SameName')=nil,'removed element is not found by name');
+  b:=TProbe.Create(10,10,root,'SameName');
+  Check(TUIElement.FindByName('SameName')=b,'the name is reused by a new element');
+  DestroyQueuedElements(w);
+  Check(TUIElement.FindByName('SameName')=b,'freeing the removed one keeps the new name');
+  b.Remove;
+  DestroyQueuedElements(w);
+
+  // held elements wait
+  freedCount:=0;
+  a:=TProbe.Create(10,10,root,'Held');
+  Check(a.Acquire,'Acquire of a live element');
+  a.Remove;
+  Check(not a.Acquire,'Acquire fails after Remove');
+  DestroyQueuedElements(w);
+  Check(freedCount=0,'held element is not freed');
+  a.Release;
+  DestroyQueuedElements(w);
+  Check(freedCount=1,'freed after Release');
+
+  // not in a window: freed at once, or on release when held
+  freedCount:=0;
+  a:=TProbe.Create(10,10,nil,'Loose');
+  child:=TProbe.Create(5,5,a,'LooseChild');
+  a.Remove;
+  Check(freedCount=2,'element outside a window is freed at once');
+  a:=TProbe.Create(10,10,nil,'LooseHeld');
+  child:=TProbe.Create(5,5,a,'LooseHeldChild');
+  Check(child.Acquire,'Acquire of a child outside a window');
+  a.Remove;
+  Check(freedCount=2,'held subtree outside a window is not freed');
+  DestroyQueuedElements(w);
+  Check(freedCount=2,'still held at the frame start');
+  child.Release;
+  DestroyQueuedElements(w);
+  Check(freedCount=4,'freed by the next frame start after Release');
+
+  root.Free;
+  w.Free;
+  EndTest;
+ end;
+
+procedure RemoveSender;
+ begin
+  TUIElement.sender.Remove;
+ end;
+
+procedure RemoveWorker;
+ begin
+  removeTarget.Remove;
+  Atomic.Exchange(workerState,1);
+ end;
+
+procedure GatedAsyncClick;
+ begin
+  while Atomic.CmpExchange(asyncGate,0,0)=0 do Sleep(1);
+  asyncSender:=TUIElement.sender;
+  Atomic.Exchange(asyncState,2);
+ end;
+
+procedure TestRemoveInHandlers;
+ var
+  w:TWindow;
+  root:TUIElement;
+  btn:TProbeButton;
+  a,b:TProbe;
+  th:IThread;
+  t:integer;
+ begin
+  StartTest('Remove from handlers and threads');
+  w:=NewWindow('RemoveHandlers');
+  root:=NewSceneRoot(w,'RemoveHandlersRoot');
+
+  // a button removing itself in onClick: DoClick goes on with live memory
+  freedCount:=0;
+  btn:=TProbeButton.Create(50,20,root,'SelfRemove');
+  btn.onClick:=RemoveSender;
+  btn.Click;
+  Check(btn.deleted and (length(root.children)=0),'button removed itself in onClick');
+  Check(freedCount=0,'its memory lives until the frame start');
+  DestroyQueuedElements(w);
+  Check(freedCount=1,'freed at the frame start');
+
+  // removed in onClick, the async handler still gets the held button
+  freedCount:=0;
+  asyncState:=0;
+  asyncGate:=0;
+  asyncSender:=nil;
+  btn:=TProbeButton.Create(50,20,root,'RemoveAndAsync');
+  btn.onClick:=RemoveSender;
+  btn.onClickAsync:=GatedAsyncClick;
+  btn.Click;
+  DestroyQueuedElements(w);
+  Check(freedCount=0,'button held by its async handler is not freed');
+  Atomic.Exchange(asyncGate,1);
+  t:=0;
+  while (Atomic.CmpExchange(asyncState,2,2)<>2) and (t<400) do begin
+   Sleep(5); inc(t);
+  end;
+  Check(asyncSender=btn,'async handler gets the removed button as sender');
+  Check(w.WaitReleased(1000),'async handler released the window');
+  t:=0;
+  repeat // the handler releases the button right after the window... or before: poll
+   DestroyQueuedElements(w);
+   if freedCount=1 then break;
+   Sleep(5); inc(t);
+  until t>200;
+  Check(freedCount=1,'freed once the async handler finished');
+
+  // a hotkey handler removing its element: the scan goes on to the next hotkey
+  a:=TProbe.Create(10,10,root,'HotA');
+  b:=TProbe.Create(10,10,root,'HotB');
+  a.SetHotKey(77);
+  b.SetHotKey(77);
+  a.removeOnHotKey:=true;
+  ProcessHotKey(77,0);
+  Check((a.hotKeyCalls=1) and (b.hotKeyCalls=1),'both hotkey handlers ran');
+  ProcessHotKey(77,0);
+  Check((a.hotKeyCalls=1) and (b.hotKeyCalls=2),'removed element lost its hotkey');
+  DestroyQueuedElements(w);
+
+  // removal from a worker thread
+  freedCount:=0;
+  removeTarget:=TProbe.Create(10,10,root,'WorkerTarget');
+  workerState:=0;
+  th:=Thread.Start('UIRemoveWorker',TThreadProc(@RemoveWorker));
+  th.Wait(2000);
+  Check(workerState=1,'worker finished');
+  Check(removeTarget.deleted and (removeTarget.parent=nil),'worker removed the element from the tree');
+  Check(freedCount=0,'not freed by the worker');
+  DestroyQueuedElements(w);
+  Check(freedCount=1,'freed by the window thread at the frame start');
+
   root.Free;
   w.Free;
   EndTest;
@@ -281,5 +496,7 @@ begin
   TestClose;
   TestWorkerThread;
   TestAsyncClick;
+  TestRemove;
+  TestRemoveInHandlers;
   if IsDebuggerPresent then readln;
 end.

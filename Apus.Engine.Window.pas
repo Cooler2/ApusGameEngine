@@ -186,6 +186,7 @@ public
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
   modal:TModalState; // modal dialog state for this window (see TModalStateHelper)
+  deletedUI:array of TObject; // UI elements deleted in this window, freed at frame start (TUIElement.Remove)
   // Frame timing (per-window, read-only from outside):
   // - `*Us` is the single source of truth (high precision)
   // - `*Ms` / `*Sec` are derived values for API compatibility
@@ -415,6 +416,9 @@ constructor TWindow.Create(windowName:String8='MainWnd');
 
 destructor TWindow.Destroy;
  begin
+  DestroyQueuedElements(self); // elements still held by someone are leaked
+  if length(deletedUI)>0 then
+   Log.Force('Window %s destroyed with %d held UI elements',[name,length(deletedUI)]);
   callLock.Cleanup;
   pendingLock.Cleanup;
   runtimeLock.Cleanup;
@@ -1104,7 +1108,7 @@ begin
  // one segment: queued deletions, scene order, keyboard and Process all touch window state
  LockState;
  try
-  DestroyQueuedElements;
+  DestroyQueuedElements(self);
   // sort scenes by zOrder
   if high(scenes)>1 then
    for n:=1 to high(scenes) do

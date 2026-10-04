@@ -151,7 +151,17 @@ type
   // --- Lifecycle ---
   constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
   destructor Destroy; override;
-  procedure SafeDestroy; // queue for destruction before next frame
+  // Delete the element: take it out of the tree now, free it later - on its window's
+  // thread at the start of the next frame (right away if it is not in a window). Any
+  // thread. The memory stays valid until then, so an element may remove itself in its own
+  // handler. Removing again does nothing; a removed element (or its child) must not be
+  // attached again (see `deleted`). Direct Free is for the window's own thread outside
+  // handlers.
+  procedure Remove;
+  // Keep the element alive across threads: a held element may be removed, but it is not
+  // freed until released. False if it is already removed.
+  function Acquire:boolean;
+  procedure Release;
 
   // --- Tree: navigation ---
   function GetNext:TUIElement; virtual;     // next sibling by order
@@ -170,7 +180,7 @@ type
   procedure Detach(shouldAddToRootControls:boolean=true);
   procedure InsertAfter(element:TUIElement);
   procedure InsertBefore(element:TUIElement);
-  procedure DeleteChildren(filter:String8=''); // filter: 'start:prefix', '!start:prefix', 'substr'
+  procedure DeleteChildren(filter:String8=''); // Delete children; filter: 'start:prefix', '!start:prefix', 'substr'
 
   // --- Geometry ---
   // Element's CS: (0,0)..(clientWidth,clientHeight), origin at top-left of client area
@@ -266,7 +276,14 @@ type
 
  private
   fStyleInfo:String8; // additional style info string (see styleInfo property)
+  fDeleted:boolean;   // Remove was called for this element or an ancestor
+  holdCount:integer;  // references taken by Acquire
   fInitialSize:TVec2; // element's initial size (used for proportional resize)
+  procedure MarkDeleted;
+  function InSubtree(e:TUIElement):boolean; // e is self or a descendant
+  function SubtreeHeld:boolean;
+  procedure ForgetSubtree(wnd:TWindow); // drop references to the subtree from window/thread state
+  procedure FreeChildren;
   function GetClientWidth:single;
   function GetClientHeight:single;
   function GetGlobalScale:single;
@@ -285,6 +302,7 @@ type
   property globalScale:single read GetGlobalScale; // how many screen pixels are in an element with size=1.0
   property initialSize:TVec2 read fInitialSize; // size when created
   property styleInfo:String8 read fStyleInfo write SetStyleInfo;
+  property deleted:boolean read fDeleted;
  end;
 
  // General-purpose container that tracks one "active" child at a time.
@@ -338,8 +356,9 @@ procedure SetFocusTo(control:TUIElement);
  // Keycode - virtual key
  // Returns true if a hotkey matched and consumed the key
  function ProcessHotKey(keycode:integer;shiftstate:byte):boolean;
- // Destroy elements queued by SafeDestroy
- procedure DestroyQueuedElements;
+ // Free the elements deleted in this window (see TUIElement.Remove) that nobody holds.
+ // Called by the window's thread at frame start and when the window is destroyed.
+ procedure DestroyQueuedElements(wnd:TWindow);
 
 implementation
  uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Engine.API,
@@ -366,23 +385,29 @@ threadvar
   fControl:TUIElement;  // element with keyboard focus (set automatically or manually)
   activeWnd:TUIElement; // active window (set automatically when focus moves)
 
-  toDelete:TObjectList; // List of elements marked for deletion
+ var
+  // deleted elements outside any window that were held at the time: freed by the next
+  // DestroyQueuedElements of any window once released
+  orphans:array of TUIElement;
+  orphanLock:TLock; // a leaf lock
 
  function ProcessHotKey(keycode:integer;shiftstate:byte):boolean;
   var
    i:integer;
    c,modal:TUIElement;
    wnd:TWindow;
+   keys:array of THotKey;
   begin
    result:=false;
-   for i:=0 to high(hotKeys) do
-    if (hotKeys[i].vKey=keycode) then
-      if (HotKeys[i].shiftstate=shiftstate) or
-         ((HotKeys[i].shiftstate>0) and (HotKeys[i].shiftstate and ShiftState=HotKeys[i].shiftstate)) then
+   keys:=Copy(hotKeys); // a handler may add or remove hotkeys
+   for i:=0 to high(keys) do
+    if (keys[i].vKey=keycode) then
+      if (keys[i].shiftstate=shiftstate) or
+         ((keys[i].shiftstate>0) and (keys[i].shiftstate and ShiftState=keys[i].shiftstate)) then
        begin
-        c:=hotkeys[i].element;
-        // Element should be visible and enabled
-        if c.IsVisible and c.IsEnabled then begin
+        c:=keys[i].element;
+        // Element should be alive, visible and enabled
+        if not c.deleted and c.IsVisible and c.IsEnabled then begin
          // If the element's window has a modal element - it should be parent
          wnd:=c.GetWindow;
          if wnd<>nil then modal:=wnd.modal.Root else modal:=nil;
@@ -632,9 +657,9 @@ function DescribeElement(c:TUIElement):String8;
 
 procedure TUIElement.DeleteChildren(filter:String8='');
   var
-   i,n:integer;
    wnd:TWindow;
-   keep:TUIElements;
+   list:TUIElements;
+   child:TUIElement;
    items:Strings8;
    value:string8;
    mode:integer;
@@ -644,36 +669,41 @@ procedure TUIElement.DeleteChildren(filter:String8='');
       0:result:=pos(value,e.name)>0;
       1:result:=e.name.StartsWith(value,true);
       2:result:=not e.name.StartsWith(value,true);
+     else
+      result:=true;
      end;
     end;
   begin
    wnd:=GetWindow;
    if wnd<>nil then wnd.LockState;
    try
+    mode:=-1;
     if filter<>'' then begin
-     SetLength(keep,length(children));
      items:=filter.split {TODO: use st.Split(char)}(':');
      value:=items[1];
      mode:=0;
      if SameText(items[0],'start') then mode:=1;
      if SameText(items[0],'!start') then mode:=2;
     end;
-    n:=0;
-    for i:=0 to high(children) do begin
-     if (filter='') or ShouldDelete(children[i]) then
-      FreeAndNil(children[i])
-     else begin
-      keep[n]:=children[i];
-      inc(n);
-     end;
-    end;
-    SetLength(children,0);
-    if filter<>'' then begin
-     SetLength(keep,n);
-     children:=keep;
-    end;
+    list:=children; // Detach replaces the array, the snapshot stays intact
+    for child in list do
+     if ShouldDelete(child) then child.Remove;
    finally
     if wnd<>nil then wnd.UnlockState;
+   end;
+  end;
+
+ // Free the children directly (from Destroy: the element is being freed right now)
+ procedure TUIElement.FreeChildren;
+  var
+   i:integer;
+   list:TUIElements;
+  begin
+   list:=children;
+   children:=nil;
+   for i:=0 to high(list) do begin
+    list[i].parent:=nil; // already out of the children list
+    list[i].Free;
    end;
   end;
 
@@ -730,6 +760,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    if wnd<>nil then wnd.LockState;
    try
    if parent<>nil then begin // add to the parents children
+    ASSERT(not parent.deleted,'Creating a UI element in a deleted parent');
     n:=length(parent.children);
     inc(n); order:=n;
     SetLength(parent.children,n);
@@ -755,8 +786,11 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
 
 destructor TUIElement.Destroy;
   var
-   i,n:integer;
+   wnd:TWindow;
   begin
+   ASSERT(holdCount=0,'UI element '+name+' freed while held (Acquire)');
+   wnd:=GetWindow;
+   ASSERT((wnd=nil) or wnd.IsOwnerThread,'UI element '+name+' freed from another thread: use Remove');
    try
     if fControl=self then begin
      onLostFocus;
@@ -766,7 +800,7 @@ destructor TUIElement.Destroy;
     if hooked=self then hooked:=nil; // drop mouse capture so we never deref a freed element
     if parent<>nil then
      Detach(false);
-    DeleteChildren;
+    FreeChildren;
     if (shape<>nil) and not shape.persistent then FreeAndNil(shape);
     FreeAndNil(styleContext);
     FreeAndNil(style);
@@ -781,6 +815,7 @@ destructor TUIElement.Destroy;
  procedure TUIElement.Detach(shouldAddToRootControls:boolean=true);
   var
    i,pos,n:integer;
+   list:TUIElements;
   begin
    if parent=nil then exit;
    n:=high(parent.children);
@@ -790,8 +825,11 @@ destructor TUIElement.Destroy;
      pos:=i; break;
     end;
    if pos>=0 then begin
-    for i:=pos to n-1 do parent.children[i]:=parent.children[i+1];
-    SetLength(parent.children,n);
+    // a new array: loops that iterate a snapshot of children (list:=children) stay intact
+    SetLength(list,n);
+    for i:=0 to pos-1 do list[i]:=parent.children[i];
+    for i:=pos to n-1 do list[i]:=parent.children[i+1];
+    parent.children:=list;
    end;
    parent:=nil;
    if shouldAddToRootControls then
@@ -803,6 +841,7 @@ destructor TUIElement.Destroy;
    i,n:integer;
   begin
    ASSERT(newParent<>nil);
+   ASSERT(not fDeleted and not newParent.deleted,'Attaching a deleted UI element');
    if parent=newParent then exit;
    if parent<>nil then Detach(false);
    parent:=newParent;
@@ -1574,9 +1613,117 @@ function TUIElement.GetClientHeight:single;
   begin
   end;
 
-procedure TUIElement.SafeDestroy;
+procedure TUIElement.MarkDeleted;
+  var
+   child:TUIElement;
   begin
-   toDelete.Add(self,true);
+   fDeleted:=true;
+   UIHash.Remove(self); // not found by name any more: the name may be reused at once
+   for child in children do child.MarkDeleted;
+  end;
+
+ function TUIElement.InSubtree(e:TUIElement):boolean;
+  begin
+   result:=(e<>nil) and ((e=self) or e.HasParent(self));
+  end;
+
+ function TUIElement.SubtreeHeld:boolean;
+  var
+   child:TUIElement;
+  begin
+   result:=holdCount>0;
+   if not result then
+    for child in children do
+     if child.SubtreeHeld then exit(true);
+  end;
+
+ // The window's own state is cleared here. Thread-local UI state (focus, mouse, hotkeys)
+ // can only be cleared for the calling thread; the window thread's copies are cleared by
+ // Destroy at the next frame start - until then they point to a detached, live element.
+ procedure TUIElement.ForgetSubtree(wnd:TWindow);
+  var
+   i,max:integer;
+   c:TUIElement;
+  begin
+   if wnd<>nil then
+    with wnd.modal do begin
+     for i:=stackSize downto 1 do
+      if (stack[i]<>nil) and InSubtree(TUIElement(stack[i])) then Pop(TUIElement(stack[i]));
+     if InSubtree(Root) then Pop(Root);
+    end;
+   if InSubtree(fControl) then SetFocusTo(nil);
+   if InSubtree(activeWnd) then activeWnd:=nil;
+   if InSubtree(underMouse) then underMouse:=parent;
+   if InSubtree(hooked) then begin
+    hooked:=nil;
+    clipMouse:=cmNo;
+   end;
+   c:=parent;
+   while c<>nil do begin
+    if InSubtree(c.focusedChild) then c.focusedChild:=nil;
+    c:=c.parent;
+   end;
+   i:=0; max:=high(hotKeys);
+   while i<=max do
+    if InSubtree(hotKeys[i].element) then begin
+     hotKeys[i]:=hotKeys[max];
+     dec(max);
+    end else
+     inc(i);
+   SetLength(hotKeys,max+1);
+  end;
+
+ procedure TUIElement.Remove;
+  var
+   wnd:TWindow;
+   n:integer;
+   freeNow:boolean;
+  begin
+   ASSERT(ownerScene=nil,'A scene root UI element is freed with its scene');
+   wnd:=GetWindow; // before Detach: a detached element has no window
+   freeNow:=false;
+   if wnd<>nil then wnd.LockState;
+   try
+    if fDeleted then exit;
+    MarkDeleted;
+    ForgetSubtree(wnd);
+    Detach(false);
+    if wnd<>nil then begin
+     n:=length(wnd.deletedUI);
+     SetLength(wnd.deletedUI,n+1);
+     wnd.deletedUI[n]:=self;
+    end else
+    if SubtreeHeld then begin
+     orphanLock.Enter;
+     try
+      n:=length(orphans);
+      SetLength(orphans,n+1);
+      orphans[n]:=self;
+     finally
+      orphanLock.Leave;
+     end;
+    end else
+     freeNow:=true; // not in a window and not held: only the caller can reach it
+   finally
+    if wnd<>nil then wnd.UnlockState;
+   end;
+   if freeNow then Free;
+  end;
+
+ function TUIElement.Acquire:boolean;
+  begin
+   Atomic.Inc(holdCount);
+   if fDeleted then begin
+    Atomic.Dec(holdCount);
+    exit(false);
+   end;
+   result:=true;
+  end;
+
+ procedure TUIElement.Release;
+  begin
+   ASSERT(holdCount>0,'UI element '+name+': Release without Acquire');
+   Atomic.Dec(holdCount);
   end;
 
  procedure TUIElement.ScrollTo(newX,newY:integer);
@@ -1736,18 +1883,44 @@ procedure TUIElement.SafeDestroy;
    hotkeys[i].element:=self;
   end;
 
-procedure DestroyQueuedElements;
+procedure DestroyQueuedElements(wnd:TWindow);
  var
-  wnd:TWindow;
-  begin
-    wnd:=window;
-    if wnd<>nil then wnd.LockState;
-    try
-     toDelete.FreeAll;
-    finally
-     if wnd<>nil then wnd.UnlockState;
+  i,n:integer;
+  e:TUIElement;
+  ready:array of TUIElement;
+ begin
+  wnd.LockState;
+  try
+   i:=0;
+   while i<length(wnd.deletedUI) do begin // Destroy may delete more elements: they join the queue
+    e:=TUIElement(wnd.deletedUI[i]);
+    if e.SubtreeHeld then begin
+     inc(i); continue;
     end;
+    n:=high(wnd.deletedUI);
+    wnd.deletedUI[i]:=wnd.deletedUI[n];
+    SetLength(wnd.deletedUI,n);
+    e.Free;
+   end;
+  finally
+   wnd.UnlockState;
   end;
+  if length(orphans)=0 then exit; // unlocked peek: a missed orphan waits for the next frame
+  orphanLock.Enter;
+  try
+   n:=0;
+   SetLength(ready,length(orphans));
+   for i:=high(orphans) downto 0 do
+    if not orphans[i].SubtreeHeld then begin
+     ready[n]:=orphans[i]; inc(n);
+     orphans[i]:=orphans[high(orphans)];
+     SetLength(orphans,high(orphans));
+    end;
+  finally
+   orphanLock.Leave;
+  end;
+  for i:=0 to n-1 do ready[i].Free; // outside the leaf lock: Destroy sends signals
+ end;
 
 { TLayouter }
 
@@ -1769,6 +1942,7 @@ procedure DestroyQueuedElements;
 
 initialization
  UIHash.Init;
+ orphanLock.Init('UIOrphans',810);
  TUIElement.SetClassAttribute('handleMouseIfDisabled',false);
 finalization
 end.
