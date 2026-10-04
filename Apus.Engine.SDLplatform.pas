@@ -43,6 +43,11 @@ type
   terminated:boolean;
   reportedDPI:integer; // last DPI posted by CheckDPI, 0 until the first one
   graphInfo:TOpenGLContextDesc;
+  sdlID:cardinal;              // SDL window ID: events carry it
+  events:array of TSDL_Event;  // events routed to this window, guarded by sdlEvents
+  eventCount:integer;
+  procedure AddEvent(const event:TSDL_Event);
+  procedure HandleEvent(const event:TSDL_Event);
   function GetDPI:integer; // DPI of the display this window is currently on
   procedure CheckDPI;      // re-query it and post a change
   function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWithCurrent:boolean=false):UIntPtr;
@@ -73,7 +78,7 @@ type
 
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-  SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
+  SysUtils, Apus.Core, Apus.Log, Apus.Threads, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types, Apus.Engine.Window
   {$IFDEF GLDESKTOP},dglOpenGL{$ENDIF}; // GLDESKTOP, not OPENGL: under GLES the desktop unit would shadow dglOpenGLES' loader procs
 
@@ -91,6 +96,11 @@ var
  savedLogHandler:TSDL_LogOutputFunction;
  glShareState:integer=glcsReady;
  SDLcontrollers:array[0..high(controllers)] of TSDLController;
+ // SDL has one event queue for all windows, and every window's thread polls it. Polled
+ // events are routed to their window's queue under this lock, so each window sees its
+ // events in SDL order whichever thread polled them. A leaf lock: nothing is entered inside.
+ sdlEvents:TLock;
+ sdlWindows:array of TSDLGLWindow; // live windows, guarded by sdlEvents
 
 procedure InitJoystick(idx:integer);
  begin
@@ -141,6 +151,14 @@ constructor TSDLGLWindow.Create(aWnd:PSDL_Window;windowName:string='MainWnd');
   ctx:=nil;
   contextVAO:=0;
   terminated:=false;
+  sdlID:=SDL_GetWindowID(wnd);
+  sdlEvents.Enter;
+  try
+   SetLength(sdlWindows,length(sdlWindows)+1);
+   sdlWindows[high(sdlWindows)]:=self;
+  finally
+   sdlEvents.Leave;
+  end;
  end;
 
 { TSDLPlatform }
@@ -194,7 +212,21 @@ procedure TSDLGLWindow.SamplePointer;
  end;
 
 procedure TSDLGLWindow.Close;
+ var
+  i:integer;
  begin
+  sdlEvents.Enter; // stop routing events here
+  try
+   for i:=high(sdlWindows) downto 0 do
+    if sdlWindows[i]=self then begin
+     sdlWindows[i]:=sdlWindows[high(sdlWindows)];
+     SetLength(sdlWindows,high(sdlWindows));
+    end;
+   events:=nil;
+   eventCount:=0;
+  finally
+   sdlEvents.Leave;
+  end;
   SDL_DestroyWindow(wnd);
   wnd:=nil;
  end;
@@ -522,14 +554,29 @@ function GetKeyCode(sdl_keycode:integer):integer;
    end;
   end;
 
-function FindSDLWindow(windowID:cardinal):TSDLGLWindow;
+// Route an event: target is its window, nil if the event is not window-specific; false
+// if it names a window that is not ours (any more). Call under sdlEvents.
+function FindEventWindow(const event:TSDL_Event;out target:TSDLGLWindow):boolean;
  var
-  item:TWindow;
+  id:cardinal;
+  i:integer;
  begin
-  for item in ListWindows do
-   if (item is TSDLGLWindow) and (item.GetHandle=windowID) then
-    exit(TSDLGLWindow(item));
-  result:=nil;
+  target:=nil;
+  case event.type_ of
+   SDL_WINDOWEVENT:id:=event.window.windowID;
+   SDL_MOUSEBUTTONDOWN,SDL_MOUSEBUTTONUP:id:=event.button.windowID;
+   SDL_MOUSEWHEEL:id:=event.wheel.windowID;
+   SDL_KEYDOWN,SDL_KEYUP:id:=event.key.windowID;
+   SDL_TEXTINPUT:id:=event.text.windowID;
+   else exit(true);
+  end;
+  if id=0 then exit(true); // e.g. a key without a focused window
+  for i:=0 to high(sdlWindows) do
+   if sdlWindows[i].sdlID=id then begin
+    target:=sdlWindows[i];
+    exit(true);
+   end;
+  result:=false;
  end;
 
 procedure ProcessControllerEvent(event:TSDL_Event);
@@ -621,142 +668,162 @@ procedure ProcessControllerEvent(event:TSDL_Event);
   end;
  end;
 
+procedure TSDLGLWindow.AddEvent(const event:TSDL_Event);
+ begin
+  if eventCount>=length(events) then SetLength(events,eventCount*2+16);
+  events[eventCount]:=event;
+  inc(eventCount);
+ end;
+
+// Poll the shared SDL queue, route the events, then handle the ones of this window
+// (and the ones of no window). Events polled by another window's thread are handled
+// here at the latest on the next frame.
 procedure TSDLGLWindow.ProcessMessages;
  var
   event:TSDL_Event;
-  eventWindow:TSDLGLWindow;
+  target:TSDLGLWindow;
+  list:array of TSDL_Event;
+  i,count:integer;
+ begin
+  sdlEvents.Enter;
+  try
+   while SDL_PollEvent(@event)<>0 do begin
+    if not FindEventWindow(event,target) then begin
+     if event.type_=SDL_WINDOWEVENT then continue; // a closed window: drop
+     target:=self; // input with a stale window ID: as before routing existed
+    end;
+    if target=nil then target:=self;
+    target.AddEvent(event);
+   end;
+   list:=events;
+   count:=eventCount;
+   events:=nil;
+   eventCount:=0;
+  finally
+   sdlEvents.Leave;
+  end;
+  for i:=0 to count-1 do
+   HandleEvent(list[i]);
+ end;
+
+// Handle an event routed to this window, in this window's thread
+procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
+ var
   ust:String8;
   wst:String16;
   i,len,w,h:integer;
   mbtn:integer;
  begin
-  while SDL_PollEvent(@event)<>0 do begin
-   if game=nil then continue;
-   case event.type_ of
-    SDL_WINDOWEVENT:begin
-     case event.window.event of
-      SDL_WINDOWEVENT_FOCUS_GAINED:;
-      SDL_WINDOWEVENT_FOCUS_LOST:;
-      SDL_WINDOWEVENT_HIDDEN:begin
-       Log.Msg('Window hidden');
-       Signal('ENGINE\SETACTIVE',0);
-       Signal('ENGINE\WINDOW\HIDDEN');
-      end;
-      SDL_WINDOWEVENT_SHOWN:begin
-       Log.Msg('Window shown');
-       Signal('ENGINE\SETACTIVE',1);
-       Signal('ENGINE\WINDOW\SHOWN');
-      end;
-      SDL_WINDOWEVENT_MINIMIZED:begin
-       Log.Msg('Window minimized');
-       Signal('ENGINE\SETACTIVE',0);
-       Signal('ENGINE\WINDOW\MINIMIZED');
-      end;
-      SDL_WINDOWEVENT_RESTORED:begin
-       Log.Msg('Window restored');
-       Signal('ENGINE\SETACTIVE',1);
-       Signal('ENGINE\WINDOW\RESTORED');
-      end;
-      SDL_WINDOWEVENT_MAXIMIZED:begin
-       Log.Msg('Window maximized');
-       Signal('ENGINE\WINDOW\MAXIMIZED');
-      end;
-      SDL_WINDOWEVENT_CLOSE:begin
-       Log.Msg('Window close');
-       eventWindow:=FindSDLWindow(event.window.windowID);
-       if eventWindow<>nil then begin
-        eventWindow.terminated:=true;
-        if eventWindow=mainWindow then
-         Signal('Engine\Cmd\Exit',0);
-       end;
-       Signal('ENGINE\WINDOW\CLOSE');
-      end;
-      // RESIZED covers user/window-manager resizing, SIZE_CHANGED also covers
-       // programmatic ones (SDL_SetWindowSize) - both just post the request,
-       // the window's own thread applies it at the start of its next frame.
-      SDL_WINDOWEVENT_RESIZED,SDL_WINDOWEVENT_SIZE_CHANGED:begin
-       eventWindow:=FindSDLWindow(event.window.windowID);
-       if eventWindow<>nil then begin
-        eventWindow.GetSize(w,h);
-        eventWindow.RequestResize(w,h);
-        eventWindow.CheckDPI; // the display scale may have changed under a still window
-       end;
-      end;
-      // The window may have landed on a display of a different DPI. DISPLAY_CHANGED is
-      // the precise event (SDL 2.0.18+), MOVED the fallback for older runtimes; MOVED
-      // also arrives per dragged pixel, hence the filtering inside CheckDPI.
-      SDL_WINDOWEVENT_MOVED,SDL_WINDOWEVENT_DISPLAY_CHANGED:begin
-       eventWindow:=FindSDLWindow(event.window.windowID);
-       if eventWindow<>nil then eventWindow.CheckDPI;
-      end;
+  if game=nil then exit;
+  case event.type_ of
+   SDL_WINDOWEVENT:begin
+    case event.window.event of
+     SDL_WINDOWEVENT_FOCUS_GAINED:;
+     SDL_WINDOWEVENT_FOCUS_LOST:;
+     SDL_WINDOWEVENT_HIDDEN:begin
+      Log.Msg('Window hidden');
+      Signal('ENGINE\SETACTIVE',0);
+      Signal('ENGINE\WINDOW\HIDDEN');
      end;
-    end;
-
-    // SDL_MOUSEMOTION intentionally not handled here:
-    // mouse position is sampled once per frame via TWindow.SamplePointer,
-    // which avoids OS-rate event flood on high-polling-rate mice.
-
-    SDL_MOUSEBUTTONDOWN:begin
-     if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
-     mbtn:=GetMouseButtonNum(event.button.button);
-     if mBtn in [1..5] then
-      mouseState:=mouseState or (1 shl (mbtn-1));
-     Signal('MOUSE\BTNDOWN',mbtn); // for external subscribers
-     if Apus.Engine.API.window<>nil then begin
-      Apus.Engine.API.window.SamplePointer; // fresh coords for hit-test at click moment
-      Apus.Engine.API.window.NotifyScenesMouseBtn(mbtn,true);
+     SDL_WINDOWEVENT_SHOWN:begin
+      Log.Msg('Window shown');
+      Signal('ENGINE\SETACTIVE',1);
+      Signal('ENGINE\WINDOW\SHOWN');
      end;
-    end;
-
-    SDL_MOUSEBUTTONUP:begin
-     if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
-     mbtn:=GetMouseButtonNum(event.button.button);
-     if mBtn in [1..5] then
-      mouseState:=mouseState and not (1 shl (mbtn-1));
-     Signal('MOUSE\BTNUP',mbtn); // for external subscribers
-     if Apus.Engine.API.window<>nil then begin
-      Apus.Engine.API.window.SamplePointer;
-      Apus.Engine.API.window.NotifyScenesMouseBtn(mbtn,false);
+     SDL_WINDOWEVENT_MINIMIZED:begin
+      Log.Msg('Window minimized');
+      Signal('ENGINE\SETACTIVE',0);
+      Signal('ENGINE\WINDOW\MINIMIZED');
      end;
-    end;
-
-    SDL_MOUSEWHEEL:begin
-     Signal('MOUSE\SCROLL',event.wheel.y); // for external subscribers
-     if Apus.Engine.API.window<>nil then begin
-      Apus.Engine.API.window.SamplePointer;
-      Apus.Engine.API.window.NotifyScenesMouseWheel(event.wheel.y);
+     SDL_WINDOWEVENT_RESTORED:begin
+      Log.Msg('Window restored');
+      Signal('ENGINE\SETACTIVE',1);
+      Signal('ENGINE\WINDOW\RESTORED');
      end;
+     SDL_WINDOWEVENT_MAXIMIZED:begin
+      Log.Msg('Window maximized');
+      Signal('ENGINE\WINDOW\MAXIMIZED');
+     end;
+     SDL_WINDOWEVENT_CLOSE:begin
+      Log.Msg('Window close');
+      terminated:=true;
+      if self=mainWindow then
+       Signal('Engine\Cmd\Exit',0);
+      Signal('ENGINE\WINDOW\CLOSE');
+     end;
+     // RESIZED covers user/window-manager resizing, SIZE_CHANGED also covers
+      // programmatic ones (SDL_SetWindowSize) - both just post the request,
+      // the window's own thread applies it at the start of its next frame.
+     SDL_WINDOWEVENT_RESIZED,SDL_WINDOWEVENT_SIZE_CHANGED:begin
+      GetSize(w,h);
+      RequestResize(w,h);
+      CheckDPI; // the display scale may have changed under a still window
+     end;
+     // The window may have landed on a display of a different DPI. DISPLAY_CHANGED is
+     // the precise event (SDL 2.0.18+), MOVED the fallback for older runtimes; MOVED
+     // also arrives per dragged pixel, hence the filtering inside CheckDPI.
+     SDL_WINDOWEVENT_MOVED,SDL_WINDOWEVENT_DISPLAY_CHANGED:CheckDPI;
     end;
-
-    SDL_KEYDOWN:begin
-     Signal('KBD\KEYDOWN',GetKeyCode(event.key.keysym.sym) and $FFFF+
-       GetScanCode(event.key.keysym.scancode) shl 16);
-    end;
-
-    SDL_KEYUP:begin
-     Signal('KBD\KEYUP',GetKeyCode(event.key.keysym.sym) and $FFFF+
-       GetScanCode(event.key.keysym.scancode) shl 16);
-    end;
-
-    SDL_TEXTINPUT:begin
-     len:=StrLen(event.text.text);
-     SetLength(ust,len);
-     move(event.text.text,ust[1],len);
-     wst:=UTF8.ToWide(ust);
-     for i:=1 to length(wst) do
-      Signal('KBD\UNICHAR',word(wst[i]));
-    end;
-
-    SDL_QUITEV:begin
-     if mainWindow is TSDLGLWindow then
-      TSDLGLWindow(mainWindow).terminated:=true;
-     Signal('Engine\Cmd\Exit',0);
-    end;
-
-    SDL_JOYAXISMOTION..SDL_JOYDEVICEREMOVED:ProcessControllerEvent(event);
-    SDL_CONTROLLERAXISMOTION..SDL_CONTROLLERDEVICEREMAPPED:ProcessControllerEvent(event);
-
    end;
+
+   // SDL_MOUSEMOTION intentionally not handled here:
+   // mouse position is sampled once per frame via TWindow.SamplePointer,
+   // which avoids OS-rate event flood on high-polling-rate mice.
+
+   SDL_MOUSEBUTTONDOWN:begin
+    if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
+    mbtn:=GetMouseButtonNum(event.button.button);
+    if mBtn in [1..5] then
+     mouseState:=mouseState or (1 shl (mbtn-1));
+    Signal('MOUSE\BTNDOWN',mbtn); // for external subscribers
+    SamplePointer; // fresh coords for hit-test at click moment
+    NotifyScenesMouseBtn(mbtn,true);
+   end;
+
+   SDL_MOUSEBUTTONUP:begin
+    if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
+    mbtn:=GetMouseButtonNum(event.button.button);
+    if mBtn in [1..5] then
+     mouseState:=mouseState and not (1 shl (mbtn-1));
+    Signal('MOUSE\BTNUP',mbtn); // for external subscribers
+    SamplePointer;
+    NotifyScenesMouseBtn(mbtn,false);
+   end;
+
+   SDL_MOUSEWHEEL:begin
+    Signal('MOUSE\SCROLL',event.wheel.y); // for external subscribers
+    SamplePointer;
+    NotifyScenesMouseWheel(event.wheel.y);
+   end;
+
+   SDL_KEYDOWN:begin
+    Signal('KBD\KEYDOWN',GetKeyCode(event.key.keysym.sym) and $FFFF+
+      GetScanCode(event.key.keysym.scancode) shl 16);
+   end;
+
+   SDL_KEYUP:begin
+    Signal('KBD\KEYUP',GetKeyCode(event.key.keysym.sym) and $FFFF+
+      GetScanCode(event.key.keysym.scancode) shl 16);
+   end;
+
+   SDL_TEXTINPUT:begin
+    len:=StrLen(event.text.text);
+    SetLength(ust,len);
+    move(event.text.text,ust[1],len);
+    wst:=UTF8.ToWide(ust);
+    for i:=1 to length(wst) do
+     Signal('KBD\UNICHAR',word(wst[i]));
+   end;
+
+   SDL_QUITEV:begin
+    if mainWindow is TSDLGLWindow then
+     TSDLGLWindow(mainWindow).terminated:=true;
+    Signal('Engine\Cmd\Exit',0);
+   end;
+
+   SDL_JOYAXISMOTION..SDL_JOYDEVICEREMOVED:ProcessControllerEvent(event);
+   SDL_CONTROLLERAXISMOTION..SDL_CONTROLLERDEVICEREMAPPED:ProcessControllerEvent(event);
+
   end;
  end;
 
@@ -1010,4 +1077,6 @@ function TSDLPlatform.MapScanCodeToVirtualKey(key:integer):integer;
  end;
 
 
+initialization
+ sdlEvents.Init('SDLEvents',850);
 end.
