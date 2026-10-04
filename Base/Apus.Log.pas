@@ -445,7 +445,7 @@ begin
 end;
 
 initialization
-  logLock.Init('Log');
+  logLock.Init('Log',1000); // innermost: anything may log under any other lock
 
 finalization
   Logger.StopLogThread;

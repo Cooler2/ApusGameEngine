@@ -196,6 +196,90 @@ begin
   EndTest;
 end;
 
+var
+  levelLockA:TLock;        // held by LevelHolder in TestLockLevels
+  levelHolderState:integer; // 1 = holds levelLockA, 2 = asked to release, 3 = released
+
+// Holds levelLockA until asked to release it
+procedure LevelHolder;
+begin
+  levelLockA.Enter;
+  Atomic.Exchange(levelHolderState,1);
+  while Atomic.CmpExchange(levelHolderState,2,2)<>2 do Sleep(1);
+  levelLockA.Leave;
+  Atomic.Exchange(levelHolderState,3);
+end;
+
+// Returns true if entering the lock raised (wrong level order)
+function EnterRaises(var lock:TLock):boolean;
+begin
+  try
+    lock.Enter;
+    lock.Leave;
+    result:=false;
+  except
+    result:=true;
+  end;
+end;
+
+// debugCriticalSections: a lock may only be entered inside locks of a lower level
+procedure TestLockLevels;
+var
+  a,b,c:TLock;
+  th:IThread;
+  raised:boolean;
+begin
+  StartTest('TLock level checking');
+  debugCriticalSections:=true;
+  a.Init('LevelA',20);
+  b.Init('LevelB',30);
+  c.Init('LevelC',25);
+
+  // the main thread is not registered by Thread.Start - checking must work there too
+  a.Enter;
+  raised:=EnterRaises(b);
+  a.Leave;
+  Check(not raised,'higher level inside lower is allowed');
+
+  b.Enter;
+  raised:=EnterRaises(a);
+  b.Leave;
+  Check(raised,'lower level inside higher raises');
+
+  // leaving the inner lock restores the outer one as the innermost
+  a.Enter;
+  b.Enter;
+  b.Leave;
+  raised:=EnterRaises(c);
+  a.Leave;
+  Check(not raised,'outer lock is innermost again after leaving the inner one');
+
+  a.Enter;
+  raised:=EnterRaises(a);
+  a.Leave;
+  Check(not raised,'recursive entry is not checked');
+
+  // the wrong order must be reported even when another thread holds the lock
+  // (before the fix the check was skipped then, and Enter just blocked)
+  levelLockA.Init('LevelHeldA',20);
+  levelHolderState:=0;
+  th:=Thread.Start('LevelHolder',TThreadProc(@LevelHolder));
+  while Atomic.CmpExchange(levelHolderState,1,1)<>1 do Sleep(1);
+  b.Enter;
+  raised:=EnterRaises(levelLockA);
+  b.Leave;
+  Atomic.Exchange(levelHolderState,2);
+  th.Wait(1000);
+  Check(raised,'wrong order raises while another thread holds the lock');
+
+  debugCriticalSections:=false;
+  levelLockA.Cleanup;
+  a.Cleanup;
+  b.Cleanup;
+  c.Cleanup;
+  EndTest;
+end;
+
 // GetOwner returns the thread ID that holds the lock.
 procedure TestLockOwner;
 var
@@ -726,6 +810,7 @@ begin
     TestLockBasic;
     TestLockRecursive;
     TestLockOwner;
+    TestLockLevels;
     TestCritSectFunctions;
 
     // Thread management tests

@@ -46,7 +46,8 @@ type
     timeout:int64;         // tick to terminate
     lockCount:integer;  // recursion counter
     level:integer;      // level for deadlock prevention (higher = lower-level code)
-    prevSection:PLock;
+    prevSection:PLock;  // lock that was innermost in the owner thread before this one (debug)
+    tracked:boolean;    // pushed to the owner thread's lock chain (debugCriticalSections)
     function GetSysLockCount:integer; inline;
     function GetSysOwner:TThreadIdent; inline;
     function GetOwningThread:TThreadIdent; inline;
@@ -479,6 +480,9 @@ begin
     result:=result+UTF8.Format(' lastCS=%s (%d)',[lastCS.name,lastCS.lockCount]);
 end;
 
+threadvar
+  debugTopLock:PLock; // innermost TLock held by this thread (debugCriticalSections)
+
 { TLock }
 
 procedure TLock.Init(const aName:String8; aLevel:integer=100);
@@ -495,6 +499,8 @@ begin
     timeout:=0;
     lockCount:=0;
     level:=aLevel;
+    prevSection:=nil;
+    tracked:=false;
     if crSectCount<length(crSections) then begin
       crSections[crSectCount+1]:=@self;
       inc(crSectCount);
@@ -537,8 +543,8 @@ end;
 procedure TLock.Enter(callerAddr:pointer=nil);
 var
   threadID:TThreadIdent;
-  i,lastLevel,trIdx:integer;
-  prevSection:PLock;
+  outer:PLock;
+  recursive:boolean;
 begin
   if callerAddr=nil then
     {$IFDEF FPC}
@@ -547,30 +553,21 @@ begin
     callerAddr:=System.ReturnAddress;
     {$ENDIF}
   threadID:=GetCurrentThreadID;
+  recursive:=(lockCount>0) and (GetOwningThread=threadID);
   if lockCount>0 then begin
-    trIdx:=-1;
-    if threadID<>GetOwningThread then begin // from different thread? 
+    if not recursive then begin // from different thread?
       tryingThread:=threadID;
       caller:=PtrUInt(callerAddr);
     end;
     if timeout=0 then timeout:=Apus.Core.CoreTime.Ticks+5000;
-  end else // first attempt
-  if debugCriticalSections then begin
-    SpinLock;
-    trIdx:=0; prevSection:=nil;
-    for i:=0 to high(threads) do
-      if threads[i]^.ID=threadID then begin
-        trIdx:=i;
-        prevSection:=threads[i]^.lastCS;
-        if prevSection<>nil then lastLevel:=prevSection.level
-        else lastLevel:=0;
-        break;
-      end;
-    SpinUnlock;
-    if trIdx=0 then raise EError.Create('Trying to enter CS '+name+' from unregistered thread');
-    if level<=lastLevel then
+  end;
+  // Level check on the first entry by this thread - also (above all) when another
+  // thread holds the lock: that is exactly when a wrong order deadlocks
+  if debugCriticalSections and not recursive then begin
+    outer:=debugTopLock;
+    if (outer<>nil) and (level<=outer.level) then
       raise EError.Create('Trying to enter CS %s with level %d within section %s with level %d',
-        [name,level,prevSection.name,lastLevel]);
+        [name,level,outer.name,outer.level]);
   end;
 
   {$IFDEF MSWINDOWS}
@@ -587,45 +584,36 @@ begin
   inc(lockCount);
   owner:=UIntPtr(callerAddr);
   if debugCriticalSections and (lockCount=1) then begin
-    SpinLock;
-    for i:=0 to high(threads) do
-      if threads[i]^.ID=threadID then begin
-        prevSection:=threads[i]^.lastCS;
-        threads[i]^.lastCS:=@self;
-        break;
-      end;
-    SpinUnlock;
+    prevSection:=debugTopLock;
+    debugTopLock:=@self;
+    tracked:=true;
+    if CurrentThread.data<>nil then PThreadData(CurrentThread.data)^.lastCS:=@self; // for GetStateInfo
   end;
 end;
 
 procedure TLock.Leave;
 var
-  i:integer;
-  threadID:TThreadIdent;
+  wrongOrder:PLock;
 begin
   ASSERT(lockCount>0);
   caller:=0;
   owner:=0;
   dec(lockCount);
-  if debugCriticalSections and (lockCount=0) then begin
-    SpinLock;
-    threadID:=GetCurrentThreadID;
-    for i:=0 to high(threads) do
-      if threads[i]^.ID=threadID then begin
-        if threads[i]^.lastCS=nil then
-          raise EError.Create('Leaving wrong CS: '+name);
-        if threads[i]^.lastCS<>@self then
-          raise EError.Create('Leaving wrong CS: '+name+', should be '+threads[i]^.lastCS.name);
-        threads[i]^.lastCS:=prevSection;
-        break;
-      end;
-    SpinUnlock;
+  wrongOrder:=nil;
+  if tracked and (lockCount=0) then begin
+    tracked:=false;
+    if debugTopLock<>@self then wrongOrder:=debugTopLock;
+    debugTopLock:=prevSection;
+    if CurrentThread.data<>nil then PThreadData(CurrentThread.data)^.lastCS:=prevSection;
   end;
   {$IFDEF MSWINDOWS}
   Windows.LeaveCriticalSection(crs);
   {$ELSE}
   System.LeaveCriticalSection(crs);
   {$ENDIF}
+  // raised after the section is released: a debug report must not leave the lock held
+  if wrongOrder<>nil then
+    raise EError.Create('Leaving CS %s out of order, innermost is %s',[name,wrongOrder.name]);
 end;
 
 function TLock.IsLocked:boolean;
