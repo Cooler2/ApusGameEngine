@@ -548,7 +548,8 @@ begin
     for i:=0 to tex.height-1 do begin
      dp:=tex.data; inc(dp,i*tex.pitch+3);
      for j:=0 to tex.width-1 do begin
-      dp^:=rawData[k];
+      // Legacy JPEG sidecars store 5-bit alpha (0..31), not 8-bit samples.
+      dp^:=Min(255,round(8.22*rawData[k]));
       inc(dp,4);
       inc(k);
      end;
