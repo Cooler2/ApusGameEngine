@@ -923,7 +923,7 @@ implementation
    layerCount:integer;
    baseImage:String8;
    ofsX,ofsY:single;
-   stretch:boolean;
+   stretch,topLeft:boolean;
   procedure ImportRect(r:TRect;expand:single=0);
    var
     d:integer;
@@ -983,9 +983,13 @@ implementation
      if stretch then
       draw.Scaled(x1-0.5+dx,y1-0.5+dy,x2+0.5+dx,y2+0.5+dy,layers[i].tex,tint)
      else begin
-      // auto: native size in logical units (scaled by globalScale), centered in the box
+      // auto: native size in logical units (scaled by globalScale), centered by default or anchored at the top left
       w:=layers[i].tex.width*scale; h:=layers[i].tex.height*scale;
-      cx:=(x1+x2+1)/2+dx; cy:=(y1+y2+1)/2+dy;
+      if topLeft then begin
+       cx:=x1+dx+w/2; cy:=y1+dy+h/2;
+      end else begin
+       cx:=(x1+x2+1)/2+dx; cy:=(y1+y2+1)/2+dy;
+      end;
       draw.Image(cx-w/2,cy-h/2,scale,layers[i].tex,tint,0,0);
      end;
     end;
@@ -1048,6 +1052,7 @@ implementation
      AddImageState('pressed',av);
      AddImageState('disabled',dv);
      stretch:=SameText(element.GetStyleValue('background-size','auto'),'stretch');
+     topLeft:=SameText(element.GetStyleValue('background-position','center'),'top-left');
      ofsX:=element.GetBaseStyleNumber('background-offset-x');
      ofsY:=element.GetBaseStyleNumber('background-offset-y');
      BlendOffset('hover',hv);

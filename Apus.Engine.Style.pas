@@ -35,6 +35,7 @@
 //                        border; state blocks cross-fade images (':hover { background-image }')
 //   background-tint      tint for background-image (neutral by default)
 //   background-size      auto (native size in logical units, centered) | stretch (fills the box)
+//   background-position  center (default) | top-left (native-size images only)
 //   background-offset-x/y  image shift in logical units (state-able: ':pressed { ...-y:1 }')
 //  Content:
 //   font [inh]           font name;  font-size [inh]
