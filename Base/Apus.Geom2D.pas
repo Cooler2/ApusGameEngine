@@ -777,7 +777,8 @@ function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
 
  procedure Triangulate(pnts:PVec2d;count:integer); overload;
   type
-   pa=array[0..5] of TVec2d;
+   // Pointer view of the count vertices supplied by the caller.
+   pa=array[0..MaxInt div SizeOf(TVec2d)-1] of TVec2d;
  var
    next,prev:array of integer; // for each vertex: links to next/previous vertex
    i,n,p,c,d:integer;

@@ -285,6 +285,36 @@ begin
   EndTest;
 end;
 
+procedure TestSevenVertexArrow;
+var
+  poly:array[0..6] of TVec2d;
+  polyS:array[0..6] of TVec2;
+  i,j,k:integer;
+  area:double;
+begin
+  StartTest('Seven vertex concave arrow');
+  poly[0]:=Vec2d(0,1); poly[1]:=Vec2d(4,1);
+  poly[2]:=Vec2d(4,0); poly[3]:=Vec2d(7,2);
+  poly[4]:=Vec2d(4,4); poly[5]:=Vec2d(4,3);
+  poly[6]:=Vec2d(0,3);
+  for i:=0 to High(poly) do polyS[i]:=Vec2(poly[i]);
+  for k:=0 to 1 do begin
+    if k=0 then Triangulate(PVec2d(@poly[0]),Length(poly))
+    else Triangulate(PVec2(@polyS[0]),Length(polyS));
+    Check(Length(trgIndices)=15,'Arrow triangle count');
+    for i:=0 to High(trgIndices) do
+      Check((trgIndices[i]>=0) and (trgIndices[i]<=High(poly)), 'Arrow vertex index');
+    area:=0;
+    for j:=0 to Length(trgIndices) div 3-1 do begin
+      i:=j*3;
+      area:=area+Abs(poly[trgIndices[i+1]].Sub(poly[trgIndices[i]]).Cross(
+        poly[trgIndices[i+2]].Sub(poly[trgIndices[i]])))/2;
+    end;
+    Check(Abs(area-14)<0.00001,'Arrow covered area');
+  end;
+  EndTest;
+end;
+
 begin
   try
     TestVec2Core;
@@ -293,6 +323,7 @@ begin
     TestLinesAndSegments;
     TestPolygonOps;
     TestGeom2DUtility;
+    TestSevenVertexArrow;
     writeln;
     writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
     if testsFailed>0 then
