@@ -236,9 +236,8 @@ end;
   if sock=-1 then
    raise EError.Create('UDP2: Socket creation error: '+Conv.ToStr(SocketError));
 
-  FpFcntl(sock, F_GETFL, val);
-  val:=val or O_NONBLOCK;
-  if FpFcntl(sock, F_SETFL, val)<>0 then
+  val:=FpFcntl(sock,F_GETFL); // the flags are the result, not an out parameter
+  if FpFcntl(sock,F_SETFL,val or O_NONBLOCK)<>0 then
    raise EError.Create('UDP2: can''t make non-blocking socket');
 
   fillchar(adr,sizeof(adr),0);
@@ -326,6 +325,8 @@ end;
    end;
    if err<>ESysEAGAIN then
     raise EError.Create('UDP2: Error on receive: '+Conv.ToStr(SocketError));
+   size:=0;
+   exit; // no data
   end;
   port:=ntohs(a.sin_port);
   adr:=a.sin_addr.S_addr;
