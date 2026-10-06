@@ -711,6 +711,45 @@ begin
   EndTest;
 end;
 
+// Load a control file expected to be malformed, return the error message ('' - loaded)
+function CtlLoadError(const fname:String8):string;
+begin
+  result:='';
+  try
+    FreeControlFile(UseControlFile(fname));
+  except
+    on e:Exception do result:=e.Message;
+  end;
+end;
+
+// Malformed textual control files give a parse error with the file and line, never an out-of-bounds read
+procedure TestControlFileErrors;
+var
+  prev:IFileProvider;
+  msg:string;
+begin
+  StartTest('Control file errors');
+  prev:=Files.GetProvider;
+  Files.SetProvider(TMemFileProvider.Create(prev));
+  try
+    Files.Save('vfs/nokey.ctl','Development ON'#13#10'BrokenKey',false);
+    msg:=CtlLoadError('vfs/nokey.ctl');
+    Check((Pos('no value for key BrokenKey',msg)>0) and (Pos('nokey.ctl line: 2',msg)>0),'ctl: key without a value: '+msg);
+    Check(CtlLoadError('vfs/nokey.ctl')<>'','ctl: failed file is not kept loaded');
+    Check(not IsKeyExists('nokey.ctl:\Development'),'ctl: keys of a failed file are dropped');
+
+    Files.Save('vfs/openlist.ctl','Width 1'#13#10'List ("a",'#13#10'  "b"'#13#10,false);
+    msg:=CtlLoadError('vfs/openlist.ctl');
+    Check((Pos('unterminated list for key List',msg)>0) and (Pos('openlist.ctl line: 2',msg)>0),'ctl: unterminated list: '+msg);
+
+    Files.Save('vfs/empty.ctl','',false);
+    Check(CtlLoadError('vfs/empty.ctl')='','ctl: empty file loads');
+  finally
+    Files.SetProvider(prev);
+  end;
+  EndTest;
+end;
+
 begin
   try
     Cleanup;
@@ -729,6 +768,7 @@ begin
     TestFind;
     TestPathUtils;
     TestProviderChain;
+    TestControlFileErrors;
 
     Cleanup;
 

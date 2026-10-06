@@ -665,7 +665,7 @@ function UseControlFile;
    // Load a section into the given object, path - object path (without trailing slash)
    procedure LoadSection(item:TGenericTree;path:String8);
     var
-     st,arg,uArg,st2:String8;
+     st,arg,uArg:String8;
      sa:Strings8;
      comment:TCommentLine;
      incl:TInclude;
@@ -722,7 +722,9 @@ function UseControlFile;
        end;
       end;
 
-      // Иначе - данные, нужно проверить тип
+      // Otherwise it's a value: check its type
+      if arg='' then
+       raise EWarning.Create('CTL2: no value for key '+st+' in '+filename+' line: '+Conv.ToStr(ln));
       {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
       uArg:=arg.ToUpper;
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
@@ -743,14 +745,14 @@ function UseControlFile;
        // String8 or String8 list
        if arg[1]='(' then begin
         // String8 list
-        if arg[length(arg)]<>')' then begin
-         // Multiline record
-         repeat
-          st2:=lines[ln].Trim;
-          inc(ln);
-          arg:=arg+st2;
-         until (ln>=length(lines)) or ((st2<>'') and (st2[length(st2)]=')'));
+        // Multiline record
+        n:=ln; // line where the list starts
+        while (arg[length(arg)]<>')') and (ln<length(lines)) do begin
+         arg:=arg+lines[ln].Trim;
+         inc(ln);
         end;
+        if arg[length(arg)]<>')' then
+         raise EWarning.Create('CTL2: unterminated list for key '+st+' in '+filename+' line: '+Conv.ToStr(n));
         // Delete '(' and ')'
         delete(arg,1,1);
         SetLength(arg,length(arg)-1);
@@ -784,7 +786,7 @@ function UseControlFile;
     if UTF8.HasBOM(st) then delete(st,1,3);
     lines:=st.SplitLines;
     // a line break at the end doesn't start one more line
-    if lines[high(lines)]='' then SetLength(lines,high(lines));
+    if (length(lines)>0) and (lines[high(lines)]='') then SetLength(lines,high(lines));
     ln:=0;
     LoadSection(item,String8(UpperCase(string(ExtractFileName(filename))))+':');
    end;
@@ -932,10 +934,15 @@ function UseControlFile;
    ctl.curmode:=mode;
    ctl.code:=code;
 
-   if ctl.curmode=fmText then
-     LoadTextual(filename,items.GetChild(i))
-   else
-     LoadBinary(filename,items.GetChild(i),code);
+   try
+    if ctl.curmode=fmText then
+      LoadTextual(filename,items.GetChild(i))
+    else
+      LoadBinary(filename,items.GetChild(i),code);
+   except
+    items.GetChild(i).Free; // a partially loaded file must not be returned by the next UseControlFile
+    raise;
+   end;
 
    result:=ctl.handle;
   end;
