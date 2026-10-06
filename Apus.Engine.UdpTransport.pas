@@ -75,9 +75,12 @@ interface
  function GetNetStat(ind:integer):int64;
 
  // Get received data block pointer and size.
- // handle is passed in the Net\onData event parameter.
- function GetMsg(handle:cardinal;var data:pointer):integer;
- procedure GetMsgOrigin(handle:integer;var ip:cardinal;var port:word);
+ // handle is the tag of the NET\Conn\UserMsg event, valid for ~15 seconds after the event.
+ // Connection events (Connected, ConnectionRejected, ConnectionClosed, ConnectionBroken) carry
+ // the TConnection object as the tag.
+ function GetMsg(handle:NativeInt;var data:pointer):integer;
+ // ip=0, port=0 if the connection that received the message is already destroyed
+ procedure GetMsgOrigin(handle:NativeInt;var ip:cardinal;var port:word);
 
  // Parse and resolve an address string when needed.
  // Warning: this can take a long time. Returns 0 or an error code.
@@ -105,6 +108,13 @@ implementation
  type
   TNetThread=class(TThread)
    procedure Execute; override;
+  end;
+  // What the network thread reports to the user after it leaves the critical section
+  TNetNoteKind=(nnConnected,nnRejected,nnMessage,nnClosed,nnBroken);
+  TNetNote=record
+   kind:TNetNoteKind;
+   sessID:cardinal; // connection (not the object: it can be destroyed before the note is dispatched)
+   packet:TDataPacket; // nnMessage: the message in storage
   end;
   THistoryHdr=packed record
    msgtype,reserved:byte;
@@ -359,13 +369,21 @@ begin
 end;
 
 destructor TConnection.Destroy;
+var
+ d:TDataPacket;
 begin
  critSect.Enter;
  try
-  connections[sessID and $FFF]:=nil;
+  if connections[sessID and $FFF]=self then connections[sessID and $FFF]:=nil;
   dec(conCnt);
   Log.Msg('Connection destroyed: '+inttostr(sessID and $FFF)+' count='+inttostr(concnt));
   FreeAll;
+  // stored messages outlive the connection: drop references to it
+  d:=storageFirst;
+  while d<>nil do begin
+   if d.src=self then d.src:=nil;
+   d:=d.next;
+  end;
  finally
   critSect.Leave;
  end;
@@ -581,6 +599,53 @@ var
  size:integer;
  recvBuf,sendbuf:array[0..16500] of byte;
 
+// Live connection with the given session ID or nil; call inside critSect
+function FindConnection(sessID:cardinal):TConnection;
+begin
+ result:=connections[sessID and $FFF];
+ if (result<>nil) and (result.sessID<>sessID) then result:=nil;
+end;
+
+// Report notes to the user via signals or onUserMsg. Runs outside critSect, so handlers may send,
+// disconnect or destroy connections: a note for a connection destroyed meanwhile is dropped.
+procedure DispatchNotes(const notes:array of TNetNote;count:integer);
+var
+ i:integer;
+ con:TConnection;
+ d:TDataPacket;
+ ip:cardinal;
+ port:word;
+begin
+ ip:=0; port:=0;
+ for i:=0 to count-1 do begin
+  d:=notes[i].packet;
+  critSect.Enter;
+  try
+   if notes[i].kind=nnMessage then con:=d.src
+    else con:=FindConnection(notes[i].sessID);
+   if con<>nil then begin
+    ip:=con.remIP;
+    port:=con.remPort;
+   end;
+  finally
+   critSect.Leave;
+  end;
+  if con=nil then continue;
+  case notes[i].kind of
+   nnConnected:Signal('NET\Conn\Connected',TTag(UIntPtr(con)));
+   nnRejected:Signal('NET\Conn\ConnectionRejected',TTag(UIntPtr(con)));
+   nnClosed:Signal('Net\Conn\ConnectionClosed',TTag(UIntPtr(con)));
+   nnBroken:Signal('NET\Conn\ConnectionBroken',TTag(UIntPtr(con)));
+   nnMessage:
+    if @onUserMsg<>nil then begin
+     onUserMsg(con,@d.data[0],length(d.data),ip,port);
+     d.created:=0; // mark as old for deletion
+    end else
+     Signal('NET\Conn\UserMsg',TTag(UIntPtr(d)));
+  end;
+ end;
+end;
+
 procedure TNetThread.Execute;
 var
  i,j,k,l:integer;
@@ -589,12 +654,22 @@ var
  SID,c:cardinal;
  pnum:word;
  cmd:byte;
- list,info:array[1..1000] of cardinal;
+ notes:array of TNetNote;
  count,sentCount:integer;
  con:TConnection;
  fl:boolean;
  d,dd:TDataPacket;
  t:cardinal;
+
+ procedure AddNote(kind:TNetNoteKind;sessID:cardinal;packet:TDataPacket=nil);
+ begin
+  if count>=length(notes) then SetLength(notes,count*2+16);
+  notes[count].kind:=kind;
+  notes[count].sessID:=sessID;
+  notes[count].packet:=packet;
+  inc(count);
+ end;
+
 begin
  threadSect.Enter; // section is locked whenever the thread is running
  try
@@ -669,7 +744,7 @@ begin
        if fl then begin
         if connections[i].status=csConnected then begin
          Log.Msg('NET: Already connected, repeat confirmation '+inttostr(SID and $FFF));
-         move(connections[j].sessID,recvbuf[8],4);
+         move(connections[i].sessID,recvbuf[8],4);
          recvbuf[6]:=2; // accepted
          try
           udp.Send(rem_adr,rem_port,recvbuf,12);
@@ -698,9 +773,7 @@ begin
          connections[i].hSize:=0;
          connections[i].accepting:=false;
          Log.Msg('NET: connection '+inttostr(i)+'/'+inttostr(SID and $FFF)+' established with '+Conv.FormatIp(rem_adr)+':'+inttostr(rem_port));
-         inc(count);
-         list[count]:=cardinal(connections[i]);
-         info[count]:=1;
+         AddNote(nnConnected,connections[i].sessID);
          j:=i;
          fl:=true;
          break;
@@ -754,9 +827,7 @@ begin
        con.hSize:=0;
        move(recvbuf[8],con.remID,4);
        Log.Msg('NET: accepted, sessID='+inttostr(con.sessID)+', remID='+inttostr(con.remID));
-       inc(count);
-       list[count]:=cardinal(con);
-       info[count]:=1;
+       AddNote(nnConnected,con.sessID);
       end;
 
       3:begin
@@ -765,9 +836,7 @@ begin
        con.connected:=false;
        con.FreeAll;
        Log.Msg('NET: connection rejected');
-       inc(count);
-       list[count]:=i;
-       info[count]:=2;
+       AddNote(nnRejected,con.sessID);
       end;
 
       4:begin
@@ -784,9 +853,7 @@ begin
         con.connected:=false;
         con.status:=csClosed;
         con.FreeAll;
-        inc(count);
-        list[count]:=cardinal(con);
-        info[count]:=4;
+        AddNote(nnClosed,con.sessID);
        end;
       end;
 
@@ -882,9 +949,7 @@ begin
           storageFirst:=d;
           storageLast:=d;
          end;
-         inc(count);
-         list[count]:=cardinal(d);
-         info[count]:=3;
+         AddNote(nnMessage,con.sessID,d);
         end;
        until (fl=false) or (con.firstRecv=nil);
       end;
@@ -917,22 +982,7 @@ begin
   end;
 
   t:=cardinal(Time.Ticks);
-  // notifications
-  for i:=1 to count do begin
-   if info[i]=1 then
-    Signal('NET\Conn\Connected',list[i]);
-   if info[i]=2 then
-    Signal('NET\Conn\ConnectionRejected',cardinal(connections[list[i]]));
-   if info[i]=3 then
-    if @onUserMsg<>nil then begin
-     d:=TDataPacket(pointer(list[i]));
-     onUserMsg(d.src,@d.data[0],length(d.data),d.src.remIP,d.src.remPort);
-     d.created:=0; // mark as old for deletion
-    end else
-     Signal('NET\Conn\UserMsg',list[i]);
-   if info[i]=4 then
-    Signal('Net\Conn\ConnectionClosed',list[i]);
-  end;
+  DispatchNotes(notes,count);
   t:=cardinal(Time.Ticks)-t;
   avgTime2:=avgTime2*0.99+t*0.01;
 
@@ -958,10 +1008,7 @@ begin
       FreeAll;
       connected:=false;
       status:=csBroken;
-      if count<1000 then begin
-       inc(count);
-       list[count]:=i;
-      end;
+      AddNote(nnBroken,connections[i].sessID);
      end else begin
       move(remID,sendbuf[0],4);
       move(firstSend.num,sendBuf[4],2);
@@ -994,9 +1041,7 @@ begin
   finally
    critSect.Leave;
   end;
-  // Notify about broken connections
-  for i:=1 to count do
-   Signal('NET\Conn\ConnectionBroken',cardinal(connections[list[i]]));
+  DispatchNotes(notes,count); // broken connections
   t:=cardinal(Time.Ticks)-t;
   avgTime3:=avgTime3*0.99+t*0.01;
 
@@ -1126,13 +1171,13 @@ begin
  ticks:=cardinal(Time.Ticks);
 end;
 
-function GetMsg(handle:cardinal;var data:pointer):integer;
+function GetMsg(handle:NativeInt;var data:pointer):integer;
 var
  d:TDataPacket;
 begin
  critSect.Enter;
  try
-  d:=pointer(handle);
+  d:=TDataPacket(pointer(UIntPtr(handle)));
   result:=length(d.data);
   data:=@d.data[0];
  finally
@@ -1140,15 +1185,19 @@ begin
  end;
 end;
 
-procedure GetMsgOrigin(handle:integer;var ip:cardinal;var port:word);
+procedure GetMsgOrigin(handle:NativeInt;var ip:cardinal;var port:word);
 var
  d:TDataPacket;
 begin
  critSect.Enter;
  try
-  d:=pointer(handle);
-  ip:=d.src.remIP;
-  port:=d.src.remPort;
+  d:=TDataPacket(pointer(UIntPtr(handle)));
+  if d.src<>nil then begin
+   ip:=d.src.remIP;
+   port:=d.src.remPort;
+  end else begin
+   ip:=0; port:=0;
+  end;
  finally
   critSect.Leave;
  end;
