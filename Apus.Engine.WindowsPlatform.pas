@@ -546,9 +546,29 @@ function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;
  end;
 
 function TWindowsPlatform.LoadCursor(filename:string):THandle;
+ var
+  data,bits:ByteArray;
+  offset,size:cardinal;
  begin
-  filename:=ChangeFileExt(filename,'.cur');
-  result:=LoadCursorFromFileW(PWideChar(filename));
+  // Read through the provider chain, including additional data roots and packs.
+  data:=Files.LoadAsBytes(Files.FixName(ChangeFileExt(filename,'.cur')));
+  if length(data)<22 then raise EWarning.Create('Invalid cursor: '+filename);
+  if (PWord(@data[0])^<>0) or (PWord(@data[2])^<>2) or
+     (PWord(@data[4])^=0) then raise EWarning.Create('Invalid cursor: '+filename);
+  if length(data)<6+16*integer(PWord(@data[4])^) then
+   raise EWarning.Create('Incomplete cursor directory: '+filename);
+  // Like the SDL loader, use the first CUR image. Native cursor resources
+  // prefix the image bytes with the two hotspot words from its directory entry.
+  size:=PCardinal(@data[14])^;
+  offset:=PCardinal(@data[18])^;
+  if (size=0) or (offset>cardinal(length(data))) or
+     (size>cardinal(length(data))-offset) or (size>MaxInt-4) then
+   raise EWarning.Create('Incomplete cursor image: '+filename);
+  SetLength(bits,integer(size)+4);
+  Move(data[10],bits[0],4);
+  Move(data[integer(offset)],bits[4],size);
+  result:=CreateIconFromResourceEx(@bits[0],length(bits),false,$30000,0,0,0);
+  if result=0 then raise EWarning.Create('Failed to create cursor: '+filename);
  end;
 
 procedure TWindowsPlatform.SetCursor(cur:THandle);
@@ -559,7 +579,7 @@ procedure TWindowsPlatform.SetCursor(cur:THandle);
 
 procedure TWindowsPlatform.FreeCursor(cur:THandle);
  begin
-  FreeCursor(cur);
+  Windows.DestroyCursor(cur);
  end;
 
 function TWinGLWindow.GetHandle:THandle;
