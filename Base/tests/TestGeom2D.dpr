@@ -285,45 +285,79 @@ begin
   EndTest;
 end;
 
-procedure TestSevenVertexArrow;
+// Checks the current trgIndices as a triangulation of pts. With checkArea the
+// triangles must cover the signed area exactly (coverage + preserved winding).
+procedure CheckTriangulation(const pts:array of TVec2d;checkArea:boolean;
+  signedArea:double;const name:string);
 var
-  poly:array[0..6] of TVec2d;
-  polyS:array[0..6] of TVec2;
-  i:integer;
-
-  procedure CheckResult(const variant:string);
-  var
-    i:integer;
-    valid:boolean;
-    area:double;
-  begin
-    Check(Length(trgIndices)=15,'Arrow triangle count ('+variant+')');
-    valid:=true;
-    for i:=0 to High(trgIndices) do
-      if (trgIndices[i]<0) or (trgIndices[i]>High(poly)) then valid:=false;
-    Check(valid,'Arrow vertex indices ('+variant+')');
-    if not valid then exit;
-    area:=0;
-    i:=0;
-    while i+2<=High(trgIndices) do begin
-      area:=area+Abs(poly[trgIndices[i+1]].Sub(poly[trgIndices[i]]).Cross(
-        poly[trgIndices[i+2]].Sub(poly[trgIndices[i]])))/2;
-      inc(i,3);
-    end;
-    Check(Abs(area-14)<0.00001,'Arrow covered area ('+variant+')');
-  end;
-
+  i,j,a,b,c:integer;
+  valid:boolean;
+  used:array of boolean;
+  tri,area,absArea:double;
 begin
-  StartTest('Seven vertex concave arrow');
-  poly[0]:=Vec2d(0,1); poly[1]:=Vec2d(4,1);
-  poly[2]:=Vec2d(4,0); poly[3]:=Vec2d(7,2);
-  poly[4]:=Vec2d(4,4); poly[5]:=Vec2d(4,3);
-  poly[6]:=Vec2d(0,3);
-  for i:=0 to High(poly) do polyS[i]:=Vec2(poly[i]);
-  Triangulate(PVec2d(@poly[0]),Length(poly));
-  CheckResult('double');
-  Triangulate(PVec2(@polyS[0]),Length(polyS));
-  CheckResult('single');
+  Check(Length(trgIndices)=(Length(pts)-2)*3,name+': triangle count');
+  if Length(trgIndices)<>(Length(pts)-2)*3 then exit;
+  valid:=true;
+  SetLength(used,Length(pts));
+  for i:=0 to High(trgIndices) do
+    if (trgIndices[i]<0) or (trgIndices[i]>High(pts)) then valid:=false
+      else used[trgIndices[i]]:=true;
+  Check(valid,name+': index range');
+  if not valid then exit;
+  for i:=0 to High(used) do
+    if not used[i] then valid:=false;
+  i:=0;
+  while i<High(trgIndices) do begin
+    a:=trgIndices[i]; b:=trgIndices[i+1]; c:=trgIndices[i+2];
+    if (a=b) or (b=c) or (a=c) then valid:=false;
+    inc(i,3);
+  end;
+  Check(valid,name+': distinct corners, every vertex used');
+  if not checkArea then exit;
+  area:=0; absArea:=0;
+  for j:=0 to Length(trgIndices) div 3-1 do begin
+    a:=trgIndices[j*3]; b:=trgIndices[j*3+1]; c:=trgIndices[j*3+2];
+    tri:=pts[b].Sub(pts[a]).Cross(pts[c].Sub(pts[a]))/2;
+    area:=area+tri;
+    absArea:=absArea+Abs(tri);
+  end;
+  Check(Abs(absArea-Abs(signedArea))<0.00001,name+': covered area');
+  Check(Abs(area-signedArea)<0.00001,name+': winding preserved');
+end;
+
+procedure TestTriangulation;
+var
+  arrow,arrowRev:array[0..6] of TVec2d;
+  arrowS:array[0..6] of TVec2;
+  quad,bowTie:array[0..3] of TVec2d;
+  i:integer;
+begin
+  StartTest('Triangulation');
+  // concave arrow, 7 vertices, positive signed area
+  arrow[0]:=Vec2d(0,1); arrow[1]:=Vec2d(4,1);
+  arrow[2]:=Vec2d(4,0); arrow[3]:=Vec2d(7,2);
+  arrow[4]:=Vec2d(4,4); arrow[5]:=Vec2d(4,3);
+  arrow[6]:=Vec2d(0,3);
+  for i:=0 to High(arrow) do begin
+    arrowS[i]:=Vec2(arrow[i]);
+    arrowRev[High(arrow)-i]:=arrow[i];
+  end;
+  Triangulate(PVec2d(@arrow[0]),Length(arrow));
+  CheckTriangulation(arrow,true,14,'Arrow');
+  Triangulate(PVec2(@arrowS[0]),Length(arrowS));
+  CheckTriangulation(arrow,true,14,'Arrow single');
+  // opposite winding: used to spin forever without finding an ear
+  Triangulate(PVec2d(@arrowRev[0]),Length(arrowRev));
+  CheckTriangulation(arrowRev,true,-14,'Reversed arrow');
+  quad[0]:=Vec2d(0,0); quad[1]:=Vec2d(0,10);
+  quad[2]:=Vec2d(10,10); quad[3]:=Vec2d(10,0);
+  Triangulate(PVec2d(@quad[0]),Length(quad));
+  CheckTriangulation(quad,true,-100,'Reversed quad');
+  // self-intersecting: the last triangle is no ear, output must still be complete
+  bowTie[0]:=Vec2d(0,0); bowTie[1]:=Vec2d(2,2);
+  bowTie[2]:=Vec2d(2,0); bowTie[3]:=Vec2d(0,2);
+  Triangulate(PVec2d(@bowTie[0]),Length(bowTie));
+  CheckTriangulation(bowTie,false,0,'Bow tie');
   EndTest;
 end;
 
@@ -335,7 +369,7 @@ begin
     TestLinesAndSegments;
     TestPolygonOps;
     TestGeom2DUtility;
-    TestSevenVertexArrow;
+    TestTriangulation;
     writeln;
     writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
     if testsFailed>0 then

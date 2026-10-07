@@ -212,7 +212,9 @@ interface
  function Rect2(x1,y1,x2,y2:single):TRect2; overload; inline;
  threadvar
   trgIndices:array of integer; // triangulation output indices
- // Triangulation of a closed polygon (builds n-2 triangles). Must be CLOCKWISE.
+ // Triangulation of a closed polygon: always builds count-2 triangles, keeping
+ // the input winding (either one). Self-intersecting input gets valid indices,
+ // but its coverage is unspecified.
  procedure Triangulate(pnts:PVec2d;count:integer); overload;
  // Single-precision overload.
  procedure Triangulate(pnts:PVec2;count:integer); overload;
@@ -781,11 +783,12 @@ function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
    pa=array[0..MaxInt div SizeOf(TVec2d)-1] of TVec2d;
  var
    next,prev:array of integer; // for each vertex: links to next/previous vertex
-   i,n,p,c,d:integer;
+   i,n,p,c,d,misses:integer;
    v1,v2:TVec2d;
    probe:TSegment2;
    vrts:^PA;
-   fl:boolean;
+   area:double;
+   fl,reversed:boolean;
   begin
    ASSERT(count>=3);
    setLength(trgIndices,(count-2)*3);
@@ -797,14 +800,21 @@ function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
     exit;
    end;
    vrts:=pointer(pnts);
+   // The ear test expects positive signed area: walk a negative polygon backwards
+   area:=0;
+   for i:=0 to count-1 do
+    area:=area+vrts^[i].Cross(vrts^[(i+1) mod count]);
+   reversed:=area<0;
    setLength(next,count);
    setLength(prev,count);
    for i:=0 to count-1 do begin
     next[i]:=(i+1) mod count;
     prev[i]:=(i+count-1) mod count;
+    if reversed then Swap(next[i],prev[i]);
    end;
    n:=count;
    p:=0; c:=0;
+   misses:=0;
    while n>=3 do begin
     // Continue clipping while ears remain
     v1:=vrts^[prev[p]].Sub(vrts^[p]);
@@ -823,16 +833,25 @@ function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
      end;
     end;
 
+    // A full lap without an ear means a self-intersecting or degenerate polygon:
+    // clip anyway, so the output always holds count-2 triangles
+    if not fl and (misses>=n) then fl:=true;
     if fl then begin
-     trgIndices[c]:=prev[p];  inc(c);
+     // keep the input winding in the output triangles
+     if reversed then trgIndices[c]:=next[p] else trgIndices[c]:=prev[p];
+     inc(c);
      trgIndices[c]:=p;  inc(c);
-     trgIndices[c]:=next[p];  inc(c);
+     if reversed then trgIndices[c]:=prev[p] else trgIndices[c]:=next[p];
+     inc(c);
      next[prev[p]]:=next[p];
      prev[next[p]]:=prev[p];
      p:=next[p];
      dec(n);
-    end else
-     if n=3 then exit else p:=next[p];
+     misses:=0;
+    end else begin
+     p:=next[p];
+     inc(misses);
+    end;
    end;
   end;
 

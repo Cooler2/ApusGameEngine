@@ -842,7 +842,8 @@ end; *)
 
 procedure TDrawer.Polygon(points: PVec2; cnt: integer; color: cardinal);
 type
- ta=array[0..5] of TVec2;
+ // pointer view of the cnt vertices supplied by the caller
+ ta=array[0..MaxInt div SizeOf(TVec2)-1] of TVec2;
 var
  vrt:array of TVertex;
  i,n:integer;
