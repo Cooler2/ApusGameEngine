@@ -136,7 +136,7 @@ implementation
   thread:TNetThread;
   critSect:TLock;
   threadSect:TLock; // NetInit/NetDone
-  randState:uint64; // session IDs and request nonces, see NetRandom
+  rng:TRandom; // session IDs and request nonces, use inside critSect; System.Random is not touched
   MainTimer:cardinal=10000; // offset to leave some room in the past
 
   lastPacketID:cardinal;
@@ -194,37 +194,6 @@ implementation
   end;
  {$ENDIF}
 
-
- // Seed the generator from the process identity and high-resolution clocks: processes started at
- // the same moment get different sequences. System.Random is neither used nor reseeded.
- procedure SeedNetRandom;
-  var
-   utc:double;
-   seed:uint64;
-  begin
-   utc:=Time.UTC;
-   move(utc,seed,8);
-   seed:=seed xor uint64(Time.TicksUs)*uint64($9E3779B97F4A7C15);
-   {$IFDEF MSWINDOWS}
-   seed:=seed xor (uint64(GetCurrentProcessId) shl 32);
-   {$ELSE}
-   seed:=seed xor (uint64(fpGetPid) shl 32);
-   {$ENDIF}
-   seed:=seed xor uint64(UIntPtr(@utc)); // stack address (ASLR)
-   randState:=seed;
-  end;
-
- // SplitMix64 step; call inside critSect. Not a cryptographic generator: session IDs are not secrets.
- function NetRandom:cardinal;
-  var
-   z:uint64;
-  begin
-   inc(randState,uint64($9E3779B97F4A7C15));
-   z:=randState;
-   z:=(z xor (z shr 30))*uint64($BF58476D1CE4E5B9);
-   z:=(z xor (z shr 27))*uint64($94D049BB133111EB);
-   result:=cardinal(z xor (z shr 31));
-  end;
 
  procedure CheckInitialized;
   begin
@@ -435,7 +404,7 @@ begin
   accepting:=accept;
   lastRecvID:=0;
   repeat
-   sessID:=NetRandom;
+   sessID:=rng.Next;
   until connections[sessID and $FFF]=nil;
   connections[sessID and $FFF]:=self;
   inc(conCnt);
@@ -1165,7 +1134,7 @@ begin
       if connections[i].status=csConnecting then with connections[i] do begin
        // send connection request
        move(sessID,sendbuf[0],4);
-       c:=NetRandom;
+       c:=rng.Next;
        move(c,sendbuf[4],2);
        sendbuf[6]:=1;
        if remIP=0 then remIP:=$FFFFFFFF;
@@ -1270,7 +1239,7 @@ end;
 initialization
  critSect.Init('Netwrk2',50);
  threadSect.Init('Netwrk2Thr',10);
- SeedNetRandom;
+ rng.InitUnique;
  LastPacketID:=cardinal(Time.Ticks);
 finalization
  critSect.Cleanup;

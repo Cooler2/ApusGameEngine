@@ -282,6 +282,7 @@ only canonical keys — the old spellings are silently ignored (no aliases).
   - `TConnection.Create/Connect/Accept/SendData` raise `EError` before `NetInit`: create
     connections after it.
   - Session IDs no longer use `System.Random`, and the unit no longer calls `Randomize`.
+  - 2026-10-08: the unit's generator is a `TRandom` from `Apus.Core` (`InitUnique`).
 
 ### Apus.Core typed row-pointer helpers
 
