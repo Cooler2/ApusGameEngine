@@ -523,6 +523,31 @@ type
     class function Get:double; overload; static;
   end;
 
+// =============================================================================
+// TRandom - fast pseudo-random generator with explicit state (PCG32, not cryptographic).
+// An instance is not thread-safe: use one per thread or guard it with a lock.
+// =============================================================================
+type
+  TRandom=record
+    // Reproducible sequence; different streams give unrelated sequences for the same seed
+    procedure Init(seed:uint64;stream:uint64=0);
+    // Differs per process, thread and call: clock, PID, thread ID, stack address, call counter
+    procedure InitUnique;
+    function Next:cardinal;               // raw 32 bits
+    function Int(max:cardinal):cardinal;  // uniform in [0..max-1]
+    function Range(min,max:integer):integer; // uniform in [min..max]
+    function Float:single;                // uniform in [0..1)
+    function Chance(p:single):boolean;    // true with probability p
+    function Round(v:single):integer;     // floor or ceil, ceil with probability frac(v)
+    function Sum(n:integer=1):single;     // n times (Float-Float); n=6 approximates Normal
+    function Normal:single;               // gaussian: mean 0, sigma 1
+    function Exp(mean:single=1.0):single; // exponential with the given mean
+  private
+    state,add:uint64;
+    spare:single; // second Box-Muller value
+    hasSpare:boolean;
+  end;
+
 implementation
 
 uses
@@ -815,6 +840,125 @@ var
 begin
   QPC(now);
   result:=(now-internalTimer)*timerMul;
+end;
+
+{ TRandom }
+
+var
+  randomInitCounter:longint; // makes InitUnique calls within one clock tick differ
+
+const
+  PCG_MULT=uint64(6364136223846793005);
+  GOLDEN64=uint64($9E3779B97F4A7C15);
+
+// PCG32 reference seeding (pcg32_srandom_r)
+procedure TRandom.Init(seed:uint64;stream:uint64);
+begin
+  state:=0;
+  add:=(stream shl 1) or 1; // the increment must be odd
+  Next;
+  state:=state+seed;
+  Next;
+  hasSpare:=false;
+end;
+
+procedure TRandom.InitUnique;
+var
+  utc:double;
+  seed,stream,pid:uint64;
+begin
+  utc:=Time.UTC;
+  move(utc,seed,8);
+  seed:=seed xor uint64(Time.TicksUs)*GOLDEN64;
+  seed:=seed xor uint64(UIntPtr(@utc)); // stack address (ASLR)
+  seed:=seed+uint64(Atomic.Inc(randomInitCounter))*GOLDEN64;
+  {$IFDEF MSWINDOWS}
+  pid:=GetCurrentProcessId;
+  {$ELSE}{$IFDEF UNIX}
+  pid:=fpGetPid;
+  {$ELSE}
+  pid:=0;
+  {$ENDIF}{$ENDIF}
+  stream:=(pid shl 32) xor uint64(GetCurrentThreadID);
+  Init(seed,stream);
+end;
+
+// PCG32 XSH-RR: LCG step, the output is a permutation of the old state
+function TRandom.Next:cardinal;
+var
+  old:uint64;
+  xorShifted,rot:cardinal;
+begin
+  old:=state;
+  state:=old*PCG_MULT+add;
+  xorShifted:=cardinal(((old shr 18) xor old) shr 27);
+  rot:=cardinal(old shr 59);
+  result:=(xorShifted shr rot) or (xorShifted shl ((32-rot) and 31));
+end;
+
+function TRandom.Int(max:cardinal):cardinal;
+begin
+  ASSERT(max>0);
+  result:=cardinal((uint64(Next)*max) shr 32); // multiply-shift: bias below max/2^32
+end;
+
+function TRandom.Range(min,max:integer):integer;
+var
+  span:int64;
+begin
+  ASSERT(max>=min);
+  span:=int64(max)-min+1;
+  if span>High(cardinal) then exit(integer(Next)); // the whole integer range
+  result:=integer(min+int64(Int(cardinal(span))));
+end;
+
+function TRandom.Float:single;
+const
+  scale:single=1/16777216; // 2^-24
+begin
+  result:=(Next shr 8)*scale; // 24 bits fit the mantissa exactly, so never 1.0
+end;
+
+function TRandom.Chance(p:single):boolean;
+begin
+  result:=Float<p;
+end;
+
+function TRandom.Round(v:single):integer;
+begin
+  result:=Trunc(v);
+  if v<result then dec(result); // floor for negative values
+  if Float<v-result then inc(result);
+end;
+
+function TRandom.Sum(n:integer):single;
+var
+  i:integer;
+begin
+  result:=0;
+  for i:=1 to n do
+    result:=result+Float-Float;
+end;
+
+// Box-Muller transform: one pair of uniform values gives two independent gaussian values
+function TRandom.Normal:single;
+var
+  r,a:double;
+begin
+  if hasSpare then begin
+    hasSpare:=false;
+    exit(spare);
+  end;
+  r:=Sqrt(-2*Ln(1-Float)); // 1-Float is in (0..1]
+  a:=2*Pi*Float;
+  spare:=r*Sin(a);
+  hasSpare:=true;
+  result:=r*Cos(a);
+end;
+
+function TRandom.Exp(mean:single):single;
+begin
+  result:=-mean*Ln(1-Float);
 end;
 
 

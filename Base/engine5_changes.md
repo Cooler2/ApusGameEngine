@@ -1030,6 +1030,8 @@ Do not treat it as a list of functions to reintroduce under the old names.
 | `Unescape(st)` | **Apus.Strings** | Available as `String8Helper.Unescape`. |
 | `ExtractFilePath/FileName/ExpandFileName` | **SysUtils** | RTL functions; add `SysUtils` to `uses`. |
 | `TrimLeft/TrimRight` standalone | **SysUtils** or `st.TrimLeft/TrimRight` | Also available as `String8` helper methods. |
+| `TRandom` | **Apus.Core** `TRandom` | Same idea, finished as a real PCG32: `Init(seed[,stream])`, new `InitUnique` (clock+PID+thread ID+stack address+counter; old `Init(0)` seeded from `Now` and gave equal sequences to processes started together), `Next` is the PCG32 output, `Float` never returns 1.0, `Normal` keeps the second Box-Muller value. Added `Range`, `Chance`, `Round`. |
+| `RandomInt(v)` | **Apus.Core** `TRandom.Round(v)` | Needs a generator instance; now a proper floor for negative values. |
 
 ### Still unresolved or intentionally absent
 
@@ -1040,6 +1042,8 @@ Do not treat it as a list of functions to reintroduce under the old names.
 | `PackBytes(b1..b4)` / `PackWords(w1,w2)` | Still only in deprecated Common | Candidate for `Apus.Core` if live users need it. |
 | `PointerInRange(p,base,size)` | Still only in deprecated Common | Candidate for `Apus.Core` if live pointer-range checks need it. |
 | `AddString/RemoveString/FindString` | Still only in deprecated Common under the old names | Prefer typed dynamic-array helpers or capacity-aware builders for new code. `Base/Apus.Android.pas` still has legacy-name users behind Android-specific code paths. |
+| `RandomStr(l)` | Not reintroduced | Add to `TRandom` when a live migration needs it. |
+| `PseudoRand` / `FillRandom` | Not reintroduced | Deterministic hash-like fillers, not random generators. |
 
 ## 2026-03-18 — Hash Maps Consolidation
 

@@ -1153,6 +1153,122 @@ begin
   EndTest;
 end;
 
+// TRandom: PCG32 reference output, reproducibility, ranges and distribution moments.
+// Statistical checks use a fixed seed, so they are deterministic.
+procedure TestRandom;
+const
+  N=100000;
+  // pcg32-demo: pcg32_srandom_r(rng,42,54)
+  reference:array[0..5] of cardinal=($A15C02B7,$7B47F409,$BA1D3330,$83D2F293,$BFA4784B,$CBED606E);
+var
+  r,r2:TRandom;
+  i,v,hits,minV,maxV:integer;
+  ok,sameStream:boolean;
+  seen:array[0..9] of boolean;
+  f,maxF,sum,sum2,a:double;
+begin
+  StartTest('TRandom');
+  r.Init(42,54);
+  ok:=true;
+  for i:=0 to High(reference) do
+    if r.Next<>reference[i] then ok:=false;
+  Check(ok,'PCG32 reference sequence');
+
+  r.Init(7); r2.Init(7);
+  ok:=true;
+  for i:=1 to 100 do
+    if r.Next<>r2.Next then ok:=false;
+  Check(ok,'same seed gives the same sequence');
+
+  r.Init(7,1); r2.Init(7,2);
+  sameStream:=true;
+  for i:=1 to 10 do
+    if r.Next<>r2.Next then sameStream:=false;
+  Check(not sameStream,'another stream gives another sequence');
+
+  r.InitUnique; r2.InitUnique;
+  Check(r.Next<>r2.Next,'InitUnique calls differ');
+
+  r.Init(1);
+  FillChar(seen,SizeOf(seen),0);
+  ok:=true;
+  for i:=1 to N do begin
+    v:=r.Int(10);
+    if (v<0) or (v>9) then ok:=false
+      else seen[v]:=true;
+  end;
+  for i:=0 to 9 do
+    if not seen[i] then ok:=false;
+  Check(ok,'Int(10) stays in [0..9] and hits every value');
+
+  minV:=MaxInt; maxV:=-MaxInt;
+  for i:=1 to N do begin
+    v:=r.Range(-3,3);
+    if v<minV then minV:=v;
+    if v>maxV then maxV:=v;
+  end;
+  Check((minV=-3) and (maxV=3),'Range(-3,3) covers exactly [-3..3]');
+  minV:=0; maxV:=0;
+  for i:=1 to 1000 do begin
+    v:=r.Range(Low(integer),High(integer));
+    if v<minV then minV:=v;
+    if v>maxV then maxV:=v;
+  end;
+  Check((minV<-MaxInt div 2) and (maxV>MaxInt div 2),'Range over the whole integer range');
+
+  maxF:=0; sum:=0; ok:=true;
+  for i:=1 to N do begin
+    f:=r.Float;
+    if f<0 then ok:=false;
+    if f>maxF then maxF:=f;
+    sum:=sum+f;
+  end;
+  Check(ok and (maxF<1),'Float is in [0..1)');
+  Check(Abs(sum/N-0.5)<0.01,'Float mean is 0.5');
+
+  ok:=true; hits:=0;
+  for i:=1 to N do begin
+    if r.Chance(0) or not r.Chance(1) then ok:=false;
+    if r.Chance(0.3) then inc(hits);
+  end;
+  Check(ok,'Chance(0) is never, Chance(1) is always');
+  Check(Abs(hits/N-0.3)<0.01,'Chance(0.3) frequency');
+
+  ok:=true; hits:=0;
+  for i:=1 to N do begin
+    if r.Round(2.0)<>2 then ok:=false;
+    v:=r.Round(-1.25);
+    if v=-1 then inc(hits)
+      else if v<>-2 then ok:=false;
+  end;
+  Check(ok,'Round gives floor or ceil');
+  Check(Abs(hits/N-0.75)<0.01,'Round(-1.25) is -1 with probability 0.75');
+
+  sum:=0; sum2:=0;
+  for i:=1 to N do begin
+    f:=r.Normal;
+    sum:=sum+f; sum2:=sum2+f*f;
+  end;
+  Check(Abs(sum/N)<0.02,'Normal mean is 0');
+  Check(Abs(sum2/N-1)<0.03,'Normal variance is 1');
+
+  r.Init(5); a:=r.Normal;
+  r.Init(5);
+  Check(r.Normal=a,'Init drops the stored second Normal value');
+
+  sum:=0;
+  for i:=1 to N do sum:=sum+r.Exp(2);
+  Check(Abs(sum/N-2)<0.05,'Exp(2) mean is 2');
+
+  sum:=0; sum2:=0;
+  for i:=1 to N do begin
+    f:=r.Sum(6);
+    sum:=sum+f; sum2:=sum2+f*f;
+  end;
+  Check((Abs(sum/N)<0.02) and (Abs(sum2/N-1)<0.03),'Sum(6) has mean 0 and variance 1');
+  EndTest;
+end;
+
 begin
   try
     TestMinMax;
@@ -1184,6 +1300,7 @@ begin
     TestTimeOverride;
     TestTicksResolution;
     TestStorageDirs;
+    TestRandom;
     TestSystemPrimitives;
 
     writeln;

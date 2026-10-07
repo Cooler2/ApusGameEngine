@@ -45,6 +45,9 @@ MyTickCount -> CoreTime.Ticks [Apus.Core]
 NowGMT -> Time.UTC [Apus.Core]
 Sleep() -> Time.Sleep [Apus.Core]
 
+// === Apus.Core: random ===
+TRandom -> TRandom [Apus.Core]
+
 // === Apus.Conv: parsing and formatting ===
 // Order matters: FormatHex before any shorter match
 FormatHex -> Conv.ToHex [Apus.Conv]
@@ -138,6 +141,7 @@ LastPos -> ?use st.LastIndexOf(substr) [Apus.Strings]
 ExtractStr -> ?use st.Extract(prefix,suffix) [Apus.Strings]
 QuoteStr -> ?use st.Quote [Apus.Strings]
 UnquoteStr -> ?use st.Unquote [Apus.Strings]
+RandomInt -> ?use rng.Round(v) on a TRandom instance [Apus.Core]
 // Order: URLEncodeUTF8 before UrlEncode
 URLEncodeUTF8 -> ?use st.UrlEncode [Apus.Strings]
 UrlEncode() -> ?use st.UrlEncode [Apus.Strings]
