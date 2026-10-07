@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-{$R-}
+{$R-,Q-}
 unit Apus.Engine.UdpTransport;
 interface
  const
@@ -69,7 +69,14 @@ interface
 
   avgTime1,avgTime2,avgTime3,avgTime4:double; // performance measurements
 
+ // Open the UDP socket on the given port (0 - any free port) and start the network thread.
+ // The socket is bound strictly to this port: if it can't be bound, an exception is raised and
+ // the transport stays uninitialized. On return the transport is ready.
+ // Nested calls are counted (the port of a nested call is ignored).
  procedure NetInit(port:word);
+ // Balance NetInit. The last call stops the network thread, waits for it and closes the socket;
+ // connections become disconnected (no notifications). A call without NetInit is ignored.
+ // Must not be called from the network thread (i.e. from onUserMsg or instant NET handlers).
  procedure NetDone;
  // ind: 1-sent, 2-received, 3-sentBytes, 4-receivedBytes
  function GetNetStat(ind:integer):int64;
@@ -125,10 +132,11 @@ implementation
 
  var
   udp:UDPSocket2;
-  initialized:integer;
-  initport:word;
+  initialized:integer; // NetInit nesting count
   thread:TNetThread;
-  critSect,threadSect:TLock;
+  critSect:TLock;
+  threadSect:TLock; // NetInit/NetDone
+  randState:uint64; // session IDs and request nonces, see NetRandom
   MainTimer:cardinal=10000; // offset to leave some room in the past
 
   lastPacketID:cardinal;
@@ -187,17 +195,67 @@ implementation
  {$ENDIF}
 
 
+ // Seed the generator from the process identity and high-resolution clocks: processes started at
+ // the same moment get different sequences. System.Random is neither used nor reseeded.
+ procedure SeedNetRandom;
+  var
+   utc:double;
+   seed:uint64;
+  begin
+   utc:=Time.UTC;
+   move(utc,seed,8);
+   seed:=seed xor uint64(Time.TicksUs)*uint64($9E3779B97F4A7C15);
+   {$IFDEF MSWINDOWS}
+   seed:=seed xor (uint64(GetCurrentProcessId) shl 32);
+   {$ELSE}
+   seed:=seed xor (uint64(fpGetPid) shl 32);
+   {$ENDIF}
+   seed:=seed xor uint64(UIntPtr(@utc)); // stack address (ASLR)
+   randState:=seed;
+  end;
+
+ // SplitMix64 step; call inside critSect. Not a cryptographic generator: session IDs are not secrets.
+ function NetRandom:cardinal;
+  var
+   z:uint64;
+  begin
+   inc(randState,uint64($9E3779B97F4A7C15));
+   z:=randState;
+   z:=(z xor (z shr 30))*uint64($BF58476D1CE4E5B9);
+   z:=(z xor (z shr 27))*uint64($94D049BB133111EB);
+   result:=cardinal(z xor (z shr 31));
+  end;
+
+ procedure CheckInitialized;
+  begin
+   if initialized<=0 then
+    raise EError.Create('NET: transport is not initialized, call NetInit first');
+  end;
+
  procedure NetInit(port:word);
   begin
-   if initialized>0 then begin
-    inc(initialized); exit;
-   end;
    threadSect.Enter;
    try
-    initport:=port;
-    thread:=TNetThread.Create(true);
-    thread.FreeOnTerminate:=true;
-    thread.Resume;
+    if initialized>0 then begin
+     inc(initialized); exit;
+    end;
+    critSect.Enter;
+    try
+     try
+      udp:=UDPSocket2.Create(port,true);
+     except
+      on e:Exception do
+       raise EError.Create('NET: cannot bind UDP port '+inttostr(port)+': '+ExceptionMsg(e));
+     end;
+    finally
+     critSect.Leave;
+    end;
+    try
+     thread:=TNetThread.Create(false);
+    except
+     FreeAndNil(udp);
+     raise;
+    end;
     initialized:=1;
    finally
     threadSect.Leave;
@@ -205,17 +263,37 @@ implementation
   end;
 
  procedure NetDone;
+  var
+   i:integer;
   begin
-   dec(initialized);
-   if initialized>0 then exit;
-   critSect.Enter;
-   try
-    if thread<>nil then thread.Terminate;
-   finally
-    critSect.Leave;
-   end;
    threadSect.Enter;
-   threadSect.Leave;
+   try
+    if initialized<=0 then exit; // unbalanced call: nothing to stop
+    if GetCurrentThreadID=thread.ThreadID then
+     raise EError.Create('NET: NetDone called from the network thread');
+    dec(initialized);
+    if initialized>0 then exit;
+    thread.Terminate;
+    thread.WaitFor;
+    FreeAndNil(thread);
+    critSect.Enter;
+    try
+     FreeAndNil(udp);
+     // nothing can be delivered without the thread: connections are closed locally
+     for i:=0 to high(connections) do
+      if connections[i]<>nil then with connections[i] do
+       if connected or (status in [csConnecting,csConnWait,csDisconnecting]) then begin
+        connected:=false;
+        status:=csDisconnected;
+        FreeAll;
+        if deleting then Destroy;
+       end;
+    finally
+     critSect.Leave;
+    end;
+   finally
+    threadSect.Leave;
+   end;
   end;
 
 function GetNetStat(ind:integer):int64;
@@ -319,6 +397,7 @@ procedure ResolveAddress;
 
 procedure TConnection.Accept(wait:boolean=true);
 begin
+ CheckInitialized;
  critSect.Enter;
  try
   if connected and not wait then exit;
@@ -332,6 +411,7 @@ end;
 
 procedure TConnection.Connect(target: cardinal; port: word);
 begin
+ CheckInitialized;
  if connected then exit;
  critSect.Enter;
  try
@@ -347,6 +427,7 @@ end;
 
 constructor TConnection.Create(accept:boolean=false);
 begin
+ CheckInitialized;
  if concnt>4000 then exit;
  critSect.Enter;
  try
@@ -354,7 +435,7 @@ begin
   accepting:=accept;
   lastRecvID:=0;
   repeat
-   sessID:=random(65536) shl 16+random(65536);
+   sessID:=NetRandom;
   until connections[sessID and $FFF]=nil;
   connections[sessID and $FFF]:=self;
   inc(conCnt);
@@ -374,8 +455,10 @@ var
 begin
  critSect.Enter;
  try
-  if connections[sessID and $FFF]=self then connections[sessID and $FFF]:=nil;
-  dec(conCnt);
+  if connections[sessID and $FFF]=self then begin // not registered if the constructor failed
+   connections[sessID and $FFF]:=nil;
+   dec(conCnt);
+  end;
   Log.Msg('Connection destroyed: '+inttostr(sessID and $FFF)+' count='+inttostr(concnt));
   FreeAll;
   // stored messages outlive the connection: drop references to it
@@ -520,6 +603,7 @@ var
 begin
  if self=nil then
   raise EError.Create('Net: connection is nil!');
+ CheckInitialized;
  if not connected then
   raise EWarning.Create('Can''t send data: not connected '+inttostr(sessID)+' status='+inttostr(ord(status)));
  critSect.Enter;
@@ -671,23 +755,11 @@ var
  end;
 
 begin
- threadSect.Enter; // section is locked whenever the thread is running
+ Apus.Threads.Thread.Register('Netwrk2');
  try
- critSect.Enter;
- try
-  // initialization
-  Apus.Threads.Thread.Register('Netwrk2');
-  Log.Msg(Time.Stamp+' NET: Initializing, threadID='+inttostr(cardinal(GetCurrentThreadID)));
-  randomize;
-  try
-   udp:=UDPSocket2.Create(initport,true);
-  except
-   udp:=UDPSocket2.Create(initport+100,true);
-  end;
-  Priority:=tpHigher; // elevated thread priority
- finally
-  critSect.Leave;
- end;
+ // the socket is already open: NetInit creates it before starting the thread
+ Log.Msg(Time.Stamp+' NET: thread started, threadID='+inttostr(cardinal(GetCurrentThreadID)));
+ Priority:=tpHigher; // elevated thread priority
 
  // Main loop, no more than 100 Hz
  // ------------------------------------------------------
@@ -733,12 +805,14 @@ begin
       1:begin
        // Connection request.
        // First check whether it is our own request or such a connection already exists.
+       // A repeated request comes from the same address: another peer with the same session ID
+       // is a different client and gets its own connection.
        fl:=false;
        for i:=0 to 4095 do
         if (connections[i]<>nil) then
          with connections[i] do
           if ((status=csConnWait) and (sessID=SID)) or
-             ((status=csConnected) and (remID=SID)) then begin
+             ((status=csConnected) and (remID=SID) and (remIP=rem_adr) and (remPort=rem_port)) then begin
           fl:=true; break;
         end;
        if fl then begin
@@ -843,7 +917,8 @@ begin
        // connection close, slightly tricky
        if con=nil then // search for the connection
         for i:=0 to 4095 do
-         if (connections[i]<>nil) and (connections[i].remID=SID) then begin
+         if (connections[i]<>nil) and (connections[i].remID=SID) and
+            (connections[i].remIP=rem_adr) and (connections[i].remPort=rem_port) then begin
           con:=connections[i]; break;
          end;
        if (con<>nil) and (con.connected) then begin
@@ -1090,8 +1165,8 @@ begin
       if connections[i].status=csConnecting then with connections[i] do begin
        // send connection request
        move(sessID,sendbuf[0],4);
-       sendbuf[4]:=random(256);
-       sendbuf[5]:=random(256);
+       c:=NetRandom;
+       move(c,sendbuf[4],2);
        sendbuf[6]:=1;
        if remIP=0 then remIP:=$FFFFFFFF;
        try
@@ -1140,24 +1215,13 @@ begin
  // End of main loop
  // ------------------------------------------------------
 
- critSect.Enter;
- try
-  // finalization
-  Log.Msg('NET: thread stopping '+inttostr(cardinal(Time.Ticks)));
-  FreeAndNil(udp);
-
-  // Clean up all structures
-  Log.Msg('NET: thread done '+inttostr(cardinal(Time.Ticks)));
- finally
-  critSect.Leave;
- end;
+ Log.Msg('NET: thread done '+inttostr(cardinal(Time.Ticks))); // NetDone closes the socket
 
  except
   on e:Exception do begin
    Log.Force('NET: error in NET thread - '+e.Message);
   end;
  end;
- threadSect.Leave;
  Apus.Threads.Thread.Unregister;
 end;
 
@@ -1206,7 +1270,7 @@ end;
 initialization
  critSect.Init('Netwrk2',50);
  threadSect.Init('Netwrk2Thr',10);
- randomize;
+ SeedNetRandom;
  LastPacketID:=cardinal(Time.Ticks);
 finalization
  critSect.Cleanup;

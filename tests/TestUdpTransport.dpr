@@ -72,6 +72,9 @@ begin
     Move(data[offset],result,SizeOf(result));
 end;
 
+const
+  HOLD_MS=10000; // send latency: the network thread must not touch the inspected queue
+
 procedure TestSmallMessagesSharePacket;
 var
   con:TTestConnection;
@@ -79,6 +82,7 @@ var
   a,b:array[0..2] of byte;
 begin
   StartTest('UdpTransport small message packing');
+  NetInit(0);
   con:=TTestConnection.Create;
   try
     con.MarkConnected;
@@ -88,8 +92,8 @@ begin
     b[0]:=4;
     b[1]:=5;
     b[2]:=6;
-    con.SendData(@a[0],Length(a),0);
-    con.SendData(@b[0],Length(b),0);
+    con.SendData(@a[0],Length(a),HOLD_MS);
+    con.SendData(@b[0],Length(b),HOLD_MS);
     con.SnapshotPackets(info);
 
     Check(info.count=1,'small messages should share one packet');
@@ -102,6 +106,7 @@ begin
       (info.firstData[12]=5) and (info.firstData[13]=6),'second payload bytes');
   finally
     con.Free;
+    NetDone;
   end;
   EndTest;
 end;
@@ -118,10 +123,11 @@ begin
   for i:=0 to High(payload) do
     payload[i]:=byte(i and $FF);
 
+  NetInit(0);
   con:=TTestConnection.Create;
   try
     con.MarkConnected;
-    con.SendData(@payload[0],Length(payload),0);
+    con.SendData(@payload[0],Length(payload),HOLD_MS);
     con.SnapshotPackets(info);
 
     Check(info.count=2,'large message should split into two packets');
@@ -135,6 +141,7 @@ begin
     Check(info.secondNum=word(info.firstNum+1),'split packets use sequential numbers');
   finally
     con.Free;
+    NetDone;
   end;
   EndTest;
 end;
@@ -231,20 +238,22 @@ begin
   result:=tag<>0;
 end;
 
-procedure PeerSend(sid:cardinal;pnum:word;cmd:byte;payload:PByte;size:integer);
+// from=nil - the main peer socket
+procedure PeerSend(sid:cardinal;pnum:word;cmd:byte;payload:PByte;size:integer;from:UDPSocket2=nil);
 var
   buf:array[0..1499] of byte;
 begin
+  if from=nil then from:=peer;
   FillChar(buf,8,0);
   Move(sid,buf[0],4);
   Move(pnum,buf[4],2);
   buf[6]:=cmd;
   if size>0 then Move(payload^,buf[8],size);
-  peer.Send(LOCALHOST,netPort,buf,8+size);
+  from.Send(LOCALHOST,netPort,buf,8+size);
 end;
 
 // Wait for a packet with the given command from the transport, return its size (0 - timeout)
-function PeerWait(cmd:byte;var buf:array of byte):integer;
+function PeerWait(cmd:byte;var buf:array of byte;from:UDPSocket2=nil):integer;
 var
   deadline:int64;
   adr:cardinal;
@@ -252,10 +261,11 @@ var
   size:integer;
 begin
   result:=0;
+  if from=nil then from:=peer;
   deadline:=Time.Ticks+WAIT_MS;
   repeat
     size:=Length(buf);
-    if peer.Receive(adr,port,buf[0],size) then begin
+    if from.Receive(adr,port,buf[0],size) then begin
       if (size>=8) and (buf[6]=cmd) then exit(size);
     end else
       Time.Sleep(5);
@@ -263,15 +273,15 @@ begin
 end;
 
 // Connect the peer to an accepting connection, return the connection's session ID (0 - failed)
-function PeerConnect(peerSID:cardinal):cardinal;
+function PeerConnect(peerSID:cardinal;from:UDPSocket2=nil):cardinal;
 var
   buf:array[0..1499] of byte;
   attempt:integer;
 begin
   result:=0;
-  for attempt:=1 to 10 do begin // the transport socket may not be bound yet
-    PeerSend(peerSID,0,CMD_REQUEST,nil,0);
-    if PeerWait(CMD_ACCEPT,buf)=12 then begin
+  for attempt:=1 to 10 do begin // a lost datagram is repeated, as a real client would do
+    PeerSend(peerSID,0,CMD_REQUEST,nil,0,from);
+    if PeerWait(CMD_ACCEPT,buf,from)=12 then begin
       Move(buf[8],result,4);
       exit;
     end;
@@ -371,8 +381,144 @@ begin
   EndTest;
 end;
 
+// Strict bind, readiness on return, unbalanced and immediate stop
+procedure TestLifecycle;
+var
+  holder,probe:UDPSocket2;
+  con:TConnection;
+  port:word;
+  failed:boolean;
+  i,cnt:integer;
+begin
+  StartTest('UdpTransport lifecycle');
+  NetDone; // without NetInit: ignored
+  NetDone;
+  cnt:=conCnt;
+  failed:=false;
+  try
+    TConnection.Create.Free;
+  except
+    on e:EError do failed:=true;
+  end;
+  Check(failed and (conCnt=cnt),'a connection can''t be created without NetInit');
+
+  // a busy port is an error, not a silent move to another port
+  port:=20000+Random(20000);
+  holder:=UDPSocket2.Create(port,false);
+  try
+    failed:=false;
+    try
+      NetInit(port);
+    except
+      on e:EError do failed:=true;
+    end;
+    Check(failed,'NetInit fails on a busy port');
+    probe:=nil;
+    try
+      probe:=UDPSocket2.Create(port+100,false);
+    except
+    end;
+    Check(probe<>nil,'no fallback socket is opened on port+100');
+    probe.Free;
+    failed:=false;
+    try
+      TConnection.Create.Free;
+    except
+      on e:EError do failed:=true;
+    end;
+    Check(failed,'the transport stays uninitialized after a failed NetInit');
+  finally
+    holder.Free;
+  end;
+
+  // the socket is bound on return from NetInit and released on return from NetDone
+  for i:=1 to 20 do begin
+    NetInit(port);
+    NetDone;
+  end;
+  probe:=nil;
+  try
+    probe:=UDPSocket2.Create(port,false);
+  except
+  end;
+  Check(probe<>nil,'repeated start/stop releases the port');
+  probe.Free;
+
+  // nested calls
+  NetInit(port);
+  NetInit(port+1);
+  NetDone;
+  con:=nil;
+  try
+    con:=TConnection.Create;
+  except
+  end;
+  Check(con<>nil,'nested NetDone keeps the transport running');
+  con.Free;
+  NetDone;
+  NetDone; // extra call: ignored
+  EndTest;
+end;
+
+// Session IDs don't use the application RNG; peers with the same session ID are told apart by address
+procedure TestSessionIdentity;
+var
+  conA,conB,first,second:TConnection;
+  peer2:UDPSocket2;
+  r1,r2:integer;
+  sidA,sidB:cardinal;
+begin
+  StartTest('UdpTransport session identity');
+  netPort:=20000+Random(20000);
+  peerPort:=netPort+1;
+  tagClosed:=0;
+  SetEventHandler('NET\Conn\ConnectionClosed',OnClosed);
+  peer:=UDPSocket2.Create(peerPort,false);
+  peer2:=UDPSocket2.Create(peerPort+1,false);
+  NetInit(netPort);
+  conA:=nil; conB:=nil;
+  try
+    RandSeed:=12345;
+    r1:=Random(MaxInt);
+    RandSeed:=12345;
+    conA:=TConnection.Create(true);
+    conB:=TConnection.Create(true);
+    r2:=Random(MaxInt);
+    Check(r1=r2,'session IDs don''t touch the application RNG');
+
+    sidA:=PeerConnect($5555AAAA);
+    sidB:=PeerConnect($5555AAAA,peer2);
+    Check((sidA<>0) and (sidB<>0) and (sidA<>sidB),'same session ID from another address gets its own connection');
+    Check(PeerConnect($5555AAAA)=sidA,'repeated request from the same address is confirmed again');
+    // either acceptor may take the first request
+    if conA.sessID=sidA then begin
+      first:=conA; second:=conB;
+    end else begin
+      first:=conB; second:=conA;
+    end;
+    Check((first.sessID=sidA) and (second.sessID=sidB) and
+      (first.remPort=peerPort) and (second.remPort=peerPort+1),'connections keep their addresses');
+
+    PeerSend(sidB,0,CMD_CLOSE,nil,0,peer2);
+    Check(WaitTag(tagClosed) and (tagClosed=TTag(UIntPtr(second))),'second connection closed');
+    Check(first.connected and not second.connected,'closing one connection keeps the other');
+  finally
+    conA.Free;
+    conB.Free;
+    NetDone;
+    peer2.Free;
+    FreeAndNil(peer);
+    RemoveEventHandler(OnClosed);
+    tagClosed:=0;
+  end;
+  EndTest;
+end;
+
 begin
   writeln('=== TestUdpTransport ===');
+  Randomize;
+  TestLifecycle;
+  TestSessionIdentity;
   TestSmallMessagesSharePacket;
   TestLargeMessageSplitsPackets;
   TestReceivePath;

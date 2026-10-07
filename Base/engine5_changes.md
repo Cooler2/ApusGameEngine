@@ -273,6 +273,15 @@ only canonical keys — the old spellings are silently ignored (no aliases).
 - Renamed `Apus.Engine.Networking2` to `Apus.Engine.UdpTransport`.
 - The module is the symmetric UDP transport layer: packets/sessions/ping/LAN discovery with `Connect` and `Accept`.
 - Updated EngineTest project references and signal inventory docs to use the new name.
+- 2026-10-07, lifecycle contract (porting old Networking2 code):
+  - `NetInit(port)` binds the socket synchronously and strictly: a busy port raises `EError`
+    (no silent move to `port+100`); on return the transport is ready. LAN tools that ran two
+    instances on one host must use `NetInit(0)` for the second one.
+  - `NetDone` joins the network thread and closes the socket before returning; a call without
+    `NetInit` is ignored; connections are left disconnected (no notifications).
+  - `TConnection.Create/Connect/Accept/SendData` raise `EError` before `NetInit`: create
+    connections after it.
+  - Session IDs no longer use `System.Random`, and the unit no longer calls `Randomize`.
 
 ### Apus.Core typed row-pointer helpers
 
