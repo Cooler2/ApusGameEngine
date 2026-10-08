@@ -1002,41 +1002,60 @@ function CheckFileFormat(fname:string):TImageFileType;
   end;
  end;
 
+ // Takes ownership of the writer. 1-channel 8-bit images are passed as gray, the rest - as ARGB
  function SaveImageUsingWriter(writer:TFPCustomImageWriter;image:TRawImage):ByteArray;
   var
    x,y:integer;
    img:TMyFPImage;
    stream:TMemoryStream;
    sp:PByte;
+   row:array of cardinal;
    c:cardinal;
-   d:UInt64;
    dp:^UInt64;
   begin
    result:=nil;
-   img:=TMyFPImage.Create(image.width,image.height);
-   image.Lock;
-   for y:=0 to image.height-1 do begin
-    sp:=image.data;
-    inc(sp,image.pitch*y);
-    dp:=img.GetScanline(y);
-    for x:=0 to image.width-1 do begin
-     c:=PCardinal(sp)^; inc(sp,4);
-     d:=((c shr 8) and $FF00) or
-        ((c shl 16) and $FF000000) or
-        ((UInt64(c) shl 40) and $FF0000000000) or
-        ((UInt64(c) shl 32) and $FF00000000000000);
-     dp^:=d;
-     inc(dp);
+   img:=nil;
+   stream:=nil;
+   try
+    if not (image.PixelFormat in [ipfA8,ipfMono8,ipf555,ipf1555,ipf565,ipf4444,ipfRGB,ipfBGR,
+       ipfXRGB,ipfARGB,ipfABGR,ipfXBGR,ipf32bpp]) then
+     raise EError.Create('Can''t save image: pixel format %s not supported',[PixFmt2Str(image.PixelFormat)]);
+    SetLength(row,image.width);
+    img:=TMyFPImage.Create(image.width,image.height);
+    image.Lock;
+    try
+     for y:=0 to image.height-1 do begin
+      sp:=image.scanline(y);
+      if image.PixelFormat in [ipfA8,ipfMono8] then
+       for x:=0 to image.width-1 do begin
+        row[x]:=$FF000000 or sp^*$010101;
+        inc(sp);
+       end
+      else
+       ConvertLine(sp^,row[0],image.PixelFormat,ipfARGB,image.width);
+      // TFPColor: 16-bit red, green, blue, alpha; byte b -> word b*$101
+      dp:=img.GetScanline(y);
+      for x:=0 to image.width-1 do begin
+       c:=row[x];
+       dp^:=UInt64((c shr 16) and $FF)*$101 or
+            (UInt64((c shr 8) and $FF)*$101) shl 16 or
+            (UInt64(c and $FF)*$101) shl 32 or
+            (UInt64(c shr 24)*$101) shl 48;
+       inc(dp);
+      end;
+     end;
+    finally
+     image.Unlock;
     end;
+    stream:=TMemoryStream.Create;
+    img.SaveToStream(stream,writer);
+    SetLength(result,stream.size);
+    move(stream.memory^,result[0],stream.size);
+   finally
+    stream.Free;
+    img.Free;
+    writer.Free;
    end;
-   image.Unlock;
-   stream:=TMemoryStream.Create;
-   img.SaveToStream(stream,writer);
-   img.Free;
-   SetLength(result,stream.size);
-   move(stream.memory^,result[0],stream.size);
-   writer.Free;
-   stream.Free;
   end;
 
  {$ENDIF}
@@ -1403,7 +1422,15 @@ function CheckFileFormat(fname:string):TImageFileType;
   begin
     writer:=TFPWriterPng.Create;
     writer.WordSized:=false;
-    if image.PixelFormat in [ipfA8,ipfMono8] then writer.grayscale:=true;
+    case image.PixelFormat of
+     ipfA8,ipfMono8:writer.grayscale:=true;
+     ipfARGB,ipf32bpp:writer.UseAlpha:=true; // the writer omits alpha if all pixels are opaque
+     ipfXRGB,ipfRGB:;
+     else begin
+      writer.Free;
+      raise EError.Create('PNG: image pixel format not supported');
+     end;
+    end;
     result:=SaveImageUsingWriter(writer,image);
  {$ELSE}
   begin

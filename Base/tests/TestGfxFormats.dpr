@@ -1,6 +1,6 @@
 {$APPTYPE CONSOLE}
 program TestGfxFormats;
-// Tests for Apus.GfxFormats - image file header parsing (CheckImageFormat) and the DDS data layout.
+// Tests for Apus.GfxFormats - image file header parsing (CheckImageFormat), PNG save and the DDS data layout.
 // Headers are built in memory, so no image files and no LodePNG library are needed.
 uses
   SysUtils,
@@ -143,6 +143,56 @@ begin
   EndTest;
 end;
 
+// save an image as PNG and load it back as ARGB
+function PNGRoundTrip(image:TRawImage):TRawImage;
+begin
+  result:=nil;
+  LoadPNG(SavePNG(image),result);
+end;
+
+function PixelAt(image:TRawImage;x:integer):cardinal;
+begin
+  result:=PCardinal(PByte(image.scanline(0))+x*4)^;
+end;
+
+// SavePNG keeps alpha and reads every source format with its own pixel size
+procedure TestPNGSave;
+var
+  src,res:TRawImage;
+  p:PByte;
+begin
+  StartTest('PNG save');
+  src:=TBitmapImage.Create(2,1,ipfARGB);
+  PCardinal(src.scanline(0))^:=$80102030;
+  PCardinal(PByte(src.scanline(0))+4)^:=$FF405060;
+  res:=PNGRoundTrip(src);
+  Check(PixelAt(res,0)=$80102030,'ARGB: semi-transparent pixel');
+  Check(PixelAt(res,1)=$FF405060,'ARGB: opaque pixel');
+  src.Free; res.Free;
+
+  src:=TBitmapImage.Create(1,1,ipfXRGB);
+  PCardinal(src.scanline(0))^:=$00102030;
+  res:=PNGRoundTrip(src);
+  Check(PixelAt(res,0)=$FF102030,'XRGB: unused byte does not become alpha');
+  src.Free; res.Free;
+
+  src:=TBitmapImage.Create(3,1,ipfMono8);
+  p:=src.scanline(0);
+  p[0]:=0; p[1]:=128; p[2]:=255;
+  res:=PNGRoundTrip(src);
+  Check(PixelAt(res,1)=$FF808080,'Mono8: gray pixel');
+  Check(PixelAt(res,2)=$FFFFFFFF,'Mono8: white pixel');
+  src.Free; res.Free;
+
+  src:=TBitmapImage.Create(3,1,ipfRGB);
+  p:=src.scanline(0);
+  p[6]:=$90; p[7]:=$80; p[8]:=$70; // the third pixel, B-G-R order
+  res:=PNGRoundTrip(src);
+  Check(PixelAt(res,2)=$FF708090,'RGB: 24-bit pixel');
+  src.Free; res.Free;
+  EndTest;
+end;
+
 function MakeWebPPixel:ByteArray;
 const
   webp:array[0..37] of byte=(
@@ -280,6 +330,7 @@ begin
 
     TestPNGHeader;
     TestPNGGrayDecode;
+    TestPNGSave;
     TestWebPHeader;
     {$IFDEF WEBP}TestWebPDecode;{$ENDIF}
     TestDDSHeader;
