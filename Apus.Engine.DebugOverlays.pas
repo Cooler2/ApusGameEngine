@@ -132,7 +132,7 @@ begin
   else left:=0;
  zoom:=round(4*scrScale);
  if (window.shiftstate and sscShift)>0 then zoom:=zoom*2;
- du:=width/(256*zoom); dv:=-height/(256*zoom);
+ du:=width/(256*zoom); dv:=height/(256*zoom); // the readback is top-down: no vertical flip
  u:=0.5; v:=0.5;
  draw.TexturedRect(left,0,left+width,height,state.magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
  draw.Rect(left,0,left+width,height,clWhite);
