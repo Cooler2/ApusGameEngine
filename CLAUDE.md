@@ -64,7 +64,7 @@ function Foo(const st:UnicodeString):...;
 ```
 This replaces the old `ADDANSI` pattern. Use `{$IFDEF UNICODE}` directly.
 
-### Base Library (`Base/Apus.*.pas`) - 56 modules
+### Base Library (`Base/Apus.*.pas`) - 55 modules
 
 Full table with descriptions: `Base/README.md`; per-module build/test status: `Base/engine5_status.md`.
 
@@ -77,21 +77,21 @@ Full table with descriptions: `Base/README.md`; per-module build/test status: `B
 - **Animation**: AnimatedValues, Tweenings
 - **Network**: Socket, TCP, HttpRequests, HttpServer, GeoIP (Network - deprecated)
 - **Platform**: Android
-- **Utilities**: Utils, Files, Log, Logging, Threads, Profiling, StackTrace, Clipboard, CPU, MemoryLeakUtils
+- **Utilities**: Utils, Files, Log, Logging, Threads, Profiling, StackTrace, CPU, MemoryLeakUtils
 - **Specialized**: Crypto, RSA, Database, Translation, HtmlTree, ControlFiles, Publics
 - **Auxiliary**: Compress, ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI
 
 Foundation modules (Core, Types, Conv, Strings, Log, Threads, Files) have no dependencies on the
 higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintroduce them.
 
-### Engine (`Apus.Engine.*.pas`) - 52 modules
+### Engine (`Apus.Engine.*.pas`) - 53 modules
 
 **Core**: GameApp, Game, API, Types
 **Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene, MessageScene, Notifications
 **UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
-**Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller
+**Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller, Clipboard
 **3D**: Mesh, GpuMesh, MeshShapes, OBJLoader (skeletal Model3D/IQMloader/AEMLoader are in `legacy/`)
 **Audio**: Sound, SoundSDL (SoundBass/SoundImx are in `legacy/`)
 **Networking**: HttpGameClient, HttpGameServer, UdpTransport

@@ -101,7 +101,6 @@ tests or the engine.
 | `Apus.AnimatedValues` | Win/Linux/macOS | - | Covered indirectly by `BenchAnimation`. |
 | `Apus.CPU` | Win/Linux/macOS | - |  |
 | `Apus.Classes` | Win/Linux/macOS | - | Foundation module; uses `Apus.HashMaps` in implementation. |
-| `Apus.Clipboard` | Win/Linux/macOS | - |  |
 | `Apus.Colors` | Win/Linux/macOS | - | `Color` record static-method API (2026-06-09); no free functions except `BilinearMixF` and `BilinearMix(PCardinal)`. |
 | `Apus.Compress` | Linux/macOS | TestCompress | Not in the Windows sweep (`buildtest.ps1`) yet. |
 | `Apus.Containers` | Win/Linux/macOS | TestContainers, BenchContainers |  |

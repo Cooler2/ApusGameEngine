@@ -362,7 +362,7 @@ interface
   end;
 
 implementation
- uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Clipboard,
+ uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Engine.Clipboard,
   Apus.Strings, Apus.Threads, Apus.Engine.UIRender;
 
  type
@@ -1016,7 +1016,7 @@ function TUIEditBox.GetText:String8;
     begin
      if password or (protection<>0) then exit;
      str:=copy(realtext,selstart,selcount);
-     CopyStrToClipboard(Str16(UTF8.Encode(str)));
+     Clipboard.SetText(UTF8.Encode(str));
      if cut then begin
       delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart;
      end;
@@ -1025,7 +1025,7 @@ function TUIEditBox.GetText:String8;
     var
      wst:String32;
     begin
-     wst:=Str32(PasteStrFromClipboardW);
+     wst:=UTF8.Decode(Clipboard.GetText);
      if not wst.IsEmpty then begin
      if selcount>0 then begin
       delete(realtext,selstart,selcount);

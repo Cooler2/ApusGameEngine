@@ -509,7 +509,7 @@ function FindVirtualMouse(const windowName:String8):TVirtualMouse;
 
 implementation
  uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.GfxFormats, Apus.Files, Apus.Strings,
-   {$IFDEF MSWINDOWS}Apus.Clipboard,{$ENDIF}
+   {$IFDEF MSWINDOWS}Apus.Engine.Clipboard,{$ENDIF}
    {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
    Apus.Engine.API, Apus.Engine.UIScene,
    Apus.Engine.UITypes, Apus.Engine.TextDraw;
@@ -2158,7 +2158,7 @@ begin
     {$IFDEF OPENGL}
     {$IFDEF MSWINDOWS}
     // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
-    PutImageToClipboard(img);
+    Clipboard.SetImage(img);
     {$ENDIF}
     {$ENDIF}
     saveAsJPG:=capture.target=2;

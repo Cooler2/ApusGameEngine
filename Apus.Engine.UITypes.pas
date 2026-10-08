@@ -373,7 +373,7 @@ procedure DropRemovedMouseState;
  procedure DestroyQueuedElements(wnd:TWindow);
 
 implementation
- uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Engine.API,
+ uses Classes, SysUtils, Apus.EventMan, Apus.Engine.API,
   Apus.Geom2D,
   Apus.Conv,
   Apus.Strings;

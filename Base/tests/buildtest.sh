@@ -110,7 +110,6 @@ build Apus.GeoIP
 build Apus.Logging
 # Apus.Profiling is Windows-only (uses unit Windows in implementation)
 build Apus.StackTrace
-build Apus.Clipboard
 build Apus.MemoryLeakUtils
 build Apus.Publics
 build Apus.RSA

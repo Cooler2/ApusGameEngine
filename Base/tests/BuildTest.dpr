@@ -72,7 +72,6 @@ uses
   Apus.Logging,
   Apus.Profiling,
   Apus.StackTrace,
-  Apus.Clipboard,
   Apus.MemoryLeakUtils,
   Apus.Publics,
   Apus.RSA,

@@ -3,6 +3,22 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Clipboard moved from Base to the engine (2026-10-09)
+
+`Base/Apus.Clipboard` is replaced by `Apus.Engine.Clipboard`: the clipboard is a platform
+service (on Linux/Wayland it needs the window connection), and all callers are engine modules.
+The functions became the `Clipboard` record namespace:
+
+- `CopyStrToClipboard(UTF8String|WideString)` -> `Clipboard.SetText(String8)` (written as
+  `CF_UNICODETEXT`; the old UTF-8 overload wrote the bytes as ANSI `CF_TEXT`)
+- `PasteStrFromClipboard`, `PasteStrFromClipboardW` -> `Clipboard.GetText:String8`
+  (no 1250-character limit of the old fixed buffer)
+- `PutImageToClipboard(TObject)` -> `Clipboard.SetImage(TRawImage)`
+- new: `Clipboard.HasText`, `Clipboard.HasImage`, `Clipboard.GetImage:TBitmapImage`
+  (PNG, then 24/32 bpp `CF_DIB`; caller frees)
+
+Windows uses WinAPI with either platform layer. Other platforms: text via SDL, no images.
+
 ## Image loading: WebP and PNG fallback (2026-09-26)
 
 - TImageFileType now includes ifWebP. CheckImageFormat recognizes static

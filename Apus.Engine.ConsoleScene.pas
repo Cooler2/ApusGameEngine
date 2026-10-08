@@ -29,7 +29,7 @@ var
 
 implementation
  uses SysUtils, Classes, Types, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Lib, Apus.Log,
-  Apus.Clipboard,
+  Apus.Engine.Clipboard,
   Apus.Engine.Types,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc;
@@ -280,7 +280,7 @@ implementation
    end;
    s:='';
    for i:=0 to n-1 do s:=s+lines[i]+#13#10;
-   if s<>'' then CopyStrToClipboard(UTF8String(s));
+   if s<>'' then Clipboard.SetText(s);
   end;
 
  // Log mirror: feeds engine diagnostics into the console buffer. Any thread.

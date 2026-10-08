@@ -371,3 +371,10 @@ FindWindowForUIRoot -> ?element.GetWindow [Apus.Engine.Window]
 // === Deferred removal of UI elements (Apus.Engine.UITypes) ===
 SafeDestroy -> Remove [Apus.Engine.UITypes]
 TUIHint.Current -> ?TUIHint.Current(wnd): the hint is window state; UI.CurrentHint reads the thread's window [Apus.Engine.UIWidgets]
+
+// === Clipboard moved to the engine (Apus.Engine.Clipboard) ===
+-uses Apus.Clipboard
+PasteStrFromClipboardW -> ?Clipboard.GetText returns String8 [Apus.Engine.Clipboard]
+PasteStrFromClipboard -> Clipboard.GetText [Apus.Engine.Clipboard]
+CopyStrToClipboard -> ?Clipboard.SetText takes String8 [Apus.Engine.Clipboard]
+PutImageToClipboard -> Clipboard.SetImage [Apus.Engine.Clipboard]

@@ -195,7 +195,7 @@ implementation
       Apus.Engine.Resources,
       {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
-      Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
+      Apus.Publics, Apus.GfxFormats, Apus.Engine.TextDraw,
       Apus.Engine.Controller,
   Apus.Colors,
   Apus.Engine.RobotAPI,
