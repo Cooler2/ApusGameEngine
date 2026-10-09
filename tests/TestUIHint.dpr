@@ -40,9 +40,9 @@ constructor TPublishProbe.Create(parent_:TUIElement);
 
 function NewWindow(const name:String8):TWindow;
  begin
-  {$WARN 4046 OFF} // constructing a class with abstract methods: they are never called here
+  {$IFDEF FPC}{$WARN 4046 OFF}{$ELSE}{$WARN CONSTRUCTING_ABSTRACT OFF}{$ENDIF} // constructing a class with abstract methods: they are never called here
   result:=TWindow.Create(name);
-  {$WARN 4046 ON}
+  {$IFDEF FPC}{$WARN 4046 ON}{$ELSE}{$WARN CONSTRUCTING_ABSTRACT ON}{$ENDIF}
  end;
 
 // UI root of a scene owned by the window (scene names are unique: one scene per slot)

@@ -37,12 +37,13 @@ type
     btn:byte;
     pressed:boolean;
   end;
+  TPhysEvents=array of TPhysEvent;
 
   // Platform stand-in: the "OS" pointer and button events are set by the test
   TTestWindow=class(TWindow)
     physPos:TPoint;       // OS pointer, client pixels; x<0 - outside the window
     physButtons:byte;     // OS button state polled by the frame
-    physEvents:array of TPhysEvent; // OS button events delivered by the next message pump
+    physEvents:TPhysEvents; // OS button events delivered by the next message pump
     procedure SampleOSPointer; override;
     procedure ProcessMessages; override;
     function IsTerminated:boolean; override;
@@ -83,7 +84,7 @@ procedure TTestWindow.SampleOSPointer;
 
 procedure TTestWindow.ProcessMessages;
  var
-  events:array of TPhysEvent;
+  events:TPhysEvents;
   i:integer;
  begin
   events:=physEvents;
@@ -163,9 +164,9 @@ procedure RunFrame(w:TTestWindow);
 
 function NewWindow(const name:String8;width,height:integer):TTestWindow;
  begin
-  {$WARN 4046 OFF} // constructing a class with abstract methods: they are never called here
+  {$IFDEF FPC}{$WARN 4046 OFF}{$ELSE}{$WARN CONSTRUCTING_ABSTRACT OFF}{$ENDIF} // constructing a class with abstract methods: they are never called here
   result:=TTestWindow.Create(name);
-  {$WARN 4046 ON}
+  {$IFDEF FPC}{$WARN 4046 ON}{$ELSE}{$WARN CONSTRUCTING_ABSTRACT ON}{$ENDIF}
   result.physPos:=Types.Point(-1,-1);
   result.RequestResize(width,height);
   result.RequestDPI(96);

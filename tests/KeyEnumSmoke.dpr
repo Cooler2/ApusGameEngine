@@ -1,5 +1,5 @@
 program KeyEnumSmoke;
-{$mode delphi}
+{$IFDEF FPC}{$mode delphi}{$ENDIF}
 
 uses
   SysUtils,

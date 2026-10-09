@@ -19,13 +19,13 @@ begin
     BlockRead(f,data[0],length(data));
     Close(f);
     if i=1 then loops:=300 else loops:=30;
-    tick:=GetTickCount64;
+    tick:=CoreTime.Ticks;
     for j:=1 to loops do begin
       img:=nil;
       LoadPNG(data,img);
       img.Free;
     end;
     writeln(names[i],': ',length(data),' bytes, ',loops,' decodes, ',
-      GetTickCount64-tick,' ms');
+      CoreTime.Ticks-tick,' ms');
   end;
 end.
