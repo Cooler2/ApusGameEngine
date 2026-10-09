@@ -497,7 +497,7 @@ procedure TWindowsPlatform.SetMousePos(scrX,scrY:integer);
 
 function TWindowsPlatform.GetPlatformName: string;
  begin
-  result:='WINDOWS';
+  result:='spWindows';
  end;
 
 function TWindowsPlatform.GetScreenDPI:integer;

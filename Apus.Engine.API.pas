@@ -269,7 +269,7 @@ type
  // Window-specific operations are methods on TWindow.
  ISystemPlatform=interface
   // System information
-  function GetPlatformName:string;
+  function GetPlatformName:string; // TSystemPlatform value of this backend: 'spWindows', 'spSDL'
   function CanChangeSettings:boolean;
   procedure GetScreenSize(out width,height:integer); // screen size in virtual pixels
   procedure GetRealScreenSize(out width,height:integer); // screen size in real pixels

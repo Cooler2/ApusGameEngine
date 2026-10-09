@@ -250,7 +250,7 @@ procedure TSDLPlatform.SetMousePos(scrX,scrY:integer);
 
 function TSDLPlatform.GetPlatformName:string;
  begin
-  result:='SDL';
+  result:='spSDL';
  end;
 
 // Physical DPI of a display. Some backends (a few X11/Wayland setups) never know it -
