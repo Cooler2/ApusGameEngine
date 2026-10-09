@@ -72,7 +72,7 @@
 | `MOUSE\MOVE` | notification | Platform backend (`TWindowsPlatform`, `TSDLPlatform`), touch bridge (`TGame`) | packed `x,y` | **Raw motion stream** (e.g. from `WM_MOUSEMOVE`/SDL motion); may arrive often and in bursts between frames. Used to record the current coordinates immediately. |
 | `MOUSE\MOVED` | notification | `TWindow` | packed `x,y` | **Aggregated motion**: published by `FlushMouseInput`, effectively once per frame when the position changed. This is the "useful" data for the frame loop/scenes, already in sync with frame processing. |
 | `MOUSE\BTNDOWN` / `MOUSE\BTNUP` | notification | Platform backend + gamepad bridge (`TGame`) | `button` | Unified mouse button events for scenes/UI. |
-| `MOUSE\SCROLL` | notification | Platform backend | `wheelDelta` | Mouse wheel (scroll). |
+| `MOUSE\SCROLL` | notification | Platform backend | `wheelDelta` | Mouse wheel (scroll): 120 per notch, positive - away from the user, on every platform. |
 | `MOUSE\UPDATEPOS` | command | UI widgets (`TUIScrollBar`) | `0` | Request to update the mouse position after a virtual drag/clip. |
 | `KBD\KEYDOWN` / `KBD\KEYUP` | notification | Platform backend | `keyCode + scanCode<<16` | Low-level keyboard events. |
 | `KBD\CHAR` | notification | `TWindowsPlatform` | `ansi + scan<<16` | ANSI character (legacy compatibility). |

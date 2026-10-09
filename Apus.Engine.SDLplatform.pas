@@ -793,7 +793,10 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
    end;
 
    SDL_MOUSEWHEEL:begin
-    PlatformMouseWheel(event.wheel.y);
+    // SDL counts notches, the engine uses the Windows units (WHEEL_DELTA=120 per notch).
+    // With natural scrolling (SDL_MOUSEWHEEL_FLIPPED) y is already inverted by the OS
+    // setting - kept as is, as WM_MOUSEWHEEL delivers it
+    PlatformMouseWheel(event.wheel.y*120);
    end;
 
    SDL_KEYDOWN:begin
