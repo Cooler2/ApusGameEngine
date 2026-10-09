@@ -155,6 +155,13 @@ begin
   result:=PCardinal(PByte(image.scanline(0))+x*4)^;
 end;
 
+// Grey level of a pixel of a Mono8 or grey ARGB image
+function MonoAt(image:TRawImage;y,x:integer):byte;
+begin
+  if image.PixelFormat=ipfMono8 then result:=PByte(image.scanline(y))[x]
+   else result:=PCardinal(PByte(image.scanline(y))+x*4)^ and $FF;
+end;
+
 // SavePNG keeps alpha and reads every source format with its own pixel size
 procedure TestPNGSave;
 var
@@ -176,12 +183,17 @@ begin
   Check(PixelAt(res,0)=$FF102030,'XRGB: unused byte does not become alpha');
   src.Free; res.Free;
 
-  src:=TBitmapImage.Create(3,1,ipfMono8);
+  // two rows: a Mono8 row is padded (pitch>width), the second row shows a lost pitch
+  src:=TBitmapImage.Create(3,2,ipfMono8);
   p:=src.scanline(0);
   p[0]:=0; p[1]:=128; p[2]:=255;
+  p:=src.scanline(1);
+  p[0]:=10; p[1]:=20; p[2]:=30;
   res:=PNGRoundTrip(src);
-  Check(PixelAt(res,1)=$FF808080,'Mono8: gray pixel');
-  Check(PixelAt(res,2)=$FFFFFFFF,'Mono8: white pixel');
+  // the FPC reader returns ARGB, LodePNG keeps a grey PNG as Mono8
+  Check(MonoAt(res,0,1)=128,'Mono8: gray pixel');
+  Check(MonoAt(res,0,2)=255,'Mono8: white pixel');
+  Check(MonoAt(res,1,2)=30,'Mono8: second row');
   src.Free; res.Free;
 
   src:=TBitmapImage.Create(3,1,ipfRGB);

@@ -1299,12 +1299,17 @@ function CheckFileFormat(fname:string):TImageFileType;
    png:pointer;
    size:{$IFDEF CPUX64}int64{$ELSE}cardinal{$ENDIF};
    y:integer;
+   rows:ByteArray;
   begin
+   // LodePNG takes tightly packed rows, image rows are padded to the pitch
+   SetLength(rows,image.width*image.height);
+   image.Lock;
+   for y:=0 to image.height-1 do
+    move(image.scanline(y)^,rows[y*image.width],image.width);
+   image.Unlock;
    // Pack and save
    png:=nil;
-   image.Lock;
-   err:=lodepng_encode_memory(png,size,image.data,image.width,image.height,LCT_GREY,8);
-   image.Unlock;
+   err:=lodepng_encode_memory(png,size,@rows[0],image.width,image.height,LCT_GREY,8);
    if err<>0 then raise EWarning.Create('LodePNG error code '+Conv.ToStr(err));
    SetLength(result,size);
    move(png^,result[0],size);
