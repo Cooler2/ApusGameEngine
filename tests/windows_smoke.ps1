@@ -55,11 +55,12 @@ function Invoke-FpcTarget {
   if($UnitDir){
     $args+="-Fu$(Join-Path $root $UnitDir)"
   }
+  # -FE also for -Cn: without linking FPC leaves link<pid>.res and ppas.bat in the
+  # exe output folder, which is otherwise the current one (the repository root)
   if($CompileOnly -or $NoRun){
     $args+='-Cn'
-  } else {
-    $args+="-FE$targetOut"
   }
+  $args+="-FE$targetOut"
   $args+="-FU$targetOut"
   $args+=$targetPath
 

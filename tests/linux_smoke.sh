@@ -43,7 +43,7 @@ compile_only() {
     extra_flags+=("-Fu$unit_dir")
   fi
 
-  if "$FPC" "${FLAGS[@]}" "${extra_flags[@]}" -Cn -FU"$OUTDIR" "$target" > "$log" 2>&1; then
+  if "$FPC" "${FLAGS[@]}" "${extra_flags[@]}" -Cn -FU"$OUTDIR" -FE"$OUTDIR" "$target" > "$log" 2>&1; then
     printf '[ ---- ] %s\n' "$target"
   else
     printf '[ FAIL ] %s\n' "$target"

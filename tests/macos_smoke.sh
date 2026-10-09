@@ -56,7 +56,7 @@ compile_only() {
   target_out="$OUTDIR/$name"
   log="$OUTDIR/$name.log"
   mkdir -p "$target_out"
-  if "$FPC" "${FLAGS[@]}" "-Fu$unit_dir" -Cn -FU"$target_out" "$target" > "$log" 2>&1; then
+  if "$FPC" "${FLAGS[@]}" "-Fu$unit_dir" -Cn -FU"$target_out" -FE"$target_out" "$target" > "$log" 2>&1; then
     printf '[ ---- ] %s\n' "$target"
     ((pass++))
   else
@@ -85,7 +85,7 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "demos" ]; then
     name="$(basename "$dir")"
     log="$OUTDIR/demo_$name.log"
     mkdir -p "$OUTDIR/demo_$name"
-    if "$ROOT/build.sh" "$dir" -Cn -Cr -Se1 -FU"$OUTDIR/demo_$name" > "$log" 2>&1; then
+    if "$ROOT/build.sh" "$dir" -Cn -Cr -Se1 -FU"$OUTDIR/demo_$name" -FE"$OUTDIR/demo_$name" > "$log" 2>&1; then
       printf '[ ---- ] %s\n' "$dir"
       ((pass++))
     else
