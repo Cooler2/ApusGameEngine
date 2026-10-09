@@ -32,6 +32,7 @@ type
   method:TWindowMethod; // ...or method
   param:pointer;
  end;
+ TWindowQueuedCalls=array of TWindowQueuedCall;
 
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
@@ -231,7 +232,7 @@ private
   usageCount:integer;   // references taken by Acquire
   closingValue:integer; // 1 once BeginClose was called
   callLock:TLock;       // guards callQueue; a leaf lock: nothing is entered inside
-  callQueue:array of TWindowQueuedCall;
+  callQueue:TWindowQueuedCalls;
   queuedCount:integer;  // length of callQueue, readable without callLock
   function GetClosing:boolean;
   function AddQueuedCall(const c:TWindowQueuedCall):boolean;
@@ -990,7 +991,7 @@ function TWindow.QueueCall(method:TWindowMethod):boolean;
 
 procedure TWindow.RunQueuedCalls;
  var
-  calls:array of TWindowQueuedCall;
+  calls:TWindowQueuedCalls;
   i:integer;
  begin
   if queuedCount=0 then exit; // a call queued right now runs next time

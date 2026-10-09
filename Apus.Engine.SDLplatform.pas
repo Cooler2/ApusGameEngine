@@ -11,6 +11,8 @@ uses Types, sdl2, Apus.Engine.API, Apus.Engine.OpenGL
 
 type
  
+ TSDLEvents=array of TSDL_Event;
+
  { TSDLGLWindow }
 
  TSDLGLWindow=class(TWindow)
@@ -44,7 +46,7 @@ type
   reportedDPI:integer; // last DPI posted by CheckDPI, 0 until the first one
   graphInfo:TOpenGLContextDesc;
   sdlID:cardinal;              // SDL window ID: events carry it
-  events:array of TSDL_Event;  // events routed to this window, guarded by sdlEvents
+  events:TSDLEvents;           // events routed to this window, guarded by sdlEvents
   eventCount:integer;
   procedure AddEvent(const event:TSDL_Event);
   procedure HandleEvent(const event:TSDL_Event);
@@ -682,7 +684,7 @@ procedure TSDLGLWindow.ProcessMessages;
  var
   event:TSDL_Event;
   target:TSDLGLWindow;
-  list:array of TSDL_Event;
+  list:TSDLEvents;
   i,count:integer;
  begin
   sdlEvents.Enter;

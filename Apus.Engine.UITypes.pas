@@ -385,6 +385,7 @@ implementation
    shiftstate:byte;
    element:TUIElement;
   end;
+  THotKeys=array of THotKey;
 
  var
   // TUIElement class hash
@@ -392,7 +393,7 @@ implementation
   uiElementCounter:integer=0; // global counter for auto-generated element names
 threadvar
   // Hotkeys
-  hotKeys:array of THotKey;
+  hotKeys:THotKeys;
 
  var
   // deleted elements outside any window that were held at the time: freed by the next
@@ -405,7 +406,7 @@ threadvar
    i:integer;
    c,modal:TUIElement;
    wnd:TWindow;
-   keys:array of THotKey;
+   keys:THotKeys;
   begin
    result:=false;
    keys:=Copy(hotKeys); // a handler may add or remove hotkeys
