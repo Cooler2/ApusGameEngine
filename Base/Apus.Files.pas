@@ -311,10 +311,14 @@ end;
 function CreateFileWithFolder(const fname:String8):THandle;
 var
   dir:string;
+  i:integer;
 begin
   result:=SysUtils.FileCreate(string(fname));
   if result<>THandle(-1) then exit;
-  dir:=SysUtils.ExtractFilePath(string(fname));
+  // not ExtractFilePath: under Delphi on Windows it does not take '/' for a separator
+  i:=length(fname);
+  while (i>0) and not (fname[i] in ['/','\']) do dec(i);
+  dir:=string(Copy(fname,1,i));
   if (dir='') or SysUtils.DirectoryExists(dir) then exit; // the failure is something else
   if Folder.Create(String8(dir)) then
     result:=SysUtils.FileCreate(string(fname));
