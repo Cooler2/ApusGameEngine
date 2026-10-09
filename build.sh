@@ -1,9 +1,12 @@
 #!/bin/bash
-# Build a program on the engine with FPC (Linux, macOS).
+# Build one of the engine's own programs with FPC (Linux, macOS).
+# INTERNAL TOOL of the engine repository: demos, tests and tools for development
+# and CI. It is not a build system for projects on the engine - such a project
+# writes its own build script around build.cfg (see build.cfg).
 # Usage: ./build.sh <Name|path> [extra fpc options...]
 #   <Name>  - a demo folder name, e.g. SimpleDemo (-> demo/SimpleDemo)
-#   <path>  - any project folder or .dpr file, also outside the repository
-# The project is <folder>/<folder>.dpr, or the only .dpr in the folder.
+#   <path>  - a program folder or .dpr in the repository, e.g. tools/upgrade5.dpr
+# The program is <folder>/<folder>.dpr, or the only .dpr in the folder.
 # Options come from build.cfg (engine-wide) and <folder>/build.cfg (if present).
 # The executable is written next to the .dpr, units go to <folder>/_fpc.
 # Windows counterpart: build.cmd.

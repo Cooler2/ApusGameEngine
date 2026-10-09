@@ -26,7 +26,7 @@ bin64\SimpleDemo.exe
 demo/SimpleDemo/SimpleDemo
 ```
 
-On Linux install `libsdl2-dev libfreetype-dev` first (plus `libsdl2-mixer-dev` for audio). The compiler options live in one place, [`build.cfg`](build.cfg), shared by both scripts and CI; a project can add its own in `<project>/build.cfg`. Extra options can be passed after the name, e.g. `./build.sh SimpleDemo -dDEBUG`.
+On Linux install `libsdl2-dev libfreetype-dev` first (plus `libsdl2-mixer-dev` for audio). The compiler options live in one place, [`build.cfg`](build.cfg), shared by both scripts and CI; a project can add its own in `<project>/build.cfg`. The scripts are internal tools for the engine's own programs (demos, tests, tools); a project outside the repository builds with its own script around `build.cfg` (see [`demo/ProjectTemplate`](demo/ProjectTemplate/README.md)). Extra options can be passed after the name, e.g. `./build.sh SimpleDemo -dDEBUG`.
 
 With Delphi, open `demo\SimpleDemo\SimpleDemo.dproj`; with Lazarus, the `.lpi` next to it.
 

@@ -1,9 +1,12 @@
 @echo off
-rem Build a program on the engine with FPC (Windows).
+rem Build one of the engine's own programs with FPC (Windows).
+rem INTERNAL TOOL of the engine repository: demos, tests and tools for development
+rem and CI. It is not a build system for projects on the engine - such a project
+rem writes its own build script around build.cfg (see build.cfg).
 rem Usage: build.cmd <Name|path> [extra fpc options...]
 rem   <Name>  - a demo folder name, e.g. SimpleDemo (-> demo\SimpleDemo)
-rem   <path>  - any project folder or .dpr file, also outside the repository
-rem The project is <folder>\<folder>.dpr, or the only .dpr in the folder.
+rem   <path>  - a program folder or .dpr in the repository, e.g. tools\upgrade5.dpr
+rem The program is <folder>\<folder>.dpr, or the only .dpr in the folder.
 rem Options come from build.cfg (engine-wide) and <folder>\build.cfg (if present).
 rem The executable goes to bin64\ (or bin\ for a 32-bit FPC), next to the DLLs;
 rem units go to <folder>\_fpc. Linux/macOS counterpart: build.sh.

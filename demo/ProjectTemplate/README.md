@@ -27,9 +27,16 @@ scenes are created in `TMainApp.CreateScenes`.
    **Lazarus** - open `ProjectTemplate.lpi` (update the file names in it after
    renaming). **Delphi 12+** - open the `.dpr`; Delphi creates the `.dproj`.
 
-To keep the project outside the engine repository, pass its path to the script:
-`build.cmd C:\Games\MyGame` or `./build.sh ~/games/MyGame`. On Windows the exe
-still goes to the engine's `bin64\` - copy it (and the DLLs) wherever you need.
+`build.cmd`/`build.sh` are internal tools of the engine repository (demos, tests,
+tools). A project kept outside the repository writes its own build script around
+the engine option list `build.cfg`, run from the engine root (its paths are
+relative to it):
+
+```
+fpc @build.cfg -Fu<project> -FU<project>/_fpc -FE<output> <project>/<name>.dpr
+```
+
+On Windows put the DLLs from `bin64\` (SDL2, FreeType) next to the exe.
 For Lazarus/Delphi, point the search paths at the engine root, `extra`,
 `extra/sdl2`, `Base` and `Base/extra` (the list in `build.cfg`).
 
@@ -41,7 +48,9 @@ Pass them after the project name (`./build.sh MyGame -dSDLMIX`), or put them in
 
 - `-dSDLMIX` - link the SDL_mixer audio backend. Audio is opt-in: without it the
   sound system stays inactive.
-- `-dSDL` - use the SDL platform layer on Windows too (Linux and macOS always use SDL).
+- `-dSDL` - compile in the SDL platform layer on Windows (Linux and macOS always use
+  SDL). Native Windows stays the default; SDL is selected with
+  `requestBackend.platform:=spSDL` or the `-SDL` command-line parameter.
 - `-dWEBP` - load `.webp` images (decode-only libwebp, bundled for Windows x64 and Linux x64).
 
 See `defines.inc` in the engine root for the full list, and `build.cfg` for the

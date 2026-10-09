@@ -13,7 +13,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 ## Building
 
 - Projects: `.dproj` (Delphi), `.lpi` (Lazarus/FPC)
-- FPC command-line builds: `build.cmd <Name|path>` (Windows) / `./build.sh <Name|path>` (Linux, macOS). All compiler options live in `build.cfg` (+ optional `<project>/build.cfg`); CI builds demos through the same scripts, and every `demo/*/` folder with a `.dpr` is built automatically - never duplicate the option list elsewhere
+- FPC command-line builds: `build.cmd <Name|path>` (Windows) / `./build.sh <Name|path>` (Linux, macOS) - internal tools for the engine's own programs (demo/, tests/, tools/), not a build system for external projects (those wrap `build.cfg` in their own script). All compiler options live in `build.cfg` (+ optional `<project>/build.cfg`); CI builds demos through the same scripts, and every `demo/*/` folder with a `.dpr` is built automatically - never duplicate the option list elsewhere
 - Defines: `DELPHI;OPENGL;LODEPNG;FREETYPE`
 - Audio backends are opt-in: nothing is linked without `-dSDLMIX` (SDL2_mixer). Without it the sound system stays inactive; see the audio block in `defines.inc` (the old IMX/BASS backends are in `legacy/` and do not build)
 - GL define family (full description in `defines.inc`): `OPENGL` = umbrella "any GL renderer"; `GLES` = ES 3.0 dialect (implies OPENGL; mobile, or `-dGLES` on desktop for debugging); `GLDESKTOP` = derived (OPENGL minus GLES), gates the desktop loader. RULE: unit `dglOpenGL` only under `{$IFDEF GLDESKTOP}`, unit `dglOpenGLES` only under `{$IFDEF GLES}`
