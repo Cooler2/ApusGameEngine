@@ -124,7 +124,8 @@ type
   vmoMode,   // switch the input mode (enable)
   vmoReset,  // cancel the gesture: drop the capture, release the buttons without a click
   vmoMove,   // move the pointer (pos)
-  vmoButton  // press or release a button (button, pressed) at the current position
+  vmoButton, // press or release a button (button, pressed) at the current position
+  vmoWheel   // turn the wheel (delta) at the current position
  );
  TVirtualMouseOp=record
   kind:TVirtualMouseOpKind;
@@ -133,6 +134,7 @@ type
   clientSpace:boolean; // vmoMove: pos is in pixels of the client area, not in the canvas space
   button:byte;         // vmoButton: 1 - left, 2 - right, 3 - middle
   pressed:boolean;     // vmoButton: true - down, false - up
+  delta:integer;       // vmoWheel: 120 per notch, positive - away from the user (as MOUSE\SCROLL)
   ticket:int64;        // assigned by TVirtualMouse.Queue
  end;
  TVirtualMouseTicket=(vmtPending,vmtDone,vmtDropped);
@@ -243,6 +245,7 @@ private
   procedure ApplyVirtualMouseOp(const op:TVirtualMouseOp);
   procedure CancelMouseGesture; // drop the capture, release the buttons without a click
   procedure DeliverMouseButton(btn:byte;pressed:boolean); // update mouseButtons + dispatch
+  procedure DeliverMouseWheel(delta:integer); // MOUSE\SCROLL + dispatch
   function VirtualMouseSnapshot:TVirtualMouseState;
 public
   // Working surface (R-31): declared axes + resolved snapshot.
@@ -1356,9 +1359,8 @@ procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean);
 procedure TWindow.PlatformMouseWheel(delta:integer);
  begin
   if virtualMouse.IsActive then exit;
-  Signal('MOUSE\SCROLL',delta); // for external subscribers
   SamplePointer;
-  NotifyScenesMouseWheel(delta);
+  DeliverMouseWheel(delta);
  end;
 
 procedure TWindow.PlatformDropFiles(const files:Strings8;const clientPos:TPoint;hasPos:boolean);
@@ -1444,6 +1446,9 @@ procedure TWindow.ApplyVirtualMouseOp(const op:TVirtualMouseOp);
    vmoButton:
     if virtualMouse.IsActive and (op.button in [1..5]) then
      DeliverMouseButton(op.button,op.pressed);
+   vmoWheel:
+    if virtualMouse.IsActive and (op.delta<>0) then
+     DeliverMouseWheel(op.delta);
   end;
  end;
 
@@ -1459,6 +1464,12 @@ procedure TWindow.DeliverMouseButton(btn:byte;pressed:boolean);
   if pressed then Signal('MOUSE\BTNDOWN',btn)
    else Signal('MOUSE\BTNUP',btn);
   NotifyScenesMouseBtn(btn,pressed);
+ end;
+
+procedure TWindow.DeliverMouseWheel(delta:integer);
+ begin
+  Signal('MOUSE\SCROLL',delta); // for external subscribers
+  NotifyScenesMouseWheel(delta);
  end;
 
 procedure TWindow.CancelMouseGesture;

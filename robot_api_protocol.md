@@ -175,7 +175,8 @@ every platform. The input goes through the regular mouse routing of the engine -
 hit-test, hover (`underMouse`, `onMouseOver`/`onMouseOut`), pressed state, modal
 dialogs, disabled/hidden elements, mouse capture (drags), clicks, gameplay scenes'
 `onMouseMove`/`onMouseBtn`, `window.mouseButtons`, `MOUSE\BTNDOWN`/`MOUSE\BTNUP`
-signals. Nothing calls a click handler directly.
+signals; the wheel - `onMouseScroll` of the element under the pointer (gameplay scenes'
+`onMouseWheel` if no control takes it), `MOUSE\SCROLL`. Nothing calls a click handler directly.
 
 It does not replace a check of the real OS input path: keep small OS-input smoke tests
 for that. Keyboard and touch are not simulated.
@@ -192,7 +193,7 @@ The virtual mouse belongs to a window and is an explicit mode of that window:
 - `mouse.mode` with `MODE: physical` cancels the virtual gesture (see reset) and gives
   the window back to the physical input. With the mode off, the physical input works
   exactly as before.
-- `mouse.move`, `mouse.down`, `mouse.up`, `mouse.click` need the virtual mode (as
+- `mouse.move`, `mouse.down`, `mouse.up`, `mouse.click`, `mouse.wheel` need the virtual mode (as
   requested so far - a `mouse.mode` earlier in the same batch counts); without it they
   return `STATUS: ERROR` and do nothing.
 
@@ -226,8 +227,8 @@ in the letterbox bars is outside the canvas.
 Commands queue operations for the window; the window's own thread applies them in
 order, **one operation per frame**, at the input step of the frame (before scenes are
 processed). `mouse.move` is one operation, `mouse.down` / `mouse.up` with `X`, `Y` are
-two (a move, then the button), `mouse.click` is a move (if `X`, `Y` are given), down
-and up: three frames, so the UI sees every transition and a click is never collapsed
+two (a move, then the button), `mouse.wheel` with `X`, `Y` - a move, then the wheel;
+`mouse.click` is a move (if `X`, `Y` are given), down and up: three frames, so the UI sees every transition and a click is never collapsed
 into "button up". No command sleeps or blocks a frame.
 
 By default (`WAIT: yes`) a command is answered once its last operation has been
@@ -259,6 +260,13 @@ operations of a request are applied exactly once whatever the number of checks.
   disabled, hidden or modal-blocked element does not click, a push button reacts to
   the left button only.
 
+#### `mouse.wheel` - move (optional), turn the wheel
+- `DELTA`: required, a non-zero integer in the units of the OS wheel on Windows: 120 per
+  notch, positive - away from the user (scrolls up). `DELTA: -360` is three notches down,
+  delivered as one event.
+- `X`, `Y` (+ `SPACE`): optional - move there first; otherwise the wheel turns at the
+  current position.
+
 #### `mouse.reset` - cancel the gesture (see above)
 - Does nothing (answers at once) in the physical mode.
 
@@ -286,7 +294,7 @@ The state is the one published by the window after its last applied operation (a
 the time of the answer), so in a batch every answer may already show a later state.
 
 `STATUS: ERROR` answers:
-- bad or missing parameters (`MODE`, `X`/`Y`, `SPACE`, `BUTTON`, `WAIT`);
+- bad or missing parameters (`MODE`, `X`/`Y`, `SPACE`, `BUTTON`, `DELTA`, `WAIT`);
 - `window not found: <name>` - no such window, or it is closing;
 - `virtual mouse is off: ...` - the command needs the virtual mode;
 - `button is already down` / `button is not down`;
@@ -375,6 +383,6 @@ registered with `RegisterRobotShutdownHandler`.
 
 ## Future Extensions
 
-- `ui.type`, `ui.focus`, `ui.scroll`, mouse wheel - more input simulation
+- `ui.type`, `ui.focus`, `ui.scroll` - more input simulation
 - `var.get` / `var.set` — published variable access
 - `log` — recent log messages

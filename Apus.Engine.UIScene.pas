@@ -1340,6 +1340,31 @@ function RobotCmdMouseClick(const req:TRobotRequest; out body:String8):boolean;
   result:=RobotMouseButtonCmd(req,true,true,body);
  end;
 
+// mouse.wheel: move (optional), then turn the wheel
+function RobotCmdMouseWheel(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualMouse;
+  move,wheel:TVirtualMouseOp;
+  ops:array of TVirtualMouseOp;
+  hasPos:boolean;
+  delta:integer;
+ begin
+  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if not TryStrToInt(string(req.Param('DELTA').Trim),delta) or (delta=0) then begin
+   body:='DELTA should be a non-zero integer (120 per notch, positive - away from the user)';
+   exit(false);
+  end;
+  if not RobotParseMove(req,true,move,hasPos,body) then exit(false);
+  if not RobotMouseTarget(req,true,vm,body) then exit(false);
+  FillChar(wheel,sizeof(wheel),0);
+  wheel.kind:=vmoWheel;
+  wheel.delta:=delta;
+  SetLength(ops,0);
+  if hasPos then ops:=[move];
+  ops:=ops+[wheel];
+  result:=RobotMouseQueue(req,vm,ops,body);
+ end;
+
 function RobotCmdMouseState(const req:TRobotRequest; out body:String8):boolean;
  var
   vm:TVirtualMouse;
@@ -1430,6 +1455,7 @@ initialization
  RegisterRobotCommand('mouse.down',@RobotCmdMouseDown);
  RegisterRobotCommand('mouse.up',@RobotCmdMouseUp);
  RegisterRobotCommand('mouse.click',@RobotCmdMouseClick);
+ RegisterRobotCommand('mouse.wheel',@RobotCmdMouseWheel);
  RegisterRobotCommand('mouse.state',@RobotCmdMouseState);
  RegisterRobotCommand('mouse.wait',@RobotCmdMouseWait);
  RegisterRobotShutdownHandler(RobotMouseShutdown);

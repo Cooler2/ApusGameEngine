@@ -53,7 +53,9 @@ type
   // records what the mouse routing delivered to it
   TProbeButton=class(TUIButton)
     downs,ups,clicks:integer;
+    wheel:integer; // sum of the wheel deltas
     procedure onMouseButtons(button:byte;state:boolean); override;
+    procedure onMouseScroll(value:integer); override;
     procedure DoClick; override;
   end;
 
@@ -120,6 +122,12 @@ procedure TProbeButton.onMouseButtons(button:byte;state:boolean);
  begin
   if button=1 then
    if state then inc(downs) else inc(ups);
+  inherited;
+ end;
+
+procedure TProbeButton.onMouseScroll(value:integer);
+ begin
+  inc(wheel,value);
   inherited;
  end;
 
@@ -403,6 +411,25 @@ procedure TestBatch;
   Check(Field(a,'1','state')='queued','WAIT: no answers before applying');
   Check(IsOk(a,'2') and (Field(a,'2','queued')='0'),'mouse.wait answers once the queue is empty');
   Check(btn.clicks=1,'queued click applied');
+  EndTest;
+ end;
+
+procedure TestWheel;
+ var
+  a:String8;
+ begin
+  StartTest('mouse.wheel');
+  btn.wheel:=0;
+  a:=Robot(Req('w','mouse.wheel','DELTA: -240;X: 150;Y: 115'));
+  Check(IsOk(a,'w'),'wheel answered: '+a);
+  Check(Field(a,'w','under')='Btn','the pointer moved there first');
+  Check(btn.wheel=-240,'the delta reaches the element under the pointer, got '+IntToStr(btn.wheel));
+  a:=Robot(Req('w','mouse.wheel','DELTA: 120'));
+  Check(btn.wheel=-120,'without X, Y - at the current position, got '+IntToStr(btn.wheel));
+  a:=Robot(Req('w','mouse.wheel','DELTA: 0'));
+  Check(Field(a,'w','STATUS')='ERROR','zero delta is refused');
+  a:=Robot(Req('w','mouse.wheel'));
+  Check(Field(a,'w','STATUS')='ERROR','DELTA is required');
   EndTest;
  end;
 
@@ -732,6 +759,7 @@ begin
   TestClick;
   TestDownUp;
   TestBatch;
+  TestWheel;
   TestRules;
   TestDrag;
   TestReset;
