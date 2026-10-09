@@ -6,7 +6,7 @@
 {$I defines.inc}
 unit Apus.Engine.SDLplatform;
 interface
-uses Types, sdl2, Apus.Engine.API, Apus.Engine.OpenGL
+uses Types, sdl2, Apus.Core, Apus.Engine.API, Apus.Engine.OpenGL
  {$IFDEF GLES},dglOpenGLES{$ENDIF};
 
 type
@@ -48,6 +48,7 @@ type
   sdlID:cardinal;              // SDL window ID: events carry it
   events:TSDLEvents;           // events routed to this window, guarded by sdlEvents
   eventCount:integer;
+  dropList:Strings8;           // files of the drop in progress (SDL_DROPBEGIN..SDL_DROPCOMPLETE)
   procedure AddEvent(const event:TSDL_Event);
   procedure HandleEvent(const event:TSDL_Event);
   function GetDPI:integer; // DPI of the display this window is currently on
@@ -80,7 +81,7 @@ type
 
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-  SysUtils, Apus.Core, Apus.Log, Apus.Threads, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
+  SysUtils, Apus.Log, Apus.Threads, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types, Apus.Engine.Window
   {$IFDEF GLDESKTOP},dglOpenGL{$ENDIF}; // GLDESKTOP, not OPENGL: under GLES the desktop unit would shadow dglOpenGLES' loader procs
 
@@ -430,6 +431,7 @@ constructor TSDLPlatform.Create;
   {$ENDIF}
   if SDL_Init(SDL_INIT_EVERYTHING)<>0 then
    raise EError.Create('SDL init error: '+SDL_GetError);
+  SDL_EventState(SDL_DROPFILE,SDL_ENABLE); // on by default in SDL2, but windows accept drops only while it is on
   plName:=SDL_GetPlatform;
   SDL_GetVersion(@ver);
   SDL_LogGetOutputFunction(@savedLogHandler,nil);
@@ -570,6 +572,7 @@ function FindEventWindow(const event:TSDL_Event;out target:TSDLGLWindow):boolean
    SDL_MOUSEWHEEL:id:=event.wheel.windowID;
    SDL_KEYDOWN,SDL_KEYUP:id:=event.key.windowID;
    SDL_TEXTINPUT:id:=event.text.windowID;
+   SDL_DROPFILE..SDL_DROPCOMPLETE:id:=event.drop.windowID;
    else exit(true);
   end;
   if id=0 then exit(true); // e.g. a key without a focused window
@@ -810,6 +813,22 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     wst:=UTF8.ToWide(ust);
     for i:=1 to length(wst) do
      Signal('KBD\UNICHAR',word(wst[i]));
+   end;
+
+   // SDL2 reports no drop point
+   SDL_DROPBEGIN:dropList:=nil;
+   SDL_DROPFILE:begin
+    len:=StrLen(event.drop.file_);
+    SetLength(ust,len);
+    if len>0 then move(event.drop.file_^,ust[1],len); // raw copy: SDL paths are UTF-8
+    SDL_free(event.drop.file_);
+    SetLength(dropList,length(dropList)+1);
+    dropList[high(dropList)]:=ust;
+   end;
+   SDL_DROPTEXT:SDL_free(event.drop.file_);
+   SDL_DROPCOMPLETE:begin
+    PlatformDropFiles(dropList,Types.Point(-1,-1),false);
+    dropList:=nil;
    end;
 
    SDL_QUITEV:begin

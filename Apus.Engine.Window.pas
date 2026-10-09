@@ -268,6 +268,10 @@ public
   shiftState:byte; // shift keys: aggregate (sscBaseMask) + right-side bits (sscRightMask)
   // bit 0 - pressed, bit 1 - was pressed last frame (01=just pressed, 10=just released)
   keyState:array[0..255] of byte; // indexed by scancode
+  // Files dropped onto the window from a file manager: the last drop, valid until the
+  // next one. Set by the window's thread right before ENGINE\WINDOW\DROPFILES (tag = count).
+  droppedFiles:Strings8;
+  dropPos:TPoint; // drop point in canvas coordinates; (-1,-1) if the platform does not report it
 
   // Window state
   active:boolean; // true when window is visible and updated
@@ -369,6 +373,9 @@ public
   // while the virtual mouse is active.
   procedure PlatformMouseButton(btn:byte;pressed:boolean);
   procedure PlatformMouseWheel(delta:integer);
+  // Files dropped by the platform (window's thread): fills droppedFiles/dropPos and
+  // sends ENGINE\WINDOW\DROPFILES
+  procedure PlatformDropFiles(const files:Strings8;const clientPos:TPoint;hasPos:boolean);
   // Physical button state polled by the frame loop (ignored while the virtual mouse is active)
   procedure SetPolledMouseButtons(buttons:byte);
   // Mouse step of a frame, window's thread under the window lock. Virtual mode: applies
@@ -1341,6 +1348,16 @@ procedure TWindow.PlatformMouseWheel(delta:integer);
   Signal('MOUSE\SCROLL',delta); // for external subscribers
   SamplePointer;
   NotifyScenesMouseWheel(delta);
+ end;
+
+procedure TWindow.PlatformDropFiles(const files:Strings8;const clientPos:TPoint;hasPos:boolean);
+ begin
+  if length(files)=0 then exit;
+  droppedFiles:=files;
+  if hasPos then dropPos:=ClientToCanvas(clientPos)
+   else dropPos:=Types.Point(-1,-1);
+  Log.Msg('Window %s: %d file(s) dropped: %s',[name,length(files),files.Join('; ')]);
+  Signal('ENGINE\WINDOW\DROPFILES',length(files));
  end;
 
 procedure TWindow.SetPolledMouseButtons(buttons:byte);

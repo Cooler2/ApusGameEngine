@@ -93,6 +93,12 @@ const
   {$IF not Declared(WM_DPICHANGED)}
   WM_DPICHANGED = $02E0;
   {$ENDIF}
+
+// Drag and drop of files (declared here: ShellAPI signatures differ between FPC and Delphi)
+procedure DragAcceptFiles(wnd:HWND;accept:BOOL); stdcall; external 'shell32.dll';
+function DragQueryFileW(drop:THandle;index:cardinal;fileName:PWideChar;size:cardinal):cardinal; stdcall; external 'shell32.dll';
+function DragQueryPoint(drop:THandle;var pt:TPoint):BOOL; stdcall; external 'shell32.dll';
+procedure DragFinish(drop:THandle); stdcall; external 'shell32.dll';
 var
  noPenAPI:boolean=false;
  classRegistered:boolean=false;
@@ -165,12 +171,14 @@ end;
 function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
  i,charCode,scanCode,keyCode:integer;
- isExtended:boolean;
+ isExtended,inClient:boolean;
  vkCode:cardinal;
  rc:TRect;
  pt:TPoint;
  ps:TPaintStruct;
  wnd:TWindow;
+ files:Strings8;
+ wst:WideString;
 begin
  try
  result:=0;
@@ -300,6 +308,22 @@ begin
    // the window's own thread applies the request at the start of its next frame
    wnd:=FindWindowByHandle(THandle(Window));
    if wnd<>nil then wnd.RequestResize(loword(cardinal(lParam)),hiword(cardinal(lParam)));
+  end;
+
+  WM_DROPFILES:begin
+   wnd:=FindWindowByHandle(THandle(Window));
+   if wnd<>nil then begin
+    SetLength(files,DragQueryFileW(wParam,$FFFFFFFF,nil,0));
+    for i:=0 to high(files) do begin
+     SetLength(wst,DragQueryFileW(wParam,i,nil,0)); // length without #0
+     if wst<>'' then DragQueryFileW(wParam,i,PWideChar(wst),length(wst)+1);
+     files[i]:=UTF8.FromWide(wst);
+    end;
+    inClient:=DragQueryPoint(wParam,pt); // false outside the client area
+    wnd.PlatformDropFiles(files,pt,inClient);
+   end;
+   DragFinish(wParam);
+   exit(0);
   end;
 
   WM_DPICHANGED:begin
@@ -628,6 +652,7 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
    style:=0;
    wndHandle:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
+   DragAcceptFiles(wndHandle,true); // WM_DROPFILES from a file manager
    result:=TWinGLWindow.Create(wndHandle,title);
   end;
 
