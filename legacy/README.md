@@ -38,6 +38,14 @@ For geometry and static 3D content use the engine5 units `Apus.Engine.Mesh`,
   `Apus.Common`; `Base/tests/TestTCP.dpr` covers `Apus.TCP` now.
 - `Base/tools/ListFonts` -> `legacy/Base/tools/ListFonts/`: font listing tool on the
   pre-engine4 `MyServis` unit.
+- `Base/tests/UGraphics.dpr`, `UStructs.dpr` -> `legacy/Base/tests/`: old graphics and
+  structures tests on `MyServis`, `structs`, `hashes` and units that are gone
+  (`blitter`, `painter`). Neither FPC nor Delphi builds them.
+
+## tests
+
+- `tests/chat.dpr`, `tests/nw3test.dpr` -> `legacy/tests/`: old network test programs on
+  `MyServis`, `EventMan`, `network`/`networking2`. Neither FPC nor Delphi builds them.
 
 ## Remaining references
 

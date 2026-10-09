@@ -79,7 +79,7 @@ declares — nothing is inferred:
 | Unit | Origin | Licence as stated in the file | Referenced in |
 |---|---|---|---|
 | `DCPmd5a.pas` | DCPcrypt v2, David Barton | MIT, full text in the header | `Apus.Engine.HttpGameClient/Server` |
-| `Hashes.pas` | Ciaran McCreesh, 2002 | permissive, zlib-style, in the header | `Base/tests/UStructs.dpr` |
+| `Hashes.pas` | Ciaran McCreesh, 2002 | permissive, zlib-style, in the header | `legacy/Base/tests/UStructs.dpr` (dead) |
 | `RegExpr.pas` | TRegExpr, Andrey V. Sorokin | permissive custom terms, in the header | `Apus.RegExpr` |
 | `freetypeh.pas` | Free Pascal RTL | FPC modified LGPL (linking exception) | `Apus.FreeTypeFont` |
 | `winsock2_jedi.pas` + `ws2*.inc` | Alex Konshin / JEDI, from Microsoft headers | MPL-1.1 | nothing (dead) |
