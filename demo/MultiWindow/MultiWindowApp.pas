@@ -171,7 +171,7 @@ var
  scene:TToolScene;
 begin
  inc(toolCount);
- wnd:=game.AddWindow('Tool '+IntToStr(toolCount),400,300);
+ wnd:=game.AddWindow('Tool '+IntToStr(toolCount),400,300,'Tool'+IntToStr(toolCount)); // title, size, name
  scene:=TToolScene.Create(toolCount,wnd);
  scene.CreateUI;
  AddProbe(scene);

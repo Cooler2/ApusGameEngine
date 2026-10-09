@@ -92,7 +92,7 @@ type
   procedure Minimize; override;
 
   // Multi-window
-  function AddWindow(settings:TGameSettings):TWindow; override;
+  function AddWindow(settings:TGameSettings;const name:String8=''):TWindow; override;
   procedure RemoveWindow(wnd:TWindow); override;
   procedure RenderScenesForWindow(wnd:TWindow);
   procedure StopExtraWindows;
@@ -224,6 +224,7 @@ type
  PExtraWindowContext=^TExtraWindowContext;
 TExtraWindowContext=record
   settings:TGameSettings;
+  name:String8; // TWindow.name of the new window
   callerReleasedMainContext:boolean; // true when AddWindow was called from main render thread
   resultWnd:TWindow; // set by thread when window is created
   startDone:boolean; // set by thread when startup is finished (success or failure)
@@ -236,6 +237,7 @@ var
  perfValues:array[1..16] of int64;
  perfMeasures:array[1..16] of double;
  extraWindowCount:integer=0; // number of active extra windows (secondary render threads)
+ extraWindowCounter:integer=0; // for automatic extra window names
  addWindowBusy:integer=0; // serialize AddWindow startup to avoid concurrent shared-context handshakes
 
 {$IFDEF FREETYPE}
@@ -1122,7 +1124,7 @@ begin
   // create the window first, so create it here on the calling thread. When a
   // MainThreadLoop already ran (desktop), window is set and this is skipped.
   if window=nil then begin
-   window:=systemPlatform.CreateWindow(gameEx.params.title);
+   window:=systemPlatform.CreateWindow('Main',gameEx.params.title);
    mainWindow:=window;
    window.RequestDPI(systemPlatform.GetScreenDPI);
    window.frameNum:=0;
@@ -2082,7 +2084,7 @@ procedure TGame.MainThreadLoop;
    SetEventHandler('Engine\',EngineEvent,emInstant);
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
-   window:=systemPlatform.CreateWindow(gameEx.params.title);
+   window:=systemPlatform.CreateWindow('Main',gameEx.params.title);
    mainWindow:=window;
    window.RequestDPI(systemPlatform.GetScreenDPI);
    window.frameNum:=0;
@@ -2160,11 +2162,11 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   callerReleasedMainContext:=ewCtx^.callerReleasedMainContext;
   registered:=false;
   wnd:=nil;
-  Log.Msg('Extra window thread started: %s',[settings.title]);
+  Log.Msg('Extra window thread started: %s',[ewCtx^.name]);
   try
    // startup phase: must report success/failure back to AddWindow
    try
-    wnd:=systemPlatform.CreateWindow(settings.title);
+    wnd:=systemPlatform.CreateWindow(ewCtx^.name,settings.title);
     window:=wnd; // set threadvar
     wnd.RequestDPI(systemPlatform.GetScreenDPI);
     wnd.SetSurfaceConfig(settings.surface);
@@ -2308,7 +2310,7 @@ begin
  wnd.RenderScenes(DrawOverlays);
 end;
 
-function TGame.AddWindow(settings:TGameSettings):TWindow;
+function TGame.AddWindow(settings:TGameSettings;const name:String8=''):TWindow;
  var
   ewCtx:TExtraWindowContext;
   th:IThread;
@@ -2329,6 +2331,8 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
     mainContextReleased:=true;
    end;
    ewCtx.settings:=settings;
+   ewCtx.name:=name;
+   if name='' then ewCtx.name:='Window'+Conv.ToStr(Atomic.Inc(extraWindowCounter));
    ewCtx.callerReleasedMainContext:=callerIsMainThread;
    ewCtx.resultWnd:=nil;
    ewCtx.startDone:=false;

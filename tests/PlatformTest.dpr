@@ -43,7 +43,7 @@ begin
    colorDepth:=32;
    mode:=Apus.Engine.Types.dmWindow;
   end;
-  wnd:=plat.CreateWindow('Platform Test: '+plat.GetPlatformName);
+  wnd:=plat.CreateWindow('Main','Platform Test: '+plat.GetPlatformName);
   wnd.Configure(params);
   wnd.ApplyPendingSurface;
 

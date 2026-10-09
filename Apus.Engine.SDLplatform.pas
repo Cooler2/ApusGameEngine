@@ -16,7 +16,7 @@ type
  { TSDLGLWindow }
 
  TSDLGLWindow=class(TWindow)
-  constructor Create(aWnd:PSDL_Window;windowName:string='MainWnd');
+  constructor Create(aWnd:PSDL_Window;const windowName:String8);
   procedure Close; override;
   procedure Configure(params:TGameSettings); override;
   procedure Show(show:boolean); override;
@@ -76,7 +76,7 @@ type
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   function GetMouseButtons:cardinal;
-  function CreateWindow(title:string):TWindow;
+  function CreateWindow(const name:String8;title:string):TWindow;
  end;
 
 implementation
@@ -147,7 +147,7 @@ procedure InitControllers;
 
 { TSDLGLWindow }
 
-constructor TSDLGLWindow.Create(aWnd:PSDL_Window;windowName:string='MainWnd');
+constructor TSDLGLWindow.Create(aWnd:PSDL_Window;const windowName:String8);
  begin
   inherited Create(windowName);
   wnd:=aWnd;
@@ -471,12 +471,12 @@ procedure ApplyOpenGLContextAttributes(const graph:TOpenGLContextDesc;shareWithC
   SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,byte(shareWithCurrent));
  end;
 
-function TSDLPlatform.CreateWindow(title:string):TWindow;
+function TSDLPlatform.CreateWindow(const name:String8;title:string):TWindow;
  var
   ust:UTF8String;
   localWindow:PSDL_Window;
  begin
-   Log.Msg('CreateMainWindow');
+   Log.Msg('CreateWindow: %s (%s)',[name,title]);
    ApplyOpenGLContextAttributes(oglContextTemplate,false);
    ust:=title;
    // NB: SDL_WINDOWS_DPI_SCALING is deliberately left off. It would make SDL express
@@ -486,7 +486,7 @@ function TSDLPlatform.CreateWindow(title:string):TWindow;
    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
    if localWindow=nil then
     raise EError.Create('SDL window creation failed: '+SDL_GetError);
-   result:=TSDLGLWindow.Create(localWindow,title);
+   result:=TSDLGLWindow.Create(localWindow,name);
   end;
 
 function PackWords(p1,p2:integer):TTag;

@@ -3,6 +3,19 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Window name is an identifier, not the title (2026-10-09)
+
+`TWindow.name` was the window title (any Unicode text; two extra windows with the same title
+failed with "Duplicate object name"). Now it is an ASCII identifier (letters, digits, `_`,
+`-`, `.`; checked by ASSERT), the title stays a separate caption:
+
+- `ISystemPlatform.CreateWindow(title)` -> `CreateWindow(name,title)`
+- `game.AddWindow(settings)` / `AddWindow(title,w,h)` take an optional last `name`; empty -
+  `Window1`, `Window2`...
+- the main window is named `Main` (was its title); platform window constructors have no
+  `'MainWnd'` default
+- Robot API `WINDOW` parameter of `mouse.*` addresses windows by this name
+
 ## Clipboard moved from Base to the engine (2026-10-09)
 
 `Base/Apus.Clipboard` is replaced by `Apus.Engine.Clipboard`: the clipboard is a platform

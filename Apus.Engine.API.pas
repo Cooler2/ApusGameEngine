@@ -286,8 +286,8 @@ type
   function GetMouseButtons:cardinal;
   function GetShiftKeysState:cardinal;
 
-  // Window factory
-  function CreateWindow(title:string):TWindow;
+  // Window factory: name - ASCII identifier (TWindow.name), title - caption shown to the user
+  function CreateWindow(const name:String8;title:string):TWindow;
  end;
 
 {$SCOPEDENUMS ON}
@@ -953,9 +953,10 @@ type
   // Multi-window support
   // --------------------
   // Create an extra window with its own render thread, GL context (shared with main), and frame loop.
-  function AddWindow(settings:TGameSettings):TWindow; overload; virtual; abstract;
+  // name - ASCII identifier of the window (TWindow.name); '' - an automatic one (Window1, Window2...)
+  function AddWindow(settings:TGameSettings;const name:String8=''):TWindow; overload; virtual; abstract;
   // Simplified overload: windowed mode, full-size, no scaling, system cursor, vSync=1.
-  function AddWindow(title:string;w,h:integer):TWindow; overload; virtual;
+  function AddWindow(title:string;w,h:integer;const name:String8=''):TWindow; overload; virtual;
   // Stop the window's render thread, destroy GL context and native window.
   procedure RemoveWindow(wnd:TWindow); virtual; abstract;
 
@@ -1289,7 +1290,7 @@ function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
   result:=Apus.Colors.Color.Scale(color,Clamp(av.ValueAt(window.frameStartMs),0,1));
  end;
 
-function TGameBase.AddWindow(title:string;w,h:integer):TWindow;
+function TGameBase.AddWindow(title:string;w,h:integer;const name:String8=''):TWindow;
  var
   s:TGameSettings;
  begin
@@ -1301,7 +1302,7 @@ function TGameBase.AddWindow(title:string;w,h:integer):TWindow;
   s.surface.Init; // tool windows use the full client area
   s.showSystemCursor:=true;
   s.vSync:=1;
-  result:=AddWindow(s);
+  result:=AddWindow(s,name);
  end;
 
 

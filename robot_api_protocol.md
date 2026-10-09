@@ -205,8 +205,8 @@ released - with nothing under the pointer, only gameplay scenes see the releases
 ### Target window
 
 Every `mouse.*` command takes an optional `WINDOW`: empty, `0` or `main` - the main
-window; otherwise the window name (`TWindow.name`: the title an extra window was
-created with), case-insensitive. Each window has its own virtual pointer and mode:
+window (its name is `Main`); otherwise the window name (`TWindow.name`: the ASCII
+identifier given to `AddWindow`, `Window1`, `Window2`... if none), case-insensitive. Each window has its own virtual pointer and mode:
 input of one window never reaches another.
 
 ### Coordinates

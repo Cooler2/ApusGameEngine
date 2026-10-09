@@ -321,7 +321,8 @@ public
   // surface.dpi - otherwise the DPI factor is applied twice.
   function canvasDPI:single; // dots per inch of one canvas unit
 
-  constructor Create(windowName:String8='MainWnd');
+  // windowName - ASCII identifier: letters, digits, '_', '-', '.' (the main window is 'Main')
+  constructor Create(const windowName:String8);
   destructor Destroy; override;
   procedure SetFrameTiming(startUs,deltaUs:int64);
   procedure ResetFrameTiming;
@@ -808,9 +809,19 @@ function FindVirtualMouse(const windowName:String8):TVirtualMouse;
   end;
  end;
 
-constructor TWindow.Create(windowName:String8='MainWnd');
+function IsValidWindowName(const name:String8):boolean;
+ var
+  i:integer;
+ begin
+  result:=name<>'';
+  for i:=1 to length(name) do
+   if not (name[i] in ['A'..'Z','a'..'z','0'..'9','_','-','.']) then exit(false);
+ end;
+
+constructor TWindow.Create(const windowName:String8);
  begin
   inherited Create;
+  ASSERT(IsValidWindowName(windowName),'Window name must be an ASCII identifier: '+windowName);
   name:=windowName;
   // levels (higher = inner): the window lock is the outermost engine runtime lock,
   // pending surface data and the game object are entered inside it

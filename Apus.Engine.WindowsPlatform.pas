@@ -12,7 +12,7 @@ type
  { TWinGLWindow - Windows + WGL window implementation }
 
  TWinGLWindow=class(TWindow)
-   constructor Create(hwnd:HWND;windowName:String8='MainWnd');
+   constructor Create(hwnd:HWND;const windowName:String8);
    destructor Destroy; override;
    // TWindow overrides
    procedure Close; override;
@@ -67,7 +67,7 @@ type
   function GetShiftKeysState:cardinal;
   function GetMouseButtons:cardinal;
   // Window factory
- function CreateWindow(title:string):TWindow;
+ function CreateWindow(const name:String8;title:string):TWindow;
  end;
 
 implementation
@@ -392,7 +392,7 @@ end;
 
 { TWinGLWindow }
 
-constructor TWinGLWindow.Create(hwnd:HWND;windowName:String8='MainWnd');
+constructor TWinGLWindow.Create(hwnd:HWND;const windowName:String8);
 begin
   inherited Create(windowName);
   window:=hwnd;
@@ -619,14 +619,14 @@ procedure TWinGLWindow.GetSize(out width,height:integer);
   width:=r.Width; height:=r.Height;
  end;
 
-function TWindowsPlatform.CreateWindow(title:string):TWindow;
+function TWindowsPlatform.CreateWindow(const name:String8;title:string):TWindow;
  var
   WindowClass:TWndClassW;
   style:cardinal;
   wndHandle:HWND;
   e:cardinal;
  begin
-   Log.Msg('CreateWindow: '+title);
+   Log.Msg('CreateWindow: %s (%s)',[name,title]);
    if not classRegistered then begin
     with WindowClass do begin
      // OpenGL windows should use own DC to keep stable WGL behavior across threads/windows.
@@ -653,7 +653,7 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
    wndHandle:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
    DragAcceptFiles(wndHandle,true); // WM_DROPFILES from a file manager
-   result:=TWinGLWindow.Create(wndHandle,title);
+   result:=TWinGLWindow.Create(wndHandle,name);
   end;
 
 procedure TWinGLWindow.ProcessMessages;

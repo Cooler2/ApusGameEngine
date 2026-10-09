@@ -278,7 +278,7 @@ begin
    mode:=Apus.Engine.Types.dmWindow;
    VSync:=0;
   end;
-  wnd:=systemPlatform.CreateWindow('Platform Test: '+systemPlatform.GetPlatformName);
+  wnd:=systemPlatform.CreateWindow('Main','Platform Test: '+systemPlatform.GetPlatformName);
   wnd.Configure(params);
   wnd.ApplyPendingSurface; // resolve the working surface before the backend starts
 
