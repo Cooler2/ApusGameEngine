@@ -62,10 +62,11 @@ type
  // Create a popup hint and attach it to the given parent (nil: the root under the mouse of
  // the thread's window). Any thread. One such hint per window: the next call removes the
  // previous one (see TUIHint.Current). A parent outside any window shows nothing.
+ // x,y are canvas coordinates; -1 in either coordinate selects the window mouse position.
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
 implementation
- uses SysUtils, Apus.Lib, Types,
+ uses SysUtils, Apus.Lib, Types, Apus.Geom2D,
    Apus.Engine.Types,
    Apus.EventMan, Apus.Publics,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
@@ -107,6 +108,7 @@ function UIScene(name:String8):TUIScene;
    hint:TUIHint;
    wnd:TWindow;
    area:TRect;
+   localPos:TVec2;
   begin
    Log.Debug('ShowHint: '+msg);
    msg:=Translate(msg);
@@ -137,7 +139,10 @@ function UIScene(name:String8):TUIScene;
      Log.Debug('Remove previous hint');
      TUIHint.Current(wnd).Remove;
     end;
-    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
+    // Input is in canvas coordinates; the hint position is in parent client space.
+    localPos:=parent.TransformFromScreen(Vec2(x,y+10));
+    localPos.Add(parent.scroll); // child positions are reduced by the parent scroll
+    hint:=TUIHint.Create(localPos.x,localPos.y,msg,parent);
     if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
     hint.timer:=time;
     hint.order:=10000; // Top

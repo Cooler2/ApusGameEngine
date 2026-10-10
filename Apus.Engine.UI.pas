@@ -115,7 +115,8 @@ type
 
   // Useful general-purpose functions
   // -------
-  // Create a popup window and attach it to the given parent
+  // Create a popup hint attached to parent; x,y are canvas coordinates.
+  // -1 in either coordinate uses the window mouse position.
   procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   // Hint created by the last ShowSimpleHint in the thread's window, nil if none or removed
   function CurrentHint:TUIHint;
