@@ -6,14 +6,34 @@
 
 unit Apus.Engine.DefaultStyle;
 interface
-uses Apus.Engine.UI;
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
+ type
+  // Resolved text parameters. Extensions never share the private style context.
+  TUITextStyle=record
+   font:TFontHandle;
+   color:cardinal;
+   align:TTextAlignment;
+   options:cardinal;
+   shadowColor:cardinal;
+   shadowX,shadowY:single;
+   ofsX,ofsY:single; // screen pixels
+   hover,pressed,disabled:single; // transition progress
+  end;
+
+ // Retain the standard skin/focus/transitions while optionally replacing caption.
+ procedure DrawDefaultUI(element:TUIElement;drawButtonCaption:boolean=true);
+ function ResolveUITextStyle(element:TUIElement;defColor:cardinal;
+   defAlign:TTextAlignment=taLeft;defOptions:cardinal=0;
+   defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TUITextStyle;
+ procedure WriteUIText(const style:TUITextStyle;x,y:single;const text:String8;targetWidth:integer=0);
+
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
 
 implementation
- uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Core, Apus.Tweenings,
+ uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
+    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings;
 
@@ -102,15 +122,7 @@ implementation
  type
   // Content (text) style of an element, resolved for its current state.
   // Offsets are screen pixels (logical style units multiplied by globalScale).
-  TTextStyle=record
-   font:TFontHandle;
-   color:cardinal;
-   align:TTextAlignment;
-   options:cardinal;       // txt.Write flags (toUnderline, toWithShadow, ...)
-   shadowColor:cardinal;   // 0 = no separate shadow layer
-   shadowX,shadowY:single; // shadow offset
-   ofsX,ofsY:single;       // text offset
-  end;
+  TTextStyle=TUITextStyle;
 
  // Resolve the content keys for the element's current state: font, color, text-align,
  // text-decoration, text-shadow, text-offset-x/y. Colors and offsets are tweened through
@@ -140,6 +152,9 @@ implementation
   begin
    scale:=element.globalScale;
    result.font:=StyleFont(element);
+   result.hover:=context.hover.Value;
+   result.pressed:=context.active.Value;
+   result.disabled:=context.disabled.Value;
    result.options:=defOptions;
    result.shadowColor:=0;
    result.shadowX:=1; result.shadowY:=1;
@@ -488,8 +503,10 @@ implementation
      draw.Rect(x1,y1,x2,y2,col xor $808080);
   end;
 
- procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext);
+ procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext;drawCaption:boolean);
   var
+   localRect:TRect2;
+   captionRect:TRect;
    mY:integer;
    c,c2:cardinal;
    hv,av,dv:single;
@@ -525,16 +542,20 @@ implementation
           (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
         draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
       end;
-      // caption: the classic 1px nudge while pressed is now the default of
-      // ':pressed { text-offset-y }', so a style can change or drop it
-      if caption<>'' then begin
+      // The caption and child widgets share the same client-content displacement.
+      // Explicit text-offset values remain an additional caption-only adjustment.
+      if drawCaption and (caption<>'') and
+         not SameText(control.GetStyleValue('caption-display'),'none') then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000,$80000000,1);
+       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000,$80000000);
+       localRect:=GetRect;
+       localRect.MoveBy(-scroll.X,-scroll.Y);
+       captionRect:=TransformToScreen(localRect).Rounded;
        // fully disabled: engraved look (light shadow under the dimmed caption)
        if (dv>=1) and (ts.shadowColor=0) then ts.shadowColor:=$E0FFFFFF;
-       mY:=round((y1+y2)*0.5+txt.Height(ts.font)*0.45);
+       mY:=round((captionRect.Top+captionRect.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
        wSt:=Str32(caption);
-       WriteStyled(ts,AlignAnchor(ts,x1,x2),mY,wst);
+       WriteStyled(ts,AlignAnchor(ts,captionRect.Left,captionRect.Right-1),mY,wst);
        gfx.clip.Restore;
       end;
     end;
@@ -1096,14 +1117,20 @@ implementation
    end;
   end;
 
- // Отрисовщик по умолчанию
- procedure DefaultDrawer(element:TUIElement);
+ // Default UI drawer
+ procedure DrawDefaultUI(element:TUIElement;drawButtonCaption:boolean);
   var
    x1,y1,x2,y2:integer;
    context:TContext;
   begin
    context:=PrepareContext(element);
    context.Update(element);
+   if (element.ClassType=TUIButton) or
+     ((element is TUIToggleButton) and not (element is TUICheckBox)) then begin
+    // Buttons use scroll to move all children as a group. Assign absolutely.
+    element.scroll.X:=0;
+    element.scroll.Y:=-context.active.Value*element.GetStyleNumber('content-press-offset',1);
+   end;
    DrawCommonStyle(element,context,element is TUIListBox);
 
    with element.globalrect do begin
@@ -1121,7 +1148,7 @@ implementation
    else
    // Кнопка
    if element.ClassType=TUIButton then
-    DrawUIButton(element as TUIButton,x1,y1,x2,y2,context)
+    DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    if element is TUICheckbox then
     DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
@@ -1129,7 +1156,7 @@ implementation
    // Toggle button (tabs, segmented controls): drawn as a button, toggled=pressed.
    // Checkbox/radio are caught above; combo descends from TUIButton, not from toggle.
    if element is TUIToggleButton then
-    DrawUIButton(element as TUIButton,x1,y1,x2,y2,context)
+    DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    // Рамка
    if element.ClassType=TUIFrame then
@@ -1164,6 +1191,34 @@ implementation
     DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context);
    {else
     DrawUIElement(element,x1,y1,x2,y2);}
+  end;
+
+ procedure DefaultDrawer(element:TUIElement);
+  begin
+   DrawDefaultUI(element);
+  end;
+
+ function ResolveUITextStyle(element:TUIElement;defColor:cardinal;
+   defAlign:TTextAlignment;defOptions:cardinal;
+   defHoverColor:cardinal;defDisabledColor:cardinal;defPressOfsY:single):TUITextStyle;
+  var context:TContext; temporary:boolean;
+  begin
+   // Reading parent text must not destroy another drawer's private context.
+   temporary:=(element.styleContext<>nil) and not (element.styleContext is TContext);
+   if temporary then context:=TContext.Create(element)
+    else context:=PrepareContext(element);
+   try
+    context.Update(element);
+    result:=ResolveTextStyle(element,context,defColor,defAlign,defOptions,
+      defHoverColor,defDisabledColor,defPressOfsY);
+   finally
+    if temporary then context.Free;
+   end;
+  end;
+
+ procedure WriteUIText(const style:TUITextStyle;x,y:single;const text:String8;targetWidth:integer);
+  begin
+   WriteStyled(style,x,y,text,targetWidth);
   end;
 
 { TContext }

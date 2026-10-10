@@ -22,6 +22,7 @@ implementation
  uses SysUtils, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Colors, Apus.Images,
    Apus.Engine.Types, Apus.Engine.Scene, Apus.Engine.SceneEffects,
    Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.Style,
+   Apus.Engine.TextFXStyle,
    StyleThemeEditorScene;
 
  type
@@ -455,9 +456,21 @@ procedure TStyleDemoScene.InitGfx;
   tex.Fill(@SkinHover);
  end;
 
+// Procedural icon widget: it follows the button's scroll together with the caption.
+procedure DrawContentIcon(img:TUIImage);
+ var r:TRect; x,y:integer;
+ begin
+  r:=img.GetPosOnScreen;
+  x:=(r.Left+r.Right) div 2;
+  y:=(r.Top+r.Bottom) div 2;
+  draw.FillRect(x-6,y-2,x+6,y+2,$FF80D8FF);
+  draw.FillRect(x-2,y-6,x+2,y+6,$FF80D8FF);
+ end;
+
 procedure TStyleDemoScene.CreateUI;
  var
   panel1,panel2,panel3,panel4,panel5:TUIElement;
+  captionImage,iconImage:TUIImage;
   group:TUIGroupBox;
   btn:TUIButton;
   chk:TUICheckBox;
@@ -468,12 +481,21 @@ procedure TStyleDemoScene.CreateUI;
   panel1:=Panel(UI,18,18,370,250,'Buttons','Buttons and states');
   MakeLabel(panel1,12,40,320,'Buttons demonstrate @refs, hover, pressed and disabled states.',true);
 
-  btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnDefault').Setup('Default drawer');
+  btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnDefault').Setup('TextFX wrapper');
   btn.SetPos(12,74,pivotTopLeft);
+  StyleButton(btn,'@demo-button; text-glow-color:#000000; text-glow-blur:4;');
+  btn.drawer:=@DrawTextFXStyle;
 
-  btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnToken').Setup('Token button');
+  btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnToken').Setup('Icon + TextFX');
   btn.SetPos(190,74,pivotTopLeft);
-  StyleButton(btn);
+  StyleButton(btn,'@demo-button; caption-display:none;');
+  iconImage:=TUIImage.Create(24,32,btn,'StyleDemo\ContentIcon');
+  iconImage.SetPos(8,0,pivotTopLeft);
+  iconImage.SetRenderProc(@DrawContentIcon);
+  captionImage:=TUIImage.Create(130,32,btn,'StyleDemo\ContentCaption');
+  captionImage.SetPos(34,0,pivotTopLeft);
+  captionImage.style.Assign('caption-source:parent; text-glow-color:#000000; text-glow-blur:4;');
+  captionImage.drawer:=@DrawTextFXStyle;
 
   btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnRef').Setup('@demo-btn');
   btn.SetPos(12,118,pivotTopLeft);
@@ -486,7 +508,8 @@ procedure TStyleDemoScene.CreateUI;
 
   btn:=TUIButton.Create(150,32,panel1,'StyleDemo\BtnDisabled').Setup('Disabled');
   btn.SetPos(12,162,pivotTopLeft);
-  StyleButton(btn);
+  StyleButton(btn,'@demo-button; text-glow-color:#000000; text-glow-blur:4;');
+  btn.drawer:=@DrawTextFXStyle;
   btn.flags.enabled:=false;
 
   btn:=TUIButton.Create(170,32,panel1,'StyleDemo\BtnDanger').Setup('Danger override');

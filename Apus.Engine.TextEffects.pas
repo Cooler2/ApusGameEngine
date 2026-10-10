@@ -46,6 +46,12 @@ interface
  procedure DrawTextFX(font:TFontHandle;x,y:single;color:cardinal;const st:String8;
    align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal=0);
 
+ // Draw only the effect layers. The cache key does not contain the glyph color;
+ // callers can draw normal text on top and animate its color without re-baking.
+ // opacity modulates all layers, like the text color alpha in DrawTextFX.
+ procedure DrawTextFXLayers(font:TFontHandle;x,y:single;opacity:byte;const st:String8;
+   align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal=0);
+
  // Drop all cached sprites of the calling render thread: call after SetFontOption,
  // font reload or dictionary switch (txt.SetScale is part of the cache key, no flush needed)
  procedure FlushTextFXCache;
@@ -266,20 +272,23 @@ implementation
 
  // Everything that affects the baked pixels; the alpha of the text color does not
  function BuildKey(font:TFontHandle;rgb:cardinal;const st:String8;align:TTextAlignment;
-   const layers:array of TTextEffectLayer;options:cardinal):String8;
+   const layers:array of TTextEffectLayer;options:cardinal;layersOnly:boolean):String8;
   var
-   i:integer;
+   i,layerCount:integer;
    b:byte;
    scale:single;
   begin
    result:='';
    AddBytes(result,font,sizeof(font));
    AddBytes(result,rgb,sizeof(rgb));
+   AddBytes(result,layersOnly,sizeof(layersOnly));
    AddBytes(result,options,sizeof(options));
    b:=ord(align);
    AddBytes(result,b,1);
    scale:=TTextDrawer.globalScale;
    AddBytes(result,scale,sizeof(scale));
+   layerCount:=length(layers);
+   AddBytes(result,layerCount,sizeof(layerCount));
    // field by field: record padding may hold garbage
    for i:=0 to high(layers) do
     with layers[i] do begin
@@ -376,7 +385,7 @@ implementation
 
  // Bake text with layers into a new texture; false if it can't be done
  function Bake(font:TFontHandle;rgb:cardinal;const st:String8;align:TTextAlignment;
-   const layers:array of TTextEffectLayer;options:cardinal;out entry:TFXEntry):boolean;
+   const layers:array of TTextEffectLayer;options:cardinal;layersOnly:boolean;out entry:TFXEntry):boolean;
   var
    state:TFXState;
    r:TRect;
@@ -440,12 +449,14 @@ implementation
      BakeLayer(layers[i],state,w,h,first);
      first:=false;
     end;
-    // text on top
-    BeginPass(state.pool[3],false,blAlpha);
-    try
-     txt.Write(font,entry.ox,entry.oy,rgb or $FF000000,st,align,options);
-    finally
-     gfx.EndPaint;
+    // Keep glyphs out of a layers-only sprite.
+    if not layersOnly then begin
+     BeginPass(state.pool[3],false,blAlpha);
+     try
+      txt.Write(font,entry.ox,entry.oy,rgb or $FF000000,st,align,options);
+     finally
+      gfx.EndPaint;
+     end;
     end;
     // resolve into the entry texture
     BeginPass(entry.tex,true,blMove);
@@ -460,8 +471,8 @@ implementation
    end;
   end;
 
- procedure DrawTextFX(font:TFontHandle;x,y:single;color:cardinal;const st:String8;
-   align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal=0);
+ procedure DrawCachedTextFX(font:TFontHandle;x,y:single;color:cardinal;const st:String8;
+   align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal;layersOnly:boolean);
   var
    key:String8;
    hash,rgb:cardinal;
@@ -472,18 +483,18 @@ implementation
    ASSERT(options and (toDrawToBitmap or toMeasure)=0,'TextFX: bitmap/measure options are not allowed');
    if st='' then exit;
    if length(layers)=0 then begin
-    txt.Write(font,x,y,color,st,align,options); // no effects - plain text, nothing to bake or cache
+    if not layersOnly then txt.Write(font,x,y,color,st,align,options);
     exit;
    end;
    if font=0 then font:=game.defaultFont;
-   rgb:=color and $FFFFFF;
-   key:=BuildKey(font,rgb,st,align,layers,options);
+   if layersOnly then rgb:=0 else rgb:=color and $FFFFFF;
+   key:=BuildKey(font,rgb,st,align,layers,options,layersOnly);
    hash:=HashKey(key);
    state:=GetState;
    idx:=state.Find(key,hash);
    if idx<0 then begin
-    if not Bake(font,rgb,st,align,layers,options,entry) then begin
-     txt.Write(font,x,y,color,st,align,options); // can't bake (too large, no RT format) - text without effects
+    if not Bake(font,rgb,st,align,layers,options,layersOnly,entry) then begin
+     if not layersOnly then txt.Write(font,x,y,color,st,align,options);
      exit;
     end;
     entry.key:=key;
@@ -497,6 +508,18 @@ implementation
     // same rounding as txt.Write, so the glyphs land on the same pixels
     draw.ImagePart(SRound(x)-ox,SRound(y)-oy,tex,$808080+color and $FF000000,Rect(0,0,width,height));
    end;
+  end;
+
+ procedure DrawTextFX(font:TFontHandle;x,y:single;color:cardinal;const st:String8;
+   align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal);
+  begin
+   DrawCachedTextFX(font,x,y,color,st,align,layers,options,false);
+  end;
+
+ procedure DrawTextFXLayers(font:TFontHandle;x,y:single;opacity:byte;const st:String8;
+   align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal);
+  begin
+   DrawCachedTextFX(font,x,y,cardinal(opacity) shl 24,st,align,layers,options,true);
   end;
 
  procedure FlushTextFXCache;
