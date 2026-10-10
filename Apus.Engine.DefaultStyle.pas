@@ -90,13 +90,14 @@ implementation
   end;}
 
 
- // Get font handle from element's style cascade
+ // Get font handle from element's style cascade. The UI scale (DPI included) reaches the text
+ // through element.globalScale only, so the text scale of the calling thread is ignored
  function StyleFont(element:TUIElement):TFontHandle;
   var name:String8; size:single;
   begin
    name:=element.GetStyleValue('font','Default');
    size:=element.GetStyleNumber('font-size',9);
-   result:=txt.GetFont(name,round(size*element.globalScale));
+   result:=txt.GetFont(name,round(size*element.globalScale),fsIgnoreScale);
   end;
 
  type
