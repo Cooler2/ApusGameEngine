@@ -600,6 +600,7 @@ implementation
     // body: the common box path already drew 'fill' when the style defines it;
     // draw the default body only for a style without 'fill' (avoids double blending)
     if element.GetStyleValue('fill')='' then draw.FillRect(x1,y1,x2,y2,col);
+    if boundToWindow then exit; // the app draws the caption row of an OS window frame
     if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
     c:=Color.Mix(col,c,128);

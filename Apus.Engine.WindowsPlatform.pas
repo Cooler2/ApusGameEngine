@@ -48,6 +48,7 @@ type
   wasMaximized:boolean; // was maximized when switched to fullscreen: maximized again on return
   function CustomFrameActive:boolean;
   function FrameHitTestAt(const p:TPoint;const client:TRect):integer;
+  procedure ApplySizeLimits(var info:TMinMaxInfo);
   function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith:UIntPtr=0):UIntPtr;
  end;
 
@@ -385,6 +386,12 @@ begin
    wnd:=FindWindowByHandle(THandle(Window));
    if (wnd<>nil) and TWinGLWindow(wnd).CustomFrameActive then
     exit(Longint(DefWindowProcW(Window,Message,WParam,-1)));
+  end;
+
+  WM_GETMINMAXINFO:begin
+   wnd:=FindWindowByHandle(THandle(Window));
+   if (wnd<>nil) and Assigned(wnd.sizeLimits) then
+    TWinGLWindow(wnd).ApplySizeLimits(PMinMaxInfo(lParam)^);
   end;
 
   WM_DROPFILES:begin
@@ -791,6 +798,7 @@ function TWinGLWindow.FrameHitTestAt(const p:TPoint;const client:TRect):integer;
   border:integer;
   area:TWindowArea;
   cp:TPoint;
+  hitTest:TWindowHitTest;
  begin
   sizeable:=(GetWindowLong(window,GWL_STYLE) and WS_THICKFRAME<>0) and not IsZoomed(window);
   if sizeable then begin
@@ -809,9 +817,40 @@ function TWinGLWindow.FrameHitTestAt(const p:TPoint;const client:TRect):integer;
    if bottom then exit(HTBOTTOM);
   end;
   area:=TWindowArea.Client;
-  if Assigned(frameHitTest) and TryClientToCanvas(p,cp) then area:=frameHitTest(cp.x,cp.y);
+  LockState;
+  hitTest:=frameHitTest;
+  UnlockState;
+  if Assigned(hitTest) and TryClientToCanvas(p,cp) then area:=hitTest(cp.x,cp.y);
   if not sizeable and (area>TWindowArea.Caption) then area:=TWindowArea.Client;
   result:=codes[area];
+ end;
+
+// sizeLimits are canvas units of the client: converted to the window size with the OS frame
+procedure TWinGLWindow.ApplySizeLimits(var info:TMinMaxInfo);
+ var
+  minSize,maxSize:TSize;
+  r:TRect;
+  k:single;
+  limits:TWindowSizeLimits;
+ begin
+  if GetWindowLong(window,GWL_STYLE) and WS_CAPTION<>WS_CAPTION then exit; // fullscreen
+  LockState;
+  limits:=sizeLimits;
+  UnlockState;
+  if not Assigned(limits) then exit;
+  minSize.cx:=0; minSize.cy:=0;
+  maxSize.cx:=0; maxSize.cy:=0;
+  limits(minSize,maxSize);
+  k:=1; // client pixels per canvas unit
+  if (surface.canvasSize.cx>0) and (surface.displayRect.Width>0) then
+   k:=surface.displayRect.Width/surface.canvasSize.cx;
+  r:=Rect(0,0,0,0);
+  if not CustomFrameActive then
+   AdjustWindowRectEx(r,GetWindowLong(window,GWL_STYLE),false,GetWindowLong(window,GWL_EXSTYLE));
+  if minSize.cx>0 then info.ptMinTrackSize.x:=round(minSize.cx*k)+r.Width;
+  if minSize.cy>0 then info.ptMinTrackSize.y:=round(minSize.cy*k)+r.Height;
+  if maxSize.cx>0 then info.ptMaxTrackSize.x:=round(maxSize.cx*k)+r.Width;
+  if maxSize.cy>0 then info.ptMaxTrackSize.y:=round(maxSize.cy*k)+r.Height;
  end;
 
 procedure TWinGLWindow.MoveTo(x,y:integer;width:integer;

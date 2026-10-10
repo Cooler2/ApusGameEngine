@@ -1,4 +1,5 @@
-// Window frame drawn by the app: caption and window buttons, frame policy switching
+// Window frame drawn by the app: TUIWindow bound to the OS window, caption row with a menu
+// and window buttons, frame policy switching
 
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -21,18 +22,18 @@ implementation
  uses SysUtils, Apus.Core, Apus.EventMan, Apus.Engine.Types, Apus.Engine.UI;
 
  const
-  CAPTION_H=32; // caption height, UI units
+  CAPTION_H=32; // caption row height, UI units
   BUTTON_W=46;  // window button width, UI units
+  MENU_W=56;    // menu item width, UI units
   frameNames:array[TWindowFrame] of String8=('System','Custom','CustomWhenMaximized');
   stateNames:array[TWindowState] of String8=('Normal','Minimized','Maximized');
 
  type
   TMainScene=class(TUIScene)
-   btnMin,btnMax,btnClose:TUIButton;
+   frameWnd:TUIWindow;
+   captionRow:TUIElement;
+   status:TUILabel;
    procedure CreateUI;
-   function Scale:single;
-   // Window areas of the app-drawn frame: the caption, except the window buttons
-   function FrameHitTest(x,y:integer):TWindowArea;
    procedure Render; override;
   end;
 
@@ -64,7 +65,6 @@ procedure TWindowFrameApp.CreateScenes;
   inherited;
   mainScene:=TMainScene.Create;
   mainScene.CreateUI;
-  window.frameHitTest:=mainScene.FrameHitTest;
   game.SwitchToScene(mainScene.name);
  end;
 
@@ -110,26 +110,29 @@ procedure CustomMaximizedClick;
   SetFrame(TWindowFrame.CustomWhenMaximized);
  end;
 
-{ TMainScene }
-
-// Canvas pixels per UI unit: the UI root already carries the DPI scale, so UI elements are
-// sized in plain units, while direct drawing and the hit test work in canvas pixels
-function TMainScene.Scale:single;
+procedure FullscreenClick;
  begin
-  result:=UI.scale;
+  game.SwitchToAltSettings; // as [Alt]+[Enter]
  end;
+
+{ TMainScene }
 
 procedure TMainScene.CreateUI;
  var
-  w,h:single;
   box:TUIElement;
+  lab:TUILabel;
 
   function WindowButton(caption:String8;index:integer;onClick:TProcedure):TUIButton;
    begin
-    result:=TUIButton.Create(w,h,UI).Setup(caption);
-    result.SetPos(UI.clientWidth-w*index,0,pivotTopRight);
+    result:=TUIButton.Create(BUTTON_W,CAPTION_H,captionRow).Setup(caption);
+    result.SetPos(captionRow.clientWidth-BUTTON_W*index,0,pivotTopRight);
     result.SetAnchors(1,0,1,0);
     result.onClick:=onClick;
+   end;
+
+  procedure MenuItem(caption:String8;index:integer);
+   begin
+    TUIButton.Create(MENU_W,CAPTION_H,captionRow).Setup(caption).SetPos(index*MENU_W,0);
    end;
 
   procedure FrameButton(caption:String8;index:integer;onClick:TProcedure);
@@ -142,47 +145,46 @@ procedure TMainScene.CreateUI;
    end;
 
  begin
-  w:=BUTTON_W;
-  h:=CAPTION_H;
-  btnClose:=WindowButton('X',0,CloseClick);
-  btnMax:=WindowButton('[ ]',1,MaximizeClick);
-  btnMin:=WindowButton('_',2,MinimizeClick);
+  frameWnd:=TUIWindow.Create(UI.clientWidth,UI.clientHeight,true,UI,'MainFrame');
+  frameWnd.styleInfo:='fill:FF2C3440';
+  frameWnd.BindToWindow;
+  frameWnd.header:=CAPTION_H;
 
-  box:=TUIElement.Create(260,160,UI);
+  // Caption row: transparent for the hit test, so its empty part drags the window,
+  // while the menu items and window buttons in it work as usual
+  captionRow:=TUIElement.Create(frameWnd.clientWidth,CAPTION_H,frameWnd,'CaptionRow');
+  captionRow.shape:=TUIShape.shapeEmpty;
+  captionRow.styleInfo:='fill:FF1A2028';
+  captionRow.SetAnchors(0,0,1,0);
+  MenuItem('File',0);
+  MenuItem('View',1);
+  lab:=TUILabel.Create(300,CAPTION_H,captionRow).Setup('Window frame demo');
+  lab.shape:=TUIShape.shapeEmpty;
+  lab.SetPos(3*MENU_W,0);
+  WindowButton('X',0,CloseClick);
+  WindowButton('[ ]',1,MaximizeClick);
+  WindowButton('_',2,MinimizeClick);
+
+  box:=TUIElement.Create(260,204,frameWnd);
   box.Center;
   box.SetAnchors(0.5,0.5,0.5,0.5);
   FrameButton('OS frame',0,SystemFrameClick);
   FrameButton('Custom frame',1,CustomFrameClick);
   FrameButton('Custom when maximized',2,CustomMaximizedClick);
- end;
+  FrameButton('Fullscreen',3,FullscreenClick);
 
-function TMainScene.FrameHitTest(x,y:integer):TWindowArea;
- var
-  s:single;
- begin
-  s:=Scale;
-  if (y<CAPTION_H*s) and (x<window.canvasWidth-3*BUTTON_W*s) then result:=TWindowArea.Caption
-   else result:=TWindowArea.Client;
+  status:=TUILabel.Create(frameWnd.clientWidth-24,24,frameWnd).Setup('');
+  status.SetPos(12,frameWnd.clientHeight-4,pivotBottomLeft);
+  status.SetAnchors(0,1,1,1);
  end;
 
 procedure TMainScene.Render;
- var
-  shown:boolean;
-  s:single;
  begin
   gfx.target.Clear($FF2C3440);
-  s:=Scale;
-  shown:=window.CustomFrameShown;
-  btnMin.flags.visible:=shown;
-  btnMax.flags.visible:=shown;
-  btnClose.flags.visible:=shown;
-  if shown then begin
-   draw.FillRect(0,0,window.canvasWidth,round(CAPTION_H*s),$FF1A2028);
-   txt.Write(0,12*s,21*s,$FFE0E0E0,'Window frame demo - drag the caption, double-click it');
-  end;
-  txt.Write(0,12*s,window.canvasHeight-14*s,$FFB0B8C0,
-   'Frame: '+frameNames[window.frame]+', state: '+stateNames[window.state]+
-   '. Try Win+arrows, snap, resize by the edges, [Alt]+[Enter].');
+  // with the OS frame the OS draws the caption
+  captionRow.flags.visible:=window.CustomFrameShown;
+  status.caption:='Frame: '+frameNames[window.frame]+', state: '+stateNames[window.state]+
+   '. Drag or double-click the caption, try Win+arrows, snap, resize by the edges, [Alt]+[Enter].';
   inherited;
  end;
 

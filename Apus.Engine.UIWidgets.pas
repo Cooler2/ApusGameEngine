@@ -212,9 +212,22 @@ interface
    procedure onLostFocus; override;
    procedure Resize(newWidth,newHeight:single); override;
    class function IsWindow:boolean; override;
+
+   // Make the window the frame of its OS window (the app-drawn frame, see TGameSettings.frame).
+   // The window fills its parent and has no paddings; the top 'header' units of its own area
+   // (wcTitleHeight, UI units after binding) drag the OS window, opaque children there work as
+   // the client area. Moving and resizing are left to the OS, minW..maxH limit the OS window
+   // (no limits after binding). The drawer paints only the body: the caption row, its buttons
+   // and the reaction to TWindow.CustomFrameShown are up to the app
+   procedure BindToWindow;
   private
+   bound:boolean;
    hooked:boolean;
    area:integer;   // area type under cursor (wcXxx flags)
+   function FrameHitTest(x,y:integer):TWindowArea;
+   procedure FrameSizeLimits(out minSize,maxSize:TSize);
+  public
+   property boundToWindow:boolean read bound; // BindToWindow was called
   end;
 
   // Single-line text input. Supports Unicode, mouse selection, password masking,
@@ -363,7 +376,7 @@ interface
 
 implementation
  uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Engine.Clipboard,
-  Apus.Strings, Apus.Threads, Apus.Engine.UIRender;
+  Apus.Strings, Apus.Threads, Apus.Engine.UIRender, Apus.Engine.UI;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -805,9 +818,70 @@ function TUILabel.Right(text:String8):TUILabel;
   end;
 
  destructor TUIWindow.Destroy;
+  var
+   wnd:TWindow;
   begin
+   if bound then begin
+    wnd:=GetWindow;
+    if wnd<>nil then begin
+     wnd.LockState;
+     try
+      if TMethod(wnd.frameHitTest).Data=pointer(self) then wnd.frameHitTest:=nil;
+      if TMethod(wnd.sizeLimits).Data=pointer(self) then wnd.sizeLimits:=nil;
+     finally
+      wnd.UnlockState;
+     end;
+    end;
+   end;
    if (dragRegion<>nil) and not dragRegion.persistent then dragRegion.Free;
    inherited;
+  end;
+
+ procedure TUIWindow.BindToWindow;
+  var
+   wnd:TWindow;
+  begin
+   wnd:=GetWindow;
+   ASSERT((wnd<>nil) and (parent<>nil),'BindToWindow: window '+name+' is not in a scene');
+   if (wnd=nil) or (parent=nil) then exit;
+   SetPaddings(0,0,0,0);
+   SetPos(0,0,pivotTopLeft);
+   maxW:=0; maxH:=0;
+   Resize(parent.clientWidth,parent.clientHeight);
+   SetAnchors(0,0,1,1);
+   header:=wcTitleHeight;
+   wnd.LockState;
+   try
+    wnd.frameHitTest:=FrameHitTest;
+    wnd.sizeLimits:=FrameSizeLimits;
+   finally
+    wnd.UnlockState;
+   end;
+   bound:=true;
+  end;
+
+ // Caption: own area of the window in the top 'header' units. Children are the client area,
+ // except transparent ones (shapeEmpty): a caption row container lets the caption through
+ function TUIWindow.FrameHitTest(x,y:integer):TWindowArea;
+  var
+   c:TUIElement;
+   r:TRect;
+  begin
+   result:=TWindowArea.Client;
+   if not moveable then exit;
+   FindElementAt(x,y,c);
+   if c<>self then exit;
+   r:=GetPosOnScreen;
+   if (y-r.Top)<header*globalScale then result:=TWindowArea.Caption;
+  end;
+
+ procedure TUIWindow.FrameSizeLimits(out minSize,maxSize:TSize);
+  var
+   s:single;
+  begin
+   s:=globalScale; // canvas units per unit of the window size
+   minSize.cx:=round(minW*s); minSize.cy:=round(minH*s);
+   maxSize.cx:=round(maxW*s); maxSize.cy:=round(maxH*s);
   end;
 
  function TUIWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
@@ -864,6 +938,7 @@ function TUILabel.Right(text:String8):TUILabel;
    pnt:TPoint;
   begin
    inherited;
+   if bound then exit; // the OS moves and resizes the window
    if (button=1) and state and not hooked then
     area:=GetAreaType(curMouseX,curMouseY,cursor);
    if (button=1) and not (area in [0,wcClient]) then begin
@@ -912,6 +987,7 @@ function TUILabel.Right(text:String8):TUILabel;
    end;
 
    inherited;
+   if bound then exit;
    area:=GetAreaType(curMouseX,curMouseY,cursor);
    if area in [0,wcClient] then hooked:=false;
   end;

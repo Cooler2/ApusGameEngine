@@ -39,6 +39,8 @@ type
  {$SCOPEDENUMS OFF}
  // App-drawn frame: part of the window at a canvas point (see TWindow.frameHitTest)
  TWindowHitTest=function(x,y:integer):TWindowArea of object;
+ // Limits of the client size the user can resize the window to, canvas units: 0 - no limit
+ TWindowSizeLimits=procedure(out minSize,maxSize:TSize) of object;
 
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
@@ -288,8 +290,13 @@ public
   frame:TWindowFrame; // frame in effect, set by Configure: System in fullscreen
   // App-drawn frame (frame<>System): which part of the window is at a canvas point - caption
   // (drags the window), edges or client. nil - only the edges resize the window. Called on the
-  // window's thread at the mouse polling rate: must be fast and must not wait for locks
+  // window's thread at the mouse polling rate: must be fast. It may take the state lock briefly
+  // (TUIWindow does), so the lock must not be held while waiting for the window's thread.
+  // Set under LockState (see TUIWindow.BindToWindow)
   frameHitTest:TWindowHitTest;
+  // Client size limits for the window modes, asked when the OS needs them (on the window's
+  // thread). nil - no limits. Set under LockState
+  sizeLimits:TWindowSizeLimits;
   paused:boolean; // pause rendering regardless of active state
   frameNum:integer; // increments every frame
   FPS,smoothFPS:single; // current and smoothed FPS
