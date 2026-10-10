@@ -7,7 +7,8 @@ interface
 
  // Assign to a button's drawer to reuse the default button rendering and add
  // its TextFX caption. Assign to a mouse-transparent child to draw its caption
- // (caption-source:parent selects the parent caption and text state).
+ // (caption-source:parent selects the parent caption and text state, including
+ // the states used to resolve the child's own font/effect overrides).
  // Supported containers: ordinary and toggle buttons (excluding checkboxes).
  // Supported caption children: TUIElement, TUILabel and TUIImage.
  // Effect keys: text-glow-color, text-glow-blur, text-glow-spread.
@@ -23,9 +24,14 @@ implementation
    Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UIWidgets, Apus.Engine.Style,
    Apus.Engine.DefaultStyle, Apus.Engine.UIRender, Apus.Engine.TextEffects;
 
- function EffectValue(element,source:TUIElement;const key:String8;const defaultValue:String8):String8;
+ function CaptionStyleValue(element,source:TUIElement;const key:String8;const defaultValue:String8):String8;
   begin
-   result:=element.GetStyleValue(key,source.GetStyleValue(key,defaultValue));
+   if element=source then exit(element.GetStyleValue(key,defaultValue));
+   // Read the child's local/ref state blocks using the caption source's states.
+   // Do not mutate the child's own active states or another drawer's context.
+   result:=ResolveBlockStateAttr(element.style,source.style.activeStates,key,'');
+   if result='' then result:=ResolveBlockAttrBase(element.style,key,'');
+   if result='' then result:=source.GetStyleValue(key,defaultValue);
   end;
 
  procedure DrawTextFXStyle(element:TUIElement);
@@ -70,8 +76,8 @@ implementation
     // Caption/state come from the parent; the child keeps its own
     // font overrides and render scale through the ordinary style cascade.
     // Alignment, color and text offsets follow the parent text state.
-    ts.font:=txt.GetFont(element.GetStyleValue('font',source.GetStyleValue('font','Default')),
-      round(element.GetStyleNumber('font-size',source.GetStyleNumber('font-size',9))*element.globalScale));
+    ts.font:=txt.GetFont(CaptionStyleValue(element,source,'font','Default'),
+      round(ParseStyleNumber(CaptionStyleValue(element,source,'font-size','9'))*element.globalScale));
    end;
    if isButton then begin
     clipRect:=element.GetPosOnScreen;
@@ -92,13 +98,13 @@ implementation
    targetWidth:=0;
    if (element is TUILabel) and (ts.align=taJustify) then targetWidth:=r.Width;
    scale:=element.globalScale;
-   blur:=ParseStyleNumber(EffectValue(element,source,'text-glow-blur','0'))*scale;
-   spread:=ParseStyleNumber(EffectValue(element,source,'text-glow-spread','0'))*scale;
+   blur:=ParseStyleNumber(CaptionStyleValue(element,source,'text-glow-blur','0'))*scale;
+   spread:=ParseStyleNumber(CaptionStyleValue(element,source,'text-glow-spread','0'))*scale;
    if blur<0 then blur:=0;
    if blur>MAX_BLUR then blur:=MAX_BLUR;
    if spread<0 then spread:=0;
    if spread>MAX_SPREAD then spread:=MAX_SPREAD;
-   color:=ParseStyleColor(EffectValue(element,source,'text-glow-color','#000000'));
+   color:=ParseStyleColor(CaptionStyleValue(element,source,'text-glow-color','#000000'));
    if isButton then gfx.clip.Rect(Rect(clipRect.Left+2,clipRect.Top+2,clipRect.Right-3,clipRect.Bottom-3))
     else gfx.clip.Rect(r);
    try
@@ -116,7 +122,7 @@ implementation
       WriteUIText(ts,x,y,text,targetWidth);
      end;
     end else
-     WriteUIText(ts,x,y,text);
+     WriteUIText(ts,x,y,text,targetWidth);
    finally
     gfx.clip.Restore;
    end;

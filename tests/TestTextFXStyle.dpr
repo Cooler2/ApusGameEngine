@@ -6,7 +6,8 @@ uses
   SysUtils, Types, Apus.Core, Apus.Images, Apus.EventMan,
   Apus.Engine.Types, Apus.Engine.API, Apus.Engine.GameApp, Apus.Engine.Scene,
   Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
-  Apus.Engine.DefaultStyle, Apus.Engine.TextFXStyle, Apus.Engine.TextEffects;
+  Apus.Engine.DefaultStyle, Apus.Engine.TextFXStyle, Apus.Engine.TextEffects,
+  Apus.Engine.Style;
 
 {$I ..\Base\tests\Test.inc}
 
@@ -19,6 +20,7 @@ type
   TTestApp=class(TGameApplication)
     procedure SetupApplication; override;
     procedure CreateScenes; override;
+    procedure LoadFonts; override;
   end;
   TTestScene=class(TGameScene)
     frame:integer;
@@ -227,11 +229,86 @@ begin
     Check(EqualPixels(first,expected),'label vertical offset differs from the base drawer');
     labelView.caption:='Justified label text';
     labelView.align:=taJustify;
-    labelView.style.Assign('text-glow-blur:3;');
+    labelView.style.Assign('font:TestTextFXVector; font-size:12; text-glow-blur:3;');
+    labelView.size.x:=txt.Width(txt.GetFont('TestTextFXVector',12),labelView.caption)+8;
     first:=Capture(labelView,true);
     expected:=Capture(labelView,false);
     Check(EqualPixels(first,expected),'justified label fallback differs from the base drawer');
+    labelView.align:=taLeft;
+    second:=Capture(labelView,false);
+    Check(not EqualPixels(expected,second),'justification fixture must differ from ordinary left alignment');
   finally labelView.Free; end;
+  EndTest;
+end;
+
+procedure TestChildStateOverrides;
+const
+  stateNames:array[0..2] of String8=('hover','pressed','disabled');
+  overrides:array[0..2] of String8=(
+    'text-glow-color:#FF3020; text-glow-blur:4; text-glow-spread:1; font-size:18;',
+    'text-glow-color:#20FF30; text-glow-blur:2; text-glow-spread:2; font-size:16;',
+    'text-glow-color:#3020FF; text-glow-blur:3; text-glow-spread:3; font-size:14;');
+  base='caption-source:parent; font-size:12; text-glow-color:#FFFFFF; text-glow-blur:1;';
+var b:TUIButton; child:TUILabel; i:integer;
+  actual,expected,basePixels:TPixels; ownStates:String8;
+begin
+  StartTest('Child effect and font state blocks use the caption source states');
+  b:=TUIButton.Create(220,50,root).Setup('State caption');
+  try
+    b.style.Assign(BUTTON_STYLE+'caption-display:none;');
+    child:=TUILabel.Create(220,50,b);
+    child.shape:=shapeEmpty;
+    // Named references must use the same source states as local state blocks.
+    for i:=0 to 2 do begin
+      Styles['test-textfx-child']:=':hover { '+overrides[0]+' }';
+      b.pressed:=i=1;
+      b.flags.enabled:=i<>2;
+      underMouse:=nil;
+      if i=0 then underMouse:=b;
+      Capture(b,false);
+      child.style.Assign(base);
+      basePixels:=Capture(child,true);
+      // A child's independently active hover must not select its hover override
+      // while the caption source is pressed or disabled.
+      child.style.Assign(base+'@test-textfx-child;'+
+        ':pressed { '+overrides[1]+' } :disabled { '+overrides[2]+' }');
+      child.SetState('hover',true);
+      ownStates:=child.style.activeStates;
+      actual:=Capture(child,true);
+      Check(child.style.activeStates=ownStates,'drawing mutates child states');
+      child.style.Assign(base+overrides[i]);
+      expected:=Capture(child,true);
+      Check(not EqualPixels(basePixels,expected),'state fixture must change rendered pixels');
+      Check(EqualPixels(actual,expected),'child state override ignored for '+stateNames[i]);
+      // Give the reference a conflicting value to verify local state priority.
+      Styles['test-textfx-child']:=':'+stateNames[i]+
+        ' { text-glow-color:#804080; font-size:6; }';
+      child.style.Assign(base+'@test-textfx-child; :'+stateNames[i]+' { '+overrides[i]+' }');
+      actual:=Capture(child,true);
+      Check(EqualPixels(actual,expected),'local state override ignored for '+stateNames[i]);
+      // Isolate typography from effects so a correct glow cannot hide font errors.
+      child.style.Assign(base+':'+stateNames[i]+' { font:TestTextFXVector; font-size:20; }');
+      actual:=Capture(child,true);
+      child.style.Assign(base+'font:TestTextFXVector; font-size:20;');
+      expected:=Capture(child,true);
+      Check(not EqualPixels(basePixels,expected),'font state fixture must change rendered pixels');
+      Check(EqualPixels(actual,expected),'child font state override ignored for '+stateNames[i]);
+    end;
+    b.pressed:=false;
+    b.flags.enabled:=true;
+    underMouse:=nil;
+    Capture(b,false);
+    child.style.Assign(base);
+    expected:=Capture(child,true);
+    child.style.Assign(base+':hover { '+overrides[0]+' }');
+    child.SetState('hover',true);
+    actual:=Capture(child,true);
+    Check(EqualPixels(actual,expected),'own hover overrides an idle caption source');
+  finally
+    underMouse:=nil;
+    Styles.Remove('test-textfx-child');
+    b.Free;
+  end;
   EndTest;
 end;
 
@@ -241,6 +318,13 @@ begin
   appSetup.title:='TestTextFXStyle';
   requestBackend.graphicsAPI:=gaOpenGL2;
   windowSetup.size:=MakeSize(320,200);
+end;
+procedure TTestApp.LoadFonts;
+begin
+  inherited;
+  // Reuse the vector font fixture used by TextDemo; raster fallback can hide
+  // justification differences, so this check explicitly selects a vector font.
+  txt.LoadFont(ExtractFilePath(ParamStr(0))+'../demo/legacy/EngineTest/res/arial.ttf','TestTextFXVector');
 end;
 procedure TTestApp.CreateScenes;
 begin
@@ -264,6 +348,7 @@ begin
       TestCaptionSuppression;
       TestContentShift;
       TestCaptionChild;
+      TestChildStateOverrides;
     finally
       underMouse:=nil;
       root.Free;

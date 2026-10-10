@@ -20,26 +20,43 @@ Other specialized button subclasses need their own renderer.
 ## Caption child
 
 ```pascal
+// Also uses Apus.Engine.UIWidgets and Apus.Engine.UIShapes (shapeEmpty).
 button.style.Assign('caption-display:none; color:#FFFFFF;');
-captionImage:=TUIImage.Create(130,32,button);
-captionImage.SetPos(34,0,pivotTopLeft);
-captionImage.style.Assign(
-  'caption-source:parent; text-glow-color:#000000; text-glow-blur:3;');
-captionImage.drawer:=@DrawTextFXStyle;
+captionLabel:=TUILabel.Create(130,32,button);
+captionLabel.SetPos(34,0,pivotTopLeft);
+captionLabel.shape:=shapeEmpty; // let the button receive mouse input
+captionLabel.style.Assign(
+  'caption-source:parent; text-glow-color:#000000; text-glow-blur:3;'+
+  ':hover { text-glow-color:#FFD080; font-size:11; }'+
+  ':pressed { text-glow-blur:2; }'+
+  ':disabled { text-glow-color:$60000000; }');
+captionLabel.drawer:=@DrawTextFXStyle;
 ```
 
 The parent retains its caption for application code and UI inspection. Its ordinary
-drawer skips the caption when caption-display:none is set. A TUIImage is mouse
-transparent by default, so the button still receives hover and clicks. TUILabel
-and plain TUIElement are also supported as caption views; set shape:=shapeEmpty when placing them inside a button. Caption views draw text only: fill, border and background-image are not drawn,
-and a TUIImage src is ignored by this drawer. Each view clips text/effects to its
-client rectangle; leave enough space inside the view for the glow. An image child can alternatively
-use SetRenderProc with a caller-provided DrawTextFX procedure.
+drawer skips the caption when caption-display:none is set. TUILabel and plain
+TUIElement caption views need shape:=shapeEmpty inside a button. TUIImage is also
+supported and is mouse transparent by default; this drawer ignores its src.
+Caption views draw text only: fill, border and background-image are not drawn.
+Each view clips text/effects to its client rectangle; leave enough room for the glow.
+An image child can alternatively use SetRenderProc with a caller-provided DrawTextFX
+procedure.
 
-With caption-source:parent, text color, alignment, offsets and animated state follow
-the parent. An unrelated parent drawer's private style context is preserved; its text state is read as an instantaneous
-snapshot. The child may override font, font-size and effect parameters, and retains
-its own geometry and scale. Without this key the view uses its own caption/style.
+With caption-source:parent, caption, text color, alignment, offsets and their animated
+state follow the parent. The child may override font, font-size and effect parameters.
+For those keys, the child's state blocks (including @refs) use the caption source's
+active states, rather than the child's hover/pressed/disabled state. State overrides
+win over the child's plain attributes, local state blocks win over named references,
+and absent child values fall back to the source's style. All source active states
+are supported, including :focused and application-defined states.
+
+Effect and font overrides switch with the active state; they do not have a separate
+tween. The parent's text color and offsets keep their standard transitions. Resolving
+child overrides does not change its own activeStates or the parent's private context.
+An unrelated parent drawer's text state is read as an instantaneous snapshot. The
+child retains its own geometry and scale. Without caption-source:parent, the view
+uses its own caption and active states.
+
 A standalone TUILabel uses its align field as the default for text-align and keeps
 verticalOffset. Effect captions use left/center/right alignment; a justified
 TUILabel falls back to ordinary text with its target width.
@@ -56,6 +73,11 @@ TUILabel falls back to ordinary text with its target width.
 - text-glow-blur and text-glow-spread: logical units, scaled to screen pixels and
   clamped to TextEffects limits. Both default to 0; with no effect, ordinary text is
   drawn using the shared default-style text path.
+
+Migration note: a previous :pressed { text-offset-y:1 } now adds to the default
+one-unit group shift, giving a total two-unit caption displacement. Remove that old
+caption offset to keep the default one-unit movement for the whole group, or set
+content-press-offset:0 to retain caption-only movement.
 
 Call FlushTextFXCache on the render thread after a font option/reload or dictionary
 change. The text key is the input string, so a dictionary switch otherwise leaves
@@ -86,6 +108,11 @@ as well. Inspect them with the Robot API or the physical mouse.
 Existing TestStyle, TestTextEffects and TestVirtualMouse provide regression checks
 for style parsing, composite/effect-only rendering against a CPU reference, and
 virtual input. TestTextFXStyle checks wrapper equivalence, state/scale behavior,
-caption suppression, child clipping and context ownership with a GL context. Runtime
-screenshots and UI geometry verify the new showcase on this stand; they do not
+caption suppression, child clipping/context ownership, justified labels and child
+font/effect state blocks with a GL context. TestTextEffects and TestTextFXStyle are
+compile-only targets in tests/windows_smoke.ps1, tests/linux_smoke.sh and
+tests/macos_smoke.sh; those scripts do not run the GL checks. Run their executables
+locally after building with build.cmd/build.sh to perform pixel checks. The justified
+label test loads the existing vector font fixture also used by TextDemo (FreeType).
+Runtime screenshots and UI geometry verify the new showcase on this stand; they do not
 establish Delphi or GLES acceptance.
