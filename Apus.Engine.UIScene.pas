@@ -56,6 +56,10 @@ type
  // as when it is hidden) and stop a design-mode drag. Window's thread.
  procedure CancelMouseCapture(wnd:TWindow);
 
+ // Apply defaultScale/windowScale to the UI roots of the window's scenes. TGameApplication calls it
+ // after a DPI change, once SetupHighDPI has updated the values
+ procedure ApplyDefaultUIScale(wnd:TWindow);
+
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
 
@@ -1418,16 +1422,12 @@ procedure RobotMouseShutdown;
   SetLength(robotMice,0);
  end;
 
-// update UI scale for all scenes of the rebuilt window after a DPI change
-procedure OnSurfaceChanged(event:TEventStr;tag:TTag);
+procedure ApplyDefaultUIScale(wnd:TWindow);
  var
   i:integer;
   scene:TGameScene;
-  wnd:TWindow;
  begin
-  wnd:=TWindow(UIntPtr(tag));
   if wnd=nil then exit;
-  if not (TSurfaceChange.dpi in wnd.surface.changes) then exit;
   wnd.LockState;
   try
    for i:=0 to high(wnd.scenes) do begin
@@ -1445,7 +1445,6 @@ procedure OnSurfaceChanged(event:TEventStr;tag:TTag);
  end;
 
 initialization
- SetEventHandler('ENGINE\SURFACECHANGED',OnSurfaceChanged,emInstant);
  RegisterRobotCommand('ui.tree',@RobotCmdUITree);
  RegisterRobotCommand('ui.element',@RobotCmdUIElement);
  RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);

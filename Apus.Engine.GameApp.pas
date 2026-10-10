@@ -184,7 +184,7 @@ implementation
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}Apus.Android,{$IFEND}
    SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
-   Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
+   Apus.Engine.UI,Apus.Engine.UIScene,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.Notifications,Apus.Engine.RobotAPI,
    Apus.Engine.Types,
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
@@ -834,6 +834,7 @@ procedure EngineEventHandler(event:TEventStr;tag:TTag);
     deviceDPI:=wnd.surface.dpi;
     deviceScale:=deviceDPI/96;
     app.SetupHighDPI;
+    ApplyDefaultUIScale(wnd); // not before: SetupHighDPI sets the scale for the new DPI
     app.SelectFonts;
    end;
    app.onResize; // after the rebuild: sizes are already final
