@@ -12,6 +12,9 @@ interface
  var
   MaxSendTick:integer=8192; // max 8K outgoing traffic per iteration
   HistoryMsgSize:integer=512; // history data size
+  // Incoming message length limit, bytes. A peer that declares a longer (or negative) message
+  // is disconnected: NET\Conn\ConnectionBroken, the remote side gets a close packet
+  MaxMessageSize:integer=4 shl 20;
  type
   TConnection=class;
   TDataPacket=class
@@ -723,6 +726,26 @@ var
   inc(count);
  end;
 
+ // Protocol violation by the remote side: log, send it a close packet and break the connection
+ procedure DropConnection(con:TConnection;const reason:string);
+ begin
+  Log.Force('NET: conn '+inttostr(con.sessID and $FFF)+' ('+Conv.FormatIp(con.remIP)+':'+
+    inttostr(con.remPort)+') dropped: '+reason);
+  move(con.remID,sendbuf[0],4);
+  sendbuf[4]:=0;
+  sendbuf[5]:=0;
+  sendbuf[6]:=4;
+  try
+   udp.Send(con.remIP,con.remPort,sendbuf,8);
+  except
+   on e:exception do Log.Force('NET: send error #4: '+e.message);
+  end;
+  con.FreeAll;
+  con.connected:=false;
+  con.status:=csBroken;
+  AddNote(nnBroken,con.sessID);
+ end;
+
 begin
  Apus.Threads.Thread.Register('Netwrk2');
  try
@@ -902,6 +925,11 @@ begin
       end;
 
       5:begin
+       if not con.connected then begin // closed, broken or not yet connected
+        Log.Msg('NET: packet '+inttostr(pnum)+' for a disconnected conn '+inttostr(con.sessID and $FFF)+' ignored',6);
+        size:=16500;
+        continue;
+       end;
        // data packet, send confirmation
        try
         move(con.remID,recvbuf[0],4);
@@ -940,8 +968,17 @@ begin
        repeat
         fl:=false;
         k:=con.fetchPos;
-        // check whether the whole message is present
+        // the sender never splits the length header between packets
+        if length(con.firstRecv.data)-k<4 then begin
+         DropConnection(con,'message header split between packets');
+         break;
+        end;
         move(con.firstRecv.data[k],j,4);
+        if (j<0) or (j>MaxMessageSize) then begin
+         DropConnection(con,'message length '+inttostr(j)+', limit '+inttostr(MaxMessageSize));
+         break;
+        end;
+        // check whether the whole message is present
         inc(k,4);
         d:=con.firstRecv;
         i:=j;

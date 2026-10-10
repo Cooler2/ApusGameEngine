@@ -170,7 +170,7 @@ var
   peer:UDPSocket2;
   netPort,peerPort:word;
   // filled by event handlers in the network thread
-  tagConnected,tagRejected,tagClosed,tagUserMsg:TTag;
+  tagConnected,tagRejected,tagClosed,tagBroken,tagUserMsg:TTag;
   userMsgCalls,userMsgSize:integer;
   userMsgCon:TConnection;
 
@@ -213,6 +213,11 @@ end;
 procedure OnClosed(event:TEventStr;tag:TTag);
 begin
   tagClosed:=tag;
+end;
+
+procedure OnBroken(event:TEventStr;tag:TTag);
+begin
+  tagBroken:=tag;
 end;
 
 procedure OnUserMsgSignal(event:TEventStr;tag:TTag);
@@ -381,6 +386,134 @@ begin
   EndTest;
 end;
 
+type
+  TQueueConnection=class(TConnection)
+    function RecvQueueEmpty:boolean;
+  end;
+
+function TQueueConnection.RecvQueueEmpty:boolean;
+begin
+  result:=(firstRecv=nil) and (lastRecv=nil);
+end;
+
+// Peer declares message length (header in the first packet) and sends the bytes of the stream
+procedure PeerSendStream(sid:cardinal;var pnum:word;const stream:array of byte);
+var
+  pos,size:integer;
+begin
+  pos:=0;
+  while pos<Length(stream) do begin
+    size:=Length(stream)-pos;
+    if size>MAX_PACKET then size:=MAX_PACKET;
+    inc(pnum);
+    PeerSend(sid,pnum,CMD_DATA,@stream[pos],size);
+    inc(pos,size);
+  end;
+end;
+
+// Connect the peer to a new accepting connection, 0 - failed
+function AcceptPeer(var con:TQueueConnection;peerSID:cardinal):cardinal;
+begin
+  con:=TQueueConnection.Create(true);
+  result:=PeerConnect(peerSID);
+  if result<>con.sessID then result:=0;
+end;
+
+// The peer gets a close packet and the connection is broken: signal, flags, empty receive queue
+function DroppedByLimit(con:TQueueConnection):boolean;
+var
+  buf:array[0..1499] of byte;
+begin
+  result:=WaitTag(tagBroken) and (tagBroken=TTag(UIntPtr(con))) and
+    (PeerWait(CMD_CLOSE,buf)>=8) and not con.connected and con.RecvQueueEmpty;
+  tagBroken:=0;
+end;
+
+// B-48: incoming message length limit
+procedure TestMessageLimit;
+const
+  LIMIT=3000;
+var
+  con,con2,con3:TQueueConnection;
+  sid:cardinal;
+  pnum:word;
+  stream:array of byte;
+  data:pointer;
+  saved,size,i:integer;
+  same:boolean;
+begin
+  StartTest('UdpTransport message length limit');
+  netPort:=20000+Random(20000);
+  peerPort:=netPort+1;
+  tagBroken:=0; tagUserMsg:=0;
+  SetEventHandler('NET\Conn\ConnectionBroken',OnBroken);
+  SetEventHandler('NET\Conn\UserMsg',OnUserMsgSignal);
+  saved:=MaxMessageSize;
+  MaxMessageSize:=LIMIT;
+  peer:=UDPSocket2.Create(peerPort,false);
+  NetInit(netPort);
+  con:=nil; con2:=nil; con3:=nil;
+  try
+    // a message at the limit, over three packets, is delivered
+    sid:=AcceptPeer(con,$3456789);
+    Check(sid<>0,'connection accepted');
+    SetLength(stream,4+LIMIT);
+    size:=LIMIT;
+    Move(size,stream[0],4);
+    for i:=4 to High(stream) do stream[i]:=byte(i*13);
+    pnum:=0;
+    PeerSendStream(sid,pnum,stream);
+    Check(WaitTag(tagUserMsg),'message at the limit is received');
+    size:=GetMsg(tagUserMsg,data);
+    same:=size=LIMIT;
+    if same then
+      for i:=0 to size-1 do
+        if PByte(PByte(data)+i)^<>stream[i+4] then same:=false;
+    Check(same,'message at the limit is intact');
+    Check(con.connected and con.RecvQueueEmpty,'connection stays open, queue is empty');
+
+    // one byte over the limit: dropped on the first packet, nothing is accumulated
+    tagUserMsg:=0;
+    size:=LIMIT+1;
+    Move(size,stream[0],4);
+    PeerSend(sid,pnum+1,CMD_DATA,@stream[0],MAX_PACKET);
+    inc(pnum);
+    Check(DroppedByLimit(con),'message over the limit breaks the connection');
+    // the rest of the stream is not accepted by the broken connection
+    PeerSend(sid,pnum+1,CMD_DATA,@stream[MAX_PACKET],MAX_PACKET);
+    Time.Sleep(200);
+    Check(con.RecvQueueEmpty and (tagBroken=0) and (tagUserMsg=0),
+      'data for the broken connection is ignored');
+
+    // negative length
+    sid:=AcceptPeer(con2,$4567890);
+    Check(sid<>0,'second connection accepted');
+    size:=-1;
+    Move(size,stream[0],4);
+    PeerSend(sid,1,CMD_DATA,@stream[0],16);
+    Check(DroppedByLimit(con2),'negative length breaks the connection');
+
+    // length header split between packets (a real sender never does it)
+    sid:=AcceptPeer(con3,$5678901);
+    Check(sid<>0,'third connection accepted');
+    size:=100;
+    Move(size,stream[0],4);
+    PeerSend(sid,1,CMD_DATA,@stream[0],2);
+    Check(DroppedByLimit(con3),'split length header breaks the connection');
+  finally
+    con.Free;
+    con2.Free;
+    con3.Free;
+    NetDone;
+    FreeAndNil(peer);
+    MaxMessageSize:=saved;
+    RemoveEventHandler(OnBroken);
+    RemoveEventHandler(OnUserMsgSignal);
+    tagUserMsg:=0;
+  end;
+  EndTest;
+end;
+
 // Strict bind, readiness on return, unbalanced and immediate stop
 procedure TestLifecycle;
 var
@@ -522,6 +655,7 @@ begin
   TestSmallMessagesSharePacket;
   TestLargeMessageSplitsPackets;
   TestReceivePath;
+  TestMessageLimit;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')
