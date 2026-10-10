@@ -319,7 +319,7 @@ useSystemCursor -> ?windowSetup.systemCursor, set in SetupApplication
 useDepthTexture -> ?if GameApp global: renderSetup.depthTexture, set in SetupApplication
 noVSync -> ?renderSetup.vSync (inverted), set in SetupApplication
 windowedMode -> ?windowSetup.fullscreen (inverted), set in SetupApplication
-windowBorderless -> ?windowSetup.borderless, set in SetupApplication
+windowBorderless -> ?windowSetup.frame:=TWindowFrame.Custom, set in SetupApplication
 windowSizeable -> ?windowSetup.resizable, set in SetupApplication
 windowWidth -> ?if GameApp global: windowSetup.size:=MakeSize(w,h), set in SetupApplication
 windowHeight -> ?if GameApp global: windowSetup.size:=MakeSize(w,h), set in SetupApplication
@@ -378,3 +378,7 @@ PasteStrFromClipboardW -> ?Clipboard.GetText returns String8 [Apus.Engine.Clipbo
 PasteStrFromClipboard -> Clipboard.GetText [Apus.Engine.Clipboard]
 CopyStrToClipboard -> ?Clipboard.SetText takes String8 [Apus.Engine.Clipboard]
 PutImageToClipboard -> Clipboard.SetImage [Apus.Engine.Clipboard]
+
+// === Window frame drawn by the app (Apus.Engine.Types, Apus.Engine.Window) ===
+// windowSetup.borderless -> windowSetup.frame:=TWindowFrame.Custom (not a rule: the field name is too common)
+dmBorderless -> ?dmWindow or dmFixedWindow + TGameSettings.frame:=TWindowFrame.Custom [Apus.Engine.Types]

@@ -43,7 +43,7 @@ interface
   TWindowSetup=record
    size:TSize;           // client area size
    fullscreen:boolean;   // start fullscreen ([Alt]+[Enter] switches to the window mode)
-   borderless:boolean;   // borderless frame for a non-fullscreen window
+   frame:TWindowFrame;   // window frame in the window mode: OS or drawn by the app (TWindow.frameHitTest)
    resizable:boolean;    // user can resize the window
    scaleForDPI:boolean;  // enlarge the window if DPI is higher than the platform default (96 for desktop monitor); macOS window size is always in points
    systemCursor:boolean; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
@@ -131,8 +131,6 @@ interface
    procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0); virtual;
    procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0); virtual;
 
-{   // Borderless window
-   function GetWindowAreaType(x,y:integer):}
   public
    orientation:TOrientation;     // main window orientation policy
    surfaceConfig:TSurfaceConfig; // project-level surface declaration (main window)
@@ -410,7 +408,7 @@ procedure TWindowSetup.Init;
  begin
   size:=MakeSize(1024,768);
   fullscreen:=false;
-  borderless:=false;
+  frame:=TWindowFrame.System;
   resizable:=false;
   scaleForDPI:=true;
   systemCursor:=true;
@@ -842,21 +840,6 @@ procedure EngineEventHandler(event:TEventStr;tag:TTag);
   end;
  end;
 
-procedure MouseEventHandler(event:TEventStr;tag:TTag);
- var
-  x,y:integer;
- begin
-  if app=nil then exit;
-  if app.windowSetup.borderless and app.windowSetup.resizable then begin // manual window sizing implementation
-   if event='MOUSE\MOVE' then begin
-    x:=word(Bits.GetBits(UInt64(tag),0,16));
-    y:=word(Bits.GetBits(UInt64(tag),16,16));
-    Log.Msg('',[x,y]);
-   end;
-  end;
- end;
-
-
 procedure TGameApplication.Run;
  var
   settings:TGameSettings;
@@ -910,7 +893,6 @@ procedure TGameApplication.Run;
    Log.Force('Running in exclusive mode');
 
   SetEventHandler('ENGINE',EngineEventHandler);
-  SetEventHandler('MOUSE',MouseEventHandler);
 
   // LAUNCH GAME OBJECT
   // ------------------------
@@ -1065,11 +1047,11 @@ begin
    refresh:=0;
    if windowSetup.resizable then winDispMode:=TDisplayMode.dmWindow
     else winDispMode:=TDisplayMode.dmFixedWindow;
-   if windowSetup.borderless then winDispMode:=TDisplayMode.dmBorderless;
    if windowSetup.fullscreen then mode:=dmFullScreen
     else mode:=winDispMode;
    if windowSetup.fullscreen then altMode:=winDispMode
     else altMode:=dmFullScreen;
+   frame:=windowSetup.frame;
    surface:=surfaceConfig; // project declaration -> per-window request
 
    showSystemCursor:=windowSetup.systemCursor;

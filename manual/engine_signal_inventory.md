@@ -42,7 +42,8 @@
 | `ENGINE\MAINLOOPINIT` | command | `TGame` | `0` | Internal command to initialize the loop infrastructure. |
 | `ENGINE\MAINLOOPDONE` | command | `TGame` | `0` | Internal command to finalize the loop infrastructure. |
 | `ENGINE\AFTERMAINLOOP` | notification | `TGame` | `0` | The main loop has ended; final post-actions. |
-| `ENGINE\WINDOW\HIDDEN/SHOWN/MINIMIZED/RESTORED/MAXIMIZED/CLOSE` | notification | `TSDLPlatform` | `0` | SDL window events as signals for subscribers. |
+| `ENGINE\WINDOW\MINIMIZED/MAXIMIZED/RESTORED` | notification | `TWindow.PlatformStateChanged` (Windows `WM_SIZE`, SDL window events) | `0` | The window state (`window.state`) changed; `RESTORED` - back to normal. Sent on a change only. |
+| `ENGINE\WINDOW\HIDDEN/SHOWN/CLOSE` | notification | `TSDLPlatform` | `0` | SDL window events as signals for subscribers. |
 | `ENGINE\WINDOW\DROPFILES` | notification | `TWindow.PlatformDropFiles` (Windows `WM_DROPFILES`, SDL `SDL_DROPFILE`) | file count | Files were dropped onto the window from a file manager. Paths are in `window.droppedFiles`, the drop point in canvas coordinates is in `window.dropPos` (`(-1,-1)` under SDL2: it reports no point); both stay valid until the next drop. |
 | `ENGINE\PRESENTFRAME` | notification | iOS GL view bridge (legacy path) | `0` | A frame has been presented (used in the mobile branch/legacy code). |
 

@@ -25,6 +25,8 @@ type
   procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); override;
   procedure SetCaption(text:string); override;
   procedure Minimize; override;
+  procedure Maximize; override;
+  procedure Restore; override;
   procedure FlashWindow(count:integer); override;
   procedure ProcessMessages; override;
   function IsTerminated:boolean; override;
@@ -738,16 +740,16 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
      SDL_WINDOWEVENT_MINIMIZED:begin
       Log.Msg('Window minimized');
       Signal('ENGINE\SETACTIVE',0);
-      Signal('ENGINE\WINDOW\MINIMIZED');
+      PlatformStateChanged(TWindowState.Minimized);
      end;
      SDL_WINDOWEVENT_RESTORED:begin
       Log.Msg('Window restored');
       Signal('ENGINE\SETACTIVE',1);
-      Signal('ENGINE\WINDOW\RESTORED');
+      PlatformStateChanged(TWindowState.Normal);
      end;
      SDL_WINDOWEVENT_MAXIMIZED:begin
       Log.Msg('Window maximized');
-      Signal('ENGINE\WINDOW\MAXIMIZED');
+      PlatformStateChanged(TWindowState.Maximized);
      end;
      SDL_WINDOWEVENT_CLOSE:begin
       Log.Msg('Window close');
@@ -854,6 +856,16 @@ function TSDLGLWindow.IsTerminated:boolean;
 procedure TSDLGLWindow.Minimize;
  begin
   SDL_MinimizeWindow(wnd);
+ end;
+
+procedure TSDLGLWindow.Maximize;
+ begin
+  SDL_MaximizeWindow(wnd);
+ end;
+
+procedure TSDLGLWindow.Restore;
+ begin
+  SDL_RestoreWindow(wnd);
  end;
 
 procedure TSDLGLWindow.MoveTo(x,y:integer;width:integer;
@@ -1043,10 +1055,9 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    else
      SDL_SetWindowFullscreen(wnd,0);
    {$ELSE}
-   if params.mode=dmBorderless then
-     SDL_SetWindowBordered(wnd,SDL_FALSE);
+   frame:=TWindowFrame.System; // TODO: app-drawn frame under SDL (SDL_SetWindowHitTest)
    case params.mode of
-    dmWindow,dmFixedWindow,dmBorderless:begin
+    dmWindow,dmFixedWindow:begin
       SDL_SetWindowFullscreen(wnd,0);
       if params.mode=Apus.Engine.Types.dmWindow then
         SDL_SetWindowResizable(wnd,SDL_TRUE)

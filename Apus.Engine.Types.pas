@@ -67,8 +67,18 @@ type
                dmSwitchResolution, //< Fullscreen: switch to desired display mode (change screen resolution)
                dmFullScreen,       //< Use current resolution with fullscreen window
                dmFixedWindow,      //< Use fixed-size window
-               dmWindow,           //< Use resizeable window
-               dmBorderless);      //< Use borderless window (non-fullscreen), app should manually resize it if needed
+               dmWindow);          //< Use resizeable window
+
+ {$SCOPEDENUMS ON}
+ // Who draws the caption and the borders of a window in the window modes (no effect in fullscreen)
+ TWindowFrame=(System,               //< OS frame and caption
+               Custom,               //< no OS frame in any state: the app draws the caption (TWindow.frameHitTest),
+                                     //< a resizeable window is resized by its edges
+               CustomWhenMaximized); //< no OS frame while maximized (the client covers the work area of its
+                                     //< monitor), OS frame otherwise
+ // Part of a window under a point, reported for an app-drawn frame (TWindow.frameHitTest)
+ TWindowArea=(Client,Caption,Left,Right,Top,Bottom,TopLeft,TopRight,BottomLeft,BottomRight);
+ {$SCOPEDENUMS OFF}
 
  // ---------------------------------------------------------------------------
  // Working surface model (R-31): three author-facing axes (canvas / render / fit)
@@ -152,6 +162,7 @@ type
   refresh:integer;   // display refresh rate (0 - default)
   vSync:integer;     // 0 - max FPS, N - FPS = refresh/N
   mode,altMode:TDisplayMode; // primary and alternate display mode (Alt+Enter)
+  frame:TWindowFrame; // frame of the window modes
   surface:TSurfaceConfig; // working surface axes requested for this window (R-31)
   showSystemCursor:boolean; // draw system cursor instead of engine cursor
   zbuffer:byte; // desired precision for a depth buffer (0 - don't use depth buffer)

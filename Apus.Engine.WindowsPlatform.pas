@@ -23,6 +23,8 @@ type
    procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); override;
    procedure SetCaption(text:string); override;
    procedure Minimize; override;
+   procedure Maximize; override;
+   procedure Restore; override;
    procedure FlashWindow(count:integer); override;
    procedure ProcessMessages; override;
    function IsTerminated:boolean; override;
@@ -43,6 +45,9 @@ type
   contextVAO:cardinal; // per-context VAO for shared secondary window
   terminated:boolean;
   graphInfo:TOpenGLContextDesc;
+  wasMaximized:boolean; // was maximized when switched to fullscreen: maximized again on return
+  function CustomFrameActive:boolean;
+  function FrameHitTestAt(const p:TPoint;const client:TRect):integer;
   function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith:UIntPtr=0):UIntPtr;
  end;
 
@@ -71,7 +76,7 @@ type
  end;
 
 implementation
-uses Messages, Types, SysUtils, Apus.Lib,
+uses Messages, MultiMon, Types, SysUtils, Apus.Lib,
   Apus.EventMan, Apus.Strings, Apus.Engine.Types, Apus.Engine.Window
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 
@@ -167,6 +172,47 @@ begin
  end;
  {$ENDIF}
 end;
+
+// Work area of the monitor nearest to the rect (screen coordinates)
+function MonitorWorkArea(const r:TRect):TRect;
+ var
+  mi:TMonitorInfo;
+ begin
+  mi.cbSize:=sizeof(mi);
+  if GetMonitorInfo(MonitorFromRect(@r,MONITOR_DEFAULTTONEAREST),@mi) then
+   result:=mi.rcWork
+  else
+   SystemParametersInfo(SPI_GETWORKAREA,0,@result,0);
+ end;
+
+type
+ TGetDpiForWindow=function(wnd:HWND):cardinal; stdcall;
+ TGetSystemMetricsForDpi=function(index:integer;dpi:cardinal):integer; stdcall;
+var
+ dpiFuncsLoaded:boolean;
+ pGetDpiForWindow:TGetDpiForWindow;
+ pGetSystemMetricsForDpi:TGetSystemMetricsForDpi;
+
+// Width of the resize edges of an app-drawn frame: as the OS frame, for the DPI of the window
+function ResizeBorderWidth(wnd:HWND):integer;
+ const
+  SM_CXPADDEDBORDER=92;
+ var
+  lib:HMODULE;
+  dpi:cardinal;
+ begin
+  if not dpiFuncsLoaded then begin // Windows 10 1607+
+   lib:=GetModuleHandle(user32);
+   @pGetDpiForWindow:=GetProcAddress(lib,'GetDpiForWindow');
+   @pGetSystemMetricsForDpi:=GetProcAddress(lib,'GetSystemMetricsForDpi');
+   dpiFuncsLoaded:=true;
+  end;
+  if Assigned(pGetDpiForWindow) and Assigned(pGetSystemMetricsForDpi) then begin
+   dpi:=pGetDpiForWindow(wnd);
+   result:=pGetSystemMetricsForDpi(SM_CXSIZEFRAME,dpi)+pGetSystemMetricsForDpi(SM_CXPADDEDBORDER,dpi);
+  end else
+   result:=GetSystemMetrics(SM_CXSIZEFRAME)+GetSystemMetrics(SM_CXPADDEDBORDER);
+ end;
 
 function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
@@ -304,10 +350,41 @@ begin
     else Signal('MOUSE\SCROLL',smallint(wParam shr 16)); // for external subscribers
   end;
 
-  WM_SIZE:if lParam<>0 then begin
-   // the window's own thread applies the request at the start of its next frame
+  WM_SIZE:begin
    wnd:=FindWindowByHandle(THandle(Window));
-   if wnd<>nil then wnd.RequestResize(loword(cardinal(lParam)),hiword(cardinal(lParam)));
+   if wnd<>nil then begin
+    i:=ord(wnd.state);
+    case wParam of
+     SIZE_RESTORED:wnd.PlatformStateChanged(TWindowState.Normal);
+     SIZE_MINIMIZED:wnd.PlatformStateChanged(TWindowState.Minimized);
+     SIZE_MAXIMIZED:wnd.PlatformStateChanged(TWindowState.Maximized);
+    end;
+    // the frame depends on the state: make sure it is recalculated
+    if (i<>ord(wnd.state)) and (wnd.frame=TWindowFrame.CustomWhenMaximized) then
+     SetWindowPos(Window,0,0,0,0,0,SWP_FRAMECHANGED or SWP_NOMOVE or SWP_NOSIZE or
+      SWP_NOZORDER or SWP_NOACTIVATE);
+    // the window's own thread applies the request at the start of its next frame
+    if lParam<>0 then wnd.RequestResize(loword(cardinal(lParam)),hiword(cardinal(lParam)));
+   end;
+  end;
+
+  WM_NCCALCSIZE:if wParam<>0 then begin
+   wnd:=FindWindowByHandle(THandle(Window));
+   if (wnd<>nil) and TWinGLWindow(wnd).CustomFrameActive then begin
+    // App-drawn frame: the client takes the whole window. A maximized window lies beyond
+    // its monitor by the frame thickness - its client is cut to the monitor work area
+    if IsZoomed(Window) then
+     with PNCCalcSizeParams(lParam)^ do
+      rgrc[0]:=MonitorWorkArea(rgrc[0]);
+    exit(0);
+   end;
+  end;
+
+  WM_NCACTIVATE:begin
+   // no OS caption to repaint on (de)activation: lParam=-1 keeps DefWindowProc from drawing it
+   wnd:=FindWindowByHandle(THandle(Window));
+   if (wnd<>nil) and TWinGLWindow(wnd).CustomFrameActive then
+    exit(Longint(DefWindowProcW(Window,Message,WParam,-1)));
   end;
 
   WM_DROPFILES:begin
@@ -346,6 +423,10 @@ begin
     ScreenToClient(Window,pt);
     GetClientRect(Window,rc);
     if (pt.x>=0) and (pt.y>=0) and (pt.x<rc.right) and (pt.y<rc.bottom) then begin
+      // app-drawn frame: edges, caption and client are all inside the client area
+      wnd:=FindWindowByHandle(THandle(Window));
+      if (wnd<>nil) and TWinGLWindow(wnd).CustomFrameActive then
+       exit(TWinGLWindow(wnd).FrameHitTestAt(pt,rc));
       result:=HTCLIENT;
       exit;
     end;
@@ -681,6 +762,56 @@ function TWinGLWindow.IsTerminated:boolean;
 procedure TWinGLWindow.Minimize;
  begin
   windows.ShowWindow(window,SW_MINIMIZE);
+ end;
+
+procedure TWinGLWindow.Maximize;
+ begin
+  windows.ShowWindow(window,SW_MAXIMIZE);
+ end;
+
+procedure TWinGLWindow.Restore;
+ begin
+  windows.ShowWindow(window,SW_RESTORE);
+ end;
+
+function TWinGLWindow.CustomFrameActive:boolean;
+ begin
+  // not CustomFrameShown: while the state changes, IsZoomed is ahead of TWindow.state
+  result:=(frame=TWindowFrame.Custom) or
+   ((frame=TWindowFrame.CustomWhenMaximized) and IsZoomed(window));
+ end;
+
+// Hit test of an app-drawn frame, p - client point: OS resize edges first, then frameHitTest
+function TWinGLWindow.FrameHitTestAt(const p:TPoint;const client:TRect):integer;
+ const
+  codes:array[TWindowArea] of integer=(HTCLIENT,HTCAPTION,HTLEFT,HTRIGHT,HTTOP,HTBOTTOM,
+   HTTOPLEFT,HTTOPRIGHT,HTBOTTOMLEFT,HTBOTTOMRIGHT);
+ var
+  sizeable,left,right,top,bottom:boolean;
+  border:integer;
+  area:TWindowArea;
+  cp:TPoint;
+ begin
+  sizeable:=(GetWindowLong(window,GWL_STYLE) and WS_THICKFRAME<>0) and not IsZoomed(window);
+  if sizeable then begin
+   border:=ResizeBorderWidth(window);
+   left:=p.x<border;
+   right:=p.x>=client.right-border;
+   top:=p.y<border;
+   bottom:=p.y>=client.bottom-border;
+   if top and left then exit(HTTOPLEFT);
+   if top and right then exit(HTTOPRIGHT);
+   if bottom and left then exit(HTBOTTOMLEFT);
+   if bottom and right then exit(HTBOTTOMRIGHT);
+   if left then exit(HTLEFT);
+   if right then exit(HTRIGHT);
+   if top then exit(HTTOP);
+   if bottom then exit(HTBOTTOM);
+  end;
+  area:=TWindowArea.Client;
+  if Assigned(frameHitTest) and TryClientToCanvas(p,cp) then area:=frameHitTest(cp.x,cp.y);
+  if not sizeable and (area>TWindowArea.Caption) then area:=TWindowArea.Client;
+  result:=codes[area];
  end;
 
 procedure TWinGLWindow.MoveTo(x,y:integer;width:integer;
@@ -1074,43 +1205,60 @@ procedure TWinGLWindow.ActivateGraphContext;
  end;
 
 procedure TWinGLWindow.Configure(params:TGameSettings);
+ const
+  SWP_APPLY=SWP_NOZORDER or SWP_NOACTIVATE or SWP_FRAMECHANGED;
  var
-  r,r2:TRect;
+  r,work:TRect;
   style:cardinal;
   w,h:integer;
+  windowed,zoomed:boolean;
  begin
-   Log.Msg('Configure main window');
-   style:=ws_popup;
-   //if params.mode=dmBorderless then style:=
-   if params.mode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
-   if params.mode in [dmWindow,dmFixedWindow] then
-    inc(style,WS_CAPTION+WS_MINIMIZEBOX+WS_SYSMENU);
+   Log.Msg('Configure window %s: %s, frame %d',[name,params.mode.ToString,ord(params.frame)]);
+   // The window modes keep the standard style whatever the frame is: maximizing to the work
+   // area, Win+arrows, snap and the system menu depend on it. An app-drawn frame only removes
+   // the non-client area (WM_NCCALCSIZE)
+   windowed:=params.mode in [dmWindow,dmFixedWindow];
+   if windowed then frame:=params.frame
+    else frame:=TWindowFrame.System;
+   if windowed then begin
+    style:=WS_OVERLAPPED or WS_CAPTION or WS_SYSMENU or WS_MINIMIZEBOX;
+    if params.mode=dmWindow then style:=style or WS_THICKFRAME or WS_MAXIMIZEBOX;
+   end else
+    style:=WS_POPUP;
 
-   // Get desktop area size
-   SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
+   zoomed:=IsZoomed(window);
+   if zoomed and not windowed then begin // fullscreen from the maximized state
+    wasMaximized:=true;
+    windows.ShowWindow(window,SW_RESTORE);
+    zoomed:=false;
+   end;
+   SetWindowLong(window,GWL_STYLE,longint(style));
 
    w:=params.width;
    h:=params.height;
-   case params.mode of
-    dmWindow,dmFixedWindow,dmBorderless:begin
-      r:=Rect(0,0,w,h);
-      AdjustWindowRect(r,style,false);
-      r.Offset(-r.left,-r.top);
-      // If window is too large
-      r.Right:=Clamp(r.Right,0,r2.Width);
-      r.Bottom:=Clamp(r.Bottom,0,r2.Height);
-      // Center window
-      r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
-      SetWindowLong(window,GWL_STYLE,longint(style));
-      MoveTo(r.left,r.top,r.width,r.height);
-    end;
-    dmSwitchResolution,dmFullScreen:begin
-      SetWindowLong(window,GWL_STYLE,longint(ws_popup));
-      MoveTo(0,0,game.screenWidth,game.screenHeight);
-    end;
-   end;
+   if windowed and zoomed then // a maximized window keeps its place, only the frame is updated
+    SetWindowPos(window,0,0,0,0,0,SWP_APPLY or SWP_NOMOVE or SWP_NOSIZE)
+   else
+   if windowed then begin
+    GetWindowRect(window,r);
+    work:=MonitorWorkArea(r);
+    r:=Rect(0,0,w,h);
+    if params.frame<>TWindowFrame.Custom then AdjustWindowRect(r,style,false);
+    r.Offset(-r.left,-r.top);
+    // If window is too large
+    r.Right:=Clamp(r.Right,0,work.Width);
+    r.Bottom:=Clamp(r.Bottom,0,work.Height);
+    // Center on the work area of its monitor
+    r.Offset(work.left+(work.Width-r.Width) div 2,work.top+(work.Height-r.Height) div 2);
+    SetWindowPos(window,0,r.left,r.top,r.Width,r.Height,SWP_APPLY);
+   end else
+    SetWindowPos(window,0,0,0,game.screenWidth,game.screenHeight,SWP_APPLY);
 
    windows.ShowWindow(Window, SW_SHOW);
+   if windowed and wasMaximized then begin // back from fullscreen
+    wasMaximized:=false;
+    windows.ShowWindow(window,SW_MAXIMIZE);
+   end;
    UpdateWindow(Window);
 
    GetWindowRect(window,r);

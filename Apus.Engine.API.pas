@@ -177,6 +177,8 @@ type
  TKeyMod = Apus.Engine.Keys.TKeyMod;
 
  TDisplayMode = Apus.Engine.Types.TDisplayMode;
+ TWindowFrame = Apus.Engine.Types.TWindowFrame;
+ TWindowArea = Apus.Engine.Types.TWindowArea;
  TSurfaceConfig = Apus.Engine.Types.TSurfaceConfig;
  TSurfaceInput = Apus.Engine.Types.TSurfaceInput;
  TSurfaceState = Apus.Engine.Types.TSurfaceState;
@@ -186,6 +188,7 @@ type
  TSurfaceMechanism = Apus.Engine.Types.TSurfaceMechanism;
  TGameSettings = Apus.Engine.Types.TGameSettings;
  TWindow = Apus.Engine.Window.TWindow;
+ TWindowState = Apus.Engine.Window.TWindowState;
 
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)

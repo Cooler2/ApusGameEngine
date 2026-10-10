@@ -1385,3 +1385,22 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
 - Migration: calls of the old `window.Lock`/`Unlock` in engine-level code become
   `LockState`/`UnlockState`; a worker thread that changes UI uses `Lock`/`Unlock` and
   checks the result. No upgrader rule: `Lock`/`Unlock` are too common to rename blindly.
+
+## 2026-10-10 — Window frame drawn by the app
+
+- `TDisplayMode.dmBorderless` removed (it was an unfinished app-drawn frame: a WS_POPUP
+  window, the manual resize in `GameApp` was never implemented). The frame is a separate
+  property now: `TGameSettings.frame:TWindowFrame` (`System`, `Custom`,
+  `CustomWhenMaximized`), set at startup by `windowSetup.frame` (replaces
+  `windowSetup.borderless`). A borderless window = `dmWindow`/`dmFixedWindow` +
+  `TWindowFrame.Custom`.
+- With an app-drawn frame the window keeps the standard OS style: maximizing to the work
+  area of its monitor, Win+arrows, snap and the system menu keep working. The app tells
+  which part of the window is the caption through `TWindow.frameHitTest`
+  (`TWindowArea`: client, caption, edges); edges of a resizeable window resize it.
+- `TWindow.state:TWindowState` (normal/minimized/maximized), `TWindow.Maximize`,
+  `TWindow.Restore`. `ENGINE\WINDOW\MINIMIZED/MAXIMIZED/RESTORED` are sent on every
+  platform (they were SDL-only), on a state change only.
+- Windows: a window is centered on the work area of its own monitor (it was the primary
+  one), a window maximized before switching to fullscreen is maximized again on return.
+- SDL: the frame is not implemented yet - the OS frame is used.

@@ -34,6 +34,12 @@ type
  end;
  TWindowQueuedCalls=array of TWindowQueuedCall;
 
+ {$SCOPEDENUMS ON}
+ TWindowState=(Normal,Minimized,Maximized); // state of a window in the window modes
+ {$SCOPEDENUMS OFF}
+ // App-drawn frame: part of the window at a canvas point (see TWindow.frameHitTest)
+ TWindowHitTest=function(x,y:integer):TWindowArea of object;
+
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
   // 0 - keep in data, 2 - save as JPEG, 3 - save as PNG
@@ -278,6 +284,12 @@ public
 
   // Window state
   active:boolean; // true when window is visible and updated
+  state:TWindowState; // set by the platform, changes send ENGINE\WINDOW\MINIMIZED/MAXIMIZED/RESTORED
+  frame:TWindowFrame; // frame in effect, set by Configure: System in fullscreen
+  // App-drawn frame (frame<>System): which part of the window is at a canvas point - caption
+  // (drags the window), edges or client. nil - only the edges resize the window. Called on the
+  // window's thread at the mouse polling rate: must be fast and must not wait for locks
+  frameHitTest:TWindowHitTest;
   paused:boolean; // pause rendering regardless of active state
   frameNum:integer; // increments every frame
   FPS,smoothFPS:single; // current and smoothed FPS
@@ -380,6 +392,9 @@ public
   // Files dropped by the platform (window's thread): fills droppedFiles/dropPos and
   // sends ENGINE\WINDOW\DROPFILES
   procedure PlatformDropFiles(const files:Strings8;const clientPos:TPoint;hasPos:boolean);
+  // Window state reported by the platform (window's thread): sends ENGINE\WINDOW\MINIMIZED,
+  // MAXIMIZED or RESTORED (back to normal) when it changes
+  procedure PlatformStateChanged(newState:TWindowState);
   // Physical button state polled by the frame loop (ignored while the virtual mouse is active)
   procedure SetPolledMouseButtons(buttons:byte);
   // Mouse step of a frame, window's thread under the window lock. Virtual mode: applies
@@ -415,6 +430,10 @@ public
   procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); virtual; abstract;
   procedure SetCaption(text:string); virtual; abstract;
   procedure Minimize; virtual; abstract;
+  procedure Maximize; virtual; abstract;
+  procedure Restore; virtual; abstract; // back to normal from the minimized or maximized state
+  // The app draws the caption now: frame is Custom, or CustomWhenMaximized and the window is maximized
+  function CustomFrameShown:boolean;
   procedure FlashWindow(count:integer); virtual; abstract;
   procedure ProcessMessages; virtual; abstract;
   // True when native close/quit was requested for this window (used to stop main loop gracefully).
@@ -1371,6 +1390,23 @@ procedure TWindow.PlatformDropFiles(const files:Strings8;const clientPos:TPoint;
    else dropPos:=Types.Point(-1,-1);
   Log.Msg('Window %s: %d file(s) dropped: %s',[name,length(files),files.Join('; ')]);
   Signal('ENGINE\WINDOW\DROPFILES',length(files));
+ end;
+
+function TWindow.CustomFrameShown:boolean;
+ begin
+  result:=(frame=TWindowFrame.Custom) or
+   ((frame=TWindowFrame.CustomWhenMaximized) and (state=TWindowState.Maximized));
+ end;
+
+procedure TWindow.PlatformStateChanged(newState:TWindowState);
+ begin
+  if newState=state then exit;
+  state:=newState;
+  case newState of
+   TWindowState.Normal:Signal('ENGINE\WINDOW\RESTORED');
+   TWindowState.Minimized:Signal('ENGINE\WINDOW\MINIMIZED');
+   TWindowState.Maximized:Signal('ENGINE\WINDOW\MAXIMIZED');
+  end;
  end;
 
 procedure TWindow.SetPolledMouseButtons(buttons:byte);
