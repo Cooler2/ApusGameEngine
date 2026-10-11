@@ -311,6 +311,12 @@ begin
   {$ENDIF}
 end;
 
+{$IF DEFINED(UNIX) AND NOT DEFINED(DARWIN)}
+var
+  // libc gethostbyname returns a shared static buffer, so lookups must not overlap
+  resolveLock:integer=0;
+{$ENDIF}
+
 function ResolveIPv4Address(address:String8):cardinal;
 var
   {$IFDEF DARWIN}
@@ -319,8 +325,8 @@ var
   h: PHostEnt;
   {$ENDIF}
 begin
-  address:=address+#0;
   {$IFDEF MSWINDOWS}
+  address:=address+#0;
   result:=WinSock2.inet_addr(@address[1]);
   if result<>Cardinal(INADDR_NONE) then exit;
   h:=WinSock2.GetHostByName(@address[1]);
@@ -329,7 +335,7 @@ begin
   else
     result:=0;
   {$ELSE}
-  result:=StrToNetAddr(address).s_addr;
+  result:=StrToNetAddr(address).s_addr; // no trailing #0 here: StrToNetAddr rejects it
   if result<>0 then exit;
   {$IFDEF DARWIN}
   if NetDB.GetHostByName(address,hostEntry) then
@@ -337,11 +343,17 @@ begin
   else
     result:=0;
   {$ELSE}
-  h:=CNetDB.GetHostByName(@address[1]);
-  if (h<>nil) and (h^.h_addr_list<>nil) then
-    move(h^.h_addr_list^^,result,4)
-  else
-    result:=0;
+  address:=address+#0;
+  SpinLock(resolveLock);
+  try
+    h:=CNetDB.GetHostByName(@address[1]);
+    if (h<>nil) and (h^.h_addr_list<>nil) and (h^.h_addr_list^<>nil) then
+      move(h^.h_addr_list^^,result,4)
+    else
+      result:=0;
+  finally
+    SpinUnlock(resolveLock);
+  end;
   {$ENDIF}
   {$ENDIF}
 end;
