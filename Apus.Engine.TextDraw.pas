@@ -394,7 +394,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
        [name,DEFAULT_UI_FONT_SIZE]);
      realSize:=DEFAULT_UI_FONT_SIZE*globalScale;
     end;
-    EncodeScale(realSize/15,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+    EncodeScale(realSize/15,result); // drawn at FreeType size 20*scale = realSize*4/3 points (see ITextDrawer.GetFont)
     if flags and fsNoHinting>0 then result:=result or fhNoHinting;
     if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
    end

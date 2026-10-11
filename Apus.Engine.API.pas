@@ -383,7 +383,8 @@ type
   procedure DefaultView;
 
   // Set 3D view with given field of view (in radians) - set perspective projection matrix
-  // using screen dimensions for FoV and aspect ratio
+  // with the render target aspect ratio. fovRad spans the LARGER dimension: horizontal on a
+  // wide target, vertical on a tall one (the smaller dimension gets a narrower angle).
   // Use big enough zMin and zMax since z-range is not linear and precision near zMax is much lower than near zMin.
   // So use values where main visible geometry is at least in the near 10% Z-range
   procedure Perspective(fovRad:single;zMin,zMax:double); overload;
@@ -617,7 +618,13 @@ type
   function LoadVectorFont(const font:TBuffer;asName:string=''):string; overload; // Returns name of the loaded font
   // Global scale factor for GetFont
   procedure SetScale(scale:single);
-  // Get font handle (size=0 - default font size)
+  // Get font handle (size=0 - default font size).
+  // size is multiplied by the SetScale factor (the UI scale) unless fsIgnoreScale is set; text is
+  // drawn in render target pixels.
+  // Vector (FreeType) fonts: em height in pixels = size*scale*16/9 (size is converted from points
+  // to pixels twice, 4/3 each; kept for compatibility), e.g. size 9 at scale 1 -> em 16 px,
+  // digit height about 0.72 em. size*scale above ~122 is clamped.
+  // Raster fonts: scaled from the native size by size*scale/(header.width/10), up to 6.5x.
   function GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):TFontHandle;
   // Return handle for the same font enlarged scale times
   function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
