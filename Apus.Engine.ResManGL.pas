@@ -28,6 +28,7 @@ type
   procedure SetAsRenderTarget; virtual;
   procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // level 0 is the top one
   procedure AddDirtyRect(rect:TRect;level:integer); override;
+  procedure GenerateMipMaps(count:byte); override;
   procedure Unlock; override;
   function GetRawImage:TRawImage; override; // create a RAW image and assign it to the top texture level (only while the texture is locked!!!)
   function Describe:string;
@@ -1107,6 +1108,11 @@ begin
 end;
 
 
+procedure TGLTexture.GenerateMipMaps(count:byte);
+begin
+ NotSupported('Manual mip-map generation: allocate with aiAutoMipMap instead');
+end;
+
 procedure TGLTexture.SetAsRenderTarget;
 begin
  Assert(HasFlag(tfRenderTarget));
@@ -1340,6 +1346,7 @@ function TGLTexture.IsBound(stage:integer):boolean;
   target:integer;
  begin
   target:=GetTextureTarget;
+  result:=false;
   case target of
    GL_TEXTURE_2D:result:=boundTex2D[stage]=self;
    GL_TEXTURE_3D:result:=boundTex3D[stage]=self;
@@ -1578,6 +1585,7 @@ begin
   raise EWarning.Create('AI: Texture too large');
  if (pixFmt in compressedFormats) and not CompressedFormatSupported(pixFmt) then
   raise EWarning.Create('Compressed texture format is not supported by the GPU: '+PixFmt2Str(pixFmt));
+ tex:=nil;
  try
  cSect.Enter;
  try
@@ -1673,6 +1681,7 @@ begin
  ASSERT((pixFmt<>ipfNone) or Bits.HasAll(flags,aiDepthBuffer),'Invalid pixel format for '+name);
  if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then
   raise EWarning.Create('AI: Texture too large');
+ tex:=nil;
  try
  cSect.Enter;
  try
@@ -1758,7 +1767,8 @@ end;
 
 function TGLResourceManager.Copy(img:TTexture):TTexture;
 begin
-
+ result:=nil;
+ raise EError.Create('TGLResourceManager.Copy is not implemented');
 end;
 
 constructor TGLResourceManager.Create;
@@ -1883,9 +1893,10 @@ begin
 
 end;
 
-function TGLResourceManager.GetStatus(line: byte): string;
+function TGLResourceManager.GetStatus(line:byte):string;
 begin
-
+ result:='';
+ raise EError.Create('TGLResourceManager.GetStatus is not implemented');
 end;
 
 procedure TGLResourceManager.SetTexFilter(img:TTexture;filter:TTexFilter);

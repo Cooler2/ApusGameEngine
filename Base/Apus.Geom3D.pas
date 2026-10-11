@@ -491,25 +491,6 @@ procedure _TransformVec3PointsByMat3(const m:TMat3;v:PVec3;num,step:integer); ov
 const
   vec0001s:TVec4=(x:0; y:0; z:0; w:1);
 
-  // Stack-bias correction used by inline x64 ASM when saving/restoring XMM registers.
-  //
-  // Why needed:
-  // - Delphi x64 and FPC x64 generate different prologue/stack layouts for inline asm.
-  // - The same [rsp-..] displacement may address different memory without this correction.
-  //
-  // Value:
-  // - FPC:  0  (no extra bias needed for current prologue shape)
-  // - Delphi: 8 (stack layout is shifted by 8 bytes for these slots)
-  //
-  // How to use:
-  // - Include RSP_BIAS in every hardcoded spill/load offset around RSP.
-  // - Example:
-  //     movdqa [rsp-$10-RSP_BIAS], xmm6
-  //     ...
-  //     movdqa xmm6, [rsp-$10-RSP_BIAS]
-  //   This keeps the save/restore slot identical across compilers.
-  RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
-
  function Vec3(x,y,z:single):TVec3; overload; inline;
   begin
    result.x:=x;
@@ -1781,14 +1762,16 @@ end;
 // (const m1,m2; out target) calling convention. Rework operator* to native ASM.
  procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
   {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
+  var
+   savedXmm6,savedXmm7:TVec4;
   asm
    // x64 calling convention reminder:
    // - Win64 (Microsoft ABI): m1=RCX, m2=RDX, target=R8
    // - Linux x64 (System V ABI): m1=RDI, m2=RSI, target=RDX
    // This routine currently uses the Win64 register layout.
-   // save xmm6-7
-   movdqa [rsp-$10-RSP_BIAS],xmm6
-   movdqa [rsp-$20-RSP_BIAS],xmm7
+   // Compiler-owned locals reserve the spill area on both Win64 compilers.
+   movups dqword [savedXmm6],xmm6
+   movups dqword [savedXmm7],xmm7
 
   // Load matrix M2
   movaps xmm4,dqword [m2+$00]
@@ -1822,8 +1805,8 @@ end;
   jnz @loop
 
   // restore xmm6-7
-  movdqa xmm6,[rsp-$10-RSP_BIAS]
-  movdqa xmm7,[rsp-$20-RSP_BIAS]
+  movups xmm6,dqword [savedXmm6]
+  movups xmm7,dqword [savedXmm7]
  end;
  {$ELSE}
 var

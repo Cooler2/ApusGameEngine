@@ -37,7 +37,10 @@ var
  // Connect to the server at the given address/port.
  // Connection is asynchronous, the result is reported with a signal
  // connecting with or without authorization is possible
- procedure Connect(server,login,password,clientinfo:string);
+ procedure Connect(server,login,password,clientinfo:String8); overload;
+ {$IFDEF UNICODE}
+ procedure Connect(server,login,password,clientinfo:UnicodeString); overload;
+ {$ENDIF}
 
  // Send a data array
  procedure SendData(data:array of const);
@@ -72,7 +75,7 @@ implementation
 
  type
   TMainWorker=class
-   server,login,password,clientInfo:string;
+   server,login,password,clientInfo:String8;
    logoutInfo:string;
    procedure Execute;
   end;
@@ -240,8 +243,9 @@ procedure GetInternetAddress(address:String8;var ip:cardinal;var port:word);
   end;
  end;
 
-function ShortMD5(st:string):string;
+function ShortMD5(st:String8):String8;
  begin
+  // Hash the same UTF-8 bytes as HttpGameServer, independent of the system code page.
   result:=copy(MD5(st),1,10);
  end;
 
@@ -545,7 +549,7 @@ procedure TerminateIfNeeded;
   RemoveEventHandler(EventHandler);
  end;
 
-procedure Connect(server,login,password,clientinfo:string);
+procedure Connect(server,login,password,clientinfo:String8);
  begin
   TerminateIfNeeded;
   outStart:=0; outFree:=0;
@@ -563,6 +567,13 @@ procedure Connect(server,login,password,clientinfo:string);
    critSect.Leave;
   end;
  end;
+
+{$IFDEF UNICODE}
+procedure Connect(server,login,password,clientinfo:UnicodeString);
+begin
+ Connect(String8(server),String8(login),String8(password),String8(clientinfo));
+end;
+{$ENDIF}
 
 // Account creation
 procedure EventHandler2(event:TEventStr;tag:TTag);

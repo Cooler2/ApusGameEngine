@@ -170,7 +170,7 @@ constructor TTiledImage.Create(fname: string;
  var
   i,j,x,y,w,h:integer;
   tex:TTexture;
-  tname:string[40];
+  tname:string;
  begin
   tex:=LoadImageFromFile(fname,liffSysMem,forceFormat) as TTexture;
   width:=tex.width;
@@ -193,7 +193,7 @@ constructor TTiledImage.Create(fname: string;
       tiles[i,j]:=CreateSubImage(tex,x,y,w,h,flags)
      else
       tiles[i,j]:=CreateSubImage(tex,x,y,cellsize,cellsize,aiTexture);
-     tiles[i,j].name:=inttohex(i,1)+inttohex(j,1)+'_'+tname;
+     tiles[i,j].name:=String8(inttohex(i,1)+inttohex(j,1)+'_'+tname);
     end;
   finally
    if tex<>nil then FreeImage(TTexture(tex));
@@ -315,9 +315,10 @@ begin
   gfx.draw.ImagePart(x+points[i].x,y+points[i].Y,tex,color,rects[i]);
 end;
 
-function TPatchedImage.GetRegion: TUIShape;
+function TPatchedImage.GetRegion:TUIShape;
 begin
-
+ result:=nil;
+ raise EError.Create('TPatchedImage.GetRegion is not implemented');
 end;
 
 procedure TPatchedImage.Precache(part: single);

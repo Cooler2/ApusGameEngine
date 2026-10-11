@@ -22,8 +22,12 @@ uses
 const
   PORT       = 18789;
   LOGIN      = 'tester';
-  PASSWORD   = 'secret';
   CLIENTINFO = 'testclient';
+
+function UTF8Password:String8;
+begin
+  result:='secret-'+UTF8.Encode(WideString(#$0416#$4E2D));
+end;
 
 // Same short hash the client/server use, so the seeded account matches.
 function ShortMD5(const st:String8):String8;
@@ -32,7 +36,7 @@ begin
 end;
 
 type
-  // In-memory account store with one pre-seeded account.
+  // In-memory account store with a pre-seeded UTF-8 password.
   TMemAccounts=class(TInterfacedObject,IAccountProvider)
     function FindAccount(const login:String8; out pwdHash,displayName:String8):boolean;
     function CreateAccount(const name,login,pwdHash,extras:String8):String8;
@@ -53,7 +57,7 @@ function TMemAccounts.FindAccount(const login:String8; out pwdHash,displayName:S
 begin
   result:=login=LOGIN;
   if result then begin
-    pwdHash:=ShortMD5(PASSWORD);
+    pwdHash:=ShortMD5(UTF8Password);
     displayName:='Tester';
   end;
 end;
@@ -157,8 +161,8 @@ begin
   SetEventHandler('Net\Conn3\DataReceived',OnData,emQueued);
 
   // --- authentication ---
-  Connect('127.0.0.1:'+IntToStr(PORT),LOGIN,PASSWORD,CLIENTINFO);
-  StartTest('login/auth handshake');
+  Connect(String8('127.0.0.1:'+IntToStr(PORT)),String8(LOGIN),UTF8Password,String8(CLIENTINFO));
+  StartTest('UTF-8 password login/auth handshake');
   Check(PumpUntil(@cliLoggedCount,1,8000),'client reaches Logged state');
   EndTest;
 

@@ -132,13 +132,14 @@ type
 // Perform 4/8 blur of the rectangle on 32-bit image
 procedure LightBlur32(buf:pointer;x1,y1,x2,y2,lPitch:integer);
  var
-  o,v:cardinal;
+  o:PByte;
+  v:cardinal;
   sizex,sizey,lPitch2:integer;
   buf2:pointer;
   x,y:integer;
   pc1,pc2,pc3,pc4:PCardinal;
  begin
-  o:=cardinal(buf)+(x1+1)*4+(y1+1)*lPitch;
+  o:=PByte(buf)+(x1+1)*4+(y1+1)*lPitch;
   sizex:=x2-x1+1;
   sizey:=y2-y1+1;
   getmem(buf2,sizex*sizey*4);
@@ -394,19 +395,19 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
 // Perform draft blur of the rectangle in horizontal direction
 procedure DraftBlur32X(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
  var
-  o,o2:integer;
+  o,o2:PByte;
   sizex,sizey,lPitch2:integer;
   buf2:pointer;
   r,g,b,mult,v:integer;
   x,y,xc:integer;
  begin
-  o:=integer(buf)+x1*4+y1*lPitch;
+  o:=PByte(buf)+x1*4+y1*lPitch;
   sizex:=x2-x1+1;
   sizey:=y2-y1+1;
   getmem(buf2,sizex*sizey*4);
   lPitch2:=sizex*4;
   mult:=65536 div (dist*2+1);
-  o2:=cardinal(buf2);
+  o2:=PByte(buf2);
   for y:=y1 to y2 do begin
    r:=0; g:=0; b:=0;
    for x:=-dist to dist do begin
@@ -437,8 +438,8 @@ procedure DraftBlur32X(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
    end;
    o:=o+lPitch;
   end;
-  o2:=integer(buf2);
-  o:=integer(buf)+x1*4+y1*lPitch;
+  o2:=PByte(buf2);
+  o:=PByte(buf)+x1*4+y1*lPitch;
   for y:=y1 to y2 do begin
    move(PInt(o2)^,PInt(o)^,sizex*4);
    o:=o+lPitch;
@@ -450,7 +451,7 @@ procedure DraftBlur32X(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
 // Perform draft blur of the rectangle in vertical direction
 procedure DraftBlur32Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
  var
-  o,o2:integer;
+  o,o2:PByte;
   sizex,sizey,lPitch2:integer;
   buf2:pointer;
   r,g,b,mult,v:integer;
@@ -463,8 +464,8 @@ procedure DraftBlur32Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
   mult:=65536 div (dist*2+1);
   for x:=x1 to x2 do begin
    r:=0; g:=0; b:=0;
-   o:=integer(buf)+x*4+y1*lPitch;
-   o2:=integer(buf2)+4*(x-x1);
+   o:=PByte(buf)+x*4+y1*lPitch;
+   o2:=PByte(buf2)+4*(x-x1);
    for y:=-dist to dist do begin
     yc:=y;
     if y<0 then yc:=0;
@@ -492,8 +493,8 @@ procedure DraftBlur32Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
     inc(o2,lPitch2);
    end;
   end;
-  o2:=integer(buf2);
-  o:=integer(buf)+x1*4+y1*lPitch;
+  o2:=PByte(buf2);
+  o:=PByte(buf)+x1*4+y1*lPitch;
   for y:=y1 to y2 do begin
    move(PInt(o2)^,PInt(o)^,sizex*4);
    o:=o+lPitch;
@@ -790,19 +791,19 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
 // Perform draft blur of the rectangle in horizontal direction
 procedure DraftBlur8X(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
  var
-  o,o2:integer;
+  o,o2:PByte;
   sizex,sizey,lPitch2:integer;
   buf2:pointer;
   a,mult,v:integer;
   x,y,xc:integer;
  begin
-  o:=integer(buf)+x1+y1*lPitch;
+  o:=PByte(buf)+x1+y1*lPitch;
   sizex:=x2-x1+1;
   sizey:=y2-y1+1;
   getmem(buf2,sizex*sizey);
   lPitch2:=sizex;
   mult:=65536 div (dist*2+1);
-  o2:=cardinal(buf2);
+  o2:=PByte(buf2);
   for y:=y1 to y2 do begin
    a:=0;
    for x:=-dist to dist do begin
@@ -827,8 +828,8 @@ procedure DraftBlur8X(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
    end;
    o:=o+lPitch;
   end;
-  o2:=integer(buf2);
-  o:=integer(buf)+x1+y1*lPitch;
+  o2:=PByte(buf2);
+  o:=PByte(buf)+x1+y1*lPitch;
   for y:=y1 to y2 do begin
    move(Pbyte(o2)^,PByte(o)^,sizex);
    o:=o+lPitch;
@@ -840,7 +841,7 @@ procedure DraftBlur8X(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
 // Perform draft blur of the rectangle in vertical direction
 procedure DraftBlur8Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
  var
-  o,o2:integer;
+  o,o2:PByte;
   sizex,sizey,lPitch2:integer;
   buf2:pointer;
   a,mult,v:integer;
@@ -853,8 +854,8 @@ procedure DraftBlur8Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
   mult:=65536 div (dist*2+1);
   for x:=x1 to x2 do begin
    a:=0;
-   o:=integer(buf)+x+y1*lPitch;
-   o2:=integer(buf2)+(x-x1);
+   o:=PByte(buf)+x+y1*lPitch;
+   o2:=PByte(buf2)+(x-x1);
    for y:=-dist to dist do begin
     yc:=y;
     if y<0 then yc:=0;
@@ -876,8 +877,8 @@ procedure DraftBlur8Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
     inc(o2,lPitch2);
    end;
   end;
-  o2:=integer(buf2);
-  o:=integer(buf)+x1+y1*lPitch;
+  o2:=PByte(buf2);
+  o:=PByte(buf)+x1+y1*lPitch;
   for y:=y1 to y2 do begin
    move(PByte(o2)^,PByte(o)^,sizex);
    o:=o+lPitch;
@@ -1228,7 +1229,7 @@ procedure Emboss32;
    for i:=0 to aheight-DirY*2-1 do begin
     a2:=abuf; inc(a2,awidth*i);
     for j:=0 to awidth-DirX*2-1 do begin
-     v:=PByte(integer(a2)+d)^-PByte(integer(a2))^;
+     v:=(PByte(a2)+d)^-PByte(a2)^;
      v:=v div 2;
      a2^:=v;
      inc(a2);

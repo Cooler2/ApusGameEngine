@@ -1463,6 +1463,7 @@ procedure TUIScrollBar.CalcSliderPos(minSize:single);
    exit;
   end;
 
+  minSliderSize:=minSize; // absolute pixels unless a relative size is requested
   if horizontal then begin
    if minSize<2 then // relative to width?
     minSliderSize:=size.y*minSize;

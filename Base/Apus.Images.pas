@@ -106,8 +106,8 @@ type
  // RawImage is a static image with a linear unpacked structure
  // The main feature of such images is that they can be drawn on (including via
  // direct memory access and the pixel format)
- // This is an abstract class too; it does not define a specific way to create
- // and store the image
+ // This class does not define a specific way to create or resize storage;
+ // owning descendants implement resizing
  // This object doesn't own data
  TRawImage=class(TBaseImage)
   pixelFormat:TImagePixelFormat;
@@ -125,7 +125,7 @@ type
   procedure Lock; virtual;  // fills the fields with actual values
   procedure Unlock; virtual;
   procedure Clear(color:cardinal); virtual;
-  procedure Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal=0); virtual; abstract;
+  procedure Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal=0); virtual;
   function GetPixel(x,y:integer):cardinal; virtual; // get raw value of pixel
   function GetPixelARGB(x,y:integer):cardinal; virtual; // get ARGB value of pixel
   procedure SetPixel(x,y:integer;value:cardinal); virtual;
@@ -525,6 +525,11 @@ end;
   Unlock;
   src.Unlock;
  end;
+end;
+
+procedure TRawImage.Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal);
+begin
+ NotSupported('Cannot resize a non-owning raw image');
 end;
 
 function TRawImage.GetPixel(x,y:integer):cardinal;

@@ -474,7 +474,10 @@ begin
  result:=Longint(DefWindowProcW(Window,Message,WParam,LParam));
  {$IFDEF RANGECHECK_ON} {$R+} {$ENDIF}
  except
-  on e:Exception do Log.Force('WindowProc error: '+ExceptionMsg(e));
+  on e:Exception do begin
+   result:=0;
+   Log.Force('WindowProc error: '+ExceptionMsg(e));
+  end;
  end;
 end;
 

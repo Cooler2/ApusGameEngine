@@ -112,6 +112,65 @@ begin
   end;
 end;
 
+// Compare cropped blur against a scalar reference, including bottom-up images.
+procedure TestDraftBlurPointers;
+const
+  BW=5;
+  BH=4;
+var
+  src,expected:ByteArray;
+  mode,sign,x,y,k,xx,yy,bpp,pitch,ofs,sum,v:integer;
+  origin:PByte;
+  ok:boolean;
+begin
+  StartTest('Draft blur pointer arithmetic');
+  for mode:=0 to 3 do
+    for sign:=0 to 1 do begin
+      if mode<2 then bpp:=4 else bpp:=1;
+      pitch:=BW*bpp+4;
+      SetLength(src,pitch*BH);
+      FillChar(src[0],length(src),$AA);
+      origin:=@src[0];
+      if sign=1 then begin
+        inc(origin,pitch*(BH-1));
+        pitch:=-pitch;
+      end;
+      for y:=0 to BH-1 do
+        for x:=0 to BW-1 do begin
+          v:=y*10+x+1;
+          if bpp=4 then PCardinal(origin+y*pitch+x*bpp)^:=cardinal(v*$10101)
+            else (origin+y*pitch+x)^:=v;
+        end;
+      expected:=Copy(src);
+      for y:=1 to 2 do
+        for x:=1 to 3 do begin
+          sum:=0;
+          for k:=-1 to 1 do begin
+            xx:=x; yy:=y;
+            if mode in [0,2] then xx:=Clamp(x+k,1,3)
+              else yy:=Clamp(y+k,1,2);
+            inc(sum,yy*10+xx+1);
+          end;
+          v:=(sum*(65536 div 3)) shr 16;
+          ofs:=y*pitch+x*bpp;
+          if sign=1 then inc(ofs,(-pitch)*(BH-1));
+          if bpp=4 then PCardinal(@expected[ofs])^:=cardinal(v*$10101)
+            else expected[ofs]:=v;
+        end;
+      case mode of
+        0:DraftBlur32X(origin,1,1,3,2,pitch,1);
+        1:DraftBlur32Y(origin,1,1,3,2,pitch,1);
+        2:DraftBlur8X(origin,1,1,3,2,pitch,1);
+        3:DraftBlur8Y(origin,1,1,3,2,pitch,1);
+      end;
+      ok:=true;
+      for k:=0 to high(src) do
+        if src[k]<>expected[k] then ok:=false;
+      Check(ok,'mode '+IntToStr(mode)+', pitch sign '+IntToStr(sign));
+    end;
+  EndTest;
+end;
+
 procedure TestHeightToNormalMap;
 begin
   StartTest('HeightToNormalMap');
@@ -128,6 +187,7 @@ begin
     writeln('Testing [GfxFilters] module');
     writeln;
 
+    TestDraftBlurPointers;
     TestHeightToNormalMap;
 
     writeln;

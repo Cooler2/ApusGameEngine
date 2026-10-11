@@ -635,24 +635,10 @@ implementation
   end;
 
  function FindListElement(index:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
-  var
-   p:integer;
-   fieldname:String8;
-   obj:pointer;
-   objClass:TVarClass;
   begin
-   {p:=pos('.',index);
    result:=nil;
    varClass:=nil;
-   if p>0 then begin
-    fieldname:=copy(name,p+1,length(name)-p);
-    SetLength(name,p-1);
-    obj:=contextClass.GetField(context,name,objClass);
-    if (obj<>nil) and objClass.InheritsFrom(TVarTypeStruct) then
-     result:=FindField(fieldname,varClass,obj,TVarClassStruct(objClass));
-   end else begin
-    result:=contextClass.GetField(context,name,varClass)
-   end;}
+   raise EError.Create('FindListElement is not implemented');
   end;
 
 

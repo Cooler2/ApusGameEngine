@@ -59,6 +59,7 @@ type
   procedure SetUniform(name:String8;const value:TVec2); overload; override;
   procedure SetUniform(name:String8;const value:TVec3); overload; override;
   procedure SetUniform(name:String8;const value:TMat4d); overload; override;
+  procedure SetUniform(name:String8;const value:TMat4); overload; override;
   procedure SetUniform(name:String8;const value:TQuat); overload; override;
   procedure SetUniform(uniLoc:integer;const value:TVec3); overload;
   procedure UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4); // Get transformation matrices and upload them to uniforms
@@ -336,6 +337,11 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4)
   if uShadowMapMat>=0 then begin
    glUniformMatrix4fv(uShadowMapMat,1,GLboolean(GL_FALSE),@shadowMapMatrix);
   end;
+ end;
+
+procedure TGLShader.SetUniform(name:String8;const value:TMat4);
+ begin
+  SetUniformInternal(self,name,30,value);
  end;
 
 procedure TGLShader.SetUniform(name:String8;const value:TMat4d);

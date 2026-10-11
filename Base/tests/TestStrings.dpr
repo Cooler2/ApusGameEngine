@@ -379,6 +379,35 @@ begin
   EndTest;
 end;
 
+procedure TestString8RawBytes;
+var
+  text,encoded,s:String8;
+  arr:Strings8;
+begin
+  StartTest('String8 byte operations preserve UTF-8');
+  // Cyrillic Zhe, CJK, and a supplementary-plane character.
+  SetLength(text,9);
+  text[1]:=AnsiChar($D0); text[2]:=AnsiChar($96);
+  text[3]:=AnsiChar($E4); text[4]:=AnsiChar($B8); text[5]:=AnsiChar($AD);
+  text[6]:=AnsiChar($F0); text[7]:=AnsiChar($9F);
+  text[8]:=AnsiChar($98); text[9]:=AnsiChar($80);
+  Check(text.Escape=text,'Escape preserves non-ASCII bytes');
+  Check(text.Unescape=text,'Unescape preserves non-ASCII bytes');
+  Check(text.HtmlEscape=text,'HtmlEscape preserves non-ASCII bytes');
+  Check(text.UrlDecode=text,'UrlDecode preserves literal non-ASCII bytes');
+  encoded:='%D0%96%E4%B8%AD%F0%9F%98%80';
+  Check(text.UrlEncode=encoded,'UrlEncode encodes UTF-8 bytes');
+  Check(encoded.UrlDecode=text,'UrlDecode reconstructs UTF-8 bytes');
+  s:='"'+text+'""x"';
+  arr:=s.Split(',','"');
+  Check((length(arr)=1) and (arr[0]=text+'"x'),'quoted split preserves UTF-8');
+  s:=text+'\,x';
+  arr:=s.SplitEscaped(',');
+  Check((length(arr)=1) and (arr[0]=text+',x'),'escaped split preserves UTF-8');
+  Check(arr.JoinEscaped(',')=s,'escaped join preserves UTF-8');
+  EndTest;
+end;
+
 procedure TestString8Quote;
 var s:String8;
 begin
@@ -1075,6 +1104,7 @@ begin
     TestString8Split;
     TestString8SplitOutsideQuotes;
     TestString8SplitEscaped;
+    TestString8RawBytes;
     TestString8Quote;
     TestString8Escape;
     TestString8Url;

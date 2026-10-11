@@ -1051,7 +1051,7 @@ begin
   // set debugger name outside lock
   {$IFDEF DELPHI}
   {$IF Declared(TThread.NameThreadForDebugging)}
-  TThread.NameThreadForDebugging(uniqueName);
+  TThread.NameThreadForDebugging(string(uniqueName)); // select the Unicode RTL overload
   {$ENDIF}
   {$ELSE}
   TThread.NameThreadForDebugging(uniqueName);
@@ -1156,7 +1156,7 @@ begin
   Log.Msg('Thread ID: %d named %s',[data^.ID,data^.uniqueName]);
   {$IFDEF DELPHI}
   {$IF Declared(TThread.NameThreadForDebugging)}
-  TThread.NameThreadForDebugging(data^.uniqueName);
+  TThread.NameThreadForDebugging(string(data^.uniqueName)); // select the Unicode RTL overload
   {$ENDIF}
   {$ELSE}
   TThread.NameThreadForDebugging(data^.uniqueName);

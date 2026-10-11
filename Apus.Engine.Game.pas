@@ -2389,7 +2389,8 @@ procedure TGame.RemoveWindow(wnd:TWindow);
 class function TVarTypeGameClass.GetField(variable:pointer;fieldName:string8;
   out varClass:TVarClass):pointer;
  begin
-
+  // Use the base unknown-field contract until game reflection is implemented.
+  result:=inherited GetField(variable,fieldName,varClass);
  end;
 
 class function TVarTypeGameClass.ListFields:string8;

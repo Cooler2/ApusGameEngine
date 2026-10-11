@@ -225,6 +225,28 @@ procedure OnItemCreated(event:TEventStr;tag:TTag);
   if TObject(tag) is TUIHint then createdHintText:=TUIHint(tag).simpleText;
  end;
 
+procedure TestAbsoluteSliderSize;
+var
+  bar:TUIScrollBar;
+  orientation:integer;
+begin
+  StartTest('Scrollbar absolute minimum size');
+  for orientation:=0 to 1 do begin
+    if orientation=0 then bar:=TUIScrollBar.CreateH(100,10,nil,'minH')
+      else bar:=TUIScrollBar.CreateV(10,100,nil,'minV');
+    try
+      bar.SetRange(0,100,1);
+      bar.CalcSliderPos(20);
+      Check(abs((bar.sliderEnd-bar.sliderStart)-0.2)<0.0001,'absolute 20 pixel minimum');
+      bar.CalcSliderPos(0.5);
+      Check(abs((bar.sliderEnd-bar.sliderStart)-0.05)<0.0001,'relative half-thickness minimum');
+    finally
+      bar.Free;
+    end;
+  end;
+  EndTest;
+end;
+
 procedure TestPublication;
  var
   root:TUIElement;
@@ -252,6 +274,7 @@ begin
   TestNoWindow;
   TestTwoWindows;
   TestWorkerThread;
+  TestAbsoluteSliderSize;
   TestPublication;
   writeln;
   if testsFailed=0 then

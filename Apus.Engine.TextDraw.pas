@@ -153,6 +153,7 @@ type
 
  // Extended raster-font descriptor used by text drawer for adaptive scaling and fallback.
  TUnicodeFontEx=class(TUnicodeFont)
+  displayName:string; // runtime alias, separate from the fixed-size file header
   spareFont:integer; // use this font for missed characters
   spareScale:single; // scale difference: 2.0 means that spare font is 2 times smaller than this
   downscaleFactor:single; // scale glyphs down if scale is less than this value
@@ -276,8 +277,9 @@ function TTextDrawer.LoadRasterFont(const font:TBuffer;asName:string=''):string;
  begin
   ASSERT(length(fonts)<32);
   fontObj:=TUnicodeFontEx.LoadFromMemory(font,true);
-  if asName<>'' then fontObj.header.fontName:=asName;
-  result:=fontObj.header.FontName;
+  if asName<>'' then fontObj.displayName:=asName
+   else fontObj.displayName:=string(fontObj.header.FontName);
+  result:=fontObj.displayName;
   fonts:=fonts+[fontObj];
   if defaultFontHandle=0 then
    defaultFontHandle:=(100 shl 16)+high(fonts);
@@ -351,8 +353,8 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    if fonts[i]<>nil then begin
     rate:=0;
     if fonts[i] is TUnicodeFont then
-     with fonts[i] as TUnicodeFont do begin
-      if lowercase {TODO: use st.ToLower}(header.FontName)=name then rate:=matchRate;
+     with fonts[i] as TUnicodeFontEx do begin
+      if LowerCase(displayName)=name then rate:=matchRate;
       // size=0 means "native size, no size preference" (see ITextDrawer.GetFont), so the
       // size term is skipped entirely: with realsize=0 it would be a division by zero.
       if realsize>0 then
@@ -449,7 +451,7 @@ function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   end else
   if obj is TUnicodeFont then begin
    size:=s*TUnicodeFont(obj).header.width/10;
-   result:=GetFont(TUnicodeFont(obj).header.FontName,size*scale,fsIgnoreScale);
+   result:=GetFont(TUnicodeFontEx(obj).displayName,size*scale,fsIgnoreScale);
   end else
    raise EWarning.Create('Not implemented for '+obj.ClassName);
  end;
@@ -1140,7 +1142,7 @@ var
    activeGlyphCache.Keep;
    stepU:=textCache.stepU*2;
    stepV:=textCache.stepV*2;
-   oldUL:=false; oldColor:=color;
+   oldUL:=false; oldColor:=color; oldLink:=0;
    outVertex:=@txtBuf[txtVertCount];
    for i:=0 to length(st)-1 do begin
     if st[i]=$FEFF then continue; // Skip BOM

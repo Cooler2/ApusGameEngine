@@ -182,7 +182,7 @@ implementation
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}Apus.Android,{$IFEND}
-   SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
+   SysUtils,Types,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.UIScene,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.Notifications,Apus.Engine.RobotAPI,
@@ -203,6 +203,7 @@ type
   v:TAnimatedValue;
   tex:TTexture;
   constructor Create;
+  function GetArea:TRect; override;
   procedure Render; override;
  end;
 
@@ -1093,6 +1094,15 @@ begin
  zOrder:=-1; // place it below others
  loaded:=true; // nothing to load: it is shown while the other scenes load
  SetStatus(TSceneStatus.ssActive);
+end;
+
+function TLoadingScene.GetArea:TRect;
+var
+ wnd:TWindow;
+begin
+ wnd:=TWindow(ownerWindow);
+ if wnd=nil then exit(Types.Rect(0,0,0,0));
+ result:=Types.Rect(0,0,wnd.canvasWidth,wnd.canvasHeight);
 end;
 
 procedure TLoadingScene.Render;

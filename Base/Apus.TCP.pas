@@ -93,10 +93,10 @@ const
  local_IP:cardinal=$7F000001; // localhost
  PAGE_SIZE = 30000;
 
-procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resolvedPort:word);
+procedure ResolveAddress(resolveAdr:String8;var resolvedIP:cardinal;var resolvedPort:word);
 var
   i:integer;
-  address:AnsiString;
+  address:String8;
   port:word;
   ip:cardinal;
 begin
@@ -442,7 +442,7 @@ begin
   if ioctlsocket(sock,longint(FIONBIO),arg)<>0 then
     raise EError.Create('Cannot make non-blocking socket');
 
-  ResolveAddress(serverAddress,ip,port);
+  ResolveAddress(String8(serverAddress),ip,port);
   Log.Msg('Address resolved: %s:%d',[Conv.FormatIp(ip),port]);
   addr.sin_family:=PF_INET;
   addr.sin_port:=htons(port);

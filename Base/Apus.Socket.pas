@@ -20,7 +20,7 @@ uses
   {$IFDEF DARWIN}NetDB,{$ELSE}CNetDB,{$ENDIF}
   {$ENDIF}
 {$ENDIF}
-  Apus.Types;
+  Apus.Types,Apus.Core;
 
 const
  LOCAL_IP = $7F000001; // localhost = 127.0.0.1
@@ -89,10 +89,10 @@ function CloseSocket(s: TNativeSocket): LongInt;
 function htons(value: Word): Word;
 function ntohs(value: Word): Word;
 function htonl(value: Cardinal): Cardinal;
-function ResolveIPv4Address(address: AnsiString): Cardinal;
+function ResolveIPv4Address(address:String8):cardinal;
 
 implementation
-uses Apus.Core, Apus.Conv;
+uses Apus.Conv;
 
 {$IFDEF MSWINDOWS}
 // many routines have different declaration in different WinSock2 import units
@@ -311,7 +311,7 @@ begin
   {$ENDIF}
 end;
 
-function ResolveIPv4Address(address: AnsiString): Cardinal;
+function ResolveIPv4Address(address:String8):cardinal;
 var
   {$IFDEF DARWIN}
   hostEntry:NetDB.THostEntry;

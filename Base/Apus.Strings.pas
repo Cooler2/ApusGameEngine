@@ -346,6 +346,16 @@ end;
 // PAnsiChar(Pointer(self)), never as Move(self[i],...): Delphi makes the string unique
 // for that, which releases a reference the const parameter never held.
 
+// Append a raw byte without Delphi promoting UTF8String + AnsiChar to Unicode.
+procedure AppendByte(var st:String8;ch:AnsiChar); inline;
+var
+  n:integer;
+begin
+  n:=System.Length(st);
+  SetLength(st,n+1);
+  st[n+1]:=ch;
+end;
+
 function String8Helper.Length:integer;
 begin result:=System.Length(self); end;
 
@@ -644,7 +654,7 @@ begin
         token:='';
         k:=start+1;
         while k<i do begin
-          token:=token+self[k]; // collapse each doubled quoteChar to one literal
+          AppendByte(token,self[k]); // collapse each doubled quoteChar to one literal
           if (self[k]=quoteChar) and (k+1<i) and (self[k+1]=quoteChar) then inc(k,2)
             else inc(k);
         end;
@@ -705,7 +715,7 @@ begin
   escaped:=false;
   for i:=1 to System.Length(self) do begin
     if escaped then begin
-      result[cnt]:=result[cnt]+self[i];
+      AppendByte(result[cnt],self[i]);
       escaped:=false;
     end else
     if self[i]=escapeChar then
@@ -715,7 +725,7 @@ begin
       inc(cnt);
       SetLength(result,cnt+1);
     end else
-      result[cnt]:=result[cnt]+self[i];
+      AppendByte(result[cnt],self[i]);
   end;
 end;
 
@@ -784,7 +794,7 @@ begin
       #13: result:=result+escR;
       #9:  result:=result+escT;
       '\': result:=result+escSlash;
-      else result:=result+self[i];
+      else AppendByte(result,self[i]);
     end;
 end;
 
@@ -799,13 +809,13 @@ begin
         'r': result:=result+#13;
         't': result:=result+#9;
         '\': result:=result+'\';
-        else result:=result+self[i];
+        else AppendByte(result,self[i]);
       end;
       escaped:=false;
     end else if self[i]='\' then
       escaped:=true
     else
-      result:=result+self[i];
+      AppendByte(result,self[i]);
   end;
 end;
 
@@ -819,9 +829,12 @@ begin
   for i:=1 to System.Length(self) do begin
     b:=byte(self[i]);
     if (self[i] in ['A'..'Z','a'..'z','0'..'9','-','_','.','~']) then
-      result:=result+self[i]
-    else
-      result:=result+percent+HexChars[1+b shr 4]+HexChars[1+b and $F];
+      AppendByte(result,self[i])
+    else begin
+      AppendByte(result,percent);
+      AppendByte(result,HexChars[1+b shr 4]);
+      AppendByte(result,HexChars[1+b and $F]);
+    end;
   end;
 end;
 
@@ -839,12 +852,12 @@ begin
   result:=''; i:=1;
   while i<=System.Length(self) do begin
     if (self[i]='%') and (i+2<=System.Length(self)) then begin
-      result:=result+AnsiChar(HexVal(self[i+1])*16+HexVal(self[i+2]));
+      AppendByte(result,AnsiChar(HexVal(self[i+1])*16+HexVal(self[i+2])));
       inc(i,3);
     end else if self[i]='+' then begin
-      result:=result+space; inc(i);
+      AppendByte(result,space); inc(i);
     end else begin
-      result:=result+self[i]; inc(i);
+      AppendByte(result,self[i]); inc(i);
     end;
   end;
 end;
@@ -866,7 +879,7 @@ begin
       '>': result:=result+escGt;
       '"': result:=result+escQuote;
       '''':result:=result+escApos;
-      else result:=result+self[i];
+      else AppendByte(result,self[i]);
     end;
 end;
 
@@ -1442,12 +1455,12 @@ var
 begin
   result:='';
   for i:=0 to high(self) do begin
-    if i>0 then result:=result+delimiter;
+    if i>0 then AppendByte(result,delimiter);
     st:=self[i];
     for j:=1 to System.Length(st) do begin
       if (st[j]=delimiter) or (st[j]=escapeChar) then
-        result:=result+escapeChar;
-      result:=result+st[j];
+        AppendByte(result,escapeChar);
+      AppendByte(result,st[j]);
     end;
   end;
 end;

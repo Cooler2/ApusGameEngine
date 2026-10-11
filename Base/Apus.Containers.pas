@@ -535,7 +535,7 @@ function TQueue.Empty:boolean;
 function TQueue.Get(out item:TDataItem):boolean;
  begin
   ASSERT(length(data)>0);
-  if length(data)=0 then exit;
+  if length(data)=0 then exit(false);
   SpinLock(lock);
   try
    if used<>free then begin

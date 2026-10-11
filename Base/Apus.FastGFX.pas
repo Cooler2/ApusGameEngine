@@ -1682,15 +1682,8 @@ const
                           width,height:integer;
                           horizontal:boolean;
                           blender:TBlenderFunc);
-  var
-   s1,s2:PCardinal;
-   i,j:integer;
   begin
-   for i:=1 to height do begin
-    for j:=1 to width do begin
-     inc(s1); inc(s2);
-    end;
-   end;
+   NotSupported('TransitionRect is not implemented');
   end;
 
  procedure SimpleDraw(sour:pointer;sPitch:integer;
