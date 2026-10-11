@@ -178,7 +178,9 @@ type
   PGLuint64   = ^GLuint64;
   PGLenum     = ^GLenum;
   PGLuint     = ^GLuint;
-  PGLchar     = ^GLchar;
+  // APUS: local change, was "PGLchar = ^GLchar;" - Delphi passes neither PAnsiChar nor
+  // a string literal to ^AnsiChar (E2010), so it is PAnsiChar, as in dglOpenGL
+  PGLchar     = PAnsiChar;
   PPGLchar    = ^PGLChar;
   PGLbitfield = ^GLbitfield;
   PGLint      = ^GLint;
