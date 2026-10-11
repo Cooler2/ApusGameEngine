@@ -44,6 +44,8 @@
 //   text-shadow [inh]    '<color> [dx dy]' | none — a second text layer under the first
 //                        (dx,dy in logical units, 1 1 by default); replaces toWithShadow
 //   text-decoration [inh]  underline | none
+//   caption-display      none disables the button's own caption (text remains available)
+//   content-press-offset button caption/children shift down while pressed, logical units (default 1)
 //   text-offset-x/y      caption shift, logical units (state-able: ':pressed { text-offset-y:1 }')
 //   tint                 TUIImage image tint (content image, not inherited)
 //   tick-color           checkbox/radio mark

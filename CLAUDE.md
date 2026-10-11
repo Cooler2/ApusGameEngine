@@ -88,7 +88,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 
 **Core**: GameApp, Game, API, Types
 **Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene, MessageScene, Notifications
-**UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle
+**UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle, TextFXStyle
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller, Clipboard
@@ -121,7 +121,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
   Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, GfxFilters, GfxFormats, GlyphCache,
   Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
 - `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestWindowLock`, `TestVirtualMouse`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
-  `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestBlendModes`
+  `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestBlendModes`
   (needs a GL window); `OpenGL`, `PlatformTest` - compile-only smoke; run by `tests/linux_smoke.sh`,
   `tests/windows_smoke.ps1`, `tests/macos_smoke.sh`. `tests/robot_mouse_smoke.sh` - local end-to-end
   run of the Robot API virtual mouse on demo/UI (needs a GL display, e.g. Xvfb)

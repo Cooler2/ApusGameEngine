@@ -85,13 +85,15 @@ end;
 
 // Actual result: DrawTextFX over an opaque background
 procedure DrawFX(bg,color:cardinal;const st:String8;align:TTextAlignment;
-  const layers:array of TTextEffectLayer);
+  const layers:array of TTextEffectLayer;layersOnly:boolean=false);
 begin
   gfx.BeginPaint(rt);
   try
     gfx.target.Clear(bg,-1,-1);
     gfx.target.BlendMode(blAlpha);
-    DrawTextFX(font,TEXT_X,TEXT_Y,color,st,align,layers);
+    if layersOnly then
+      DrawTextFXLayers(font,TEXT_X,TEXT_Y,color shr 24,st,align,layers)
+    else DrawTextFX(font,TEXT_X,TEXT_Y,color,st,align,layers);
     ReadTarget;
   finally
     gfx.EndPaint;
@@ -178,7 +180,7 @@ end;
 
 // Compare img with the CPU reference; returns the max channel difference
 function CompareWithReference(const mask:TPlane;bg,color:cardinal;
-  const layers:array of TTextEffectLayer):integer;
+  const layers:array of TTextEffectLayer;layersOnly:boolean=false):integer;
 var
   alphas:array of TPlane;
   i,x,y,ch,d,idx:integer;
@@ -202,9 +204,11 @@ begin
         for ch:=0 to 2 do p[ch]:=Channel(layers[i].color,ch*8)*la+p[ch]*(1-la);
         pa:=la+pa*(1-la);
       end;
-      la:=mask[idx];
-      for ch:=0 to 2 do p[ch]:=Channel(color,ch*8)*la+p[ch]*(1-la);
-      pa:=la+pa*(1-la);
+      if not layersOnly then begin
+        la:=mask[idx];
+        for ch:=0 to 2 do p[ch]:=Channel(color,ch*8)*la+p[ch]*(1-la);
+        pa:=la+pa*(1-la);
+      end;
       // over the opaque background with the draw-time alpha
       actual:=Pixel(x,y);
       for ch:=0 to 2 do begin
@@ -216,21 +220,21 @@ begin
 end;
 
 function RunCase(const st:String8;align:TTextAlignment;bg,color:cardinal;
-  const layers:array of TTextEffectLayer):integer;
+  const layers:array of TTextEffectLayer;layersOnly:boolean=false):integer;
 var
   mask:TPlane;
 begin
   mask:=ReadMask(st,align);
-  DrawFX(bg,color,st,align,layers);
-  result:=CompareWithReference(mask,bg,color,layers);
+  DrawFX(bg,color,st,align,layers,layersOnly);
+  result:=CompareWithReference(mask,bg,color,layers,layersOnly);
 end;
 
 procedure CheckCase(const name:String8;const st:String8;align:TTextAlignment;bg,color:cardinal;
-  const layers:array of TTextEffectLayer);
+  const layers:array of TTextEffectLayer;layersOnly:boolean=false);
 var
   diff:integer;
 begin
-  diff:=RunCase(st,align,bg,color,layers);
+  diff:=RunCase(st,align,bg,color,layers,layersOnly);
   Check(diff<=TOLERANCE,Format('%s: max difference %d > %d',[name,diff,TOLERANCE]));
 end;
 
@@ -286,6 +290,28 @@ begin
   EndTest;
 end;
 
+procedure TestLayerSprites;
+var
+  glow:TTextEffectLayer;
+begin
+  StartTest('Effect-only sprites vs CPU reference and composite cache');
+  glow:=TTextEffectLayer.Glow($C0FF8040,4,1);
+  // Both modes have rgb=0: they must not share the same cached texture.
+  CheckCase('composite first','Layers',taLeft,$FF304050,$FF000000,[glow]);
+  CheckCase('layers without glyphs','Layers',taLeft,$FF304050,$FF000000,[glow],true);
+  CheckCase('cached layers at half opacity','Layers',taLeft,$FF304050,$80000000,[glow],true);
+  CheckCase('cached layers transparent','Layers',taLeft,$FF304050,$00000000,[glow],true);
+  CheckCase('composite after layers','Layers',taLeft,$FF304050,$FF000000,[glow]);
+  CheckCase('invisible effect has no foreground','Only effect',taCenter,$FF304050,$FFFFFFFF,
+    [TTextEffectLayer.Glow(0,0)],true);
+  CheckCase('empty layers draw nothing','Empty',taLeft,$FF304050,$FFFFFFFF,[],true);
+  FlushTextFXCache;
+  CheckCase('layers after flush','FX',taRight,$FF304050,$FF000000,[glow],true);
+  CheckCase('two layers only','Layers',taLeft,$FF304050,$FF000000,
+    [glow,TTextEffectLayer.Shadow($A0102040,2,3,1)],true);
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -321,6 +347,7 @@ begin
     try
       TestSemantics;
       TestCache;
+      TestLayerSprites;
     finally
       FreeAndNil(img);
       FreeImage(rt);

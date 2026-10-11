@@ -8,6 +8,7 @@ uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   SysUtils,
   Apus.Core,
+  Apus.Geom2D,
   Apus.Threads,
   Apus.EventMan,
   Apus.Engine.API,
@@ -73,6 +74,46 @@ procedure TestShowHint;
   Check(TUIHint.Current(w).simpleText='second','new hint is current');
   TUIHint.Current(w).Remove;
   Check(TUIHint.Current(w)=nil,'removed hint is not current any more');
+  DestroyQueuedElements(w);
+  root.Free;
+  w.Free;
+  EndTest;
+ end;
+
+procedure TestHintPosition;
+ var
+  w:TWindow;
+  root,parent:TUIElement;
+  hint:TUIHint;
+  point:TVec2;
+ procedure CheckAnchor(const description:string);
+  begin
+   hint:=TUIHint.Current(w);
+   point:=hint.TransformToScreen(Vec2(0,0));
+   Check(abs(point.x-345)<0.01,description+' X uses canvas coordinates');
+   Check(abs(point.y-220)<0.01,description+' Y includes the 10px canvas offset');
+  end;
+ begin
+  StartTest('Hint canvas position');
+  w:=NewWindow('HintPosition');
+  root:=NewSceneRoot(w,1,'positionRoot');
+  root.SetPos(80,45,pivotTopLeft);
+  ShowSimpleHint('translated root',root,345,210,1000);
+  CheckAnchor('Translated root');
+  root.scale:=2;
+  root.padding.Left:=7;root.padding.Top:=11;
+  ShowSimpleHint('scaled root',root,345,210,1000);
+  CheckAnchor('Scaled padded root');
+  root.scroll.Init(13,-4);
+  ShowSimpleHint('scrolled root',root,345,210,1000);
+  CheckAnchor('Scrolled root');
+  parent:=TUIElement.Create(100,80,root,'hintParent');
+  parent.SetPos(100,70,pivotCenter);
+  parent.scale:=1.5;
+  parent.padding.Left:=3;parent.padding.Top:=5;
+  parent.scroll.Init(6,9);
+  ShowSimpleHint('nested parent',parent,345,210,1000);
+  CheckAnchor('Nested scaled parent with pivot and scroll');
   DestroyQueuedElements(w);
   root.Free;
   w.Free;
@@ -205,6 +246,7 @@ procedure TestPublication;
 
 begin
   TestShowHint;
+  TestHintPosition;
   TestParentDestroyed;
   TestHintFreed;
   TestNoWindow;
