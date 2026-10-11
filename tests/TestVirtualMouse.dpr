@@ -720,6 +720,35 @@ procedure TestShutdown;
   EndTest;
  end;
 
+procedure TestShortScrollRange;
+begin
+ StartTest('Scrollbar content smaller than page');
+ bar.SetRange(0,52,618);
+ Check(bar.value=0,'short content starts at zero');
+ bar.value:=100;
+ Check(bar.value=0,'positive assignment stays at zero');
+ bar.value:=-100;
+ Check(bar.value=0,'negative assignment stays at zero');
+ bar.MoveRel(26);
+ Check(bar.value=0,'relative movement cannot scroll short content');
+ bar.MoveTo(100,true);
+ Check(bar.value=0,'smooth movement starts at the valid minimum');
+ bar.SetRange(0,0,618);
+ bar.value:=0;
+ Check(bar.value=0,'empty list stays at zero');
+ bar.SetRange(10,62,618);
+ bar.value:=0;
+ Check(bar.value=10,'nonzero minimum is retained');
+ bar.SetRange(0,1000,100);
+ bar.value:=900;
+ Check(bar.value=900,'large content still reaches its last page');
+ bar.SetRange(0,52,618);
+ Check(bar.value=0,'shrinking content removes the old scroll offset');
+ bar.SetRange(0,1000,100);
+ bar.value:=0;
+ EndTest;
+end;
+
 procedure Setup;
  var
   dlgPanel:TUIElement;
@@ -753,6 +782,7 @@ procedure Setup;
 
 begin
   Setup;
+  TestShortScrollRange;
   TestModeErrors;
   TestPhysicalBefore;
   TestEnable;
