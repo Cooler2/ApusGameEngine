@@ -437,6 +437,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    if flags and fsDontTranslate>0 then result:=result or fhDontTranslate;
    if flags and fsItalic>0 then result:=result or fhItalic;
    if flags and fsBold>0 then result:=result or fhBold;
+   if flags and fsUnderline>0 then result:=result or fhUnderline;
   end
    else result:=0;
  end;
@@ -827,9 +828,9 @@ var
    obj:=GetFontObject(font);
    scale:=1; charScaleX:=1; charScaleY:=1;
 
-   boldStyle:=Bits.HasAny(options,toBold) or Bits.HasAny(font,fsBold);
-   italicStyle:=Bits.HasAny(options,toItalic) or Bits.HasAny(font,fsItalic);
-   underlineStyle:=Bits.HasAny(options,toUnderline) or Bits.HasAny(font,fsUnderline);
+   boldStyle:=Bits.HasAny(options,toBold) or Bits.HasAny(font,fhBold);
+   italicStyle:=Bits.HasAny(options,toItalic) or Bits.HasAny(font,fhItalic);
+   underlineStyle:=Bits.HasAny(options,toUnderline) or Bits.HasAny(font,fhUnderline);
 
    if Bits.HasAny(options,toComplexText) then begin
     Mem.Fill(stackPos,sizeof(stackPos),0);
