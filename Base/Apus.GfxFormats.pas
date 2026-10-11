@@ -8,10 +8,9 @@
 unit Apus.GfxFormats;
 interface
  uses Apus.Core,
-     {$IFDEF TXTIMAGES}Apus.UnicodeFont,{$ENDIF}
      Apus.Images;
  type
-  TImageFileType=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG,ifWebP);
+  TImageFileType=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifDDS,ifPVR,ifPNG,ifWebP);
   TImageFileInfo=record
    width,height:integer;
    format:TImagePixelFormat;
@@ -32,11 +31,6 @@ interface
  procedure LoadTGA(data:ByteArray;var image:TRawImage;allocate:boolean=false);
  // Write image in TGA format into buffer, return size of TGA data
  function SaveTGA(image:TRawImage):ByteArray;
-
- {$IFDEF TXTIMAGES}
- // TXT is a dummy image format for prototyping (specify text drawing func!)
- procedure LoadTXT(data:ByteArray;var image:TRawImage;txtSmallFont,txtNormalFont:TUnicodeFont);
- {$ENDIF}
 
  // String image format (UTF8)
  procedure LoadSTR(data:string8;var image:TRawImage);
@@ -454,108 +448,6 @@ procedure LoadTGA;
    end;
   end;
 
- {$IFDEF TXTIMAGES}
- procedure LoadTXT(data:ByteArray;var image:TRawImage;txtSmallFont,txtNormalFont:TUnicodeFont);
-  var
-   size:integer;
-   w,h,i,line,word,mode,r,g,b,x,y:integer;
-   c:^char;
-   st,str:string;
-   bgnd,border,text:cardinal;
-   img:TRawImage;
-   lines:array[1..100] of string;
-   lx,ly:array[1..100] of integer;
-   lcnt:integer;
-   pixel:PCardinal;
-   curfont:TUnicodeFont;
-  procedure HandleWord;
-   begin
-    if st='' then exit;
-    // обработка накопленного слова
-    if (line=1) and (word=1) then w:=Conv.ToInt(st);
-    if (line=1) and (word=2) then h:=Conv.ToInt(st);
-    if line in [2..4] then begin
-     if word=1 then r:=Conv.ToInt(st);
-     if word=2 then g:=Conv.ToInt(st);
-     if word=3 then b:=Conv.ToInt(st);
-    end;
-    if (line>4) and (line mod 2=1) then
-     if word=1 then x:=Conv.ToInt(st) else y:=Conv.ToInt(st);
-    st:='';
-   end;
-  begin
-   size:=length(data);
-   // парсинг текста
-   r:=255; g:=255; b:=255;
-   line:=1; word:=1; c:=@data[0]; st:='';
-   mode:=1; // текст
-   lcnt:=0; str:='';
-   for i:=1 to size+1 do begin
-    if (i>size) or (c^ in [' ',#8]) then begin
-     // разделитель
-     mode:=2;
-     if i<=size then str:=str+c^;
-     HandleWord;
-     if i>size then begin
-      if line=4 then text:=Color.RGB(r,g,b);
-      if (line>4) and (line mod 2=0) and (lcnt<length(lines)) then begin
-       inc(lcnt); lines[lcnt]:=str; lx[lcnt]:=x; ly[lcnt]:=y;
-      end;
-     end;
-    end else
-    if c^ in [#10,#13] then begin
-     HandleWord;
-     // разделитель строки
-     if c^=#10 then begin
-      if line=1 then img:=Apus.Images.TBitmapImage.Create(w,h);
-      if line=2 then bgnd:=Color.RGB(r,g,b);
-      if line=3 then border:=Color.RGB(r,g,b);
-      if line=4 then text:=Color.RGB(r,g,b);
-      if (line>4) and (line mod 2=0) and (lcnt<length(lines)) then begin
-       inc(lcnt); lines[lcnt]:=str; lx[lcnt]:=x; ly[lcnt]:=y;
-      end;
-      inc(line); str:='';
-     end;
-     mode:=3;
-    end else begin
-     // просто символ
-     if mode>2 then word:=0;
-     if mode>1 then begin mode:=1; inc(word); end;
-     st:=st+c^; str:=str+c^;
-    end;
-    inc(c);
-   end;
-   // Начинаем рисовать
-   for y:=0 to h-1 do begin
-    pixel:=img.data;
-    inc(pixel,y*img.pitch div 4);
-    for x:=0 to w-1 do begin
-     if (y=0) or (x=0) or (y=h-1) or (x=w-1) then pixel^:=border else pixel^:=bgnd;
-     inc(pixel);
-    end;
-   end;
-   {$IFDEF CPU386}
-   if lcnt>0 then begin
-    if (txtSmallFont=nil) or (txtNormalFont=nil) then
-     raise EWarning.Create('TXT: undefined fonts');
-
-    //  TODO: IMPORTANT! Add clipping!
-    for i:=1 to lcnt do begin
-     if pos('!',lines[i])=1 then begin
-      delete(lines[i],1,1);
-      curfont:=txtSmallFont;
-     end else curfont:=txtNormalFont;
-
-     curFont.RenderText(img.data,img.pitch,
-      lx[i]-curFont.GetTextWidth(lines[i]) div 2,ly[i],lines[i],text);
-    end;
-   end;
-   {$ENDIF}
-
-   image:=img;
-  end;
- {$ENDIF}
-
 const
  STR_COLOR_SCALE = 0.339;
 { STR_PREDEFINED_COLORS : array[0..3] of cardinal=
@@ -767,7 +659,6 @@ function CheckFileFormat(fname:string):TImageFileType;
    pvr:^PVRheader;
    i,j:integer;
    riffSize,chunkSize:UInt64;
-   fl:boolean;
   begin
    result:=ifUnknown;
    if length(data)=0 then exit;
@@ -912,13 +803,6 @@ function CheckFileFormat(fname:string):TImageFileType;
     end;
    end;
    // check for BMP
-
-   // check for txt
-   fl:=true;
-   for i:=0 to Min(9,length(data)-1) do begin
-    if not (data[i] in [$30..$39,32,10,13,8]) then fl:=false;
-   end;
-   if fl then result:=ifTXT;
   end;
 
  // Convert a decoded ARGB row into any supported raw image target.

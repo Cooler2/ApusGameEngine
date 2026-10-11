@@ -70,8 +70,6 @@ type
   // Set the flags requesting a screenshot (JPEG or PNG)
   procedure RequestScreenshot(saveAsJpeg:boolean=true); override;
   procedure RequestFrameCapture(obj:TObject=nil); override;
-  procedure StartVideoCap(filename:string); override;
-  procedure FinishVideoCap; override;
 
   // Utility functions
   function MouseInRect(r:TRect):boolean; overload; override;
@@ -193,7 +191,6 @@ type
 implementation
  uses Types, SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools,
       Apus.Engine.Resources,
-      {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
       Apus.Publics, Apus.GfxFormats, Apus.Engine.TextDraw,
       Apus.Engine.Controller,
@@ -1302,16 +1299,6 @@ begin
 end;
 {$ENDIF}
 
-procedure TGame.StartVideoCap(filename:string);
-begin
- window.StartVideoCap(filename);
-end;
-
-procedure TGame.FinishVideoCap;
-begin
- window.FinishVideoCap;
-end;
-
 procedure TGame.Stop;
 var
  i:integer;
@@ -2050,8 +2037,7 @@ procedure TGame.RenderAndPresentFrame;
     PresentFrame;
     presented:=true;
     if window.timings.phaseMetrics then presentUs:=round(Timer.Get(phaseTimer)*1000000);
-    if window.capture.singleFrame or window.capture.videoMode then
-     CaptureFrame;
+    if window.capture.singleFrame then CaptureFrame;
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
    end else
     CoreTime.Sleep(5);

@@ -382,3 +382,6 @@ PutImageToClipboard -> Clipboard.SetImage [Apus.Engine.Clipboard]
 // === Window frame drawn by the app (Apus.Engine.Types, Apus.Engine.Window) ===
 // windowSetup.borderless -> windowSetup.frame:=TWindowFrame.Custom (not a rule: the field name is too common)
 dmBorderless -> ?dmWindow or dmFixedWindow + TGameSettings.frame:=TWindowFrame.Custom [Apus.Engine.Types]
+
+// Removed with no replacement: StartVideoCap/FinishVideoCap (video capture, VIDEOCAPTURE),
+//   LoadTXT and ifTXT (TXT images, TXTIMAGES)

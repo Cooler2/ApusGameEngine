@@ -117,10 +117,6 @@ var
   jpegImageHash:THash;
 
 var
- {$IFDEF TXTIMAGES}
- txtFontNormal,txtFontSmall:TUnicodeFont;
- {$ENDIF}
-
  loadingTime:integer; // суммарное время загрузки изображений в мс
  loadingJPEGTime:integer; // суммарное время загрузки JPEG в мс
 
@@ -421,7 +417,7 @@ var
  i,j,k:integer;
  ref,key:String8;
  tex:TTexture;
- img,txtImage,preloaded:TRawImage;
+ img,preloaded:TRawImage;
  aFlags:integer;
  data,rawData:ByteArray;
  format:TImageFileType;
@@ -430,7 +426,6 @@ var
  st:String8;
 begin
  try
-  txtImage:=nil;
   // 1. ADJUST FILE NAME, CHECK THE SOURCE REGISTRY AND ATLASES
   fname:=Files.FixName(fname);
   ref:=fname;
@@ -472,19 +467,8 @@ begin
    if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
    format:=CheckImageFormat(data);
-   if not (format in [ifTGA,ifJPEG,ifPNG,ifWebP,ifTXT,ifDDS,ifPVR]) then
+   if not (format in [ifTGA,ifJPEG,ifPNG,ifWebP,ifDDS,ifPVR]) then
     raise EError.Create('image format not supported');
-
-   // Загрузка TXT
-   {$IFDEF TXTIMAGES}
-   if format=ifTXT then begin
-    LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
-    imgInfo.width:=txtImage.width;
-    imgInfo.height:=txtImage.height;
-    imgInfo.format:=ipfARGB;
-    imgInfo.palformat:=palNone;
-   end;
-   {$ENDIF}
 
    // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
    if format=ifJPEG then begin
@@ -532,12 +516,7 @@ begin
    if format=ifPNG then LoadPNG(data,img) else
    if format=ifWebP then LoadWebP(data,img) else
    if format=ifPVR then LoadPVR(data,img) else
-   if format=ifDDS then LoadDDS(data,img) else
-   if format=ifTXT then begin
-    // скопировать загруженное изображение из SRC в IMG
-    img.CopyPixelDataFrom(txtImage);
-    txtImage.Free;
-   end;
+   if format=ifDDS then LoadDDS(data,img);
 
    // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
    if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin

@@ -47,8 +47,6 @@ type
   // 0 - keep in data, 2 - save as JPEG, 3 - save as PNG
   target:integer;
   data:TObject;
-  videoMode:boolean;
-  videoPath:string;
   capturedName:string;
   capturedTime:int64;
   procedure Reset;
@@ -527,8 +525,6 @@ public
   procedure RequestScreenshot(saveAsJpeg:boolean=true);
   procedure RequestFrameCapture(obj:TObject=nil);
   procedure CaptureFrame;
-  procedure StartVideoCap(filename:string);
-  procedure FinishVideoCap;
  end;
 
 // Configuration hook: called on every rebuild, before the resolver.
@@ -548,7 +544,6 @@ function FindVirtualMouse(const windowName:String8):TVirtualMouse;
 implementation
  uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.GfxFormats, Apus.Files, Apus.Strings,
    {$IFDEF MSWINDOWS}Apus.Engine.Clipboard,{$ENDIF}
-   {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
    Apus.Engine.API, Apus.Engine.UIScene,
    Apus.Engine.UITypes, Apus.Engine.TextDraw;
 
@@ -1108,8 +1103,6 @@ begin
  singleFrame:=false;
  target:=0;
  data:=nil;
- videoMode:=false;
- videoPath:='';
  capturedName:='';
  capturedTime:=0;
 end;
@@ -2269,24 +2262,6 @@ begin
  finally
   img.Free;
  end;
-end;
-
-procedure TWindow.StartVideoCap(filename:string);
-begin
- {$IFDEF VIDEOCAPTURE}
- if capture.videoMode then exit;
- capture.videoMode:=true;
- if pos('\',filename)=0 then filename:=capture.videoPath+filename;
- StartVideoCapture(game,filename);
- {$ENDIF}
-end;
-
-procedure TWindow.FinishVideoCap;
-begin
- {$IFDEF VIDEOCAPTURE}
- if capture.videoMode then FinishVideoCapture;
- capture.videoMode:=false;
- {$ENDIF}
 end;
 
 function FindWindowByHandle(handle:THandle):TWindow;

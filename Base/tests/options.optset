@@ -5,7 +5,7 @@
         <DCC_ImageBase>00400000</DCC_ImageBase>
         <DCC_DcuOutput>..\units</DCC_DcuOutput>
         <DCC_UnitSearchPath>..;..\extra;..\deprecated;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_Define>DELPHI;OPENGL;TXTIMAGES;$(DCC_Define)</DCC_Define>
+        <DCC_Define>DELPHI;OPENGL;$(DCC_Define)</DCC_Define>
         <SanitizedProjectName>BaseTests</SanitizedProjectName>
         <VerInfo_Locale>1059</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>

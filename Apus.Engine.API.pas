@@ -921,8 +921,6 @@ type
   // Set the flags requesting a screenshot (JPEG or TGA)
   procedure RequestScreenshot(saveAsJpeg:boolean=true); virtual; abstract;
   procedure RequestFrameCapture(obj:TObject=nil); virtual; abstract;
-  procedure StartVideoCap(filename:string); virtual; abstract;
-  procedure FinishVideoCap; virtual; abstract;
 
   // Utility functions
   // -----------------
