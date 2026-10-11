@@ -1383,7 +1383,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    v:single;
   begin
    min:=newMin; max:=newMax; pageSize:=newPageSize;
-   realMax:=Clamp(max-pageSize,min,max);
+   realMax:=Apus.Core.Max(min,max-pageSize);
    v:=rValue.Value;
   if (v<min) or (v>realMax) then begin
    rValue.Assign(Clamp(rValue.FinalValue,min,realMax));
@@ -1397,7 +1397,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
   begin
    result:=rValue.value;
    if isInteger then result:=round(result);
-   Clamp(result,min,max-pageSize);
+   result:=Clamp(result,min,Apus.Core.Max(min,max-pageSize));
   end;
 
  procedure TUIScrollBar.Link(elem:TUIScrollable);
@@ -1412,7 +1412,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
 
  procedure TUIScrollBar.SetValue(v:single);
   begin
-   v:=Clamp(v,min,max-pageSize);
+   v:=Clamp(v,min,Apus.Core.Max(min,max-pageSize));
    rValue.Assign(v);
    onTimer;
    CheckAutoHide;
@@ -1474,7 +1474,7 @@ procedure TUIScrollBar.CalcSliderPos(minSize:single);
    fullSize:=size.y;
   end;
   v:=rValue.Value;
-  v:=Clamp(v,min,max-pageSize);
+  v:=Clamp(v,min,Apus.Core.Max(min,max-pageSize));
 
   sliderStart:=(v-min)/(max-min);
   sliderStart:=Clamp(sliderStart,0,1);
@@ -1513,9 +1513,9 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    time:integer;
   begin
    TUIElement.sender:=self;
-   if val<min then val:=min;
-   if val+pagesize>max then val:=max-pagesize;
-   if smooth then begin
+   // Content fitting in one page has a single valid position: min.
+   val:=Clamp(val,min,Apus.Core.Max(min,max-pageSize));
+   if smooth and (pageSize>0) then begin
     time:=Round(500*abs(val-rValue.Value)/pagesize);
     time:=Clamp(time,60,350);
     rValue.Animate(val,time,spline1);
