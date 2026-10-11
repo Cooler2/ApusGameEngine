@@ -36,6 +36,9 @@ type
     function Interval(ch1,ch2:Char32;size:single):integer; // spacing between start point of ch1 and the next ch2
     function GetTextWidth(st:String32;size:single):integer; // up to the ink edge of the last glyph, same as TUnicodeFont
     function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
+    // Largest size (as passed to RenderGlyph) at which every glyph (the font bounding box) rises
+    // at most maxTop pixels above the baseline and is at most maxHeight pixels tall
+    function MaxSizeForBox(maxTop,maxHeight:integer):single;
     function CharPadding(ch:Char32;size:single):integer; // spacing in pixels between cursor point and actual glyph image start
     // Text/Glyph rendering  (no any clipping!)
     //  procedure DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
@@ -364,6 +367,19 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
    cSect.Leave;
   end;
  end;
+
+function TFreeTypeFont.MaxSizeForBox(maxTop,maxHeight:integer):single;
+var
+ k:double;
+begin
+ result:=1E6;
+ if (face.units_per_EM=0) or (globalScale<=0) then exit;
+ k:=globalScale*96/72/face.units_per_EM; // pixels per font unit per size unit (see SetSize)
+ if face.bbox.yMax>0 then
+  result:=Min(result,maxTop/(face.bbox.yMax*k));
+ if face.bbox.yMax>face.bbox.yMin then
+  result:=Min(result,maxHeight/((face.bbox.yMax-face.bbox.yMin)*k));
+end;
 
 procedure TFreeTypeFont.SetSize(size:single);
 var

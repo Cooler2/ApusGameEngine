@@ -192,6 +192,37 @@ begin
   p(link,sUnderline,color);
 end;
 
+const
+ // Vector fonts are rendered no larger than the size at which every glyph (font bounding box)
+ // fits the glyph cache: its top (dy) is stored in a signed byte (2 px left for hinting), and
+ // its height must fit the room the cache keeps free (see GLYPH_KEEP_MIN_ROWS, minus padding)
+ MAX_GLYPH_TOP = 125;
+ MAX_GLYPH_HEIGHT = GLYPH_KEEP_MIN_ROWS-4;
+
+var
+ limitedFonts:array of TObject; // vector fonts already reported as size-limited
+ glyphFailures:integer; // glyphs dropped because the glyph cache could not take them
+
+{$IFDEF FREETYPE}
+// Limit the handle scale of a vector font (FreeType size = 20*scale) to what the glyph cache can hold
+function LimitVectorScale(ftFont:TFreeTypeFont;scale:single):single;
+var
+ i:integer;
+ maxScale:single;
+begin
+ result:=scale;
+ maxScale:=ftFont.MaxSizeForBox(MAX_GLYPH_TOP,MAX_GLYPH_HEIGHT)/20;
+ if scale<=maxScale then exit;
+ result:=maxScale;
+ for i:=0 to high(limitedFonts) do
+  if limitedFonts[i]=ftFont then exit;
+ SetLength(limitedFonts,length(limitedFonts)+1);
+ limitedFonts[high(limitedFonts)]:=ftFont;
+ Log.Warn('Font "%s": size %.0f is above the glyph cache limit, drawn at %.0f',
+   [ftFont.faceName,scale*15,maxScale*15]);
+end;
+{$ENDIF}
+
 function ScaleFromHandle(font:TFontHandle):single;
  var
   b:byte;
@@ -394,7 +425,8 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
        [name,DEFAULT_UI_FONT_SIZE]);
      realSize:=DEFAULT_UI_FONT_SIZE*globalScale;
     end;
-    EncodeScale(realSize/15,result); // drawn at FreeType size 20*scale = realSize*4/3 points (see ITextDrawer.GetFont)
+    // drawn at FreeType size 20*scale = realSize*4/3 points (see ITextDrawer.GetFont)
+    EncodeScale(LimitVectorScale(TFreeTypeFont(fonts[best]),realSize/15),result);
     if flags and fsNoHinting>0 then result:=result or fhNoHinting;
     if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
    end
@@ -447,7 +479,11 @@ function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   obj:=GetFontObject(font);
   if obj is TFreeTypeFont then begin
    result:=font;
+   {$IFDEF FREETYPE}
+   EncodeScale(LimitVectorScale(TFreeTypeFont(obj),s*scale),result);
+   {$ELSE}
    EncodeScale(s*scale,result);
+   {$ENDIF}
   end else
   if obj is TUnicodeFont then begin
    size:=s*TUnicodeFont(obj).header.width/10;
@@ -982,7 +1018,19 @@ var
    r:TRect;
   begin
    // 1 transparent pixel in padding
-   result:=activeGlyphCache.Alloc(imageWidth+2+byte(boldStyle),imageHeight+2,dX,dY,chardata);
+   // A glyph the cache cannot take is dropped (result.x<0): the rest of the text is still drawn
+   try
+    result:=activeGlyphCache.Alloc(imageWidth+2+byte(boldStyle),imageHeight+2,dX,dY,chardata);
+   except
+    on e:Exception do begin
+     inc(glyphFailures);
+     if glyphFailures<=5 then
+      Log.Warn('Glyph dropped: '+String8(e.Message));
+     if glyphFailures=5 then
+      Log.Warn('Further dropped glyphs are not logged');
+     exit(Point(-1,-1));
+    end;
+   end;
    if not textCache.IsLocked then textCache.Lock(0,TLockMode.lmCustomUpdate);
    UnpackGlyph(result.x,result.Y,imageWidth,imageHeight,data,glyphType=1);
    if boldStyle then MakeItBold(result.x,result.Y,imageWidth,imageHeight);
@@ -1211,7 +1259,8 @@ var
         pnt:=AllocGlyph(charData,imageWidth,imageHeight,0,0,1,@unifont.glyphs[offset],0)
        else
         pnt:=Point(gl.x,gl.y);
-       AddVertices(chardata,pnt,round(px),y,imageX,imageY,imageWidth,imageHeight,outVertex,cnt);
+       if pnt.x>=0 then
+        AddVertices(chardata,pnt,round(px),y,imageX,imageY,imageWidth,imageHeight,outVertex,cnt);
       end;
     end
     {$IFDEF FREETYPE}
@@ -1226,7 +1275,7 @@ var
       pb:=ftFont.RenderGlyph(st[i],size,ftHintMode,dx,dy,imgW,imgH,pitch);
       if pb<>nil then begin
        pnt:=AllocGlyph(charData,imgW,imgH,dx,dy,2,pb,pitch);
-       fl:=true;
+       fl:=pnt.x>=0;
       end;
      end else begin
       // glyph is cached

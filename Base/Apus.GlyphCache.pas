@@ -10,6 +10,12 @@ unit Apus.GlyphCache;
 interface
  uses types,Apus.HashMaps,Apus.Conv,Apus.Log;
 
+const
+ // Free rows that Keep maintains at least (if the atlas allows): room for a band of the largest
+ // glyph a TGlyphRec can describe - its top up to 127 px above the cursor point, plus the
+ // descent and padding. Fonts are expected to be limited accordingly (see TextDraw.GetFont).
+ GLYPH_KEEP_MIN_ROWS = 168;
+
 type
  TGlyphInfoRec=record
   x,y:integer;  // glyph position
@@ -80,6 +86,7 @@ type
   // Glyph index: chardata -> compact record
   index:THashMapNum<TGlyphRec>;
   function CanCreateBand(height:integer):boolean;
+  function KeepRows:integer;
   function CreateNewBand(height:integer):integer;
   procedure FreeOldBand;
   function GetState:string;
@@ -123,14 +130,14 @@ begin
  // a) there is no suitable band
  if best<0 then begin
   // a band should be at least 25% taller than an existing reasonably free band
-  bandHeight:=Max(height, bandHeight+1+bandHeight div 4);
+  bandHeight:=Max(height,Min(bandHeight+1+bandHeight div 4,KeepRows));
  end;
  // b) suitable band is too high and we have much free space -> create a more suitable band
  if (best>=0) and
     (spareHeight>1+bands[best].height shr 2) and
     CanCreateBand(height*3) then begin
   best:=-1; // here we should avoid creating bands that are only slightly taller than the existing ones
-  bandHeight:=Max(height,bandHeight+1+bandHeight div 4);
+  bandHeight:=Max(height,Min(bandHeight+1+bandHeight div 4,KeepRows));
  end;
  // New band required?
  if best<0 then
@@ -192,10 +199,17 @@ begin
  end;
 end;
 
+// Free rows guaranteed after Keep: 25% of the atlas, but enough for the largest glyph band
+// (and never more than 75%). New bands do not grow past it, so such a glyph always fits.
+function TDynamicGlyphCache.KeepRows:integer;
+begin
+ result:=Min(aHeight*3 div 4,Max(aHeight div 4,GLYPH_KEEP_MIN_ROWS));
+end;
+
 procedure TDynamicGlyphCache.Keep;
 begin
- // Ensure that at least 25% of cache is free
- while (freeMax-freeMin<aHeight div 4) do FreeOldBand;
+ // a contiguous run is needed: the free ring may be split at the atlas edge
+ while not CanCreateBand(KeepRows) and (firstBand>=0) do FreeOldBand;
 end;
 
 procedure TDynamicGlyphCache.Release;
@@ -219,6 +233,7 @@ begin
  // Update free space range
  if firstBand=-1 then begin
   // everything is deleted
+  lastBand:=-1; // otherwise the next band would be linked after the deleted one
   freeMin:=0; freeMax:=aHeight;
  end else begin
   freeMax:=bands[firstband].y-1;

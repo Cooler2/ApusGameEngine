@@ -154,6 +154,42 @@ begin
   EndTest;
 end;
 
+// Large glyphs (as TextDraw allows: top up to ~127 px, plus descent) mixed with small text,
+// a new set every frame. TextDraw calls Keep before each string, and Keep must leave room
+// for a band of the largest glyph, so a string of such glyphs fitting one band always fits
+procedure TestLargeGlyphs;
+var
+  c:TDynamicGlyphCache;
+  frame,i:integer;
+  key:cardinal;
+  msg:string;
+begin
+  StartTest('GlyphCache.LargeGlyphs');
+  c:=TDynamicGlyphCache.Create(416,512); // main glyph cache of a 512x512 text texture
+  msg:='';
+  key:=$10000;
+  try
+    try
+      for frame:=1 to 60 do begin
+        c.Keep;
+        for i:=1 to 10 do begin // small text string: bands of 20 px
+          inc(key); c.Alloc(12,20,0,15,key);
+        end;
+        c.Keep;
+        for i:=1 to 3 do begin // string of three large digits
+          inc(key); c.Alloc(80,160,5,125,key);
+        end;
+      end;
+    except
+      on e:Exception do msg:=e.Message;
+    end;
+    Check(msg='','large glyphs always fit after Keep: '+msg);
+  finally
+    c.Free;
+  end;
+  EndTest;
+end;
+
 begin
   try
     TestAllocFind;
@@ -161,6 +197,7 @@ begin
     TestEvictionCycle;
     TestReallocAfterEvict;
     TestCapacityErrors;
+    TestLargeGlyphs;
 
     writeln;
     if testsFailed=0 then
