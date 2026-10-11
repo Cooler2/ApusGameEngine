@@ -1774,15 +1774,16 @@ end;
    movaps dqword [rsp+$08],xmm6
    movaps dqword [rsp+$18],xmm7
 
-  // Load matrix M2
-  movaps xmm4,dqword [m2+$00]
-  movaps xmm5,dqword [m2+$10]
-  movaps xmm6,dqword [m2+$20]
-  movaps xmm7,dqword [m2+$30]
+  // Load matrix M2. Matrices are not guaranteed to be 16-byte aligned (stack
+  // temporaries, record fields), so all memory accesses use movups.
+  movups xmm4,dqword [m2+$00]
+  movups xmm5,dqword [m2+$10]
+  movups xmm6,dqword [m2+$20]
+  movups xmm7,dqword [m2+$30]
 
   mov eax,4
 @loop:
-  movaps xmm0,dqword [m1]
+  movups xmm0,dqword [m1]
   movaps xmm1,xmm0
   movaps xmm2,xmm0
   movaps xmm3,xmm0
@@ -1957,21 +1958,26 @@ end;
    // - Win64: m=RCX, v=RDX, num=R8, step=R9
    // - Linux x64 (System V): m=RDI, v=RSI, num=RDX, step=RCX
    // This block is written for the Win64 register mapping.
+   // m may be unaligned: rows are loaded with movups (mulps [mem] requires alignment).
 @loop:
    movups xmm0,[rdx]
    // multiply
    movaps xmm1,xmm0
    shufps xmm1,xmm1,$00 // (x,x,x,x)
-   mulps xmm1,[rcx+$00]   // xmm1=x*col[0]
+   movups xmm5,[rcx+$00]
+   mulps xmm1,xmm5   // xmm1=x*col[0]
    movaps xmm2,xmm0
    shufps xmm2,xmm2,$55 // (y,y,y,y)
-   mulps xmm2,[rcx+$10]   // xmm2=y*col[1]
+   movups xmm5,[rcx+$10]
+   mulps xmm2,xmm5   // xmm2=y*col[1]
    movaps xmm3,xmm0
    shufps xmm3,xmm3,$AA // (z,z,z,z)
-   mulps xmm3,[rcx+$20]   // xmm3=z*col[2]
+   movups xmm5,[rcx+$20]
+   mulps xmm3,xmm5   // xmm3=z*col[2]
    movaps xmm4,xmm0
    shufps xmm4,xmm4,$FF // (t,t,t,t)
-   mulps xmm4,[rcx+$30]   // xmm4=t*col[3]
+   movups xmm5,[rcx+$30]
+   mulps xmm4,xmm5   // xmm4=t*col[3]
 
    addps xmm1,xmm2
    addps xmm3,xmm4
@@ -2010,18 +2016,22 @@ end;
    // - Win64: m=RCX, v=RDX, num=R8, step=R9
    // - Linux x64 (System V): m=RDI, v=RSI, num=RDX, step=RCX
    // This block is written for the Win64 register mapping.
+   // m may be unaligned: rows are loaded with movups (mulps [mem] requires alignment).
 @loop:
    movups xmm0,[rdx]
    // multiply
    movaps xmm1,xmm0
    shufps xmm1,xmm1,$00 // (x,x,x,x)
-   mulps xmm1,[rcx+$00]   // xmm1=x*col[0]
+   movups xmm5,[rcx+$00]
+   mulps xmm1,xmm5   // xmm1=x*col[0]
    movaps xmm2,xmm0
    shufps xmm2,xmm2,$55 // (y,y,y,y)
-   mulps xmm2,[rcx+$10]   // xmm2=y*col[1]
+   movups xmm5,[rcx+$10]
+   mulps xmm2,xmm5   // xmm2=y*col[1]
    movaps xmm3,xmm0
    shufps xmm3,xmm3,$AA // (z,z,z,z)
-   mulps xmm3,[rcx+$20]   // xmm3=z*col[2]
+   movups xmm5,[rcx+$20]
+   mulps xmm3,xmm5   // xmm3=z*col[2]
 
    addps xmm1,xmm2
    addps xmm1,xmm3

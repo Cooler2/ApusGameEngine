@@ -62,6 +62,16 @@ begin
   EndTest;
 end;
 
+// Scalar reference for TMat4 multiplication
+function MulRef(const a,b:TMat4):TMat4;
+var
+  i,j:integer;
+begin
+  for i:=0 to 3 do
+    for j:=0 to 3 do
+      result.v[i,j]:=a.v[i,0]*b.v[0,j]+a.v[i,1]*b.v[1,j]+a.v[i,2]*b.v[2,j]+a.v[i,3]*b.v[3,j];
+end;
+
 procedure TestMatrices;
 var
   m1,m2,m3,mInv,mRef,mT:TMat4;
@@ -70,7 +80,7 @@ begin
   StartTest('Matrices');
   m1:=TMat4.Scale(2,3,4);
   m2:=TMat4.Translation(5,6,7);
-  mRef:=m1*m2;
+  mRef:=MulRef(m1,m2);
   m3:=m1*m2;
   Check(m3.IsEqual(mRef),'TMat4 operator *');
   Check(not m3.IsEqual(IdentMat4),'MultMat');
@@ -89,6 +99,48 @@ begin
   v:=TVec4.Init(1,2,3,1);
   IdentMat4.TransformPoints(@v,1,SizeOf(v));
   Check((Abs(v.x-1)<0.0001) and (Abs(v.y-2)<0.0001) and (Abs(v.z-3)<0.0001),'MultPnt identity');
+  EndTest;
+end;
+
+// Matrices are often not 16-byte aligned (stack temporaries, record fields):
+// the SSE paths must not rely on it.
+procedure TestMat4Unaligned;
+var
+  buf:array[0..3*SizeOf(TMat4)+32] of byte;
+  base:UIntPtr;
+  a,b,c:PMat4;
+  i,j:integer;
+  v,vRef:TVec4;
+begin
+  StartTest('TMat4 unaligned');
+  base:=((UIntPtr(@buf[0])+15) and not UIntPtr(15))+4; // 16-byte aligned + 4
+  a:=PMat4(base);
+  b:=PMat4(base+SizeOf(TMat4));
+  c:=PMat4(base+2*SizeOf(TMat4));
+  for i:=0 to 3 do
+    for j:=0 to 3 do begin
+      a^.v[i,j]:=i*4+j+1;
+      b^.v[i,j]:=(i+1)*(j+2)-3;
+    end;
+  c^:=a^*b^;
+  Check(c^.IsEqual(MulRef(a^,b^)),'TMat4 * unaligned operands');
+
+  v:=TVec4.Init(1,2,3,1);
+  vRef.x:=v.x*a^.v[0,0]+v.y*a^.v[1,0]+v.z*a^.v[2,0]+v.w*a^.v[3,0];
+  vRef.y:=v.x*a^.v[0,1]+v.y*a^.v[1,1]+v.z*a^.v[2,1]+v.w*a^.v[3,1];
+  vRef.z:=v.x*a^.v[0,2]+v.y*a^.v[1,2]+v.z*a^.v[2,2]+v.w*a^.v[3,2];
+  vRef.w:=v.x*a^.v[0,3]+v.y*a^.v[1,3]+v.z*a^.v[2,3]+v.w*a^.v[3,3];
+  a^.TransformPoints(@v,1,SizeOf(v));
+  Check((Abs(v.x-vRef.x)<0.001) and (Abs(v.y-vRef.y)<0.001) and (Abs(v.z-vRef.z)<0.001) and (Abs(v.w-vRef.w)<0.001),
+    'TransformPoints unaligned matrix');
+
+  v:=TVec4.Init(1,2,3,0);
+  vRef.x:=v.x*a^.v[0,0]+v.y*a^.v[1,0]+v.z*a^.v[2,0];
+  vRef.y:=v.x*a^.v[0,1]+v.y*a^.v[1,1]+v.z*a^.v[2,1];
+  vRef.z:=v.x*a^.v[0,2]+v.y*a^.v[1,2]+v.z*a^.v[2,2];
+  a^.TransformNormals(@v,1,SizeOf(v));
+  Check((Abs(v.x-vRef.x)<0.001) and (Abs(v.y-vRef.y)<0.001) and (Abs(v.z-vRef.z)<0.001),
+    'TransformNormals unaligned matrix');
   EndTest;
 end;
 
@@ -260,6 +312,7 @@ begin
     TestVec3Core;
     TestVec3Normalize;
     TestMatrices;
+    TestMat4Unaligned;
     TestQuaternionConversions;
     TestGeom3DUtility;
     writeln;
