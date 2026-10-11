@@ -49,7 +49,7 @@ var
   robotAPIEnabled:boolean = {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
 
 implementation
-uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Files, Apus.EventMan;
+uses SysUtils, Apus.Conv, Apus.Strings, Apus.Log, Apus.Files, Apus.EventMan;
 
 const
   INPUT_FILE  = 'robot_in.txt';
@@ -77,6 +77,7 @@ var
   lastActivityTime:int64;
   fastMode:boolean;
   initialized:boolean;
+  startTime:TDateTime; // process start (unit initialization), to tell files left by a previous run
 
 function TRobotRequest.Param(const key:String8):String8;
 begin
@@ -284,9 +285,32 @@ begin
   result:=true;
 end;
 
+// Files left by a previous run must not be taken for requests of this one: the old answer
+// is removed, and the input is dropped if it was written before this process started.
+procedure DropStaleFiles;
+const
+  TIME_SLACK = 3/86400; // 3 s: file timestamps may be rounded to 2 s
+var
+  info:TFileInfo;
+begin
+  if Files.Exists(OUTPUT_FILE) then begin
+    Files.Delete(OUTPUT_FILE);
+    Log.Msg('RobotAPI: removed %s left by a previous run',[OUTPUT_FILE]);
+  end;
+  if Files.GetFileInfo(INPUT_FILE,info) and (info.timestamp<startTime-TIME_SLACK) then begin
+    Files.Delete(INPUT_FILE);
+    Log.Msg('RobotAPI: removed %s left by a previous run',[INPUT_FILE]);
+  end;
+end;
+
 procedure InitRobotAPI;
 begin
   if not robotAPIEnabled then exit;
+  try
+    DropStaleFiles;
+  except
+    on e:Exception do Log.Warn('RobotAPI: cannot clean up old files: '+String8(e.Message));
+  end;
   RegisterRobotCommand('signal',@CmdSignal);
   fastMode:=false;
   lastCheckTime:=0;
@@ -334,4 +358,6 @@ begin
   Log.Msg('RobotAPI: shutdown');
 end;
 
+initialization
+  startTime:=Now;
 end.
