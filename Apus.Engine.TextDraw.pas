@@ -222,6 +222,11 @@ begin
  Log.Warn('Font "%s": size %.0f exceeds the glyph cache limit %.0f (GetFont size * text scale), drawn at the limit',
    [ftFont.faceName,scale*15,maxScale*15]);
 end;
+{$ELSE}
+function LimitVectorScale(ftFont:TFreeTypeFont;scale:single):single;
+begin
+ result:=scale;
+end;
 {$ENDIF}
 
 function ScaleFromHandle(font:TFontHandle):single;
@@ -481,11 +486,7 @@ function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   obj:=GetFontObject(font);
   if obj is TFreeTypeFont then begin
    result:=font;
-   {$IFDEF FREETYPE}
    EncodeScale(LimitVectorScale(TFreeTypeFont(obj),s*scale),result);
-   {$ELSE}
-   EncodeScale(s*scale,result);
-   {$ENDIF}
   end else
   if obj is TUnicodeFont then begin
    size:=s*TUnicodeFont(obj).header.width/10;
