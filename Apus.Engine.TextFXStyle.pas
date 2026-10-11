@@ -77,7 +77,8 @@ implementation
     // font overrides and render scale through the ordinary style cascade.
     // Alignment, color and text offsets follow the parent text state.
     ts.font:=txt.GetFont(CaptionStyleValue(element,source,'font','Default'),
-      round(ParseStyleNumber(CaptionStyleValue(element,source,'font-size','9'))*element.globalScale));
+      round(ParseStyleNumber(CaptionStyleValue(element,source,'font-size','9'))*element.globalScale),
+      fsIgnoreScale); // globalScale already holds the UI scale, as in StyleFont
    end;
    if isButton then begin
     clipRect:=element.GetPosOnScreen;
