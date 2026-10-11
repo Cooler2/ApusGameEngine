@@ -245,13 +245,15 @@ type
   PPGLcharARB = ^PGLcharARB;
 
   // GL_VERSION_1_5
-  GLintptr = GLint;
+  // APUS: local change, was "GLint"/"GLsizei" (32 bits) here and for the ARB types below:
+  // khronos_intptr_t/khronos_ssize_t are pointer-sized, 64-bit targets need NativeInt
+  GLintptr = NativeInt;
   PGLintptr = ^GLintptr;
-  GLsizeiptr = GLsizei;
+  GLsizeiptr = NativeInt;
 
   // GL_ARB_vertex_buffer_object
-  GLintptrARB = GLint;
-  GLsizeiptrARB = GLsizei;
+  GLintptrARB = NativeInt;
+  GLsizeiptrARB = NativeInt;
 
   // GL_VERSION_2_0
   GLHandle = Integer;

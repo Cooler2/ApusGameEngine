@@ -1411,3 +1411,15 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   clickable, transparent ones let the caption through), `minW..maxH` limit the OS window
   (through `TWindow.sizeLimits`). The drawer paints only the body: the caption row is up
   to the app.
+
+## 2026-10-11 — Dead optional paths removed
+
+- Video capture removed: `TGameBase/TGame/TWindow.StartVideoCap`/`FinishVideoCap`,
+  `TFrameCapture.videoMode`/`videoPath` and the `VIDEOCAPTURE` define (its unit
+  `Apus.Engine.VideoCapture` was gone long ago). Use an external recorder.
+- TXT images removed: `LoadTXT`, `TImageFileType.ifTXT` and the `TXTIMAGES` define (the
+  path didn't compile and its fonts were never created). `CheckImageFormat` no longer
+  reports text data as an image.
+- `GLintptr`/`GLsizeiptr` in `extra/dglOpenGL.pas`/`dglOpenGLES.pas` are `NativeInt`
+  (pointer-sized, as Khronos defines them; they were 32-bit). `PGLchar` in dglOpenGLES is
+  `PAnsiChar` (the GLES renderer compiles with Delphi).

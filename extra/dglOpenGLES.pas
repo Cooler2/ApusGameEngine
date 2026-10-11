@@ -158,10 +158,12 @@ type
   GLchar      = AnsiChar;
   GLbitfield  = Cardinal;
   GLint       = Integer;
-  GLintptr    = GLint;
+  // APUS: local change, GLintptr/GLsizeiptr were GLint/GLsizei (32 bits):
+  // khronos_intptr_t/khronos_ssize_t are pointer-sized, 64-bit targets need NativeInt
+  GLintptr    = NativeInt;
   GLboolean   = ByteBool;
   GLsizei     = Integer;
-  GLsizeiptr  = GLsizei;
+  GLsizeiptr  = NativeInt;
   GLfloat     = Single;
   GLdouble    = Double;
 

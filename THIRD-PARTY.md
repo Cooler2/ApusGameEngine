@@ -62,9 +62,12 @@ intact:
 
 `extra/sdl2/sdl2_mixer.pas` carries local modifications, each marked with an
 `APUS:` comment and described in `extra/sdl2/README.md`.
-`extra/dglOpenGLES.pas` carries one local modification, marked with an `APUS:`
-comment: `PGLchar` is `PAnsiChar` (as in dglOpenGL), otherwise Delphi doesn't compile
-the GLES renderer.
+`extra/dglOpenGL.pas` and `extra/dglOpenGLES.pas` carry local modifications, each
+marked with an `APUS:` comment:
+- both: `GLintptr`/`GLsizeiptr` (and the ARB variants) are `NativeInt` - the originals
+  declare them 32-bit, while Khronos defines them pointer-sized;
+- dglOpenGLES: `PGLchar` is `PAnsiChar` (as in dglOpenGL), otherwise Delphi doesn't
+  compile the GLES renderer.
 
 **BASS** (un4seen.com) is a closed-source commercial library. Only the Pascal
 header is present — no `bass.dll` is committed, and the BASS backend is not part
