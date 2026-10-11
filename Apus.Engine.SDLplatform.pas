@@ -51,6 +51,11 @@ type
   events:TSDLEvents;           // events routed to this window, guarded by sdlEvents
   eventCount:integer;
   dropList:Strings8;           // files of the drop in progress (SDL_DROPBEGIN..SDL_DROPCOMPLETE)
+  customFrame:boolean;         // the window is borderless: the app draws the frame
+  limitMin,limitMax:TSize;     // size limits passed to SDL, window coordinates, 0 - not set
+  procedure UpdateFrame;       // border on/off for the frame policy and the window state
+  procedure UpdateSizeLimits;  // pass TWindow.sizeLimits to SDL when they change
+  function FrameHitTestAt(const p:TSDL_Point):TSDL_HitTestResult;
   procedure AddEvent(const event:TSDL_Event);
   procedure HandleEvent(const event:TSDL_Event);
   function GetDPI:integer; // DPI of the display this window is currently on
@@ -82,7 +87,7 @@ type
  end;
 
 implementation
-uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
+uses {$IFDEF MSWINDOWS}Windows, MultiMon,{$ENDIF}
   SysUtils, Apus.Log, Apus.Threads, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types, Apus.Engine.Window
   {$IFDEF GLDESKTOP},dglOpenGL{$ENDIF}; // GLDESKTOP, not OPENGL: under GLES the desktop unit would shadow dglOpenGLES' loader procs
@@ -711,6 +716,7 @@ procedure TSDLGLWindow.ProcessMessages;
   end;
   for i:=0 to count-1 do
    HandleEvent(list[i]);
+  UpdateSizeLimits;
  end;
 
 // Handle an event routed to this window, in this window's thread
@@ -746,10 +752,12 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
       Log.Msg('Window restored');
       Signal('ENGINE\SETACTIVE',1);
       PlatformStateChanged(TWindowState.Normal);
+      UpdateFrame;
      end;
      SDL_WINDOWEVENT_MAXIMIZED:begin
       Log.Msg('Window maximized');
       PlatformStateChanged(TWindowState.Maximized);
+      UpdateFrame;
      end;
      SDL_WINDOWEVENT_CLOSE:begin
       Log.Msg('Window close');
@@ -856,6 +864,149 @@ function TSDLGLWindow.IsTerminated:boolean;
 procedure TSDLGLWindow.Minimize;
  begin
   SDL_MinimizeWindow(wnd);
+ end;
+
+// SDL hit test: called while SDL pumps events, under X11 possibly on another window's thread
+function FrameHitTestCallback(win:PSDL_Window;const area:PSDL_Point;data:Pointer):TSDL_HitTestResult; cdecl;
+ begin
+  result:=SDL_HITTEST_NORMAL;
+  try
+   result:=TSDLGLWindow(data).FrameHitTestAt(area^);
+  except
+   on e:Exception do Log.Warn('Frame hit test: '+ExceptionMsg(e));
+  end;
+ end;
+
+// Hit test of an app-drawn frame, p - window coordinates: resize edges first, then frameHitTest
+function TSDLGLWindow.FrameHitTestAt(const p:TSDL_Point):TSDL_HitTestResult;
+ const
+  results:array[TWindowArea] of TSDL_HitTestResult=(SDL_HITTEST_NORMAL,SDL_HITTEST_DRAGGABLE,
+   SDL_HITTEST_RESIZE_LEFT,SDL_HITTEST_RESIZE_RIGHT,SDL_HITTEST_RESIZE_TOP,SDL_HITTEST_RESIZE_BOTTOM,
+   SDL_HITTEST_RESIZE_TOPLEFT,SDL_HITTEST_RESIZE_TOPRIGHT,SDL_HITTEST_RESIZE_BOTTOMLEFT,
+   SDL_HITTEST_RESIZE_BOTTOMRIGHT);
+ var
+  flags:TSDL_WindowFlags;
+  sizeable,left,right,top,bottom:boolean;
+  ww,wh,dw,dh,border:integer;
+  kx,ky:single;
+  cp:TPoint;
+  area:TWindowArea;
+  hitTest:TWindowHitTest;
+  oldWindow:TWindow;
+ begin
+  result:=SDL_HITTEST_NORMAL;
+  if not customFrame then exit;
+  flags:=SDL_GetWindowFlags(wnd);
+  sizeable:=(flags and SDL_WINDOW_RESIZABLE<>0) and (flags and SDL_WINDOW_MAXIMIZED=0);
+  SDL_GetWindowSize(wnd,@ww,@wh);
+  SDL_GL_GetDrawableSize(wnd,@dw,@dh);
+  if (ww<=0) or (wh<=0) then exit;
+  kx:=dw/ww; ky:=dh/wh; // drawable pixels per window coordinate
+  if sizeable then begin
+   border:=Max(2,round(8*surface.dpi/96/kx)); // as the OS frame: 8 pixels at 96 DPI
+   left:=p.x<border;
+   right:=p.x>=ww-border;
+   top:=p.y<border;
+   bottom:=p.y>=wh-border;
+   if top and left then exit(SDL_HITTEST_RESIZE_TOPLEFT);
+   if top and right then exit(SDL_HITTEST_RESIZE_TOPRIGHT);
+   if bottom and left then exit(SDL_HITTEST_RESIZE_BOTTOMLEFT);
+   if bottom and right then exit(SDL_HITTEST_RESIZE_BOTTOMRIGHT);
+   if left then exit(SDL_HITTEST_RESIZE_LEFT);
+   if right then exit(SDL_HITTEST_RESIZE_RIGHT);
+   if top then exit(SDL_HITTEST_RESIZE_TOP);
+   if bottom then exit(SDL_HITTEST_RESIZE_BOTTOM);
+  end;
+  LockState;
+  hitTest:=frameHitTest;
+  UnlockState;
+  area:=TWindowArea.Client;
+  if Assigned(hitTest) and TryClientToCanvas(Types.Point(round(p.x*kx),round(p.y*ky)),cp) then begin
+   // the provider may use the window's UI: the threadvar must point at this window
+   oldWindow:=Apus.Engine.API.window;
+   Apus.Engine.API.window:=self;
+   try
+    area:=hitTest(cp.x,cp.y);
+   finally
+    Apus.Engine.API.window:=oldWindow;
+   end;
+  end;
+  if not sizeable and (area>TWindowArea.Caption) then area:=TWindowArea.Client;
+  result:=results[area];
+ end;
+
+{$IFDEF MSWINDOWS}
+// On Windows SDL keeps the client rect when the border changes and doesn't lay out a maximized
+// window again: fit it to the work area of its monitor (the restore rect is kept by the OS)
+procedure FitMaximizedToWorkArea(wnd:PSDL_Window);
+ var
+  info:TSDL_SysWMinfo;
+  mi:TMonitorInfo;
+ begin
+  SDL_VERSION(info.version);
+  if SDL_GetWindowWMInfo(wnd,@info)=SDL_FALSE then exit;
+  mi.cbSize:=sizeof(mi);
+  if not GetMonitorInfo(MonitorFromWindow(info.win.window,MONITOR_DEFAULTTONEAREST),@mi) then exit;
+  with mi.rcWork do
+   SetWindowPos(info.win.window,0,left,top,right-left,bottom-top,SWP_NOZORDER or SWP_NOACTIVATE);
+ end;
+{$ENDIF}
+
+// SDL keeps the border state itself: a window maximized with CustomWhenMaximized loses it
+procedure TSDLGLWindow.UpdateFrame;
+ var
+  flags:TSDL_WindowFlags;
+  want:boolean;
+ begin
+  flags:=SDL_GetWindowFlags(wnd);
+  if flags and SDL_WINDOW_FULLSCREEN<>0 then exit; // no border to change in fullscreen
+  want:=(frame=TWindowFrame.Custom) or
+   ((frame=TWindowFrame.CustomWhenMaximized) and (flags and SDL_WINDOW_MAXIMIZED<>0));
+  if want=customFrame then exit;
+  customFrame:=want;
+  if want then SDL_SetWindowBordered(wnd,SDL_FALSE)
+   else SDL_SetWindowBordered(wnd,SDL_TRUE);
+  {$IFDEF MSWINDOWS}
+  if flags and SDL_WINDOW_MAXIMIZED<>0 then FitMaximizedToWorkArea(wnd);
+  {$ENDIF}
+ end;
+
+// sizeLimits are canvas units of the client, SDL limits - window coordinates of the client.
+// SDL can't drop a limit: a removed one becomes the smallest/largest size it accepts
+procedure TSDLGLWindow.UpdateSizeLimits;
+ const
+  NO_MAX=16384;
+ var
+  limits:TWindowSizeLimits;
+  minSize,maxSize:TSize;
+  ww,wh,dw,dh:integer;
+  k:single;
+ begin
+  if SDL_GetWindowFlags(wnd) and SDL_WINDOW_FULLSCREEN<>0 then exit;
+  LockState;
+  limits:=sizeLimits;
+  UnlockState;
+  minSize.cx:=0; minSize.cy:=0;
+  maxSize.cx:=0; maxSize.cy:=0;
+  if Assigned(limits) then limits(minSize,maxSize);
+  k:=1; // window coordinates per canvas unit
+  if (surface.canvasSize.cx>0) and (surface.displayRect.Width>0) then
+   k:=surface.displayRect.Width/surface.canvasSize.cx;
+  SDL_GetWindowSize(wnd,@ww,@wh);
+  SDL_GL_GetDrawableSize(wnd,@dw,@dh);
+  if (ww>0) and (dw>0) then k:=k*ww/dw;
+  minSize.cx:=round(minSize.cx*k); minSize.cy:=round(minSize.cy*k);
+  maxSize.cx:=round(maxSize.cx*k); maxSize.cy:=round(maxSize.cy*k);
+  if (minSize.cx<>limitMin.cx) or (minSize.cy<>limitMin.cy) then begin
+   SDL_SetWindowMinimumSize(wnd,Max(1,minSize.cx),Max(1,minSize.cy));
+   limitMin:=minSize;
+  end;
+  if (maxSize.cx<>limitMax.cx) or (maxSize.cy<>limitMax.cy) then begin
+   if maxSize.cx<=0 then ww:=NO_MAX else ww:=maxSize.cx;
+   if maxSize.cy<=0 then wh:=NO_MAX else wh:=maxSize.cy;
+   SDL_SetWindowMaximumSize(wnd,ww,wh);
+   limitMax:=maxSize;
+  end;
  end;
 
 procedure TSDLGLWindow.Maximize;
@@ -1055,7 +1206,10 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    else
      SDL_SetWindowFullscreen(wnd,0);
    {$ELSE}
-   frame:=TWindowFrame.System; // TODO: app-drawn frame under SDL (SDL_SetWindowHitTest)
+   if params.mode in [dmWindow,dmFixedWindow] then frame:=params.frame
+    else frame:=TWindowFrame.System;
+   if SDL_SetWindowHitTest(wnd,FrameHitTestCallback,self)<>0 then
+    Log.Warn('SDL_SetWindowHitTest: '+SDL_GetError);
    case params.mode of
     dmWindow,dmFixedWindow:begin
       SDL_SetWindowFullscreen(wnd,0);
@@ -1063,6 +1217,7 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
         SDL_SetWindowResizable(wnd,SDL_TRUE)
       else
         SDL_SetWindowResizable(wnd,SDL_FALSE);
+      UpdateFrame;
 
       SDL_SetWindowSize(wnd,w,h);
       SDL_GetWindowSize(wnd,@w,@h);

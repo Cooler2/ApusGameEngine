@@ -1403,7 +1403,9 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
   platform (they were SDL-only), on a state change only.
 - Windows: a window is centered on the work area of its own monitor (it was the primary
   one), a window maximized before switching to fullscreen is maximized again on return.
-- SDL: the frame is not implemented yet - the OS frame is used.
+- SDL: the window is made borderless (`SDL_SetWindowBordered`, also on maximize/restore for
+  `CustomWhenMaximized`), the caption and edges come through `SDL_SetWindowHitTest`, size
+  limits through `SDL_SetWindowMinimumSize`/`MaximumSize`.
 - `TUIWindow.BindToWindow` makes a UI window the frame of its OS window: it fills the scene,
   its own area in the top `header` units is the caption (opaque children there stay
   clickable, transparent ones let the caption through), `minW..maxH` limit the OS window
