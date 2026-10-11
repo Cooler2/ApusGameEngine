@@ -34,6 +34,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 ## Architecture
 
 - Main target CPU is x64, but should also support x86 and ARM. `ASM` blocks must be inside conditional compilation directives and accompanied by a pure Pascal implementation.
+- **x64 ASM and the two ABIs** (Win64 vs System V): write the body only in registers volatile in both — `rax rcx rdx r8-r11`, `xmm0-xmm5` (`rsi/rdi`, `xmm6+` are non-volatile on Win64). Parameters arrive in different registers, so a short `{$IFDEF MSWINDOWS}` preamble moves them into common ones (see `FillD_SSE`). If more registers are needed, save them on Win64 into the caller's 32-byte home space `[rsp+8..rsp+27h]` (see `TMat4MultiplySSE`), never below RSP (no red zone on Win64) and never via `push` or compiler locals: keep the routine frameless (`{$IFDEF FPC}nostackframe{$ENDIF}`, no locals), so unwind data stays true and no frame overhead appears.
 - Code should be compatible with both Delphi 12+ and FPC 3.2+ compilers.
 - **File access**: every engine file operation (read, write, exists, file info) goes through `Files` from `Apus.Files`, so installed providers (packs, extra data roots) see it. Direct `SysUtils`/Pascal file I/O only for `Folder` operations and diagnostic output that lives outside the VFS (logs, dumps). Third-party loaders get the data from `Files` as a memory buffer (e.g. `SDL_RWFromConstMem`), never a path.
 - We use GitHub actions to run tests on Windows and Linux.

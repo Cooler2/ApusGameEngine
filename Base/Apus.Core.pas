@@ -1513,21 +1513,19 @@ procedure FillD_SSE(var data; count: UIntPtr; value: cardinal); assembler;  {$IF
 // Windows x64 calling convention: RCX=data, RDX=count, R8=value
 // Unix x64 calling convention: RDI=data, RSI=count, RDX=value
 asm
+  // The body uses only registers that are volatile in both ABIs (rax, rdx, r10, r11,
+  // xmm0): nothing to save, so the routine stays a true leaf for Win64 unwinding.
   {$IFDEF MSWINDOWS}
-  // Windows x64: RCX=data, RDX=count, R8=value
-  // RDI is non-volatile, must preserve
-  push rdi
-  mov rdi, rcx        // destination
-  mov rcx, rdx        // count
+  mov r10, rcx        // destination
+  mov r11, rdx        // count
   mov eax, r8d        // value
   {$ELSE}
-  // Unix x64: RDI=data, RSI=count, RDX=value
-  // RDI already contains destination
-  mov rcx, rsi        // count
+  mov r10, rdi        // destination
+  mov r11, rsi        // count
   mov eax, edx        // value
   {$ENDIF}
 
-  test rcx, rcx
+  test r11, r11
   jz @done
 
   // Prepare SSE register with replicated value
@@ -1536,41 +1534,38 @@ asm
 
   // Align to 16-byte boundary (address already aligned on 4, max 3 dwords to write)
 @unaligned:
-  test rdi, 15
+  test r10, 15
   jz @aligned
-  mov [rdi], eax
-  add rdi, 4
-  dec rcx
+  mov [r10], eax
+  add r10, 4
+  dec r11
   jz @done            // exit if count exhausted
   jmp @unaligned
 
 @aligned:
   // Calculate number of 16-byte blocks (4 dwords per block)
-  mov rdx, rcx
+  mov rdx, r11
   shr rdx, 2           // rdx = blocks
   jz @tail
 
   // Process aligned blocks
 @block_loop:
-  movdqa [rdi], xmm0
-  add rdi, 16
+  movdqa [r10], xmm0
+  add r10, 16
   dec rdx
   jnz @block_loop
 
   // Handle remaining dwords (0-3)
-  and rcx, 3
+  and r11, 3
   jz @done
 
 @tail:
-  mov [rdi], eax
-  add rdi, 4
-  dec rcx
+  mov [r10], eax
+  add r10, 4
+  dec r11
   jnz @tail
 
 @done:
-  {$IFDEF MSWINDOWS}
-  pop rdi
-  {$ENDIF}
   ret
 end;
 {$ELSE}
