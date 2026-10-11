@@ -71,6 +71,13 @@ type
     function Remove(startIndex,count:integer):String8; overload;  // 1-based
     function Replace(const oldStr,newStr:String8):String8;
     function ReplaceAll(const oldStr,newStr:String8):String8;
+    // Append a char in place: unlike the functions above, modifies the string itself.
+    // Use it in byte-by-byte loops instead of st:=st+ch: Delphi converts
+    // String8+AnsiChar through the ANSI code page (corrupts bytes >= $80 and
+    // re-encodes the whole string on every step). For a one-off concatenation,
+    // st+String8(ch) is correct on both compilers.
+    // Never call it on a const parameter: FPC rejects that, Delphi corrupts the caller's string.
+    procedure Append(ch:AnsiChar); inline;
 
     // === Split/Join ===
     // Split by a single delimiter / by any char from the delimiters set.
@@ -346,16 +353,6 @@ end;
 // PAnsiChar(Pointer(self)), never as Move(self[i],...): Delphi makes the string unique
 // for that, which releases a reference the const parameter never held.
 
-// Append a raw byte without Delphi promoting UTF8String + AnsiChar to Unicode.
-procedure AppendByte(var st:String8;ch:AnsiChar); inline;
-var
-  n:integer;
-begin
-  n:=System.Length(st);
-  SetLength(st,n+1);
-  st[n+1]:=ch;
-end;
-
 function String8Helper.Length:integer;
 begin result:=System.Length(self); end;
 
@@ -616,6 +613,15 @@ begin
   if src<=selfLen then Move(PAnsiChar(Pointer(self))[src-1],result[dst],selfLen-src+1);
 end;
 
+procedure String8Helper.Append(ch:AnsiChar);
+var
+  n:integer;
+begin
+  n:=System.Length(self);
+  SetLength(self,n+1);
+  PAnsiChar(Pointer(self))[n]:=ch; // SetLength already made it unique
+end;
+
 function String8Helper.Split(delimiter:AnsiChar;quoteChar:AnsiChar):Strings8;
 var d:String8;
 begin
@@ -654,7 +660,7 @@ begin
         token:='';
         k:=start+1;
         while k<i do begin
-          AppendByte(token,self[k]); // collapse each doubled quoteChar to one literal
+          token:=token+String8(self[k]); // collapse each doubled quoteChar to one literal
           if (self[k]=quoteChar) and (k+1<i) and (self[k+1]=quoteChar) then inc(k,2)
             else inc(k);
         end;
@@ -715,7 +721,7 @@ begin
   escaped:=false;
   for i:=1 to System.Length(self) do begin
     if escaped then begin
-      AppendByte(result[cnt],self[i]);
+      result[cnt]:=result[cnt]+String8(self[i]);
       escaped:=false;
     end else
     if self[i]=escapeChar then
@@ -725,7 +731,7 @@ begin
       inc(cnt);
       SetLength(result,cnt+1);
     end else
-      AppendByte(result[cnt],self[i]);
+      result[cnt]:=result[cnt]+String8(self[i]);
   end;
 end;
 
@@ -794,7 +800,7 @@ begin
       #13: result:=result+escR;
       #9:  result:=result+escT;
       '\': result:=result+escSlash;
-      else AppendByte(result,self[i]);
+      else result:=result+String8(self[i]);
     end;
 end;
 
@@ -809,38 +815,45 @@ begin
         'r': result:=result+#13;
         't': result:=result+#9;
         '\': result:=result+'\';
-        else AppendByte(result,self[i]);
+        else result:=result+String8(self[i]);
       end;
       escaped:=false;
     end else if self[i]='\' then
       escaped:=true
     else
-      AppendByte(result,self[i]);
+      result:=result+String8(self[i]);
   end;
 end;
 
 function String8Helper.UrlEncode:String8;
 const
-  HexChars:String8='0123456789ABCDEF';
-  percent:AnsiChar='%';
-var i:integer; b:byte;
+  HexChars:array[0..15] of AnsiChar='0123456789ABCDEF';
+var
+  i:integer;
+  c:AnsiChar;
+  src,dst:PAnsiChar;
 begin
-  result:='';
-  for i:=1 to System.Length(self) do begin
-    b:=byte(self[i]);
-    if (self[i] in ['A'..'Z','a'..'z','0'..'9','-','_','.','~']) then
-      AppendByte(result,self[i])
-    else begin
-      AppendByte(result,percent);
-      AppendByte(result,HexChars[1+b shr 4]);
-      AppendByte(result,HexChars[1+b and $F]);
+  SetLength(result,System.Length(self)*3); // worst case: every byte becomes %XX
+  src:=PAnsiChar(Pointer(self));
+  dst:=PAnsiChar(Pointer(result));
+  for i:=0 to System.Length(self)-1 do begin
+    c:=src[i];
+    if c in ['A'..'Z','a'..'z','0'..'9','-','_','.','~'] then begin
+      dst^:=c; inc(dst);
+    end else begin
+      dst[0]:='%';
+      dst[1]:=HexChars[byte(c) shr 4];
+      dst[2]:=HexChars[byte(c) and $F];
+      inc(dst,3);
     end;
   end;
+  SetLength(result,dst-PAnsiChar(Pointer(result)));
 end;
 
 function String8Helper.UrlDecode:String8;
-const space:AnsiChar=' ';
-var i:integer;
+var
+  i,len:integer;
+  src,dst:PAnsiChar;
   function HexVal(c:AnsiChar):integer;
   begin
     if c in ['0'..'9'] then result:=ord(c)-ord('0')
@@ -849,17 +862,23 @@ var i:integer;
     else result:=0;
   end;
 begin
-  result:=''; i:=1;
-  while i<=System.Length(self) do begin
-    if (self[i]='%') and (i+2<=System.Length(self)) then begin
-      AppendByte(result,AnsiChar(HexVal(self[i+1])*16+HexVal(self[i+2])));
+  len:=System.Length(self);
+  SetLength(result,len); // decoded text is never longer than the source
+  src:=PAnsiChar(Pointer(self));
+  dst:=PAnsiChar(Pointer(result));
+  i:=0;
+  while i<len do begin
+    if (src[i]='%') and (i+2<len) then begin
+      dst^:=AnsiChar(HexVal(src[i+1])*16+HexVal(src[i+2]));
       inc(i,3);
-    end else if self[i]='+' then begin
-      AppendByte(result,space); inc(i);
     end else begin
-      AppendByte(result,self[i]); inc(i);
+      if src[i]='+' then dst^:=' '
+        else dst^:=src[i];
+      inc(i);
     end;
+    inc(dst);
   end;
+  SetLength(result,dst-PAnsiChar(Pointer(result)));
 end;
 
 function String8Helper.HtmlEscape:String8;
@@ -879,7 +898,7 @@ begin
       '>': result:=result+escGt;
       '"': result:=result+escQuote;
       '''':result:=result+escApos;
-      else AppendByte(result,self[i]);
+      else result:=result+String8(self[i]);
     end;
 end;
 
@@ -1455,12 +1474,12 @@ var
 begin
   result:='';
   for i:=0 to high(self) do begin
-    if i>0 then AppendByte(result,delimiter);
+    if i>0 then result:=result+String8(delimiter);
     st:=self[i];
     for j:=1 to System.Length(st) do begin
       if (st[j]=delimiter) or (st[j]=escapeChar) then
-        AppendByte(result,escapeChar);
-      AppendByte(result,st[j]);
+        result:=result+String8(escapeChar);
+      result:=result+String8(st[j]);
     end;
   end;
 end;
@@ -2009,7 +2028,7 @@ end;
 
 class function UTF8.Format(const fmt:String8; const args:array of const):String8;
 var
-  i,argIdx,w,prec,minD:integer;
+  i,start,argIdx,w,prec,minD:integer;
   leftAlign,zeroPad,showSign,hasPrec:boolean;
   piece:String8;
 
@@ -2035,7 +2054,10 @@ begin
   i:=1;
   while i<=System.Length(fmt) do begin
     if fmt[i]<>'%' then begin
-      result:=result+fmt[i]; inc(i); continue;
+      start:=i;
+      while (i<=System.Length(fmt)) and (fmt[i]<>'%') do inc(i);
+      result:=result+System.Copy(fmt,start,i-start); // literal run as one piece
+      continue;
     end;
     inc(i);
     if i>System.Length(fmt) then break;
