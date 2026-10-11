@@ -1760,18 +1760,19 @@ end;
 // TODO(R-07): temporary ABI-safe workaround.
 // Current operator* routes through this helper because legacy ASM was written for
 // (const m1,m2; out target) calling convention. Rework operator* to native ASM.
- procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
-  {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
-  var
-   savedXmm6,savedXmm7:TVec4;
+ {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
+ // Must stay frameless (no locals, FPC nostackframe): the home space offsets below
+ // are relative to RSP at entry.
+ procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4); {$IFDEF FPC}assembler; nostackframe;{$ENDIF}
   asm
    // x64 calling convention reminder:
    // - Win64 (Microsoft ABI): m1=RCX, m2=RDX, target=R8
    // - Linux x64 (System V ABI): m1=RDI, m2=RSI, target=RDX
    // This routine currently uses the Win64 register layout.
-   // Compiler-owned locals reserve the spill area on both Win64 compilers.
-   movups dqword [savedXmm6],xmm6
-   movups dqword [savedXmm7],xmm7
+   // Win64 has no red zone below RSP; save xmm6-7 into the caller-allocated
+   // home space instead ([rsp+8..rsp+27h], 16-byte aligned at entry).
+   movaps dqword [rsp+$08],xmm6
+   movaps dqword [rsp+$18],xmm7
 
   // Load matrix M2
   movaps xmm4,dqword [m2+$00]
@@ -1805,10 +1806,11 @@ end;
   jnz @loop
 
   // restore xmm6-7
-  movups xmm6,dqword [savedXmm6]
-  movups xmm7,dqword [savedXmm7]
+  movaps xmm6,dqword [rsp+$08]
+  movaps xmm7,dqword [rsp+$18]
  end;
  {$ELSE}
+ procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
 var
   i,j:integer;
 begin

@@ -151,7 +151,7 @@ function StripSML(const text:String8):String8;
     while (i<=len) and (text[i]<>'}') do inc(i); // skip tag body
     inc(i);                                      // skip closing }
    end else begin
-    result:=result+text[i]; inc(i);
+    result:=result+String8(text[i]); inc(i);
    end;
   end;
  end;

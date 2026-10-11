@@ -405,6 +405,24 @@ begin
   arr:=s.SplitEscaped(',');
   Check((length(arr)=1) and (arr[0]=text+',x'),'escaped split preserves UTF-8');
   Check(arr.JoinEscaped(',')=s,'escaped join preserves UTF-8');
+  Check(UTF8.Format(text+' %d!',[42])=text+' 42!','Format preserves UTF-8 literal text');
+  EndTest;
+end;
+
+procedure TestString8Append;
+var
+  s:String8;
+  arr:Strings8;
+  i:integer;
+begin
+  StartTest('String8.Append');
+  s:='';
+  for i:=$C0 to $C3 do s.Append(AnsiChar(i));
+  Check((length(s)=4) and (byte(s[1])=$C0) and (byte(s[4])=$C3),'raw bytes appended as is');
+  SetLength(arr,2);
+  arr[1]:='x';
+  arr[1].Append(AnsiChar($D0));
+  Check((length(arr[1])=2) and (byte(arr[1][2])=$D0),'append to array element');
   EndTest;
 end;
 
@@ -454,6 +472,13 @@ begin
   // round-trip
   s:='Test/Path?query=value&x=1';
   Check(s.UrlEncode.UrlDecode=s,'Url round-trip');
+  s:='';
+  Check(s.UrlEncode='','UrlEncode empty');
+  Check(s.UrlDecode='','UrlDecode empty');
+  s:='a%4';
+  Check(s.UrlDecode='a%4','UrlDecode truncated escape kept');
+  s:='%c3%a9';
+  Check(s.UrlDecode=String8(AnsiChar($C3))+String8(AnsiChar($A9)),'UrlDecode lowercase hex');
   EndTest;
 end;
 
@@ -1105,6 +1130,7 @@ begin
     TestString8SplitOutsideQuotes;
     TestString8SplitEscaped;
     TestString8RawBytes;
+    TestString8Append;
     TestString8Quote;
     TestString8Escape;
     TestString8Url;

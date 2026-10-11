@@ -145,30 +145,4 @@ begin
   if benchLogOpen then writeln(benchLog,s);
 end;
 
-// ============================================================================
-// Debug helpers
-// ============================================================================
-{$IFDEF UNIX}
-const
-  PTRACE_TRACEME = 0;
-  PTRACE_DETACH = 17;
-function ptrace(__request:integer; PID:longint; Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
-{$ENDIF}
-{$IFDEF MSWINDOWS}
-function WinAPI_IsDebuggerPresent:LongBool; external 'kernel32.dll' name 'IsDebuggerPresent';
-{$ENDIF}
-
-function IsDebuggerPresent:boolean;
-begin
-   {$IFDEF MSWINDOWS}
-   result:=WinAPI_IsDebuggerPresent;
-   {$ENDIF}
-   {$IFDEF UNIX}
-   if (ptrace(PTRACE_TRACEME, 0, nil, 0) < 0) then
-    result:=true
-   else begin
-    ptrace(PTRACE_DETACH, 0, nil, 0);
-    result:=false;
-   end;
-   {$ENDIF}
-end;
+// IsDebuggerPresent comes from Apus.Core

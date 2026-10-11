@@ -723,15 +723,55 @@ begin
  result:=old-value;
 end;
 
-{$IFDEF UNIX}
-{$IFNDEF IOS}
+// Probing with ptrace(PTRACE_TRACEME) is not an option: it makes the parent process the
+// tracer for good (PTRACE_DETACH from the tracee does nothing), so a later probe sees a
+// "debugger", and every signal stops the process until the parent lets it go
+{$IF DEFINED(LINUX) OR DEFINED(ANDROID)}
+// TracerPid in /proc/self/status: 0 - not traced
+function DetectDebugger:boolean;
+var
+  h:longint;
+  buf:array[0..4095] of AnsiChar;
+  n,i:integer;
+  st:AnsiString;
+begin
+  result:=false;
+  h:=FpOpen('/proc/self/status',O_RDONLY);
+  if h<0 then exit;
+  n:=FpRead(h,buf,sizeof(buf));
+  FpClose(h);
+  if n<=0 then exit;
+  SetString(st,PAnsiChar(@buf[0]),n);
+  i:=Pos('TracerPid:',st);
+  if i=0 then exit;
+  inc(i,length('TracerPid:'));
+  while (i<=length(st)) and (st[i] in [' ',#9]) do inc(i);
+  result:=(i<=length(st)) and (st[i] in ['1'..'9']);
+end;
+{$ELSEIF DEFINED(DARWIN) AND NOT DEFINED(IOS)}
 const
-  PTRACE_TRACEME = 0;
-  PTRACE_DETACH = 17;
-function ptrace(__request:integer; PID:{$IFDEF FPC}pid_t{$ELSE}integer{$ENDIF};
-  Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
-{$ENDIF}
-{$ENDIF}
+  CTL_KERN=1;
+  KERN_PROC=14;
+  KERN_PROC_PID=1;
+  P_TRACED=$800;
+  KP_PROC_FLAG_OFS=32; // kinfo_proc.kp_proc.p_flag, 64-bit layout
+function sysctl(name:PInteger;nameLen:cardinal;oldP:pointer;oldLenP:PSizeUInt;
+  newP:pointer;newLen:SizeUInt):integer; cdecl; external 'c' name 'sysctl';
+
+// P_TRACED flag of the process (Apple QA1361)
+function DetectDebugger:boolean;
+var
+  mib:array[0..3] of integer;
+  info:array[0..1023] of byte; // kinfo_proc is 648 bytes
+  size:SizeUInt;
+begin
+  mib[0]:=CTL_KERN; mib[1]:=KERN_PROC; mib[2]:=KERN_PROC_PID; mib[3]:=FpGetpid;
+  FillChar(info,sizeof(info),0);
+  size:=sizeof(info);
+  result:=(sysctl(@mib[0],4,@info[0],@size,nil,0)=0) and (size>=KP_PROC_FLAG_OFS+4) and
+    (PInteger(@info[KP_PROC_FLAG_OFS])^ and P_TRACED<>0);
+end;
+{$IFEND}
 
 var
   debuggerPresentCache:shortint=-1; // -1 unknown, 0 no debugger, 1 debugger detected
@@ -743,19 +783,13 @@ begin
     debuggerPresentCache:=byte(windows.IsDebuggerPresent);
   result:=debuggerPresentCache<>0;
 {$ELSE}
-  {$IFDEF IOS}
-  result:=false;
-  {$ELSE}
-  if debuggerPresentCache<0 then begin
-    if ptrace(PTRACE_TRACEME,0,nil,0)<0 then
-      debuggerPresentCache:=1
-    else begin
-      ptrace(PTRACE_DETACH,0,nil,0);
-      debuggerPresentCache:=0;
-    end;
-  end;
+  {$IF DEFINED(LINUX) OR DEFINED(ANDROID) OR (DEFINED(DARWIN) AND NOT DEFINED(IOS))}
+  if debuggerPresentCache<0 then
+    debuggerPresentCache:=byte(DetectDebugger);
   result:=debuggerPresentCache<>0;
-  {$ENDIF}
+  {$ELSE}
+  result:=false;
+  {$IFEND}
 {$ENDIF}
 end;
 
