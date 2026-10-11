@@ -729,7 +729,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
     x:=v^.x*m[0,0]+v^.y*m[1,0]+m[2,0];
     y:=v^.x*m[0,1]+v^.y*m[1,1]+m[2,1];
     v^.x:=x; v^.y:=y;
-    v:=PVec2(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
 

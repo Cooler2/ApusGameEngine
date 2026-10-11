@@ -134,13 +134,37 @@ begin
   Check((Abs(v.x-vRef.x)<0.001) and (Abs(v.y-vRef.y)<0.001) and (Abs(v.z-vRef.z)<0.001) and (Abs(v.w-vRef.w)<0.001),
     'TransformPoints unaligned matrix');
 
-  v:=TVec4.Init(1,2,3,0);
+  v:=TVec4.Init(1,2,3,1); // input w is ignored
   vRef.x:=v.x*a^.v[0,0]+v.y*a^.v[1,0]+v.z*a^.v[2,0];
   vRef.y:=v.x*a^.v[0,1]+v.y*a^.v[1,1]+v.z*a^.v[2,1];
   vRef.z:=v.x*a^.v[0,2]+v.y*a^.v[1,2]+v.z*a^.v[2,2];
   a^.TransformNormals(@v,1,SizeOf(v));
   Check((Abs(v.x-vRef.x)<0.001) and (Abs(v.y-vRef.y)<0.001) and (Abs(v.z-vRef.z)<0.001),
     'TransformNormals unaligned matrix');
+  Check(v.w=0,'TransformNormals: w=0 (direction)');
+  EndTest;
+end;
+
+// Bulk transforms: num<=0 does nothing, a negative step walks the array backwards.
+procedure TestMat4TransformArrays;
+var
+  arr:array[0..2] of TVec4;
+  m:TMat4;
+  i:integer;
+begin
+  StartTest('TMat4 transform arrays');
+  m:=TMat4.Translation(10,20,30);
+  for i:=0 to 2 do arr[i]:=TVec4.Init(i,i,i,1);
+  m.TransformPoints(@arr[0],0,SizeOf(TVec4));
+  m.TransformNormals(@arr[0],-1,SizeOf(TVec4));
+  Check((arr[0].x=0) and (arr[0].w=1),'num<=0 leaves data untouched');
+
+  m.TransformPoints(@arr[2],3,-SizeOf(TVec4));
+  Check((arr[0].x=10) and (arr[1].y=21) and (arr[2].z=32) and (arr[2].w=1),'TransformPoints negative step');
+
+  m:=TMat4.Scale(2,3,4);
+  m.TransformNormals(@arr[2],3,-SizeOf(TVec4));
+  Check((arr[0].x=20) and (arr[1].y=63) and (arr[2].z=128) and (arr[1].w=0),'TransformNormals negative step');
   EndTest;
 end;
 
@@ -313,6 +337,7 @@ begin
     TestVec3Normalize;
     TestMatrices;
     TestMat4Unaligned;
+    TestMat4TransformArrays;
     TestQuaternionConversions;
     TestGeom3DUtility;
     writeln;

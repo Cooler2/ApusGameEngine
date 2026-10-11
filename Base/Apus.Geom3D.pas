@@ -324,7 +324,8 @@ type
     procedure Decompose(out translation,rotation,scale:TQuat);
     procedure Transform(var v:TVec4);
     procedure TransformPoints(v:PVec4;num,step:integer);
-    // Transform directions/normals (translation is ignored).
+    // Transform directions: xyz:=xyz*M3x3, w:=0 (w=1 is a point, w=0 a direction); input w is ignored.
+    // For normals pass the inverse-transpose of the transform matrix; the result is not normalized.
     procedure TransformNormals(v:PVec4;num,step:integer);
     // Transform point with homogeneous divide; may return InvalidVec3 for t<=0.
     function TransformPoint(const v:TVec3):TVec3;
@@ -1260,7 +1261,7 @@ begin
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
-    v:=PVec3d(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
   end;
 end;
 
@@ -1276,7 +1277,7 @@ begin
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
-    v:=PVec3d(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
   end;
 end;
 
@@ -1343,7 +1344,7 @@ begin
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
-    v:=PVec3(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
   end;
 end;
 
@@ -1359,7 +1360,7 @@ begin
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
-    v:=PVec3(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
   end;
 end;
 
@@ -1959,6 +1960,9 @@ end;
    // - Linux x64 (System V): m=RDI, v=RSI, num=RDX, step=RCX
    // This block is written for the Win64 register mapping.
    // m may be unaligned: rows are loaded with movups (mulps [mem] requires alignment).
+   movsxd r9,r9d      // step is a signed 32-bit integer
+   test r8d,r8d
+   jle @exit          // num<=0: nothing to do
 @loop:
    movups xmm0,[rdx]
    // multiply
@@ -1984,7 +1988,7 @@ end;
    addps xmm1,xmm3
    movups [rdx],xmm1
 
-   dec r8
+   dec r8d
    jz @exit
    add rdx,r9
    jmp @loop
@@ -2002,13 +2006,12 @@ end;
     vec.w:=v^.x*m[0,3]+v^.y*m[1,3]+v^.z*m[2,3]+v.w*m[3,3];
 
     v^:=vec;
-    v:=PVec4(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
   {$ENDIF}
 
- // Ignore translation part
- // Transform an array of homogeneous 4D normals by a 4x4 matrix, ignoring translation.
+ // Transform an array of 4D directions by the upper 3x3 of a 4x4 matrix in-place; w:=0.
   procedure _TransformVec4NormalsByMat4(const m:TMat4;v:PVec4;num,step:integer);
  {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
   asm
@@ -2017,6 +2020,9 @@ end;
    // - Linux x64 (System V): m=RDI, v=RSI, num=RDX, step=RCX
    // This block is written for the Win64 register mapping.
    // m may be unaligned: rows are loaded with movups (mulps [mem] requires alignment).
+   movsxd r9,r9d      // step is a signed 32-bit integer
+   test r8d,r8d
+   jle @exit          // num<=0: nothing to do
 @loop:
    movups xmm0,[rdx]
    // multiply
@@ -2035,9 +2041,10 @@ end;
 
    addps xmm1,xmm2
    addps xmm1,xmm3
+   insertps xmm1,xmm1,$08 // w:=0
    movups [rdx],xmm1
 
-   dec r8
+   dec r8d
    jz @exit
    add rdx,r9
    jmp @loop
@@ -2052,10 +2059,10 @@ end;
     vec.x:=v^.x*m[0,0]+v^.y*m[1,0]+v^.z*m[2,0];
     vec.y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
     vec.z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
-    vec.w:=1.0;
+    vec.w:=0;
 
     v^:=vec;
-    v:=PVec4(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
   {$ENDIF}
@@ -2072,7 +2079,7 @@ end;
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1]+m[3,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2]+m[3,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PVec3d(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
 
@@ -2091,7 +2098,7 @@ end;
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1]+m[3,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2]+m[3,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PVec3(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
 
@@ -2106,7 +2113,7 @@ end;
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PVec3d(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
  // Transform an array of 3D single-precision vectors by a 3x3 matrix in-place.
@@ -2122,7 +2129,7 @@ end;
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PVec3(PtrUInt(v)+step);
+    inc(PByte(v),step); // step may be negative
    end;
   end;
 
