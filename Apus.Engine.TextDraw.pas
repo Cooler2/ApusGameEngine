@@ -218,7 +218,8 @@ begin
   if limitedFonts[i]=ftFont then exit;
  SetLength(limitedFonts,length(limitedFonts)+1);
  limitedFonts[high(limitedFonts)]:=ftFont;
- Log.Warn('Font "%s": size %.0f is above the glyph cache limit, drawn at %.0f',
+ // both sizes are GetFont size multiplied by the SetScale factor
+ Log.Warn('Font "%s": size %.0f exceeds the glyph cache limit %.0f (GetFont size * text scale), drawn at the limit',
    [ftFont.faceName,scale*15,maxScale*15]);
 end;
 {$ENDIF}
