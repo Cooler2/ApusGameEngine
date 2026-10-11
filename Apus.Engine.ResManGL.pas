@@ -196,6 +196,10 @@ type
 
  var
   resourceManagerGL:TGLResourceManager;
+  // Max anisotropy for textures with the fltAnisotropic filter, clamped to the GPU limit.
+  // Takes effect when a texture filter is set. Without anisotropic filtering support
+  // (GL 4.6, ARB/EXT_texture_filter_anisotropic) fltAnisotropic works as fltTrilinear.
+  anisotropyLevel:single=8;
 
  // Load image from file (TGA or JPG), result is expected in given pixel format or source pixel format
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
@@ -233,6 +237,7 @@ var
  lastErrorTime:int64;
  errorTr:integer;
 
+ maxAnisotropy:single=-1; // GPU limit for GL_TEXTURE_MAX_ANISOTROPY: 0 - not supported, -1 - not queried yet
  activeTex:integer; // currently active texture unit
  boundTex2D:array[0..15] of TTexture; // current texture bound
  boundTex3D:array[0..15] of TTexture;
@@ -1143,10 +1148,28 @@ begin
  end;
 end;
 
+// Max anisotropy supported by the GPU, 0 if anisotropic filtering is not available
+function GetMaxAnisotropy:single;
+begin
+ if maxAnisotropy<0 then begin
+  maxAnisotropy:=0;
+  {$IFDEF GLDESKTOP}
+  if GL_VERSION_4_6 or GL_ARB_texture_filter_anisotropic or GL_EXT_texture_filter_anisotropic then
+  {$ELSE}
+  if GL_EXT_texture_filter_anisotropic then
+  {$ENDIF}
+   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,@maxAnisotropy);
+  CheckForGLError('AN1');
+  Log.Msg('Max texture anisotropy: %.1f',[maxAnisotropy]);
+ end;
+ result:=maxAnisotropy;
+end;
+
 procedure TGLTexture.UpdateFilter;
 var
  fMin,fMax:integer;
  target,aTex:GLInt;
+ aniso,maxAniso:single;
 begin
  if texname=0 then exit;
  case filter of
@@ -1165,7 +1188,7 @@ begin
     fMax:=GL_LINEAR;
    end;
   end;
-  fltTrilinear:begin
+  fltTrilinear,fltAnisotropic:begin
    if mipmaps>0 then begin
     fMin:=GL_LINEAR_MIPMAP_LINEAR;
     fMax:=GL_LINEAR;
@@ -1175,17 +1198,26 @@ begin
    end;
   end;
  end;
+ // anisotropy is a texture parameter too: reset it to 1 for other filters
+ maxAniso:=GetMaxAnisotropy;
+ aniso:=1;
+ if (filter=fltAnisotropic) and (mipmaps>0) and (maxAniso>1) then
+  aniso:=Clamp(anisotropyLevel,1,maxAniso);
  {$IFNDEF GLES}
  if @glTextureParameteri<>nil then begin
   // GL 4.5 mode
   glTextureParameteri(texname,GL_TEXTURE_MIN_FILTER,fMin);
   glTextureParameteri(texname,GL_TEXTURE_MAG_FILTER,fMax);
+  if maxAniso>0 then
+   glTextureParameterf(texname,GL_TEXTURE_MAX_ANISOTROPY_EXT,aniso);
  end else
  if @glTextureParameteriEXT<>nil then begin
   // EXT_direct_state_access mode
   target:=GetTextureTarget;
   glTextureParameteriEXT(texname,target,GL_TEXTURE_MIN_FILTER,fMin);
   glTextureParameteriEXT(texname,target,GL_TEXTURE_MAG_FILTER,fMax);
+  if maxAniso>0 then
+   glTextureParameterfEXT(texname,target,GL_TEXTURE_MAX_ANISOTROPY_EXT,aniso);
  end else
  {$ENDIF}
  begin
@@ -1195,6 +1227,8 @@ begin
   Bind;
   glTexParameteri(target,GL_TEXTURE_MIN_FILTER,fMin);
   glTexParameteri(target,GL_TEXTURE_MAG_FILTER,fMax);
+  if maxAniso>0 then
+   glTexParameterf(target,GL_TEXTURE_MAX_ANISOTROPY_EXT,aniso);
   CheckForGLError('16');
   RestoreActiveTexture;
  end;
