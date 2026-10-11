@@ -401,8 +401,8 @@ implementation
   end;
 
  function BilinearMixF(values:PSingle;u,v:single):single; overload;
+ {$IFDEF CPUx64}
   asm
-  {$IFDEF CPUx64}
    {$IFDEF MSWINDOWS}
    // rcx=@values, xmm1=u,xmm2=v
    movups xmm0,[rcx]
@@ -435,13 +435,21 @@ implementation
    haddps xmm0,xmm0
    haddps xmm0,xmm0
    {$ENDIF}
-  {$ENDIF}
   end;
+ {$ELSE}
+  type
+   PValues=^TVector4;
+  var
+   p:PValues absolute values;
+  begin
+   result:=BilinearMixF(p^[0],p^[1],p^[2],p^[3],u,v);
+  end;
+ {$ENDIF}
 
  // Bilinear interpolation (SSE), 6x faster than reference version
  function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
+ {$IFDEF CPUx64}
   asm
-  {$IFDEF CPUx64}
    {$IFDEF MSWINDOWS}
    // rcx=values, xmm1=u, xmm2=v
    mov rax,[rip+SSE_CONST]
@@ -520,8 +528,26 @@ implementation
    packuswb xmm2,xmm2
    movd eax,xmm2
    {$ENDIF}
-  {$ENDIF}
   end;
+ {$ELSE}
+  type
+   PColors=^TColors;
+   TColors=array[0..3] of TARGBColor;
+  var
+   c:PColors absolute values;
+   w0,w1,w2,w3:single;
+   i:integer;
+   res:TARGBColor;
+  begin
+   w0:=(1-u)*(1-v);
+   w1:=u*(1-v);
+   w2:=(1-u)*v;
+   w3:=u*v;
+   for i:=0 to 3 do
+    res.m[i]:=Clamp(round(c^[0].m[i]*w0+c^[1].m[i]*w1+c^[2].m[i]*w2+c^[3].m[i]*w3),0,255);
+   result:=res.color;
+  end;
+ {$ENDIF}
 
 initialization
  new(SSE_CONST);

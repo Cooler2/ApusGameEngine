@@ -119,7 +119,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 
 **Existing tests:**
 - `Base/tests/Test*.dpr` - one per Base module area (Core, Conv, Strings, Types, Containers, HashMaps,
-  Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, GfxFilters, GfxFormats, GlyphCache,
+  Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, Colors, GfxFilters, GfxFormats, GlyphCache,
   Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
 - `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestWindowLock`, `TestVirtualMouse`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
   `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestBlendModes`

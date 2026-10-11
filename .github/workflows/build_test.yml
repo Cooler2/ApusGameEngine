@@ -91,7 +91,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          tests=(Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial GfxFilters GfxFormats TCP HttpServer)
+          tests=(Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial Colors GfxFilters GfxFormats TCP HttpServer)
           for t in "${tests[@]}"; do
             echo "::group::Base test $t"
             bash Base/tests/test.sh "$t"
@@ -117,7 +117,7 @@ jobs:
         shell: cmd
         run: |
           @echo on
-          for %%T in (Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial GfxFilters GfxFormats TCP HttpServer) do (
+          for %%T in (Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial Colors GfxFilters GfxFormats TCP HttpServer) do (
             call Base\tests\test.bat %%T || exit /b 1
           )
 
@@ -125,7 +125,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -euo pipefail
-          tests=(Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial GfxFilters GfxFormats TCP HttpServer)
+          tests=(Core Conv Strings Types Containers HashMaps GlyphCache Files EventMan Threads Tweenings Geom2D Geom3D Spatial Colors GfxFilters GfxFormats TCP HttpServer)
           for t in "${tests[@]}"; do
             echo "::group::Base test $t"
             bash Base/tests/test_macos.sh "$t"
