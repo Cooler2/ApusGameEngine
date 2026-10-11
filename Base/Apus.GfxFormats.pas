@@ -1377,7 +1377,7 @@ function CheckFileFormat(fname:string):TImageFileType;
   if WebPDecodeRGBAInto(@data[0],length(data),@pixels[0],length(pixels),width*4)=nil then
    raise EWarning.Create('WebP decoder failed');
   SwapRB(pixels[0],width*height); // decoded RGBA bytes become ARGB pixels
-  if image=nil then image:=TBitmapImage.Create(width,height,ipfARGB);
+  if image=nil then image:=Apus.Images.TBitmapImage.Create(width,height,ipfARGB);
   image.Lock;
   try
    for y:=0 to Min(height,image.height)-1 do
