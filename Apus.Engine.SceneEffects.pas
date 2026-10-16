@@ -29,6 +29,7 @@ type
  protected
   initialized,dontPlay:boolean;
   buffer:TTexture;
+  procedure UpdateBuffer; // keep the buffer as the owner window renders
  end;
 
  // Simple fade effect
@@ -47,6 +48,7 @@ type
  private
   buffer,prevbuf:TTexture;
   initialized,DontPlay:boolean;
+  procedure UpdateBuffers; // keep both buffers as the owner window renders
  end;
 
  // Show mode of a window scene (the scene must be a UI scene)
@@ -85,9 +87,9 @@ type
   power:TAnimatedValue; // 0..1
   factor:single; // strength
   mainColorAdd,mainColorMult:cardinal;
-  width,height:integer;
   buffer,buffer2:TTexture;
   initialized,dontPlay:boolean;
+  procedure UpdateBuffers; // keep the buffers as the owner window renders
  end;
  {$ENDIF}
 
@@ -101,6 +103,43 @@ implementation
       Apus.Colors,Apus.Engine.UI,Apus.Engine.UITypes,Apus.Engine.UIRender,
       Apus.Engine.Window,
       Apus.Lib, Apus.Utils;
+
+{ Scene buffers }
+
+// Effects that capture a whole scene render it the way its window does: at the
+// surface render size, in the window's canvas coordinates. The requested window
+// size (game.GetSettings) is not the surface: fullscreen and resize change it.
+
+function OwnerWindow(scene:TGameScene):TWindow;
+begin
+ result:=TWindow(scene.ownerWindow);
+ ASSERT(result<>nil,'Scene '+scene.name+' has no owner window');
+end;
+
+// Keep buf at the window render size divided by divider; reallocated when the surface changes
+procedure EnsureSceneBuffer(var buf:TTexture;wnd:TWindow;flags:cardinal;const name:String8;divider:integer=1);
+var
+ w,h:integer;
+begin
+ w:=Max(1,wnd.surface.renderSize.cx div divider);
+ h:=Max(1,wnd.surface.renderSize.cy div divider);
+ if (buf<>nil) and (buf.width=w) and (buf.height=h) then exit;
+ if buf<>nil then FreeImage(buf);
+ buf:=AllocImage(w,h,pfRenderTarget,flags,name);
+end;
+
+// Start drawing into buf with the canvas of wnd stretched over it
+procedure BeginSceneBuffer(buf:TTexture;wnd:TWindow);
+begin
+ gfx.BeginPaint(buf);
+ gfx.target.Viewport(0,0,buf.width,buf.height,wnd.canvasWidth,wnd.canvasHeight);
+end;
+
+// Draw buf over the whole canvas of wnd
+procedure DrawSceneBuffer(buf:TTexture;wnd:TWindow;color:cardinal);
+begin
+ draw.TexturedRect(0,0,wnd.canvasWidth-1,wnd.canvasHeight-1,buf,0,0,1,0,1,1,color);
+end;
 
 { TFullScreenEffect }
 
@@ -164,22 +203,24 @@ begin
  if not initialized then Initialize;
 end;
 
-procedure TSwitchScreenEffect.Initialize;
+procedure TSwitchScreenEffect.UpdateBuffer;
 var
- width,height:integer;
  flags:cardinal;
+begin
+ flags:=aiRenderTarget+aiTexture;
+ if game.GetSettings.zbuffer>0 then Bits.SetFlag(flags,aiDepthBuffer);
+ EnsureSceneBuffer(buffer,OwnerWindow(target),flags,'SceneEffect');
+end;
+
+procedure TSwitchScreenEffect.Initialize;
 begin
  if prevscene is TUIScene then begin
   with (prevscene as TUIScene).UI do
    if HasFocus then ClearFocus(GetWindow);
   (prevscene as TUIscene).UI.flags.enabled:=false;
  end;
- width:=game.GetSettings.width;
- height:=game.GetSettings.height;
- flags:=aiRenderTarget+aiTexture;
- if game.GetSettings.zbuffer>0 then Bits.SetFlag(flags,aiDepthBuffer);
  try
-  buffer:=AllocImage(width,height,pfRenderTarget,flags,'SceneEffect');
+  UpdateBuffer;
  except
   on e:exception do begin
    Log.Msg('ERROR: eff allocation - '+ExceptionMsg(e));
@@ -197,8 +238,13 @@ var
  color:cardinal;
 begin
  inherited;
+ if DontPlay then begin
+  target.Render; // no effect: show the scene as is
+  exit;
+ end;
  try
-  gfx.BeginPaint(buffer);
+  UpdateBuffer; // the surface may change while the effect runs
+  BeginSceneBuffer(buffer,OwnerWindow(target));
   target.Render;
   gfx.EndPaint;
   color:=round(255*timer/duration);
@@ -210,9 +256,8 @@ begin
    if target is TUIScene then (target as TUIScene).UI.flags.enabled:=true;
   end;
   color:=color shl 24+$808080;
-  if buffer<>nil then begin
-   draw.Image(0,0,buffer,color);
-  end;
+  if buffer<>nil then
+   DrawSceneBuffer(buffer,OwnerWindow(target),color);
  except
   on E:Exception do begin
    Log.Force('TransEff error: '+ExceptionMsg(e));
@@ -247,19 +292,24 @@ end;
 destructor TRotScaleEffect.Destroy;
 begin
  FreeImage(buffer);
+ FreeImage(prevbuf);
  inherited;
 end;
 
-procedure TRotScaleEffect.Initialize;
+procedure TRotScaleEffect.UpdateBuffers;
 var
- width,height:integer;
+ wnd:TWindow;
 begin
- width:=game.GetSettings.width;
- height:=game.GetSettings.height;
+ wnd:=OwnerWindow(target);
+ EnsureSceneBuffer(buffer,wnd,aiRenderTarget+aiTexture,'TransEffect');
+ EnsureSceneBuffer(prevbuf,wnd,aiRenderTarget+aiTexture,'TransEffect2');
+end;
+
+procedure TRotScaleEffect.Initialize;
+begin
  try
-  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect');
-  prevbuf:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect2');
-  gfx.BeginPaint(prevbuf);
+  UpdateBuffers;
+  BeginSceneBuffer(prevbuf,OwnerWindow(target));
   target.Render;
   gfx.EndPaint;
  except
@@ -292,6 +342,7 @@ begin
    target.SetStatus(TSceneStatus.ssFrozen);
    if newscene is TUIScene then (newscene as TUIScene).UI.flags.enabled:=true;
   end;
+  // buffers keep their Initialize size: prevbuf holds the only capture of the scene
   gfx.BeginPaint(buffer);
   try
 
@@ -304,7 +355,7 @@ begin
   end;
   gfx.target.BlendMode(blAlpha);
 
-  draw.Image(0,0,buffer,$FF808080);
+  DrawSceneBuffer(buffer,OwnerWindow(target),$FF808080);
 
   tex:=buffer;
   buffer:=prevbuf;
@@ -669,8 +720,6 @@ begin
 end;
 
 constructor TBlurEffect.Create(scene: TGameScene; strength: single;time:integer;colorAdd,colorMult:cardinal);
-var
- rect:TRect;
 begin
  if scene.effect<>nil then begin
   Log.Msg('WARN! BlurEff skipped - scene already has effect: '+scene.name);
@@ -678,9 +727,6 @@ begin
  end;
  Log.Msg('BlurEff for '+scene.name);
  initialized:=false;
- rect:=scene.GetArea;
- width:=Min(rect.width,game.GetSettings.width);
- height:=Min(rect.height,game.GetSettings.height);
 
  power.Init(0);
  power.Animate(1.0,time,spline0);
@@ -689,6 +735,15 @@ begin
  mainColorAdd:=colorAdd;
  mainColorMult:=colorMult;
  inherited Create(scene,1000000);
+end;
+
+procedure TBlurEffect.UpdateBuffers;
+var
+ wnd:TWindow;
+begin
+ wnd:=OwnerWindow(target);
+ EnsureSceneBuffer(buffer,wnd,aiRenderTarget+aiClampUV,'BlurBuf1');
+ EnsureSceneBuffer(buffer2,wnd,aiRenderTarget+aiClampUV,'BlurBuf2',2);
 end;
 
 procedure TBlurEffect.Initialize;
@@ -706,8 +761,7 @@ begin
   end;
  end;
 
- buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
- buffer2:=AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
+ UpdateBuffers;
  initialized:=true;
  except
   on e:exception do begin
@@ -732,7 +786,8 @@ begin
    exit;
   end;
   // Render source scene
-  gfx.BeginPaint(buffer);
+  UpdateBuffers;
+  BeginSceneBuffer(buffer,OwnerWindow(target));
   try
    target.Render;
   finally
