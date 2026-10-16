@@ -160,14 +160,10 @@ begin
  if scene is TUIScene then Log.Msg('Effect %s on scene %s',[ClassName,TUIScene(scene).name]);
  if prevScene is TUIScene then Log.Msg('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
- finally
-  wnd.UnlockState;
- end;
 
+ // One lock for the whole setup: a frame rendered between activation and the input
+ // lock may finish a short effect, and the lock set after that would never be lifted
  target.SetStatus(TSceneStatus.ssActive);
-
- wnd.LockState({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
- try
  if target is TUIScene then (target as TUIScene).UI.flags.enabled:=false;
 
  if scene.zOrder=prevScene.zOrder then begin
