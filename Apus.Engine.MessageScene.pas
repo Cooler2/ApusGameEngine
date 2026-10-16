@@ -42,6 +42,7 @@ implementation
    constructor Create;
    procedure UpdateUI(msgText:string8;mode,x,y:integer);
    procedure Render; override;
+   function ContentScale:single; // screen pixels in one unit of the window content
   end;
 
   TQueuedMessage=class
@@ -172,7 +173,7 @@ constructor TMessageScene.Create;
   wnd.SetPos(window.canvasWidth/2,window.canvasHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
   wnd.flags.manualDraw:=true;
-  wnd.styleInfo:='border-color:FFD0D8E0; radius:8; fill:C0C0C8D0';
+  wnd.styleInfo:='border-color:FFD0D8E0; radius:8; fill:FFC0C8D0';
 
   btnOk:=TUIButton.Create(90,35,wnd,'Message\OK').Setup('Ok');
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
@@ -191,11 +192,17 @@ constructor TMessageScene.Create;
   btnNo.SetHotKey(ord(TKey.Escape));
  end;
 
+function TMessageScene.ContentScale:single;
+ begin
+  result:=wnd.globalScale*wnd.scale;
+ end;
+
 // Update scene with new text and buttons
 procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
  var
   width,height:integer;
   line:String8;
+  s:single;
  begin
   msgText:=msgText.ReplaceAll('~',#13);
   msgText:=msgText.ReplaceAll(#10,'');
@@ -207,10 +214,12 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
   end else
    title:='';
 
+  // the window is sized in its own units, the text is measured in pixels
+  s:=ContentScale;
   width:=300;
-  if title<>'' then width:=Max(width,txt.Width(msgTitleFont,title));
+  if title<>'' then width:=Max(width,round(txt.Width(msgTitleFont,title)/s));
   for line in lines do
-   width:=Max(width,txt.Width(msgMainFont,line));
+   width:=Max(width,round(txt.Width(msgMainFont,line)/s));
 
   inc(width,100);
   height:=120+30*length(lines)+40*byte(title<>'');
@@ -240,25 +249,27 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
 procedure TMessageScene.Render;
  var
   r:TRect;
-  x,y:integer;
+  x:integer;
+  y,s:single;
   line:String8;
  begin
   // Draw background
   r:=wnd.GetPosOnScreen;
   DrawManualUI(wnd);
 
-  // Draw content
+  // Draw content: the layout is in window units, the text is drawn in pixels
+  s:=ContentScale;
   x:=r.CenterPoint.X;
-  y:=r.Top+40;
+  y:=r.Top+40*s;
   if title<>'' then begin
-   txt.Write(msgTitleFont,x,y,$FF402000,title,TTextAlignment.taCenter);
-   inc(y,40);
+   txt.Write(msgTitleFont,x,round(y),$FF402000,title,TTextAlignment.taCenter);
+   y:=y+40*s;
   end else
-   inc(y,8);
+   y:=y+8*s;
 
   for line in lines do begin
-   txt.Write(msgMainFont,x,y,$FF202020,line,TTextAlignment.taCenter);
-   inc(y,30);
+   txt.Write(msgMainFont,x,round(y),$FF202020,line,TTextAlignment.taCenter);
+   y:=y+30*s;
   end;
   // Buttons and child elements
   inherited;
