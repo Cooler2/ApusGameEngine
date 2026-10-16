@@ -65,7 +65,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
    else
    if SameText(e,'ShowWindowWithShadow') then begin
     scene:=TUIScene(game.GetScene('SceneW'));
-    scene.shadowColor:=$80202020;
+    scene.shadowColor:=$A0000000;
     TShowWindowEffect.Create(scene,400,sweShow,1);
    end
    else
@@ -96,30 +96,33 @@ constructor TSceneA.Create;
   inherited Create('SceneA');
   // Create a button
   TUIButton.Create(250,50,ui,'SceneA\Btn1').Setup('Switch to the SceneB').
-   SetPos(ui.clientWidth/2, ui.clientHeight*0.3, pivotCenter);
-  // This signal is emited when button is clicked (pressed and released)
-  Link('UI\SceneA\Btn1\Click','Logic\SwitchToSceneB');
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.3, pivotCenter).
+   SetAnchors(0.5,0.3,0.5,0.3); // stay in place when the window size changes
+  // This signal is emitted when button is clicked (pressed and released)
+  Link('UI\SceneA\Btn1\OnClick','Logic\SwitchToSceneB');
 
   // Few more buttons
   TUIButton.Create(250,50,ui,'SceneA\BtnShow1').Setup('Show Window (shadow)').
-   SetPos(ui.clientWidth/2, ui.clientHeight*0.4, pivotCenter);
-  Link('UI\SceneA\BtnShow1\Click','Logic\ShowWindowWithShadow');
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.4, pivotCenter).
+   SetAnchors(0.5,0.4,0.5,0.4);
+  Link('UI\SceneA\BtnShow1\OnClick','Logic\ShowWindowWithShadow');
 
   TUIButton.Create(250,50,ui,'SceneA\BtnShow2').Setup('Show Window (blur)').
-   SetPos(ui.clientWidth/2, ui.clientHeight*0.5, pivotCenter);
-  Link('UI\SceneA\BtnShow2\Click','Logic\ShowWindowWithBlur');
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.5, pivotCenter).
+   SetAnchors(0.5,0.5,0.5,0.5);
+  Link('UI\SceneA\BtnShow2\OnClick','Logic\ShowWindowWithBlur');
 
   TUIButton.Create(250,50,ui,'SceneA\BtnAsk').Setup('Exit?').
-   SetPos(ui.clientWidth/2, ui.clientHeight*0.6, pivotCenter);
-  Link('UI\SceneA\BtnAsk\Click','Logic\AskExit');
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.6, pivotCenter).
+   SetAnchors(0.5,0.6,0.5,0.6);
+  Link('UI\SceneA\BtnAsk\OnClick','Logic\AskExit');
  end;
 
 procedure TSceneA.Render;
  var
   i:integer;
  begin
-//  painter.Clear($FF306030);
-  gfx.target.Clear($FF000000);
+  gfx.target.Clear($FF407040); // not too dark: the window shadow must be visible over it
   for i:=1 to 3 do
    draw.Rect(i*3,i*3,window.canvasWidth-i*3-1,window.canvasHeight-i*3-1,$FFF0F000);
   txt.Write(mainFont,20,window.canvasHeight-20,$FFC0C0C0,'Press [Win]+[~] to toggle the console window');
@@ -131,9 +134,10 @@ constructor TSceneB.Create;
  begin
   inherited Create('SceneB');
   TUIButton.Create(250,50,ui,'SceneB\Btn1').Setup('Switch to the SceneA').
-   SetPos(ui.clientWidth/2, ui.clientHeight*0.45, pivotCenter);
-  // Alternate signal emited when a button is pressed
-  Link('UI\onButtonClick\SceneB\Btn1','Logic\SwitchToSceneA');
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.45, pivotCenter).
+   SetAnchors(0.5,0.45,0.5,0.45);
+  // Alternate signal emitted when a button is clicked
+  Link('UI\Button\Click\SceneB\Btn1','Logic\SwitchToSceneA');
  end;
 
 procedure TSceneB.Render;
@@ -151,10 +155,11 @@ constructor TSceneW.Create;
   zOrder:=100; // Important: it should be above other scenes
   c:=TUIElement.Create(300,140,ui,'SceneW\Frame');
   c.SetPos(ui.clientWidth/2,ui.clientHeight*0.6, pivotCenter);
+  c.SetAnchors(0.5,0.6,0.5,0.6);
   c.shape:=shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
   TUIButton.Create(100,40,c,'SceneW\Btn1').Setup('Close').
    SetPos(c.clientWidth/2, c.clientHeight*0.5, pivotCenter);
-  Link('UI\onButtonClick\SceneW\Btn1','Logic\CloseWindow');
+  Link('UI\Button\Click\SceneW\Btn1','Logic\CloseWindow');
  end;
 
 procedure TSceneW.Render;
