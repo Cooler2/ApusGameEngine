@@ -87,9 +87,12 @@ type
   power:TAnimatedValue; // 0..1
   factor:single; // strength
   mainColorAdd,mainColorMult:cardinal;
-  buffer,buffer2:TTexture;
+  buffer:TTexture; // the scene
+  levels:array[1..3] of TTexture; // the scene downsampled 2x, 4x, 8x
+  numLevels:integer; // levels in use: more on a higher DPI
   initialized,dontPlay:boolean;
   procedure UpdateBuffers; // keep the buffers as the owner window renders
+  procedure Downsample; // fill the levels from the scene buffer
  end;
  {$ENDIF}
 
@@ -684,8 +687,9 @@ const
   {$ELSE}
   '#version 330 '#13#10+
   {$ENDIF}
+  // texN is bound to texture stage N by the engine
+  'uniform sampler2D tex0; '#13#10+
   'uniform sampler2D tex1; '#13#10+
-  'uniform sampler2D tex2; '#13#10+
   'uniform float offsetX; '#13#10+
   'uniform float offsetY; '#13#10+
   'uniform float v1; '#13#10+
@@ -696,23 +700,28 @@ const
   'out vec4 fragColor;'#13#10+
   'void main(void)   '#13#10+
   '{   '#13#10+
-  '   vec4 value = v1 * texture(tex1, vTexcoord);  '#13#10+
-  '   value += v2 * texture(tex2, vTexcoord+vec2(offsetX,offsetY));  '#13#10+
-  '   value += v2 * texture(tex2, vTexcoord+vec2(-offsetX,offsetY));  '#13#10+
-  '   value += v2 * texture(tex2, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
-  '   value += v2 * texture(tex2, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
+  '   vec4 value = v1 * texture(tex0, vTexcoord);  '#13#10+
+  '   value += v2 * texture(tex1, vTexcoord+vec2(offsetX,offsetY));  '#13#10+
+  '   value += v2 * texture(tex1, vTexcoord+vec2(-offsetX,offsetY));  '#13#10+
+  '   value += v2 * texture(tex1, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
+  '   value += v2 * texture(tex1, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
   '   fragColor = colorAdd + value*colorMult;  '#13#10+
   '}';
+
+const
+ BLUR_RADIUS = 1.5; // sample offset in pixels at 96 DPI and full strength 1.0
 
 var
  blurShader:TShader;
 
 destructor TBlurEffect.Destroy;
+var
+ i:integer;
 begin
  inherited;
  FreeImage(buffer);
- FreeImage(buffer2);
-// texman.FreeImage(buffer3);
+ for i:=low(levels) to high(levels) do
+  if levels[i]<>nil then FreeImage(levels[i]);
 end;
 
 constructor TBlurEffect.Create(scene: TGameScene; strength: single;time:integer;colorAdd,colorMult:cardinal);
@@ -736,10 +745,45 @@ end;
 procedure TBlurEffect.UpdateBuffers;
 var
  wnd:TWindow;
+ offset:single;
+ i:integer;
 begin
  wnd:=OwnerWindow(target);
- EnsureSceneBuffer(buffer,wnd,aiRenderTarget+aiClampUV,'BlurBuf1');
- EnsureSceneBuffer(buffer2,wnd,aiRenderTarget+aiClampUV,'BlurBuf2',2);
+ EnsureSceneBuffer(buffer,wnd,aiRenderTarget+aiClampUV,'BlurBuf');
+ // The samples of the last level must stay about a texel apart, or their bilinear footprints
+ // don't overlap and the blur turns into shifted copies. A larger radius (strength, DPI) needs
+ // a smaller level; the level is chosen for the full strength so it doesn't switch while
+ // the effect fades in. The texel of level N spans 2^N render pixels.
+ offset:=BLUR_RADIUS*sqrt(factor)*wnd.canvasDPI/96*
+   wnd.surface.renderSize.cx/Max(1,wnd.canvasWidth); // in render pixels
+ numLevels:=1;
+ while (numLevels<high(levels)) and ((2 shl numLevels)<=offset*sqrt(2.0)) do inc(numLevels);
+ for i:=low(levels) to high(levels) do
+  if i<=numLevels then
+   EnsureSceneBuffer(levels[i],wnd,aiRenderTarget+aiClampUV,'BlurLevel'+Conv.ToStr(i),1 shl i)
+  else
+  if levels[i]<>nil then FreeImage(levels[i]);
+end;
+
+procedure TBlurEffect.Downsample;
+var
+ i:integer;
+ src,dst:TTexture;
+begin
+ src:=buffer;
+ for i:=1 to numLevels do begin
+  // each texel of dst gets the average of 2x2 texels of src
+  dst:=levels[i];
+  gfx.BeginPaint(dst);
+  try
+   gfx.target.BlendMode(blMove);
+   draw.TexturedRect(0,0,dst.width-1,dst.height-1,src,0,0,1,0,1,1,$FF808080);
+  finally
+   gfx.target.BlendMode(blAlpha);
+   gfx.EndPaint;
+  end;
+  src:=dst;
+ end;
 end;
 
 procedure TBlurEffect.Initialize;
@@ -771,6 +815,7 @@ procedure TBlurEffect.DrawScene;
 var
  u,v,phase:single;
  i:integer;
+ wnd:TWindow;
  cb:array[0..3] of byte;
  cf:TQuat;
 begin
@@ -790,37 +835,21 @@ begin
    gfx.EndPaint;
   end;
 
-  // Downsample
-{  gfx.BeginPaint(buffer2);
-  try
-  u:=1+buffer.stepU*4;
-  v:=1+buffer.stepV*4;
-  draw.TexturedRect(0,0,buffer2.width,buffer2.height,buffer,0,0,u,0,u,v,$FF808080);
-  finally
-   gfx.EndPaint;
-  end;}
-
-{  f:=factor*power.value;
-  if f>1 then begin
-   gfx.BeginPaint(buffer3);
-   u:=1+buffer2.stepU*4;
-   v:=1+buffer2.stepV*4;
-   draw.TexturedRect(0,0,buffer3.width,buffer3.height,buffer2,0,0,u,0,u,v,$FF808080);
-   gfx.EndPaint;
-  end;}
+  Downsample;
 
   shader.UseCustom(blurShader);
   shader.UseTexture(buffer,0);
-  shader.UseTexture(buffer2,1);
+  shader.UseTexture(levels[numLevels],1);
   phase:=power.Value;
   v:=sqrt(phase*factor);
 
-  blurShader.SetUniform('offsetX',1.5*buffer2.stepU*v);
-  blurShader.SetUniform('offsetY',1.5*buffer2.stepV*v);
+  // the radius grows with the DPI: canvas units carry it
+  wnd:=OwnerWindow(target);
+  u:=BLUR_RADIUS*v*wnd.canvasDPI/96;
+  blurShader.SetUniform('offsetX',u/wnd.canvasWidth);
+  blurShader.SetUniform('offsetY',u/wnd.canvasHeight);
   blurShader.SetUniform('v1',2/6);
   blurShader.SetUniform('v2',1/6);
-  blurShader.SetUniform('tex1',0);
-  blurShader.SetUniform('tex2',1);
   // Since we don't use engine's transformation, we should manually flip Y-coordinate when needed
   blurShader.SetUniform('yFactor',IfThen(gfx.transform.ProjMatrix[1,1]>0,1.0,-1.0));
 
