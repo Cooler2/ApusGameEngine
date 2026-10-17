@@ -502,7 +502,7 @@ procedure DrawNotifications;
   // Update lifecycle
   for i:=0 to high(toasts) do
    with toasts[i] do begin
-    hovered:=window.MouseInRect(rect);
+    hovered:=Mouse.InRect(rect);
     case phase of
      TToastPhase.Entering:begin
       if not anim.IsAnimating then phase:=TToastPhase.Visible;

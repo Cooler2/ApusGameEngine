@@ -17,6 +17,20 @@ Use it as the primary reference when updating old code.
   `capture.RequestScreenshot`, `window.RequestFrameCapture` -> `capture.RequestFrame`,
   `window.CaptureFrame` -> `capture.Capture(window)`. They don't take the window lock: use
   `game.RequestScreenshot`/`RequestFrameCapture`, which do. `TGame.CaptureFrame` removed.
+- Mouse helpers: `MouseInRect`, `MouseIsNear`, `MouseWasInRect` removed from `TWindow`,
+  `TGameBase` and `TGame`. New namespace `Mouse` (record with class functions, declared in
+  `Apus.Engine.Window`, re-exported by `Apus.Engine.API`) reads the pointer of the current
+  thread's window: `Mouse.Pos` (`TVec2`), `X`, `Y`, `InRect(TRect/TRect2)`,
+  `InCircle(x,y,radius)`, `Down(buttons=mbLeft)` (any of the buttons is held), `OverUI`,
+  `Simulated` (the virtual mouse is in control). Position queries are false while the pointer
+  is outside the canvas.
+  - `MouseInRect(x,y,width,height)` has no replacement overload: it was easy to call with
+    corners. Use `Mouse.InRect(Rect2(x,y,x+width,y+height))`.
+  - `MouseIsNear` -> `Mouse.InCircle`.
+  - `MouseWasInRect` has no replacement yet: outside `onMouseMove` it matched the current
+    position. A per-frame snapshot (`WasInRect`, `WasPressed`, `WasReleased`) comes later.
+- `mbLeft`/`mbRight`/`mbMiddle` are declared in `Apus.Engine.Types` (still available from
+  `Apus.Engine.API`).
 
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 

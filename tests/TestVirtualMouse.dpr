@@ -15,6 +15,7 @@ uses
   Apus.Threads,
   Apus.Files,
   Apus.EventMan,
+  Apus.Geom2D,
   Apus.Engine.Types,
   Apus.Engine.API,
   Apus.Engine.Window,
@@ -311,6 +312,8 @@ procedure TestEnable;
   Check(Field(a,'m','position')='outside','the virtual pointer starts outside the canvas');
   Check(wndA.virtualMouse.IsActive,'window is in the virtual mode');
   Check(underMouse=nil,'the physical hover is gone');
+  Check(Mouse.Simulated,'Mouse.Simulated sees the virtual mode');
+  Check(not Mouse.InRect(Types.Rect(0,0,$10000,$10000)),'Mouse: no rect holds a pointer outside the canvas');
   EndTest;
  end;
 
@@ -326,6 +329,11 @@ procedure TestMoveHover;
   Check(Field(a,'m','under')='Btn','element under the pointer reported');
   Check(underMouse=btn,'button is hovered');
   Check(wndA.mousePos=Types.Point(150,115),'window pointer state');
+  Check((Mouse.X=150) and (Mouse.Y=115),'Mouse.X/Y read the window pointer');
+  Check(Mouse.InRect(Types.Rect(150,115,151,116)),'Mouse.InRect(TRect): left/top edges included');
+  Check(not Mouse.InRect(Types.Rect(140,110,150,115)),'Mouse.InRect(TRect): right/bottom edges excluded');
+  Check(Mouse.InRect(Rect2(140,110,160,120)),'Mouse.InRect(TRect2)');
+  Check(Mouse.InCircle(153,119,5),'Mouse.InCircle');
   a:=Robot(Req('e','ui.element','NAME: Btn'));
   Check(Field(a,'e','underMouse')='true','ui.element sees the hover');
   a:=Robot(Req('h','ui.hittest','X: 150;Y: 115'));
@@ -368,6 +376,8 @@ procedure TestDownUp;
   Check(btn.pressed,'button is pressed');
   Check(Field(a,'d','buttons')='left','left button is down');
   Check(wndA.mouseButtons=mbLeft,'window button state');
+  Check(Mouse.Down,'Mouse.Down sees the left button');
+  Check(not Mouse.Down(mbRight),'Mouse.Down(mbRight): the right one is up');
   a:=Robot(Req('d2','mouse.down',''));
   Check(Field(a,'d2','STATUS')='ERROR','second down of the same button is refused');
   a:=Robot(Req('u','mouse.up',''));

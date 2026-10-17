@@ -511,14 +511,6 @@ public
   // so a drag started inside never sticks when it leaves the letterbox area.
   function MapPointerToCanvas(const clientPos:TPoint):TPoint;
 
-  // Mouse position queries in game coordinates
-  function MouseInRect(const r:TRect):boolean; overload;
-  function MouseInRect(const r:TRect2):boolean; overload;
-  function MouseInRect(x,y,width,height:single):boolean; overload;
-  function MouseIsNear(x,y,radius:single):boolean;
-  function MouseWasInRect(const r:TRect):boolean; overload;
-  function MouseWasInRect(const r:TRect2):boolean; overload;
-
   // Default render target
   // Allow a presentation RT for this window and create it if the surface needs one.
   // Without it rendering goes straight to the backbuffer.
@@ -542,6 +534,26 @@ public
   // Read a pixel region of the frame into image (its size must match the rect).
   // Rows come out top-down regardless of the source.
   procedure ReadFrameRect(const pixRect:TRect;image:TRawImage;src:TFrameSource=TFrameSource.presented);
+ end;
+
+ // Pointer of the current thread's window (the `window` threadvar), canvas space:
+ // read-only helpers for game code. Re-exported by Apus.Engine.API.
+ // A thread without a window is an error (asserted); in a release build its pointer is
+ // outside the canvas and every query is false.
+ Mouse=record
+  class function Pos:TVec2; static; // outside the canvas - ($3FFF,$3FFF)
+  class function X:single; static;
+  class function Y:single; static;
+  // False while the pointer is outside the canvas
+  class function InRect(const r:TRect):boolean; overload; static; // right/bottom edges excluded
+  class function InRect(const r:TRect2):boolean; overload; static;
+  class function InCircle(x,y,radius:single):boolean; static;
+  // Any of the buttons (mbXXX mask) is held
+  class function Down(buttons:byte=mbLeft):boolean; static;
+  // Over a UI element that takes the input (as of the last hover dispatch)
+  class function OverUI:boolean; static;
+  // The virtual mouse is in control (see TVirtualMouse)
+  class function Simulated:boolean; static;
  end;
 
 // Configuration hook: called on every rebuild, before the resolver.
@@ -2033,34 +2045,87 @@ begin
  end;
 end;
 
-function TWindow.MouseInRect(const r:TRect):boolean;
+{ Mouse }
+
+// Window of the Mouse queries. A thread without a window is a programmer error;
+// in a release build the pointer then counts as outside the canvas.
+function MouseWindow:TWindow; inline;
 begin
- result:=PtInRect(r,mousePos);
+ result:=window;
+ ASSERT(result<>nil,'Mouse: this thread has no window');
 end;
 
-function TWindow.MouseInRect(const r:TRect2):boolean;
+// The window's pointer is on the canvas (not the off-canvas sentinel)
+function PointerOnCanvas(wnd:TWindow):boolean; inline;
 begin
- result:=r.Contains(mousePos);
+ result:=(wnd<>nil) and (wnd.mousePos.x<>OFF_CANVAS);
 end;
 
-function TWindow.MouseInRect(x,y,width,height:single):boolean;
+class function Mouse.Pos:TVec2;
+var
+ wnd:TWindow;
 begin
- result:=Rect2(x,y,x+width,y+height).Contains(mousePos);
+ wnd:=MouseWindow;
+ if wnd<>nil then result:=TVec2.Init(wnd.mousePos)
+  else result:=TVec2.Init(OFF_CANVAS,OFF_CANVAS);
 end;
 
-function TWindow.MouseIsNear(x,y,radius:single):boolean;
+class function Mouse.X:single;
 begin
- result:=mousePos.IsNear(x,y,radius);
+ result:=Pos.x;
 end;
 
-function TWindow.MouseWasInRect(const r:TRect):boolean;
+class function Mouse.Y:single;
 begin
- result:=PtInRect(r,oldMousePos);
+ result:=Pos.y;
 end;
 
-function TWindow.MouseWasInRect(const r:TRect2):boolean;
+class function Mouse.InRect(const r:TRect):boolean;
+var
+ wnd:TWindow;
 begin
- result:=r.Contains(oldMousePos);
+ wnd:=MouseWindow;
+ result:=PointerOnCanvas(wnd) and PtInRect(r,wnd.mousePos);
+end;
+
+class function Mouse.InRect(const r:TRect2):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=PointerOnCanvas(wnd) and r.Contains(wnd.mousePos);
+end;
+
+class function Mouse.InCircle(x,y,radius:single):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=PointerOnCanvas(wnd) and wnd.mousePos.IsNear(x,y,radius);
+end;
+
+class function Mouse.Down(buttons:byte=mbLeft):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=(wnd<>nil) and (wnd.mouseButtons and buttons<>0);
+end;
+
+class function Mouse.OverUI:boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=(wnd<>nil) and wnd.mouseOverUI;
+end;
+
+class function Mouse.Simulated:boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=(wnd<>nil) and wnd.virtualMouse.IsActive;
 end;
 
 function TWindow.ClientToCanvas(const p:TPoint):TPoint;

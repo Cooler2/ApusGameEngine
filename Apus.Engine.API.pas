@@ -144,9 +144,9 @@ const
  sscRightMask=$F0;
 
  // Mouse buttons
- mbLeft   = 1;
- mbRight  = 2;
- mbMiddle = 4;
+ mbLeft   = Apus.Engine.Types.mbLeft;
+ mbRight  = Apus.Engine.Types.mbRight;
+ mbMiddle = Apus.Engine.Types.mbMiddle;
 
 type
  CursorID=record // Namespace for cursor identifiers
@@ -201,6 +201,8 @@ const
 
 type
  TImagePixelFormat = Apus.Images.TImagePixelFormat;
+ // Pointer of the current thread's window: Mouse.Pos, Mouse.InRect(r), Mouse.Down...
+ Mouse = Apus.Engine.Window.Mouse;
 
  // Which API use for rendering
  TGraphicsAPI=(gaAuto,     // Check one considering defined symbols
@@ -928,14 +930,6 @@ type
 
   // Utility functions
   // -----------------
-  function MouseInRect(r:TRect):boolean; overload; virtual; abstract;
-  function MouseInRect(r:TRect2):boolean; overload; virtual; abstract;
-  function MouseInRect(x,y,width,height:single):boolean; overload; virtual; abstract;
-  function MouseIsNear(x,y,radius:single):boolean; virtual; abstract;
-
-  function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
-  function MouseWasInRect(r:TRect2):boolean; overload; virtual; abstract;
-
   function CanvasSize:TSize; // draw/input space of the current window
 
   // Return interpolated color from color0 to color1 using AV sampled at the current frame time

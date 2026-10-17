@@ -6,6 +6,12 @@ interface
  uses Types, Apus.Core, Apus.Geom2D, Apus.Geom3D,
    Apus.Colors, Apus.VertexLayout;
 
+const
+ // Mouse buttons (bit masks; re-exported by Apus.Engine.API)
+ mbLeft   = 1;
+ mbRight  = 2;
+ mbMiddle = 4;
+
 type
  // 2D geometry
  TVec2d = Apus.Geom2D.TVec2d;

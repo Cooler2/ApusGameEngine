@@ -72,14 +72,6 @@ type
   procedure RequestFrameCapture(obj:TObject=nil); override;
 
   // Utility functions
-  function MouseInRect(r:TRect):boolean; overload; override;
-  function MouseInRect(r:TRect2):boolean; overload; override;
-  function MouseInRect(x,y,width,height:single):boolean; overload; override;
-  function MouseIsNear(x,y,radius:single):boolean; overload; override;
-
-  function MouseWasInRect(r:TRect):boolean; overload; override;
-  function MouseWasInRect(r:TRect2):boolean; overload; override;
-
   procedure WaitFor(pb:PBoolean;msg:string=''); override;
 
   // Keyboard events utility functions
@@ -446,26 +438,6 @@ begin
   ApplyNewSettings;
 end;
 
-function TGame.MouseInRect(r:TRect):boolean;
-begin
- result:=window.MouseInRect(r);
-end;
-
-function TGame.MouseInRect(r:TRect2):boolean;
-begin
- result:=window.MouseInRect(r);
-end;
-
-function TGame.MouseInRect(x,y,width,height:single):boolean;
-begin
- result:=window.MouseInRect(x,y,width,height);
-end;
-
-function TGame.MouseIsNear(x,y,radius:single):boolean;
-begin
- result:=window.MouseIsNear(x,y,radius);
-end;
-
 procedure TGame.CharEntered(charCode,scanCode:integer);
 var
  scene:TGameScene;
@@ -516,16 +488,6 @@ begin
  Log.Msg('ACTIVATE: %d',[byte(window.active)]);
  Signal('Engine\ActivateWnd',byte(window.active));
  if params.showSystemCursor then wndCursor:=0;
-end;
-
-function TGame.MouseWasInRect(r:TRect):boolean;
-begin
- result:=window.MouseWasInRect(r);
-end;
-
-function TGame.MouseWasInRect(r:TRect2):boolean;
-begin
- result:=window.MouseWasInRect(r);
 end;
 
 constructor TGame.Create(systemPlatform:ISystemPlatform;

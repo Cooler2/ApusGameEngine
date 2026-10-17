@@ -28,7 +28,7 @@ interface
   application:TTouchDemoApp;
 
 implementation
- uses SysUtils, Apus.Core, Apus.Engine.Types, Apus.Engine.SceneEffects, Apus.Engine.UIScene;
+ uses SysUtils, Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.SceneEffects, Apus.Engine.UIScene;
 
  type
   // Our single scene. TUIScene (not a bare TGameScene) so later milestones can
@@ -120,7 +120,7 @@ function TMainScene.Process:boolean;
 
   // Grab on the press edge, but only when the pointer is over the sprite.
   if pressed and not prevPressed and
-     window.MouseInRect(spriteX-hw,spriteY-hh,sprite.width,sprite.height) then begin
+     Mouse.InRect(Rect2(spriteX-hw,spriteY-hh,spriteX+hw,spriteY+hh)) then begin
    dragging:=true;
    grabDX:=spriteX-window.mousePos.x;
    grabDY:=spriteY-window.mousePos.y;
