@@ -43,9 +43,8 @@ type
     animTime:double;
     animTimeFrame:integer;
     blockClipActive:boolean;
-    layoutScale:single;
+    uiScale:single; // game.screenScale the metrics are built for
     menuWidth,menuTop,menuItemHeight,contentPadding,screenTopOffset:integer;
-    lastDPI:integer;
     procedure Load; override;
     function Process:boolean; override;
     procedure Render; override;
@@ -56,6 +55,7 @@ type
     function BuildPatch(size:integer;tileMode:boolean;
       topCol,botCol,rimCol,accentCol:cardinal;const name:string):TNinePatch;
     procedure InitParticles;
+    function S(v:integer):integer;
     procedure UpdateMetrics;
     procedure RebuildFonts;
     procedure HandleInput;
@@ -328,7 +328,6 @@ procedure TMainScene.Load;
 var
   i:integer;
 begin
-  lastDPI:=0;
   currentScreen:=0;
   for i:=1 to ParamCount do // -screen=N opens screen N (1-based) at start
     if SameText(copy(ParamStr(i),1,8),'-screen=') then
@@ -357,32 +356,29 @@ begin
     animTime:=animTime+1/60;
 end;
 
-procedure TMainScene.UpdateMetrics;
+// Layout sizes are given for 96 DPI: scaled by the UI scale, as the text is
+function TMainScene.S(v:integer):integer;
 begin
-  layoutScale:=window.surface.dpi/96;
-  if layoutScale<1 then layoutScale:=1;
-  menuWidth:=MENU_WIDTH+SRound((layoutScale-1)*110);
-  menuWidth:=ClampI(menuWidth,340,window.canvasWidth div 2);
-  menuTop:=SRound(MENU_TOP*layoutScale);
-  menuItemHeight:=SRound(MENU_ITEM_HEIGHT*layoutScale);
-  contentPadding:=SRound(CONTENT_PADDING*layoutScale);
-  screenTopOffset:=SRound(84*layoutScale);
+  result:=SRound(v*uiScale);
 end;
 
-procedure TMainScene.RebuildFonts;
-var
-  fs:single;
-  function F(baseSize:integer):integer;
-  begin
-    result:=Math.Max(6,SRound(baseSize*fs));
-  end;
+procedure TMainScene.UpdateMetrics;
 begin
-  fs:=window.surface.dpi/96;
-  if fs<1 then fs:=1;
-  titleFont:=txt.GetFont('Default',F(12));
-  menuFont:=txt.GetFont('Default',F(10));
-  hintFont:=txt.GetFont('Default',F(8));
-  bodyFont:=txt.GetFont('Default',F(8));
+  uiScale:=game.screenScale;
+  menuWidth:=ClampI(S(MENU_WIDTH),0,window.canvasWidth div 2);
+  menuTop:=S(MENU_TOP);
+  menuItemHeight:=S(MENU_ITEM_HEIGHT);
+  contentPadding:=S(CONTENT_PADDING);
+  screenTopOffset:=S(84);
+end;
+
+// GetFont applies the UI scale itself (TGameApplication.SetupHighDPI)
+procedure TMainScene.RebuildFonts;
+begin
+  titleFont:=txt.GetFont('Default',12);
+  menuFont:=txt.GetFont('Default',10);
+  hintFont:=txt.GetFont('Default',8);
+  bodyFont:=txt.GetFont('Default',8);
 end;
 
 function TMainScene.Process:boolean;
@@ -422,13 +418,13 @@ begin
   draw.FillRect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF1A2230);
   draw.Rect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF3B4B60);
 
-  txt.Write(titleFont,20,30,$FFE8F0FA,'Draw2D Screens',taLeft,toWithShadow);
-  txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [1..9,0]',taLeft,0);
+  txt.Write(titleFont,S(20),S(30),$FFE8F0FA,'Draw2D Screens',taLeft,toWithShadow);
+  txt.Write(hintFont,S(20),S(52),$FFA4B7CE,'Mouse click or keys [1..9,0]',taLeft,0);
 
   for i:=0 to SCREEN_COUNT-1 do begin
     top:=menuTop+i*menuItemHeight;
-    bottom:=top+menuItemHeight-6;
-    r:=Rect(menuRect.Left+12,top,menuRect.Right-12,bottom);
+    bottom:=top+menuItemHeight-S(6);
+    r:=Rect(menuRect.Left+S(12),top,menuRect.Right-S(12),bottom);
     isActive:=i=currentScreen;
     isHovered:=PtInRect(r,Point(window.mousePos.x,window.mousePos.y));
     if isActive then begin
@@ -446,32 +442,32 @@ begin
       txtCol:=$FFC9D7E8;
     end;
 
-    draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,bg,8);
-    draw.RRect(r.Left,r.Top,r.Right,r.Bottom,1,8,border);
+    draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,bg,S(8));
+    draw.RRect(r.Left,r.Top,r.Right,r.Bottom,1,S(8),border);
     // vertically center the single text line within the item box (y is the baseline)
-    txt.Write(menuFont,r.Left+12,(r.Top+r.Bottom+txt.Height(menuFont)) div 2,txtCol,
+    txt.Write(menuFont,r.Left+S(12),(r.Top+r.Bottom+txt.Height(menuFont)) div 2,txtCol,
       IntToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,0);
   end;
 end;
 
 procedure TMainScene.DrawScreenTitle(const contentRect:TRect; const title,subtitle:string);
 begin
-  draw.FillRect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-10,$FF1F2A3A);
-  draw.Rect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-10,$FF3D5067);
-  txt.Write(titleFont,contentRect.Left+14,contentRect.Top+20,$FFEAF2FC,title,taLeft,toWithShadow);
-  txt.Write(hintFont,contentRect.Left+14,contentRect.Top+42,$FFA8BDD5,subtitle,taLeft,0);
+  draw.FillRect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-S(10),$FF1F2A3A);
+  draw.Rect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-S(10),$FF3D5067);
+  txt.Write(titleFont,contentRect.Left+S(14),contentRect.Top+S(20),$FFEAF2FC,title,taLeft,toWithShadow);
+  txt.Write(hintFont,contentRect.Left+S(14),contentRect.Top+S(42),$FFA8BDD5,subtitle,taLeft,0);
 end;
 
 // draw a labeled block; innerR = area below the title bar for content
 procedure TMainScene.DrawBlock(const r:TRect; const title:string; out innerR:TRect);
 begin
   FinishBlockClipping;
-  draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,$FF1C2836,BLOCK_RADIUS);
-  draw.FillRect(r.Left+1,r.Top+1,r.Right-1,r.Top+BLOCK_TITLE_H,$28AACCFF);
+  draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,$FF1C2836,S(BLOCK_RADIUS));
+  draw.FillRect(r.Left+S(1),r.Top+S(1),r.Right-S(1),r.Top+S(BLOCK_TITLE_H),$28AACCFF);
   draw.Rect(r.Left,r.Top,r.Right,r.Bottom,$FF3D5270);
-  draw.Line(r.Left+1,r.Top+BLOCK_TITLE_H,r.Right-1,r.Top+BLOCK_TITLE_H,$FF3D5270);
-  txt.Write(bodyFont,r.Left+10,r.Top+BLOCK_TITLE_H-5,$FFDDEEFF,title,taLeft,toWithShadow);
-  innerR:=Rect(r.Left+8,r.Top+BLOCK_TITLE_H+6,r.Right-8,r.Bottom-8);
+  draw.Line(r.Left+1,r.Top+S(BLOCK_TITLE_H),r.Right-1,r.Top+S(BLOCK_TITLE_H),$FF3D5270);
+  txt.Write(bodyFont,r.Left+S(10),r.Top+S(BLOCK_TITLE_H)-S(5),$FFDDEEFF,title,taLeft,toWithShadow);
+  innerR:=Rect(r.Left+S(8),r.Top+S(BLOCK_TITLE_H)+S(6),r.Right-S(8),r.Bottom-S(8));
   gfx.clip.Rect(innerR);
   blockClipActive:=true;
 end;
@@ -503,22 +499,22 @@ var
   i:integer;
   t,cx,cy:single;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   FillChar(p,SizeOf(p),0);
 
   // block 0: draw.Line (horizontal ramp)
-  r:=GridCell(area,0,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.Line',innerR);
   draw.BeginLines;
   for i:=0 to 12 do
-    draw.Line(innerR.Left+10,innerR.Top+14+i*((innerR.Bottom-innerR.Top-20) div 13),
-      innerR.Right-10,innerR.Top+14+i*((innerR.Bottom-innerR.Top-20) div 13),
+    draw.Line(innerR.Left+S(10),innerR.Top+S(14)+i*((innerR.Bottom-innerR.Top-S(20)) div 13),
+      innerR.Right-S(10),innerR.Top+S(14)+i*((innerR.Bottom-innerR.Top-S(20)) div 13),
       $FF2E4866+i*$000A0A0A);
   draw.EndLines;
 
   // block 1: draw.Line (animated fan)
-  r:=GridCell(area,1,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.Line  [animated]',innerR);
   draw.BeginLines;
   t:=animTime*2.5;
@@ -530,25 +526,25 @@ begin
       cy+sin(t*1.2+i)*((innerR.Bottom-innerR.Top)*0.42),
       $FFA0D8FF-i*$00141000);
   draw.EndLines;
-  draw.FillRRect(cx-6,cy-6,cx+6,cy+6,$FFEEF6FF,5);
+  draw.FillRRect(cx-S(6),cy-S(6),cx+S(6),cy+S(6),$FFEEF6FF,S(5));
 
   // block 2: draw.Polyline + draw.Polygon
-  r:=GridCell(area,2,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.Polyline / draw.Polygon',innerR);
-  p[0].Init(innerR.Left+20, innerR.Bottom-40);
-  p[1].Init(innerR.Left+80, innerR.Top+30);
-  p[2].Init(innerR.Left+160,innerR.Bottom-80);
-  p[3].Init(innerR.Left+230,innerR.Top+55);
-  p[4].Init(innerR.Left+310,innerR.Bottom-60);
-  p[5].Init(innerR.Left+380,innerR.Top+40);
-  p[6].Init(innerR.Right-20,innerR.Bottom-70);
+  p[0].Init(innerR.Left+S(20), innerR.Bottom-S(40));
+  p[1].Init(innerR.Left+S(80), innerR.Top+S(30));
+  p[2].Init(innerR.Left+S(160),innerR.Bottom-S(80));
+  p[3].Init(innerR.Left+S(230),innerR.Top+S(55));
+  p[4].Init(innerR.Left+S(310),innerR.Bottom-S(60));
+  p[5].Init(innerR.Left+S(380),innerR.Top+S(40));
+  p[6].Init(innerR.Right-S(20),innerR.Bottom-S(70));
   draw.Polyline(@p[0],7,$FFFFD070,false);
   // closed polygon with fill using first 5 pts
-  p[0].Init(innerR.Left+60, innerR.Top+100);
-  p[1].Init(innerR.Left+140,innerR.Top+50);
-  p[2].Init(innerR.Left+210,innerR.Top+110);
-  p[3].Init(innerR.Left+180,innerR.Top+180);
-  p[4].Init(innerR.Left+80, innerR.Top+190);
+  p[0].Init(innerR.Left+S(60), innerR.Top+S(100));
+  p[1].Init(innerR.Left+S(140),innerR.Top+S(50));
+  p[2].Init(innerR.Left+S(210),innerR.Top+S(110));
+  p[3].Init(innerR.Left+S(180),innerR.Top+S(180));
+  p[4].Init(innerR.Left+S(80), innerR.Top+S(190));
   draw.Polygon(@p[0],5,$4060C0FF);
   draw.Polyline(@p[0],5,$FFBEE8FF,true);
 end;
@@ -561,61 +557,61 @@ var
   cx,cy:single;
   ext,glass:TRoundRectExtParams;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   t:=animTime*2.0;
 
   // block [0,0]: draw.Rect
-  r:=GridCell(area,0,0,2,2,BLOCK_GAP);
+  r:=GridCell(area,0,0,2,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.Rect',innerR);
   draw.BeginLines;
-  draw.Rect(innerR.Left+14,innerR.Top+14,innerR.Right-14,innerR.Bottom-14,$FFE9BE78);
-  draw.Rect(innerR.Left+34,innerR.Top+34,innerR.Right-34,innerR.Bottom-34,$FF87D3FF);
-  draw.Rect(innerR.Left+54,innerR.Top+54,innerR.Right-54,innerR.Bottom-54,$FF70C090);
+  draw.Rect(innerR.Left+S(14),innerR.Top+S(14),innerR.Right-S(14),innerR.Bottom-S(14),$FFE9BE78);
+  draw.Rect(innerR.Left+S(34),innerR.Top+S(34),innerR.Right-S(34),innerR.Bottom-S(34),$FF87D3FF);
+  draw.Rect(innerR.Left+S(54),innerR.Top+S(54),innerR.Right-S(54),innerR.Bottom-S(54),$FF70C090);
   // sub-pixel rect
-  draw.Rect(innerR.Left+70.5,innerR.Top+70.5,innerR.Right-70.5,innerR.Bottom-70.5,$FFFFC060);
+  draw.Rect(innerR.Left+S(70)+0.5,innerR.Top+S(70)+0.5,innerR.Right-S(70)-0.5,innerR.Bottom-S(70)-0.5,$FFFFC060);
   draw.EndLines;
 
   // block [1,0]: draw.RRect
-  r:=GridCell(area,1,0,2,2,BLOCK_GAP);
+  r:=GridCell(area,1,0,2,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.RRect',innerR);
-  draw.RRect(innerR.Left+12,innerR.Top+12,innerR.Right-12,innerR.Top+(innerR.Bottom-innerR.Top) div 3,$FFE7A870,10);
-  draw.RRect(innerR.Left+20,innerR.Top+(innerR.Bottom-innerR.Top) div 3+10,
-    innerR.Right-20,innerR.Top+2*(innerR.Bottom-innerR.Top) div 3,4,16,$FF79DAA9);
-  draw.RRect(innerR.Left+30,innerR.Top+2*(innerR.Bottom-innerR.Top) div 3+10,
-    innerR.Right-30,innerR.Bottom-12,2,22,$FFB080FF);
+  draw.RRect(innerR.Left+S(12),innerR.Top+S(12),innerR.Right-S(12),innerR.Top+(innerR.Bottom-innerR.Top) div 3,$FFE7A870,S(10));
+  draw.RRect(innerR.Left+S(20),innerR.Top+(innerR.Bottom-innerR.Top) div 3+S(10),
+    innerR.Right-S(20),innerR.Top+2*(innerR.Bottom-innerR.Top) div 3,S(4),S(16),$FF79DAA9);
+  draw.RRect(innerR.Left+S(30),innerR.Top+2*(innerR.Bottom-innerR.Top) div 3+S(10),
+    innerR.Right-S(30),innerR.Bottom-S(12),S(2),S(22),$FFB080FF);
 
   // block [0,1]: draw.FillRRect
-  r:=GridCell(area,0,1,2,2,BLOCK_GAP);
+  r:=GridCell(area,0,1,2,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.FillRRect',innerR);
-  draw.FillRRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$40607090,12);
-  draw.FillRRect(innerR.Left+30,innerR.Top+30,innerR.Right-30,innerR.Bottom-30,$80B7704A,16);
-  draw.FillRRect(innerR.Left+50,innerR.Top+50,innerR.Right-50,innerR.Bottom-50,$B0C8A060,20);
+  draw.FillRRect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Bottom-S(10),$40607090,S(12));
+  draw.FillRRect(innerR.Left+S(30),innerR.Top+S(30),innerR.Right-S(30),innerR.Bottom-S(30),$80B7704A,S(16));
+  draw.FillRRect(innerR.Left+S(50),innerR.Top+S(50),innerR.Right-S(50),innerR.Bottom-S(50),$B0C8A060,S(20));
 
   // block [1,1]: draw.RoundRect (animated)
-  r:=GridCell(area,1,1,2,2,BLOCK_GAP);
+  r:=GridCell(area,1,1,2,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.RoundRect  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
   cy:=innerR.Top+(innerR.Bottom-innerR.Top)*0.28;
   draw.RoundRect(TVec2.Init(cx,cy),
-    (innerR.Right-innerR.Left-60)*0.5+sin(t)*((innerR.Right-innerR.Left-60)*0.25),
+    (innerR.Right-innerR.Left-S(60))*0.5+sin(t)*((innerR.Right-innerR.Left-S(60))*0.25),
     (innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08),
-    20+sin(t*1.5)*7,3,$FFBFD8F7,$704F6FA4);
+    S(20)+sin(t*1.5)*S(7),S(3),$FFBFD8F7,$704F6FA4);
 
   ext:=TRoundRectExtParams.Init(TColorVector.Init(0.12,0.04,-0.10,0),
     TColorVector.Init(-0.05,-0.08,-0.12,0),TVec2.Init(0,0));
-  draw.RoundRect(innerR.Left+20,innerR.Top+(innerR.Bottom-innerR.Top) div 2+8,
-    innerR.Left+(innerR.Right-innerR.Left) div 2-8,innerR.Bottom-18,16,1,$FFEAF6FF,$90538EBD,@ext);
+  draw.RoundRect(innerR.Left+S(20),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(8),
+    innerR.Left+(innerR.Right-innerR.Left) div 2-S(8),innerR.Bottom-S(18),S(16),1,$FFEAF6FF,$90538EBD,@ext);
 
   ext:=TRoundRectExtParams.Init(TColorVector.Init(0.05,0.12,0.18,0),
     TColorVector.Init(-0.16,-0.06,0.04,0),TVec2.Init(-0.45,-0.35));
-  draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+8,innerR.Top+(innerR.Bottom-innerR.Top) div 2+8,
-    innerR.Right-20,innerR.Bottom-18,16,1,$FFFFF4C0,$90686A8D,@ext);
+  draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+S(8),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(8),
+    innerR.Right-S(20),innerR.Bottom-S(18),S(16),1,$FFFFF4C0,$90686A8D,@ext);
 
   glass:=TRoundRectExtParams.Init(TColorVector.Init(0,0,0,0),
     TColorVector.Init(0,0,0,-0.22),TVec2.Init(0,-0.35));
-  draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+18,innerR.Top+(innerR.Bottom-innerR.Top) div 2+18,
-    innerR.Right-30,innerR.Top+(innerR.Bottom-innerR.Top) div 2+54,12,0,$00000000,$45FFFFFF,@glass);
+  draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+S(18),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(18),
+    innerR.Right-S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(54),S(12),0,$00000000,$45FFFFFF,@glass);
 end;
 
 // screen 2: FillRect / FillGradrect / WithGradient — 3 blocks
@@ -625,38 +621,38 @@ var
   g:TColorGradient;
   t:single;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   t:=animTime*1.5;
 
   // block 0: draw.FillRect — solid + alpha layering
-  r:=GridCell(area,0,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.FillRect',innerR);
-  draw.FillRect(innerR.Left+10,innerR.Top+10,innerR.Left+160,innerR.Top+160,$B0E97B5A);
-  draw.FillRect(innerR.Left+80,innerR.Top+60,innerR.Right-30,innerR.Top+220,$909CE8A8);
-  draw.FillRect(innerR.Left+30,innerR.Top+200,innerR.Right-50,innerR.Bottom-20,$70D8D8FF);
+  draw.FillRect(innerR.Left+S(10),innerR.Top+S(10),innerR.Left+S(160),innerR.Top+S(160),$B0E97B5A);
+  draw.FillRect(innerR.Left+S(80),innerR.Top+S(60),innerR.Right-S(30),innerR.Top+S(220),$909CE8A8);
+  draw.FillRect(innerR.Left+S(30),innerR.Top+S(200),innerR.Right-S(50),innerR.Bottom-S(20),$70D8D8FF);
 
   // block 1: draw.FillGradrect — horizontal and vertical
-  r:=GridCell(area,1,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.FillGradrect',innerR);
-  draw.FillGradrect(innerR.Left+10,innerR.Top+10,innerR.Right-10,
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-5,$FFF0A040,$FF7030A0,false); // horizontal
-  draw.FillGradrect(innerR.Left+10,innerR.Top+(innerR.Bottom-innerR.Top) div 2+5,
-    innerR.Right-10,innerR.Bottom-10,$FFE06060,$FF50A0E0,true); // vertical
+  draw.FillGradrect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),
+    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFF0A040,$FF7030A0,false); // horizontal
+  draw.FillGradrect(innerR.Left+S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(5),
+    innerR.Right-S(10),innerR.Bottom-S(10),$FFE06060,$FF50A0E0,true); // vertical
 
   // block 2: draw.WithGradient / draw.NoGradient — animated
-  r:=GridCell(area,2,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.WithGradient  [animated]',innerR);
   draw.WithGradient($FFF1B45F,$FF4F92D8,t,0.7+0.2*sin(t));
-  draw.FillRRect(innerR.Left+20,innerR.Top+10,innerR.Right-20,
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-5,$FFFFFFFF,16);
+  draw.FillRRect(innerR.Left+S(20),innerR.Top+S(10),innerR.Right-S(20),
+    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFFFFFFF,S(16));
   g.Init($FF73DCAA,$FF4B4EA9,t+Pi*0.5,0.55);
   draw.WithGradient(g,true);
-  draw.FillRect(innerR.Left+30,innerR.Top+(innerR.Bottom-innerR.Top) div 2+5,
-    innerR.Right-30,innerR.Bottom-10,$FFFFFFFF);
+  draw.FillRect(innerR.Left+S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(5),
+    innerR.Right-S(30),innerR.Bottom-S(10),$FFFFFFFF);
   draw.NoGradient;
-  draw.Rect(innerR.Left+20,innerR.Top+10,innerR.Right-20,
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-5,$FFE7F1FF);
+  draw.Rect(innerR.Left+S(20),innerR.Top+S(10),innerR.Right-S(20),
+    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFE7F1FF);
 end;
 
 // screen 3: FillTriangle / ShadedRect — 3 blocks
@@ -666,21 +662,21 @@ var
   cx,cy,t:single;
   i,h3:integer;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   t:=animTime*2.2;
 
   // block 0: draw.FillTriangle (static)
-  r:=GridCell(area,0,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.FillTriangle',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
-  draw.FillTriangle(innerR.Left+20,innerR.Bottom-20,innerR.Right-20,innerR.Bottom-20,cx,innerR.Top+20,
+  draw.FillTriangle(innerR.Left+S(20),innerR.Bottom-S(20),innerR.Right-S(20),innerR.Bottom-S(20),cx,innerR.Top+S(20),
     $FFE96A6A,$FF63E18C,$FF5A86ED);
-  draw.FillTriangle(innerR.Left+50,innerR.Bottom-60,innerR.Right-50,innerR.Bottom-55,cx,innerR.Top+80,
+  draw.FillTriangle(innerR.Left+S(50),innerR.Bottom-S(60),innerR.Right-S(50),innerR.Bottom-S(55),cx,innerR.Top+S(80),
     $60FFFFFF,$C0FFD080,$50A0B0FF);
 
   // block 1: draw.FillTriangle (animated)
-  r:=GridCell(area,1,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.FillTriangle  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
   cy:=(innerR.Top+innerR.Bottom)*0.5;
@@ -691,54 +687,54 @@ begin
       cx+cos(t+i*2.09+0.9)*((innerR.Right-innerR.Left)*0.42),
       cy+sin(t+i*2.09+0.9)*((innerR.Bottom-innerR.Top)*0.42),
       $30FF8060+i*$00202020,$50A0C0FF,$30A0FFB0);
-  draw.FillRRect(cx-12,cy-12,cx+12,cy+12,$FFEFF5FC,10);
+  draw.FillRRect(cx-S(12),cy-S(12),cx+S(12),cy+S(12),$FFEFF5FC,S(10));
 
   // block 2: draw.ShadedRect (three variants)
-  r:=GridCell(area,2,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.ShadedRect',innerR);
-  h3:=(innerR.Bottom-innerR.Top-20) div 3;
-  draw.ShadedRect(innerR.Left+14,innerR.Top+10,innerR.Right-14,innerR.Top+10+h3,3,$FFD0DCEC,$FF4A5C71);
-  draw.ShadedRect(innerR.Left+14,innerR.Top+10+h3+10,innerR.Right-14,innerR.Top+10+h3*2,1,$FFD3E0EE,$FF415266);
-  draw.ShadedRect(innerR.Left+30,innerR.Top+10+h3*2+10,innerR.Right-30,innerR.Bottom-10,2,$FFD0DCEC,$FF455A72);
+  h3:=(innerR.Bottom-innerR.Top-S(20)) div 3;
+  draw.ShadedRect(innerR.Left+S(14),innerR.Top+S(10),innerR.Right-S(14),innerR.Top+S(10)+h3,3,$FFD0DCEC,$FF4A5C71);
+  draw.ShadedRect(innerR.Left+S(14),innerR.Top+S(10)+h3+S(10),innerR.Right-S(14),innerR.Top+S(10)+h3*2,1,$FFD3E0EE,$FF415266);
+  draw.ShadedRect(innerR.Left+S(30),innerR.Top+S(10)+h3*2+S(10),innerR.Right-S(30),innerR.Bottom-S(10),2,$FFD0DCEC,$FF455A72);
 end;
 
 // screen 4: TexturedRect / RotScaled — 3 blocks
 procedure TMainScene.DrawScreenTextured(const contentRect:TRect);
 var
   area,r,innerR:TRect;
-  t,s:single;
+  t,k:single;
   cx,cy:single;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   if checkerTex=nil then exit;
   t:=animTime*1.8;
-  s:=1.2+0.35*sin(t);
+  k:=1.2+0.35*sin(t);
 
   // block 0: draw.TexturedRect(TRect) with color tint
-  r:=GridCell(area,0,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.TexturedRect(TRect)',innerR);
-  draw.TexturedRect(Rect(innerR.Left+10,innerR.Top+10,innerR.Left+180,innerR.Bottom-10),
+  draw.TexturedRect(Rect(innerR.Left+S(10),innerR.Top+S(10),innerR.Left+S(180),innerR.Bottom-S(10)),
     checkerTex,$FF8CB0FF);
-  draw.TexturedRect(Rect(innerR.Left+195,innerR.Top+10,innerR.Right-10,innerR.Bottom-10),
+  draw.TexturedRect(Rect(innerR.Left+S(195),innerR.Top+S(10),innerR.Right-S(10),innerR.Bottom-S(10)),
     checkerTex,$FFB6F0B0);
 
   // block 1: draw.TexturedRect(UV overload)
-  r:=GridCell(area,1,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.TexturedRect(UV)',innerR);
-  draw.TexturedRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,
+  draw.TexturedRect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Bottom-S(10),
     checkerTex,0,0,1,0,0.5,1,$FFFFFFFF);
-  draw.Rect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$FFEAF3FF);
+  draw.Rect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Bottom-S(10),$FFEAF3FF);
 
   // block 2: draw.RotScaled (animated)
-  r:=GridCell(area,2,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.RotScaled  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
   cy:=(innerR.Top+innerR.Bottom)*0.5;
-  draw.TexturedRect(Rect(innerR.Left+6,innerR.Top+6,innerR.Right-6,innerR.Bottom-6),
+  draw.TexturedRect(Rect(innerR.Left+S(6),innerR.Top+S(6),innerR.Right-S(6),innerR.Bottom-S(6)),
     checkerTex,$FF94A6C8);
-  draw.RotScaled(cx,cy,s,s,t,checkerTex,$FFE8F0FF);
-  draw.RRect(innerR.Left+6,innerR.Top+6,innerR.Right-6,innerR.Bottom-6,1,8,$FF7C91AD);
+  draw.RotScaled(cx,cy,k,k,t,checkerTex,$FFE8F0FF);
+  draw.RRect(innerR.Left+S(6),innerR.Top+S(6),innerR.Right-S(6),innerR.Bottom-S(6),1,S(8),$FF7C91AD);
 end;
 
 // screen 5: Combined Playground — 2x2 blocks
@@ -749,55 +745,55 @@ var
   t:single;
   p:array[0..4] of TVec2;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   FillChar(p,SizeOf(p),0);
   t:=animTime*3.0;
 
   // block [0,0]: ShadedRect + FillGradrect
-  r:=GridCell(area,0,0,2,2,BLOCK_GAP);
+  r:=GridCell(area,0,0,2,2,S(BLOCK_GAP));
   DrawBlock(r,'ShadedRect + FillGradrect',innerR);
-  draw.ShadedRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Top+60,2,$FFD0DCEC,$FF495B70);
-  draw.FillGradrect(innerR.Left+10,innerR.Top+75,innerR.Right-10,innerR.Bottom-10,$FF5C86E0,$FF2F4565,true);
+  draw.ShadedRect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Top+S(60),2,$FFD0DCEC,$FF495B70);
+  draw.FillGradrect(innerR.Left+S(10),innerR.Top+S(75),innerR.Right-S(10),innerR.Bottom-S(10),$FF5C86E0,$FF2F4565,true);
 
   // block [1,0]: Polygon + Polyline + Line
-  r:=GridCell(area,1,0,2,2,BLOCK_GAP);
+  r:=GridCell(area,1,0,2,2,S(BLOCK_GAP));
   DrawBlock(r,'Polygon + Polyline + Line',innerR);
-  p[0].Init(innerR.Left+30, innerR.Bottom-30);
-  p[1].Init(innerR.Left+80, innerR.Top+30);
-  p[2].Init(innerR.Left+200,innerR.Bottom-40);
-  p[3].Init(innerR.Left+310,innerR.Top+40);
-  p[4].Init(innerR.Right-30,innerR.Bottom-30);
+  p[0].Init(innerR.Left+S(30), innerR.Bottom-S(30));
+  p[1].Init(innerR.Left+S(80), innerR.Top+S(30));
+  p[2].Init(innerR.Left+S(200),innerR.Bottom-S(40));
+  p[3].Init(innerR.Left+S(310),innerR.Top+S(40));
+  p[4].Init(innerR.Right-S(30),innerR.Bottom-S(30));
   draw.Polygon(@p[0],5,$4060C0FF);
   draw.Polyline(@p[0],5,$FFBEE8FF,true);
   for i:=0 to 7 do
-    draw.Line(innerR.Left+10,innerR.Top+12+i*((innerR.Bottom-innerR.Top-20) div 8),
-      innerR.Right-10,innerR.Top+12+i*((innerR.Bottom-innerR.Top-20) div 8),$30447296);
+    draw.Line(innerR.Left+S(10),innerR.Top+S(12)+i*((innerR.Bottom-innerR.Top-S(20)) div 8),
+      innerR.Right-S(10),innerR.Top+S(12)+i*((innerR.Bottom-innerR.Top-S(20)) div 8),$30447296);
 
   // block [0,1]: WithGradient + FillRRect + Line (animated)
-  r:=GridCell(area,0,1,2,2,BLOCK_GAP);
+  r:=GridCell(area,0,1,2,2,S(BLOCK_GAP));
   DrawBlock(r,'WithGradient + FillRRect + Line  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   cy:=(innerR.Top+innerR.Bottom) div 2;
   draw.WithGradient($FFF1B25C,$FF4E8DD0,t);
-  draw.FillRRect(innerR.Left+16,innerR.Top+16,innerR.Right-16,innerR.Bottom-16,$FFFFFFFF,16);
+  draw.FillRRect(innerR.Left+S(16),innerR.Top+S(16),innerR.Right-S(16),innerR.Bottom-S(16),$FFFFFFFF,S(16));
   draw.NoGradient;
   for i:=0 to 6 do
-    draw.Line(cx,cy,cx+PRound(cos(t+i*0.7)*((innerR.Right-innerR.Left) div 2-20)),
-      cy+PRound(sin(t*1.2+i*0.7)*((innerR.Bottom-innerR.Top) div 2-20)),$FFD8EEFF);
-  draw.FillRRect(cx-10,cy-10,cx+10,cy+10,$FFFFFFFF,8);
+    draw.Line(cx,cy,cx+PRound(cos(t+i*0.7)*((innerR.Right-innerR.Left) div 2-S(20))),
+      cy+PRound(sin(t*1.2+i*0.7)*((innerR.Bottom-innerR.Top) div 2-S(20))),$FFD8EEFF);
+  draw.FillRRect(cx-S(10),cy-S(10),cx+S(10),cy+S(10),$FFFFFFFF,S(8));
 
   // block [1,1]: TexturedRect + RoundRect + FillTriangle
-  r:=GridCell(area,1,1,2,2,BLOCK_GAP);
+  r:=GridCell(area,1,1,2,2,S(BLOCK_GAP));
   DrawBlock(r,'TexturedRect + RoundRect + FillTriangle',innerR);
   if checkerTex<>nil then begin
-    draw.TexturedRect(Rect(innerR.Left+6,innerR.Top+6,innerR.Right-6,innerR.Bottom-6),
+    draw.TexturedRect(Rect(innerR.Left+S(6),innerR.Top+S(6),innerR.Right-S(6),innerR.Bottom-S(6)),
       checkerTex,$FFBACBE2);
-    draw.RoundRect(innerR.Left+20,innerR.Top+20,innerR.Right-20,innerR.Bottom-20,16,2,$FFF0F8FF,$20406080);
+    draw.RoundRect(innerR.Left+S(20),innerR.Top+S(20),innerR.Right-S(20),innerR.Bottom-S(20),S(16),S(2),$FFF0F8FF,$20406080);
     draw.FillTriangle(
-      innerR.Left+30,innerR.Bottom-30,
-      innerR.Right-30,innerR.Bottom-30,
-      (innerR.Left+innerR.Right)*0.5,innerR.Top+30,
+      innerR.Left+S(30),innerR.Bottom-S(30),
+      innerR.Right-S(30),innerR.Bottom-S(30),
+      (innerR.Left+innerR.Right)*0.5,innerR.Top+S(30),
       $FFE96B6B,$FF66DF90,$FF6D92EF);
   end;
 end;
@@ -808,40 +804,40 @@ var
   area,r,innerR:TRect;
   uvRect:TRect;
   cScale,iScale:single;
-  c,s:single;
+  c,sn:single;
   uv:TMat32;
   cx,cy:integer;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   if (checkerTex=nil) or (helperTex=nil) or (atlasTex=nil) then exit;
   uvRect:=Rect(32,32,95,95);
 
   // row 0, col 0: draw.Image / draw.Centered
-  r:=GridCell(area,0,0,3,2,BLOCK_GAP);
+  r:=GridCell(area,0,0,3,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.Image / draw.Centered',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
-  draw.Image(innerR.Left+10,innerR.Top+10,checkerTex,$FF95B0FF);
-  draw.Image(innerR.Left+120,innerR.Top+10,1.2,helperTex,$FFD8F4FF,0.5,0.5);
-  draw.Centered(cx,innerR.Top+60,atlasTex,$FFFFFFFF);
-  draw.Centered(cx+80,innerR.Top+60,0.75,atlasTex,$FFC0FFD0);
+  draw.Image(innerR.Left+S(10),innerR.Top+S(10),checkerTex,$FF95B0FF);
+  draw.Image(innerR.Left+S(120),innerR.Top+S(10),1.2,helperTex,$FFD8F4FF,0.5,0.5);
+  draw.Centered(cx,innerR.Top+S(60),atlasTex,$FFFFFFFF);
+  draw.Centered(cx+S(80),innerR.Top+S(60),0.75,atlasTex,$FFC0FFD0);
 
   // row 0, col 1: draw.ImagePart / ImagePart90 / ImageFlipped
-  r:=GridCell(area,1,0,3,2,BLOCK_GAP);
+  r:=GridCell(area,1,0,3,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.ImagePart / ImagePart90 / ImageFlipped',innerR);
-  draw.ImagePart(innerR.Left+10,innerR.Top+10,atlasTex,$FFFFFFFF,uvRect);
-  draw.ImagePart90(innerR.Left+90,innerR.Top+10,atlasTex,$FFFFFFFF,uvRect,1);
-  draw.ImageFlipped(innerR.Left+10,innerR.Top+80,checkerTex,true,false,$FFE0F2FF);
-  draw.ImageFlipped(innerR.Left+120,innerR.Top+80,checkerTex,false,true,$FFFFD6A0);
+  draw.ImagePart(innerR.Left+S(10),innerR.Top+S(10),atlasTex,$FFFFFFFF,uvRect);
+  draw.ImagePart90(innerR.Left+S(90),innerR.Top+S(10),atlasTex,$FFFFFFFF,uvRect,1);
+  draw.ImageFlipped(innerR.Left+S(10),innerR.Top+S(80),checkerTex,true,false,$FFE0F2FF);
+  draw.ImageFlipped(innerR.Left+S(120),innerR.Top+S(80),checkerTex,false,true,$FFFFD6A0);
 
   // row 0, col 2: draw.Scaled
-  r:=GridCell(area,2,0,3,2,BLOCK_GAP);
+  r:=GridCell(area,2,0,3,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.Scaled',innerR);
-  draw.Scaled(innerR.Left+10,innerR.Top+10,innerR.Left+130,innerR.Bottom-10-70,checkerTex,$FFFFFFFF);
-  draw.Scaled(innerR.Left+140,innerR.Top+20,0.85,helperTex,$FFD8EEFF);
+  draw.Scaled(innerR.Left+S(10),innerR.Top+S(10),innerR.Left+S(130),innerR.Bottom-S(10)-S(70),checkerTex,$FFFFFFFF);
+  draw.Scaled(innerR.Left+S(140),innerR.Top+S(20),0.85,helperTex,$FFD8EEFF);
 
   // row 1, col 0: draw.SetZ
-  r:=GridCell(area,0,1,3,2,BLOCK_GAP);
+  r:=GridCell(area,0,1,3,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.SetZ',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   cy:=(innerR.Top+innerR.Bottom) div 2;
@@ -851,41 +847,41 @@ begin
   gfx.target.ClearDepth(1.0);
   gfx.target.SetDepthMode(TDepthTest.Less,TDepthWrite.On);
   draw.SetZ(0.5);  // closer to camera
-  draw.FillRRect(cx-38,cy-38,cx+38,cy+38,$FFE8F4FF,10);
+  draw.FillRRect(cx-S(38),cy-S(38),cx+S(38),cy+S(38),$FFE8F4FF,S(10));
   draw.SetZ(-0.5); // farther from camera — drawn 2nd but can't cover the closer rect
-  draw.FillRRect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Bottom-10,$FF1E3655,12);
+  draw.FillRRect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Bottom-S(10),$FF1E3655,S(12));
   gfx.target.SetDepthMode(TDepthTest.Disabled,TDepthWrite.Off);
   draw.SetZ(0);
-  txt.Write(bodyFont,innerR.Left+8,innerR.Bottom-8,$FF8AABCF,
+  txt.Write(bodyFont,innerR.Left+S(8),innerR.Bottom-S(8),$FF8AABCF,
     'inner Z=0.5 > outer Z=-0.5 (both drawn, depth wins)',taLeft,0);
 
   // row 1, col 1: draw.Cover / draw.Inside
-  r:=GridCell(area,1,1,3,2,BLOCK_GAP);
+  r:=GridCell(area,1,1,3,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.Cover / draw.Inside',innerR);
-  draw.Rect(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Top+(innerR.Bottom-innerR.Top) div 2-4,$FF6E8CAC);
-  cScale:=draw.Cover(innerR.Left+10,innerR.Top+10,innerR.Right-10,innerR.Top+(innerR.Bottom-innerR.Top) div 2-4,checkerTex,$FFFFFFFF);
-  draw.Rect(innerR.Left+10,innerR.Top+(innerR.Bottom-innerR.Top) div 2+4,innerR.Right-10,innerR.Bottom-10,$FF6E8CAC);
-  iScale:=draw.Inside(innerR.Left+10,innerR.Top+(innerR.Bottom-innerR.Top) div 2+4,innerR.Right-10,innerR.Bottom-10,checkerTex,$FFFFFFFF);
-  txt.Write(bodyFont,innerR.Left+14,innerR.Top+(innerR.Bottom-innerR.Top) div 2-6,$FFCFE2F8,
+  draw.Rect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(4),$FF6E8CAC);
+  cScale:=draw.Cover(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(4),checkerTex,$FFFFFFFF);
+  draw.Rect(innerR.Left+S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(4),innerR.Right-S(10),innerR.Bottom-S(10),$FF6E8CAC);
+  iScale:=draw.Inside(innerR.Left+S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(4),innerR.Right-S(10),innerR.Bottom-S(10),checkerTex,$FFFFFFFF);
+  txt.Write(bodyFont,innerR.Left+S(14),innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(6),$FFCFE2F8,
     'Cover='+FormatFloat('0.00',cScale),taLeft,0);
-  txt.Write(bodyFont,innerR.Left+14,innerR.Bottom-12,$FFCFE2F8,
+  txt.Write(bodyFont,innerR.Left+S(14),innerR.Bottom-S(12),$FFCFE2F8,
     'Inside='+FormatFloat('0.00',iScale),taLeft,0);
 
   // row 1, col 2: draw.DoubleTex / draw.DoubleTexturedRect / draw.DoubleRotScaled
   // Double* require caller to enable stage 1 via shader.TexMode before drawing.
-  r:=GridCell(area,2,1,3,2,BLOCK_GAP);
+  r:=GridCell(area,2,1,3,2,S(BLOCK_GAP));
   DrawBlock(r,'draw.DoubleTex / DoubleTexturedRect / DoubleRotScaled',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   shader.TexMode(1,tblModulate,tblModulate);
-  draw.DoubleTex(cx-104,innerR.Top+10,checkerTex,helperTex,$FFE8F8FF);
+  draw.DoubleTex(cx-S(104),innerR.Top+S(10),checkerTex,helperTex,$FFE8F8FF);
   // atlas part rotated around its center; scale 0.7 keeps the corners inside the part
-  c:=0.7*cos(animTime*1.2); s:=0.7*sin(animTime*1.2);
-  uv[0,0]:=c; uv[0,1]:=s;
-  uv[1,0]:=-s; uv[1,1]:=c;
-  uv[2,0]:=0.5-0.5*(c-s); uv[2,1]:=0.5-0.5*(s+c);
-  draw.DoubleTexturedRect(cx+8,innerR.Top+10,cx+103,innerR.Top+105,
+  c:=0.7*cos(animTime*1.2); sn:=0.7*sin(animTime*1.2);
+  uv[0,0]:=c; uv[0,1]:=sn;
+  uv[1,0]:=-sn; uv[1,1]:=c;
+  uv[2,0]:=0.5-0.5*(c-sn); uv[2,1]:=0.5-0.5*(sn+c);
+  draw.DoubleTexturedRect(cx+S(8),innerR.Top+S(10),cx+S(103),innerR.Top+S(105),
     checkerTex,IdentMat32,atlasPart,uv,$FFE8F8FF);
-  draw.DoubleRotScaled(cx,(innerR.Top+innerR.Bottom) div 2+60,
+  draw.DoubleRotScaled(cx,(innerR.Top+innerR.Bottom) div 2+S(60),
     1.0,1.0,1.2,0.8,animTime*1.8,checkerTex,helperTex,$FFE8F8FF);
   shader.DefaultTexMode;
 end;
@@ -898,13 +894,13 @@ var
   t:single;
   cx,cy:integer;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   if atlasTex=nil then exit;
   t:=animTime*1.6;
 
   // block 0: draw.Particles
-  r:=GridCell(area,0,0,2,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,2,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.Particles  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   cy:=(innerR.Top+innerR.Bottom) div 2;
@@ -918,10 +914,10 @@ begin
   draw.Particles(cx,cy,@particles[0],length(particles),atlasTex,16,240);
 
   // block 1: draw.Band
-  r:=GridCell(area,1,0,2,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,2,1,S(BLOCK_GAP));
   DrawBlock(r,'draw.Band  [animated]',innerR);
   for i:=0 to high(bandParts) do begin
-    bandParts[i].x:=innerR.Left+10+i*((innerR.Right-innerR.Left-20) div high(bandParts));
+    bandParts[i].x:=innerR.Left+S(10)+i*((innerR.Right-innerR.Left-S(20)) div high(bandParts));
     bandParts[i].y:=(innerR.Top+innerR.Bottom) div 2+PRound(sin(t*1.8+i*0.5)*((innerR.Bottom-innerR.Top)*0.28));
   end;
   draw.FillRect(innerR.Left,innerR.Top,innerR.Right,innerR.Bottom,$30203854);
@@ -937,41 +933,41 @@ var
   procedure Patch(p:TNinePatch;x,y,w,h:integer);
   begin
     if p=nil then exit;
-    draw.Rect(x-1,y-1,x+w,y+h,$50FFFFFF);
+    draw.Rect(x-S(1),y-S(1),x+w,y+h,$50FFFFFF);
     p.Draw(x,y,w,h);
   end;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   t:=animTime;
 
   // block 0: stretched patch at several fixed sizes
-  r:=GridCell(area,0,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'patch.Draw  [stretched]',innerR);
-  Patch(stretchPatch,innerR.Left+16,innerR.Top+14,60,40);
-  Patch(stretchPatch,innerR.Left+16,innerR.Top+70,innerR.Right-innerR.Left-32,46);
-  Patch(stretchPatch,innerR.Left+16,innerR.Top+130,120,innerR.Bottom-innerR.Top-150);
+  Patch(stretchPatch,innerR.Left+S(16),innerR.Top+S(14),S(60),S(40));
+  Patch(stretchPatch,innerR.Left+S(16),innerR.Top+S(70),innerR.Right-innerR.Left-S(32),S(46));
+  Patch(stretchPatch,innerR.Left+S(16),innerR.Top+S(130),S(120),innerR.Bottom-innerR.Top-S(150));
 
   // block 1: tiled patch at several fixed sizes
-  r:=GridCell(area,1,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'patch.Draw  [tiled]',innerR);
-  Patch(tiledPatch,innerR.Left+16,innerR.Top+14,70,50);
-  Patch(tiledPatch,innerR.Left+16,innerR.Top+78,innerR.Right-innerR.Left-32,52);
-  Patch(tiledPatch,innerR.Left+16,innerR.Top+144,150,innerR.Bottom-innerR.Top-164);
+  Patch(tiledPatch,innerR.Left+S(16),innerR.Top+S(14),S(70),S(50));
+  Patch(tiledPatch,innerR.Left+S(16),innerR.Top+S(78),innerR.Right-innerR.Left-S(32),S(52));
+  Patch(tiledPatch,innerR.Left+S(16),innerR.Top+S(144),S(150),innerR.Bottom-innerR.Top-S(164));
 
   // block 2: animated resize of both patches
-  r:=GridCell(area,2,0,3,1,BLOCK_GAP);
+  r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
   DrawBlock(r,'patch.Draw  [animated resize]',innerR);
   k:=0.5+0.5*sin(t*1.6);
-  dw:=SRound(k*(innerR.Right-innerR.Left-130));
-  dh:=SRound((0.5+0.5*sin(t*1.1))*120);
-  // upper band: stretched patch (max height = 46 + 120 div 3 = 86)
-  Patch(stretchPatch,innerR.Left+16,innerR.Top+16,70+dw,46+(dh div 3));
+  dw:=SRound(k*(innerR.Right-innerR.Left-S(130)));
+  dh:=SRound((0.5+0.5*sin(t*1.1))*S(120));
+  // upper band: stretched patch (max height = 46 + 120 div 3 = 86, scaled)
+  Patch(stretchPatch,innerR.Left+S(16),innerR.Top+S(16),S(70)+dw,S(46)+(dh div 3));
   // lower band: tiled patch, placed below the stretch band so they never overlap
-  by2:=innerR.Top+16+86+20;
-  bh2:=60+dh;
-  if by2+bh2>innerR.Bottom-8 then bh2:=innerR.Bottom-8-by2;
-  if bh2>0 then Patch(tiledPatch,innerR.Left+16,by2,90+dw,bh2);
+  by2:=innerR.Top+S(16)+S(86)+S(20);
+  bh2:=S(60)+dh;
+  if by2+bh2>innerR.Bottom-S(8) then bh2:=innerR.Bottom-S(8)-by2;
+  if bh2>0 then Patch(tiledPatch,innerR.Left+S(16),by2,S(90)+dw,bh2);
 end;
 
 // screen 9: Clipping && Blend — absorbs EngineTest clip + blend-mode 2D cases (2 blocks)
@@ -981,61 +977,56 @@ var
   t:single;
   i,x,y,cx,cy:integer;
 begin
-  area:=Rect(contentRect.Left+BLOCK_GAP,contentRect.Top+screenTopOffset,
-    contentRect.Right-BLOCK_GAP,contentRect.Bottom-BLOCK_GAP);
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
+    contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   t:=animTime;
 
   // block 0: gfx.clip — moving box clipped to a window (nested under the block clip)
-  r:=GridCell(area,0,0,2,1,BLOCK_GAP);
+  r:=GridCell(area,0,0,2,1,S(BLOCK_GAP));
   DrawBlock(r,'gfx.clip.Rect  [animated]',innerR);
-  clipR:=Rect(innerR.Left+30,innerR.Top+30,innerR.Left+230,innerR.Top+230);
-  draw.Rect(clipR.Left-1,clipR.Top-1,clipR.Right,clipR.Bottom,$FFF0C080);
+  clipR:=Rect(innerR.Left+S(30),innerR.Top+S(30),innerR.Left+S(230),innerR.Top+S(230));
+  draw.Rect(clipR.Left-S(1),clipR.Top-S(1),clipR.Right,clipR.Bottom,$FFF0C080);
   gfx.clip.Rect(clipR);
-  x:=(clipR.Left+clipR.Right) div 2+SRound(70*cos(t*1.3));
-  y:=(clipR.Top+clipR.Bottom) div 2-SRound(70*sin(t*1.3));
-  draw.FillRRect(x-40,y-40,x+40,y+40,$FF3080C0,8);
-  draw.FillRRect(x-16,y-16,x+16,y+16,$FFEAF6FF,5);
+  x:=(clipR.Left+clipR.Right) div 2+SRound(S(70)*cos(t*1.3));
+  y:=(clipR.Top+clipR.Bottom) div 2-SRound(S(70)*sin(t*1.3));
+  draw.FillRRect(x-S(40),y-S(40),x+S(40),y+S(40),$FF3080C0,S(8));
+  draw.FillRRect(x-S(16),y-S(16),x+S(16),y+S(16),$FFEAF6FF,S(5));
   gfx.clip.Restore; // back to the block clip
-  txt.Write(bodyFont,clipR.Left,clipR.Bottom+16,$FFB7C8DC,'box is clipped to the framed window',taLeft,0);
+  txt.Write(bodyFont,clipR.Left,clipR.Bottom+S(16),$FFB7C8DC,'box is clipped to the framed window',taLeft,0);
 
   // block 1: BlendMode — same translucent stack drawn with alpha vs additive
-  r:=GridCell(area,1,0,2,1,BLOCK_GAP);
+  r:=GridCell(area,1,0,2,1,S(BLOCK_GAP));
   DrawBlock(r,'gfx.target.BlendMode  [alpha vs add]',innerR);
   cx:=innerR.Left+(innerR.Right-innerR.Left) div 4;
   cy:=(innerR.Top+innerR.Bottom) div 2;
   // left: alpha blending
-  draw.FillRect(innerR.Left+10,innerR.Top+10,(innerR.Left+innerR.Right) div 2-6,innerR.Bottom-30,$FF101822);
+  draw.FillRect(innerR.Left+S(10),innerR.Top+S(10),(innerR.Left+innerR.Right) div 2-S(6),innerR.Bottom-S(30),$FF101822);
   for i:=0 to 5 do begin
-    x:=cx+SRound(34*cos(t*0.7+i*1.05));
-    y:=cy+SRound(34*sin(t*0.7+i*1.05));
-    draw.FillRRect(x-40,y-40,x+40,y+40,$60FF8060+(i shl 18),16);
+    x:=cx+SRound(S(34)*cos(t*0.7+i*1.05));
+    y:=cy+SRound(S(34)*sin(t*0.7+i*1.05));
+    draw.FillRRect(x-S(40),y-S(40),x+S(40),y+S(40),$60FF8060+(i shl 18),S(16));
   end;
-  txt.Write(bodyFont,innerR.Left+14,innerR.Bottom-12,$FFB7C8DC,'blAlpha',taLeft,0);
+  txt.Write(bodyFont,innerR.Left+S(14),innerR.Bottom-S(12),$FFB7C8DC,'blAlpha',taLeft,0);
   // right: additive blending
   cx:=innerR.Left+3*(innerR.Right-innerR.Left) div 4;
-  draw.FillRect((innerR.Left+innerR.Right) div 2+6,innerR.Top+10,innerR.Right-10,innerR.Bottom-30,$FF101822);
+  draw.FillRect((innerR.Left+innerR.Right) div 2+S(6),innerR.Top+S(10),innerR.Right-S(10),innerR.Bottom-S(30),$FF101822);
   gfx.target.BlendMode(blAdd);
   for i:=0 to 5 do begin
-    x:=cx+SRound(34*cos(t*0.7+i*1.05));
-    y:=cy+SRound(34*sin(t*0.7+i*1.05));
-    draw.FillRRect(x-40,y-40,x+40,y+40,$60FF8060+(i shl 18),16);
+    x:=cx+SRound(S(34)*cos(t*0.7+i*1.05));
+    y:=cy+SRound(S(34)*sin(t*0.7+i*1.05));
+    draw.FillRRect(x-S(40),y-S(40),x+S(40),y+S(40),$60FF8060+(i shl 18),S(16));
   end;
   gfx.target.BlendMode(blAlpha);
-  txt.Write(bodyFont,(innerR.Left+innerR.Right) div 2+10,innerR.Bottom-12,$FFB7C8DC,'blAdd',taLeft,0);
+  txt.Write(bodyFont,(innerR.Left+innerR.Right) div 2+S(10),innerR.Bottom-S(12),$FFB7C8DC,'blAdd',taLeft,0);
 end;
 
 procedure TMainScene.Render;
 var
   menuRect,contentRect:TRect;
-  dpiNow:integer;
 begin
+  if game.screenScale<>uiScale then RebuildFonts; // the DPI changed
   UpdateMetrics;
   UpdateAnimTime;
-  dpiNow:=window.surface.dpi;
-  if dpiNow<>lastDPI then begin
-    lastDPI:=dpiNow;
-    RebuildFonts;
-  end;
   gfx.target.Clear($FF151C27);
 
   menuRect:=Rect(0,0,menuWidth-1,window.canvasHeight-1);
@@ -1059,7 +1050,7 @@ begin
   end;
   FinishBlockClipping;
 
-  txt.Write(hintFont,contentRect.Left+12,window.canvasHeight-8,$FF9BB0C8,
+  txt.Write(hintFont,contentRect.Left+S(12),window.canvasHeight-S(8),$FF9BB0C8,
     'Tip: switch screens with mouse or numeric keys [1..9,0]',taLeft,0);
   inherited;
 end;
