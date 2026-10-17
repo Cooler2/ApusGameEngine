@@ -129,11 +129,11 @@ begin
       if wch=ord(' ') then
         v:=(advance.x+31) shr 6
       else
-        v:=(metrics.horiBearingX+metrics.width+31) shr 6;
+        v:=DivFloor(metrics.horiBearingX+metrics.width+31,64); // 26.6 fixed point, signed
     glyphWidthHash[hash].ch:=wch;
     glyphWidthHash[hash].size:=size;
     glyphWidthHash[hash].value:=v;
-    glyphWidthHash[hash].padding:=face.glyph.metrics.horiBearingX shr 6;
+    glyphWidthHash[hash].padding:=DivFloor(face.glyph.metrics.horiBearingX,64); // negative for a left overhang
   finally
     cSect.Leave;
   end;
