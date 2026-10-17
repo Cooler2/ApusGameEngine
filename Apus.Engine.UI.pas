@@ -421,6 +421,9 @@ implementation
      if zOrders[i]>maxZ then begin c:=ct; maxZ:=zOrders[i]; end;
     end;
    end;
+   // a scene with locked input (e.g. animated by an effect) absorbs the hit: what it
+   // covers on screen gets nothing either
+   if (c<>nil) and (c.GetScene<>nil) and not c.GetScene.AcceptsInput then c:=nil;
    result:=(c<>nil) and c.flags.enabled;
    finally
     window.UnlockState;

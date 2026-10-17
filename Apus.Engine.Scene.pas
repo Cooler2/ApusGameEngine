@@ -31,12 +31,15 @@ type
   constructor Create(scene:TGameScene;TotalTime:integer); // create an effect for the given time (in ms), replacing the current effect of the scene
   procedure DrawScene; virtual; abstract; // must fully draw the scene with the effect (into the current RT)
   procedure Paint; // the engine draws the scene through this, not DrawScene directly
-  destructor Destroy; override;
+  destructor Destroy; override; // releases the input locks taken by LockSceneInput
  protected
   replaced:boolean; // replaced by a new effect from inside its own DrawScene: freed when DrawScene returns
   procedure Replace; virtual; // a new effect takes the scene: free now, or after DrawScene if it is running
+  // Block the input of a scene for the lifetime of this effect (the scene stays drawn as is)
+  procedure LockSceneInput(scene:TGameScene);
  private
   drawing:boolean; // DrawScene in progress
+  lockedScenes:array of TGameScene; // scenes whose input this effect holds locked
  end;
 
  // Base scene switcher interface
@@ -74,6 +77,7 @@ TGameScene=class(TNamedObject)
   activated:boolean; // true if the scene has started showing or is shown, but has no closing effect yet
   shadowColor:cardinal; // if not 0, it is drawn before the scene is drawn
   ignoreKeyboardEvents:boolean; // if true, the scene doesn't receive keyboard input signals even when it is on top
+  inputLocks:integer; // >0: the scene gets no input (mouse, keyboard, UI hit-test); drawing is not affected
   gfxInitialized:boolean; // true after InitGfx was called by the render loop
   loaded:boolean; // true after Load has completed
 
@@ -95,6 +99,13 @@ TGameScene=class(TNamedObject)
 
   // status=ssActive
   function IsActive:boolean;
+
+  // Input lock: calls must be paired. Scene effects lock the scenes they animate,
+  // game code may use it too (cutscenes, scripted sequences)
+  procedure LockInput;
+  procedure UnlockInput;
+  // Active and not locked: the scene may get mouse and keyboard input
+  function AcceptsInput:boolean;
 
   // Called automatically outside the render thread to load heavy resources
   procedure Load; virtual;
@@ -256,6 +267,7 @@ constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
   begin
    if status<>ssFrozen then
      raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
+   ASSERT(inputLocks=0,'Scene is freed with its input locked (by an effect?): '+name);
    scenesToLoad.Remove(self);
   end;
 
@@ -266,6 +278,22 @@ constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
  function TGameScene.IsActive: boolean;
   begin
    result:=status=ssActive;
+  end;
+
+ procedure TGameScene.LockInput;
+  begin
+   Atomic.Inc(inputLocks);
+  end;
+
+ procedure TGameScene.UnlockInput;
+  begin
+   ASSERT(inputLocks>0,'Unpaired UnlockInput: '+name);
+   Atomic.Dec(inputLocks);
+  end;
+
+ function TGameScene.AcceptsInput:boolean;
+  begin
+   result:=(status=ssActive) and (inputLocks=0);
   end;
 
 procedure TGameScene.ModeChanged;
@@ -421,6 +449,8 @@ class procedure TGameScene.LoadAllScenes;
   begin
    while keyBuffer.Get(item) do begin
     k:=cardinal(item.data);
+    // keys buffered before an input lock: drop the presses, keep the releases
+    if ((k shr 24) and 1<>0) and not AcceptsInput then continue;
     DispatchKey(TKey(k and $FFFF),(k shr 16) and $FF,shift,(k shr 24) and 1<>0);
    end;
   end;
@@ -483,9 +513,20 @@ class procedure TGameScene.LoadAllScenes;
     else Free;
   end;
 
+ procedure TSceneEffect.LockSceneInput(scene:TGameScene);
+  begin
+   if scene=nil then exit;
+   scene.LockInput;
+   lockedScenes:=lockedScenes+[scene];
+  end;
+
  destructor TSceneEffect.Destroy;
+  var
+   scene:TGameScene;
   begin
     Log.Msg('Scene effect %s deleted: %s',[Conv.ToStr(self),name]);
+    for scene in lockedScenes do scene.UnlockInput;
+    lockedScenes:=nil;
     inherited;
   end;
 

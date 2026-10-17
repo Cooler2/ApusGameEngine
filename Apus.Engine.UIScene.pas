@@ -323,8 +323,11 @@ function UIScene(name:String8):TUIScene;
    // forward the raw button to gameplay scenes (custom onMouseBtn overrides).
    // The UI element above already got its onMouseButtons exactly once, so this
    // never produces a double toggle even with several active UIScene.
+   // A locked scene gets no presses, but still gets the releases: a drag started
+   // before the lock must end
    for i:=low(wnd.scenes) to high(wnd.scenes) do
-    if wnd.scenes[i].IsActive then
+    if wnd.scenes[i].AcceptsInput or
+       not pressed and wnd.scenes[i].IsActive then
      wnd.scenes[i].onMouseBtn(btn,pressed);
   end;
 
@@ -448,7 +451,7 @@ function UIScene(name:String8):TUIScene;
    // forward the move to gameplay scenes (they read wnd.moveKind to know the kind)
    if deliver then
     for i:=low(wnd.scenes) to high(wnd.scenes) do
-     if wnd.scenes[i].IsActive then
+     if wnd.scenes[i].AcceptsInput then
       wnd.scenes[i].onMouseMove(curMouseX,curMouseY);
   end;
 
@@ -492,7 +495,7 @@ function UIScene(name:String8):TUIScene;
    end;
    if not consumed then
     for i:=low(wnd.scenes) to high(wnd.scenes) do
-     if wnd.scenes[i].IsActive then
+     if wnd.scenes[i].AcceptsInput then
       wnd.scenes[i].onMouseWheel(delta);
   end;
 
@@ -554,10 +557,12 @@ function UIScene(name:String8):TUIScene;
       c:=c.parent;
      until (c=nil) or (c.parent=nil);
     end;
-    // Capture handling: if mouse captor is hidden or disabled, clear capture and focus.
+    // Capture handling: if mouse captor is hidden, disabled or its scene input is locked,
+    // clear capture and focus.
     DropRemovedMouseState;
     if hooked<>nil then begin
      if not (hooked.IsVisible and hooked.IsEnabled) or
+      (hooked.GetScene<>nil) and not hooked.GetScene.AcceptsInput or
       ((window.modal.Root<>nil) and (hooked.GetRoot<>window.modal.Root)) then begin
       hooked.onLostFocus;
       hooked:=nil;
@@ -775,6 +780,7 @@ function UIScene(name:String8):TUIScene;
    charCode:integer;
   begin
    if (UI<>nil) and (not UI.flags.enabled) then exit;
+   if not AcceptsInput then exit;
    inherited; // buffer for polling (ReadKey)
 
    if (FocusedElement<>nil) and (FocusedElement.HasParent(UI)) then begin

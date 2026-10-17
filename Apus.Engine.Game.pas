@@ -1841,7 +1841,7 @@ begin
   maxZ:=-10000000;
   modal:=window.modal.Root; // active modal in this window (blocks kbd in other scenes)
   for i:=low(window.scenes) to high(window.scenes) do
-   if (window.scenes[i].IsActive) and
+   if window.scenes[i].AcceptsInput and
       not window.scenes[i].ignoreKeyboardEvents then begin
     // UI Scene?
     if window.scenes[i] is TUIScene then begin

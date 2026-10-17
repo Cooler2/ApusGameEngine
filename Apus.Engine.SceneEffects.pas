@@ -164,10 +164,14 @@ begin
  if prevScene is TUIScene then Log.Msg('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
 
- // One lock for the whole setup: a frame rendered between activation and the input
- // lock may finish a short effect, and the lock set after that would never be lifted
+ // both scenes get no input until the effect is freed; lock before the activation,
+ // so the new scene never accepts input in between
+ LockSceneInput(target);
+ LockSceneInput(prevScene);
+ if prevScene is TUIScene then
+  with TUIScene(prevScene).UI do
+   if HasFocus then ClearFocus(GetWindow);
  target.SetStatus(TSceneStatus.ssActive);
- if target is TUIScene then (target as TUIScene).UI.flags.enabled:=false;
 
  if scene.zOrder=prevScene.zOrder then begin
   inc(scene.zOrder);
@@ -195,8 +199,6 @@ procedure TSwitchScreenEffect.DrawScene;
 begin
  if DontPlay then begin
   done:=true; prevscene.SetStatus(TSceneStatus.ssFrozen);
-  if target is TUIScene then
-   TUIScene(target).UI.flags.enabled:=true;
   exit;
  end;
  if not initialized then Initialize;
@@ -213,11 +215,6 @@ end;
 
 procedure TSwitchScreenEffect.Initialize;
 begin
- if prevscene is TUIScene then begin
-  with (prevscene as TUIScene).UI do
-   if HasFocus then ClearFocus(GetWindow);
-  (prevscene as TUIscene).UI.flags.enabled:=false;
- end;
  try
   UpdateBuffer;
  except
@@ -252,7 +249,6 @@ begin
    color:=255;
    done:=true;
    prevscene.SetStatus(TSceneStatus.ssFrozen);
-   if target is TUIScene then (target as TUIScene).UI.flags.enabled:=true;
   end;
   color:=color shl 24+$808080;
   if buffer<>nil then
@@ -279,9 +275,8 @@ begin
   o:=scene.zorder; scene.zorder:=nextscene.zorder;
   nextscene.zorder:=o;
  end;
- if scene is TUIScene then
-  (scene as TUIscene).UI.flags.enabled:=false;
  newscene:=nextScene;
+ LockSceneInput(newscene); // before the activation below; the scene itself is locked by inherited
  buffer:=nil;
  DontPlay:=DisableEffects;
  if pfRenderTarget=ipfNone then DontPlay:=true;
@@ -339,7 +334,6 @@ begin
   if t>=255 then begin
    done:=true;
    target.SetStatus(TSceneStatus.ssFrozen);
-   if newscene is TUIScene then (newscene as TUIScene).UI.flags.enabled:=true;
   end;
   // buffers keep their Initialize size: prevbuf holds the only capture of the scene
   gfx.BeginPaint(buffer);
@@ -401,11 +395,11 @@ begin
 { if (mode=sweShowModal) or (mode=sweShow) then
   scene.UI.visible:=true;}
 
+ LockSceneInput(scene); // no input while the window moves: the hit-test uses its final layout
  if (mode<>sweHide) and not target.IsActive then begin
   savedSceneStatus:=target.status;
   target.SetStatus(TSceneStatus.ssActive);
  end;
- scene.UI.flags.enabled:=(mode<>sweHide);
  wnd:=scene.UI.GetWindow; // modal state lives on the owning window
 
  if mode=sweShowModal then begin
