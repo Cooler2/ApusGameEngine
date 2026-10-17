@@ -621,8 +621,9 @@ begin
 end;
 
 // Sizes are canvas units, so they follow the canvas DPI and not the physical one
-// (see TWindow.canvasDPI). fsIgnoreScale: the DPI growth is already in `size`, the
-// global text scale would apply it a second time.
+// (see TWindow.canvasDPI). They grow in proportion to the DPI, like Dp() and a logical
+// canvas, so layouts built with those fit the text at any DPI. fsIgnoreScale: the DPI
+// growth is already in `size`, the global text scale would apply it a second time.
 procedure TGame.UpdateDefaultFonts;
 var
  wnd:TWindow;
@@ -633,7 +634,7 @@ begin
  if wnd=nil then exit;
  if abs(wnd.canvasDPI-defaultFontsDPI)<0.5 then exit; // same size, keep the handles
  defaultFontsDPI:=wnd.canvasDPI;
- size:=2+0.056*defaultFontsDPI;
+ size:=7.376*defaultFontsDPI/96; // 7.376 at 96 DPI
  defaultFont:=txt.GetFont('Default',size,fsIgnoreScale);
  smallFont:=txt.GetFont('Default',size*0.8,fsIgnoreScale);
  largerFont:=txt.GetFont('Default',size*1.25,fsIgnoreScale);

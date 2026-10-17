@@ -1553,3 +1553,10 @@ real pixels. Nothing changes at ratio 1 (checked by `tests/TestPixelGrid`).
   an explicit `steps` is clamped to 1..16 (a larger one used to overrun a stack buffer).
 - `draw.ShadedRect`: each depth step is one virtual pixel wide at any ratio (drawn with
   bands instead of lines); the same pixels at ratio 1.
+
+## 2026-10-18 — Default fonts grow in proportion to the DPI
+
+`game.defaultFont`, `smallFont` and `largerFont` grow in proportion to the canvas DPI
+(`7.376*dpi/96`), like `Dp()` and a logical canvas. They used to grow slower
+(`2+0.056*dpi`): the same size at 96 DPI, 14% smaller at 192 DPI, so layouts built
+with `Dp()` had too much room for the text.
