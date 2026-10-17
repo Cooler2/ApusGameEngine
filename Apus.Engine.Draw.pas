@@ -1309,32 +1309,33 @@ procedure TDrawer.FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single;steps:int
 
 procedure TDrawer.ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
 var
- vrt:array[0..23] of TVertex;
+ vrt:array[0..7] of TVertex;
  i:integer;
  b1,b2:PByte;
 begin
- ASSERT((depth>=1) and (depth<=4),'depth='+Conv.ToStr(depth));
+ if depth<1 then exit;
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
  inc(x1,depth-1); inc(y1,depth-1);
  dec(x2,depth-1); dec(y2,depth-1);
  b1:=@light; b2:=@dark;
  inc(b1,3); inc(b2,3);
+ // one frame of 1px lines per depth step, from the inner one outwards
  for i:=0 to depth-1 do begin
-  vrt[i*8+0].Init(x1,y1+1,zPlane,light);
-  vrt[i*8+1].Init(x1,y2,zPlane,light);
-  vrt[i*8+2].Init(x1,y1,zPlane,light);
-  vrt[i*8+3].Init(x2,y1,zPlane,light);
+  vrt[0].Init(x1,y1+1,zPlane,light);
+  vrt[1].Init(x1,y2,zPlane,light);
+  vrt[2].Init(x1,y1,zPlane,light);
+  vrt[3].Init(x2,y1,zPlane,light);
 
-  vrt[i*8+4].Init(x2,y2,  zPlane,dark);
-  vrt[i*8+5].Init(x2,y1,  zPlane,dark);
-  vrt[i*8+6].Init(x2-1,y2,zPlane,dark);
-  vrt[i*8+7].Init(x1,y2,  zPlane,dark);
+  vrt[4].Init(x2,y2,  zPlane,dark);
+  vrt[5].Init(x2,y1,  zPlane,dark);
+  vrt[6].Init(x2-1,y2,zPlane,dark);
+  vrt[7].Init(x1,y2,  zPlane,dark);
+  renderDevice.Draw(LINE_LIST,4,@vrt,TVertex.layoutTex);
 
   b1^:=b1^ div 2+32; b2^:=(b2^*3+255) shr 2;
   dec(x1); dec(y1); inc(x2); inc(y2);
  end;
- renderDevice.Draw(LINE_LIST,depth*4,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080);
