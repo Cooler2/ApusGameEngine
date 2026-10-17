@@ -97,6 +97,16 @@ type
     // Poll until file appears (exists=true) or disappears (exists=false), return false on timeout
     class function WaitFor(const fname:String8; delayLimit:integer; exists:boolean=true):boolean; static;
 
+    // --- Choosing among alternatives ---
+    // Index of the file to use among names that stand for the same resource (an image
+    // without extension: x.png, x.jpg...), -1 if none of them exists. The provider
+    // (default: the chain head) decides if it implements IFileSelector, otherwise
+    // SelectNewest. Names are passed as they are, like to GetFileInfo
+    class function SelectFile(const names:array of String8; provider:IFileProvider=nil):integer; static;
+    // The default rule: the newest existing file (directories don't count); on equal
+    // timestamps, or with a provider that has none, the earlier name
+    class function SelectNewest(const names:array of String8; provider:IFileProvider=nil):integer; static;
+
     // --- Provider chain management ---
     // Register a new provider (becomes head of chain)
     class procedure SetProvider(provider:IFileProvider); static;
@@ -137,6 +147,17 @@ type
     function FileSize(f:TFileHandle):int64;
     function Write(f:TFileHandle; buf:pointer; size:integer):integer;
     procedure SetSize(f:TFileHandle; newSize:int64);
+  end;
+
+  // Optional provider capability: choose among names that stand for the same resource
+  // (see Files.SelectFile). A layered provider answers by layer priority: a file in a
+  // higher layer wins whatever its extension or age. Only the chain head is asked, so
+  // a provider that wraps another one forwards what it has no opinion about:
+  // Files.SelectFile(names,next).
+  IFileSelector = interface ['{6F0C2B7E-5D3A-4E1F-9B8C-2A7D4E6F1C35}']
+    // Index in names of the file to use, -1 if none of them exists (final: the
+    // caller doesn't look further)
+    function SelectFile(const names:array of String8):integer;
   end;
 
 implementation
@@ -870,6 +891,35 @@ begin
     inc(elapsed,10);
   end;
   result:=false;
+end;
+
+class function Files.SelectFile(const names:array of String8; provider:IFileProvider=nil):integer;
+var
+  selector:IFileSelector;
+begin
+  if provider=nil then provider:=fileSystem;
+  if Supports(provider,IFileSelector,selector) then
+    result:=selector.SelectFile(names)
+  else
+    result:=SelectNewest(names,provider);
+  ASSERT((result>=-1) and (result<=high(names)));
+end;
+
+class function Files.SelectNewest(const names:array of String8; provider:IFileProvider=nil):integer;
+var
+  i:integer;
+  info:TFileInfo;
+  newest:TDateTime;
+begin
+  if provider=nil then provider:=fileSystem;
+  result:=-1; newest:=0;
+  for i:=0 to high(names) do begin
+    if not provider.GetFileInfo(names[i],info) or info.isDirectory then continue;
+    if (result<0) or (info.timestamp>newest) then begin
+      result:=i;
+      newest:=info.timestamp;
+    end;
+  end;
 end;
 
 { Files record — provider chain }
