@@ -536,8 +536,10 @@ implementation
      draw.ImagePart(SRound(x)-ox,SRound(y)-oy,tex,$808080+color and $FF000000,Rect(0,0,width,height))
     else begin
      // the sprite is in real pixels: its texel centers go back to virtual units
-     px:=SRound(x*k)-ox; py:=SRound(y*k)-oy;
-     draw.Scaled(px/k,py/k,(px+width-1)/k,(py+height-1)/k,tex,$808080+color and $FF000000);
+     // (a virtual pixel v is centered at the real pixel (v+0.5)*k-0.5)
+     px:=SRound((x+0.5)*k-0.5)-ox; py:=SRound((y+0.5)*k-0.5)-oy;
+     draw.Scaled((px+0.5)/k-0.5,(py+0.5)/k-0.5,(px+width-0.5)/k-0.5,(py+height-0.5)/k-0.5,
+       tex,$808080+color and $FF000000);
     end;
    end;
   end;

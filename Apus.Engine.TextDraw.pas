@@ -250,9 +250,20 @@ function ScaleFromHandle(font:TFontHandle):single;
   result:=sqr((b+30)/100);
  end;
 
-function ScaleRect(const r:TRect;scale:single):TRect;
+function PixelToVirtual(v,k:single):single; inline;
  begin
-  result:=types.Rect(round(r.Left*scale),round(r.Top*scale),round(r.Right*scale),round(r.Bottom*scale));
+  result:=(v+0.5)/k-0.5;
+ end;
+
+function PixelRectToVirtual(const r:TRect;k:single):TRect;
+ begin
+  result:=types.Rect(round(PixelToVirtual(r.Left,k)),round(PixelToVirtual(r.Top,k)),
+    round(PixelToVirtual(r.Right,k)),round(PixelToVirtual(r.Bottom,k)));
+ end;
+
+function VirtualToPixel(v,k:single):single;
+ begin
+  result:=(v+0.5)*k-0.5;
  end;
 
 procedure EncodeScale(scale:single;var font:TFontHandle);
@@ -761,28 +772,30 @@ procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:String
   // real pixels, so the glyphs are not stretched; the results go back in virtual pixels
   if font=0 then font:=game.defaultFont;
   if query<>0 then
-   query:=cardinal(round((query and $FFFF)*k)) and $FFFF+cardinal(round((query shr 16)*k)) shl 16;
+   query:=cardinal(round(VirtualToPixel(query and $FFFF,k))) and $FFFF+
+     cardinal(round(VirtualToPixel(query shr 16,k))) shl 16;
   oldLinkRect:=curTextLinkRect;
   pixelK:=k;
   try
-   WritePixels(PixelFont(font,k),xx*k,yy*k,color,st,align,options,round(targetWidth*k),query);
+   WritePixels(PixelFont(font,k),VirtualToPixel(xx,k),VirtualToPixel(yy,k),color,st,align,options,
+     round(targetWidth*k),query);
   finally
    pixelK:=0;
   end;
   if Bits.HasAny(options,toMeasure) then begin
    for i:=0 to high(textMetrics) do
-    textMetrics[i]:=ScaleRect(textMetrics[i],1/k);
-   measuredText:=ScaleRect(measuredText,1/k);
+    textMetrics[i]:=PixelRectToVirtual(textMetrics[i],k);
+   measuredText:=PixelRectToVirtual(measuredText,k);
   end;
   if not EqualRect(curTextLinkRect,oldLinkRect) then
-   curTextLinkRect:=ScaleRect(curTextLinkRect,1/k);
+   curTextLinkRect:=PixelRectToVirtual(curTextLinkRect,k);
  end;
 
 procedure TTextDrawer.WritePixels(font:cardinal;xx,yy:single;color:cardinal;st:String32;
    align:TTextAlignment;options:cardinal;targetWidth:integer;query:cardinal);
 var
  x,y,ofs:integer;
- invK:single; // real pixels -> output units (see pixelK)
+ invK,pixOfs:single; // real pixel position P -> output units: P*invK+pixOfs (see pixelK)
 
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
@@ -1173,8 +1186,8 @@ var
     dx1:=(y-y1)*0.25;
     dx2:=(y-y2)*0.25;
     // real pixels -> output units
-    x1:=x1*invK; x2:=x2*invK;
-    y1:=y1*invK; y2:=y2*invK;
+    x1:=x1*invK+pixOfs; x2:=x2*invK+pixOfs;
+    y1:=y1*invK+pixOfs; y2:=y2*invK+pixOfs;
     dx1:=dx1*invK; dx2:=dx2*invK;
     if not italicStyle then begin
      AddVertex(data,x1,y1,u1,v1,color);
@@ -1441,7 +1454,8 @@ var
    if invK=1 then begin
     if not clippingAPI.Prepare(r) then exit(false);
    end else
-    if not clippingAPI.Prepare(r.Left*invK,r.Top*invK,r.Right*invK,r.Bottom*invK) then exit(false);
+    if not clippingAPI.Prepare(r.Left*invK+pixOfs,r.Top*invK+pixOfs,
+      r.Right*invK+pixOfs,r.Bottom*invK+pixOfs) then exit(false);
 
     {$IF TXT_TEXTURE_8BIT}
     shader.TexMode(0,tblKeep,tblReplace);
@@ -1456,6 +1470,7 @@ var
    i:integer;
   begin
    i:=0;
+   // draw.Line puts a coordinate c on the real pixel c*k itself (TDrawer.HairlineShift)
    while i<lpCount do begin
     draw.Line(linePoints[i].x*invK,linePoints[i].y*invK,
       linePoints[i+1].x*invK,linePoints[i+1].y*invK,lineColors[i shr 1]);
@@ -1522,6 +1537,7 @@ var
 begin // -----------------------------------------------------------
  EnsureThreadState;
  if pixelK>0 then invK:=1/pixelK else invK:=1;
+ pixOfs:=0.5*invK-0.5; // pixel centers -> virtual pixel centers (0 when not scaled)
  if textCache=nil then CreateTextCache;
  x:=SRound(xx); y:=SRound(yy);
  // Special value to display font cache texture

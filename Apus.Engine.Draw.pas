@@ -125,8 +125,18 @@ TDrawer=class(TInterfacedObject,IDrawer)
  procedure EnsureThreadState;
  procedure EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
  procedure FlushLines;
+ procedure LineRaw(x1,y1,x2,y2:single;color:cardinal);
+ // Hairlines are one real pixel wide. Over a canvas scaled by the projection a virtual
+ // pixel is a cell of several real pixels, and its center may fall between them: a
+ // hairline coordinate c is moved by -HairlineShift to the first real pixel of the cell.
+ // A frame (Rect, RRect) is moved outwards instead, onto the outer pixels of its cells.
+ function HairlineShift:single;
+ function ArcSteps(r:single;steps:integer):integer; // segments per rounded corner
  procedure CalcGradient(width,height:single;out gx,gy:single); inline;
 end;
+
+const
+ MAX_ARC_STEPS=16; // segments per rounded corner, upper limit
 
 var
  MaxParticleCount:integer=5000;
@@ -528,7 +538,31 @@ begin
  lineBatching:=false;
 end;
 
+function TDrawer.HairlineShift:single;
+var
+ k:single;
+begin
+ k:=gfx.target.pixelRatio;
+ if abs(k-1)<0.001 then result:=0
+  else result:=0.5-0.5/k;
+end;
+
+function TDrawer.ArcSteps(r:single;steps:integer):integer;
+begin
+ // the arc length in real pixels decides
+ if steps<=0 then steps:=round(abs(r)*gfx.target.pixelRatio*0.6);
+ result:=Clamp(steps,1,MAX_ARC_STEPS);
+end;
+
 procedure TDrawer.Line(x1, y1, x2, y2: single; color: cardinal);
+var
+ d:single;
+begin
+ d:=HairlineShift;
+ LineRaw(x1-d,y1-d,x2-d,y2-d,color);
+end;
+
+procedure TDrawer.LineRaw(x1,y1,x2,y2:single;color:cardinal);
 var
  vrt:array[0..1] of TVertex;
  idx:integer;
@@ -1130,22 +1164,47 @@ end;
 
 procedure TDrawer.Rect(x1,y1,x2,y2:NativeInt;color:cardinal);
 var
- vrt:array[0..4] of TVertex;
+ vrt:array[0..23] of TVertex;
+ n:integer;
+ d,p,ex1,ey1,ex2,ey2:single;
+
+ procedure Quad(qx1,qy1,qx2,qy2:single);
+  begin
+   vrt[n].Init(qx1,qy1,zPlane,color);
+   vrt[n+1].Init(qx2,qy1,zPlane,color);
+   vrt[n+2].Init(qx2,qy2,zPlane,color);
+   vrt[n+3]:=vrt[n];
+   vrt[n+4]:=vrt[n+2];
+   vrt[n+5].Init(qx1,qy2,zPlane,color);
+   inc(n,6);
+  end;
+
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
+ // the frame lies on the outer real pixels of the cells, so it matches FillRect with the same corners
  if lineBatching then begin
-  Line(x1,y1,x2,y1,color);
-  Line(x2,y1,x2,y2,color);
-  Line(x2,y2,x1,y2,color);
-  Line(x1,y2,x1,y1,color);
+  d:=HairlineShift;
+  ex1:=x1-d; ey1:=y1-d;
+  ex2:=x2+d; ey2:=y2+d;
+  LineRaw(ex1,ey1,ex2,ey1,color);
+  LineRaw(ex2,ey1,ex2,ey2,color);
+  LineRaw(ex2,ey2,ex1,ey2,color);
+  LineRaw(ex1,ey2,ex1,ey1,color);
  end else begin
+  // strips one real pixel wide along the cell edges: rasterized by the same rule as
+  // FillRect (lines miss corner pixels when their ends are off the pixel centers)
+  p:=1/gfx.target.pixelRatio;
+  ex1:=x1-0.5; ey1:=y1-0.5;
+  ex2:=x2+0.5; ey2:=y2+0.5;
+  n:=0;
+  Quad(ex1,ey1,ex2,ey1+p);
+  if ey2-p>ey1+p then begin
+   Quad(ex1,ey2-p,ex2,ey2);
+   Quad(ex1,ey1+p,ex1+p,ey2-p);
+   if ex2-p>ex1+p then Quad(ex2-p,ey1+p,ex2,ey2-p);
+  end;
   shader.UseTexture(neutral);
-  vrt[0].Init(x1,y1,zPlane,color);
-  vrt[1].Init(x2,y1,zPlane,color);
-  vrt[2].Init(x2,y2,zPlane,color);
-  vrt[3].Init(x1,y2,zPlane,color);
-  vrt[4]:=vrt[0];
-  renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutTex);
+  renderDevice.Draw(TRG_LIST,n div 3,@vrt,TVertex.layoutTex);
  end;
 end;
 
@@ -1162,12 +1221,15 @@ end;
 procedure TDrawer.RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0);
 var
  i:integer;
- vrt:array[0..54] of TVertex;
- a,dx,dy:single;
+ vrt:array[0..4+MAX_ARC_STEPS*4] of TVertex;
+ a,dx,dy,d:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
- if steps=0 then steps:=Clamp(round(r*0.6),1,12);
+ steps:=ArcSteps(r,steps);
+ d:=HairlineShift; // outer pixels of the cells, as Rect
+ x1:=x1-d; y1:=y1-d;
+ x2:=x2+d; y2:=y2+d;
  vrt[0].Init(x1+r,y1,zPlane,color);
  vrt[1].Init(x2-r,y1,zPlane,color);
  vrt[1+steps].Init(x2,y1+r,zPlane,color);
@@ -1191,13 +1253,14 @@ end;
 procedure TDrawer.RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0);
 var
  i,b:integer;
- vrt:array[0..99] of TVertex;
+ vrt:array[0..(MAX_ARC_STEPS+1)*8+1] of TVertex;
  a,dx,dy,ca,sa:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
- r:=r+0.4; x2:=x2+0.5; x1:=x1-0.5; y1:=y1-0.5; y2:=y2+0.5;
- if steps=0 then steps:=Clamp(round(r*0.4),1,10);
+ // the outer edge is exactly the edge of FillRRect with the same arguments
+ x2:=x2+0.5; x1:=x1-0.5; y1:=y1-0.5; y2:=y2+0.5;
+ steps:=ArcSteps(r,steps);
  b:=(steps+1)*2;
  for i:=0 to steps do begin
   a:=0.5*Pi*i/steps;
@@ -1280,11 +1343,11 @@ end;
 procedure TDrawer.FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single;steps:integer);
  var
   i:integer;
-  vrt:array[0..70] of TVertex;
+  vrt:array[0..5+MAX_ARC_STEPS*4] of TVertex;
   sx1,sy1,sx2,sy2,ds,dc,a:single;
  begin
   if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
-  if steps=0 then steps:=Clamp(round(r*0.6),1,12);
+  steps:=ArcSteps(r,steps);
   shader.UseTexture(neutral);
   sx1:=x1-0.5+r; sx2:=x2+0.5-r;
   sy1:=y1-0.5+r; sy2:=y2+0.5-r;
@@ -1309,9 +1372,23 @@ procedure TDrawer.FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single;steps:int
 
 procedure TDrawer.ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
 var
- vrt:array[0..7] of TVertex;
- i:integer;
+ vrt:array[0..23] of TVertex;
+ i,n:integer;
  b1,b2:PByte;
+
+ // a band of whole virtual pixels ax..bx, ay..by (inclusive) as 2 triangles
+ procedure Band(ax,ay,bx,by:integer;color:cardinal);
+  begin
+   if (bx<ax) or (by<ay) then exit;
+   vrt[n].Init(ax-0.5,ay-0.5,zPlane,color);
+   vrt[n+1].Init(bx+0.5,ay-0.5,zPlane,color);
+   vrt[n+2].Init(bx+0.5,by+0.5,zPlane,color);
+   vrt[n+3]:=vrt[n];
+   vrt[n+4]:=vrt[n+2];
+   vrt[n+5].Init(ax-0.5,by+0.5,zPlane,color);
+   inc(n,6);
+  end;
+
 begin
  if depth<1 then exit;
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
@@ -1320,18 +1397,16 @@ begin
  dec(x2,depth-1); dec(y2,depth-1);
  b1:=@light; b2:=@dark;
  inc(b1,3); inc(b2,3);
- // one frame of 1px lines per depth step, from the inner one outwards
+ // one frame per depth step, from the inner one outwards: light top and left sides,
+ // dark right and bottom ones, top-right and bottom-left corners empty. Bands, not
+ // lines, so a frame stays one virtual pixel wide on a canvas scaled by the projection.
  for i:=0 to depth-1 do begin
-  vrt[0].Init(x1,y1+1,zPlane,light);
-  vrt[1].Init(x1,y2,zPlane,light);
-  vrt[2].Init(x1,y1,zPlane,light);
-  vrt[3].Init(x2,y1,zPlane,light);
-
-  vrt[4].Init(x2,y2,  zPlane,dark);
-  vrt[5].Init(x2,y1,  zPlane,dark);
-  vrt[6].Init(x2-1,y2,zPlane,dark);
-  vrt[7].Init(x1,y2,  zPlane,dark);
-  renderDevice.Draw(LINE_LIST,4,@vrt,TVertex.layoutTex);
+  n:=0;
+  Band(x1,y1,x2-1,y1,light);
+  Band(x1,y1+1,x1,y2-1,light);
+  Band(x2,y1+1,x2,y2,dark);
+  Band(x1+1,y2,x2-1,y2,dark);
+  if n>0 then renderDevice.Draw(TRG_LIST,n div 3,@vrt,TVertex.layoutTex);
 
   b1^:=b1^ div 2+32; b2^:=(b2^*3+255) shr 2;
   dec(x1); dec(y1); inc(x2); inc(y2);

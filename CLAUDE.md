@@ -122,7 +122,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
   Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, Colors, GfxFilters, GfxFormats, GlyphCache,
   Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
 - `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestWindowLock`, `TestVirtualMouse`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
-  `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestBlendModes`, `TestImageReload`, `TestTextureUnits`
+  `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestBlendModes`, `TestPixelGrid`, `TestImageReload`, `TestTextureUnits`
   (needs a GL window); `OpenGL`, `PlatformTest` - compile-only smoke; run by `tests/linux_smoke.sh`,
   `tests/windows_smoke.ps1`, `tests/macos_smoke.sh`. `tests/robot_mouse_smoke.sh` - local end-to-end
   run of the Robot API virtual mouse on demo/UI (needs a GL display, e.g. Xvfb)

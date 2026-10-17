@@ -1518,8 +1518,6 @@ Nothing changes when the canvas matches the surface (the ratio is 1).
 - `DrawTextFX`: layer sizes (`dx`, `dy`, `spread`, `blur`) are in virtual pixels of the
   target, like the text coordinates (they used to be real pixels, which is the same at
   ratio 1). A scaled canvas bakes the sprite in real pixels.
-- `TTransformationAPI.DefaultView`: the half-pixel shift that puts integer coordinates on
-  pixel centers is a real pixel (it was a virtual one, off by a fraction under scaling).
 
 ## 2026-10-17 — Logical canvas
 
@@ -1537,3 +1535,21 @@ Nothing changes when the canvas matches the surface (the ratio is 1).
 FPC compiles `ASSERT` out unless `-Sa` is given, and no engine build had it. `build.cfg`
 and every test/smoke script now pass `-Sa`. A project that wants a build without
 assertions adds `-Sa-` to its own options.
+
+## 2026-10-18 — Pixel grid of the 2D primitives on a scaled canvas
+
+When the projection scales the canvas (`pixelRatio`>1), a virtual pixel is a cell of real
+pixels. Fills and images cover whole cells; what is thinner than a cell places itself on
+real pixels. Nothing changes at ratio 1 (checked by `tests/TestPixelGrid`).
+
+- `draw.Line`: a hairline at coordinate c lies on the first real pixel of the cell.
+- `draw.Rect`: the frame lies on the outer real pixels of its cells, so it matches
+  `FillRect` with the same corners. Drawn as one-pixel strips instead of a line loop (not
+  between `BeginLines`/`EndLines`).
+- `draw.RRect` without width: moved outwards the same way. `draw.RRect` with width: its
+  outer edge is the edge of `FillRRect` with the same arguments (the radius was 0.4 larger
+  and the arc had fewer segments, so the fill showed outside the frame at the corners).
+- Rounded corners: the default number of arc segments follows the radius in real pixels;
+  an explicit `steps` is clamped to 1..16 (a larger one used to overrun a stack buffer).
+- `draw.ShadedRect`: each depth step is one virtual pixel wide at any ratio (drawn with
+  bands instead of lines); the same pixels at ratio 1.

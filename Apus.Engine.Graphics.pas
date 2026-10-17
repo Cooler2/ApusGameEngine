@@ -261,22 +261,19 @@ constructor TTransformationAPI.Create;
 
 procedure TTransformationAPI.DefaultView;
  var
-  w,h,rw,rh:integer;
+  w,h:integer;
  begin
   w:=renderTargetAPI.width;
   h:=renderTargetAPI.height;
   if (w=0) and (h=0) then exit;
-  // integer coordinates go to real pixel centers: the half-pixel shift is a real
-  // pixel, not a virtual one (they differ when the projection scales)
-  rw:=renderTargetAPI.vPort.Width;
-  rh:=renderTargetAPI.vPort.Height;
-  if rw<=0 then rw:=w;
-  if rh<=0 then rh:=h;
-  projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/rw;
+  // Integer coordinates go to virtual pixel centers. When the projection scales, a virtual
+  // pixel is a cell of pixelRatio real pixels: fills and images keep to the cell edges,
+  // things thinner than a cell (hairlines, text) place themselves on real pixels.
+  projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/w;
   if renderTargetAPI.curTarget<>nil then begin
-   projMatrix[0,1]:=0;  projMatrix[1,1]:=2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=-(1-1/rh);
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=-(1-1/h);
   end else begin
-   projMatrix[0,1]:=0;  projMatrix[1,1]:=-2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=1-1/rh;
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=-2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=1-1/h;
   end;
   projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=-1; projMatrix[3,2]:=0;
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
