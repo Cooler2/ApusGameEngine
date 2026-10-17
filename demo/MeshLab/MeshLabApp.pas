@@ -12,6 +12,14 @@
 // overview of the whole grid and a focused view of one cell; arrow keys move
 // the selection between cells while focused.
 //
+// Screen scaling (HiDPI) shown here: LAYOUT FROM FONT METRICS.
+// The canvas is in screen pixels. The info panel takes every size from the fonts it
+// shows (txt.Height/Width); the fonts already follow the DPI, so the code has no scale
+// factor at all.
+// Good for: panels and lists built around text. Not for: layouts tied to images or
+// fixed geometry.
+// Other demos show other ways: check which one fits your case before copying.
+//
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -380,7 +388,7 @@ procedure TMainScene.Render;
   eye,target,pos:TVec3;
   i,s,selIdx:integer;
   statusText,hintText:String8;
-  titleH,lineH,y1,y2,y3,panelW:integer;
+  titleH,lineH,gap,y1,y2,y3,panelW:integer;
  begin
   spin:=spin+0.006; // slow auto-rotation for a livelier view
 
@@ -466,16 +474,17 @@ procedure TMainScene.Render;
 
   titleH:=txt.Height(game.largerFont);
   lineH:=txt.Height(game.defaultFont);
-  y1:=20;
-  y2:=y1+titleH+10;
-  y3:=y2+lineH+8;
+  gap:=lineH div 2; // every margin follows the font size
+  y1:=gap*3;
+  y2:=y1+titleH+gap;
+  y3:=y2+lineH+gap;
   panelW:=txt.Width(game.largerFont,'MeshLab gallery');
   if txt.Width(game.defaultFont,statusText)>panelW then panelW:=txt.Width(game.defaultFont,statusText);
   if txt.Width(game.defaultFont,hintText)>panelW then panelW:=txt.Width(game.defaultFont,hintText);
-  draw.FillRect(8,8,28+panelW,y3+lineH+10,$C8141A24);
-  txt.Write(game.largerFont,18,y1,$FFFFFFFF,'MeshLab gallery');
-  txt.Write(game.largerFont,18,y2,$FFE8C25A,statusText);
-  txt.Write(game.defaultFont,18,y3,$FFA8B4C4,hintText);
+  draw.FillRect(gap,gap,gap*3+panelW,y3+lineH+gap,$C8141A24);
+  txt.Write(game.largerFont,gap*2,y1,$FFFFFFFF,'MeshLab gallery');
+  txt.Write(game.largerFont,gap*2,y2,$FFE8C25A,statusText);
+  txt.Write(game.defaultFont,gap*2,y3,$FFA8B4C4,hintText);
   inherited;
  end;
 

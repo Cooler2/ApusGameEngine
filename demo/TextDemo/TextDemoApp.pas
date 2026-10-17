@@ -1,5 +1,15 @@
 ﻿// Text rendering showcase/demo for Apus Engine
 //
+// Screen scaling (HiDPI) shown here: REAL PIXELS + UI SCALE.
+// The canvas is in screen pixels. Every layout number goes through S(), which multiplies
+// it by game.screenScale (1, 1.2, 1.5, 2...); fonts from txt.GetFont follow that scale
+// by themselves.
+// Good for: pixel-precise text: alignment, raster fonts at their own sizes,
+//   text next to 1px lines and frames.
+// Costs: every number has to be wrapped, and a forgotten one stays small on a HiDPI
+// display.
+// Other demos show other ways: check which one fits your case before copying.
+//
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)

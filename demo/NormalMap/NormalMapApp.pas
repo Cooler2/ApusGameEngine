@@ -1,6 +1,13 @@
 ﻿// Normal mapping demo for R-06 — uses the stock engine GPU-mesh pipeline.
 // Mesh builders produce TMesh with positions/normals/uv0/tangents (w=handedness);
 // TGpuMesh uploads them and draws via shader.NormalMap / shader.NormalMapOff.
+//
+// Screen scaling (HiDPI) shown here: Dp() FOR A FEW OVERLAY NUMBERS.
+// The canvas is in screen pixels. The 3D view doesn't depend on DPI, and the few 2D
+// overlay positions are converted with Dp() (1/96 inch -> canvas units).
+// Good for: a small overlay over a 3D or full-screen view. Not for: a dense 2D layout,
+// where wrapping every number gets noisy (see InputDemo, Draw2D).
+// Other demos show other ways: check which one fits your case before copying.
 
 unit NormalMapApp;
 interface
@@ -363,23 +370,23 @@ begin
   shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
-  x:=window.canvasWidth-234;
-  y:=28;
-  s:=96;
-  draw.FillRect(x-14,y-20,x+s+14,y+s*2+92,$A020242C);
-  txt.Write(0,x,y-8,$FFE8EDF5,'Color map');
-  draw.Scaled(x,y+8,x+s,y+8+s,materials[materialID].colorMap,$FFFFFFFF);
-  txt.Write(0,x,y+s+22,$FFE8EDF5,'Normal map');
-  draw.Scaled(x,y+s+38,x+s,y+s*2+38,materials[materialID].normalMap,$FFFFFFFF);
+  x:=window.canvasWidth-round(Dp(234));
+  y:=round(Dp(28));
+  s:=round(Dp(96));
+  draw.FillRect(x-Dp(14),y-Dp(20),x+s+Dp(14),y+s*2+Dp(92),$A020242C);
+  txt.Write(0,x,y-Dp(8),$FFE8EDF5,'Color map');
+  draw.Scaled(x,y+Dp(8),x+s,y+Dp(8)+s,materials[materialID].colorMap,$FFFFFFFF);
+  txt.Write(0,x,y+s+Dp(22),$FFE8EDF5,'Normal map');
+  draw.Scaled(x,y+s+Dp(38),x+s,y+s*2+Dp(38),materials[materialID].normalMap,$FFFFFFFF);
   if objectID=OBJ_CUBE then objName:='Cube' else objName:='Torus';
   if normalEnabled then nmState:='ON' else nmState:='OFF';
-  txt.Write(0,18,22,$FFE8EDF5,'R-06 NormalMap (stock shader)');
-  txt.Write(0,18,44,$FFC8D2DF,'LMB rotate camera  RMB/Ctrl+LMB rotate light  wheel zoom');
-  txt.Write(0,18,66,$FFC8D2DF,'1 object: '+objName+'   2 material: '+materials[materialID].name+'   3/N normal map: '+nmState);
+  txt.Write(0,Dp(18),Dp(22),$FFE8EDF5,'R-06 NormalMap (stock shader)');
+  txt.Write(0,Dp(18),Dp(44),$FFC8D2DF,'LMB rotate camera  RMB/Ctrl+LMB rotate light  wheel zoom');
+  txt.Write(0,Dp(18),Dp(66),$FFC8D2DF,'1 object: '+objName+'   2 material: '+materials[materialID].name+'   3/N normal map: '+nmState);
   if computedNT then
-    txt.Write(0,18,88,$FFFFCC55,'C normals/tangents: MeshOps.Compute*  (C to switch)')
+    txt.Write(0,Dp(18),Dp(88),$FFFFCC55,'C normals/tangents: MeshOps.Compute*  (C to switch)')
   else
-    txt.Write(0,18,88,$FF88CCFF,'C normals/tangents: analytic/manual  (C to switch)');
+    txt.Write(0,Dp(18),Dp(88),$FF88CCFF,'C normals/tangents: analytic/manual  (C to switch)');
 end;
 
 procedure TMainScene.Render;

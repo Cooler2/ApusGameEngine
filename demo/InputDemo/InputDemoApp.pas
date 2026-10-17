@@ -1,5 +1,14 @@
 ﻿// Input diagnostics demo for Apus Engine
 //
+// Screen scaling (HiDPI) shown here: LOGICAL CANVAS.
+// SetupLogicalCanvas makes one canvas unit 1/96 inch on any display, so the layout is
+// written in plain numbers and the projection scales the whole picture. Text and
+// hairlines are still drawn in real pixels, so they stay sharp.
+// Good for: layouts drawn by hand (menus, HUD, tools) that should keep their physical
+// size everywhere. Not for: output that must stay 1:1 with screen pixels (pixel art,
+// images at native size, pixel-exact alignment): at 125%/150% the picture is resampled.
+// Other demos show other ways: check which one fits your case before copying.
+//
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)

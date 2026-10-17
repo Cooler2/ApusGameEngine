@@ -4,6 +4,15 @@
 //  * compressed texture loaded from a DDS file (S3TC/DXT5)
 //  * direct texture access: whole/partial upload and partial clear
 //
+// Screen scaling (HiDPI) shown here: FIXED CANVAS.
+// SetupFixedCanvas declares one design space (CANVAS_W x CANVAS_H); the engine fits it
+// into the window, with bars when the aspects differ, and the projection scales it.
+// The layout never changes, whatever the display.
+// Good for: a design made for one resolution (ports, simple 2D games). Not for: output
+// that must stay 1:1 with screen pixels - in a window of another size the texture
+// panels here are resampled too; and the picture keeps the canvas aspect.
+// Other demos show other ways: check which one fits your case before copying.
+//
 // Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)

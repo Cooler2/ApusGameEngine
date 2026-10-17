@@ -1,5 +1,12 @@
 ﻿// Project template for the Apus Game Engine framework
 
+// Screen scaling (HiDPI) shown here: Dp() FOR A FEW OVERLAY NUMBERS.
+// The canvas is in screen pixels. The 3D view doesn't depend on DPI, and the few 2D
+// overlay positions are converted with Dp() (1/96 inch -> canvas units).
+// Good for: a small overlay over a 3D or full-screen view. Not for: a dense 2D layout,
+// where wrapping every number gets noisy (see InputDemo, Draw2D).
+// Other demos show other ways: check which one fits your case before copying.
+
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -196,11 +203,11 @@ procedure TMainScene.Render;
   gfx.target.SetDepthMode(TDepthTest.Disabled); // Disable depth buffer
   gfx.SetCullMode(TCullMode.DrawAll);
 
-  txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
+  txt.Write(0,Dp(10),Dp(20),$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
   {$IFDEF WEBP}
-  txt.Write(0,10,40,$FFD0D0D0,'Texture: res/cubetex.webp (WebP)');
+  txt.Write(0,Dp(10),Dp(40),$FFD0D0D0,'Texture: res/cubetex.webp (WebP)');
   {$ELSE}
-  txt.Write(0,10,40,$FFD0D0D0,'Texture: res/cubetex.png (PNG)');
+  txt.Write(0,Dp(10),Dp(40),$FFD0D0D0,'Texture: res/cubetex.png (PNG)');
   {$ENDIF}
   inherited;
  end;
