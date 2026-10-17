@@ -309,6 +309,7 @@ private
   // or clamped to the canvas edge while a button is held (a drag never sticks)
   procedure PlacePointer(const canvasPos:TPoint;onCanvas:boolean);
   procedure PublishInputFrame; // start of an OnFrame pass: publish the input gathered since the last one
+  procedure NotifyScenesResize; // the surface changed: TGameScene.onResize of every scene
   procedure DeliverMouseWheel(delta:integer); // MOUSE\SCROLL + dispatch
   function VirtualMouseSnapshot:TVirtualMouseState;
 public
@@ -424,11 +425,6 @@ public
   procedure AddScene(scene:TGameScene);
   function RemoveScene(scene:TGameScene):boolean;
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
-  procedure NotifyScenesModeChanged;
-  procedure NotifyScenesMouseMove(mouseX,mouseY:integer);
-  procedure NotifyScenesMouseBtn(c:byte;pressed:boolean);
-  procedure NotifyScenesMouseWheel(value:integer);
-  procedure NotifyScenesResize;
   // Called once per frame (after ProcessMessages) to update mouse position,
   // emit MOUSE\MOVE signal and notify scenes. Buttons are handled immediately.
   procedure FlushMouseInput;
@@ -1407,30 +1403,6 @@ function TWindow.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
   end;
  end;
 
-procedure TWindow.NotifyScenesModeChanged;
- var
-  i:integer;
- begin
-  for i:=low(scenes) to high(scenes) do
-   scenes[i].ModeChanged;
- end;
-
-procedure TWindow.NotifyScenesMouseMove(mouseX,mouseY:integer);
- begin
-  // UI dispatch + gameplay forwarding happen once per window (not per scene)
-  DispatchMouseMove(self);
- end;
-
-procedure TWindow.NotifyScenesMouseBtn(c:byte;pressed:boolean);
- begin
-  DispatchMouseButton(self,c,pressed);
- end;
-
-procedure TWindow.NotifyScenesMouseWheel(value:integer);
- begin
-  DispatchMouseWheel(self,value);
- end;
-
 procedure TWindow.FlushMouseInput;
  var
   changed:boolean;
@@ -1617,13 +1589,13 @@ procedure TWindow.DeliverMouseButton(btn:byte;pressed:boolean);
   end;
   if pressed then Signal('MOUSE\BTNDOWN',btn)
    else Signal('MOUSE\BTNUP',btn);
-  NotifyScenesMouseBtn(btn,pressed);
+  DispatchMouseButton(self,btn,pressed); // UI first, then gameplay scenes
  end;
 
 procedure TWindow.DeliverMouseWheel(delta:integer);
  begin
   Signal('MOUSE\SCROLL',delta); // for external subscribers
-  NotifyScenesMouseWheel(delta);
+  DispatchMouseWheel(self,delta);
  end;
 
 procedure TWindow.CancelMouseGesture;

@@ -57,6 +57,12 @@ Use it as the primary reference when updating old code.
     `WM_CANCELMODE` and a capture taken by another window, and releases its capture only
     after the last button release is delivered; SDL calls it on focus loss, hide, minimize.
 
+- Scene notifications: `TWindow.NotifyScenesMouseMove` (nothing called it),
+  `NotifyScenesMouseBtn`, `NotifyScenesMouseWheel` (one-line forwards to the UI dispatcher)
+  removed; `NotifyScenesResize` is private. `TGameScene.ModeChanged` and
+  `TWindow.NotifyScenesModeChanged` removed: nothing overrode the hook, and a display mode
+  change already reaches the scenes as `onResize` (and `ENGINE\SURFACECHANGED`).
+
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 
 - `IResourceManager.MakeOnline(img,stage)` -> `MakeOnline(img)`: uploads pending data and

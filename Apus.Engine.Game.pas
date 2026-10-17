@@ -408,8 +408,7 @@ begin
   window.Configure(params);
   window.ProcessMessages;
   if gfx.target<>nil then gfx.target.Backbuffer;
-  window.ApplyPendingSurface;
-  window.NotifyScenesModeChanged;
+  window.ApplyPendingSurface; // the scenes get onResize if the surface changed
  end;
 end;
 

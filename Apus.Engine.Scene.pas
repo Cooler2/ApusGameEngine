@@ -151,9 +151,6 @@ TGameScene=class(TNamedObject)
   // Clear the input buffers
   procedure ClearKeyBuf; virtual;
 
-  // Display mode change (what exactly changed can be found out indirectly)
-  procedure ModeChanged; virtual;
-
   // Notification that the rendering area (it can be a part of the window) changed its size; the scene can react to it
   procedure onResize; virtual;
   // Mouse events
@@ -294,10 +291,6 @@ constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
  function TGameScene.AcceptsInput:boolean;
   begin
    result:=(status=ssActive) and (inputLocks=0);
-  end;
-
-procedure TGameScene.ModeChanged;
-  begin
   end;
 
  procedure TGameScene.onMouseBtn(btn: byte; pressed: boolean);
