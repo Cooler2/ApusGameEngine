@@ -111,8 +111,9 @@ function BuildLitCube:TMesh;
     m.AddVertex(p1,n,color);
     m.AddVertex(p2,n,color);
     m.AddVertex(p3,n,color);
-    m.AddTriangle(b,b+1,b+2);
-    m.AddTriangle(b,b+2,b+3);
+    // p0..p3 go clockwise seen from outside: reversed into the CCW-outward front faces
+    m.AddTriangle(b,b+2,b+1);
+    m.AddTriangle(b,b+3,b+2);
    end;
  begin
   m:=TMesh.Create('cube');
@@ -155,8 +156,9 @@ function BuildMultiSectionRow:TMesh;
     m.AddVertex(p1,n,color);
     m.AddVertex(p2,n,color);
     m.AddVertex(p3,n,color);
-    m.AddTriangle(b,b+1,b+2);
-    m.AddTriangle(b,b+2,b+3);
+    // p0..p3 go clockwise seen from outside: reversed into the CCW-outward front faces
+    m.AddTriangle(b,b+2,b+1);
+    m.AddTriangle(b,b+3,b+2);
    end;
   procedure Box(cx,cy,cz,sz:single;color:cardinal;sectionName:String8);
    var
