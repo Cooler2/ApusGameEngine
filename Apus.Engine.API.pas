@@ -288,7 +288,6 @@ type
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetMousePos:TPoint; // mouse position on screen
   procedure SetMousePos(scrX,scrY:integer); // move mouse cursor (screen coordinates)
-  function GetMouseButtons:cardinal;
   function GetShiftKeysState:cardinal;
 
   // Window factory: name - ASCII identifier (TWindow.name), title - caption shown to the user

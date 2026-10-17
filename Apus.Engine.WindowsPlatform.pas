@@ -71,7 +71,6 @@ type
   procedure FreeCursor(cur:THandle);
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
-  function GetMouseButtons:cardinal;
   // Window factory
  function CreateWindow(const name:String8;title:string):TWindow;
  end;
@@ -215,6 +214,22 @@ function ResizeBorderWidth(wnd:HWND):integer;
    result:=GetSystemMetrics(SM_CXSIZEFRAME)+GetSystemMetrics(SM_CXPADDEDBORDER);
  end;
 
+// The native capture is taken on a button press and kept while any button is held:
+// released after the release event is delivered, once no button is left down
+procedure ReleaseIdleCapture;
+ var
+  wnd:TWindow;
+ begin
+  wnd:=Apus.Engine.API.window;
+  if (wnd=nil) or wnd.virtualMouse.IsActive or (wnd.mouseButtons=0) then ReleaseCapture;
+ end;
+
+// The pointer is lost for this window: a physical gesture in progress ends without a click
+procedure CancelGesture;
+ begin
+  if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformCancelGesture;
+ end;
+
 function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
  i,charCode,scanCode,keyCode:integer;
@@ -327,22 +342,22 @@ begin
   end;
 
   WM_LBUTTONUP,WM_RBUTTONUP,WM_MBUTTONUP:begin
-    ReleaseCapture;
     i:=0;
     if message=wm_LButtonUp then i:=1 else
     if message=wm_RButtonUp then i:=2 else
     if message=wm_MButtonUp then i:=3;
     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseButton(i,false)
      else Signal('MOUSE\BTNUP',i); // for external subscribers
+    ReleaseIdleCapture;
   end;
   WM_XBUTTONUP:begin
-    ReleaseCapture;
     i:=0;
     if HiWord(wParam)=XBUTTON1 then i:=4 else
     if HiWord(wParam)=XBUTTON2 then i:=5;
     if i>0 then
      if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformMouseButton(i,false)
       else Signal('MOUSE\BTNUP',i);
+    ReleaseIdleCapture;
     exit(0);
   end;
 
@@ -467,8 +482,14 @@ begin
    //Log.Msg('WM_ACTIVATE: %x %x',[wparam,lparam]);
    if loword(wparam)<>wa_inactive then i:=1
     else i:=0;
+   if i=0 then CancelGesture; // a drag does not survive switching to another window
    Signal('ENGINE\SETACTIVE',i);
   end;
+  // the system cancels modes (a dialog pops up, ...): DefWindowProc releases the capture
+  WM_CANCELMODE:CancelGesture;
+  // the capture went to another window (our own ReleaseCapture comes with no button held)
+  WM_CAPTURECHANGED:
+   if HWND(LParam)<>Window then CancelGesture;
  end;
  {$R-}
  result:=Longint(DefWindowProcW(Window,Message,WParam,LParam));
@@ -630,16 +651,6 @@ function TWindowsPlatform.GetShiftKeysState: cardinal;
   if GetAsyncKeyState(VK_RCONTROL)<0 then result:=result or sscRCtrl;
   if GetAsyncKeyState(VK_RMENU)<0 then result:=result or sscRAlt;
   if GetAsyncKeyState(VK_RWIN)<0 then result:=result or sscRWin;
- end;
-
-function TWindowsPlatform.GetMouseButtons: cardinal;
- begin
-  result:=0;
-  if GetAsyncKeyState(VK_LBUTTON)<0 then inc(result,mbLeft);
-  if GetAsyncKeyState(VK_RBUTTON)<0 then inc(result,mbRight);
-  if GetAsyncKeyState(VK_MBUTTON)<0 then inc(result,mbMiddle);
-  if GetAsyncKeyState(VK_XBUTTON1)<0 then result:=result or (1 shl 3);
-  if GetAsyncKeyState(VK_XBUTTON2)<0 then result:=result or (1 shl 4);
  end;
 
 function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;

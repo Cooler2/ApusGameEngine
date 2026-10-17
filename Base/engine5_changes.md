@@ -51,6 +51,11 @@ Use it as the primary reference when updating old code.
   - The keyboard frame (`IsKeyPressed`/`IsKeyReleased`) moved to the same boundary and now
     works in every window (it was shifted by the main loop for the main window only).
   - A nested `OnFrame` (a modal message pump inside a handler) is refused.
+  - `ISystemPlatform.GetMouseButtons` removed (nothing polls the buttons now).
+  - New `TWindow.PlatformCancelGesture`: the platform lost the pointer - a physical gesture
+    ends without a click, the buttons are released. Windows calls it on deactivation,
+    `WM_CANCELMODE` and a capture taken by another window, and releases its capture only
+    after the last button release is delivered; SDL calls it on focus loss, hide, minimize.
 
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 

@@ -435,6 +435,20 @@ procedure TestInputFrame;
   Check(IsKeyReleased(30),'key: released in its frame');
   RunFrame(wndA);
   Check(not IsKeyReleased(30),'key: released only once');
+  // the platform lost the pointer mid-gesture: released without a click
+  wndA.physPos:=Types.Point(150,115);
+  RunFrame(wndA);
+  probe.Reset; btn.clicks:=0;
+  PhysicalButton(true);
+  RunFrame(wndA);
+  wndA.PlatformCancelGesture;
+  RunFrame(wndA);
+  Check(wndA.mouseButtons=0,'cancel: no buttons held');
+  Check(probe.released=1,'cancel: WasReleased');
+  Check(btn.clicks=0,'cancel: no click');
+  Check(not btn.pressed,'cancel: the button is not pressed');
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
   // a nested pass is refused
   probe.Reset;
   probe.nest:=true;

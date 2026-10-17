@@ -82,7 +82,6 @@ type
 
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
-  function GetMouseButtons:cardinal;
   function CreateWindow(const name:String8;title:string):TWindow;
  end;
 
@@ -102,7 +101,6 @@ const
  glcsReleaseRequested=1;
  glcsReleased=2;
 var
- mouseState:byte;
  savedLogHandler:TSDL_LogOutputFunction;
  glShareState:integer=glcsReady;
  SDLcontrollers:array[0..high(controllers)] of TSDLController;
@@ -311,11 +309,6 @@ function TSDLPlatform.GetShiftKeysState: cardinal;
   if keys and KMOD_RCTRL>0 then result:=result or sscRCtrl;
   if keys and KMOD_RALT>0 then result:=result or sscRAlt;
   if keys and KMOD_RGUI>0 then result:=result or sscRWin;
- end;
-
-function TSDLPlatform.GetMouseButtons: cardinal;
- begin
-  result:=mouseState;
  end;
 
 function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
@@ -732,8 +725,11 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
    SDL_WINDOWEVENT:begin
     case event.window.event of
      SDL_WINDOWEVENT_FOCUS_GAINED:;
-     SDL_WINDOWEVENT_FOCUS_LOST:;
+     // a drag does not survive switching to another window (SDL 2.0.22+ captures the
+     // pointer while a button is held, so a release outside still comes)
+     SDL_WINDOWEVENT_FOCUS_LOST:PlatformCancelGesture;
      SDL_WINDOWEVENT_HIDDEN:begin
+      PlatformCancelGesture;
       Log.Msg('Window hidden');
       Signal('ENGINE\SETACTIVE',0);
       Signal('ENGINE\WINDOW\HIDDEN');
@@ -744,6 +740,7 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
       Signal('ENGINE\WINDOW\SHOWN');
      end;
      SDL_WINDOWEVENT_MINIMIZED:begin
+      PlatformCancelGesture;
       Log.Msg('Window minimized');
       Signal('ENGINE\SETACTIVE',0);
       PlatformStateChanged(TWindowState.Minimized);
@@ -788,8 +785,6 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
    SDL_MOUSEBUTTONDOWN:begin
     if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
     mbtn:=GetMouseButtonNum(event.button.button);
-    if mBtn in [1..5] then
-     mouseState:=mouseState or (1 shl (mbtn-1));
     // signals MOUSE\BTNDOWN, samples the pointer and dispatches (not in the virtual mouse mode)
     PlatformMouseButton(mbtn,true);
    end;
@@ -797,8 +792,6 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
    SDL_MOUSEBUTTONUP:begin
     if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
     mbtn:=GetMouseButtonNum(event.button.button);
-    if mBtn in [1..5] then
-     mouseState:=mouseState and not (1 shl (mbtn-1));
     PlatformMouseButton(mbtn,false);
    end;
 

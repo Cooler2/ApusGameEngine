@@ -438,6 +438,10 @@ public
   // is active.
   procedure PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=true);
   procedure PlatformMouseWheel(delta:integer);
+  // The platform lost the pointer (the OS capture taken away, focus lost, the window
+  // hidden): a physical gesture in progress ends without a click, the held buttons are
+  // released (Mouse.WasReleased). Ignored while the virtual mouse is active.
+  procedure PlatformCancelGesture;
   // Files dropped by the platform (window's thread): fills droppedFiles/dropPos and
   // sends ENGINE\WINDOW\DROPFILES
   procedure PlatformDropFiles(const files:Strings8;const clientPos:TPoint;hasPos:boolean);
@@ -1457,6 +1461,17 @@ procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=tr
   if pressed and (btn in [1..5]) then
    mouseButtons:=mouseButtons and not (1 shl (btn-1));
   DeliverMouseButton(btn,pressed);
+ end;
+
+procedure TWindow.PlatformCancelGesture;
+ begin
+  if virtualMouse.IsActive or (mouseButtons=0) then exit;
+  LockState; // the UI capture and hover are dropped
+  try
+   CancelMouseGesture;
+  finally
+   UnlockState;
+  end;
  end;
 
 procedure TWindow.PlatformMouseWheel(delta:integer);
