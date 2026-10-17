@@ -857,7 +857,7 @@ procedure TGLShadersAPI.ForgetTexture(tex:TTexture);
   for i:=0 to high(curTextures) do
    if curTextures[i]=tex then begin
     curTextures[i]:=nil;
-    Bits.Clear(curTexChanged,i);
+    Bits.SetBit(curTexChanged,i,false);
    end;
   if shadowMap=tex then shadowMap:=nil;
   if normalMapTex=tex then normalMapTex:=nil;
@@ -1261,7 +1261,7 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
    UseUnit(normalMapTex,TEX_UNIT_NORMALMAP);
   for i:=0 to high(curTextures) do begin
    if Bits.Get(curTexChanged,i) then begin
-    Bits.Clear(curTexChanged,i);
+    Bits.SetBit(curTexChanged,i,false);
     tex:=curTextures[i];
     if tex<>nil then begin
      while tex.parent<>nil do tex:=tex.parent;
