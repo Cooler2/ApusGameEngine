@@ -342,7 +342,8 @@ begin
   inc(frame);
   if frame<>3 then exit; // let the engine settle first
   try
-    font:=game.defaultFont;
+    // a fixed size, so the result doesn't depend on the DPI of the machine
+    font:=txt.GetFont('Default',10,fsIgnoreScale);
     rt:=AllocImage(W,H,pfRenderTargetAlpha,aiTexture+aiRenderTarget+aiClampUV,'TestTextFX');
     try
       TestSemantics;
