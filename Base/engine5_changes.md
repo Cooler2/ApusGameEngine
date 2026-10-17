@@ -3,13 +3,20 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
-## TWindow: unused and internal members removed from the public part (2026-10-17)
+## TWindow: unused members removed, frame diagnostics and capture moved to records (2026-10-17)
 
 - Removed (nothing read them): `TWindow.textLink`, `textLinkRect` (the current text link is
   `txt.Link`/`txt.LinkRect` in `Apus.Engine.TextDraw`), `frameStartSec`, `frameDeltaSec`
   (use `frameStartUs`/`frameDeltaUs` or the `*Ms` ones), `paused`, `mouseMovedTime`.
 - Private now: `dRT`, `dRTdepth` (the depth texture is `window.GetDepthBufferTex`),
   `runtimeLock` (use `LockState`/`UnlockState`).
+- `window.FPS`/`smoothFPS` -> `window.timings.fps`/`smoothFps`.
+- Frame log: `window.FLog(st)` -> `window.frameLog.Add(st)` (`game.FLog` stays);
+  `window.frameLog`/`prevFrameLog` (strings) -> `window.frameLog.current`/`previous`.
+- Frame capture moved into `TFrameCapture` (`window.capture`): `window.RequestScreenshot` ->
+  `capture.RequestScreenshot`, `window.RequestFrameCapture` -> `capture.RequestFrame`,
+  `window.CaptureFrame` -> `capture.Capture(window)`. They don't take the window lock: use
+  `game.RequestScreenshot`/`RequestFrameCapture`, which do. `TGame.CaptureFrame` removed.
 
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 

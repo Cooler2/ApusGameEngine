@@ -496,7 +496,7 @@ begin
   txt.Write(bodyFont,b.Left+20,b.Top+192,$FFE5EDF7,
     Format('Samples/frame: now=%d max=%d',[rawPerFrame,maxRawPerFrame]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+222,$FFF3D39C,
-    Format('FPS: %.1f  SmoothFPS: %.1f',[window.FPS,window.smoothFPS]),taLeft,toAddBaseline);
+    Format('FPS: %.1f  SmoothFPS: %.1f',[window.timings.fps,window.timings.smoothFps]),taLeft,toAddBaseline);
 
   draw.FillRect(c.Left+20,c.Top+44,c.Right-20,c.Bottom-20,$30233A53);
   DrawTag(c.Left+24,c.Top+20,'Last Events');

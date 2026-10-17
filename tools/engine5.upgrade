@@ -393,3 +393,7 @@ dmBorderless -> ?dmWindow or dmFixedWindow + TGameSettings.frame:=TWindowFrame.C
 // === TWindow: unused and internal members (Apus.Engine.Window) ===
 // window.dRTdepth -> window.GetDepthBufferTex; window.frameStartSec/frameDeltaSec -> frameStartUs/frameDeltaUs
 // (not rules: field names); removed with no replacement: textLink, textLinkRect, paused, mouseMovedTime
+// window.FPS/smoothFPS -> window.timings.fps/smoothFps; window.FLog(st) -> window.frameLog.Add(st);
+// window.frameLog/prevFrameLog -> window.frameLog.current/previous;
+// window.RequestScreenshot/RequestFrameCapture -> game.RequestScreenshot/RequestFrameCapture (they take the lock)
+// (not rules: FPS and frameLog are too common as names)

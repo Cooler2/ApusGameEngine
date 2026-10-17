@@ -148,8 +148,6 @@ type
   procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
   procedure DoneGraph; virtual; // finalize graphics
-  // Capture a frame and do whatever is needed with it
-  procedure CaptureFrame; virtual;
   procedure DrawCursor; virtual;
   procedure DrawOverlays; virtual;
 
@@ -385,12 +383,22 @@ end;
 
 procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
- window.RequestScreenshot(saveAsJpeg);
+ window.LockState;
+ try
+  window.capture.RequestScreenshot(saveAsJpeg);
+ finally
+  window.UnlockState;
+ end;
 end;
 
 procedure TGame.RequestFrameCapture(obj:TObject=nil);
 begin
- window.RequestFrameCapture(obj);
+ window.LockState;
+ try
+  window.capture.RequestFrame(obj);
+ finally
+  window.UnlockState;
+ end;
 end;
 
 procedure TGame.ApplyNewSettings;
@@ -601,7 +609,7 @@ end;
 
 procedure TGame.FLog(st:string);
 begin
- window.FLog(st);
+ window.frameLog.Add(st);
 end;
 
 procedure TGame.Lock;
@@ -895,8 +903,8 @@ begin
   if req.Param('METRICS')<>'' then
     window.timings.phaseMetrics:=false;
 
-  body:='fps: '+Conv.ToStr(window.FPS,2)+LineBreak+
-    'smoothFPS: '+Conv.ToStr(window.smoothFPS,2)+LineBreak+
+  body:='fps: '+Conv.ToStr(window.timings.fps,2)+LineBreak+
+    'smoothFPS: '+Conv.ToStr(window.timings.smoothFps,2)+LineBreak+
     'frameNum: '+Conv.ToStr(window.frameNum)+LineBreak+
     'frameTimeMs: '+Conv.ToStr(window.timings.lastFrameTimeUs*0.001,2)+LineBreak;
   if collectMetrics then begin
@@ -1177,9 +1185,9 @@ begin
      SetTextCodePage(f,CP_UTF8);
      rewrite(f);
      writeln(f,'Previous:');
-     write(f,window.prevFrameLog);
+     write(f,window.frameLog.previous);
      writeln(f,'Current:');
-     write(f,window.frameLog);
+     write(f,window.frameLog.current);
      close(f);
      // Scenes & UI log
      assign(f,'UIdata.log');
@@ -1329,11 +1337,6 @@ begin
 
  if window<>nil then window.active:=false;
  Log.Force('Can exit now');
-end;
-
-procedure TGame.CaptureFrame;
-begin
- window.CaptureFrame;
 end;
 
 // ENGINE\*
@@ -2008,8 +2011,7 @@ procedure TGame.RenderAndPresentFrame;
     if window.screenChanged then begin
      if window.timings.phaseMetrics then Timer.Start(phaseTimer);
      try
-      window.prevFrameLog:=window.frameLog;
-      window.frameLog:='';
+      window.frameLog.NextFrame;
       window.LockState; // subscribers may touch the UI
       try
        Signal('Engine\Frame\BeforeRender',window.frameNum); // scenes processed, no draw call issued yet
@@ -2020,7 +2022,7 @@ procedure TGame.RenderAndPresentFrame;
       RenderFrame; // takes the window lock itself, see TWindow.RenderFrame
       EndMeasure2(2);
      except
-      on E:Exception do CriticalError(Format('Error in renderframe: %s framelog: %s',[ExceptionMsg(e),window.frameLog]));
+      on E:Exception do CriticalError(Format('Error in renderframe: %s framelog: %s',[ExceptionMsg(e),window.frameLog.current]));
      end;
      if window.timings.phaseMetrics then renderUs:=round(Timer.Get(phaseTimer)*1000000);
     end;
@@ -2037,7 +2039,7 @@ procedure TGame.RenderAndPresentFrame;
     PresentFrame;
     presented:=true;
     if window.timings.phaseMetrics then presentUs:=round(Timer.Get(phaseTimer)*1000000);
-    if window.capture.singleFrame then CaptureFrame;
+    if window.capture.singleFrame then window.capture.Capture(window);
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
    end else
     CoreTime.Sleep(5);
@@ -2047,7 +2049,7 @@ procedure TGame.RenderAndPresentFrame;
       window.timings.pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
     window.timings.presentSampleAccUs:=0;
     // FPS / SmoothFPS based on presented frames.
-    window.timings.UpdateFps(window.FPS,window.smoothFPS);
+    window.timings.UpdateFps;
    end;
 
    game.Flog('LEnd');
@@ -2272,7 +2274,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     if presented then begin
      wnd.timings.PushSample(wnd.timings.presentSampleAccUs,0,0,0,0,0);
      wnd.timings.presentSampleAccUs:=0;
-     wnd.timings.UpdateFps(wnd.FPS,wnd.smoothFPS);
+     wnd.timings.UpdateFps;
     end;
   until CurrentThread.Terminating;
 

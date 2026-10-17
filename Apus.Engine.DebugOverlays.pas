@@ -407,8 +407,8 @@ var
       else
        vsyncColor:=$FFFFB060;
       txt.BeginBlock;
-      txt.WriteC(game.defaultFont,x+w*0.74,y+h*0.39,vsyncColor,Conv.ToStr(window.FPS,1,1));
-      txt.WriteC(game.defaultFont,x+w*0.74,y+h*0.87,vsyncColor,Conv.ToStr(window.smoothFPS,1,1));
+      txt.WriteC(game.defaultFont,x+w*0.74,y+h*0.39,vsyncColor,Conv.ToStr(window.timings.fps,1,1));
+      txt.WriteC(game.defaultFont,x+w*0.74,y+h*0.87,vsyncColor,Conv.ToStr(window.timings.smoothFps,1,1));
       txt.WriteC(game.defaultFont,x+w*0.24,y+h*0.39,vsyncColor,Conv.ToStr(dCurMs));
       txt.WriteC(game.defaultFont,x+w*0.24,y+h*0.87,vsyncColor,Conv.ToStr(dMaxMs));
       txt.EndBlock;

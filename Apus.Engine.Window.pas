@@ -50,6 +50,19 @@ type
   capturedName:string;
   capturedTime:int64;
   procedure Reset;
+  // Requests: capture the next presented frame (under the window lock)
+  procedure RequestScreenshot(saveAsJpeg:boolean); // save to Screenshots\ and copy to the clipboard
+  procedure RequestFrame(obj:TObject); // obj<>nil: send the image with Engine\FrameCaptured
+  // Serve the request: the window's thread, after the frame is presented
+  procedure Capture(wnd:TWindow);
+ end;
+
+ // Per-frame diagnostic log: what the frame has done so far (saved on a crash)
+ TFrameLog=record
+  current:string;  // this frame
+  previous:string; // the frame before
+  procedure Add(const st:string);
+  procedure NextFrame; // current becomes previous
  end;
 
  // Per-frame render call counters (reset each frame in PresentRenderedFrame).
@@ -92,12 +105,13 @@ type
   idleRedrawAccUs:integer;
   // Accumulated frame time since last presented frame (for FPS sampling).
   presentSampleAccUs:integer;
+  fps,smoothFps:single; // current and smoothed FPS (see UpdateFps)
 
   procedure Reset;
   procedure PushSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer);
   function MaxRecentFrameUs(sampleCount:integer):integer;
   function CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean;
-  procedure UpdateFps(out fps,smoothFps:single);
+  procedure UpdateFps;
  end;
 
  // Per-window modal dialog state: a stack of modal UI roots.
@@ -321,10 +335,7 @@ public
   // thread). nil - no limits. Set under LockState
   sizeLimits:TWindowSizeLimits;
   frameNum:integer; // increments every frame
-  FPS,smoothFPS:single; // current and smoothed FPS
-
-  // Per-frame diagnostic log (cleared every frame, saved on error)
-  frameLog,prevFrameLog:string;
+  frameLog:TFrameLog; // per-frame diagnostic log (cleared every frame, saved on error)
 
  // Per-window data
   renderThread:IThread; // nil for main window, set by AddWindow for extra windows
@@ -480,9 +491,6 @@ public
   procedure PresentFrame; virtual; abstract;
   function SetVSync(divider:integer):boolean; virtual; abstract;
 
-  // Frame log
-  procedure FLog(st:string);
-
   // Frame processing and scene rendering. The window thread holds the window lock only on
   // the frame segments that touch window state: input dispatch, queued signals, OnFrame
   // (takes it itself), rendering (RenderFrame takes it around the scene parts, leaving
@@ -534,11 +542,6 @@ public
   // Read a pixel region of the frame into image (its size must match the rect).
   // Rows come out top-down regardless of the source.
   procedure ReadFrameRect(const pixRect:TRect;image:TRawImage;src:TFrameSource=TFrameSource.presented);
-
-  // Frame capture
-  procedure RequestScreenshot(saveAsJpeg:boolean=true);
-  procedure RequestFrameCapture(obj:TObject=nil);
-  procedure CaptureFrame;
  end;
 
 // Configuration hook: called on every rebuild, before the resolver.
@@ -1253,7 +1256,7 @@ begin
  result:=true;
 end;
 
-procedure TFrameTiming.UpdateFps(out fps,smoothFps:single);
+procedure TFrameTiming.UpdateFps;
 const
  FPS_WINDOW_US=200000;
  FPS_MIN_FRAMES=20;
@@ -1821,9 +1824,15 @@ begin
  end;
 end;
 
-procedure TWindow.FLog(st:string);
+procedure TFrameLog.Add(const st:string);
 begin
- frameLog:=frameLog+st+#13#10;
+ current:=current+st+#13#10;
+end;
+
+procedure TFrameLog.NextFrame;
+begin
+ previous:=current;
+ current:='';
 end;
 
 // Shadows (dimming layers) to draw under the scenes sc[0..n-1], sorted bottom to top.
@@ -1860,7 +1869,7 @@ var
 begin
  if IsTerminated then exit;
  deltaTime:=integer(frameDeltaMs);
- FLog('RF1');
+ frameLog.Add('RF1');
 
  LockState;
  try
@@ -1870,7 +1879,7 @@ begin
    fl:=true;
    for i:=low(scenes) to high(scenes) do
     if scenes[i].fullscreen and scenes[i].IsActive then fl:=false;
-   FLog('Clear '+booltostr(fl));
+   frameLog.Add('Clear '+booltostr(fl));
    if fl then begin
     if params.zbuffer>0 then z:=1 else z:=-1;
     if params.stencil then s:=0 else s:=-1;
@@ -1879,15 +1888,15 @@ begin
   except
    on e:exception do CriticalError('RFrame1 '+ExceptionMsg(e));
   end;
-  FLog('Eff');
+  frameLog.Add('Eff');
   try
    // process effects on all scenes
    for i:=low(scenes) to high(scenes) do
     if scenes[i].effect<>nil then begin
-     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
+     frameLog.Add('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
       inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
      effect:=scenes[i].effect;
-     FLog('Eff ret');
+     frameLog.Add('Eff ret');
      inc(effect.timer,deltaTime);
      if effect.done then begin
       Signal('ENGINE\EffectDone',UIntPtr(scenes[i]));
@@ -1908,7 +1917,7 @@ begin
  LockState; // scene list and UI tree are read from here to the end of drawing
  try
   // sort active scenes by Z order
-  FLog('Sorting');
+  frameLog.Add('Sorting');
   n:=0;
   try
    for i:=low(scenes) to high(scenes) do
@@ -1945,17 +1954,17 @@ begin
 
    if IsTerminated then exit;
    if sc[i].effect<>nil then begin
-    FLog('Drawing eff on '+sc[i].name);
+    frameLog.Add('Drawing eff on '+sc[i].name);
     sc[i].effect.Paint;
-    FLog('Drawing ret');
+    frameLog.Add('Drawing ret');
    end else begin
-    FLog('Drawing '+sc[i].ClassName);
+    frameLog.Add('Drawing '+sc[i].ClassName);
     sc[i].Render;
-    FLog('Drawing ret');
+    frameLog.Add('Drawing ret');
    end;
   except
    on e:exception do begin
-    if sc[i] is TUIScene then CriticalError('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
+    if sc[i] is TUIScene then CriticalError('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog.current)
      else CriticalError('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
     halt;
    end;
@@ -1968,7 +1977,7 @@ begin
  end;
 
  gfx.EndPaint;
- FLog('RDone');
+ frameLog.Add('RDone');
 end;
 
 procedure TWindow.RenderScenes(drawOverlays:TRenderProc);
@@ -2185,7 +2194,7 @@ end;
 procedure TWindow.PresentRenderedFrame(tintColor:cardinal);
 begin
  BlitDefaultRT(tintColor);
- FLog('Present');
+ frameLog.Add('Present');
  gfx.PresentFrame;
  inc(frameNum);
  presentedGeneration:=surface.generation; // the presented frame matches this surface
@@ -2243,31 +2252,21 @@ begin
  gfx.CopyFromBackbuffer(pixRect.Left,pixRect.Top,image);
 end;
 
-procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);
+procedure TFrameCapture.RequestScreenshot(saveAsJpeg:boolean);
 begin
- LockState;
- try
-  if saveAsJPEG then capture.target:=2
-   else capture.target:=3;
-  capture.singleFrame:=true;
- finally
-  UnlockState;
- end;
+ if saveAsJPEG then target:=2
+  else target:=3;
+ singleFrame:=true;
 end;
 
-procedure TWindow.RequestFrameCapture(obj:TObject=nil);
+procedure TFrameCapture.RequestFrame(obj:TObject);
 begin
- LockState;
- try
-  capture.singleFrame:=true;
-  capture.target:=0;
-  capture.data:=obj;
- finally
-  UnlockState;
- end;
+ singleFrame:=true;
+ target:=0;
+ data:=obj;
 end;
 
-procedure TWindow.CaptureFrame;
+procedure TFrameCapture.Capture(wnd:TWindow);
 var
  st:string;
  res:ByteArray;
@@ -2276,19 +2275,19 @@ var
  r:TRect;
  saveAsJPG:boolean;
 begin
- capture.singleFrame:=false;
+ singleFrame:=false;
 
- r:=FrameRect; // the presented picture, in client pixels (may be offset by letterboxing)
+ r:=wnd.FrameRect; // the presented picture, in client pixels (may be offset by letterboxing)
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
- ReadFrameRect(r,img);
- if capture.target=0 then begin
+ wnd.ReadFrameRect(r,img);
+ if target=0 then begin
   // ownership of the image passes to the receiver of the signal
-  if capture.data<>nil then Signal('Engine\FrameCaptured',UIntPtr(img))
+  if data<>nil then Signal('Engine\FrameCaptured',UIntPtr(img))
    else img.Free;
   exit;
  end;
  try
-  case capture.target of
+  case target of
    2,3:try
     {$IFDEF OPENGL}
     {$IFDEF MSWINDOWS}
@@ -2296,7 +2295,7 @@ begin
     Clipboard.SetImage(img);
     {$ENDIF}
     {$ENDIF}
-    saveAsJPG:=capture.target=2;
+    saveAsJPG:=target=2;
     if saveAsJpg then ext:='.jpg' else ext:='.png';
     // relative name: the file system decides where it lands, and creates the
     // directory there - checking for it here would test the wrong place
@@ -2307,8 +2306,8 @@ begin
      res:=SavePNG(img);
      Files.Save(st,res);
     end;
-    capture.capturedName:=st;
-    capture.capturedTime:=CoreTime.Ticks;
+    capturedName:=st;
+    capturedTime:=CoreTime.Ticks;
     if game<>nil then game.FireMessage('{B}Screenshot taken{/B}:~'+st,msgSuccess); // green transient toast, bold title
    except
     on e:Exception do begin

@@ -460,7 +460,7 @@ begin
     txt.Write(bodyFont,innerR.Left+10,innerR.Top+82,$FF9DE0B0,'FreeType support: compiled',taLeft,toAddBaseline);
   {$ENDIF}
   txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-54,$FFE5EDF7,UTF8.Format('DPI=%d scale=%.2f',[window.surface.dpi,layoutScale]),taLeft,toAddBaseline);
-  txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-32,$FFE5EDF7,UTF8.Format('FPS=%.1f smooth=%.1f',[window.FPS,window.smoothFPS]),taLeft,toAddBaseline);
+  txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-32,$FFE5EDF7,UTF8.Format('FPS=%.1f smooth=%.1f',[window.timings.fps,window.timings.smoothFps]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+10,innerR.Bottom-10,$FFE5EDF7,UTF8.Format('frameDelta=%.3fms',[window.frameDeltaMs]),taLeft,toAddBaseline);
 end;
 
@@ -720,7 +720,7 @@ begin
   r:=Rect(leftR.Left,row2+BLOCK_GAP div 2,leftR.Right,leftR.Bottom);
   DrawBlock(r,'Status',innerR);
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+30,$FFE5EDF7,
-    UTF8.Format('frame=%d  fps=%.1f',[window.frameNum,window.smoothFPS]),taLeft,toAddBaseline);
+    UTF8.Format('frame=%d  fps=%.1f',[window.frameNum,window.timings.smoothFps]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+54,$FFE5EDF7,
     UTF8.Format('frameStartMs=%.3f  frameDeltaMs=%.3f',[window.frameStartMs,window.frameDeltaMs]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+78,$FF90C0E8,'Cache diagnostics from old EngineTest moved here.',taLeft,toAddBaseline);

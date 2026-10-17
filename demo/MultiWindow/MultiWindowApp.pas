@@ -272,7 +272,7 @@ begin
 
  // status bar
  txt.Write(0,8,maxY-16,$60FFFFFF,
-  'FPS:'+IntToStr(round(window.FPS))+
+  'FPS:'+IntToStr(round(window.timings.fps))+
   '  tools:'+IntToStr(toolCount));
 
  DrawProbe('Main');
