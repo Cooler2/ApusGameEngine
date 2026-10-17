@@ -205,6 +205,12 @@ begin
   Check(SRound(single(2.49))=2,'SRound(2.49)');
   Check(SRound(single(2.51))=3,'SRound(2.51)');
 
+  // DivFloor: rounds toward -infinity, unlike div
+  Check(DivFloor(130,64)=2,'DivFloor positive');
+  Check(DivFloor(-128,64)=-2,'DivFloor negative exact');
+  Check(DivFloor(-1,64)=-1,'DivFloor negative fraction');
+  Check(DivFloor(int64(-65),int64(64))=-2,'DivFloor int64 negative');
+
   EndTest;
 end;
 

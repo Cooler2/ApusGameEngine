@@ -233,6 +233,10 @@ var
   function FRound(v:double):integer; inline;  // fast round, slightly biased near .5
   function PRound(v:double):integer; inline;  // symmetric nearest (away from zero on .5)
   function SRound(v:single):integer;          // stable nearest for rendering: floor(v+0.5), keeps SRound(x+1)=SRound(x)+1
+  // Integer division rounded down (toward -infinity), b>0: DivFloor(-1,64)=-1, while
+  // div gives 0 and shr makes a negative value huge. Not "Floor": that is Math.Floor
+  function DivFloor(a,b:integer):integer; overload; inline;
+  function DivFloor(a,b:int64):int64; overload; inline;
 
   // Swap
   procedure Swap(var a,b:integer); overload; inline;
@@ -1239,6 +1243,20 @@ const
   EPSILON=0.00001;
 begin
   result:=round(v+EPSILON);
+end;
+
+function DivFloor(a,b:integer):integer;
+begin
+  ASSERT(b>0);
+  result:=a div b;
+  if (a<0) and (result*b<>a) then dec(result);
+end;
+
+function DivFloor(a,b:int64):int64;
+begin
+  ASSERT(b>0);
+  result:=a div b;
+  if (a<0) and (result*b<>a) then dec(result);
 end;
 
 function PRound(v:double):integer;
