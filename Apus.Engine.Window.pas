@@ -125,6 +125,43 @@ type
   activeWnd:TObject; // TUIWindow that holds the focus, nil if the focus is outside any
  end;
 
+ // Surface rebuild requests: stored by any thread, taken by the window's own thread
+ // (see TWindow.ApplyPendingSurface)
+ TSurfacePending=record
+  lock:TLock;   // a leaf lock: nothing is entered inside
+  mask:integer; // see psmXXX constants
+  client:TSize;
+  dpi:integer;
+  insets:TRect;
+  procedure SetClient(const size:TSize);
+  procedure SetDPI(value:integer);
+  procedure SetInsets(const r:TRect);
+  procedure Force; // full rebuild
+  function IsEmpty:boolean;
+  // Move the requested values into input and clear the requests; returns the mask taken
+  function Take(var input:TSurfaceInput):integer;
+ end;
+
+ // Presentation render target of a window (see TWindow.EnableDefaultRT)
+ TDefaultRT=record
+  allowed:boolean;  // the RT may be created for this window
+  zbuffer:byte;     // parameters remembered for a deferred/repeated creation
+  depthTex:boolean;
+  rt:TTexture;      // nil - rendering goes straight to the backbuffer
+  depth:TTexture;   // depth buffer texture (with depthTex)
+ end;
+
+ // Calls queued for the window's thread (see TWindow.QueueCall)
+ TWindowCallQueue=record
+  lock:TLock;     // a leaf lock: nothing is entered inside
+  items:TWindowQueuedCalls;
+  count:integer;  // length of items, readable without the lock
+  closed:boolean; // no calls are accepted any more
+  function Add(const c:TWindowQueuedCall):boolean; // false once closed
+  function TakeAll:TWindowQueuedCalls;
+  procedure Close;
+ end;
+
  // --- Virtual mouse (see TVirtualMouse) ---
  TVirtualMouseOpKind=(
   vmoMode,   // switch the input mode (enable)
@@ -219,31 +256,20 @@ protected
 private
   // Working surface: accumulated resolver input and cross-thread rebuild requests.
   surfaceInput:TSurfaceInput; // client size, DPI, native insets, render scale
-  pendingLock:TLock;   // guards the pending* fields (written by any thread)
-  pendingMask:integer; // see psmXXX constants
-  pendingClient:TSize;
-  pendingDPI:integer;
-  pendingInsets:TRect;
-  dRTallowed:boolean;  // the default RT may be created for this window
-  dRTzbuffer:byte;     // parameters remembered for a deferred/repeated creation
-  dRTdepthTex:boolean;
-  // Authoritative per-frame timing source: high-precision microseconds.
+  pending:TSurfacePending;
+  defaultRT:TDefaultRT;
+  // Per-frame timing: high-precision microseconds (ms values are derived)
   frameStartUsValue:int64;
   frameDeltaUsValue:int64;
-  // Compatibility projections for legacy code paths that consume ms/sec.
-  frameStartMsValue:int64;
-  frameDeltaMsValue:int64;
-  frameStartSecValue:double;
-  frameDeltaSecValue:double;
   // Lifetime and cross-thread entry (see Acquire, Lock, QueueCall, BeginClose)
   ownerThread:TThreadIdent;
   usageCount:integer;   // references taken by Acquire
   closingValue:integer; // 1 once BeginClose was called
-  callLock:TLock;       // guards callQueue; a leaf lock: nothing is entered inside
-  callQueue:TWindowQueuedCalls;
-  queuedCount:integer;  // length of callQueue, readable without callLock
+  callQueue:TWindowCallQueue;
+  runtimeLock:TLock; // the window state lock (see LockState)
   function GetClosing:boolean;
-  function AddQueuedCall(const c:TWindowQueuedCall):boolean;
+  function GetFrameStartMs:int64; inline;
+  function GetFrameDeltaMs:int64; inline;
   procedure SetupViewport;   // apply the current surface to the graphics backend
   procedure EnsureDefaultRT; // create the default RT if the surface needs one
   procedure UpdateSurfaceRT; // keep the default RT in sync with surface.renderSize
@@ -264,7 +290,6 @@ public
   // so they stay stable during frame processing even with multiple window threads.
   mousePos:TPoint; // mouse position in game coordinates
   oldMousePos:TPoint; // previous mouse position
-  mouseMovedTime:int64; // when mouse position last changed
   // UI-dispatch bookkeeping (kept next to mousePos as it's positional state):
   moveKind:TMoveKind; // set by the UI dispatcher before each gameplay onMouseMove call
   mouseOverUI:boolean; // true while the cursor sits over a consuming UI element (prev-frame state)
@@ -295,39 +320,28 @@ public
   // Client size limits for the window modes, asked when the OS needs them (on the window's
   // thread). nil - no limits. Set under LockState
   sizeLimits:TWindowSizeLimits;
-  paused:boolean; // pause rendering regardless of active state
   frameNum:integer; // increments every frame
   FPS,smoothFPS:single; // current and smoothed FPS
-  // Text link (TODO: move out)
-  textLink:cardinal;
-  textLinkRect:TRect;
 
   // Per-frame diagnostic log (cleared every frame, saved on error)
   frameLog,prevFrameLog:string;
 
  // Per-window data
   renderThread:IThread; // nil for main window, set by AddWindow for extra windows
-  runtimeLock:TLock; // protects scene list + UI access for this window
   timings:TFrameTiming;
   stats:TRenderStats;
   capture:TFrameCapture;
-  dRT:TTexture; // default render target (can be nil)
-  dRTdepth:TTexture; // depth buffer texture
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
   modal:TModalState; // modal dialog state for this window (see TModalStateHelper)
   hint:TWindowHintState; // hint state for this window (see TUIHint.Current)
   focus:TWindowFocusState; // keyboard focus in this window (see FocusedElement)
   deletedUI:array of TObject; // UI elements deleted in this window, freed at frame start (TUIElement.Remove)
-  // Frame timing (per-window, read-only from outside):
-  // - `*Us` is the single source of truth (high precision)
-  // - `*Ms` / `*Sec` are derived values for API compatibility
+  // Frame timing (per-window, read-only from outside): `*Ms` are derived from `*Us`
   property frameStartUs:int64 read frameStartUsValue;
   property frameDeltaUs:int64 read frameDeltaUsValue;
-  property frameStartMs:int64 read frameStartMsValue;
-  property frameDeltaMs:int64 read frameDeltaMsValue;
-  property frameStartSec:double read frameStartSecValue;
-  property frameDeltaSec:double read frameDeltaSecValue;
+  property frameStartMs:int64 read GetFrameStartMs;
+  property frameDeltaMs:int64 read GetFrameDeltaMs;
 
   // Surface shortcuts (read the published snapshot)
   property canvasWidth:integer read surface.canvasSize.cx;   // draw/input space
@@ -505,7 +519,7 @@ public
   function GetDepthBufferTex:TTexture;
   // Blit default RT to backbuffer (called before platform PresentFrame)
   procedure BlitDefaultRT(tintColor:cardinal);
-  // Full present cycle: blit dRT + swap + update counters
+  // Full present cycle: blit the default RT + swap + update counters
   procedure PresentRenderedFrame(tintColor:cardinal);
 
   // Frame readback: canvas space <-> pixels of the surface holding the frame.
@@ -548,7 +562,7 @@ implementation
    Apus.Engine.UITypes, Apus.Engine.TextDraw;
 
 const
- // TWindow.pendingMask bits
+ // TSurfacePending.mask bits
  psmClient = 1; // client area size changed
  psmDPI    = 2; // system DPI changed
  psmInsets = 4; // native safe-area insets changed
@@ -850,8 +864,8 @@ constructor TWindow.Create(const windowName:String8);
   // levels (higher = inner): the window lock is the outermost engine runtime lock,
   // pending surface data and the game object are entered inside it
   runtimeLock.Init('Window',20);
-  pendingLock.Init('WndSurface',25);
-  callLock.Init('WndCalls',800);
+  pending.lock.Init('WndSurface',25);
+  callQueue.lock.Init('WndCalls',800);
   ownerThread:=GetCurrentThreadID; // windows are created by the thread that runs their frames
   config.Init;
   surfaceInput.Init(0,0,96);
@@ -868,8 +882,8 @@ destructor TWindow.Destroy;
   virtualMouse:=nil;
   if length(deletedUI)>0 then
    Log.Force('Window %s destroyed with %d held UI elements',[name,length(deletedUI)]);
-  callLock.Cleanup;
-  pendingLock.Cleanup;
+  callQueue.lock.Cleanup;
+  pending.lock.Cleanup;
   runtimeLock.Cleanup;
   inherited;
  end;
@@ -878,13 +892,18 @@ procedure TWindow.SetFrameTiming(startUs,deltaUs:int64);
  begin
   if startUs<0 then startUs:=0;
   if deltaUs<0 then deltaUs:=0;
-  // Keep raw high-precision values and update all derived projections in one place.
   frameStartUsValue:=startUs;
   frameDeltaUsValue:=deltaUs;
-  frameStartMsValue:=startUs div 1000;
-  frameDeltaMsValue:=deltaUs div 1000;
-  frameStartSecValue:=startUs*0.000001;
-  frameDeltaSecValue:=deltaUs*0.000001;
+ end;
+
+function TWindow.GetFrameStartMs:int64;
+ begin
+  result:=frameStartUsValue div 1000;
+ end;
+
+function TWindow.GetFrameDeltaMs:int64;
+ begin
+  result:=frameDeltaUsValue div 1000;
  end;
 
 procedure TWindow.ResetFrameTiming;
@@ -992,20 +1011,41 @@ procedure TWindow.Unlock;
   // no matching successful Lock in this thread (e.g. Lock failed while closing): nothing to undo
  end;
 
-function TWindow.AddQueuedCall(const c:TWindowQueuedCall):boolean;
- var
-  n:integer;
+{ TWindowCallQueue }
+
+function TWindowCallQueue.Add(const c:TWindowQueuedCall):boolean;
  begin
-  callLock.Enter;
+  lock.Enter;
   try
-   if closingValue<>0 then exit(false);
-   n:=length(callQueue);
-   SetLength(callQueue,n+1);
-   callQueue[n]:=c;
-   queuedCount:=n+1;
+   if closed then exit(false);
+   SetLength(items,count+1);
+   items[count]:=c;
+   inc(count);
    result:=true;
   finally
-   callLock.Leave;
+   lock.Leave;
+  end;
+ end;
+
+function TWindowCallQueue.TakeAll:TWindowQueuedCalls;
+ begin
+  lock.Enter;
+  try
+   result:=items;
+   items:=nil;
+   count:=0;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+procedure TWindowCallQueue.Close;
+ begin
+  lock.Enter;
+  try
+   closed:=true;
+  finally
+   lock.Leave;
   end;
  end;
 
@@ -1017,7 +1057,7 @@ function TWindow.QueueCall(call:TWindowCall;param:pointer=nil):boolean;
   c.call:=call;
   c.method:=nil;
   c.param:=param;
-  result:=AddQueuedCall(c);
+  result:=callQueue.Add(c);
  end;
 
 function TWindow.QueueCall(method:TWindowMethod):boolean;
@@ -1028,7 +1068,7 @@ function TWindow.QueueCall(method:TWindowMethod):boolean;
   c.call:=nil;
   c.method:=method;
   c.param:=nil;
-  result:=AddQueuedCall(c);
+  result:=callQueue.Add(c);
  end;
 
 procedure TWindow.RunQueuedCalls;
@@ -1036,15 +1076,8 @@ procedure TWindow.RunQueuedCalls;
   calls:TWindowQueuedCalls;
   i:integer;
  begin
-  if queuedCount=0 then exit; // a call queued right now runs next time
-  callLock.Enter;
-  try
-   calls:=callQueue;
-   callQueue:=nil;
-   queuedCount:=0;
-  finally
-   callLock.Leave;
-  end;
+  if callQueue.count=0 then exit; // a call queued right now runs next time
+  calls:=callQueue.TakeAll;
   LockState;
   try
    for i:=0 to high(calls) do
@@ -1063,12 +1096,8 @@ procedure TWindow.RunQueuedCalls;
 
 procedure TWindow.BeginClose;
  begin
-  callLock.Enter; // so that no call is accepted after the final RunQueuedCalls
-  try
-   Atomic.Exchange(closingValue,1);
-  finally
-   callLock.Leave;
-  end;
+  Atomic.Exchange(closingValue,1);
+  callQueue.Close; // so that no call is accepted after the final RunQueuedCalls
   virtualMouse.Close; // pending virtual input is dropped, its holders see that
  end;
 
@@ -1350,7 +1379,6 @@ procedure TWindow.FlushMouseInput;
  begin
   changed:=not mousePos.Equals(oldMousePos);
   if changed then begin
-   mouseMovedTime:=CoreTime.Ticks;
    Signal('MOUSE\MOVE',Bits.PackW(word(mousePos.x),word(mousePos.y)));
    screenChanged:=true; // needed if cursor is rendered manually
   end;
@@ -1546,15 +1574,78 @@ procedure TWindow.NotifyScenesResize;
    scenes[i].onResize;
  end;
 
+{ TSurfacePending }
+
+procedure TSurfacePending.SetClient(const size:TSize);
+ begin
+  lock.Enter;
+  try
+   client:=size;
+   mask:=mask or psmClient;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+procedure TSurfacePending.SetDPI(value:integer);
+ begin
+  lock.Enter;
+  try
+   dpi:=value;
+   mask:=mask or psmDPI;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+procedure TSurfacePending.SetInsets(const r:TRect);
+ begin
+  lock.Enter;
+  try
+   insets:=r;
+   mask:=mask or psmInsets;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+procedure TSurfacePending.Force;
+ begin
+  lock.Enter;
+  try
+   mask:=mask or psmForce;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+function TSurfacePending.IsEmpty:boolean;
+ begin
+  lock.Enter;
+  try
+   result:=mask=0;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+function TSurfacePending.Take(var input:TSurfaceInput):integer;
+ begin
+  lock.Enter;
+  try
+   result:=mask;
+   mask:=0;
+   if result and psmClient<>0 then input.clientSize:=client;
+   if result and psmDPI<>0 then input.dpi:=dpi;
+   if result and psmInsets<>0 then input.safeInsets:=insets;
+  finally
+   lock.Leave;
+  end;
+ end;
+
 procedure TWindow.RequestResize(const client:TSize);
  begin
-  pendingLock.Enter;
-  try
-   pendingClient:=client;
-   pendingMask:=pendingMask or psmClient;
-  finally
-   pendingLock.Leave;
-  end;
+  pending.SetClient(client);
  end;
 
 procedure TWindow.RequestResize(width,height:integer);
@@ -1565,24 +1656,12 @@ procedure TWindow.RequestResize(width,height:integer);
 procedure TWindow.RequestDPI(dpi:integer);
  begin
   if dpi<=0 then exit;
-  pendingLock.Enter;
-  try
-   pendingDPI:=dpi;
-   pendingMask:=pendingMask or psmDPI;
-  finally
-   pendingLock.Leave;
-  end;
+  pending.SetDPI(dpi);
  end;
 
 procedure TWindow.SetNativeSafeArea(const insets:TRect);
  begin
-  pendingLock.Enter;
-  try
-   pendingInsets:=insets;
-   pendingMask:=pendingMask or psmInsets;
-  finally
-   pendingLock.Leave;
-  end;
+  pending.SetInsets(insets);
  end;
 
 procedure TWindow.SetRenderScale(scale:single);
@@ -1601,23 +1680,12 @@ procedure TWindow.SetSurfaceConfig(const cfg:TSurfaceConfig);
 
 procedure TWindow.InvalidateSurface;
  begin
-  pendingLock.Enter;
-  try
-   pendingMask:=pendingMask or psmForce;
-  finally
-   pendingLock.Leave;
-  end;
+  pending.Force;
  end;
 
 function TWindow.SurfaceSettled:boolean;
  begin
-  pendingLock.Enter;
-  try
-   result:=pendingMask=0;
-  finally
-   pendingLock.Leave;
-  end;
-  result:=result and (presentedGeneration=surface.generation);
+  result:=pending.IsEmpty and (presentedGeneration=surface.generation);
  end;
 
 procedure TWindow.ApplyPendingSurface;
@@ -1628,16 +1696,7 @@ procedure TWindow.ApplyPendingSurface;
   w,h:integer;
   oldWindow:TWindow;
  begin
-  pendingLock.Enter;
-  try
-   mask:=pendingMask;
-   pendingMask:=0;
-   if mask and psmClient<>0 then surfaceInput.clientSize:=pendingClient;
-   if mask and psmDPI<>0 then surfaceInput.dpi:=pendingDPI;
-   if mask and psmInsets<>0 then surfaceInput.safeInsets:=pendingInsets;
-  finally
-   pendingLock.Leave;
-  end;
+  mask:=pending.Take(surfaceInput);
   if (mask=0) and (surface.generation>0) then exit;
 
   if (surfaceInput.clientSize.cx<=0) or (surfaceInput.clientSize.cy<=0) then begin
@@ -1844,7 +1903,7 @@ begin
  end;
 
  // outside the window lock: with vsync the driver may block here until a buffer is free
- gfx.BeginPaint(dRT);
+ gfx.BeginPaint(defaultRT.rt);
  SetupViewport;
  LockState; // scene list and UI tree are read from here to the end of drawing
  try
@@ -2030,9 +2089,9 @@ end;
 
 procedure TWindow.EnableDefaultRT(zbuffer:byte;useDepthTex:boolean);
 begin
- dRTallowed:=true;
- dRTzbuffer:=zbuffer;
- dRTdepthTex:=useDepthTex;
+ defaultRT.allowed:=true;
+ defaultRT.zbuffer:=zbuffer;
+ defaultRT.depthTex:=useDepthTex;
  EnsureDefaultRT;
 end;
 
@@ -2041,21 +2100,21 @@ end;
 // still renders correctly, just with an extra blit.
 procedure TWindow.EnsureDefaultRT;
 begin
- if (dRT<>nil) or not dRTallowed or not surface.needRT then exit;
+ if (defaultRT.rt<>nil) or not defaultRT.allowed or not surface.needRT then exit;
  if surface.generation=0 then exit;
- InitDefaultRenderTarget(surface.renderSize.cx,surface.renderSize.cy,dRTzbuffer,dRTdepthTex);
+ InitDefaultRenderTarget(surface.renderSize.cx,surface.renderSize.cy,defaultRT.zbuffer,defaultRT.depthTex);
 end;
 
 // Keep the default render target sized as the surface demands (renderSize).
 procedure TWindow.UpdateSurfaceRT;
 begin
- if dRT=nil then exit;
+ if defaultRT.rt=nil then exit;
  if (gfx=nil) or (gfx.resman=nil) then exit;
- if (dRT.width=surface.renderSize.cx) and (dRT.height=surface.renderSize.cy) then exit;
+ if (defaultRT.rt.width=surface.renderSize.cx) and (defaultRT.rt.height=surface.renderSize.cy) then exit;
  Log.Msg('Resizing framebuffer: %d x %d',[surface.renderSize.cx,surface.renderSize.cy]);
- gfx.resman.ResizeImage(dRT,surface.renderSize.cx,surface.renderSize.cy);
- if dRTdepth<>nil then
-  gfx.resman.ResizeImage(dRTdepth,surface.renderSize.cx,surface.renderSize.cy);
+ gfx.resman.ResizeImage(defaultRT.rt,surface.renderSize.cx,surface.renderSize.cy);
+ if defaultRT.depth<>nil then
+  gfx.resman.ResizeImage(defaultRT.depth,surface.renderSize.cx,surface.renderSize.cy);
 end;
 
 // Push the current surface into the graphics backend. Cheap and idempotent:
@@ -2065,13 +2124,13 @@ begin
  if (gfx=nil) or (gfx.target=nil) then exit;
  if surface.generation=0 then exit;
  gfx.target.Resized(surface.clientSize.cx,surface.clientSize.cy);
- if dRT=nil then
+ if defaultRT.rt=nil then
   // rendering directly to the framebuffer
   gfx.target.Viewport(surface.displayRect.Left,surface.clientSize.cy-surface.displayRect.Bottom,
     surface.displayRect.Width,surface.displayRect.Height,surface.canvasSize.cx,surface.canvasSize.cy)
  else
   // rendering to a framebuffer texture
-  gfx.target.Viewport(0,0,dRT.width,dRT.height,surface.canvasSize.cx,surface.canvasSize.cy);
+  gfx.target.Viewport(0,0,defaultRT.rt.width,defaultRT.rt.height,surface.canvasSize.cx,surface.canvasSize.cy);
 end;
 
 procedure TWindow.InitDefaultRenderTarget(width,height:integer; zbuffer:byte; useDepthTex:boolean);
@@ -2086,10 +2145,10 @@ begin
   flags:=aiRenderTarget;
   if (zbuffer>0) and not useDepthTex then
    flags:=flags+aiDepthBuffer;
-  dRT:=AllocImage(width,height,pfRenderTarget,flags,'DefaultRT');
+  defaultRT.rt:=AllocImage(width,height,pfRenderTarget,flags,'DefaultRT');
   if useDepthTex then begin
-   dRTdepth:=AllocImage(width,height,ipfDepth32f,aiDepthBuffer+aiRenderTarget,'DefaultDepth');
-   gfx.resman.AttachDepthBuffer(dRT,dRTdepth);
+   defaultRT.depth:=AllocImage(width,height,ipfDepth32f,aiDepthBuffer+aiRenderTarget,'DefaultDepth');
+   gfx.resman.AttachDepthBuffer(defaultRT.rt,defaultRT.depth);
   end;
  except
   on e:exception do begin
@@ -2102,12 +2161,12 @@ end;
 
 function TWindow.GetDepthBufferTex:TTexture;
 begin
- result:=dRTdepth;
+ result:=defaultRT.depth;
 end;
 
 procedure TWindow.BlitDefaultRT(tintColor:cardinal);
 begin
- if dRT=nil then exit;
+ if defaultRT.rt=nil then exit;
  // blit render texture to window backbuffer
  gfx.target.Viewport(0,0,clientWidth,clientHeight,clientWidth,clientHeight);
  gfx.BeginPaint(nil);
@@ -2117,7 +2176,7 @@ begin
           (displayRect.Right=clientWidth) and (displayRect.Bottom=clientHeight)) and
      ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
   with displayRect do
-   draw.TexturedRect(Left,Top,right-1,bottom-1,dRT,0,0,1,0,1,1,tintColor);
+   draw.TexturedRect(Left,Top,right-1,bottom-1,defaultRT.rt,0,0,1,0,1,1,tintColor);
  finally
   gfx.EndPaint;
  end;
@@ -2150,8 +2209,8 @@ function TWindow.FrameRect(src:TFrameSource=TFrameSource.presented):TRect;
 begin
  // While rendering, the picture occupies the whole presentation RT (if there is one);
  // in the backbuffer it always sits in the display rect.
- if (src=TFrameSource.rendering) and (dRT<>nil) then
-  result:=Rect(0,0,dRT.width,dRT.height)
+ if (src=TFrameSource.rendering) and (defaultRT.rt<>nil) then
+  result:=Rect(0,0,defaultRT.rt.width,defaultRT.rt.height)
  else
   result:=surface.displayRect;
 end;

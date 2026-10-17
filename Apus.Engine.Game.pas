@@ -1765,7 +1765,7 @@ end;
 
 function TGame.GetDepthBufferTex:TTexture;
 begin
- result:=window.dRTdepth;
+ result:=window.GetDepthBufferTex;
 end;
 
 procedure TGame.RegisterCursor(CursorID, priority: integer;

@@ -389,3 +389,7 @@ dmBorderless -> ?dmWindow or dmFixedWindow + TGameSettings.frame:=TWindowFrame.C
 // === Resource manager: Clone and Copy removed (Apus.Engine.API) ===
 // resourceManager.Clone(img) -> img.Clone (not a rule: the name is too common);
 // resourceManager.Copy removed with no replacement (it was a stub that always raised)
+
+// === TWindow: unused and internal members (Apus.Engine.Window) ===
+// window.dRTdepth -> window.GetDepthBufferTex; window.frameStartSec/frameDeltaSec -> frameStartUs/frameDeltaUs
+// (not rules: field names); removed with no replacement: textLink, textLinkRect, paused, mouseMovedTime

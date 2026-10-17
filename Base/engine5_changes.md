@@ -3,6 +3,14 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## TWindow: unused and internal members removed from the public part (2026-10-17)
+
+- Removed (nothing read them): `TWindow.textLink`, `textLinkRect` (the current text link is
+  `txt.Link`/`txt.LinkRect` in `Apus.Engine.TextDraw`), `frameStartSec`, `frameDeltaSec`
+  (use `frameStartUs`/`frameDeltaUs` or the `*Ms` ones), `paused`, `mouseMovedTime`.
+- Private now: `dRT`, `dRTdepth` (the depth texture is `window.GetDepthBufferTex`),
+  `runtimeLock` (use `LockState`/`UnlockState`).
+
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 
 - `IResourceManager.MakeOnline(img,stage)` -> `MakeOnline(img)`: uploads pending data and
