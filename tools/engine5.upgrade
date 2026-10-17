@@ -400,4 +400,8 @@ dmBorderless -> ?dmWindow or dmFixedWindow + TGameSettings.frame:=TWindowFrame.C
 // Mouse helpers left TWindow and TGameBase for the Mouse namespace (window.X/game.X -> Mouse.X):
 MouseInRect -> ?Mouse.InRect: drop the window./game. prefix; the (x,y,width,height) form is gone - pass Rect2(x,y,x+w,y+h) [Apus.Engine.API]
 MouseIsNear -> ?Mouse.InCircle: drop the window./game. prefix [Apus.Engine.API]
-MouseWasInRect -> ?Mouse: no replacement yet (per-frame snapshot pending); it equalled MouseInRect outside onMouseMove [Apus.Engine.API]
+MouseWasInRect -> ?Mouse.WasInRect: drop the window./game. prefix; now the position at the previous frame [Apus.Engine.API]
+// Input frame: window.oldMouseButtons removed - (mouseButtons and not oldMouseButtons) -> Mouse.WasPressed,
+// (oldMouseButtons and not mouseButtons) -> Mouse.WasReleased; SetPolledMouseButtons removed (mask follows the events);
+// MapPointerToCanvas -> SetPointer/SetPointerOutside (platforms). Touch signals Mouse\BtnDown\Left/BtnUp\Left -> MOUSE\BTNDOWN/BTNUP (tag 1)
+oldMouseButtons -> ?Mouse.WasPressed/WasReleased: the field is gone, compare with the frame queries [Apus.Engine.API]

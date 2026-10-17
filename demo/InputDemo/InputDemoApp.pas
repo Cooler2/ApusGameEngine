@@ -142,7 +142,7 @@ var
 
 function LMBClicked:boolean;
 begin
-  result:=Bits.HasAll(window.mouseButtons,mbLeft) and not Bits.HasAll(window.oldMouseButtons,mbLeft);
+  result:=Mouse.WasPressed;
 end;
 
 procedure InputEventHandler(event:TEventStr;tag:TTag);
@@ -574,7 +574,7 @@ begin
     Format('Wheel: lastDelta=%d events=%d totalDelta=%d rate=%.1f/s',
       [lastWheelDelta,wheelEventsTotal,wheelDeltaTotal,rateWheel]),taLeft,integer(textTopOpt));
   txt.Write(bodyFont,a.Left+20,a.Top+400,$FFE5EDF7,
-    Format('Mouse buttons mask: %d old=%d',[window.mouseButtons,window.oldMouseButtons]),taLeft,integer(textTopOpt));
+    Format('Mouse buttons mask: %d',[window.mouseButtons]),taLeft,integer(textTopOpt));
   txt.Write(bodyFont,a.Left+20,a.Top+420,$FFE5EDF7,
     Format('L=%d R=%d M=%d X1=%d X2=%d',
       [byte(Bits.HasAll(window.mouseButtons,1)),byte(Bits.HasAll(window.mouseButtons,2)),

@@ -176,6 +176,17 @@ type
   procedure Close;
  end;
 
+ // Input frame: the input published to one pass of TWindow.OnFrame. Button transitions
+ // are gathered from the events between passes and published at the start of the next.
+ TInputFrame=record
+  pendingPressed,pendingReleased:byte; // button transitions since the last publication
+  pressed,released:byte;  // button transitions of the published frame
+  pos,prevPos:TPoint;     // pointer at this and the previous publication
+  outside,prevOutside:boolean;
+  num:int64;              // publications so far
+  procedure AddTransition(bit:byte;down:boolean);
+ end;
+
  // --- Virtual mouse (see TVirtualMouse) ---
  TVirtualMouseOpKind=(
   vmoMode,   // switch the input mode (enable)
@@ -281,6 +292,9 @@ private
   closingValue:integer; // 1 once BeginClose was called
   callQueue:TWindowCallQueue;
   runtimeLock:TLock; // the window state lock (see LockState)
+  input:TInputFrame;
+  pointerOutside:boolean; // the pointer is not over the canvas (mousePos may be clamped to its edge)
+  inFrame:boolean; // an OnFrame pass is running
   function GetClosing:boolean;
   function GetFrameStartMs:int64; inline;
   function GetFrameDeltaMs:int64; inline;
@@ -291,6 +305,10 @@ private
   procedure ApplyVirtualMouseOp(const op:TVirtualMouseOp);
   procedure CancelMouseGesture; // drop the capture, release the buttons without a click
   procedure DeliverMouseButton(btn:byte;pressed:boolean); // update mouseButtons + dispatch
+  // Pointer at a canvas position; off the canvas it is outside: the off-canvas sentinel,
+  // or clamped to the canvas edge while a button is held (a drag never sticks)
+  procedure PlacePointer(const canvasPos:TPoint;onCanvas:boolean);
+  procedure PublishInputFrame; // start of an OnFrame pass: publish the input gathered since the last one
   procedure DeliverMouseWheel(delta:integer); // MOUSE\SCROLL + dispatch
   function VirtualMouseSnapshot:TVirtualMouseState;
 public
@@ -307,14 +325,14 @@ public
   // UI-dispatch bookkeeping (kept next to mousePos as it's positional state):
   moveKind:TMoveKind; // set by the UI dispatcher before each gameplay onMouseMove call
   mouseOverUI:boolean; // true while the cursor sits over a consuming UI element (prev-frame state)
-  mouseButtons:byte; // button flags (bit 0=left, 1=right, 2=middle)
-  oldMouseButtons:byte; // previous button state
+  mouseButtons:byte; // buttons held now (bit 0=left, 1=right, 2=middle), set by the button events
   // Virtual pointer input of this window (see TVirtualMouse). Never nil; owned by the
   // window (holders elsewhere AddRef it). While it is active the physical pointer and
   // buttons are ignored in this window.
   virtualMouse:TVirtualMouse;
   shiftState:byte; // shift keys: aggregate (sscBaseMask) + right-side bits (sscRightMask)
-  // bit 0 - pressed, bit 1 - was pressed last frame (01=just pressed, 10=just released)
+  // bit 0 - pressed now, bit 1 - was pressed at the previous frame (01=just pressed,
+  // 10=just released); bit 2 is internal (pressed at this frame's publication)
   keyState:array[0..255] of byte; // indexed by scancode
   // Files dropped onto the window from a file manager: the last drop, valid until the
   // next one. Set by the window's thread right before ENGINE\WINDOW\DROPFILES (tag = count).
@@ -414,10 +432,11 @@ public
   // Called once per frame (after ProcessMessages) to update mouse position,
   // emit MOUSE\MOVE signal and notify scenes. Buttons are handled immediately.
   procedure FlushMouseInput;
-  // Mouse input of the platform: a physical button/wheel event (window's thread). Sends
-  // MOUSE\BTNDOWN/BTNUP/SCROLL, samples the pointer and dispatches the event; dropped
-  // while the virtual mouse is active.
-  procedure PlatformMouseButton(btn:byte;pressed:boolean);
+  // Mouse input of the platform: a physical button/wheel event (window's thread). Samples
+  // the pointer (unless the caller has set it: touch), updates mouseButtons, sends
+  // MOUSE\BTNDOWN/BTNUP/SCROLL and dispatches the event; dropped while the virtual mouse
+  // is active.
+  procedure PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=true);
   procedure PlatformMouseWheel(delta:integer);
   // Files dropped by the platform (window's thread): fills droppedFiles/dropPos and
   // sends ENGINE\WINDOW\DROPFILES
@@ -425,8 +444,12 @@ public
   // Window state reported by the platform (window's thread): sends ENGINE\WINDOW\MINIMIZED,
   // MAXIMIZED or RESTORED (back to normal) when it changes
   procedure PlatformStateChanged(newState:TWindowState);
-  // Physical button state polled by the frame loop (ignored while the virtual mouse is active)
-  procedure SetPolledMouseButtons(buttons:byte);
+  // Pointer position from the platform (window's thread). SetPointer maps client pixels
+  // to the canvas: outside the display rect the pointer is outside the canvas - the
+  // off-canvas sentinel, or clamped to the canvas edge while a button is held, so a drag
+  // started inside never sticks. SetPointerOutside - the pointer is not over this window.
+  procedure SetPointer(const clientPos:TPoint);
+  procedure SetPointerOutside;
   // Mouse step of a frame, window's thread under the window lock. Virtual mode: applies
   // the next queued virtual mouse operation, otherwise samples the OS pointer (if
   // physicalPointer). Then dispatches the move (FlushMouseInput) - in the physical mode
@@ -472,11 +495,9 @@ public
   procedure ClientToScreen(var p:TPoint); virtual; abstract;
   // Sample the OS pointer position for this window and update mousePos
   // in game coordinates. Called once per frame from FrameLoop before
-  // FlushMouseInput. If pointer is outside the client area, mousePos is
-  // set to the off-screen sentinel ($3FFF,$3FFF). Does nothing while the
-  // virtual mouse is active.
+  // FlushMouseInput. Does nothing while the virtual mouse is active.
   procedure SamplePointer;
-  // Platform part of SamplePointer
+  // Platform part of SamplePointer: reports the pointer through SetPointer/SetPointerOutside
   procedure SampleOSPointer; virtual; abstract;
   // Graphics backend lifecycle for this window
   // Create/activate graphics context and initialize backend-facing window surface state.
@@ -506,10 +527,6 @@ public
   function CanvasToClient(const p:TPoint):TPoint;
   // False when the point is outside displayRect (canvasP is still computed)
   function TryClientToCanvas(const p:TPoint;out canvasP:TPoint):boolean;
-  // Pointer sampling contract: a position outside the display rect is dropped
-  // (off-screen sentinel) unless a button is held - then it is clamped to the canvas,
-  // so a drag started inside never sticks when it leaves the letterbox area.
-  function MapPointerToCanvas(const clientPos:TPoint):TPoint;
 
   // Default render target
   // Allow a presentation RT for this window and create it if the surface needs one.
@@ -544,12 +561,27 @@ public
   class function Pos:TVec2; static; // outside the canvas - ($3FFF,$3FFF)
   class function X:single; static;
   class function Y:single; static;
-  // False while the pointer is outside the canvas
+  // Instant queries: the current state of the window, also inside the event handlers.
+  // Position queries are false while the pointer is outside the canvas
   class function InRect(const r:TRect):boolean; overload; static; // right/bottom edges excluded
   class function InRect(const r:TRect2):boolean; overload; static;
   class function InCircle(x,y,radius:single):boolean; static;
+  // The pointer is not over the canvas. Pos is then the off-canvas sentinel, or the canvas
+  // edge while a button is held (a drag that left the canvas)
+  class function Outside:boolean; static;
   // Any of the buttons (mbXXX mask) is held
   class function Down(buttons:byte=mbLeft):boolean; static;
+  // Frame queries. A frame is one pass of the window's scene processing (TWindow.OnFrame):
+  // the input that came since the previous pass is published at its start. Use them in
+  // Process (frequency=0: one call per frame); Render may be skipped, a fixed-rate Process
+  // runs 0..N times per frame - take the input from the events there.
+  // Any of the buttons went down / up since the previous frame. A click shorter than a
+  // frame gives both, with Down false.
+  class function WasPressed(buttons:byte=mbLeft):boolean; static;
+  class function WasReleased(buttons:byte=mbLeft):boolean; static;
+  // The pointer was in the rect at the previous frame (false if it was outside the canvas)
+  class function WasInRect(const r:TRect):boolean; overload; static;
+  class function WasInRect(const r:TRect2):boolean; overload; static;
   // Over a UI element that takes the input (as of the last hover dispatch)
   class function OverUI:boolean; static;
   // The virtual mouse is in control (see TVirtualMouse)
@@ -887,6 +919,13 @@ constructor TWindow.Create(const windowName:String8);
   Mem.Clear(surface,sizeof(surface));
   ResetFrameTiming;
   virtualMouse:=TVirtualMouse.Create(self);
+  mousePos:=Types.Point(OFF_CANVAS,OFF_CANVAS);
+  oldMousePos:=mousePos;
+  pointerOutside:=true;
+  input.pos:=mousePos;
+  input.prevPos:=mousePos;
+  input.outside:=true;
+  input.prevOutside:=true;
  end;
 
 destructor TWindow.Destroy;
@@ -1409,13 +1448,15 @@ procedure TWindow.SamplePointer;
   if not virtualMouse.IsActive then SampleOSPointer;
  end;
 
-procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean);
+procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=true);
  begin
   if virtualMouse.IsActive then exit; // physical input must not interfere
-  if pressed then Signal('MOUSE\BTNDOWN',btn) // for external subscribers
-   else Signal('MOUSE\BTNUP',btn);
-  SamplePointer; // fresh coords for hit-test at click moment
-  NotifyScenesMouseBtn(btn,pressed);
+  if sample then SamplePointer; // fresh coords for hit-test at click moment
+  // a press of a button that is still held: its release was lost (the OS capture was
+  // taken away) - drop the stale bit so the press is a transition again
+  if pressed and (btn in [1..5]) then
+   mouseButtons:=mouseButtons and not (1 shl (btn-1));
+  DeliverMouseButton(btn,pressed);
  end;
 
 procedure TWindow.PlatformMouseWheel(delta:integer);
@@ -1452,12 +1493,32 @@ procedure TWindow.PlatformStateChanged(newState:TWindowState);
   end;
  end;
 
-procedure TWindow.SetPolledMouseButtons(buttons:byte);
+procedure TWindow.SetPointer(const clientPos:TPoint);
+ var
+  p:TPoint;
+  onCanvas:boolean;
  begin
-  if virtualMouse.IsActive then exit;
-  if buttons<>mouseButtons then begin
-   oldMouseButtons:=mouseButtons;
-   mouseButtons:=buttons;
+  onCanvas:=TryClientToCanvas(clientPos,p);
+  PlacePointer(p,onCanvas);
+ end;
+
+procedure TWindow.SetPointerOutside;
+ begin
+  mousePos:=Types.Point(OFF_CANVAS,OFF_CANVAS);
+  pointerOutside:=true;
+ end;
+
+procedure TWindow.PlacePointer(const canvasPos:TPoint;onCanvas:boolean);
+ begin
+  pointerOutside:=not onCanvas;
+  if onCanvas then
+   mousePos:=canvasPos
+  else
+  if mouseButtons=0 then
+   mousePos:=Types.Point(OFF_CANVAS,OFF_CANVAS)
+  else begin
+   mousePos.x:=Clamp(canvasPos.x,0,Max(0,canvasWidth-1));
+   mousePos.y:=Clamp(canvasPos.y,0,Max(0,canvasHeight-1));
   end;
  end;
 
@@ -1507,20 +1568,11 @@ procedure TWindow.ApplyVirtualMouseOp(const op:TVirtualMouseOp);
    vmoMove:
     if virtualMouse.IsActive then begin
      if op.clientSpace then
-      p:=MapPointerToCanvas(op.pos) // same mapping as the OS pointer
+      SetPointer(op.pos) // same mapping as the OS pointer
      else begin
       p:=op.pos;
-      // same contract as MapPointerToCanvas: off the canvas is "outside" unless a
-      // button is held - then the pointer is clamped to the canvas edge
-      if (p.x<0) or (p.y<0) or (p.x>=canvasWidth) or (p.y>=canvasHeight) then
-       if mouseButtons=0 then
-        p:=Types.Point(OFF_CANVAS,OFF_CANVAS)
-       else begin
-        p.x:=Clamp(p.x,0,Max(0,canvasWidth-1));
-        p.y:=Clamp(p.y,0,Max(0,canvasHeight-1));
-       end;
+      PlacePointer(p,(p.x>=0) and (p.y>=0) and (p.x<canvasWidth) and (p.y<canvasHeight));
      end;
-     mousePos:=p;
     end;
    vmoButton:
     if virtualMouse.IsActive and (op.button in [1..5]) then
@@ -1535,11 +1587,19 @@ procedure TWindow.DeliverMouseButton(btn:byte;pressed:boolean);
  var
   bit:byte;
  begin
-  bit:=1 shl (btn-1);
-  if pressed=((mouseButtons and bit)<>0) then exit; // no transition
-  oldMouseButtons:=mouseButtons;
-  if pressed then mouseButtons:=mouseButtons or bit
-   else mouseButtons:=mouseButtons and not bit;
+  // the state changes before anything is told: signal handlers may run immediately
+  if btn in [1..5] then begin
+   bit:=1 shl (btn-1);
+   if pressed=((mouseButtons and bit)<>0) then exit; // no transition
+   LockState;
+   try
+    if pressed then mouseButtons:=mouseButtons or bit
+     else mouseButtons:=mouseButtons and not bit;
+    input.AddTransition(bit,pressed);
+   finally
+    UnlockState;
+   end;
+  end;
   if pressed then Signal('MOUSE\BTNDOWN',btn)
    else Signal('MOUSE\BTNUP',btn);
   NotifyScenesMouseBtn(btn,pressed);
@@ -1556,7 +1616,7 @@ procedure TWindow.CancelMouseGesture;
   btn:byte;
  begin
   CancelMouseCapture(self); // the captor loses it as when it gets hidden
-  mousePos:=Types.Point(OFF_CANVAS,OFF_CANVAS);
+  SetPointerOutside;
   FlushMouseInput; // the pointer leaves: hovered and pressed elements reset without a click
   // nothing in the UI is under the pointer now: the releases reach gameplay scenes only
   for btn:=1 to 5 do
@@ -1804,9 +1864,13 @@ var
  deltaTime:integer;
 begin
  result:=false;
+ // a nested pass (a modal message pump inside a handler) is refused: the outer one owns the frame
+ if inFrame then exit;
+ inFrame:=true;
  // one segment: queued deletions, scene order, keyboard and Process all touch window state
  LockState;
  try
+  PublishInputFrame; // before anything of the frame reads the input
   DestroyQueuedElements(self);
   // sort scenes by zOrder
   if high(scenes)>1 then
@@ -1833,7 +1897,33 @@ begin
   result:=ProcessScenes(deltaTime);
  finally
   UnlockState;
+  inFrame:=false;
  end;
+end;
+
+procedure TWindow.PublishInputFrame;
+var
+ i:integer;
+begin
+ ASSERT(IsOwnerThread,'Window '+name+': input frame published by another thread');
+ input.prevPos:=input.pos;
+ input.prevOutside:=input.outside;
+ input.pos:=mousePos;
+ input.outside:=pointerOutside;
+ input.pressed:=input.pendingPressed;
+ input.released:=input.pendingReleased;
+ input.pendingPressed:=0;
+ input.pendingReleased:=0;
+ inc(input.num);
+ // keyboard: bit 1 <- pressed at the previous publication (bit 2), bit 2 <- pressed now
+ for i:=0 to high(keyState) do
+  keyState[i]:=keyState[i] and 1 or (keyState[i] and 4) shr 1 or (keyState[i] and 1) shl 2;
+end;
+
+procedure TInputFrame.AddTransition(bit:byte;down:boolean);
+begin
+ if down then pendingPressed:=pendingPressed or bit
+  else pendingReleased:=pendingReleased or bit;
 end;
 
 procedure TFrameLog.Add(const st:string);
@@ -2055,10 +2145,16 @@ begin
  ASSERT(result<>nil,'Mouse: this thread has no window');
 end;
 
-// The window's pointer is on the canvas (not the off-canvas sentinel)
+// The window's pointer is over the canvas
 function PointerOnCanvas(wnd:TWindow):boolean; inline;
 begin
- result:=(wnd<>nil) and (wnd.mousePos.x<>OFF_CANVAS);
+ result:=(wnd<>nil) and not wnd.pointerOutside;
+end;
+
+// The window's pointer was over the canvas at the previous frame
+function PointerWasOnCanvas(wnd:TWindow):boolean; inline;
+begin
+ result:=(wnd<>nil) and not wnd.input.prevOutside;
 end;
 
 class function Mouse.Pos:TVec2;
@@ -2104,12 +2200,49 @@ begin
  result:=PointerOnCanvas(wnd) and wnd.mousePos.IsNear(x,y,radius);
 end;
 
+class function Mouse.Outside:boolean;
+begin
+ result:=not PointerOnCanvas(MouseWindow);
+end;
+
 class function Mouse.Down(buttons:byte=mbLeft):boolean;
 var
  wnd:TWindow;
 begin
  wnd:=MouseWindow;
  result:=(wnd<>nil) and (wnd.mouseButtons and buttons<>0);
+end;
+
+class function Mouse.WasPressed(buttons:byte=mbLeft):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=(wnd<>nil) and (wnd.input.pressed and buttons<>0);
+end;
+
+class function Mouse.WasReleased(buttons:byte=mbLeft):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=(wnd<>nil) and (wnd.input.released and buttons<>0);
+end;
+
+class function Mouse.WasInRect(const r:TRect):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=PointerWasOnCanvas(wnd) and PtInRect(r,wnd.input.prevPos);
+end;
+
+class function Mouse.WasInRect(const r:TRect2):boolean;
+var
+ wnd:TWindow;
+begin
+ wnd:=MouseWindow;
+ result:=PointerWasOnCanvas(wnd) and r.Contains(wnd.input.prevPos);
 end;
 
 class function Mouse.OverUI:boolean;
@@ -2147,18 +2280,6 @@ begin
   exit(false);
  end;
  result:=surface.TryClientToCanvas(p,canvasP);
-end;
-
-function TWindow.MapPointerToCanvas(const clientPos:TPoint):TPoint;
-var
- p:TPoint;
-begin
- if not TryClientToCanvas(clientPos,p) then begin
-  if mouseButtons=0 then exit(Types.Point($3FFF,$3FFF));
-  p.x:=Clamp(p.x,0,Max(0,canvasWidth-1));
-  p.y:=Clamp(p.y,0,Max(0,canvasHeight-1));
- end;
- result:=p;
 end;
 
 procedure TWindow.EnableDefaultRT(zbuffer:byte;useDepthTex:boolean);

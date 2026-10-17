@@ -119,7 +119,7 @@ var
 
 function LMBClicked:boolean;
 begin
-  result:=Bits.HasAll(window.mouseButtons,mbLeft) and not Bits.HasAll(window.oldMouseButtons,mbLeft);
+  result:=Mouse.WasPressed;
 end;
 
 function ClampI(v,minV,maxV:integer):integer;

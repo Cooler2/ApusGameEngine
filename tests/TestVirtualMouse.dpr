@@ -31,7 +31,6 @@ uses
 const
   ROBOT_IN='robot_in.txt';
   ROBOT_OUT='robot_out.txt';
-  OUTSIDE=$3FFF;
 
 type
   TPhysEvent=record
@@ -43,7 +42,6 @@ type
   // Platform stand-in: the "OS" pointer and button events are set by the test
   TTestWindow=class(TWindow)
     physPos:TPoint;       // OS pointer, client pixels; x<0 - outside the window
-    physButtons:byte;     // OS button state polled by the frame
     physEvents:TPhysEvents; // OS button events delivered by the next message pump
     procedure SampleOSPointer; override;
     procedure ProcessMessages; override;
@@ -59,6 +57,16 @@ type
     procedure onMouseButtons(button:byte;state:boolean); override;
     procedure onMouseScroll(value:integer); override;
     procedure DoClick; override;
+  end;
+
+  // records what the Mouse queries give in Process
+  TProbeScene=class(TGameScene)
+    rect:TRect; // for InRect/WasInRect
+    frames,pressed,released,down:integer; // Process calls; frames with WasPressed, WasReleased, Down
+    inRect,wasInRect,outside:boolean; // the last frame
+    nest:boolean; // run a nested OnFrame from the next Process
+    procedure Reset;
+    function Process:boolean; override;
   end;
 
 var
@@ -79,8 +87,8 @@ var
 
 procedure TTestWindow.SampleOSPointer;
  begin
-  if physPos.x<0 then mousePos:=Types.Point(OUTSIDE,OUTSIDE)
-   else mousePos:=MapPointerToCanvas(physPos);
+  if physPos.x<0 then SetPointerOutside
+   else SetPointer(physPos);
  end;
 
 procedure TTestWindow.ProcessMessages;
@@ -118,6 +126,29 @@ procedure TTestWindow.PhysicalClick(x,y:integer);
   physEvents[n+1].pressed:=false;
  end;
 
+{ TProbeScene }
+
+procedure TProbeScene.Reset;
+ begin
+  frames:=0; pressed:=0; released:=0; down:=0;
+ end;
+
+function TProbeScene.Process:boolean;
+ begin
+  result:=inherited;
+  inc(frames);
+  if Mouse.WasPressed then inc(pressed);
+  if Mouse.WasReleased then inc(released);
+  if Mouse.Down then inc(down);
+  inRect:=Mouse.InRect(rect);
+  wasInRect:=Mouse.WasInRect(rect);
+  outside:=Mouse.Outside;
+  if nest then begin
+   nest:=false;
+   TWindow(window).OnFrame;
+  end;
+ end;
+
 { TProbeButton }
 
 procedure TProbeButton.onMouseButtons(button:byte;state:boolean);
@@ -143,7 +174,6 @@ procedure TProbeButton.DoClick;
 procedure RunFrame(w:TTestWindow);
  begin
   w.RunQueuedCalls;
-  w.SetPolledMouseButtons(w.physButtons);
   w.ProcessMessages;
   w.LockState;
   try
@@ -294,6 +324,124 @@ procedure TestPhysicalBefore;
   Check(underMouse=btn,'the OS pointer hovers it');
   wndA.physPos:=Types.Point(-1,-1);
   RunFrame(wndA);
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+  EndTest;
+ end;
+
+procedure PhysicalButton(pressed:boolean);
+ var
+  n:integer;
+ begin
+  n:=length(wndA.physEvents);
+  SetLength(wndA.physEvents,n+1);
+  wndA.physEvents[n].btn:=1;
+  wndA.physEvents[n].pressed:=pressed;
+ end;
+
+// The input frame: button events go to the mask at once, Process sees the transitions
+// of its frame (also of a click shorter than a frame) exactly once
+procedure TestInputFrame;
+ var
+  probe,probe2:TProbeScene;
+  i:integer;
+ begin
+  StartTest('Physical buttons and the input frame');
+  probe:=TProbeScene.Create('Probe',false,wndA);
+  probe.rect:=Types.Rect(100,100,200,130); // the button
+  probe.SetStatus(ssActive);
+  probe2:=TProbeScene.Create('Probe2',false,wndA);
+  probe2.SetStatus(ssActive);
+  wndA.physPos:=Types.Point(150,115);
+  RunFrame(wndA);
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+  probe.Reset; probe2.Reset;
+  // a slow click: press, held, release
+  PhysicalButton(true);
+  RunFrame(wndA);
+  Check(btn.downs=1,'the press reaches the button');
+  Check(wndA.mouseButtons=mbLeft,'the event sets the mask');
+  Check(probe.pressed=1,'Process sees WasPressed in the press frame');
+  Check(probe.down=1,'and Down');
+  Check(probe2.pressed=1,'another scene sees the same press');
+  for i:=1 to 3 do RunFrame(wndA);
+  Check(probe.pressed=1,'WasPressed only in the press frame');
+  Check(probe.down=4,'Down while held');
+  PhysicalButton(false);
+  RunFrame(wndA);
+  Check(wndA.mouseButtons=0,'the release clears the mask');
+  Check(probe.released=1,'Process sees WasReleased in the release frame');
+  Check(btn.clicks=1,'slow click done');
+  RunFrame(wndA);
+  Check(probe.released=1,'WasReleased only once');
+  // a click shorter than a frame
+  probe.Reset; btn.clicks:=0;
+  wndA.PhysicalClick(150,115);
+  RunFrame(wndA);
+  Check(btn.clicks=1,'the fast click reaches the button');
+  Check(probe.pressed=1,'fast click: WasPressed');
+  Check(probe.released=1,'fast click: WasReleased');
+  Check(probe.down=0,'fast click: not Down');
+  RunFrame(wndA);
+  Check(probe.pressed=1,'fast click edges last one frame');
+  // a lost release (the OS capture taken away): the next press is still a press
+  wndA.physPos:=Types.Point(700,500);
+  RunFrame(wndA);
+  probe.Reset;
+  PhysicalButton(true);
+  RunFrame(wndA);
+  PhysicalButton(true);
+  RunFrame(wndA);
+  Check(probe.pressed=2,'a press after a lost release is a new press');
+  PhysicalButton(false);
+  RunFrame(wndA);
+  Check(wndA.mouseButtons=0,'and its release clears the mask');
+  // the pointer at this and the previous frame
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+  Check(probe.outside and Mouse.Outside,'the pointer outside the window is Outside');
+  wndA.physPos:=Types.Point(150,115);
+  RunFrame(wndA);
+  Check(probe.inRect,'InRect after entering');
+  Check(not probe.wasInRect,'not WasInRect in the entering frame');
+  RunFrame(wndA);
+  Check(probe.wasInRect,'WasInRect a frame later');
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+  Check(not probe.inRect,'not InRect after leaving');
+  Check(probe.wasInRect,'WasInRect in the leaving frame');
+  RunFrame(wndA);
+  Check(not probe.wasInRect,'not WasInRect a frame later');
+  // a drag leaving the canvas: the position is clamped to the edge, the pointer is Outside
+  wndA.physPos:=Types.Point(700,500);
+  RunFrame(wndA);
+  PhysicalButton(true);
+  RunFrame(wndA);
+  wndA.physPos:=Types.Point(900,500);
+  RunFrame(wndA);
+  Check(Mouse.Pos.x=799,'drag outside: clamped to the edge');
+  Check(Mouse.Outside,'drag outside: Outside');
+  Check(not Mouse.InRect(Types.Rect(790,490,800,510)),'drag outside: not InRect at the edge');
+  PhysicalButton(false);
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+  // keyboard: the same frame boundary
+  wndA.keyState[30]:=wndA.keyState[30] or 1; // as TGame.KeyPressed
+  RunFrame(wndA);
+  Check(IsKeyPressed(30),'key: pressed in its frame');
+  RunFrame(wndA);
+  Check(not IsKeyPressed(30) and IsKeyDown(30),'key: then only down');
+  wndA.keyState[30]:=wndA.keyState[30] and $FE;
+  RunFrame(wndA);
+  Check(IsKeyReleased(30),'key: released in its frame');
+  RunFrame(wndA);
+  Check(not IsKeyReleased(30),'key: released only once');
+  // a nested pass is refused
+  probe.Reset;
+  probe.nest:=true;
+  RunFrame(wndA);
+  Check(probe.frames=1,'a nested OnFrame does not process the scenes');
+  probe.SetStatus(ssFrozen);
+  probe2.SetStatus(ssFrozen);
   btn.clicks:=0; btn.downs:=0; btn.ups:=0;
   EndTest;
  end;
@@ -535,7 +683,6 @@ procedure TestPhysicalIgnored;
   btn.clicks:=0; btnOff.clicks:=0;
   Move(400,400);
   wndA.PhysicalClick(150,115); // OS click on the button
-  wndA.physButtons:=mbLeft;
   RunFrame(wndA);
   RunFrame(wndA);
   Check(btn.clicks=0,'OS click does not reach the button');
@@ -543,7 +690,6 @@ procedure TestPhysicalIgnored;
   Check(wndA.mouseButtons=0,'OS button state is ignored');
   Check(underMouse=sceneA.UI,'hover follows the virtual pointer');
   Robot(Req('d','mouse.down','X: 150;Y: 115'));
-  wndA.physButtons:=0;
   SetLength(wndA.physEvents,1);
   wndA.physEvents[0].btn:=1;
   wndA.physEvents[0].pressed:=false; // OS release while the virtual button is down
@@ -795,6 +941,7 @@ begin
   TestShortScrollRange;
   TestModeErrors;
   TestPhysicalBefore;
+  TestInputFrame;
   TestEnable;
   TestMoveHover;
   TestClick;

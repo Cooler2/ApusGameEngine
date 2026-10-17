@@ -562,7 +562,7 @@ procedure TWinGLWindow.SampleOSPointer;
   // whatever window sits on top of ours. GA_ROOT collapses a child GL canvas to its top-level.
   if not captured then
    if GetAncestor(WindowFromPoint(pnt),GA_ROOT)<>self.window then begin
-    mousePos:=Types.Point($3FFF,$3FFF);
+    SetPointerOutside;
     exit;
    end;
   Windows.ScreenToClient(self.window,pnt);
@@ -570,10 +570,10 @@ procedure TWinGLWindow.SampleOSPointer;
   if not captured then
    if (pnt.x<0) or (pnt.y<0) or
       (pnt.x>=clientWidth) or (pnt.y>=clientHeight) then begin
-    mousePos:=Types.Point($3FFF,$3FFF);
+    SetPointerOutside;
     exit;
    end;
-  mousePos:=MapPointerToCanvas(pnt);
+  SetPointer(pnt);
  end;
 
 function TWindowsPlatform.GetMousePos: TPoint;

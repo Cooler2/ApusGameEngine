@@ -151,8 +151,7 @@ begin
   if not started then begin StartServer; started:=true; end;
   if not placed then begin PlaceWindow(0); placed:=true; end;
   server.Poll;                    // pump the in-process server
-  clickLMB:=Bits.HasAll(window.mouseButtons,mbLeft) and
-            not Bits.HasAll(window.oldMouseButtons,mbLeft);
+  clickLMB:=Mouse.WasPressed;
   if clickLMB and Hit(btnLaunch) then SpawnClient;
   result:=true;
 end;

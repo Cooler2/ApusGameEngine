@@ -211,14 +211,14 @@ procedure TSDLGLWindow.SampleOSPointer;
   SDL_GetWindowSize(wnd,@logicalWidth,@logicalHeight);
   if (pnt.x<0) or (pnt.y<0) or
      (pnt.x>=logicalWidth) or (pnt.y>=logicalHeight) then begin
-   mousePos:=Types.Point($3FFF,$3FFF);
+   SetPointerOutside;
    exit;
   end;
   if (logicalWidth>0) and (logicalHeight>0) then begin
    pnt.x:=round(pnt.x*clientWidth/logicalWidth);
    pnt.y:=round(pnt.y*clientHeight/logicalHeight);
   end;
-  mousePos:=MapPointerToCanvas(pnt);
+  SetPointer(pnt);
  end;
 
 procedure TSDLGLWindow.Close;

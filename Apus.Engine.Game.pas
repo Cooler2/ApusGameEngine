@@ -1,4 +1,4 @@
-﻿// Main runtime unit of the engine
+// Main runtime unit of the engine
 //
 // IMPORTANT: Nevertheless BasicGame is implemented as class, it is
 //            NOT thread-safe itself i.e. does not allow multiple instances!
@@ -1347,10 +1347,9 @@ begin
     t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
-   window.mousePos:=ClientToCanvas(p);
+   window.SetPointer(p);
    window.FlushMouseInput; // emits MOUSE\MOVE if position changed
-   Signal('Mouse\BtnDown\Left',1);
-   window.NotifyScenesMouseBtn(1,true);
+   window.PlatformMouseButton(1,true,false); // the pointer is the touch point, not the OS one
    CoreTime.Sleep(0);
    Timing;
  end else
@@ -1358,15 +1357,14 @@ begin
    t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
-   window.mousePos:=ClientToCanvas(p);
+   window.SetPointer(p);
    window.FlushMouseInput;
    Timing;
  end else
  if event.Same('SINGLETOUCHRELEASE') then begin
    t:=CoreTime.Ticks;
-   Signal('Mouse\BtnUp\Left',1);
-   window.NotifyScenesMouseBtn(1,false);
-   window.mousePos:=Types.Point(4095,4095);
+   window.PlatformMouseButton(1,false,false);
+   window.SetPointerOutside; // the finger is lifted: no pointer
    window.FlushMouseInput;
    Timing;
  end else
@@ -1827,23 +1825,16 @@ end;
 
 procedure TGame.FrameLoop;
  var
-  i:integer;
   t:int64;
   phaseTimer:int64;
-  mb:byte;
  begin
   t:=CoreTime.Ticks;
   Thread.Ping;
   window.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
-  // Обновление ввода с клавиатуры (и кнопок мыши)
+  // the mouse buttons and the keys come with the events, published by OnFrame
   window.shiftState:=systemPlatform.GetShiftKeysState;
   window.timings.phaseMetrics:=fpsMetricsPending or
     ((dfShowFPS in debug.features) and Bits.HasAll(window.shiftState,sscShift));
-  mb:=systemPlatform.GetMouseButtons;
-  window.SetPolledMouseButtons(mb); // ignored in the virtual mouse mode
-
-  for i:=0 to High(window.keyState) do
-   window.keyState[i]:=window.keyState[i] and 1+(window.keyState[i] and 1) shl 1;
 
   StartMeasure(14);
   if window.timings.phaseMetrics then Timer.Start(phaseTimer);

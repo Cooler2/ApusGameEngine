@@ -155,8 +155,7 @@ begin
   if not started then begin StartClient; started:=true; end;
   if not placed then begin PlaceWindow(GetClientSlot); placed:=true; end;
 
-  clickLMB:=Bits.HasAll(window.mouseButtons,mbLeft) and
-            not Bits.HasAll(window.oldMouseButtons,mbLeft);
+  clickLMB:=Mouse.WasPressed;
   if clickLMB then begin
     if Hit(btnConnect) and not Connected then DoConnect
     else if Hit(btnDisconnect) and Connected then DoDisconnect;

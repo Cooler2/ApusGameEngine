@@ -27,10 +27,30 @@ Use it as the primary reference when updating old code.
   - `MouseInRect(x,y,width,height)` has no replacement overload: it was easy to call with
     corners. Use `Mouse.InRect(Rect2(x,y,x+width,y+height))`.
   - `MouseIsNear` -> `Mouse.InCircle`.
-  - `MouseWasInRect` has no replacement yet: outside `onMouseMove` it matched the current
-    position. A per-frame snapshot (`WasInRect`, `WasPressed`, `WasReleased`) comes later.
+  - `MouseWasInRect` -> `Mouse.WasInRect` (see the input frame below; the old one matched the
+    current position outside `onMouseMove`).
 - `mbLeft`/`mbRight`/`mbMiddle` are declared in `Apus.Engine.Types` (still available from
   `Apus.Engine.API`).
+- Input frame: the input is published once per pass of `TWindow.OnFrame`, at its start (all
+  paths: the main loop, `WM_PAINT`, extra windows). New frame queries `Mouse.WasPressed`,
+  `WasReleased` (any of the buttons went down/up since the previous frame; a click shorter
+  than a frame gives both) and `WasInRect(TRect/TRect2)` (the pointer at the previous frame);
+  new `Mouse.Outside` (the pointer is not over the canvas, also while a drag clamps it to the
+  edge; position queries are false then).
+  - `mouseButtons` follows the button events at once (physical, virtual, touch); it used to
+    come from a poll before the message pump - a frame late, and a click between two polls
+    never reached it. The poll is gone (`TWindow.SetPolledMouseButtons` removed).
+  - `window.oldMouseButtons` removed: it changed only on a button change, so the usual
+    `mouseButtons and not oldMouseButtons` was true in every frame the button was held.
+    Use `Mouse.WasPressed`/`WasReleased`.
+  - `TWindow.MapPointerToCanvas` removed: platforms report the pointer with
+    `SetPointer(clientPos)` / `SetPointerOutside` (same mapping and clamping).
+  - `PlatformMouseButton(btn,pressed,sample=true)`: touch passes `sample=false`. Touch no
+    longer sends `Mouse\BtnDown\Left` / `Mouse\BtnUp\Left`: it sends `MOUSE\BTNDOWN` /
+    `MOUSE\BTNUP` with tag 1, like the mouse.
+  - The keyboard frame (`IsKeyPressed`/`IsKeyReleased`) moved to the same boundary and now
+    works in every window (it was shifted by the main loop for the main window only).
+  - A nested `OnFrame` (a modal message pump inside a handler) is refused.
 
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 
