@@ -23,6 +23,13 @@ function Cfg(canvasW,canvasH,renderW,renderH:integer;fit:TSurfaceFit;
   result.allowAspectDistortion:=distortion;
  end;
 
+// flexible canvas with its own DPI (SetupLogicalCanvas)
+function LogicalCfg(canvasDPI:integer):TSurfaceConfig;
+ begin
+  result.Init;
+  result.canvasDPI:=canvasDPI;
+ end;
+
 function Inp(w,h:integer):TSurfaceInput;
  begin
   result.Init(w,h);
@@ -67,6 +74,8 @@ function IsRect(const r:TRect;l,t,rt,b:integer):boolean;
  end;
 
 procedure TestValidation;
+ var
+  config:TSurfaceConfig;
  begin
   StartTest('Validation');
   Check(not ValidationFails(Cfg(0,0,0,0,TSurfaceFit.fill)),'default config valid');
@@ -80,6 +89,14 @@ procedure TestValidation;
   Check(ValidationFails(Cfg(1280,800,1920,1080,TSurfaceFit.keepAspect)),'canvas/render aspect conflict rejected');
   Check(not ValidationFails(Cfg(1280,800,1920,1200,TSurfaceFit.keepAspect)),'canvas/render same aspect valid');
   Check(not ValidationFails(Cfg(720,0,0,0,TSurfaceFit.fill)),'half-fixed canvas + fill valid');
+  Check(not ValidationFails(LogicalCfg(96)),'logical canvas valid');
+  Check(ValidationFails(LogicalCfg(-96)),'negative canvasDPI rejected');
+  config:=Cfg(720,0,0,0,TSurfaceFit.fill);
+  config.canvasDPI:=96;
+  Check(ValidationFails(config),'canvasDPI + half-fixed canvas rejected');
+  config:=Cfg(1280,800,0,0,TSurfaceFit.keepAspect);
+  config.canvasDPI:=96;
+  Check(ValidationFails(config),'canvasDPI + fixed canvas rejected');
   EndTest;
  end;
 
@@ -245,6 +262,49 @@ procedure TestMobile;
   EndTest;
  end;
 
+// Logical canvas: flexible, in units of 1/canvasDPI inch, scaled by the projection
+procedure TestLogicalCanvas;
+ var
+  st:TSurfaceState;
+  input:TSurfaceInput;
+  p:TPoint;
+ begin
+  StartTest('Logical canvas');
+  input.Init(3040,1720,192);
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsSize(st.canvasSize,1520,860),'200%: canvas in logical pixels');
+  Check(IsSize(st.renderSize,3040,1720),'200%: render native');
+  Check(IsRect(st.displayRect,0,0,3040,1720),'200%: displayRect = client');
+  Check(st.mechanism=TSurfaceMechanism.matrix,'200%: mechanism matrix');
+  Check(not st.needRT,'200%: no RT');
+  p:=st.ClientToCanvas(Point(3040,1720));
+  Check((p.x=1520) and (p.y=860),'200%: client corner -> canvas corner');
+  input.Init(2280,1290,144);
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsSize(st.canvasSize,1520,860),'150%: canvas in logical pixels');
+  input.Init(1900,1075,120);
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsSize(st.canvasSize,1520,860),'125%: canvas in logical pixels');
+  input.Init(1520,860,96);
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsSize(st.canvasSize,1520,860),'100%: canvas = client');
+  Check(st.mechanism=TSurfaceMechanism.direct,'100%: mechanism direct');
+  // sizes not divisible by the scale: rounded per axis, no aspect error
+  input.Init(1001,601,144);
+  Check(not ResolveFails(input,LogicalCfg(96)),'odd client size resolves');
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsSize(st.canvasSize,667,401),'odd client size: rounded canvas');
+  input.Init(2,2,288);
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsSize(st.canvasSize,1,1),'tiny client: canvas at least 1x1');
+  // safe area goes to logical units
+  input.Init(3040,1720,192);
+  input.safeInsets:=Rect(0,100,0,0);
+  st:=Resolve(input,LogicalCfg(96));
+  Check(IsRect(st.safeAreaRect,0,50,1520,860),'safe area in logical pixels');
+  EndTest;
+ end;
+
 procedure TestTransforms;
  var
   st:TSurfaceState;
@@ -341,6 +401,7 @@ begin
   TestPixelArt;
   TestBudget;
   TestMobile;
+  TestLogicalCanvas;
   TestTransforms;
   TestSafeArea;
   TestChanges;

@@ -1802,9 +1802,10 @@ procedure TWindow.UpdateScreenScale;
   scale:single;
  begin
   if (game=nil) or (self<>mainWindow) then exit;
-  // The uiScale ladder is only meaningful when the canvas follows the surface:
-  // over a fixed canvas the design already defines its own scale (R-31 8.3.3).
-  if not config.CanvasFlexible then begin
+  // The uiScale ladder is only meaningful when the canvas follows the surface in display
+  // pixels: over a fixed canvas the design already defines its own scale (R-31 8.3.3),
+  // over a canvas with its own DPI the projection does the scaling.
+  if not config.CanvasFlexible or (config.canvasDPI>0) then begin
    game.screenScale:=1.0;
    exit;
   end;

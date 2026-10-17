@@ -117,6 +117,9 @@ interface
    // --- Working surface declaration (R-31) ---
    // Presets fill orientation+surfaceConfig; call them in SetupApplication.
    procedure SetupFullWindow;  // default: canvas follows the client area
+   // Canvas follows the client area in units of 1/dpi inch (96: "logical pixels", like
+   // points on Retina): the same numbers give the same physical size on any display
+   procedure SetupLogicalCanvas(dpi:integer=96);
    procedure SetupFixedCanvas(w,h:integer;render:TFixedCanvasRender=TFixedCanvasRender.sharp);
    procedure SetupMobilePortrait(canvasW:integer);
    procedure SetupMobileLandscape(canvasH:integer);
@@ -467,6 +470,14 @@ procedure TGameApplication.SetupFullWindow;
  begin
   orientation:=TOrientation.any;
   surfaceConfig.Init;
+ end;
+
+procedure TGameApplication.SetupLogicalCanvas(dpi:integer=96);
+ begin
+  if dpi<=0 then raise EError.Create('Logical canvas DPI must be positive');
+  orientation:=TOrientation.any;
+  surfaceConfig.Init;
+  surfaceConfig.canvasDPI:=dpi;
  end;
 
 procedure TGameApplication.SetupFixedCanvas(w,h:integer;render:TFixedCanvasRender=TFixedCanvasRender.sharp);

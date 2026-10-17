@@ -105,7 +105,10 @@ type
   renderSize:TSize; // axis 2: shaded pixels; (0,0) = native (display rect size); both axes 0 or both >0
   fit:TSurfaceFit;
   allowAspectDistortion:boolean; // default false; the only way to get a non-uniform stretch
-  procedure Init; // full-window defaults: canvas(0,0), render native, fill
+  // Flexible canvas only: DPI of the canvas grid. 0 = one canvas unit per display pixel;
+  // N>0 = a unit is 1/N inch (96: a "logical pixel"), the projection scales it to the display
+  canvasDPI:integer;
+  procedure Init; // full-window defaults: canvas(0,0), render native, fill, canvasDPI 0
   function CanvasFixed:boolean; inline;  // both canvas axes fixed
   function CanvasFlexible:boolean; inline; // both canvas axes flexible
   function RenderFixed:boolean; inline;
@@ -234,7 +237,8 @@ type
  //  - renderSize axes must be both 0 or both >0; negative sizes are invalid;
  //  - canvas fixed on both axes + fill needs allowAspectDistortion
  //    (a fixed window whose client is derived from the canvas uses keepAspect);
- //  - canvas fixed on both axes + render fixed with a different aspect needs allowAspectDistortion.
+ //  - canvas fixed on both axes + render fixed with a different aspect needs allowAspectDistortion;
+ //  - canvasDPI must not be negative and needs a flexible canvas (both axes 0).
  procedure ValidateSurfaceConfig(const config:TSurfaceConfig);
  // Total function for a valid config: input + config -> state.
  // Order: contentAspect -> displayRect -> canvasSize -> renderSize -> aspect invariant -> safe area.
@@ -295,6 +299,7 @@ procedure TSurfaceConfig.Init;
   renderSize:=MakeSize(0,0);
   fit:=TSurfaceFit.fill;
   allowAspectDistortion:=false;
+  canvasDPI:=0;
  end;
 
 function TSurfaceConfig.CanvasFixed:boolean;
@@ -378,6 +383,10 @@ procedure ValidateSurfaceConfig(const config:TSurfaceConfig);
    raise EError.Create('Surface config: renderSize axes must be both 0 (native) or both >0');
   if (config.fit in [TSurfaceFit.center,TSurfaceFit.integerScale]) and not config.RenderFixed then
    raise EError.Create('Surface config: fit=center/integerScale requires a fixed renderSize');
+  if config.canvasDPI<0 then
+   raise EError.Create('Surface config: negative canvasDPI');
+  if (config.canvasDPI>0) and not config.CanvasFlexible then
+   raise EError.Create('Surface config: canvasDPI requires a flexible canvas (canvasSize 0x0)');
   if config.CanvasFixed and not config.allowAspectDistortion then begin
    if config.fit=TSurfaceFit.fill then
     raise EError.Create('Surface config: fixed canvas + fit=fill distorts the aspect (use keepAspect or allowAspectDistortion)');
@@ -393,6 +402,7 @@ procedure ResolveSurface(const input:TSurfaceInput;const config:TSurfaceConfig;
   contentAspect:double;
   dispW,dispH:integer;
   safeClient,safeDisp:TRect;
+  unitSize:double;
  begin
   cw:=input.clientSize.cx;
   ch:=input.clientSize.cy;
@@ -434,10 +444,16 @@ procedure ResolveSurface(const input:TSurfaceInput;const config:TSurfaceConfig;
   dispW:=w; dispH:=h;
 
   // 3. canvas size: fixed axes as declared, flexible axes from the integer display rect
+  // (in units of 1/canvasDPI inch, if set)
   if config.CanvasFixed then state.canvasSize:=config.canvasSize
   else
-  if config.CanvasFlexible then state.canvasSize:=MakeSize(dispW,dispH)
-  else
+  if config.CanvasFlexible then begin
+   state.canvasSize:=MakeSize(dispW,dispH);
+   if (config.canvasDPI>0) and (input.dpi>0) and (input.dpi<>config.canvasDPI) then begin
+    unitSize:=input.dpi/config.canvasDPI; // display pixels per canvas unit
+    state.canvasSize:=MakeSize(Max(1,round(dispW/unitSize)),Max(1,round(dispH/unitSize)));
+   end;
+  end else
   if config.canvasSize.cx>0 then
    state.canvasSize:=MakeSize(config.canvasSize.cx,round(config.canvasSize.cx*dispH/dispW))
   else
@@ -451,8 +467,10 @@ procedure ResolveSurface(const input:TSurfaceInput;const config:TSurfaceConfig;
                               Max(1,round(state.renderSize.cy*input.renderScale)));
 
   // 5. aspect invariant: canvas = render = display rect
+  // (a flexible canvas is derived from the display rect, its aspect differs by rounding only)
   if not config.allowAspectDistortion then begin
-   if not SameAspect(SizeAspect(state.canvasSize),SizeAspect(MakeSize(dispW,dispH))) or
+   if not config.CanvasFlexible and
+      not SameAspect(SizeAspect(state.canvasSize),SizeAspect(MakeSize(dispW,dispH))) or
       not SameAspect(SizeAspect(state.renderSize),SizeAspect(MakeSize(dispW,dispH))) then
     raise EError.Create(Format('Surface aspect mismatch: canvas %dx%d, render %dx%d, display %dx%d (configuration hook must use keepAspect or allowAspectDistortion)',
       [state.canvasSize.cx,state.canvasSize.cy,state.renderSize.cx,state.renderSize.cy,dispW,dispH]));

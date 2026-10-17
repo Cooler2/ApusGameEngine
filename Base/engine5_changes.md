@@ -1520,3 +1520,20 @@ Nothing changes when the canvas matches the surface (the ratio is 1).
   ratio 1). A scaled canvas bakes the sprite in real pixels.
 - `TTransformationAPI.DefaultView`: the half-pixel shift that puts integer coordinates on
   pixel centers is a real pixel (it was a virtual one, off by a fraction under scaling).
+
+## 2026-10-17 — Logical canvas
+
+- `TSurfaceConfig.canvasDPI` (flexible canvas only): DPI of the canvas grid. 0 (default)
+  = one canvas unit per display pixel, as before; N>0 = a unit is 1/N inch, the canvas is
+  the display rect divided by `dpi/N` and the projection scales it (`matrix`). Rejected
+  with a fixed or half-fixed canvas.
+- `TGameApplication.SetupLogicalCanvas(dpi=96)` - preset: the canvas follows the client
+  area in logical pixels, so the same numbers give the same physical size on any display.
+  `game.screenScale` stays 1 there (the projection does the scaling), like over a fixed
+  canvas.
+
+## 2026-10-17 — Assertions are on in FPC builds
+
+FPC compiles `ASSERT` out unless `-Sa` is given, and no engine build had it. `build.cfg`
+and every test/smoke script now pass `-Sa`. A project that wants a build without
+assertions adds `-Sa-` to its own options.
