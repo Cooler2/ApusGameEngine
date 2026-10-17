@@ -182,7 +182,7 @@ procedure TMainScene.Render;
   SetGlobals('GF0=1;GF1=0.5;GF2=1','LightDir');
   lightDir:=Vec3(gF0, gF1, gF2);
 
-  gfx.SetCullMode(TCullMode.DrawCW); // this is a trick! Draw back faces only into the shadowmap (TCullMode.DrawAll will work too, but not TCullMode.DrawCCW)
+  gfx.SetCullMode(TCullMode.DrawCCW); // front faces into the shadowmap, as in the main pass (TCullMode.DrawAll works too)
   // 1-st pass: build shadowmap
   gfx.BeginPaint(shadowMap);
   gfx.target.Clear(0,1);

@@ -397,7 +397,7 @@ begin
  // Keep lazy EnsureThreadState as fallback in all subsystems.
  target.Resized(window.clientWidth,window.clientHeight);
  target.Viewport(0,0,window.clientWidth,window.clientHeight,window.canvasWidth,window.canvasHeight);
- glFrontFace(GL_CCW); // anchor the front-face winding the cull-mode mapping relies on
+ glFrontFace(GL_CCW); // backbuffer winding; render targets switch it (TGLRenderTargetAPI.Texture)
  shader.Reset;
  clip.Nothing;
  clip.Restore;
@@ -480,7 +480,7 @@ procedure TOpenGL.Restore;
 
 procedure TOpenGL.SetCullMode(mode: TCullMode);
  begin
-  // front=CCW is fixed at context init (glFrontFace(GL_CCW)), so GL_BACK=CW, GL_FRONT=CCW
+  // GL front = CCW as seen on the canvas (glFrontFace follows the target), so GL_BACK=CW, GL_FRONT=CCW
   case mode of
    TCullMode.DrawCCW:begin // keep CCW, cull CW (back)
     glEnable(GL_CULL_FACE);
@@ -1519,6 +1519,7 @@ procedure TGLRenderTargetAPI.Backbuffer;
   if GL_VERSION_3_0 or GL_ARB_framebuffer_object then
     glBindFramebuffer(GL_FRAMEBUFFER,defaultFramebuffer);
   {$ENDIF}
+  glFrontFace(GL_CCW); // the projection flips Y for the backbuffer (see Texture)
   realWidth:=backBufferWidth;
   realHeight:=backBufferHeight;
   CheckForGLError(100);
@@ -1538,6 +1539,10 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
   inherited;
   ASSERT(tex is TGLTexture);
   TGLTexture(tex).SetAsRenderTarget;
+  // The projection doesn't flip Y for a texture target (it's stored bottom-up), which
+  // mirrors the winding against the backbuffer: the front face follows, so a TCullMode
+  // keeps the same faces whatever the target
+  glFrontFace(GL_CW);
   realWidth:=tex.width;
   realHeight:=tex.height;
   renderWidth:=realWidth;

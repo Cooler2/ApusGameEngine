@@ -317,8 +317,9 @@ type
  end;
 
 {$SCOPEDENUMS ON}
- // Which faces to draw. The engine assumes front=CCW (set via glFrontFace at init);
- // generators emit CCW-outward faces, so DrawCCW = show outer surface (cull backfaces).
+ // Which faces to draw, by the winding seen on the canvas - the same for the backbuffer
+ // and for a texture target (the backend compensates the Y flip between them).
+ // Generators emit CCW-outward faces, so DrawCCW = show outer surface (cull backfaces).
  TCullMode=(DrawAll,  // display both sides
    DrawCCW,  // draw CCW faces only (cull CW). Default for 3D solids
    DrawCW);  // draw CW faces only (cull CCW). 2D drawing uses CW winding

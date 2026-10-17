@@ -1560,3 +1560,12 @@ real pixels. Nothing changes at ratio 1 (checked by `tests/TestPixelGrid`).
 (`7.376*dpi/96`), like `Dp()` and a logical canvas. They used to grow slower
 (`2+0.056*dpi`): the same size at 96 DPI, 14% smaller at 192 DPI, so layouts built
 with `Dp()` had too much room for the text.
+
+## 2026-10-18 — Face culling is the same in render targets
+
+The projection flips Y for the backbuffer but not for a texture target, which mirrors
+the winding, while the GL front face was fixed at CCW: `TCullMode.DrawCCW` kept the back
+faces in a render target (3D into an RT, a frame through the presentation RT, scene
+transition effects). The GL backend now switches the front face with the target, so a
+`TCullMode` keeps the same faces everywhere (`tests/TestCulling`). Code that compensated
+for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
