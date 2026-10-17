@@ -158,8 +158,6 @@ type
   function AllocImage(width,height,mipLevels:integer;PixFmt:TImagePixelFormat;
      flags:cardinal;name:String8):TTexture; overload;
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
-  function Clone(img:TTexture):TTexture;
-  function Copy(img:TTexture):TTexture;
   procedure AttachDepthBuffer(tex:TTexture;dBuf:TTexture);
   procedure FreeImage(var image:TTexture);
 
@@ -879,10 +877,6 @@ begin
  d:=TGLTexture(donor);
  if (uploadRequest.data<>nil) or (d.uploadRequest.data<>nil) then
   raise EWarning.Create('Content exchange with a pending upload: '+name);
- // a clone made by TGLResourceManager.Clone copies the GL name: it can't follow
- for i:=0 to high(views) do
-  if TGLTexture(views[i]).texname<>0 then
-   raise EWarning.Create('Content exchange with a view holding its own GL name: '+name);
  // Everything in GL that can fail happens now, before the live texture changes: the
  // donor gets this texture's sampler mode and goes to the GPU. Uploading binds the
  // donor (to the active unit and to the scratch unit 9), while the shaders API keeps the
@@ -1895,30 +1889,6 @@ begin
    raise;
   end;
  end;
-end;
-
-function TGLResourceManager.Clone(img:TTexture):TTexture;
-var
- res,src:TGLTexture;
-begin
- ASSERT(img is TGLTexture);
- src:=TGLTexture(img);
-
- res:=TGLTexture.Create;
- res.CloneFrom(img);
- res.texname:=src.texname;
- res.realWidth:=src.realWidth;
- res.realHeight:=src.realHeight;
- res.filter:=src.filter;
- res.online:=src.online;
- res.AttachView;
- result:=res;
-end;
-
-function TGLResourceManager.Copy(img:TTexture):TTexture;
-begin
- result:=nil;
- raise EError.Create('TGLResourceManager.Copy is not implemented');
 end;
 
 constructor TGLResourceManager.Create;

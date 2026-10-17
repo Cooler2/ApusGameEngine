@@ -385,3 +385,7 @@ dmBorderless -> ?dmWindow or dmFixedWindow + TGameSettings.frame:=TWindowFrame.C
 
 // Removed with no replacement: StartVideoCap/FinishVideoCap (video capture, VIDEOCAPTURE),
 //   LoadTXT and ifTXT (TXT images, TXTIMAGES)
+
+// === Resource manager: Clone and Copy removed (Apus.Engine.API) ===
+// resourceManager.Clone(img) -> img.Clone (not a rule: the name is too common);
+// resourceManager.Copy removed with no replacement (it was a stub that always raised)

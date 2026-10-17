@@ -535,10 +535,6 @@ type
 
   // Change size of texture if it supports it (render target etc)
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
-  // Clone object: create a new texture object referencing the same data
-  function Clone(img:TTexture):TTexture;
-  // Create a new texture object with copy of the specified texture image
-  function Copy(img:TTexture):TTexture;
   // Attach a depth buffer to a render-target texture. Specify nil to detach buffer.
   procedure AttachDepthBuffer(tex:TTexture;dBuf:TTexture);
 

@@ -345,6 +345,15 @@ makes a batch atomic without a rollback that could fail itself. The choice among
 of one image belongs to the VFS (`IFileSelector`), not to the image loader: layers are a
 VFS concept and pack providers need the same rule.
 
+**Operations on one texture are its methods; the resource manager owns what no single
+texture does.** A backend overrides `TTexture` methods in its own class (`TGLTexture`):
+`Lock`, uploads, `Clone`/`ClonePart`, `MakeImmutable`, content exchange. The manager is the
+factory (backend class, limits, `QueryParams`), the lifetime owner (`FreeImage`, marshalled
+to the render thread) and the owner of the shared GPU state (texture bindings). The older
+scheme routed every operation through the manager; its leftovers `Clone` and `Copy` were
+removed (a manager clone shared the GL name and deleted the parent's texture when freed),
+`SetTexFilter` and `ResizeImage` remain. A new texture operation goes to `TTexture`.
+
 **Deferred: resident handles with evictable storage.** A model where the registry owns
 every handle forever and only the storage behind it comes and goes (dropped at zero
 holders, reloaded from the source on first use) would remove dangling pointers by

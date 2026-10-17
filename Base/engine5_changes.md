@@ -3,6 +3,12 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Resource manager: Clone and Copy removed (2026-10-17)
+
+`IResourceManager.Clone(img)` -> `img.Clone` (`TTexture` method; `ClonePart` for a part).
+The manager clone shared the GL texture name, so freeing it deleted the parent's texture.
+`IResourceManager.Copy` was a stub that always raised; removed with no replacement.
+
 ## Window name is an identifier, not the title (2026-10-09)
 
 `TWindow.name` was the window title (any Unicode text; two extra windows with the same title
