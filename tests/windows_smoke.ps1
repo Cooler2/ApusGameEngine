@@ -27,6 +27,7 @@ $flags=@(
   '-dOPENGL',
   '-MDelphi',
   '-Sd',
+  '-Sa',
   '-RIntel',
   "-Fu$root",
   "-Fu$(Join-Path $root 'extra')",

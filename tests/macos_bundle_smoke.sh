@@ -53,7 +53,7 @@ fi
 # --- Build ------------------------------------------------------------------
 cd "$ROOT"
 if ! "$FPC" \
-  -dSDL -dOPENGL -MDelphi -Sd \
+  -dSDL -dOPENGL -MDelphi -Sd -Sa \
   -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra -Fudemo/SimpleDemo \
   "-Fl$sdl2LibDir" "-FU$OUTDIR/units" "-FE$ROOT/bin64" \
   -oSimpleDemo_macos demo/SimpleDemo/SimpleDemo.dpr > "$BUILD_LOG" 2>&1; then

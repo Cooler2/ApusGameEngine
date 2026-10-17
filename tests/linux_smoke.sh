@@ -11,6 +11,7 @@ FLAGS=(
   -dOPENGL
   -MDelphi
   -Sd
+  -Sa
   -RIntel
   -Fu.
   -Fuextra
