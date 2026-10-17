@@ -130,6 +130,7 @@ log.txt
 ppas.bat
 ppas.sh
 demo/*/_fpc*/
+tests/_fpc/
 demo/*/_gles/
 demo/*/_desktop/
 demo/*/lib/

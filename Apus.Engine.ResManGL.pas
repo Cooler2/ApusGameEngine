@@ -25,6 +25,8 @@ type
   procedure ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal); override;
   procedure CloneFrom(src:TTexture); override;
   procedure MakeImmutable; override;
+  procedure PrepareContentExchange(donor:TTexture); override;
+  procedure ExchangeContent(donor:TTexture); override;
   procedure SetAsRenderTarget; virtual;
   procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // level 0 is the top one
   procedure AddDirtyRect(rect:TRect;level:integer); override;
@@ -51,6 +53,8 @@ type
    x,y,width,height:integer;
   end;
  var
+  // Storage fields (GL object, CPU copy, upload state) are swapped by ExchangeContent:
+  // a new one must be added there too
   cs:TCriticalSection;
   // RW-lock for multi-window access to shared mutable textures.
   // OS-assisted (SRWLock on Windows, pthread_rwlock_t on Linux) — no busy-wait.
@@ -73,6 +77,7 @@ type
   procedure EndRead;
   procedure BeginWrite; // exclusive write lock (blocks until all readers done)
   procedure EndWrite;
+  procedure ForgetBindings; override;
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
   procedure InitStorage; virtual; // allocate GL texture object (if needed)
@@ -859,6 +864,117 @@ end;
 procedure TGLTexture.CloneFrom(src:TTexture);
 begin
  inherited;
+end;
+
+procedure TGLTexture.PrepareContentExchange(donor:TTexture);
+var
+ d:TGLTexture;
+ saved:array[0..high(boundTex2D)] of TTexture;
+ unit_,i:integer;
+begin
+ if not InMainThread then raise EWarning.Create('Content exchange requires the render thread');
+ if (ClassType<>TGLTexture) or (donor=nil) or (donor.ClassType<>TGLTexture) then
+  raise EWarning.Create('Content exchange supports ordinary 2D textures only: '+name);
+ inherited;
+ d:=TGLTexture(donor);
+ if (uploadRequest.data<>nil) or (d.uploadRequest.data<>nil) then
+  raise EWarning.Create('Content exchange with a pending upload: '+name);
+ // a clone made by TGLResourceManager.Clone copies the GL name: it can't follow
+ for i:=0 to high(views) do
+  if TGLTexture(views[i]).texname<>0 then
+   raise EWarning.Create('Content exchange with a view holding its own GL name: '+name);
+ // Everything in GL that can fail happens now, before the live texture changes: the
+ // donor gets this texture's sampler mode and goes to the GPU. Uploading binds the
+ // donor (to the active unit and to the scratch unit 9), while the shaders API keeps the
+ // texture of a unit cached: every binding is restored, also when the upload fails
+ unit_:=activeTex;
+ for i:=0 to high(saved) do saved[i]:=boundTex2D[i];
+ try
+  d.filter:=filter;
+  d.UploadInternalData;
+  d.UpdateFilter;
+  CheckForGLError('PrepareContentExchange');
+ finally
+  if saveActiveTex<>-1 then saveActiveTex:=-1; // an upload failed between Save/RestoreActiveTexture
+  for i:=0 to high(saved) do
+   if boundTex2D[i]<>saved[i] then begin
+    ActiveTextureUnit(i);
+    if saved[i]<>nil then TGLTexture(saved[i]).Bind
+     else begin
+      glBindTexture(GL_TEXTURE_2D,0);
+      boundTex2D[i]:=nil;
+     end;
+   end;
+  ActiveTextureUnit(unit_);
+ end;
+end;
+
+procedure TGLTexture.ExchangeContent(donor:TTexture);
+var
+ d:TGLTexture;
+ level,i,w,h:integer;
+ oldData:ByteArray;
+ oldDirty:TRect;
+ pf:TImagePixelFormat;
+ m:byte;
+ c:cardinal;
+ procedure SwapInt(var a,b:integer);
+  var v:integer;
+  begin v:=a; a:=b; b:=v; end;
+ procedure SwapCard(var a,b:cardinal);
+  var v:cardinal;
+  begin v:=a; a:=b; b:=v; end;
+ procedure SwapSingle(var a,b:single);
+  var v:single;
+  begin v:=a; a:=b; b:=v; end;
+ procedure SwapBool(var a,b:boolean);
+  var v:boolean;
+  begin v:=a; a:=b; b:=v; end;
+begin
+ // validated by PrepareContentExchange: nothing here may fail
+ ASSERT(InMainThread and (donor is TGLTexture) and (donor.parent=nil) and (parent=nil));
+ d:=TGLTexture(donor);
+ w:=width; h:=height;
+ ForgetBindings;
+ UnbindTex(d);
+ if shadersAPI<>nil then shadersAPI.ForgetTexture(d);
+ SwapCard(texname,d.texname);
+ SwapInt(width,d.width); SwapInt(height,d.height);
+ SwapInt(realWidth,d.realWidth); SwapInt(realHeight,d.realHeight);
+ SwapInt(pitch,d.pitch);
+ pf:=pixelFormat; pixelFormat:=d.pixelFormat; d.pixelFormat:=pf;
+ m:=mipmaps; mipmaps:=d.mipmaps; d.mipmaps:=m;
+ // storage flags (mip-maps, clamping...) come with the storage, object flags stay
+ c:=caps;
+ caps:=(caps and HANDLE_CAPS) or (d.caps and not HANDLE_CAPS);
+ d.caps:=(d.caps and HANDLE_CAPS) or (c and not HANDLE_CAPS);
+ SwapBool(online,d.online);
+ SwapSingle(u1,d.u1); SwapSingle(v1,d.v1);
+ SwapSingle(u2,d.u2); SwapSingle(v2,d.v2);
+ SwapSingle(stepU,d.stepU); SwapSingle(stepV,d.stepV);
+ for level:=0 to MAX_LEVEL do begin
+  oldData:=realData[level]; realData[level]:=d.realData[level]; d.realData[level]:=oldData;
+  SwapBool(realDataObsolete[level],d.realDataObsolete[level]);
+  SwapInt(dCount[level],d.dCount[level]);
+  for i:=0 to high(dirty[level]) do begin
+   oldDirty:=dirty[level,i]; dirty[level,i]:=d.dirty[level,i]; d.dirty[level,i]:=oldDirty;
+  end;
+ end;
+ RefreshViews(w,h);
+end;
+
+// The bound-texture cache and the shaders API compare objects, not GL names: after the
+// storage of a root changes, neither it nor any of its views may count as bound
+procedure TGLTexture.ForgetBindings;
+var
+ i:integer;
+begin
+ UnbindTex(self);
+ if shadersAPI<>nil then shadersAPI.ForgetTexture(self);
+ for i:=0 to high(views) do begin
+  UnbindTex(views[i]);
+  if shadersAPI<>nil then shadersAPI.ForgetTexture(views[i]);
+ end;
 end;
 
 constructor TGLTexture.Create;
@@ -1795,7 +1911,7 @@ begin
  res.realHeight:=src.realHeight;
  res.filter:=src.filter;
  res.online:=src.online;
- // Мда... И как тут сделать ссылку на данные!?
+ res.AttachView;
  result:=res;
 end;
 
@@ -1885,7 +2001,10 @@ begin
   exit; // prevent object deletion
  end;
 
- if image.parent<>nil then FreeImage(image.parent);
+ if image.parent<>nil then begin
+  TGLTexture(image).DetachView; // while the parent is still known (and alive)
+  FreeImage(image.parent);
+ end;
 
  if image is TGLTexture then begin
   tex:=image as TGLTexture;

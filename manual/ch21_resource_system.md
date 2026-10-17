@@ -234,7 +234,51 @@ A reference that cannot be resolved yet returns `nil` and is retried on the next
   holder and leads to a use-after-free in code you did not write. Keep the
   `LoadImage`/`FreeImage` pairs local and obvious.
 
-## 10) Design decisions
+## 10) Reloading file images
+
+`ReloadFileImages(prefix)` (`Apus.Engine.ImageTools`) reads the live file images again
+through the current `Files` providers, for example after a game switched a graphics theme
+(a data layer). The texture objects stay: every holder, the name, the source registry
+entries and all views see the new pixels, size and format. Code keeps its pointers.
+
+- Each standalone file image remembers its load request (`TTexture.loadRequest`: the
+  reference as given, flags, forced format) and is loaded again the same way. A reference
+  without extension selects its file again, so the extension may change (`.png` in the
+  base data, `.jpg` in a theme).
+- Only images whose source key starts with `prefix` are reloaded (all for `''`).
+- **All or nothing.** First every replacement is decoded and uploaded to the GPU, and
+  each pair is checked; only then the storage of every image is exchanged. A missing or
+  corrupt file, or a cropped view that does not fit the new size, raises an exception and
+  leaves all images as they were. The caller restores its data layer and reports.
+- Views: a `Clone` of a whole image follows the new size; a `ClonePart` keeps its pixel
+  rectangle and gets new UVs. Independent pixel copies (`CreateImageCopy`, ...) do not
+  follow their source.
+- Mutability, names and sampler mode stay with the object. Reload replaces immutable
+  content explicitly; ordinary writes to immutable textures stay forbidden.
+- During a reload the old and the new content of every reloaded image exist at the same
+  time, in RAM and in video memory. Limit the set with `prefix` when it matters.
+
+Contract: render thread, between frames (for UI handlers: `window.QueueCall`), a single
+render window (`multiWindowMode` raises). The caller suspends image creation/destruction
+and the preload queue (`ImgLoadQueue`): its prepared entries would hold old pixels.
+
+Not covered: images taken from loaded atlases (the atlas lookup comes first; a whole atlas
+loaded from a file is reloaded and its views get new UVs), render targets, texture arrays,
+thread-local textures. Nothing is signalled after a reload: code that cached image sizes
+(layouts) re-applies them itself.
+
+**Which file wins.** For a reference without extension `FindProperFile` lists the
+candidates (`x.dds`, `x.tga`, `x.png`, ...) and asks `Files.SelectFile`. A provider that
+implements `IFileSelector` decides, e.g. by layer priority: a file in the theme layer wins
+whatever its extension or age. Otherwise (`Files.SelectNewest`) the newest file wins, on
+equal timestamps the earlier extension in the list. A provider that wraps another one
+forwards what it has no opinion about: `Files.SelectFile(names,next)`.
+
+**Shared aliases.** One object can be shared by `x.png` and by `x` (section 4). It reloads
+by the request of its first loader: loaded as `x.png` it stays `x.png` even if a theme
+only has `x.jpg`.
+
+## 11) Design decisions
 
 Recorded so that they are not re-litigated.
 
@@ -293,6 +337,14 @@ are counted because nobody else owns a file texture; named ones have a creator.
 breaks identity (`tex1=tex2`, memo by object). `AddRef` on the same object is what
 `FreeImage` already undoes.
 
+**Reload exchanges storage, the object stays.** Code holds texture pointers everywhere,
+so a reload cannot hand out new objects. The backend swaps the storage of the live
+texture with a freshly loaded private donor (`PrepareContentExchange`, then
+`ExchangeContent`); the donor leaves with the old storage. Preparing everything first
+makes a batch atomic without a rollback that could fail itself. The choice among files
+of one image belongs to the VFS (`IFileSelector`), not to the image loader: layers are a
+VFS concept and pack providers need the same rule.
+
 **Deferred: resident handles with evictable storage.** A model where the registry owns
 every handle forever and only the storage behind it comes and goes (dropped at zero
 holders, reloaded from the source on first use) would remove dangling pointers by
@@ -301,7 +353,7 @@ can be layered later without changing `LoadImage`/`FreeImage`, whose meaning ("t
 release a reference") stays. Revisit when hot reload (skin switching) or streaming is on
 the table.
 
-## 11) Common pitfalls
+## 12) Common pitfalls
 
 - Loading the same file twice through `LoadImage` and expecting two independent objects.
   You get one shared immutable object; pass `liffAllowChange` for a private copy.
@@ -309,12 +361,13 @@ the table.
 - Freeing a texture obtained through `FindByName`. It is not yours.
 - Calling `SetFilter` on a shared texture to get a different look in one place.
 - Keeping `foo.png` and `foo.dds` in one folder by accident. References without
-  extension get the newer file (or whichever of them is already loaded); references with
+  extension get the newer file unless the provider selects otherwise (or whichever of
+  them is already loaded); references with
   extension get exactly the file they name, so one program can end up with both.
 - Giving a texture a unique name that another texture already has. Use a `_` prefix
   when the name is only a label.
 
-## 12) Implementation status
+## 13) Implementation status
 
 Target behaviour is described above. Implemented on 2026-09-16 (branch `engine5`):
 

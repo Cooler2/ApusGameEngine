@@ -36,6 +36,9 @@ interface
   tfDirty          = $4000; // Texture is "dirty" - internal storage was modified
   tfThreadLocal    = $8000; // Texture is owned by a single thread/window, must not be shared
   tfImmutable      = $10000; // Texture content is immutable after initial upload
+  // Flags of the texture object itself, not of its storage: they stay with the object
+  // when the storage is exchanged (TTexture.ExchangeContent)
+  HANDLE_CAPS = tfImmutable or tfCloned or tfThreadLocal or tfRenderTarget;
 
  type
   // Texture filtering mode
@@ -52,6 +55,13 @@ interface
              lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
   TTexture=class; // forward (referenced by the pixel-fill callbacks below)
+  TTextures=array of TTexture;
+  // How a file image was loaded: enough to load it again (see ImageTools.ReloadFileImages)
+  TImageLoadRequest=record
+   ref:String8;              // the reference as requested (with or without extension)
+   flags:cardinal;           // liffXXX loading flags
+   format:TImagePixelFormat; // forced pixel format, ipfNone - as in the file
+  end;
   // Callback computing the ARGB color of a single texel. The texture is passed
   // so the callback can derive normalized u,v from x,y and tex.width/height when needed.
   TPixelFillFunc=function(tex:TTexture;x,y:integer):cardinal;             // plain function
@@ -122,15 +132,45 @@ interface
    // with a source, mutable or not.
    class function FindByFile(const ref:String8):TTexture; virtual;
 
+   // --- Content replacement (file image reload, see ImageTools.ReloadFileImages) ---
+   // A standalone texture can take the storage of a private donor texture (just loaded,
+   // no other holders or views): the object, its holders, name and views stay, the
+   // pixels, size and format are the donor's. Render thread only, between frames,
+   // single render window. Two steps, so a batch of textures is replaced all or nothing:
+   // Prepare validates the pair and makes the donor GPU-ready, raises on any problem and
+   // changes nothing visible; ExchangeContent then does not fail. The donor gets the old
+   // storage and is released by the caller.
+   procedure PrepareContentExchange(donor:TTexture); virtual;
+   procedure ExchangeContent(donor:TTexture); virtual;
+   // Remember how this standalone texture was loaded from a file and list it among
+   // the file images
+   procedure SetLoadRequest(const request:TImageLoadRequest);
+   // Live standalone file images (with a load request). Textures are freed on the
+   // render thread only, so the snapshot stays valid there until the caller frees some
+   class function FileImages:TTextures; static;
+   // Point several textures to new source keys at once: all of them leave the source
+   // index first, then the immutable ones enter it before the mutable ones, so a private
+   // copy never becomes the indexed owner of a key
+   class procedure ChangeSources(const textures:TTextures;const keys:Strings8); static;
+
   protected
    fSrc:string8; // storage for property src
    locked:integer; // lock counter
+   fLoadRequest:TImageLoadRequest;
+   fileIndex:integer; // position in the file image list +1, 0 - not listed
+   views:TTextures; // live clones of this (root) texture
+   wholeView:boolean; // a clone that covers the whole root and follows its size
    class function ClassHash:pointer; override;
    procedure SetSource(filename:string8);
    procedure Unindex;
+   procedure AttachView; // list this clone at its parent (once it is fully built)
+   procedure DetachView; // before the clone releases its parent
+   procedure RefreshViews(oldWidth,oldHeight:integer);
+   procedure ForgetBindings; virtual; // backend: drop cached bindings of this texture and its views
   public
    destructor Destroy; override;
    property src:String8 read fSrc write SetSource; // source key of the loaded file (with extension), see SourceKey
+   property loadRequest:TImageLoadRequest read fLoadRequest;
   end;
 
  // Base class for shader object
@@ -229,6 +269,9 @@ implementation
   texturesHash:TObjectHash;  // Search hash: name->texture
   texFileHash:TObjectMap;    // Search hash: filename->texture
   shadersHash:TObjectHash;   // Search hash: name->shader
+  fileImageList:TTextures;   // standalone textures with a load request, see TTexture.fileIndex
+  fileImageCount:integer;
+  viewLock:TLock;            // file image list and view lists (inner to GLTexMan)
 
 function NeedSyncForWrite(tex:TTexture):boolean;
 begin
@@ -372,6 +415,7 @@ end;
     parent:=from;
    inc(parent.refCounter); // decremented in ResManGL.FreeImage when clone is freed
    fSrc:=from.src; // clones keep the source path, but must not override file lookup entries
+   wholeView:=(from.parent=nil) or from.wholeView;
   end;
 
 function TTexture.AddRef:TTexture;
@@ -478,9 +522,166 @@ procedure TTexture.Unindex;
  end;
 
 destructor TTexture.Destroy;
+ var
+  last:TTexture;
  begin
+  if parent<>nil then DetachView; // a clone freed directly, not by FreeImage
+  if fileIndex>0 then begin
+   viewLock.Enter;
+   try
+    last:=fileImageList[fileImageCount-1];
+    fileImageList[fileIndex-1]:=last;
+    last.fileIndex:=fileIndex;
+    dec(fileImageCount);
+    fileImageList[fileImageCount]:=nil;
+    fileIndex:=0;
+   finally
+    viewLock.Leave;
+   end;
+  end;
   Unindex;
   inherited;
+ end;
+
+procedure TTexture.AttachView;
+ begin
+  if parent=nil then exit;
+  viewLock.Enter;
+  try
+   SetLength(parent.views,length(parent.views)+1);
+   parent.views[high(parent.views)]:=self;
+  finally
+   viewLock.Leave;
+  end;
+ end;
+
+procedure TTexture.DetachView;
+ var
+  i,n:integer;
+ begin
+  if parent=nil then exit;
+  viewLock.Enter;
+  try
+   n:=high(parent.views);
+   for i:=0 to n do
+    if parent.views[i]=self then begin
+     parent.views[i]:=parent.views[n];
+     SetLength(parent.views,n);
+     break;
+    end;
+  finally
+   viewLock.Leave;
+  end;
+ end;
+
+procedure TTexture.SetLoadRequest(const request:TImageLoadRequest);
+ begin
+  ASSERT(parent=nil,'Load request for a clone: '+name);
+  fLoadRequest:=request;
+  if fileIndex>0 then exit;
+  viewLock.Enter;
+  try
+   if fileImageCount>=length(fileImageList) then
+    SetLength(fileImageList,16+fileImageCount*2);
+   fileImageList[fileImageCount]:=self;
+   inc(fileImageCount);
+   fileIndex:=fileImageCount;
+  finally
+   viewLock.Leave;
+  end;
+ end;
+
+class function TTexture.FileImages:TTextures;
+ begin
+  viewLock.Enter;
+  try
+   result:=Copy(fileImageList,0,fileImageCount);
+  finally
+   viewLock.Leave;
+  end;
+ end;
+
+class procedure TTexture.ChangeSources(const textures:TTextures;const keys:Strings8);
+ var
+  i,j,pass:integer;
+ begin
+  ASSERT(length(textures)=length(keys));
+  for i:=0 to high(textures) do textures[i].Unindex;
+  for pass:=0 to 1 do
+   for i:=0 to high(textures) do
+    if textures[i].HasFlag(tfImmutable)=(pass=0) then
+     textures[i].SetSource(keys[i]);
+  // views keep the key of their root as information
+  viewLock.Enter;
+  try
+   for i:=0 to high(textures) do
+    for j:=0 to high(textures[i].views) do
+     textures[i].views[j].fSrc:=textures[i].fSrc;
+  finally
+   viewLock.Leave;
+  end;
+ end;
+
+procedure TTexture.PrepareContentExchange(donor:TTexture);
+ var
+  i:integer;
+  view:TTexture;
+ begin
+  if (donor=nil) or (donor=self) or (parent<>nil) or (donor.parent<>nil) or
+     (donor.refCounter<>0) or (length(donor.views)>0) or IsLocked or donor.IsLocked or
+     multiWindowMode or HasFlag(tfRenderTarget or tfThreadLocal) or
+     donor.HasFlag(tfRenderTarget or tfThreadLocal) then
+   raise EWarning.Create('Content exchange requires idle standalone textures: '+name);
+  // cropped views keep their pixel bounds, so they must fit into the new content
+  viewLock.Enter;
+  try
+   for i:=0 to high(views) do begin
+    view:=views[i];
+    if view.wholeView then continue;
+    if (view.left+view.width>donor.width) or (view.top+view.height>donor.height) then
+     raise EWarning.Create('Replacement is smaller than a live view of '+name);
+   end;
+  finally
+   viewLock.Leave;
+  end;
+ end;
+
+procedure TTexture.ExchangeContent(donor:TTexture);
+ begin
+  raise EWarning.Create('Content exchange is not supported by '+ClassName);
+ end;
+
+procedure TTexture.ForgetBindings;
+ begin
+ end;
+
+// Views after the root got new storage: whole views take the new size, cropped views
+// keep their pixel bounds; UVs, format and storage flags follow the root
+procedure TTexture.RefreshViews(oldWidth,oldHeight:integer);
+ var
+  i:integer;
+  view:TTexture;
+ begin
+  viewLock.Enter;
+  try
+   for i:=0 to high(views) do begin
+    view:=views[i];
+    if view.wholeView then begin
+     view.width:=width;
+     view.height:=height;
+    end;
+    view.pixelFormat:=pixelFormat;
+    view.mipmaps:=mipmaps;
+    view.caps:=(view.caps and HANDLE_CAPS) or (caps and not HANDLE_CAPS);
+    view.stepU:=stepU; view.stepV:=stepV;
+    view.u1:=u1+view.left*stepU*2;
+    view.v1:=v1+view.top*stepV*2;
+    view.u2:=view.u1+view.width*stepU*2;
+    view.v2:=view.v1+view.height*stepV*2;
+   end;
+  finally
+   viewLock.Leave;
+  end;
  end;
 
 procedure TTexture.SetSource(filename:string8);
@@ -514,11 +715,14 @@ function TTexture.Clone:TTexture;
  begin
   result:=ClassType.Create as TTexture;
   result.CloneFrom(self);
+  result.AttachView;
  end;
 
 function TTexture.ClonePart(part:TRect): TTexture;
  begin
-  result:=Clone;
+  result:=ClassType.Create as TTexture;
+  result.CloneFrom(self);
+  result.wholeView:=false;
   result.left:=left+part.Left;
   result.top:=top+part.Top;
   result.width:=part.Width;
@@ -527,6 +731,7 @@ function TTexture.ClonePart(part:TRect): TTexture;
   result.u2:=u1+part.right*stepU*2;
   result.v1:=v1+part.top*stepV*2;
   result.v2:=v1+part.bottom*stepV*2;
+  result.AttachView; // listed only with its final bounds
  end;
 
 class function TTexture.SourceKey(const ref:String8):String8;
@@ -618,4 +823,6 @@ constructor TIndexBuffer.Create(count,elementSize:integer;flags:cardinal=0);
   sizeInBytes:=count*elementSize;
  end;
 
+initialization
+ viewLock.Init('TextureViews',170);
 end.

@@ -15,6 +15,19 @@ interface
  //           ForceFormat:TImagePixelFormat=ipfNone):TTexture;
  function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 
+ // Read the live file images again through the current Files providers (e.g. after
+ // switching a data layer such as a graphics theme). Texture objects stay: their
+ // holders, names and views see the new pixels, size and format. A reference without
+ // extension selects its file again (Files.SelectFile), so the extension may change.
+ // Only images whose source key starts with prefix (see TTexture.SourceKey), all if ''.
+ // All or nothing: every replacement is decoded and uploaded before any image changes;
+ // on failure (missing/corrupt file, a cropped view outside the new size) it raises and
+ // the images keep their content. Returns the number of images reloaded.
+ // Render thread, between frames, single render window; the caller suspends image
+ // creation/destruction and the preload queue (ImgLoadQueue) for the time of the call.
+ // Not reloaded: images taken from atlases, textures that were not loaded from a file.
+ function ReloadFileImages(const prefix:String8=''):integer;
+
  // (Re)load texture from an image file. defaultImagesDir is used if path is relative
  // Default flags can be used from defaultLoadImageFlags
  procedure LoadImage(var img:TTexture;fName:String8;flags:cardinal=liffDefault);
@@ -374,26 +387,25 @@ begin
     end;
 end;
 
-// Find the image file for a name without extension. The newest candidate wins; on equal
-// timestamps (or a provider that has none) the earlier extension in the list does
+// Find the image file for a name without extension. The provider chooses (Files.SelectFile):
+// by default the newest candidate wins, on equal timestamps the earlier extension in the list
 function FindProperFile(fname:String8;dontFail:boolean=false):String8;
  const
   EXTENSIONS:array[0..6] of String8=('.dds','.tga','.png','.webp','.jpg','.pvr','.txt');
  var
   i:integer;
-  info:TFileInfo;
-  newest:TDateTime;
+  names:Strings8;
  begin
-  result:=''; newest:=0;
+  names:=nil;
   for i:=0 to high(EXTENSIONS) do begin
    {$IFNDEF WEBP}if EXTENSIONS[i]='.webp' then continue;{$ENDIF}
    {$IFNDEF IOS}if EXTENSIONS[i]='.pvr' then continue;{$ENDIF}
-   if not Files.GetFileInfo(fname+EXTENSIONS[i],info) or info.isDirectory then continue;
-   if (result='') or (info.timestamp>newest) then begin
-    result:=fname+EXTENSIONS[i];
-    newest:=info.timestamp;
-   end;
+   SetLength(names,length(names)+1);
+   names[high(names)]:=fname+EXTENSIONS[i];
   end;
+  i:=Files.SelectFile(names); // a layered provider may prefer its top layer
+  if i>=0 then result:=names[i]
+   else result:='';
   if (result='') and not dontFail then
    raise EWarning.Create(fname+' not found');
  end;
@@ -412,10 +424,16 @@ function ShareableImage(tex:TTexture;flags:cardinal):boolean;
   result:=(wantClamp=tex.HasFlag(tfClamped)) and (wantMips=tex.HasFlag(tfAutoMipMap));
  end;
 
-function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+// Load an image file. Normally (reuse=true) an already loaded texture is shared, atlases
+// and the preload queue are used, and the new texture is registered as a file image.
+// For a reload (reuse=false) the result is a private donor: always decoded from the
+// file, not indexed, not registered; its source key is returned in fileKey.
+function LoadFileImage(fname:String8;flags:cardinal;ForceFormat:TImagePixelFormat;
+  reuse:boolean;out fileKey:String8):TTexture;
 var
  i,j,k:integer;
  ref,key:String8;
+ request:TImageLoadRequest;
  tex:TTexture;
  img,preloaded:TRawImage;
  aFlags:integer;
@@ -426,16 +444,18 @@ var
  st:String8;
  allocated:boolean;
 begin
- img:=nil; allocated:=false;
+ img:=nil; allocated:=false; tex:=nil; fileKey:='';
+ request.ref:=fname; request.flags:=flags; request.format:=ForceFormat;
  try
   // 1. ADJUST FILE NAME, CHECK THE SOURCE REGISTRY AND ATLASES
   fname:=Files.FixName(fname);
   ref:=fname;
   // with extension: the texture loaded from this file; without: from any of its files
-  tex:=TTexture.FindByFile(ref);
+  if reuse then tex:=TTexture.FindByFile(ref);
   if (tex<>nil) and ShareableImage(tex,flags) then exit(tex.AddRef); // one more holder, released by FreeImage
   // Search atlases first
-  i:=FindFileInAtlas(fname);
+  if reuse then i:=FindFileInAtlas(fname)
+   else i:=0;
   if i>0 then begin
    result:=aImages[i].Clone;
    exit;
@@ -448,7 +468,7 @@ begin
    if fName='' then exit(nil);
   end;
   // The chosen file may already be loaded by its own name
-  if (tex=nil) and (fname<>ref) then begin
+  if reuse and (tex=nil) and (fname<>ref) then begin
    tex:=TTexture.FindByFile(fname);
    if (tex<>nil) and ShareableImage(tex,flags) then exit(tex.AddRef);
   end;
@@ -458,7 +478,8 @@ begin
 
   time:=CoreTime.Ticks;
   Log.Msg('Loading '+fname);
-  preloaded:=GetImageFromQueue(fname);
+  if reuse then preloaded:=GetImageFromQueue(fname)
+   else preloaded:=nil;
   if preloaded<>nil then begin
    imgInfo.format:=preloaded.PixelFormat;
    imgInfo.width:=preloaded.width;
@@ -505,7 +526,11 @@ begin
   // name registry, so a private copy of the same file never collides
   tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,'_'+key) as TTexture;
   allocated:=true;
-  tex.src:=key;
+  fileKey:=key;
+  if reuse then begin
+   tex.src:=key;
+   tex.SetLoadRequest(request);
+  end;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
@@ -562,6 +587,49 @@ begin
  if (time>0) and (time<50000) then inc(loadingTime,time);
  if time>30 then Log.Msg('Slow image loading: '+inttostr(time)+' - '+fname);
  result:=tex;
+end;
+
+function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+var
+ key:String8;
+begin
+ result:=LoadFileImage(fname,flags,ForceFormat,true,key);
+end;
+
+function ReloadFileImages(const prefix:String8=''):integer;
+var
+ all,images,donors:TTextures;
+ keys:Strings8;
+ request:TImageLoadRequest;
+ key:String8;
+ i,n:integer;
+begin
+ if multiWindowMode then raise EWarning.Create('File image reload requires a single render window');
+ all:=TTexture.FileImages;
+ // the images to reload
+ key:=TTexture.SourceKey(prefix);
+ SetLength(images,length(all)); n:=0;
+ for i:=0 to high(all) do
+  if (prefix='') or TTexture.SourceKey(all[i].loadRequest.ref).StartsWith(key,true) then begin
+   images[n]:=all[i]; inc(n);
+  end;
+ SetLength(images,n);
+ SetLength(donors,n); SetLength(keys,n);
+ try
+  // 1. PREPARE: decode every replacement and make it GPU-ready, nothing visible changes
+  for i:=0 to n-1 do begin
+   request:=images[i].loadRequest;
+   donors[i]:=LoadFileImage(request.ref,request.flags and not liffNoFail,request.format,false,keys[i]);
+   images[i].PrepareContentExchange(donors[i]);
+  end;
+  // 2. COMMIT: exchanges don't fail once prepared
+  for i:=0 to n-1 do images[i].ExchangeContent(donors[i]);
+  TTexture.ChangeSources(images,keys);
+  result:=n;
+ finally
+  // donors hold the old storage now (or the unused replacements after a failure)
+  for i:=0 to n-1 do FreeImage(donors[i]);
+ end;
 end;
 
 function CreateSubImage(source:TTexture;x,y,width,height,flags:integer):TTexture;
