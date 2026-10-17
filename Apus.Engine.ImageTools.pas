@@ -424,7 +424,9 @@ var
  dp:PByte;
  time:int64;
  st:String8;
+ allocated:boolean;
 begin
+ img:=nil; allocated:=false;
  try
   // 1. ADJUST FILE NAME, CHECK THE SOURCE REGISTRY AND ATLASES
   fname:=Files.FixName(fname);
@@ -502,6 +504,7 @@ begin
   // Non-unique label: file identity lives in the source registry (src), not in the
   // name registry, so a private copy of the same file never collides
   tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,'_'+key) as TTexture;
+  allocated:=true;
   tex.src:=key;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
@@ -538,11 +541,17 @@ begin
 
   // 7. FINISH TEXTURE
   tex.unlock;
+  FreeAndNil(img);
   // Frozen content is the default: only immutable textures can be shared
   if not Bits.HasAll(flags,liffAllowChange) then tex.MakeImmutable;
 
  except
   on e:Exception do begin
+   FreeAndNil(img);
+   if allocated then begin // a half-loaded texture is released, not leaked
+    if tex.IsLocked then tex.Unlock;
+    FreeImage(tex);
+   end;
    if Bits.HasAll(flags,liffNoFail) then exit(nil)
     else raise EWarning.Create(fname+' - Loading failed: '+ExceptionMsg(e));
   end;
