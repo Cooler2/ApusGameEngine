@@ -1594,7 +1594,7 @@ procedure TDrawer.EnableSoftParticles(depthRange:single;depthTex:TTexture);
 begin
  EnsureThreadState;
  softParticlesRange:=depthRange;
- if depthTex=nil then depthTex:=game.GetDepthBufferTex;
+ if depthTex=nil then depthTex:=window.GetDepthBufferTex;
  depthTexture:=depthTex;
 end;
 

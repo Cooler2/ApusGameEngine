@@ -55,8 +55,6 @@ type
   procedure HideAllCursors; override;
 
   // Translate coordinates in window's client area
-  function ClientToCanvas(const p:TPoint):TPoint; override;
-  function CanvasToClient(const p:TPoint):TPoint; override;
 
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
@@ -77,9 +75,7 @@ type
   // Keyboard events utility functions
   procedure SuppressKbdEvent; override;
 
-  function GetDepthBufferTex:TTexture; override;
 
-  procedure Minimize; override;
 
   // Multi-window
   function AddWindow(settings:TGameSettings;const name:String8=''):TWindow; override;
@@ -483,7 +479,7 @@ end;
 procedure TGame.Activate(activeState:boolean);
 begin
  window.active:=activeState;
- if not window.active and (params.mode=dmFullScreen) then Minimize;
+ if not window.active and (params.mode=dmFullScreen) then window.Minimize;
  Log.Msg('ACTIVATE: %d',[byte(window.active)]);
  Signal('Engine\ActivateWnd',byte(window.active));
  if params.showSystemCursor then wndCursor:=0;
@@ -1475,7 +1471,7 @@ var
     Unlock;
    end;
    if best<100000 then begin
-    bestPnt:=CanvasToClient(bestPnt);
+    bestPnt:=window.CanvasToClient(bestPnt);
     window.ClientToScreen(bestPnt);
     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
    end;
@@ -1598,11 +1594,6 @@ begin
  end;
 end;
 
-procedure TGame.Minimize;
- begin
-  window.Minimize;
- end;
-
 procedure TGame.FireMessage(st: string8;severity:integer);
  var
   kind:TToastKind;
@@ -1698,16 +1689,6 @@ begin
   end;
 end;
 
-function TGame.ClientToCanvas(const p:TPoint):TPoint;
-begin
- result:=window.ClientToCanvas(p);
-end;
-
-function TGame.CanvasToClient(const p:TPoint):TPoint;
-begin
- result:=window.CanvasToClient(p);
-end;
-
 function TGame.GetCursorForID(cursorID:integer):THandle;
 var
  i:integer;
@@ -1723,11 +1704,6 @@ begin
  finally
   Unlock;
  end;
-end;
-
-function TGame.GetDepthBufferTex:TTexture;
-begin
- result:=window.GetDepthBufferTex;
 end;
 
 procedure TGame.RegisterCursor(CursorID, priority: integer;

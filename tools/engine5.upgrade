@@ -405,5 +405,6 @@ MouseWasInRect -> ?Mouse.WasInRect: drop the window./game. prefix; now the posit
 // (oldMouseButtons and not mouseButtons) -> Mouse.WasReleased; SetPolledMouseButtons removed (mask follows the events);
 // MapPointerToCanvas -> SetPointer/SetPointerOutside (platforms). Touch signals Mouse\BtnDown\Left/BtnUp\Left -> MOUSE\BTNDOWN/BTNUP (tag 1)
 // TGameScene.ModeChanged removed: override onResize (a mode change rebuilds the surface); window.NotifyScenes* removed (engine-internal)
+// game.ClientToCanvas/CanvasToClient/GetDepthBufferTex/Minimize -> window.X; game.CanvasSize -> window.surface.canvasSize
 // systemPlatform.GetMouseButtons removed: use window.mouseButtons / Mouse.Down
 oldMouseButtons -> ?Mouse.WasPressed/WasReleased: the field is gone, compare with the frame queries [Apus.Engine.API]

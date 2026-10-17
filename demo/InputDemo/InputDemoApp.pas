@@ -486,7 +486,7 @@ begin
 
   DrawTag(b.Left+20,b.Top+24,'Input Summary');
   pClient:=Point(window.mousePos.x,window.mousePos.y);
-  pClient:=game.CanvasToClient(pClient);
+  pClient:=window.CanvasToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,b.Left+20,b.Top+52,$FFE5EDF7,
@@ -591,7 +591,7 @@ begin
        byte(Bits.HasAll(window.mouseButtons,4)),byte(Bits.HasAll(window.mouseButtons,8)),
        byte(Bits.HasAll(window.mouseButtons,16))]),taLeft,integer(textTopOpt));
   pClient:=Point(window.mousePos.x,window.mousePos.y);
-  pClient:=game.CanvasToClient(pClient);
+  pClient:=window.CanvasToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,a.Left+20,a.Top+448,$FFF3D39C,

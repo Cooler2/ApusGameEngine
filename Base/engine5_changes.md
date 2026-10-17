@@ -62,6 +62,10 @@ Use it as the primary reference when updating old code.
   removed; `NotifyScenesResize` is private. `TGameScene.ModeChanged` and
   `TWindow.NotifyScenesModeChanged` removed: nothing overrode the hook, and a display mode
   change already reaches the scenes as `onResize` (and `ENGINE\SURFACECHANGED`).
+- `TGameBase` proxies to the current window removed: `game.ClientToCanvas`/`CanvasToClient`/
+  `GetDepthBufferTex`/`Minimize` -> the same methods of `window`; `game.CanvasSize` ->
+  `window.surface.canvasSize`. Scene methods (`AddScene`, `GetScene`, `TopmostVisibleScene`...)
+  stay: they work on the main window.
 
 ## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
 

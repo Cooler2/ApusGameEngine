@@ -901,11 +901,6 @@ type
   // Toggle all cursors off
   procedure HideAllCursors; virtual; abstract;
 
-  // Screen coordinates
-  // ------------------
-  function ClientToCanvas(const p:TPoint):TPoint; virtual; abstract;
-  function CanvasToClient(const p:TPoint):TPoint; virtual; abstract;
-
   // Debug tools
   // -----------
   // Add a line to the "frame log" - an invisible log that is cleared every frame but can be saved in case of a crash
@@ -929,8 +924,6 @@ type
 
   // Utility functions
   // -----------------
-  function CanvasSize:TSize; // draw/input space of the current window
-
   // Return interpolated color from color0 to color1 using AV sampled at the current frame time
   function ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
   // Multiply color's alpha by AV sampled at the current frame time
@@ -941,12 +934,6 @@ type
 
   // Keyboard events utility functions
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
-
-  function GetDepthBufferTex:TTexture; virtual; abstract; // return current depth buffer as a texture (if used)
-
-  // Window control functions
-  // -----------------
-  procedure Minimize; virtual; abstract;
 
   // Multi-window support
   // --------------------
@@ -1271,11 +1258,6 @@ procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
 class function TNinePatch.ClassHash:pointer;
  begin
   result:=@ninePatchHash;
- end;
-
-function TGameBase.CanvasSize:TSize;
- begin
-  result:=window.surface.canvasSize;
  end;
 
 function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
