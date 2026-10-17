@@ -82,6 +82,7 @@ type
     traceMode:integer;
 
     procedure Load; override;
+    function Process:boolean; override;
     procedure ProcessInputBuffers;
     procedure Render; override;
     function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
@@ -309,6 +310,15 @@ begin
   frameSamples[idx].buttons:=buttons;
   frameHead:=(frameHead+1) mod Length(frameSamples);
   if frameCount<Length(frameSamples) then inc(frameCount);
+end;
+
+function TMainScene.Process:boolean;
+begin
+  result:=inherited;
+  if not loaded then exit; // the menu metrics come from Load
+  // input reactions belong here: Render may be skipped, Process runs every frame
+  HandleInput;
+  ProcessInputBuffers;
 end;
 
 procedure TMainScene.HandleInput;
@@ -770,8 +780,6 @@ begin
     RebuildFonts;
   end;
 
-  HandleInput;
-  ProcessInputBuffers;
   UpdateStats;
 
   t:=CoreTime.Ticks*0.001;

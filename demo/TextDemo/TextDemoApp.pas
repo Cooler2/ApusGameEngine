@@ -52,6 +52,7 @@ type
     function MaxRecentDeltaMs:integer;
     procedure DrawOverlayStats;
     procedure Load; override;
+    function Process:boolean; override;
     procedure Render; override;
     function GetArea:TRect; override;
     procedure UpdateMetrics;
@@ -267,6 +268,13 @@ begin
   txt.SetFontOption(rasterFont,foUpscaleFactor,1.0);
   if vectorFontLoaded then
     txt.SetFontOption(vectorFont,foGlobalScale,1.0);
+end;
+
+function TMainScene.Process:boolean;
+begin
+  result:=inherited;
+  // input reactions belong here: Render may be skipped, Process runs every frame
+  if loaded then HandleInput; // the menu metrics come from Load
 end;
 
 procedure TMainScene.HandleInput;
@@ -896,7 +904,6 @@ begin
     RebuildFonts;
   end;
 
-  HandleInput;
   area:=GetArea;
   menuRect:=Rect(area.Left,area.Top,menuWidth,area.Bottom);
   contentRect:=Rect(menuWidth+contentPadding,contentPadding,area.Right-contentPadding,area.Bottom-contentPadding);

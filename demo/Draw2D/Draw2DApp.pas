@@ -47,6 +47,7 @@ type
     menuWidth,menuTop,menuItemHeight,contentPadding,screenTopOffset:integer;
     lastDPI:integer;
     procedure Load; override;
+    function Process:boolean; override;
     procedure Render; override;
     procedure BuildCheckerTexture;
     procedure BuildHelperTexture;
@@ -382,6 +383,13 @@ begin
   menuFont:=txt.GetFont('Default',F(10));
   hintFont:=txt.GetFont('Default',F(8));
   bodyFont:=txt.GetFont('Default',F(8));
+end;
+
+function TMainScene.Process:boolean;
+begin
+  result:=inherited;
+  // input reactions belong here: Render may be skipped, Process runs every frame
+  if loaded then HandleInput; // the menu metrics come from Load
 end;
 
 procedure TMainScene.HandleInput;
@@ -1028,7 +1036,6 @@ begin
     lastDPI:=dpiNow;
     RebuildFonts;
   end;
-  HandleInput;
   gfx.target.Clear($FF151C27);
 
   menuRect:=Rect(0,0,menuWidth-1,window.canvasHeight-1);
