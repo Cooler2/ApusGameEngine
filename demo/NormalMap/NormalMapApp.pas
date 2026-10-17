@@ -370,9 +370,9 @@ begin
   shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
-  x:=window.canvasWidth-round(Dp(234));
-  y:=round(Dp(28));
   s:=round(Dp(96));
+  x:=window.canvasWidth-s-round(Dp(34)); // the panel is 14 wider, 20 from the right edge
+  y:=round(Dp(28));
   draw.FillRect(x-Dp(14),y-Dp(20),x+s+Dp(14),y+s*2+Dp(92),$A020242C);
   txt.Write(0,x,y-Dp(8),$FFE8EDF5,'Color map');
   draw.Scaled(x,y+Dp(8),x+s,y+Dp(8)+s,materials[materialID].colorMap,$FFFFFFFF);
