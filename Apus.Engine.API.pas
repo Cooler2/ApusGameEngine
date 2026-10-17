@@ -354,6 +354,9 @@ type
   function width:integer;  //< width of the render area in virtual pixels
   function height:integer; //< height of the render area in virtual pixels
   function aspect:single; // width/height
+  // Real pixels per virtual pixel: >1 when the projection scales the virtual area up
+  // (a canvas smaller than the render surface), 1 otherwise
+  function pixelRatio:single;
 
   procedure Backbuffer; //< Render to the backbuffer
   procedure Texture(tex:TTexture); //< render to the texture (nil - render to the Backbuffer)

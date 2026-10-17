@@ -1504,3 +1504,19 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
 - `GLintptr`/`GLsizeiptr` in `extra/dglOpenGL.pas`/`dglOpenGLES.pas` are `NativeInt`
   (pointer-sized, as Khronos defines them; they were 32-bit). `PGLchar` in dglOpenGLES is
   `PAnsiChar` (the GLES renderer compiles with Delphi).
+
+## 2026-10-17 — Sharp text on a canvas scaled by the projection
+
+When the canvas is smaller than the render surface (fixed canvas in the `sharp` mode, the
+`matrix` mechanism), the projection scales every 2D call up. Text used to be rasterized
+in canvas pixels and stretched; now it is laid out and rasterized in real pixels.
+Nothing changes when the canvas matches the surface (the ratio is 1).
+
+- `IRenderTarget.pixelRatio` - real pixels per virtual pixel of the current target.
+- `txt.Write*`, `Width`, `Height`, `Measure`, `MeasuredRect`, `LinkRect` keep working in
+  canvas units; the font is rasterized at its size times the ratio.
+- `DrawTextFX`: layer sizes (`dx`, `dy`, `spread`, `blur`) are in virtual pixels of the
+  target, like the text coordinates (they used to be real pixels, which is the same at
+  ratio 1). A scaled canvas bakes the sprite in real pixels.
+- `TTransformationAPI.DefaultView`: the half-pixel shift that puts integer coordinates on
+  pixel centers is a real pixel (it was a virtual one, off by a fraction under scaling).

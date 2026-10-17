@@ -188,6 +188,7 @@ type
   function width:integer; // width of the current render target in virtual pixels
   function height:integer; // height of the current render target in virtual pixels
   function aspect:single; // width/height
+  function pixelRatio:single; // real pixels per virtual pixel (horizontal)
 
   procedure ClipVirtual(const r:TRect); //< Set clip rect in virtual pixels
   procedure Clip(x,y,w,h:integer); virtual; abstract; //< Set actual clip rect defined in real pixels
@@ -260,16 +261,22 @@ constructor TTransformationAPI.Create;
 
 procedure TTransformationAPI.DefaultView;
  var
-  w,h:integer;
+  w,h,rw,rh:integer;
  begin
   w:=renderTargetAPI.width;
   h:=renderTargetAPI.height;
   if (w=0) and (h=0) then exit;
-  projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/w;
+  // integer coordinates go to real pixel centers: the half-pixel shift is a real
+  // pixel, not a virtual one (they differ when the projection scales)
+  rw:=renderTargetAPI.vPort.Width;
+  rh:=renderTargetAPI.vPort.Height;
+  if rw<=0 then rw:=w;
+  if rh<=0 then rh:=h;
+  projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/rw;
   if renderTargetAPI.curTarget<>nil then begin
-   projMatrix[0,1]:=0;  projMatrix[1,1]:=2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=-(1-1/h);
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=-(1-1/rh);
   end else begin
-   projMatrix[0,1]:=0;  projMatrix[1,1]:=-2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=1-1/h;
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=-2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=1-1/rh;
   end;
   projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=-1; projMatrix[3,2]:=0;
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
@@ -709,6 +716,13 @@ function TRenderTargetAPI.width: integer;
  begin
   EnsureThreadState;
   result:=renderWidth;
+ end;
+
+function TRenderTargetAPI.pixelRatio:single;
+ begin
+  EnsureThreadState;
+  if (renderWidth>0) and (vPort.Width>0) then result:=vPort.Width/renderWidth
+   else result:=1;
  end;
 
 procedure TRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight,

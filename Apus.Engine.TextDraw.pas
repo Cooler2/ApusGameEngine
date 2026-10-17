@@ -57,6 +57,8 @@ interface
     textBufferPitch:integer;
     globalScale:single;
     threadStateReady:boolean;
+    pixelRatioOverride:single; // >0: used by PixelRatio instead of the render target ratio
+    pixelK:single; // >0 while WritePixels lays the text out in real pixels (see WriteW)
 
    constructor Create;
    destructor Destroy; override;
@@ -92,12 +94,22 @@ interface
    procedure EndBlock;   // finish buffering and perform actual render
    // Text render target
    procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
+   // Real pixels per virtual pixel of the text output: when the projection scales the
+   // virtual area up, text is laid out and rasterized in real pixels (not stretched)
+   class function PixelRatio:single;
+   // The same font sized in real pixels for the given ratio (flags kept)
+   function PixelFont(font:TFontHandle;ratio:single):TFontHandle;
   private
    fonts:array of TObject;
    procedure EnsureThreadState;
    procedure CreateTextCache;
    procedure FlushTextCache;
    function GetFontObject(font:TFontHandle):TObject;
+   // Text output and metrics in the pixels of the font handle (no ratio applied)
+   procedure WritePixels(font:TFontHandle;xx,yy:single;color:cardinal;st:String32;align:TTextAlignment;
+      options:cardinal;targetWidth:integer;query:cardinal);
+   function RawWidthW(font:TFontHandle;st:String32):integer;
+   function RawHeight(font:TFontHandle):integer;
   end;
 
  var
@@ -236,6 +248,11 @@ function ScaleFromHandle(font:TFontHandle):single;
   b:=(font shr 16) and $FF;
   if b=0 then exit(1.0);
   result:=sqr((b+30)/100);
+ end;
+
+function ScaleRect(const r:TRect;scale:single):TRect;
+ begin
+  result:=types.Rect(round(r.Left*scale),round(r.Top*scale),round(r.Right*scale),round(r.Bottom*scale));
  end;
 
 procedure EncodeScale(scale:single;var font:TFontHandle);
@@ -560,7 +577,7 @@ procedure TTextDrawer.CreateTextCache;
 begin
   EnsureThreadState;
   // Adjust text cache texture size
-  i:=gfx.target.width*gfx.target.height; // screen pixels
+  i:=round(gfx.target.width*gfx.target.height*sqr(gfx.target.pixelRatio)); // screen pixels
   if i>2500000 then textCacheHeight:=Max(textCacheHeight,1024);
   if i>3500000 then textCacheWidth:=Max(textCacheWidth,1024);
   //if i>5500000 then textCacheHeight:=Max(textCacheHeight,2048);
@@ -616,7 +633,40 @@ function TTextDrawer.Width(font:cardinal;st:string8):integer;
   result:=WidthW(font,UTF8.Decode(st));
  end;
 
+class function TTextDrawer.PixelRatio:single;
+ begin
+  if pixelRatioOverride>0 then exit(pixelRatioOverride);
+  result:=1;
+  if renderTargetAPI<>nil then result:=renderTargetAPI.pixelRatio;
+  if abs(result-1)<0.001 then result:=1;
+ end;
+
+function TTextDrawer.PixelFont(font:TFontHandle;ratio:single):TFontHandle;
+ begin
+  if font=0 then font:=defaultFontHandle;
+  // ScaleFont of a raster font gives only the face and the size: keep the flags
+  result:=ScaleFont(font,ratio) or (font and $FF00FF00);
+ end;
+
 function TTextDrawer.WidthW(font:cardinal;st:String32):integer;
+ var
+  k:single;
+ begin
+  k:=PixelRatio;
+  if k=1 then exit(RawWidthW(font,st));
+  result:=round(RawWidthW(PixelFont(font,k),st)/k);
+ end;
+
+function TTextDrawer.Height(font:cardinal):integer;
+ var
+  k:single;
+ begin
+  k:=PixelRatio;
+  if k=1 then exit(RawHeight(font));
+  result:=round(RawHeight(PixelFont(font,k))/k);
+ end;
+
+function TTextDrawer.RawWidthW(font:cardinal;st:String32):integer;
  var
   width:integer;
   obj:TObject;
@@ -649,7 +699,7 @@ function TTextDrawer.WidthW(font:cardinal;st:String32):integer;
    raise EWarning.Create('GTW 1');
  end;
 
-function TTextDrawer.Height(font:cardinal):integer;
+function TTextDrawer.RawHeight(font:cardinal):integer;
  var
   uniFont:TUnicodeFontEx;
   {$IFDEF FREETYPE}
@@ -695,8 +745,44 @@ procedure TTextDrawer.WriteC(font:TFontHandle;x,y:single;color:cardinal;st:Strin
 
 procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:String32;
    align:TTextAlignment=taLeft;options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
+ var
+  k:single;
+  i:integer;
+  oldLinkRect:TRect;
+ begin
+  EnsureThreadState;
+  k:=1;
+  if (font<>MAGIC_TEXTCACHE) and not Bits.HasAny(options,toDrawToBitmap) then k:=PixelRatio;
+  if k=1 then begin
+   WritePixels(font,xx,yy,color,st,align,options,targetWidth,query);
+   exit;
+  end;
+  // The projection scales the virtual area up: the text is laid out and rasterized in
+  // real pixels, so the glyphs are not stretched; the results go back in virtual pixels
+  if font=0 then font:=game.defaultFont;
+  if query<>0 then
+   query:=cardinal(round((query and $FFFF)*k)) and $FFFF+cardinal(round((query shr 16)*k)) shl 16;
+  oldLinkRect:=curTextLinkRect;
+  pixelK:=k;
+  try
+   WritePixels(PixelFont(font,k),xx*k,yy*k,color,st,align,options,round(targetWidth*k),query);
+  finally
+   pixelK:=0;
+  end;
+  if Bits.HasAny(options,toMeasure) then begin
+   for i:=0 to high(textMetrics) do
+    textMetrics[i]:=ScaleRect(textMetrics[i],1/k);
+   measuredText:=ScaleRect(measuredText,1/k);
+  end;
+  if not EqualRect(curTextLinkRect,oldLinkRect) then
+   curTextLinkRect:=ScaleRect(curTextLinkRect,1/k);
+ end;
+
+procedure TTextDrawer.WritePixels(font:cardinal;xx,yy:single;color:cardinal;st:String32;
+   align:TTextAlignment;options:cardinal;targetWidth:integer;query:cardinal);
 var
  x,y,ofs:integer;
+ invK:single; // real pixels -> output units (see pixelK)
 
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
@@ -897,7 +983,7 @@ var
    for i:=0 to length(st)-1 do
      if st[i]=ord(' ') then inc(numSpaces);
 
-   width:=WidthW(font,st); // ширина надписи в реальных пикселях
+   width:=RawWidthW(font,st); // text width in real pixels
    case align of
     taRight:begin
      if targetWidth>0 then x:=x+targetWidth;
@@ -1083,15 +1169,19 @@ var
     x2:=x+(imageX+imageWidth-0.5)*charScaleX;
     y1:=y-(imageY+0.5)*charScaleY;
     y2:=y-(imageY-imageHeight+0.5)*charScaleY;
+    // faux italics: slant proportional to the height above the baseline
+    dx1:=(y-y1)*0.25;
+    dx2:=(y-y2)*0.25;
+    // real pixels -> output units
+    x1:=x1*invK; x2:=x2*invK;
+    y1:=y1*invK; y2:=y2*invK;
+    dx1:=dx1*invK; dx2:=dx2*invK;
     if not italicStyle then begin
      AddVertex(data,x1,y1,u1,v1,color);
      AddVertex(data,x2,y1,u2,v1,color);
      AddVertex(data,x2,y2,u2,v2,color);
      AddVertex(data,x1,y2,u1,v2,color);
     end else begin
-     // Наклон символов (faux italics)
-     dx1:=(y-y1)*0.25;
-     dx2:=(y-y2)*0.25;
      AddVertex(data,x1+dx1,y1,u1,v1,color);
      AddVertex(data,x2+dx1,y1,u2,v1,color);
      AddVertex(data,x2+dx2,y2,u2,v2,color);
@@ -1179,7 +1269,7 @@ var
   begin
    px:=x; // координата в реальных экранных пикселях
    if Bits.HasAny(options,toMeasure) then begin
-    fHeight:=round(Height(font)*1.1);
+    fHeight:=round(RawHeight(font)*1.1);
     textMetrics[0]:=types.Rect(x,y-fHeight,x+1,y);
    end;
    cnt:=0;
@@ -1348,7 +1438,10 @@ var
     r:=types.Rect(x, y-height-height div 2,x+width+1,y+height div 2);
    end
    {$ENDIF};
-   if not clippingAPI.Prepare(r) then exit(false);
+   if invK=1 then begin
+    if not clippingAPI.Prepare(r) then exit(false);
+   end else
+    if not clippingAPI.Prepare(r.Left*invK,r.Top*invK,r.Right*invK,r.Bottom*invK) then exit(false);
 
     {$IF TXT_TEXTURE_8BIT}
     shader.TexMode(0,tblKeep,tblReplace);
@@ -1364,8 +1457,8 @@ var
   begin
    i:=0;
    while i<lpCount do begin
-    draw.Line(linePoints[i].x,linePoints[i].y,
-      linePoints[i+1].x,linePoints[i+1].y,lineColors[i shr 1]);
+    draw.Line(linePoints[i].x*invK,linePoints[i].y*invK,
+      linePoints[i+1].x*invK,linePoints[i+1].y*invK,lineColors[i shr 1]);
     inc(i,2);
    end;
   end;
@@ -1382,7 +1475,7 @@ var
    procedure EmitLine(lineStart,lineEnd:integer); // [lineStart,lineEnd)
     begin
      if lineEnd>lineStart then begin
-      WriteW(font,x,y,color,copy(st,lineStart,lineEnd-lineStart),align,drawOptions,targetWidth,query);
+      WritePixels(font,x,y,color,copy(st,lineStart,lineEnd-lineStart),align,drawOptions,targetWidth,query);
       lineRect:=measuredText; // set by the single-line call above (toMeasure path)
      end else
       lineRect:=types.Rect(round(x),y+emptyTop,round(x),y+emptyBottom); // empty line: zero width, full height
@@ -1395,9 +1488,9 @@ var
     end;
   begin
    measuring:=Bits.HasAny(options,toMeasure);
-   fHeight:=round(Height(font)*1.1);
+   fHeight:=round(RawHeight(font)*1.1);
    emptyTop:=-fHeight; emptyBottom:=0;
-   lineHeight:=round(Height(font)*1.65);
+   lineHeight:=round(RawHeight(font)*1.65);
    drawOptions:=options or toDontTranslate;
    acc:=types.Rect(round(x),y,round(x),y);
    firstLine:=true;
@@ -1428,6 +1521,7 @@ var
 
 begin // -----------------------------------------------------------
  EnsureThreadState;
+ if pixelK>0 then invK:=1/pixelK else invK:=1;
  if textCache=nil then CreateTextCache;
  x:=SRound(xx); y:=SRound(yy);
  // Special value to display font cache texture
@@ -1456,9 +1550,9 @@ begin // -----------------------------------------------------------
  // Special option: draw twice with offset
  if Bits.HasAny(options,toWithShadow) then begin
   Bits.Clear(options,toWithShadow);
-  ofs:=Max(1,round(Height(font)/12));
-  WriteW(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options or toInternalNoBlock,targetWidth);
-  WriteW(font,x,y,color,st,align,options or toInternalNoBlock,targetWidth);
+  ofs:=Max(1,round(RawHeight(font)/12));
+  WritePixels(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options or toInternalNoBlock,targetWidth,0);
+  WritePixels(font,x,y,color,st,align,options or toInternalNoBlock,targetWidth,0);
   exit;
  end;
 

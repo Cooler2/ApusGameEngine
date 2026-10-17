@@ -18,7 +18,8 @@ interface
  uses Apus.Core, Apus.Engine.API;
 
  type
-  // One effect layer under the text. Sizes are in pixels of the current render target
+  // One effect layer under the text. Sizes are in virtual pixels of the current render
+  // target (canvas units), like the text coordinates
   TTextEffectLayer=record
    color:cardinal; // layer color, alpha = layer opacity
    dx,dy:single; // offset
@@ -41,7 +42,8 @@ interface
  // puts the glyphs at the same pixels. color.RGB = text color (baked);
  // color.alpha modulates the whole composite at draw time (fading is free).
  // The result is baked on GPU once and cached per (font,text,align,options,text RGB,layers).
- // Effect sizes are in pixels of the current render target. The text is not translated
+ // Effect sizes are in virtual pixels of the current render target; a virtual area scaled
+ // up by the projection is baked in real pixels, so it stays sharp. The text is not translated
  // separately for the cache key: call FlushTextFXCache after switching the dictionary.
  procedure DrawTextFX(font:TFontHandle;x,y:single;color:cardinal;const st:String8;
    align:TTextAlignment;const layers:array of TTextEffectLayer;options:cardinal=0);
@@ -476,9 +478,13 @@ implementation
   var
    key:String8;
    hash,rgb:cardinal;
-   idx:integer;
+   i,idx,px,py:integer;
    state:TFXState;
    entry:TFXEntry;
+   k:single;
+   textFont:TFontHandle; // the font as given (fx font is in real pixels when k<>1)
+   lay:array of TTextEffectLayer;
+   baked:boolean;
   begin
    ASSERT(options and (toDrawToBitmap or toMeasure)=0,'TextFX: bitmap/measure options are not allowed');
    if st='' then exit;
@@ -488,13 +494,33 @@ implementation
    end;
    if font=0 then font:=game.defaultFont;
    if layersOnly then rgb:=0 else rgb:=color and $FFFFFF;
-   key:=BuildKey(font,rgb,st,align,layers,options,layersOnly);
+   // The projection scales the virtual area up: bake in real pixels, draw scaled down
+   k:=TTextDrawer.PixelRatio;
+   SetLength(lay,length(layers));
+   for i:=0 to high(layers) do begin
+    lay[i]:=layers[i];
+    if k=1 then continue;
+    lay[i].dx:=layers[i].dx*k;
+    lay[i].dy:=layers[i].dy*k;
+    lay[i].spread:=Clamp(layers[i].spread*k,0,MAX_SPREAD);
+    lay[i].blur:=Clamp(layers[i].blur*k,0,MAX_BLUR);
+   end;
+   textFont:=font;
+   if k<>1 then font:=textDrawer.PixelFont(font,k);
+   key:=BuildKey(font,rgb,st,align,lay,options,layersOnly);
    hash:=HashKey(key);
    state:=GetState;
    idx:=state.Find(key,hash);
    if idx<0 then begin
-    if not Bake(font,rgb,st,align,layers,options,layersOnly,entry) then begin
-     if not layersOnly then txt.Write(font,x,y,color,st,align,options);
+    // the font is already in real pixels: measure it without the ratio
+    TTextDrawer.pixelRatioOverride:=1;
+    try
+     baked:=Bake(font,rgb,st,align,lay,options,layersOnly,entry);
+    finally
+     TTextDrawer.pixelRatioOverride:=0;
+    end;
+    if not baked then begin
+     if not layersOnly then txt.Write(textFont,x,y,color,st,align,options);
      exit;
     end;
     entry.key:=key;
@@ -505,8 +531,14 @@ implementation
    inc(state.useCounter);
    with state.entries[idx] do begin
     lastUse:=state.useCounter;
-    // same rounding as txt.Write, so the glyphs land on the same pixels
-    draw.ImagePart(SRound(x)-ox,SRound(y)-oy,tex,$808080+color and $FF000000,Rect(0,0,width,height));
+    if k=1 then
+     // same rounding as txt.Write, so the glyphs land on the same pixels
+     draw.ImagePart(SRound(x)-ox,SRound(y)-oy,tex,$808080+color and $FF000000,Rect(0,0,width,height))
+    else begin
+     // the sprite is in real pixels: its texel centers go back to virtual units
+     px:=SRound(x*k)-ox; py:=SRound(y*k)-oy;
+     draw.Scaled(px/k,py/k,(px+width-1)/k,(py+height-1)/k,tex,$808080+color and $FF000000);
+    end;
    end;
   end;
 
