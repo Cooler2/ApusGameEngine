@@ -14,6 +14,7 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.GpuLayout,
   // Apus.Engine.API so the engine threadvar window remains the short name.
   Apus.Engine.API,
   Apus.Engine.Graphics,
+  Apus.Engine.ResManGL,
   Apus.Lib,
   Apus.Strings;
 
@@ -45,7 +46,7 @@ type
   uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
   uLightDir,uLightColor,uAmbientColor:integer;
   uMaterialColor:integer; // material tint (named "materialColor", mesh shaders only)
-  uNormalMap:integer;      // normalMap sampler (unit 3, mesh shaders with LIGHT_NORMALMAP)
+  uNormalMap:integer;      // normalMap sampler (TEX_UNIT_NORMALMAP, mesh shaders with LIGHT_NORMALMAP)
   uNormalStrength:integer; // normalStrength float (scales XY of the sampled tangent-space normal)
   uAlphaCut:integer; // discard threshold (named "alphaCut"): fragments with lower alpha are dropped
   alphaCut:single;   // value last uploaded to uAlphaCut
@@ -122,7 +123,7 @@ type
   procedure ApplyMeshLayout(layout:TGpuLayout);
  private
   class threadvar
-   curTextures:array[0..15] of TTexture; // up to 16 texture units
+   curTextures:array[0..TEX_UNIT_SCRATCH-1] of TTexture; // user stages, then engine units (see ResManGL)
    curTexChanged:cardinal; // bitmask of changed textures
 
    curTexMode:TTexMode; // encoded shader mode requested by the client code
@@ -179,6 +180,10 @@ type
   function CreateMeshShaderFor(layout:TGpuLayout):TGLShader;
   // Upload matrices/textures/lights to the active shader (shared Apply tail)
   procedure ApplyShaderState(shaderChanged:boolean);
+  // Request a texture for a unit (user stage or engine unit); bound by ApplyShaderState
+  procedure UseUnit(tex:TTexture;texUnit:integer);
+  // Sampler uniform of the active shader that reads the unit, -1 if none
+  function SamplerLocation(texUnit:integer):integer;
   function IsCustomized:boolean;
   procedure EnsureThreadState;
   procedure CustomizedUniform(name:string8;valueType:AnsiChar;const value);
@@ -193,7 +198,6 @@ uses
   SysUtils,
   StrUtils,
   Apus.Geom3D,
-  Apus.Engine.ResManGL,
   Apus.Engine.OpenGL,
   Apus.Engine.Window
   {$IFDEF MSWINDOWS},Windows{$ENDIF};
@@ -1155,16 +1159,32 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
 
 procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
  begin
+  ASSERT((stage>=0) and (stage<TEX_USER_UNITS));
   EnsureThreadState;
-  if curTextures[stage]=tex then begin
+  UseUnit(tex,stage);
+ end;
+
+procedure TGLShadersAPI.UseUnit(tex:TTexture;texUnit:integer);
+ begin
+  if curTextures[texUnit]=tex then begin
    // This texture already used, but maybe it needs update?
    if (tex<>nil) and tex.HasFlag(tfDirty) then
-    resourceManagerGL.MakeOnline(tex,stage);
+    resourceManagerGL.MakeOnline(tex);
    exit;
   end;
-  curTextures[stage]:=tex;
-  Bits.SetBit(curTexChanged,stage);
+  curTextures[texUnit]:=tex;
+  Bits.SetBit(curTexChanged,texUnit);
   if window<>nil then inc(window.stats.texChanges);
+ end;
+
+function TGLShadersAPI.SamplerLocation(texUnit:integer):integer;
+ begin
+  if texUnit<TEX_USER_UNITS then exit(activeShader.uTex[texUnit]);
+  case texUnit of
+   TEX_UNIT_SHADOWMAP:result:=activeShader.uTexShadowMap;
+   TEX_UNIT_NORMALMAP:result:=activeShader.uNormalMap;
+   else result:=-1;
+  end;
  end;
 
 procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
@@ -1213,7 +1233,7 @@ procedure TGLShadersAPI.ApplyMeshLayout(layout:TGpuLayout);
 // Shared Apply tail: upload matrices, textures and lights to the active shader.
 procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
  var
-  i:integer;
+  i,loc:integer;
   tex:TTexture;
   cut:single;
  begin
@@ -1234,25 +1254,25 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
     activeShader.alphaCut:=cut;
    end;
   end;
-  // Textures (may have issues if shader changes but texture does not)
-  curTexChanged:=curTexChanged and $FFFF;
+  // Textures: engine units go through the same cache as user stages
+  if (activeShader.uTexShadowMap>=0) and (shadowMap<>nil) then
+   UseUnit(shadowMap,TEX_UNIT_SHADOWMAP);
+  if (activeShader.uNormalMap>=0) and (normalMapTex<>nil) then
+   UseUnit(normalMapTex,TEX_UNIT_NORMALMAP);
   for i:=0 to high(curTextures) do begin
    if Bits.Get(curTexChanged,i) then begin
     Bits.Clear(curTexChanged,i);
     tex:=curTextures[i];
     if tex<>nil then begin
      while tex.parent<>nil do tex:=tex.parent;
-     resourceManagerGL.MakeOnline(tex,i);
-     if activeShader.uTex[i]>=0 then begin
-      glUniform1i(activeShader.uTex[i],i);
+     resourceManagerGL.BindToUnit(tex,i);
+     loc:=SamplerLocation(i);
+     if loc>=0 then begin
+      glUniform1i(loc,i);
       CheckForGLError(421);
      end;
     end;
    end;
-  end;
-  if (activeShader.uTexShadowMap>=0) and (shadowMap<>nil) then begin
-   UseTexture(shadowMap,9);
-   glUniform1i(activeShader.uTexShadowMap,9);
   end;
 
   if shaderChanged or directLightModified then begin
@@ -1269,10 +1289,6 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
    materialModified:=false;
   end;
   if (shaderChanged or normalMapModified) and (activeShader.uNormalMap>=0) then begin
-   if normalMapTex<>nil then begin
-    resourceManagerGL.MakeOnline(normalMapTex,3); // bind to unit 3
-    glUniform1i(activeShader.uNormalMap,3);
-   end;
    if activeShader.uNormalStrength>=0 then
     glUniform1f(activeShader.uNormalStrength,normalStrength);
    normalMapModified:=false;

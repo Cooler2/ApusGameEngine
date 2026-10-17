@@ -8,6 +8,14 @@
 unit Apus.Engine.ResManGL;
 interface
  uses Apus.Engine.API, Apus.Images, Apus.Core, Types, Apus.Engine.Resources, Apus.Threads, SyncObjs;
+const
+ // Texture unit layout. Every GL target has 32 units at least (GLES 3.0: 32, GL 3.3: 48).
+ // Units below the scratch one are bound only by BindToUnit (from the shaders API), so the
+ // bound-texture cache and the shaders API always agree on what a unit holds
+ TEX_USER_UNITS     = 16; // stages 0..15 of IShader.UseTexture
+ TEX_UNIT_SHADOWMAP = 16; // 16..19 - shadow maps
+ TEX_UNIT_NORMALMAP = 20;
+ TEX_UNIT_SCRATCH   = 31; // uploads, texture parameters, readback: never sampled
 type
  // OpenGL texture object with CPU-side storage and upload/sync helpers.
  // Managed by TGLResourceManager, can also represent RT/depth/array layers.
@@ -83,7 +91,8 @@ type
   procedure InitStorage; virtual; // allocate GL texture object (if needed)
   procedure UploadInternalData; virtual; // upload modified internal storage data (using dirty rects)
   procedure FreeData; virtual;
-  procedure Bind; virtual;
+  procedure Bind; virtual; // to the active unit
+  procedure BindScratch; // to the scratch unit: for work on the texture, not for sampling
   function IsBound(stage:integer):boolean; virtual;
   function GetTextureTarget:integer; virtual;
   procedure InvalidateInternalLevel(mipLevel:integer); virtual;
@@ -166,7 +175,9 @@ type
   function AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
                 arraySize:integer;flags:cardinal;name:String8):TGLTextureArray;
 
-  procedure MakeOnline(img:TTexture;stage:integer=0);
+  procedure MakeOnline(img:TTexture);
+  // Upload and bind for sampling: only the shaders API binds units below TEX_UNIT_SCRATCH
+  procedure BindToUnit(img:TTexture;texUnit:integer);
   procedure SetTexFilter(img:TTexture;filter:TTexFilter);
 
   function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean;
@@ -203,6 +214,20 @@ type
   // Takes effect when a texture filter is set. Without anisotropic filtering support
   // (GL 4.6, ARB/EXT_texture_filter_anisotropic) fltAnisotropic works as fltTrilinear.
   anisotropyLevel:single=8;
+
+ type
+  // Optional features above the GL 3.3 / ES 3.0 baseline, each with a baseline fallback.
+  // Detected by the context version first, by the extension second
+  TGLFeatures=record
+   dsa:boolean;          // direct state access (GL 4.5, ARB_direct_state_access)
+   clearTexture:boolean; // glClearTexImage/glClearTexSubImage (GL 4.4, ARB_clear_texture)
+  end;
+ var
+  // May be changed at run time (tests check both paths in one process)
+  glFeatures:TGLFeatures;
+
+ // baseline=true turns all features off (TGLContextRequest.baseline, -GLBASELINE)
+ procedure DetectGLFeatures(baseline:boolean);
 
  // Load image from file (TGA or JPG), result is expected in given pixel format or source pixel format
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
@@ -242,9 +267,9 @@ var
 
  maxAnisotropy:single=-1; // GPU limit for GL_TEXTURE_MAX_ANISOTROPY: 0 - not supported, -1 - not queried yet
  activeTex:integer; // currently active texture unit
- boundTex2D:array[0..15] of TTexture; // current texture bound
- boundTex3D:array[0..15] of TTexture;
- boundTex2D_Arr:array[0..15] of TTexture;
+ boundTex2D:array[0..TEX_UNIT_SCRATCH] of TTexture; // current texture bound
+ boundTex3D:array[0..TEX_UNIT_SCRATCH] of TTexture;
+ boundTex2D_Arr:array[0..TEX_UNIT_SCRATCH] of TTexture;
 
 {$REGION UTILS}
 function InMainThread:boolean; inline;
@@ -304,7 +329,7 @@ function BuildIBLabel(ib:TIndexBufferGL):String8; inline;
 
 procedure ActiveTextureUnit(u:integer);
  begin
-  ASSERT((u>=0) and (u<16));
+  ASSERT((u>=0) and (u<=TEX_UNIT_SCRATCH));
   glActiveTexture(GL_TEXTURE0+u);
   activeTex:=u;
  end;
@@ -321,20 +346,17 @@ procedure UnbindTex(tex:TTexture);
    if boundTex2D_Arr[i]=tex then boundTex2D_Arr[i]:=nil;
  end;
 
-var
- saveActiveTex:GLInt=-1;
-procedure SaveActiveTexture;
+procedure DetectGLFeatures(baseline:boolean);
  begin
-  ASSERT(saveActiveTex=-1);
-  glGetIntegerv(GL_ACTIVE_TEXTURE,@saveActiveTex);
-  if saveActiveTex<>GL_TEXTURE0+9 then ActiveTextureUnit(9);
- end;
-
-procedure RestoreActiveTexture;
- begin
-  ASSERT(saveActiveTex<>-1);
-  if saveActiveTex<>GL_TEXTURE0+9 then ActiveTextureUnit(saveActiveTex-GL_TEXTURE0);
-  saveActiveTex:=-1;
+  Mem.Clear(glFeatures,sizeof(glFeatures));
+  {$IFDEF GLDESKTOP}
+  if not baseline then begin
+   glFeatures.dsa:=(GL_VERSION_4_5 or GL_ARB_direct_state_access) and (@glTextureSubImage2D<>nil);
+   glFeatures.clearTexture:=(GL_VERSION_4_4 or GL_ARB_clear_texture) and (@glClearTexSubImage<>nil);
+  end;
+  {$ENDIF}
+  Log.Force('GL features: DSA=%s, clear texture=%s%s',[BoolToStr(glFeatures.dsa,true),
+   BoolToStr(glFeatures.clearTexture,true),IfThen(baseline,' (baseline only)','')]);
  end;
 
 procedure CheckForGLError(msg:string); //inline;
@@ -641,7 +663,7 @@ begin
    Files.Save(filename+'.tex','Not allocated');
    exit;
   end;
- Bind;
+ BindScratch;
  itemSize:=width*height*4;
  SetLength(texData,itemSize*length(layers));
  {$IFDEF GLES}
@@ -716,10 +738,12 @@ begin
   if texname=0 then begin // allocate texture name
    glGenTextures(1,@texname);
    CheckForGLError('11');
-   Bind;
+   needInit:=true;
+  end;
+  BindScratch;
+  if needInit then begin
    SetLabel;
    CheckForGLError('12');
-   needInit:=true;
   end;
 
   // Upload texture data
@@ -791,6 +815,12 @@ begin
  end;
 end;
 
+procedure TGLTexture.BindScratch;
+begin
+ if activeTex<>TEX_UNIT_SCRATCH then ActiveTextureUnit(TEX_UNIT_SCRATCH);
+ Bind;
+end;
+
 procedure TGLTexture.Clear(color:cardinal);
  var
   level:integer;
@@ -799,7 +829,7 @@ procedure TGLTexture.Clear(color:cardinal);
   EnsureNotCompressed('Clear');
   // glClearTexImage is GL 4.4+, not available under GLES - CPU fill fallback below.
   {$IFNDEF GLES}
-  if InMainThread and (@glClearTexImage<>nil) then begin
+  if InMainThread and glFeatures.clearTexture then begin
    cs.Enter;
    try
     InitStorage;
@@ -831,7 +861,7 @@ begin
   EnsureNotCompressed('ClearPart');
   // glClearTexSubImage is GL 4.4+, not available under GLES - CPU fill fallback below.
   {$IFNDEF GLES}
-  if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
+  if (texName<>0) and InMainThread and glFeatures.clearTexture then begin
   // Upload remaining data if needed
   UploadInternalData;
   cs.Enter;
@@ -867,8 +897,6 @@ end;
 procedure TGLTexture.PrepareContentExchange(donor:TTexture);
 var
  d:TGLTexture;
- saved:array[0..high(boundTex2D)] of TTexture;
- unit_,i:integer;
 begin
  if not InMainThread then raise EWarning.Create('Content exchange requires the render thread');
  if (ClassType<>TGLTexture) or (donor=nil) or (donor.ClassType<>TGLTexture) then
@@ -878,29 +906,11 @@ begin
  if (uploadRequest.data<>nil) or (d.uploadRequest.data<>nil) then
   raise EWarning.Create('Content exchange with a pending upload: '+name);
  // Everything in GL that can fail happens now, before the live texture changes: the
- // donor gets this texture's sampler mode and goes to the GPU. Uploading binds the
- // donor (to the active unit and to the scratch unit 9), while the shaders API keeps the
- // texture of a unit cached: every binding is restored, also when the upload fails
- unit_:=activeTex;
- for i:=0 to high(saved) do saved[i]:=boundTex2D[i];
- try
-  d.filter:=filter;
-  d.UploadInternalData;
-  d.UpdateFilter;
-  CheckForGLError('PrepareContentExchange');
- finally
-  if saveActiveTex<>-1 then saveActiveTex:=-1; // an upload failed between Save/RestoreActiveTexture
-  for i:=0 to high(saved) do
-   if boundTex2D[i]<>saved[i] then begin
-    ActiveTextureUnit(i);
-    if saved[i]<>nil then TGLTexture(saved[i]).Bind
-     else begin
-      glBindTexture(GL_TEXTURE_2D,0);
-      boundTex2D[i]:=nil;
-     end;
-   end;
-  ActiveTextureUnit(unit_);
- end;
+ // donor gets this texture's sampler mode and goes to the GPU (binding only the scratch unit)
+ d.filter:=filter;
+ d.UploadInternalData;
+ d.UpdateFilter;
+ CheckForGLError('PrepareContentExchange');
 end;
 
 procedure TGLTexture.ExchangeContent(donor:TTexture);
@@ -1011,12 +1021,16 @@ var
 begin
   if pixelFormat in compressedFormats then
    raise EWarning.Create('Reading back a compressed texture is not supported: '+name);
-  Bind;
   GetGLformat(pixelFormat,format,dataType,internal);
   {$IFDEF GLES}
   GLESReadTexImage(GetTextureTarget,texname,mipLevel,width shr mipLevel,height shr mipLevel,format,dataType,realData[mipLevel]);
   {$ELSE}
-  glGetTexImage(GetTextureTarget,mipLevel,format,dataType,realData[mipLevel]);
+  if glFeatures.dsa then
+   glGetTextureImage(texname,mipLevel,format,dataType,length(realData[mipLevel]),realData[mipLevel])
+  else begin
+   BindScratch;
+   glGetTexImage(GetTextureTarget,mipLevel,format,dataType,realData[mipLevel]);
+  end;
   {$ENDIF}
   CheckForGLError('DownL');
   realDataObsolete[mipLevel]:=false;
@@ -1034,12 +1048,16 @@ begin
   exit;
  end;
  image:=TBitmapImage.Create(width,height,ipfARGB);
- Bind;
  {$IFDEF GLES}
  GLESReadTexImage(GetTextureTarget,texname,0,width,height,GL_RGBA,GL_UNSIGNED_BYTE,image.data);
  SwapRedBlue8888(image.data,width*height);
  {$ELSE}
- glGetTexImage(GetTextureTarget,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8,image.data);
+ if glFeatures.dsa then
+  glGetTextureImage(texname,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8,width*height*4,image.data)
+ else begin
+  BindScratch;
+  glGetTexImage(GetTextureTarget,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8,image.data);
+ end;
  {$ENDIF}
  data:=SavePNG(image);
  image.Free;
@@ -1314,34 +1332,22 @@ begin
  if (filter=fltAnisotropic) and (mipmaps>0) and (maxAniso>1) then
   aniso:=Clamp(anisotropyLevel,1,maxAniso);
  {$IFNDEF GLES}
- if @glTextureParameteri<>nil then begin
-  // GL 4.5 mode
+ if glFeatures.dsa then begin
   glTextureParameteri(texname,GL_TEXTURE_MIN_FILTER,fMin);
   glTextureParameteri(texname,GL_TEXTURE_MAG_FILTER,fMax);
   if maxAniso>0 then
    glTextureParameterf(texname,GL_TEXTURE_MAX_ANISOTROPY_EXT,aniso);
  end else
- if @glTextureParameteriEXT<>nil then begin
-  // EXT_direct_state_access mode
-  target:=GetTextureTarget;
-  glTextureParameteriEXT(texname,target,GL_TEXTURE_MIN_FILTER,fMin);
-  glTextureParameteriEXT(texname,target,GL_TEXTURE_MAG_FILTER,fMax);
-  if maxAniso>0 then
-   glTextureParameterfEXT(texname,target,GL_TEXTURE_MAX_ANISOTROPY_EXT,aniso);
- end else
  {$ENDIF}
  begin
-  // 4.4-/GLES compatibility mode (no DSA)
   target:=GetTextureTarget;
-  SaveActiveTexture;
-  Bind;
+  BindScratch;
   glTexParameteri(target,GL_TEXTURE_MIN_FILTER,fMin);
   glTexParameteri(target,GL_TEXTURE_MAG_FILTER,fMax);
   if maxAniso>0 then
    glTexParameterf(target,GL_TEXTURE_MAX_ANISOTROPY_EXT,aniso);
-  CheckForGLError('16');
-  RestoreActiveTexture;
  end;
+ CheckForGLError('16');
 end;
 
 procedure TGLTexture.Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
@@ -1388,7 +1394,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   try
    if mipLevel>mipmaps then mipMaps:=mipLevel;
    if texName=0 then InitStorage;
-   Bind;
+   BindScratch; // the level is (re)allocated: no DSA call for that
    GetGLFormat(PixelFormat,format,subFormat,internalFormat);
    bpp:=pixelSize[pixelFormat] div 8;
    glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
@@ -1424,18 +1430,25 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
   cs.Enter;
   try
    ASSERT(texName<>0,'Texture '+name+' must be initialized before partial update');
-   Bind;
    GetGLFormat(PixelFormat,format,subFormat,internalFormat);
    bpp:=pixelSize[pixelFormat] div 8;
    glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
    {$IFDEF GLES}
+   BindScratch;
    if pixelFormat in [ipfARGB,ipfXRGB] then begin
     uploadBuf:=BGRAToRGBACopy(pixelData,(pitch div bpp)*height);
     glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,uploadBuf);
     FreeMem(uploadBuf);
    end else
+    glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,pixelData);
+   {$ELSE}
+   if glFeatures.dsa then
+    glTextureSubImage2D(texname,mipLevel,x,y,width,height,format,subFormat,pixelData)
+   else begin
+    BindScratch;
+    glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,pixelData);
+   end;
    {$ENDIF}
-   glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,pixelData);
    CheckForGLError('241');
    InvalidateInternalLevel(mipLevel);
   finally
@@ -1451,8 +1464,7 @@ procedure TGLTexture.InitStorage;
   if texName<>0 then exit;
   glGenTextures(1,@texname);
   CheckForGLError('S11');
-  SaveActiveTexture;
-  Bind;
+  BindScratch; // storage is allocated through the binding in any mode
   if HasFlag(tfClamped) then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
@@ -1474,7 +1486,6 @@ procedure TGLTexture.InitStorage;
       Max(realwidth shr mipLevel,1),Max(realheight shr mipLevel,1),0,format,subFormat,nil);
     CheckForGLError('S17');
    end;
-  RestoreActiveTexture;
   SetLabel;
   UpdateFilter;
  end;
@@ -1500,7 +1511,7 @@ function TGLTexture.IsBound(stage:integer):boolean;
 
 procedure TGLTexture.UploadInternalData;
  var
-  needInit:boolean;
+  needInit,dsa:boolean;
   format,subformat,internalFormat,error:cardinal;
   i,bpp,level:integer;
  begin
@@ -1508,8 +1519,13 @@ procedure TGLTexture.UploadInternalData;
   cs.Enter;
   try
   InitStorage;
-
-  Bind;
+  // compressed levels are (re)allocated by glCompressedTexImage2D: no DSA call for that
+  {$IFDEF GLES}
+  dsa:=false;
+  {$ELSE}
+  dsa:=glFeatures.dsa and not (pixelFormat in compressedFormats);
+  {$ENDIF}
+  if not dsa then BindScratch;
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   // ES 3.0 supports GL_UNPACK_ROW_LENGTH same as desktop GL, so the dirty-rect
   // upload path is shared; only the BGRA->RGBA byte swap below is GLES-specific.
@@ -1539,8 +1555,14 @@ procedure TGLTexture.UploadInternalData;
      if dCount[level]<0 then dCount[level]:=1;
      for i:=0 to dCount[level]-1 do
       with dirty[level,i] do
-       glTexSubImage2D(GL_TEXTURE_2D,level,Left,Top,right-left+1,bottom-top+1,
-          format,subFormat,@realData[level,(left+top*realWidth)*bpp]);
+       {$IFNDEF GLES}
+       if dsa then
+        glTextureSubImage2D(texname,level,Left,Top,right-left+1,bottom-top+1,
+           format,subFormat,@realData[level,(left+top*realWidth)*bpp])
+       else
+       {$ENDIF}
+        glTexSubImage2D(GL_TEXTURE_2D,level,Left,Top,right-left+1,bottom-top+1,
+           format,subFormat,@realData[level,(left+top*realWidth)*bpp]);
      CheckForGLError('15');
      dCount[level]:=0;
     end;
@@ -1552,14 +1574,20 @@ procedure TGLTexture.UploadInternalData;
      SwapRedBlue8888(@realData[level,0],length(realData[level]) div 4); // buffer size, not shr dims: `w shr level` hits 0 on tail mips
   {$ENDIF}
   // Set level limit - otherwise texture sampler will produce black
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
   {$IFDEF GLES}
-  if HasFlag(tfAutoMipMap) then begin // core in ES 3.0
-  {$ELSE}
-  if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
-  {$ENDIF}
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
+  if HasFlag(tfAutoMipMap) then // core in ES 3.0
    glGenerateMipmap(GL_TEXTURE_2D);
+  {$ELSE}
+  if dsa then begin
+   glTextureParameteri(texname,GL_TEXTURE_MAX_LEVEL,mipmaps);
+   if HasFlag(tfAutoMipMap) then glGenerateTextureMipmap(texname);
+  end else begin
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
+   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then
+    glGenerateMipmap(GL_TEXTURE_2D);
   end;
+  {$ENDIF}
   online:=true; Bits.Clear(caps,tfDirty);
   finally
    cs.Leave;
@@ -1612,8 +1640,7 @@ begin
   if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
   glGenTextures(1,@tex.texname);
-  ActiveTextureUnit(9);
-  tex.Bind;
+  tex.BindScratch;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
   tex.filter:=fltBilinear;
@@ -1650,8 +1677,7 @@ begin
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
   CheckForGLError('2');
   glGenTextures(1,@tex.texname);
-  ActiveTextureUnit(9);
-  tex.Bind;
+  tex.BindScratch;
   CheckForGLError('3');
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
@@ -1892,6 +1918,8 @@ begin
 end;
 
 constructor TGLResourceManager.Create;
+var
+ texUnits:GLint;
 begin
  try
   resourceManagerGL:=self;
@@ -1909,6 +1937,9 @@ begin
   {$ENDIF}
   maxRTsize:=Min(maxTextureSize,maxRBsize);
   Log.Msg(Format('Maximal sizes: TEX: %d / RT: %d / RB: %d',[maxTextureSize,maxRTsize,maxRBsize]));
+  glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,@texUnits);
+  if texUnits<=TEX_UNIT_SCRATCH then // below the minimum of GL 3.3 and ES 3.0
+   raise EError.Create(Format('%d texture units, %d required',[texUnits,TEX_UNIT_SCRATCH+1]));
  except
   on e:Exception do begin
    Log.Force('Error in GLTexMan constructor: '+ExceptionMsg(e));
@@ -2028,7 +2059,7 @@ begin
  TGLTexture(img).UpdateFilter;
 end;
 
-procedure TGLResourceManager.MakeOnline(img:TTexture;stage:integer=0);
+procedure TGLResourceManager.MakeOnline(img:TTexture);
 var
  tex:TGLTexture;
 begin
@@ -2038,12 +2069,19 @@ begin
  end;
  ASSERT(img is TGLTexture);
  tex:=TGLTexture(img);
- if tex.IsBound(stage) and tex.online then exit;
- if boundTex2D[stage]<>tex then begin
-  ActiveTextureUnit(stage);
-  tex.Bind;
- end;
  if not tex.online then tex.UploadInternalData;
+end;
+
+procedure TGLResourceManager.BindToUnit(img:TTexture;texUnit:integer);
+var
+ tex:TGLTexture;
+begin
+ ASSERT((img is TGLTexture) and (texUnit>=0) and (texUnit<TEX_UNIT_SCRATCH));
+ tex:=TGLTexture(img);
+ if not tex.online then tex.UploadInternalData; // allocates the GL name on the first upload
+ if tex.IsBound(texUnit) then exit;
+ ActiveTextureUnit(texUnit);
+ tex.Bind;
 end;
 
 function TGLResourceManager.QueryParams(width, height: integer;
@@ -2085,7 +2123,7 @@ begin
    width:=newWidth;
    height:=newHeight;
    if texName<>0 then begin /// TODO: check carefuly
-    Bind;
+    BindScratch;
     GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
     glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
    end;

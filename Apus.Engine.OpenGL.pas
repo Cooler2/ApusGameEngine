@@ -29,6 +29,7 @@ type
   debugContext:boolean;
   forwardCompatible:boolean;
   preferHighest:boolean;
+  baseline:boolean; // use no features above GL 3.3 / ES 3.0 (see TGLFeatures)
   // actual
   actualMajor:byte;
   actualMinor:byte;
@@ -249,7 +250,8 @@ function GLContextRequestToString(const request:TOpenGLContextDesc):string;
    ', preferHighest='+BoolToStr(request.preferHighest,true)+
    ', profile='+GLProfileToString(request.profile)+
    ', debug='+BoolToStr(request.debugContext,true)+
-   ', forward='+BoolToStr(request.forwardCompatible,true);
+   ', forward='+BoolToStr(request.forwardCompatible,true)+
+   ', baseline='+BoolToStr(request.baseline,true);
  end;
 
 function GLContextInfoToString(const info:TOpenGLContextDesc):string;
@@ -378,6 +380,7 @@ procedure TOpenGL.Init(window:TWindow);
   Apus.Engine.API.shader:=shadersAPI;
   CheckForGLError(013);
 
+  DetectGLFeatures(request.baseline);
   TGLResourceManager.Create;
   ownResMan:=resourceManagerGL;
   TDrawer.Create;
@@ -1590,6 +1593,7 @@ initialization
  {$ENDIF}
  oglContextTemplate.forwardCompatible:=false;
  oglContextTemplate.preferHighest:=true;
+ oglContextTemplate.baseline:=false;
  oglContextTemplate.actualMajor:=0;
  oglContextTemplate.actualMinor:=0;
  oglContextTemplate.requestAccepted:=false;

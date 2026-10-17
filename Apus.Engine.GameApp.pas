@@ -56,6 +56,7 @@ interface
    debugContext:boolean;      // debug context flag (debugMode also sets it)
    forwardCompatible:boolean; // forward-compatible context flag
    preferHighest:boolean;     // highest available version, with fallback to the minimal one
+   baseline:boolean;          // use no features above GL 3.3 / ES 3.0: checks the baseline paths on a newer GPU
    minMajor,minMinor:byte;    // minimal acceptable version
    procedure Init;
   end;
@@ -421,6 +422,7 @@ procedure TGLContextRequest.Init;
   debugContext:=false;
   forwardCompatible:=false;
   preferHighest:=true;
+  baseline:=false;
   minMajor:=3;
   minMinor:=0;
  end;
@@ -581,6 +583,7 @@ procedure TGameApplication.HandleParam(param: string);
   if param='-GLCOMPAT' then requestGL.coreContext:=false;
   if param='-GLDEBUGCTX' then requestGL.debugContext:=true;
   if param='-GLFORWARDCTX' then requestGL.forwardCompatible:=true;
+  if param='-GLBASELINE' then requestGL.baseline:=true;
   if param='-NOSTEAM' then checkForSteam:=false;
   if param='-ROBOT' then begin
     Apus.Engine.RobotAPI.robotAPIEnabled:=true;
@@ -854,6 +857,7 @@ procedure TGameApplication.Run;
   oglContextTemplate.preferHighest:=requestGL.preferHighest;
   oglContextTemplate.debugContext:=requestGL.debugContext or debugMode;
   oglContextTemplate.forwardCompatible:=requestGL.forwardCompatible;
+  oglContextTemplate.baseline:=requestGL.baseline;
   {$IFDEF GLES}
   oglContextTemplate.profile:=oglpES; // GLES builds always use the ES profile, coreContext is ignored
   {$ELSE}

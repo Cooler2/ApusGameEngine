@@ -3,6 +3,17 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Texture units: fixed layout, MakeOnline only uploads (2026-10-17)
+
+- `IResourceManager.MakeOnline(img,stage)` -> `MakeOnline(img)`: uploads pending data and
+  binds nothing. Binding for drawing is `IShader.UseTexture(tex,stage)`.
+- `IShader.UseTexture` takes stages 0..15. Units 16..30 belong to the engine (shadow map 16,
+  normal map 20), unit 31 is the scratch unit for uploads and readback (`Apus.Engine.ResManGL`
+  constants `TEX_*`). The normal map moved from unit 3, the shadow map from unit 9.
+- New `TGLContextRequest.baseline` / command line `-GLBASELINE`: no GL features above
+  3.3 / ES 3.0 (`TGLFeatures` in `Apus.Engine.ResManGL`: DSA, clear texture), to check the
+  baseline paths on a newer GPU. The `EXT_direct_state_access` path is gone.
+
 ## Resource manager: Clone and Copy removed (2026-10-17)
 
 `IResourceManager.Clone(img)` -> `img.Clone` (`TTexture` method; `ClonePart` for a part).

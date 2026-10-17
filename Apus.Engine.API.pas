@@ -477,7 +477,7 @@ type
      filter:TTexFilter=fltUndefined;intFactor:single=0.0);
   // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
   procedure DefaultTexMode;
-  // Upload texture to the Video RAM and make it active for the specified stage
+  // Upload texture to the Video RAM and make it active for the specified stage 0..15
   // (usually you don't need to call this manually unless you're using a custom shader)
   procedure UseTexture(tex:TTexture;stage:integer=0); overload;
   procedure UseTexture(tex:TTexture;uniformName:string8;stage:integer=0); overload; // use custom sampler name
@@ -538,8 +538,9 @@ type
   // Attach a depth buffer to a render-target texture. Specify nil to detach buffer.
   procedure AttachDepthBuffer(tex:TTexture;dBuf:TTexture);
 
-  // Make image ready to use by GFX API (upload content to the VRAM, if required)
-  procedure MakeOnline(img:TTexture;stage:integer=0);
+  // Make image ready to use by GFX API (upload content to the VRAM, if required).
+  // Binding for drawing is the job of IShader.UseTexture
+  procedure MakeOnline(img:TTexture);
 
   // Vertex/Index buffers
   function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;
