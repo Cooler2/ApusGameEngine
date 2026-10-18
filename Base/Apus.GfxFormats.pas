@@ -44,7 +44,8 @@ interface
 
  // JPEG format (different methodf for Delphi and FPC)
  procedure LoadJPEG(data:ByteArray;var image:TRawImage);
- procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer);
+ function SaveJPEG(image:TRawImage;quality:integer):ByteArray; overload;
+ procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer); overload;
 
  // PNG import using LodePNG (lodePNG.dll under Windows).
  // Any color type and bit depth is accepted, but the result is always 8 bits per channel:
@@ -944,7 +945,7 @@ function CheckFileFormat(fname:string):TImageFileType;
 
  {$ENDIF}
 
- procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer);
+ function SaveJPEG(image:TRawImage;quality:integer):ByteArray;
  {$IFNDEF FPC}
   var
    jpg:TJpegImage;
@@ -971,7 +972,8 @@ function CheckFileFormat(fname:string):TImageFileType;
    stream:=TMemoryStream.Create;
    try
     jpg.SaveToStream(stream);
-    Files.Save(String8(filename),stream.memory,stream.size);
+    SetLength(result,stream.size);
+    if stream.size>0 then move(stream.memory^,result[0],stream.size);
    finally
     stream.Free;
    end;
@@ -980,15 +982,18 @@ function CheckFileFormat(fname:string):TImageFileType;
   end;
  {$ELSE}
  var
-  data:ByteArray;
   writer:TFPWriterJPEG;
  begin
   writer:=TFPWriterJPEG.Create;
   writer.CompressionQuality:=Clamp(quality,1,100);
-  data:=SaveImageUsingWriter(writer,image);
-  Files.Save(filename,data);
+  result:=SaveImageUsingWriter(writer,image);
  end;
  {$ENDIF}
+
+ procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer);
+ begin
+  Files.Save(String8(filename),SaveJPEG(image,quality));
+ end;
 
  procedure LoadJPEG(data:ByteArray;var image:TRawImage);
  {$IFNDEF FPC}
