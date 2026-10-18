@@ -1072,7 +1072,7 @@ begin
    surface:=surfaceConfig; // project declaration -> per-window request
 
    showSystemCursor:=windowSetup.systemCursor;
-   zbuffer:=16;
+   zbuffer:=24;
    stencil:=false;
    multisampling:=0;
    slowmotion:=false;

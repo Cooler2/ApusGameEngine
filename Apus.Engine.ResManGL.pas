@@ -256,6 +256,10 @@ implementation
   (и в потоке отрисовки), т.о. избегаем проблем многопоточности.
 }
 
+const
+ // depth renderbuffers of render targets: sized format, same before and after a resize (ES 3.0 requires a sized one)
+ DEPTH_RB_FORMAT = GL_DEPTH_COMPONENT24;
+
 var
  mainThreadId:TThreadIdent;
  cSect:TLock; // TODO: зачем? Нет глобальных данных, нуждающихся в защите
@@ -1652,7 +1656,7 @@ begin
   if Bits.HasAll(flags,aiDepthBuffer) then begin
    glGenRenderbuffers(1,@renderBuffer);
    glBindRenderbuffer(GL_RENDERBUFFER,renderBuffer);
-   glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,tex.width,tex.height);
+   glRenderbufferStorage(GL_RENDERBUFFER,DEPTH_RB_FORMAT,tex.width,tex.height);
    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,renderBuffer);
    tex.rbo:=renderBuffer;
   end;
@@ -1690,7 +1694,7 @@ begin
     // No need to access depth values - allocate renderbuffer storage
     glGenRenderbuffers(1,@renderBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, tex.width, tex.height);
+    glRenderbufferStorage(GL_RENDERBUFFER, DEPTH_RB_FORMAT, tex.width, tex.height);
     glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
     tex.rbo:=renderBuffer;
    end else begin
@@ -1714,7 +1718,7 @@ begin
    if Bits.HasAll(flags,aiDepthBuffer) then begin
     glGenRenderbuffers(1,@renderBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, tex.width, tex.height);
+    glRenderbufferStorage(GL_RENDERBUFFER, DEPTH_RB_FORMAT, tex.width, tex.height);
     glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
     tex.rbo:=renderBuffer;
    end;
@@ -2129,8 +2133,7 @@ begin
    CheckForGLError('19');
    if rbo<>0 then begin
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    // ES 3.0 requires a sized internal format for renderbuffer storage
-    glRenderbufferStorage(GL_RENDERBUFFER, {$IFDEF GLES}GL_DEPTH_COMPONENT16{$ELSE}GL_DEPTH_COMPONENT{$ENDIF}, width, height);
+    glRenderbufferStorage(GL_RENDERBUFFER, DEPTH_RB_FORMAT, width, height);
    end;
    exit;
   end;

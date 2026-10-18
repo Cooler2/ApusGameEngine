@@ -964,7 +964,7 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
     nVersion:=1;
     dwFlags:=PFD_SUPPORT_OPENGL+PFD_DRAW_TO_WINDOW+PFD_DOUBLEBUFFER;
     iPixelType:=PFD_TYPE_RGBA;
-    cDepthBits:=16;
+    cDepthBits:=24;
    end;
    DC:=GetDC(window);
    pf:=ChoosePixelFormat(DC,@PFD);

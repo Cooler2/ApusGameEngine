@@ -174,7 +174,7 @@ type
   frame:TWindowFrame; // frame of the window modes
   surface:TSurfaceConfig; // working surface axes requested for this window (R-31)
   showSystemCursor:boolean; // draw system cursor instead of engine cursor
-  zbuffer:byte; // desired precision for a depth buffer (0 - don't use depth buffer)
+  zbuffer:byte; // depth buffer: 0 - none, otherwise 24 bits (the value is not a precision request yet)
   stencil:boolean; // request a stencil-buffer (at least 8-bit)
   multisampling:byte; // full-screen anti-aliasing samples (<2 - disabled)
   slowmotion:boolean; // hint: prefer redraw optimizations for low/unstable frame rates

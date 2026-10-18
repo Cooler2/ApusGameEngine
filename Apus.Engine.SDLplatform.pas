@@ -469,6 +469,7 @@ procedure ApplyOpenGLContextAttributes(const graph:TOpenGLContextDesc;shareWithC
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,profileMask);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,flags);
   SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,byte(shareWithCurrent));
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,24); // SDL default is 16
  end;
 
 function TSDLPlatform.CreateWindow(const name:String8;title:string):TWindow;
