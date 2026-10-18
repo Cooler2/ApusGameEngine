@@ -345,6 +345,10 @@ type
   procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep);
   // Current depth state (test mode + write mask)
   function DepthMode:TDepthMode;
+  // Depth bias of filled polygons, for a layer drawn over a coplanar one (road marks, decals):
+  // offset = factor*depthSlope + units*minDepthStep (glPolygonOffset). Negative values move
+  // towards the camera for the Less/LessEqual tests. (0,0) - no bias
+  procedure SetDepthBias(factor,units:single);
   // Set blending mode
   procedure BlendMode(blend:TBlendingMode);
   // Set write mask (push previous mask)

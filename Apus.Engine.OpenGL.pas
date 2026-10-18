@@ -205,6 +205,7 @@ type
   procedure ClearDepth(zbuf:single=0;stencil:integer=-1); override;
   procedure Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
   procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep); override;
+  procedure SetDepthBias(factor,units:single); override;
   procedure BlendMode(blend:TBlendingMode); override;
   procedure Clip(x,y,w,h:integer); override;
   procedure ApplyMask; override;
@@ -1575,6 +1576,17 @@ procedure TGLRenderTargetAPI.SetDepthMode(test:TDepthTest;write:TDepthWrite);
    end;
   end;
   glDepthMask(curDepth.write=TDepthWrite.On); // mask is independent of the test; always reflect tracked state
+ end;
+
+procedure TGLRenderTargetAPI.SetDepthBias(factor,units:single);
+ begin
+  EnsureThreadState;
+  if (factor=0) and (units=0) then
+   glDisable(GL_POLYGON_OFFSET_FILL)
+  else begin
+   glEnable(GL_POLYGON_OFFSET_FILL);
+   glPolygonOffset(factor,units);
+  end;
  end;
 
 procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);

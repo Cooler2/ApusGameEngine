@@ -180,6 +180,7 @@ type
   procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0); virtual;
   procedure SetDepthMode(test:TDepthTest=TDepthTest.Keep;write:TDepthWrite=TDepthWrite.Keep); virtual;
   function DepthMode:TDepthMode;
+  procedure SetDepthBias(factor,units:single); virtual; abstract;
   procedure BlendMode(blend:TBlendingMode); virtual; abstract;
   function CurrentBlendMode:TBlendingMode; // engine-internal: mode set by the last BlendMode call
   procedure Mask(rgb:boolean;alpha:boolean); virtual;
