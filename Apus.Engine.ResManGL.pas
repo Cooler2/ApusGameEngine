@@ -256,9 +256,6 @@ implementation
   (и в потоке отрисовки), т.о. избегаем проблем многопоточности.
 }
 
-const
- MAX_TEX_SIZE = 2048;
-
 var
  mainThreadId:TThreadIdent;
  cSect:TLock; // TODO: зачем? Нет глобальных данных, нуждающихся в защите
@@ -2087,7 +2084,7 @@ end;
 function TGLResourceManager.QueryParams(width, height: integer;
   format: TImagePixelFormat; usage: integer): boolean;
 var
- res:integer;
+ res,maxSize:integer;
  glFormat,subFormat,InternalFormat:cardinal;
 begin
  result:=true;
@@ -2095,12 +2092,14 @@ begin
   result:=false;
   exit;
  end;
- if (width>MAX_TEX_SIZE) or (height>MAX_TEX_SIZE) then begin
+ if usage and aiRenderTarget<>0 then maxSize:=maxRTsize
+  else maxSize:=maxTextureSize;
+ if (width>maxSize) or (height>maxSize) then begin
   result:=false;
   exit;
  end;
- // GL_PROXY_TEXTURE_2D doesn't exist in GLES: the MAX_TEX_SIZE/GL_MAX_TEXTURE_SIZE
- // comparison above is the whole check there, no format-capability probe.
+ // GL_PROXY_TEXTURE_2D doesn't exist in GLES: the size limit comparison above
+ // is the whole check there, no format-capability probe.
  {$IFNDEF GLES}
  GetGLFormat(format,glFormat,subFormat,internalFormat);
  glTexImage2D(GL_PROXY_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);

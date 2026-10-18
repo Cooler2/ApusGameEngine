@@ -53,6 +53,7 @@ type
   function ShouldUseTextureAsDefaultRT:boolean;
   function SetVSyncDivider(n:integer):boolean; // 0 - unlimited FPS, 1 - use monitor refresh rate
   function QueryMaxRTSize:integer;
+  function QueryMaxTextureSize:integer;
   // Core interfaces
   function config:IGraphicsSystemConfig;
   function resman:IResourceManager;
@@ -468,6 +469,11 @@ procedure TOpenGL.PresentFrame;
 function TOpenGL.QueryMaxRTSize:integer;
  begin
   result:=resourceManagerGL.maxRTsize;
+ end;
+
+function TOpenGL.QueryMaxTextureSize:integer;
+ begin
+  result:=resourceManagerGL.maxTextureSize;
  end;
 
 procedure TOpenGL.Restore;

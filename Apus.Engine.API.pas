@@ -521,6 +521,7 @@ type
   function SetVSyncDivider(n:integer):boolean; //< 0 - unlimited FPS, 1 - use monitor refresh rate
   // Query options
   function QueryMaxRTSize:integer; //< get max allowed dimension for RT textures
+  function QueryMaxTextureSize:integer; //< get max allowed dimension for textures (GL_MAX_TEXTURE_SIZE)
   function ShouldUseTextureAsDefaultRT:boolean;
  end;
 
