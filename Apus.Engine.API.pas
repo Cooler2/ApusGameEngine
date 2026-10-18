@@ -156,8 +156,8 @@ type
    Wait           =  2;  // busy cursor (hourglass)
    Input          =  3;  // Text input cursor (beam)
    Help           =  4;  // Arrow with question mark
-   ResizeH        = 10;  // E-W arrows
-   ResizeW        = 11;  // N-S arrows
+   ResizeH        = 10;  // resize height: N-S arrows
+   ResizeW        = 11;  // resize width: E-W arrows
    ResizeHW       = 12;  // N-S-E-W arrows
    Cross          = 13;  //
    None           = 99;  // No cursor (hidden)
