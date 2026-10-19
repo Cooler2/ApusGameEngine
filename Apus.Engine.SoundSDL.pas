@@ -4,11 +4,16 @@
 
 // SDL2_mixer sound backend: covers level 1 of the audio requirements
 // (play samples and stream music as-is + volume control). Its ceiling is known:
-// no pitch, panning for samples only and a single music stream (so music
-// crossfade is impossible here) - these belong to the miniaudio backend.
+// panning for samples only and a single music stream (so music crossfade is
+// impossible here) - these belong to the miniaudio backend.
 // See Work/R-28_audio_activation.md.
-// Loop points: SDL_mixer has no API for them, so a track with a loop region is
-// decoded whole and played on a reserved channel, see TLoopSource.
+// Own mixing: samples, procedural streams and music with loop points play on
+// SDL_mixer channels that play a silent looped carrier, and a channel effect
+// replaces the carrier data with a source (TSource): decoded PCM read at any
+// speed, or a stream procedure. This gives pitch, loop points (a track with a loop
+// region is decoded whole) and streams, none of which SDL_mixer has; volume,
+// panning, pause and fades of the channel still apply after the effect.
+// Only music without loop points goes through Mix_Music.
 unit Apus.Engine.SoundSDL;
 interface
 uses Apus.Engine.Sound;
@@ -19,10 +24,12 @@ type
   procedure SetVolume(volumeType:TVolumeType;volume:single); // 0..1
   function OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaFile;
   function PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
+  function PlayStream(proc:TSoundStreamProc;userData:pointer;channels:integer;volume:single):TChannel;
   procedure StopChannel(var channel:TChannel);
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   procedure Pause(pause:boolean);
+  procedure Update;
   procedure Done;
 
   function CanSlide:TChannelAttributes;
@@ -41,13 +48,18 @@ uses SysUtils, SDL2, sdl2_mixer,
 const
  // SDL_mixer channels 0..MUSIC_CHANNELS-1 are reserved for music with loop points
  MUSIC_CHANNELS = 1;
- // Number of simultaneously playing samples
+ // Number of simultaneously playing samples and streams
  SAMPLE_CHANNELS = 32;
  MIXING_CHANNELS = MUSIC_CHANNELS+SAMPLE_CHANNELS;
  // Slot of the music stream: slots 0..MIXING_CHANNELS-1 are SDL_mixer channels
  MUSIC_SLOT = MIXING_CHANNELS;
- // Silent data the loop channel plays, bytes
+ // Silent data a channel plays under its source, bytes
  CARRIER_SIZE = 4096;
+ // Values per channel a stream procedure generates at most in one call
+ STREAM_PIECE = 1024;
+ // Speed range of decoded PCM
+ MIN_SPEED = 0.05;
+ MAX_SPEED = 20;
  // Channel handle layout: low 8 bits = slot+1 (so 0 is "no channel"),
  // high 24 bits = generation of the slot at the moment the playback started
  SLOT_BITS = 8;
@@ -69,26 +81,45 @@ type
   relVolume:single;    // volume requested for the current playback (before the global one)
  end;
 
- // Music with loop points on a reserved channel: SDL_mixer plays a silent looped
- // carrier there, and an effect replaces its data with the decoded track. The
- // effect runs in the audio thread; the fields are set before it is registered
- // and the channel is halted (which waits for the mixer) before they change.
- TLoopSource=record
-  media:TMediaFileSDL;
-  data:PByte; // decoded track in the device format
-  pos,loopStart,loopEnd:integer; // byte offsets in data
+ TSamples=array[0..$7FFFFFF] of smallint;
+ PSamples=^TSamples;
+
+ TSourceKind=(skNone,skPCM,skStream);
+
+ // What a mixing channel plays. Positions are counted in frames: a frame is one
+ // value for every device channel. The effect runs in the audio thread: the fields
+ // are set while the channel is halted (halting waits for the mixer), before the
+ // effect is registered. Later the sound thread writes only targetSpeed and
+ // speedRate, and the audio thread only finished (aligned 32-bit fields: plain
+ // reads and writes are atomic)
+ TSource=record
+  kind:TSourceKind;
+  media:TMediaFileSDL;  // PCM: the media the data belongs to
+  data:PSamples;        // PCM: decoded in the device format
+  loop:boolean;         // PCM: continue from loopStart at endPos
+  loopStart,endPos:integer; // PCM: the playback ends (or loops) at endPos
+  pos:double;           // PCM: current position (fractional when the speed is not 1)
+  speed:double;         // PCM: current speed (audio thread)
+  targetSpeed:single;   // PCM: speed requested by the sound thread
+  speedRate:single;     // PCM: speed change per frame on the way to targetSpeed, 0 = at once
+  proc:TSoundStreamProc; // stream
+  userData:pointer;
+  streamChannels:integer;
+  buf:array of single;  // stream: one piece from proc
+  finished:integer;     // the source has ended: Update halts the channel
  end;
- PLoopSource=^TLoopSource;
+ PSource=^TSource;
 
 var
  globalMusicVolume:single=1.0;
  globalSoundVolume:single=1.0;
  slots:array[0..MUSIC_SLOT] of TSlotSDL;
- loopSources:array[0..MUSIC_CHANNELS-1] of TLoopSource;
+ sources:array[0..MIXING_CHANNELS-1] of TSource;
  carrierData:ByteArray;
  carrier:PMix_Chunk;
  deviceFreq:integer=44100;
- frameSize:integer=4; // bytes per sample of all device channels
+ deviceChannels:integer=2;
+ frameSize:integer=4; // bytes per frame
  ownAudioSubsystem:boolean; // did this backend initialize SDL's audio subsystem?
 
 { TMediaFileSDL }
@@ -97,11 +128,12 @@ destructor TMediaFileSDL.Destroy;
  var
   i:integer;
  begin
-  // the mixer must not read the decoded track after it's freed
-  for i:=0 to high(loopSources) do
-   if loopSources[i].media=self then begin
+  // the mixer must not read the decoded data after it's freed
+  for i:=0 to high(sources) do
+   if sources[i].media=self then begin
     Mix_HaltChannel(i);
-    loopSources[i].media:=nil;
+    sources[i].media:=nil;
+    sources[i].kind:=skNone;
    end;
   if chunk<>nil then Mix_FreeChunk(chunk);
   if music<>nil then Mix_FreeMusic(music);
@@ -119,30 +151,119 @@ function IsMusicSlot(slot:integer):boolean; inline;
   result:=(slot<MUSIC_CHANNELS) or (slot=MUSIC_SLOT);
  end;
 
-// Mixer effect of a loop channel (audio thread): fill the stream from the decoded track
-procedure LoopSourceEffect(chan:integer;stream:pointer;len:integer;udata:pointer); cdecl;
- var
-  src:PLoopSource;
-  dst:PByte;
-  n:integer;
+function ClampSpeed(speed:single):single;
  begin
-  src:=udata;
-  dst:=stream;
-  while len>0 do begin
-   n:=src.loopEnd-src.pos;
-   if n>len then n:=len;
-   move(src.data[src.pos],dst^,n);
-   inc(dst,n);
-   dec(len,n);
-   inc(src.pos,n);
-   if src.pos>=src.loopEnd then src.pos:=src.loopStart;
+  result:=speed;
+  if result<MIN_SPEED then result:=MIN_SPEED;
+  if result>MAX_SPEED then result:=MAX_SPEED;
+ end;
+
+// Audio thread: fill frames from decoded PCM, with linear interpolation when the speed is not 1
+procedure FillPCM(var src:TSource;dst:PSmallInt;frames:integer);
+ var
+  target,rate:single;
+  n,c,p0,p1:integer;
+  f:double;
+  a,b:PSamples;
+ begin
+  target:=src.targetSpeed;
+  rate:=src.speedRate;
+  while frames>0 do begin
+   if src.pos>=src.endPos then begin
+    if not src.loop then begin
+     src.finished:=1;
+     FillChar(dst^,frames*frameSize,0);
+     exit;
+    end;
+    src.pos:=src.pos-(src.endPos-src.loopStart);
+    continue;
+   end;
+   if (src.speed=1) and (target=1) and (frac(src.pos)=0) then begin
+    // straight copy: the data plays bit-exact
+    p0:=trunc(src.pos);
+    n:=src.endPos-p0;
+    if n>frames then n:=frames;
+    move(src.data^[p0*deviceChannels],dst^,n*frameSize);
+    inc(dst,n*deviceChannels);
+    dec(frames,n);
+    src.pos:=src.pos+n;
+   end else begin
+    if src.speed<>target then
+     if rate<=0 then src.speed:=target
+     else
+     if src.speed<target then begin
+      src.speed:=src.speed+rate;
+      if src.speed>target then src.speed:=target;
+     end else begin
+      src.speed:=src.speed-rate;
+      if src.speed<target then src.speed:=target;
+     end;
+    p0:=trunc(src.pos);
+    f:=src.pos-p0;
+    p1:=p0+1;
+    if p1>=src.endPos then
+     if src.loop then p1:=src.loopStart else p1:=p0;
+    a:=PSamples(@src.data^[p0*deviceChannels]);
+    b:=PSamples(@src.data^[p1*deviceChannels]);
+    for c:=0 to deviceChannels-1 do begin
+     dst^:=round(a^[c]+(b^[c]-a^[c])*f);
+     inc(dst);
+    end;
+    dec(frames);
+    src.pos:=src.pos+src.speed;
+   end;
   end;
  end;
 
-// Byte offset in the decoded track (it's decoded at the device rate) for a time in seconds
-function TrackOffset(time:double):int64;
+// Audio thread: fill frames from the stream procedure
+procedure FillStream(var src:TSource;dst:PSmallInt;frames:integer);
+ var
+  n,i,c,sc:integer;
+  v:single;
  begin
-  result:=round(time*deviceFreq)*frameSize;
+  sc:=src.streamChannels;
+  while frames>0 do begin
+   if src.finished<>0 then begin
+    FillChar(dst^,frames*frameSize,0);
+    exit;
+   end;
+   n:=frames;
+   if n>STREAM_PIECE then n:=STREAM_PIECE;
+   if not src.proc(@src.buf[0],n,sc,deviceFreq,src.userData) then
+    src.finished:=1; // this piece still plays
+   // a mono stream goes to every device channel, extra stream channels are dropped
+   for i:=0 to n-1 do
+    for c:=0 to deviceChannels-1 do begin
+     if sc=1 then v:=src.buf[i]
+     else
+     if c<sc then v:=src.buf[i*sc+c]
+     else v:=0;
+     if v>1 then v:=1
+     else
+     if v<-1 then v:=-1;
+     dst^:=round(v*32767);
+     inc(dst);
+    end;
+   dec(frames,n);
+  end;
+ end;
+
+// Mixer effect of a channel (audio thread): replace the carrier data with the source
+procedure SourceEffect(chan:integer;stream:pointer;len:integer;udata:pointer); cdecl;
+ var
+  src:PSource;
+ begin
+  src:=udata;
+  case src.kind of
+   skPCM:FillPCM(src^,stream,len div frameSize);
+   skStream:FillStream(src^,stream,len div frameSize);
+  end;
+ end;
+
+// Frame in the decoded track (it's decoded at the device rate) for a time in seconds
+function TrackPos(time:double):int64;
+ begin
+  result:=round(time*deviceFreq);
  end;
 
 // Halt the loop channels: the backend plays one music stream at a time
@@ -152,6 +273,75 @@ procedure HaltLoopChannels;
  begin
   for i:=0 to MUSIC_CHANNELS-1 do
    if Mix_Playing(i)<>0 then Mix_HaltChannel(i);
+ end;
+
+// A sample channel for a new playback: a free one, or one whose source has ended
+function FindSampleChannel:integer;
+ var
+  i:integer;
+ begin
+  for i:=MUSIC_CHANNELS to MIXING_CHANNELS-1 do
+   if Mix_Playing(i)=0 then exit(i);
+  for i:=MUSIC_CHANNELS to MIXING_CHANNELS-1 do
+   if sources[i].finished<>0 then exit(i);
+  result:=-1;
+ end;
+
+// Reset the source of a channel for a new playback. The channel is halted first,
+// so the mixer doesn't read the source meanwhile (halting also drops the effects)
+function PrepareSource(slot:integer):PSource;
+ begin
+  if Mix_Playing(slot)<>0 then Mix_HaltChannel(slot);
+  result:=@sources[slot];
+  result^:=Default(TSource);
+ end;
+
+// Prepare decoded PCM (in the device format) to play on a channel
+procedure SetPCMSource(slot:integer;m:TMediaFileSDL;chunk:PMix_Chunk;loop:boolean;
+  loopStart,endPos:integer;pos:double;speed:single);
+ var
+  src:PSource;
+ begin
+  src:=PrepareSource(slot);
+  src.kind:=skPCM;
+  src.media:=m;
+  src.data:=PSamples(chunk.abuf);
+  src.loop:=loop and (endPos>loopStart); // an empty region can't loop
+  src.loopStart:=loopStart;
+  src.endPos:=endPos;
+  src.pos:=pos;
+  speed:=ClampSpeed(speed);
+  src.speed:=speed;
+  src.targetSpeed:=speed;
+ end;
+
+procedure ApplySlotVolume(slot:integer);
+ begin
+  if slot=MUSIC_SLOT then
+   Mix_VolumeMusic(round(slots[slot].relVolume*globalMusicVolume*MIX_MAX_VOLUME))
+  else
+  if IsMusicSlot(slot) then
+   Mix_Volume(slot,round(slots[slot].relVolume*globalMusicVolume*MIX_MAX_VOLUME))
+  else
+   Mix_Volume(slot,round(slots[slot].relVolume*globalSoundVolume*MIX_MAX_VOLUME));
+ end;
+
+// Play the prepared source of a channel: SDL_mixer plays the carrier, the effect replaces its data
+function StartSource(slot:integer;volume:single;const what:string):boolean;
+ begin
+  result:=false;
+  if Mix_RegisterEffect(slot,SourceEffect,nil,@sources[slot])=0 then begin
+   Log.Error('[SDL_MIX] failed to set up the playback of %s: %s',[what,string(Mix_GetError)]);
+   exit;
+  end;
+  slots[slot].relVolume:=volume;
+  ApplySlotVolume(slot);
+  if Mix_PlayChannel(slot,carrier,-1)<0 then begin
+   Log.Error('[SDL_MIX] failed to play %s: %s',[what,string(Mix_GetError)]);
+   Mix_UnregisterAllEffects(slot);
+   exit;
+  end;
+  result:=true;
  end;
 
 // Decode the whole track once: loop points need random access to it
@@ -197,31 +387,19 @@ procedure SetPanning(channel:integer;pan:single);
   Mix_SetPanning(channel,left,right);
  end;
 
-procedure ApplySlotVolume(slot:integer);
- begin
-  if slot=MUSIC_SLOT then
-   Mix_VolumeMusic(round(slots[slot].relVolume*globalMusicVolume*MIX_MAX_VOLUME))
-  else
-  if IsMusicSlot(slot) then
-   Mix_Volume(slot,round(slots[slot].relVolume*globalMusicVolume*MIX_MAX_VOLUME))
-  else
-   Mix_Volume(slot,round(slots[slot].relVolume*globalSoundVolume*MIX_MAX_VOLUME));
- end;
-
 // Music with a loop region: plays the decoded track on a loop channel
 function PlayLooped(m:TMediaFileSDL;const settings:TPlaySettings):TChannel;
  const
   slot=0;
  var
-  src:PLoopSource;
-  total,loopStart,loopEnd:int64;
+  total,loopStart,loopEnd,startPos:int64;
  begin
   result:=0;
   if not DecodeTrack(m) then exit;
-  total:=int64(m.pcm.alen) div frameSize*frameSize;
-  loopStart:=TrackOffset(settings.loopStart);
+  total:=int64(m.pcm.alen) div frameSize;
+  loopStart:=TrackPos(settings.loopStart);
   loopEnd:=total;
-  if settings.loopEnd>0 then loopEnd:=TrackOffset(settings.loopEnd);
+  if settings.loopEnd>0 then loopEnd:=TrackPos(settings.loopEnd);
   if loopEnd>total then loopEnd:=total;
   if loopEnd<=0 then exit;
   if loopStart>=loopEnd then begin
@@ -229,27 +407,13 @@ function PlayLooped(m:TMediaFileSDL;const settings:TPlaySettings):TChannel;
      [m.source,settings.loopStart]);
    loopStart:=0;
   end;
-  // one music stream: this track replaces whatever music plays.
-  // Halting also drops the effects of the channel, so it goes before the registration
+  startPos:=TrackPos(settings.startPos);
+  if (startPos<0) or (startPos>=loopEnd) then startPos:=loopStart;
+  // one music stream: this track replaces whatever music plays
   Mix_HaltMusic;
   HaltLoopChannels;
-  src:=@loopSources[slot];
-  src.media:=m;
-  src.data:=PByte(m.pcm.abuf);
-  src.pos:=0;
-  src.loopStart:=integer(loopStart);
-  src.loopEnd:=integer(loopEnd);
-  if Mix_RegisterEffect(slot,LoopSourceEffect,nil,src)=0 then begin
-   Log.Error('[SDL_MIX] failed to set up the loop of %s: %s',[m.source,string(Mix_GetError)]);
-   exit;
-  end;
-  slots[slot].relVolume:=settings.volume;
-  ApplySlotVolume(slot);
-  if Mix_PlayChannel(slot,carrier,-1)<0 then begin
-   Log.Error('[SDL_MIX] failed to play music %s: %s',[m.source,string(Mix_GetError)]);
-   Mix_UnregisterAllEffects(slot);
-   exit;
-  end;
+  SetPCMSource(slot,m,m.pcm,true,loopStart,loopEnd,startPos,1);
+  if not StartSource(slot,settings.volume,'music '+m.source) then exit;
   result:=NewHandle(slot);
  end;
 
@@ -280,7 +444,7 @@ procedure InitDecoders;
 
 function TSoundLibSDL.CanSlide:TChannelAttributes;
  begin
-  result:=[]; // SDL_mixer can only fade out, see SlideChannel
+  result:=[caSpeed]; // the speed of decoded PCM changes in the effect; volume can only fade out
  end;
 
 function TSoundLibSDL.CanFadeMusic:boolean;
@@ -301,8 +465,8 @@ function TSoundLibSDL.IsPlaying(channel:TChannel):boolean;
   if slot<0 then exit(false);
   if slot=MUSIC_SLOT then
    result:=Mix_PlayingMusic<>0
-  else
-   result:=Mix_Playing(slot)<>0; // a paused channel counts as playing
+  else // a paused channel counts as playing; an ended source waits for Update to halt it
+   result:=(Mix_Playing(slot)<>0) and (sources[slot].finished=0);
  end;
 
 procedure TSoundLibSDL.Init(windowHandle:THandle);
@@ -319,6 +483,7 @@ procedure TSoundLibSDL.Init(windowHandle:THandle);
    ownAudioSubsystem:=true;
   end;
   InitDecoders;
+  // the sources mix 16-bit samples of the host byte order (little endian on every target)
   if Mix_OpenAudio(44100,AUDIO_S16,2,1024)<>0 then
    raise EError.Create('[SDL_MIX] open audio error: '+Mix_GetError);
   Mix_AllocateChannels(MIXING_CHANNELS);
@@ -334,8 +499,12 @@ procedure TSoundLibSDL.Init(windowHandle:THandle);
   if Mix_QuerySpec(@freq,@format,@chan)<>0 then begin
    Log.Info('[SDL_MIX] Device: driver=%s, %d Hz, format $%x, %d channels, %d mixing channels',
      [string(SDL_GetCurrentAudioDriver),freq,format,chan,MIXING_CHANNELS]);
+   // Mix_OpenAudio lets the device change the rate and the channels, but not the format
+   if format<>AUDIO_S16 then
+    raise EError.Create('[SDL_MIX] unexpected device format $'+IntToHex(format,4));
    deviceFreq:=freq;
-   frameSize:=chan*(format and $FF) div 8; // low byte of an SDL audio format is the bit size
+   deviceChannels:=chan;
+   frameSize:=chan*2;
   end else
    Log.Warn('[SDL_MIX] Device query failed: '+Mix_GetError);
   SetLength(carrierData,CARRIER_SIZE div frameSize*frameSize);
@@ -420,22 +589,21 @@ function TSoundLibSDL.OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaF
 function TSoundLibSDL.PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
  var
   m:TMediaFileSDL;
-  loops,res:integer;
+  loops,slot:integer;
  begin
   ASSERT(media is TMediaFileSDL);
   m:=TMediaFileSDL(media);
-  if settings.loop then loops:=-1 else loops:=0;
   if m.chunk<>nil then begin
-   // Play sample
-   res:=Mix_PlayChannel(-1,m.chunk,loops);
-   if res<0 then begin
-    Log.Error('[SDL_MIX] failed to play sample %s: %s',[m.source,string(Mix_GetError)]);
+   // Play sample: the chunk is already in the device format
+   slot:=FindSampleChannel;
+   if slot<0 then begin
+    Log.Error('[SDL_MIX] failed to play sample %s: no free channel',[m.source]);
     exit(0);
    end;
-   slots[res].relVolume:=settings.volume;
-   ApplySlotVolume(res);
-   SetPanning(res,settings.pan);
-   result:=NewHandle(res);
+   SetPCMSource(slot,m,m.chunk,settings.loop,0,int64(m.chunk.alen) div frameSize,0,settings.speed);
+   if not StartSource(slot,settings.volume,'sample '+m.source) then exit(0);
+   SetPanning(slot,settings.pan);
+   result:=NewHandle(slot);
   end else
   if settings.loop and ((settings.loopStart>0) or (settings.loopEnd>0)) then
    result:=PlayLooped(m,settings)
@@ -446,14 +614,44 @@ function TSoundLibSDL.PlayMedia(media:TMediaFile;const settings:TPlaySettings):T
    // old stream explicitly instead of letting the fade finish on its own.
    if Mix_FadingMusic<>MIX_NO_FADING then Mix_HaltMusic;
    HaltLoopChannels;
+   if settings.loop then loops:=-1 else loops:=0;
    if Mix_PlayMusic(m.music,loops)<>0 then begin
     Log.Error('[SDL_MIX] failed to play music %s: %s',[m.source,string(Mix_GetError)]);
     exit(0);
    end;
+   if settings.startPos>0 then
+    // a module takes the position as a pattern number, not as seconds
+    if Mix_GetMusicType(m.music)=MUS_MOD then
+     Log.Warn('[SDL_MIX] %s: a module can''t start from a position in seconds',[m.source])
+    else
+    if Mix_SetMusicPosition(settings.startPos)<>0 then
+     Log.Warn('[SDL_MIX] %s: cannot start from %.3f s: %s',[m.source,settings.startPos,string(Mix_GetError)]);
    slots[MUSIC_SLOT].relVolume:=settings.volume;
    ApplySlotVolume(MUSIC_SLOT);
    result:=NewHandle(MUSIC_SLOT);
   end;
+ end;
+
+function TSoundLibSDL.PlayStream(proc:TSoundStreamProc;userData:pointer;channels:integer;volume:single):TChannel;
+ var
+  slot:integer;
+  src:PSource;
+ begin
+  result:=0;
+  if not Assigned(proc) or (channels<1) then exit;
+  slot:=FindSampleChannel;
+  if slot<0 then begin
+   Log.Error('[SDL_MIX] failed to play a stream: no free channel');
+   exit;
+  end;
+  src:=PrepareSource(slot);
+  src.kind:=skStream;
+  src.proc:=proc;
+  src.userData:=userData;
+  src.streamChannels:=channels;
+  SetLength(src.buf,STREAM_PIECE*channels);
+  if not StartSource(slot,volume,'a stream') then exit;
+  result:=NewHandle(slot);
  end;
 
 procedure TSoundLibSDL.SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
@@ -469,7 +667,11 @@ procedure TSoundLibSDL.SetChannelAttribute(channel:TChannel;attr:TChannelAttribu
    end;
    caPanning:
     if slot<>MUSIC_SLOT then SetPanning(slot,value);
-   // caSpeed is not supported by SDL_mixer
+   caSpeed: // samples only: music keeps its pitch
+    if not IsMusicSlot(slot) and (sources[slot].kind=skPCM) then begin
+     sources[slot].speedRate:=0;
+     sources[slot].targetSpeed:=ClampSpeed(value);
+    end;
   end;
  end;
 
@@ -495,10 +697,23 @@ procedure TSoundLibSDL.SetVolume(volumeType:TVolumeType;volume:single);
 procedure TSoundLibSDL.SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue,timeInterval:single);
  var
   slot:integer;
+  src:PSource;
  begin
-  // SDL_mixer has no generic slide: only a fade-out is available (CanSlide=[])
   slot:=SlotOf(channel);
   if slot<0 then exit;
+  if attr=caSpeed then begin
+   if IsMusicSlot(slot) or (sources[slot].kind<>skPCM) then exit;
+   src:=@sources[slot];
+   newValue:=ClampSpeed(newValue);
+   // the rate goes first: the effect may read the new target at any moment
+   if timeInterval>0 then
+    src.speedRate:=abs(newValue-src.targetSpeed)/(timeInterval*deviceFreq)
+   else
+    src.speedRate:=0;
+   src.targetSpeed:=newValue;
+   exit;
+  end;
+  // the volume can only fade out: SDL_mixer has no generic slide
   if (attr<>caVolume) or (newValue>0) then exit;
   if slot=MUSIC_SLOT then
    Mix_FadeOutMusic(round(timeInterval*1000))
@@ -515,6 +730,15 @@ procedure TSoundLibSDL.Pause(pause:boolean);
    Mix_Resume(-1);
    Mix_ResumeMusic;
   end;
+ end;
+
+procedure TSoundLibSDL.Update;
+ var
+  i:integer;
+ begin
+  // the effect can't halt its own channel: ended sources are halted here
+  for i:=0 to MIXING_CHANNELS-1 do
+   if (sources[i].finished<>0) and (Mix_Playing(i)<>0) then Mix_HaltChannel(i);
  end;
 
 procedure TSoundLibSDL.StopChannel(var channel:TChannel);

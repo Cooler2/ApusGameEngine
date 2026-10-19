@@ -75,6 +75,7 @@ type
   // loopStart when it reaches loopEnd (0 = the end of the file). Seconds stay
   // valid when the file is resampled; double keeps sample positions exact
   loopStart,loopEnd:double;
+  startPos:double; // music: position to start from, seconds
  end;
 
 const
@@ -85,15 +86,26 @@ const
   loop:false;
   loopStart:0;
   loopEnd:0;
+  startPos:0;
  );
 
 type
+ // Generates the next piece of a procedural sound into data: count values per
+ // channel, interleaved (stereo: L,R,L,R...), in -1..1, sampleRate values per
+ // second for each channel, so data holds count*channels singles.
+ // Called in the audio thread: no allocations, logging, exceptions or waiting for
+ // locks the game thread may hold; read the game's parameters through atomics.
+ // Return false when the sound is over: playback stops after this piece.
+ TSoundStreamProc=function(data:PSingle;count,channels,sampleRate:integer;userData:pointer):boolean;
+
  // Interface for the backend sound library (API)
  ISoundLib=interface
   procedure Init(windowHandle:THandle=0);
   procedure SetVolume(volumeType:TVolumeType;volume:single); // 0..1
   function OpenMediaFile(fname:string;mode:TMediaLoadingMode):TMediaFile;
   function PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
+  // Start a procedural sound: it's mixed as a sample
+  function PlayStream(proc:TSoundStreamProc;userData:pointer;channels:integer;volume:single):TChannel;
   // Stops playback and clears the handle
   procedure StopChannel(var channel:TChannel);
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
@@ -110,6 +122,8 @@ type
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   // Pause/resume everything that plays (e.g. when the application loses focus)
   procedure Pause(pause:boolean);
+  // Housekeeping, called by the sound thread on every cycle
+  procedure Update;
   procedure Done;
  end;
 
@@ -1214,6 +1228,8 @@ begin
   settings.loopStart:=needMusic.loopPos;
   settings.loopEnd:=0;
  end;
+ settings.startPos:=needMusicPlayFrom;
+ needMusicPlayFrom:=0;
  curMusic:=needMusic;
  curMusic.channel:=soundLib.PlayMedia(needMusic.media,settings);
  if (curMusic.channel<>0) and soundLib.HasSingleMusicStream then
@@ -1282,6 +1298,7 @@ begin
 
     if (needmusic<>nil) and (CoreTime.Ticks>needMusicStartTime) then PlayNeededMusic;
     StopMusicChannels;
+    soundLib.Update;
     UpdateFilePlaybacks;
    except
     on e:exception do Log.Force('[SOUND] Error: '+ExceptionMsg(e));
