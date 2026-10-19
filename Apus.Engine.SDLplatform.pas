@@ -767,17 +767,18 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     PlatformMouseWheel(event.wheel.y*120);
    end;
 
-   SDL_KEYDOWN:begin
+   // the physical keyboard is ignored while the virtual input is active
+   SDL_KEYDOWN:if not virtualInput.IsActive then begin
     Signal('KBD\KEYDOWN',ord(KeyFromSDL(event.key.keysym.sym,event.key.keysym.scancode))+
       integer(event.key.keysym.scancode) shl 16);
    end;
 
-   SDL_KEYUP:begin
+   SDL_KEYUP:if not virtualInput.IsActive then begin
     Signal('KBD\KEYUP',ord(KeyFromSDL(event.key.keysym.sym,event.key.keysym.scancode))+
       integer(event.key.keysym.scancode) shl 16);
    end;
 
-   SDL_TEXTINPUT:begin
+   SDL_TEXTINPUT:if not virtualInput.IsActive then begin
     len:=StrLen(event.text.text);
     SetLength(ust,len);
     move(event.text.text,ust[1],len);

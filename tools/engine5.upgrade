@@ -409,6 +409,18 @@ MouseWasInRect -> ?Mouse.WasInRect: drop the window./game. prefix; now the posit
 // systemPlatform.GetMouseButtons removed: use window.mouseButtons / Mouse.Down
 oldMouseButtons -> ?Mouse.WasPressed/WasReleased: the field is gone, compare with the frame queries [Apus.Engine.API]
 
+// === Robot API virtual input: mouse and keyboard (Apus.Engine.Window) ===
+TVirtualMouseOpKind -> TVirtualInputOpKind [Apus.Engine.Window]
+TVirtualMouseOp -> TVirtualInputOp [Apus.Engine.Window]
+TVirtualMouseTicketRange -> TVirtualInputTicketRange [Apus.Engine.Window]
+TVirtualMouseTicket -> TVirtualInputTicket [Apus.Engine.Window]
+TVirtualMouseState -> TVirtualInputState [Apus.Engine.Window]
+TVirtualMouse -> TVirtualInput [Apus.Engine.Window]
+virtualMouse -> virtualInput [Apus.Engine.Window]
+FindVirtualMouse -> FindVirtualInput [Apus.Engine.Window]
+FrameMouseInput -> FrameInput [Apus.Engine.Window]
+// Robot API scripts: mouse.mode/reset/state/wait -> input.mode/reset/state/wait
+
 // === Sound: the game-side API is the ISoundSystem interface (Apus.Engine.Sound) ===
 InitSoundSystem -> sound.Init [Apus.Engine.Sound]
 DoneSoundSystem -> sound.Done [Apus.Engine.Sound]

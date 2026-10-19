@@ -17,6 +17,7 @@ uses
   Apus.EventMan,
   Apus.Geom2D,
   Apus.Engine.Types,
+  Apus.Engine.Keys,
   Apus.Engine.API,
   Apus.Engine.Window,
   Apus.Engine.Scene,
@@ -69,8 +70,18 @@ type
     function Process:boolean; override;
   end;
 
+  // records the keys dispatched to it (gameplay receivers)
+  TKeyProbe=class(TGameScene)
+    log:String8; // 'D:LCtrl U:S+ctrl ...': D/U, the key, the modifiers held
+    function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
+    function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; override;
+    procedure AddEvent(const kind:String8;key:TKey;shift:byte);
+  end;
+
 var
   wndA:TTestWindow;
+  keyProbe:TKeyProbe;
+  kbdLog:String8; // KBD\ events reaching the TGame stand-in: 'D:A U:A C:72 
   sceneA,dialog:TUIScene;
   btn,btnOff,btnHidden,btnDlg:TProbeButton;
   bar:TUIScrollBar;
@@ -149,6 +160,54 @@ function TProbeScene.Process:boolean;
   end;
  end;
 
+{ TKeyProbe }
+
+procedure TKeyProbe.AddEvent(const kind:String8;key:TKey;shift:byte);
+ begin
+  log:=log+kind+':'+String8(key.Name);
+  if shift and sscCtrl<>0 then log:=log+'+ctrl';
+  if shift and sscShift<>0 then log:=log+'+shift';
+  if shift and sscAlt<>0 then log:=log+'+alt';
+  log:=log+' ';
+ end;
+
+function TKeyProbe.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  AddEvent('D',key,shift);
+  result:=true;
+ end;
+
+function TKeyProbe.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  AddEvent('U',key,shift);
+  result:=true;
+ end;
+
+// TGame stand-in for the KBD\ events (the key part of TGame.KeyPressed/CharEntered):
+// keys go to the key probe, characters to the UI scene
+procedure KbdEvent(event:TEventStr;tag:TTag);
+ var
+  key:TKey;
+  code:integer;
+  pressed:boolean;
+ begin
+  event:=Copy(event,5,200);
+  if event.Same('UNICHAR') then begin
+   kbdLog:=kbdLog+'C:'+IntToStr(tag and $FFFF)+' ';
+   sceneA.WriteChar(cardinal(tag and $FFFF) shl 16);
+   exit;
+  end;
+  pressed:=event.Same('KEYDOWN');
+  if not pressed and not event.Same('KEYUP') then exit;
+  key:=TKey(tag and $FF);
+  code:=(tag shr 16) and $FFFF;
+  if pressed then kbdLog:=kbdLog+'D:'+String8(Scan.Name(code))+' '
+   else kbdLog:=kbdLog+'U:'+String8(Scan.Name(code))+' ';
+  if not TWindow(window).KeyTransition(code,key,pressed) then exit;
+  if keyProbe<>nil then
+   keyProbe.WriteKey(cardinal(ord(key)) or (cardinal(code) shl 8) or (cardinal(ord(pressed)) shl 24));
+ end;
+
 { TProbeButton }
 
 procedure TProbeButton.onMouseButtons(button:byte;state:boolean);
@@ -173,13 +232,14 @@ procedure TProbeButton.DoClick;
 // Window-level part of TGame.FrameLoop + RenderAndPresentFrame (no rendering)
 procedure RunFrame(w:TTestWindow);
  begin
+  w.SetFrameTiming(CoreTime.Ticks*1000,0);
   w.RunQueuedCalls;
   w.ProcessMessages;
   w.LockState;
   try
    HandleSignals;
    w.ApplyPendingSurface;
-   w.FrameMouseInput(true);
+   w.FrameInput(true);
   finally
    w.UnlockState;
   end;
@@ -307,9 +367,9 @@ procedure TestModeErrors;
   a:=Click(10,10);
   Check(Field(a,'c','STATUS')='ERROR','click without the virtual mode is an error');
   Check(btn.clicks=0,'and does nothing');
-  a:=Robot(Req('m','mouse.mode','MODE: sideways'));
+  a:=Robot(Req('m','input.mode','MODE: sideways'));
   Check(Field(a,'m','STATUS')='ERROR','unknown mode');
-  a:=Robot(Req('m','mouse.mode','MODE: virtual;WINDOW: nowhere'));
+  a:=Robot(Req('m','input.mode','MODE: virtual;WINDOW: nowhere'));
   Check(Field(a,'m','MSG').StartsWith('window not found'),'unknown window');
   EndTest;
  end;
@@ -471,15 +531,15 @@ procedure TestEnable;
  var
   a:String8;
  begin
-  StartTest('mouse.mode virtual');
+  StartTest('input.mode virtual');
   wndA.physPos:=Types.Point(150,115); // the OS pointer sits on the button
   RunFrame(wndA);
   Check(underMouse=btn,'physical hover before');
-  a:=Robot(Req('m','mouse.mode','MODE: virtual'));
+  a:=Robot(Req('m','input.mode','MODE: virtual'));
   Check(IsOk(a,'m'),'mode switched: '+a);
   Check(Field(a,'m','mode')='virtual','reported mode');
   Check(Field(a,'m','position')='outside','the virtual pointer starts outside the canvas');
-  Check(wndA.virtualMouse.IsActive,'window is in the virtual mode');
+  Check(wndA.virtualInput.IsActive,'window is in the virtual mode');
   Check(underMouse=nil,'the physical hover is gone');
   Check(Mouse.Simulated,'Mouse.Simulated sees the virtual mode');
   Check(not Mouse.InRect(Types.Rect(0,0,$10000,$10000)),'Mouse: no rect holds a pointer outside the canvas');
@@ -587,9 +647,9 @@ procedure TestBatch;
   Check(a.IndexOf('ID: 3')<a.IndexOf('ID: 4'),'answers keep the order of the input');
   // WAIT: no - answered at once, the input still goes through
   btn.clicks:=0;
-  a:=Robot(Batch([Req('1','mouse.click','X: 120;Y: 105;WAIT: no'),Req('2','mouse.wait')]));
+  a:=Robot(Batch([Req('1','mouse.click','X: 120;Y: 105;WAIT: no'),Req('2','input.wait')]));
   Check(Field(a,'1','state')='queued','WAIT: no answers before applying');
-  Check(IsOk(a,'2') and (Field(a,'2','queued')='0'),'mouse.wait answers once the queue is empty');
+  Check(IsOk(a,'2') and (Field(a,'2','queued')='0'),'input.wait answers once the queue is empty');
   Check(btn.clicks=1,'queued click applied');
   EndTest;
  end;
@@ -672,11 +732,11 @@ procedure TestReset;
  var
   a:String8;
  begin
-  StartTest('mouse.reset');
+  StartTest('input.reset');
   btn.clicks:=0;
   Robot(Req('d','mouse.down','X: 150;Y: 115'));
   Check(btn.pressed,'pressed before the reset');
-  a:=Robot(Req('r','mouse.reset'));
+  a:=Robot(Req('r','input.reset'));
   Check(IsOk(a,'r'),'reset: '+a);
   Check(not btn.pressed,'reset releases the pressed state');
   Check(btn.clicks=0,'without a click');
@@ -687,7 +747,7 @@ procedure TestReset;
   Robot(Req('d','mouse.down','X: 105;Y: 205'));
   Move(700,205);
   Check(hooked=bar,'captured before the reset');
-  Robot(Req('r','mouse.reset'));
+  Robot(Req('r','input.reset'));
   Check(hooked=nil,'reset releases the capture');
   Check(clipMouse=cmNo,'and the clipping');
   Check(underMouse=nil,'nothing is hovered');
@@ -722,6 +782,86 @@ procedure TestPhysicalIgnored;
   EndTest;
  end;
 
+procedure TestKeyboard;
+ var
+  textHi:String8;
+  a:String8;
+  edit:TUIEditBox;
+  t:int64;
+ begin
+  StartTest('key.* commands');
+  textHi:=UTF8.Encode(WideString('Hi ')+WideChar(1046)); // + Cyrillic Zhe
+  keyProbe:=TKeyProbe.Create('KeyProbe',false,wndA);
+  keyProbe.SetStatus(ssActive);
+  kbdLog:='';
+  a:=Robot(Req('d','key.down','KEY: LShift'));
+  Check(IsOk(a,'d') and (Field(a,'d','keys')='LShift'),'key.down: '+a);
+  Check(kbdLog='D:LShift ','the platform event is sent: '+kbdLog);
+  Check(IsKeyDown(Scan.LShift),'IsKeyDown sees the virtual key');
+  Check(wndA.shiftState and sscShift<>0,'shiftState comes from the virtual keys');
+  a:=Robot(Req('d','key.down','KEY: LShift'));
+  Check(Field(a,'d','MSG').StartsWith('key is already down'),'key.down of a held key: '+a);
+  a:=Robot(Req('t','key.tap','KEY: A'));
+  Check(IsOk(a,'t') and (Field(a,'t','keys')='LShift'),'key.tap: '+a);
+  a:=Robot(Req('u','key.up','KEY: lshift'));
+  Check(IsOk(a,'u') and (Field(a,'u','keys')='none'),'key.up, names are case-insensitive: '+a);
+  Check(wndA.shiftState=0,'no modifiers');
+  Check(keyProbe.log='D:LShift+shift D:A+shift U:A+shift U:LShift ','receivers: '+keyProbe.log);
+  a:=Robot(Req('u','key.up','KEY: LShift'));
+  Check(Field(a,'u','MSG').StartsWith('key is not down'),'key.up of a key not down');
+  a:=Robot(Req('u','key.up','KEY: Shift'));
+  Check(Field(a,'u','MSG').StartsWith('unknown KEY'),'unknown key');
+  a:=Robot(Req('u','key.up','KEY: A;SCAN: 4'));
+  Check(Field(a,'u','STATUS')='ERROR','KEY and SCAN together');
+  // modifiers frame the key: ctrl down, S down, S up, ctrl up
+  keyProbe.log:='';
+  a:=Robot(Req('t','key.tap','KEY: S;MODS: ctrl+shift'));
+  Check(IsOk(a,'t') and (Field(a,'t','keys')='none'),'key.tap with MODS: '+a);
+  Check(keyProbe.log='D:LCtrl+ctrl D:LShift+ctrl+shift D:S+ctrl+shift U:S+ctrl+shift U:LShift+ctrl U:LCtrl ',
+   'MODS frame the key: '+keyProbe.log);
+  a:=Robot(Req('t','key.tap','KEY: S;MODS: hyper'));
+  Check(Field(a,'t','MSG').StartsWith('unknown modifier'),'unknown modifier');
+  // a position: Scan.W (26) is TKey.W on the US layout
+  keyProbe.log:='';
+  a:=Robot(Req('t','key.tap','SCAN: 26'));
+  Check(IsOk(a,'t') and (keyProbe.log='D:W U:W '),'key.tap by SCAN: '+keyProbe.log);
+  // HOLD: the release comes not earlier than HOLD ms after the press
+  t:=CoreTime.Ticks;
+  a:=Robot(Req('t','key.tap','KEY: Up;HOLD: 150'));
+  t:=CoreTime.Ticks-t;
+  Check(IsOk(a,'t') and (t>=140),'HOLD keeps the key down: '+IntToStr(t)+' ms');
+  a:=Robot(Req('t','key.tap','KEY: Up;HOLD: -1'));
+  Check(Field(a,'t','STATUS')='ERROR','negative HOLD');
+  // a press of one frame is seen by the polling
+  a:=Robot(Batch([Req('d','key.down','KEY: Space'),Req('u','key.up','KEY: Space;WAIT: no')]));
+  Check(IsKeyPressed(Scan.Space) or IsKeyDown(Scan.Space) or IsKeyReleased(Scan.Space),'polling sees the key');
+  Robot(Req('w','input.wait'));
+  // input.reset releases the held keys
+  Robot(Req('d','key.down','KEY: D'));
+  kbdLog:='';
+  a:=Robot(Req('r','input.reset'));
+  Check(IsOk(a,'r') and (Field(a,'r','keys')='none') and (kbdLog='U:D '),'input.reset releases the keys: '+kbdLog);
+  // text goes to the focused element
+  edit:=TUIEditBox.Create(200,24,sceneA.UI,'Edit');
+  edit.SetPos(100,400,pivotTopLeft);
+  edit.SetFocus;
+  RunFrame(wndA);
+  kbdLog:='';
+  a:=Robot(Req('t','key.type','TEXT: '+textHi));
+  Check(IsOk(a,'t') and (Field(a,'t','focus')='Edit') and (Field(a,'t','focusClass')='TUIEditBox'),'key.type, focus: '+a);
+  Check(UTF8.Encode(edit.realText)=textHi,'text entered: '+UTF8.Encode(edit.realText));
+  Check(kbdLog='C:72 C:105 C:32 C:1046 ','characters only, no key events: '+kbdLog);
+  a:=Robot(Req('t','key.type','TEXT: '));
+  Check(Field(a,'t','STATUS')='ERROR','empty TEXT');
+  edit.Remove;
+  // focus loss does not release the virtual keys: the robot owns them
+  Robot(Req('d','key.down','KEY: Right'));
+  wndA.PlatformReleaseKeys;
+  Check(IsKeyDown(Scan.Right),'PlatformReleaseKeys ignored in the virtual mode');
+  Robot(Req('u','key.up','KEY: Right'));
+  EndTest;
+ end;
+
 procedure TestClientSpace;
  var
   a:String8;
@@ -749,7 +889,7 @@ procedure TestClientSpace;
   // the conversion uses the surface of the frame that applies the input
   a:=Robot(Batch([Req('1','mouse.move','X: 300;Y: 280;SPACE: client;WAIT: no')]));
   wndA.RequestResize(1000,600); // now: scale 1, picture at x=100..900
-  a:=Robot(Req('w','mouse.wait'));
+  a:=Robot(Req('w','input.wait'));
   Check(Field(a,'w','position')='200,280','mapped with the new surface: '+Field(a,'w','position'));
   a:=Move(150,115); // canvas coordinates are not affected by the surface
   Check(underMouse=btn,'canvas space is independent of the client size');
@@ -803,9 +943,9 @@ procedure TestSecondWindow;
   a:=Click(150,115); // window A: same coordinates as BtnB in window B
   Check(btn.clicks=1,'window A clicked');
   Check(btnB.clicks=0,'window B untouched');
-  a:=Robot(Req('s','mouse.state','WINDOW: Second'));
+  a:=Robot(Req('s','input.state','WINDOW: Second'));
   Check(Field(a,'s','mode')='physical','window B is still in the physical mode');
-  a:=Robot(Req('m','mouse.mode','MODE: virtual;WINDOW: second'));
+  a:=Robot(Req('m','input.mode','MODE: virtual;WINDOW: second'));
   Check(IsOk(a,'m') and (Field(a,'m','window')='Second'),'window B by name: '+a);
   a:=Robot(Req('c','mouse.click','X: 150;Y: 115;WINDOW: Second'));
   Check(IsOk(a,'c'),'click in window B: '+a);
@@ -852,7 +992,7 @@ procedure TestCloseWithPending;
   while threadB.IsRunning and (i<5000) do begin CoreTime.Sleep(1); inc(i); end;
   Check(wndB.WaitReleased(1000),'nobody holds window B');
   FreeAndNil(wndB); // the robot keeps no window pointer
-  a:=Robot(Req('s','mouse.state','WINDOW: Second'));
+  a:=Robot(Req('s','input.state','WINDOW: Second'));
   Check(Field(a,'s','STATUS')='ERROR','closed window is not found');
   a:=Click(150,115);
   Check(IsOk(a,'c'),'window A keeps working');
@@ -863,15 +1003,20 @@ procedure TestPhysicalAgain;
  var
   a:String8;
  begin
-  StartTest('mouse.mode physical');
+  StartTest('input.mode physical');
   Robot(Req('d','mouse.down','X: 150;Y: 115'));
+  Robot(Req('k','key.down','KEY: Q'));
+  kbdLog:='';
   btn.clicks:=0;
-  a:=Robot(Req('m','mouse.mode','MODE: physical'));
+  a:=Robot(Req('m','input.mode','MODE: physical'));
   Check(IsOk(a,'m') and (Field(a,'m','mode')='physical'),'back to physical: '+a);
   Check(not btn.pressed and (btn.clicks=0),'held button released without a click');
   Check(wndA.mouseButtons=0,'no buttons down');
+  Check((kbdLog='U:Q ') and not IsKeyDown(Scan.Q),'held key released: '+kbdLog);
   a:=Click(150,115);
   Check(Field(a,'c','STATUS')='ERROR','virtual commands refused again');
+  a:=Robot(Req('k','key.tap','KEY: Q'));
+  Check(Field(a,'k','MSG').StartsWith('virtual input is off'),'key commands refused: '+a);
   wndA.PhysicalClick(150,115);
   RunFrame(wndA);
   RunFrame(wndA);
@@ -886,13 +1031,15 @@ procedure TestShutdown;
   a:String8;
  begin
   StartTest('Robot API shutdown');
-  a:=Robot(Req('m','mouse.mode','MODE: virtual'));
+  a:=Robot(Req('m','input.mode','MODE: virtual'));
   Robot(Req('d','mouse.down','X: 150;Y: 115'));
   Check(btn.pressed,'pressed by the robot');
+  Robot(Req('k','key.down','KEY: E'));
   btn.clicks:=0;
   DoneRobotAPI;
   RunFrame(wndA);
-  Check(not wndA.virtualMouse.IsActive,'window back to the physical mode');
+  Check(not IsKeyDown(Scan.E),'held key released');
+  Check(not wndA.virtualInput.IsActive,'window back to the physical mode');
   Check(not btn.pressed and (btn.clicks=0),'gesture cancelled without a click');
   EndTest;
  end;
@@ -951,6 +1098,7 @@ procedure Setup;
   dlgPanel.shape:=shapeFull;
   btnDlg:=NewButton(dlgPanel,'DlgBtn',30,50); // 280..380 x 300..330
   RunFrame(wndA);
+  SetEventHandler('KBD\',KbdEvent,emInstant);
   robotAPIEnabled:=true;
   InitRobotAPI;
   if Files.Exists(ROBOT_IN) then Files.Delete(ROBOT_IN);
@@ -973,6 +1121,7 @@ begin
   TestDrag;
   TestReset;
   TestPhysicalIgnored;
+  TestKeyboard;
   TestClientSpace;
   TestSecondWindow;
   TestCloseWithPending;

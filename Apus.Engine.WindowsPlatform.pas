@@ -220,13 +220,19 @@ procedure ReleaseIdleCapture;
   wnd:TWindow;
  begin
   wnd:=Apus.Engine.API.window;
-  if (wnd=nil) or wnd.virtualMouse.IsActive or (wnd.mouseButtons=0) then ReleaseCapture;
+  if (wnd=nil) or wnd.virtualInput.IsActive or (wnd.mouseButtons=0) then ReleaseCapture;
  end;
 
 // The pointer is lost for this window: a physical gesture in progress ends without a click
 procedure CancelGesture;
  begin
   if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformCancelGesture;
+ end;
+
+// The physical keyboard reaches the window: not while its virtual input is active
+function PhysicalKeyboard:boolean;
+ begin
+  result:=(Apus.Engine.API.window=nil) or not Apus.Engine.API.window.virtualInput.IsActive;
  end;
 
 // Windows scan code (set 1, $80 - an extended key) -> USB HID usage id (Scan.XXX), 0 if unknown
@@ -428,7 +434,7 @@ begin
 //   Log.Msg('WM_UNICHAR wParam=%d lParam=%d',[wParam,lParam]);
   end;
 
-  WM_CHAR:begin
+  WM_CHAR:if PhysicalKeyboard then begin
     charCode:=wParam and $FFFF;
     scanCode:=(lParam shr 16) and $FF;
     if Bits.HasAll(cardinal(lParam shr 24),1) then scanCode:=scanCode or $80;
@@ -437,14 +443,16 @@ begin
     Signal('KBD\UNICHAR',charCode+scanCode shl 16);
   end;
 
-  WM_KEYDOWN,WM_SYSKEYDOWN:begin
+  WM_KEYDOWN,WM_SYSKEYDOWN:if PhysicalKeyboard then begin
     KeyMessageCodes(wParam,lParam,keyCode,scanCode);
     Signal('KBD\KEYDOWN',keyCode+scanCode shl 16);
   end;
 
   WM_KEYUP,WM_SYSKEYUP:begin
-    KeyMessageCodes(wParam,lParam,keyCode,scanCode);
-    Signal('KBD\KEYUP',keyCode+scanCode shl 16);
+    if PhysicalKeyboard then begin
+     KeyMessageCodes(wParam,lParam,keyCode,scanCode);
+     Signal('KBD\KEYUP',keyCode+scanCode shl 16);
+    end;
     if message=WM_SYSKEYUP then exit(0);
   end;
 

@@ -84,6 +84,9 @@ type
     function Name:string;
     // Convert numeric code to TKey (unchecked cast)
     class function From(code:byte):TKey; static;
+    // Key by name, case-insensitive: a Name ('Enter', 'A', 'F1', 'Num5', ';', 'End') or
+    // an identifier of TKey ('D1', 'Semicolon', 'EndKey'). TKey.None if unknown.
+    class function FromName(const name:string):TKey; static;
     // Convert Windows VK_xxx constant to TKey (masks to byte)
     class function FromWindowsVK(vk:cardinal):TKey; static;
   end;
@@ -138,6 +141,7 @@ type
 function KeyIn(code:byte; const keys:array of TKey):boolean;
 
 implementation
+uses SysUtils;
 
 { TKeyHelper }
 
@@ -220,6 +224,34 @@ end;
 class function TKeyHelper.From(code:byte):TKey;
 begin
   result:=TKey(code);
+end;
+
+class function TKeyHelper.FromName(const name:string):TKey;
+const
+  // identifiers of the keys whose Name differs
+  IDENTS:array[0..20] of record key:TKey; id:string; end=(
+    (key:TKey.D0;id:'D0'),(key:TKey.D1;id:'D1'),(key:TKey.D2;id:'D2'),(key:TKey.D3;id:'D3'),
+    (key:TKey.D4;id:'D4'),(key:TKey.D5;id:'D5'),(key:TKey.D6;id:'D6'),(key:TKey.D7;id:'D7'),
+    (key:TKey.D8;id:'D8'),(key:TKey.D9;id:'D9'),(key:TKey.EndKey;id:'EndKey'),
+    (key:TKey.Semicolon;id:'Semicolon'),(key:TKey.Equal;id:'Equal'),(key:TKey.Comma;id:'Comma'),
+    (key:TKey.Minus;id:'Minus'),(key:TKey.Period;id:'Period'),(key:TKey.Slash;id:'Slash'),
+    (key:TKey.Tilde;id:'Tilde'),(key:TKey.BracketL;id:'BracketL'),(key:TKey.Backslash;id:'Backslash'),
+    (key:TKey.BracketR;id:'BracketR'));
+var
+  i:integer;
+  key:TKey;
+  st:string;
+begin
+  result:=TKey.None;
+  if name='' then exit;
+  st:=UpperCase(name);
+  if st='QUOTE' then exit(TKey.Quote);
+  for i:=0 to high(IDENTS) do
+    if UpperCase(IDENTS[i].id)=st then exit(IDENTS[i].key);
+  for i:=1 to 255 do begin
+    key:=TKey(i);
+    if (key.Name<>'Key'+IntToStr(i)) and (UpperCase(key.Name)=st) then exit(key);
+  end;
 end;
 
 class function TKeyHelper.FromWindowsVK(vk:cardinal):TKey;

@@ -3,6 +3,24 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Robot API: virtual keyboard, `mouse.mode` -> `input.mode` (2026-10-20)
+
+- Robot API commands renamed: `mouse.mode`/`mouse.reset`/`mouse.state`/`mouse.wait` ->
+  `input.mode`/`input.reset`/`input.state`/`input.wait`. The virtual mode covers the mouse and
+  the keyboard together; `mouse.move/down/up/click/wheel` keep their names.
+- New commands `key.down`, `key.up`, `key.tap` (`MODS`, `HOLD` in ms), `key.type` (text as
+  `KBD\UNICHAR`). Keys by `KEY` (`TKey` name) or `SCAN` (`Scan.XXX`); the answers gain `keys`
+  and `focus`/`focusClass`. In the virtual mode the physical keyboard is ignored too. See
+  `robot_api_protocol.md`, "Virtual input".
+- `Apus.Engine.Window`: `TVirtualMouse*` -> `TVirtualInput*` (`vmo*` -> `vio*`, `vmt*` ->
+  `vit*`), `window.virtualMouse` -> `window.virtualInput`, `FindVirtualMouse` ->
+  `FindVirtualInput`, `FrameMouseInput` -> `FrameInput`.
+- New `TKey.FromName(name)` (`Apus.Engine.Keys`): `TKey.Name` or an identifier alias (`D1`,
+  `Semicolon`...), case-insensitive.
+- `window.shiftState` is updated by `TWindow.UpdateShiftState` once per frame for every
+  window (extra windows used to keep it at 0); in the virtual mode it comes from the virtual
+  keys held.
+
 ## Keyboard: scancodes are USB HID usage ids on every platform (2026-10-20)
 
 - The scancode of `KBD\KEYDOWN`/`KBD\KEYUP`/`KBD\CHAR`/`KBD\UNICHAR`, of

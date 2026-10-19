@@ -187,62 +187,82 @@ type
   procedure AddTransition(bit:byte;down:boolean);
  end;
 
- // --- Virtual mouse (see TVirtualMouse) ---
- TVirtualMouseOpKind=(
-  vmoMode,   // switch the input mode (enable)
-  vmoReset,  // cancel the gesture: drop the capture, release the buttons without a click
-  vmoMove,   // move the pointer (pos)
-  vmoButton, // press or release a button (button, pressed) at the current position
-  vmoWheel   // turn the wheel (delta) at the current position
- );
- TVirtualMouseOp=record
-  kind:TVirtualMouseOpKind;
-  enable:boolean;      // vmoMode: true - virtual input, false - back to the physical one
-  pos:TPoint;          // vmoMove: target point
-  clientSpace:boolean; // vmoMove: pos is in pixels of the client area, not in the canvas space
-  button:byte;         // vmoButton: 1 - left, 2 - right, 3 - middle
-  pressed:boolean;     // vmoButton: true - down, false - up
-  delta:integer;       // vmoWheel: 120 per notch, positive - away from the user (as MOUSE\SCROLL)
-  ticket:int64;        // assigned by TVirtualMouse.Queue
+ // Set of scancodes (Scan.XXX)
+ TScanSet=record
+  bits:array[0..Scan.Count div 32-1] of cardinal;
+  procedure Clear;
+  procedure Put(code:integer;value:boolean);
+  function Has(code:integer):boolean;
  end;
- TVirtualMouseTicket=(vmtPending,vmtDone,vmtDropped);
- TVirtualMouseTicketRange=record
+
+ // --- Virtual input (see TVirtualInput) ---
+ TVirtualInputOpKind=(
+  vioMode,   // switch the input mode (enable)
+  vioReset,  // cancel the gesture: drop the capture, release the buttons without a click and the keys
+  vioMove,   // move the pointer (pos)
+  vioButton, // press or release a button (button, pressed) at the current position
+  vioWheel,  // turn the wheel (delta) at the current position
+  vioKey,    // press or release a key (key, scanCode, pressed)
+  vioChar    // enter a character (ch)
+ );
+ TVirtualInputOp=record
+  kind:TVirtualInputOpKind;
+  enable:boolean;      // vioMode: true - virtual input, false - back to the physical one
+  pos:TPoint;          // vioMove: target point
+  clientSpace:boolean; // vioMove: pos is in pixels of the client area, not in the canvas space
+  button:byte;         // vioButton: 1 - left, 2 - right, 3 - middle
+  pressed:boolean;     // vioButton, vioKey: true - down, false - up
+  delta:integer;       // vioWheel: 120 per notch, positive - away from the user (as MOUSE\SCROLL)
+  key:TKey;            // vioKey: the key event's TKey...
+  scanCode:word;       // ...and its position (Scan.XXX)
+  ch:word;             // vioChar: UTF-16 code unit (as KBD\UNICHAR)
+  delayMs:integer;     // applied not earlier than delayMs after the previous operation
+  ticket:int64;        // assigned by TVirtualInput.Queue
+ end;
+ TVirtualInputTicket=(vitPending,vitDone,vitDropped);
+ TVirtualInputTicketRange=record
   lo,hi:int64;
  end;
- // Pointer state applied by the window's thread
- TVirtualMouseState=record
+ // Input state applied by the window's thread
+ TVirtualInputState=record
   active:boolean;      // virtual mode is on
   pos:TPoint;          // canvas space; ($3FFF,$3FFF) - outside the canvas
   buttons:byte;        // mbLeft, mbRight, mbMiddle
   under:String8;       // UI element under the pointer: name ('' - none or unnamed)...
   underClass:String8;  // ...and class ('' - none)
+  keys:TScanSet;       // keys held
+  focus:String8;       // UI element with the keyboard focus: name...
+  focusClass:String8;  // ...and class ('' - none)
   frame:integer;       // window frame of the last applied operation
  end;
 
- // Virtual mouse of a window (TWindow.virtualMouse): pointer input that does not come from
- // the OS. Operations are queued from any thread; the window's own thread applies them
- // in order, one per frame, through the regular mouse routing (hit-test, hover, capture,
- // clicks), and while the virtual mode is on it ignores the physical pointer and buttons.
+ // Virtual input of a window (TWindow.virtualInput): pointer and keyboard input that does
+ // not come from the OS. Operations are queued from any thread; the window's own thread
+ // applies them in order, one per frame, through the regular routing: mouse - hit-test,
+ // hover, capture, clicks; keys and characters - the KBD\ events of a platform. While the
+ // virtual mode is on the window ignores the physical pointer, buttons and keyboard.
  // The object is reference counted and outlives its window: a holder (e.g. a pending
  // Robot API request) never touches the window, and once the window closes every
  // operation not applied yet is dropped and new ones are refused.
- TVirtualMouse=class
+ TVirtualInput=class
  private
   lock:TLock; // a leaf lock: nothing is entered inside
   refCount:integer;
   ownerPtr:pointer; // identity only: the window may be gone
   ownerName:String8;
-  ops:array of TVirtualMouseOp;
+  ops:array of TVirtualInputOp;
   opCount:integer;
   issuedTicket:int64; // last ticket issued
   takenTicket:int64; // operation being applied by the window thread (0 - none)
   doneTicket:int64;  // every ticket <= doneTicket is done or dropped
-  dropped:array of TVirtualMouseTicketRange; // tickets dropped unapplied
+  dropped:array of TVirtualInputTicketRange; // tickets dropped unapplied
   reqActive:boolean;
   reqButtons:byte;
+  reqKeys:TScanSet;
+  lastTakeMs:int64; // when the last operation was taken (for delayMs)
   activeValue:boolean;
   closedValue:boolean;
-  applied:TVirtualMouseState;
+  applied:TVirtualInputState;
   procedure DropQueued; // under lock
   procedure UpdateDone; // under lock
  public
@@ -251,23 +271,25 @@ type
   procedure Release; // the last reference frees the object
   // --- Producer side (any thread) ---
   // Returns the ticket of the operation (>0), 0 if the window is closed
-  function Queue(op:TVirtualMouseOp):int64;
-  function TicketState(ticket:int64):TVirtualMouseTicket;
+  function Queue(op:TVirtualInputOp):int64;
+  function TicketState(ticket:int64):TVirtualInputTicket;
   // Drop every queued operation not taken by the window yet (their tickets become dropped)
   procedure Cancel;
-  // Mode and buttons as they will be once every queued operation is applied
+  // Mode, buttons and keys as they will be once every queued operation is applied
   function RequestedActive:boolean;
   function RequestedButtons:byte;
+  function RequestedKeys:TScanSet;
   function QueuedCount:integer; // operations not completed yet
   function LastTicket:int64; // ticket of the last queued operation (0 - none yet)
-  function State:TVirtualMouseState; // last state published by the window's thread
+  function State:TVirtualInputState; // last state published by the window's thread
   function IsActive:boolean; inline; // virtual mode is on (as applied by the window)
   function IsClosed:boolean;
   function IsMainWindow:boolean;   // owned by mainWindow
   property windowName:String8 read ownerName;
   // --- Window side (the window's own thread) ---
-  function TakeNext(out op:TVirtualMouseOp):boolean;
-  procedure Complete(const ticket:int64;const st:TVirtualMouseState);
+  // The next operation, if its delay has passed by nowMs
+  function TakeNext(out op:TVirtualInputOp;nowMs:int64):boolean;
+  procedure Complete(const ticket:int64;const st:TVirtualInputState);
   procedure SetActive(enable:boolean);
   procedure Close; // the window closes: drop the queue, refuse new operations
  end;
@@ -302,8 +324,10 @@ private
   procedure EnsureDefaultRT; // create the default RT if the surface needs one
   procedure UpdateSurfaceRT; // keep the default RT in sync with surface.renderSize
   procedure UpdateScreenScale; // DPI -> uiScale ladder (main window only)
-  procedure ApplyVirtualMouseOp(const op:TVirtualMouseOp);
+  procedure ApplyVirtualInputOp(const op:TVirtualInputOp);
   procedure CancelMouseGesture; // drop the capture, release the buttons without a click
+  procedure ReleaseKeys; // every held key gets KBD\KEYUP
+  function KeysShiftState:byte; // shiftState from the held keys
   procedure DeliverMouseButton(btn:byte;pressed:boolean); // update mouseButtons + dispatch
   // Pointer at a canvas position; off the canvas it is outside: the off-canvas sentinel,
   // or clamped to the canvas edge while a button is held (a drag never sticks)
@@ -311,7 +335,7 @@ private
   procedure PublishInputFrame; // start of an OnFrame pass: publish the input gathered since the last one
   procedure NotifyScenesResize; // the surface changed: TGameScene.onResize of every scene
   procedure DeliverMouseWheel(delta:integer); // MOUSE\SCROLL + dispatch
-  function VirtualMouseSnapshot:TVirtualMouseState;
+  function VirtualInputSnapshot:TVirtualInputState;
 public
   // Working surface (R-31): declared axes + resolved snapshot.
   config:TSurfaceConfig; // runtime authority for this window (a copy of TGameSettings.surface)
@@ -327,10 +351,10 @@ public
   moveKind:TMoveKind; // set by the UI dispatcher before each gameplay onMouseMove call
   mouseOverUI:boolean; // true while the cursor sits over a consuming UI element (prev-frame state)
   mouseButtons:byte; // buttons held now (bit 0=left, 1=right, 2=middle), set by the button events
-  // Virtual pointer input of this window (see TVirtualMouse). Never nil; owned by the
+  // Virtual pointer input of this window (see TVirtualInput). Never nil; owned by the
   // window (holders elsewhere AddRef it). While it is active the physical pointer and
   // buttons are ignored in this window.
-  virtualMouse:TVirtualMouse;
+  virtualInput:TVirtualInput;
   shiftState:byte; // shift keys: aggregate (sscBaseMask) + right-side bits (sscRightMask)
   // Keys by scancode (Scan.XXX): bit 0 - down now; bit 1 - went down, bit 2 - went up in
   // the published frame (a press shorter than a frame gives both); bits 3, 4 - the same
@@ -441,8 +465,12 @@ public
   // released (Mouse.WasReleased). Ignored while the virtual mouse is active.
   procedure PlatformCancelGesture;
   // The platform lost the keyboard (focus lost, the window hidden): every held key is
-  // released through the regular path (KBD\KEYUP), as if the user let it go
+  // released through the regular path (KBD\KEYUP), as if the user let it go. Ignored while
+  // the virtual input is active.
   procedure PlatformReleaseKeys;
+  // shiftState of the frame: from the OS, or from the held keys while the virtual input is
+  // active (window's thread)
+  procedure UpdateShiftState;
   // A key event (window's thread): updates keyState. False for a release of a key that is
   // not down (pressed before the window got the focus): such a release is dropped, the
   // receivers get down/up pairs. Scancode 0 (unknown key) is not tracked.
@@ -463,7 +491,7 @@ public
   // the next queued virtual mouse operation, otherwise samples the OS pointer (if
   // physicalPointer). Then dispatches the move (FlushMouseInput) - in the physical mode
   // only when the pointer was sampled.
-  procedure FrameMouseInput(physicalPointer:boolean);
+  procedure FrameInput(physicalPointer:boolean);
   function ProcessScenes(deltaTime:integer):boolean;
 
   // --- Working surface: rebuild requests (any thread; only stores the request) ---
@@ -593,7 +621,7 @@ public
   class function WasInRect(const r:TRect2):boolean; overload; static;
   // Over a UI element that takes the input (as of the last hover dispatch)
   class function OverUI:boolean; static;
-  // The virtual mouse is in control (see TVirtualMouse)
+  // The virtual mouse is in control (see TVirtualInput)
   class function Simulated:boolean; static;
  end;
 
@@ -609,7 +637,7 @@ function ListWindows:TWindowArray;
 // Virtual mouse of an open window: '', '0' or 'main' - the main window, otherwise the
 // window name (TWindow.name, case-insensitive). Any thread. The result is AddRef'ed -
 // Release it; nil if there is no such window or it is closing.
-function FindVirtualMouse(const windowName:String8):TVirtualMouse;
+function FindVirtualInput(const windowName:String8):TVirtualInput;
 
 implementation
  uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.GfxFormats, Apus.Files, Apus.Strings,
@@ -628,44 +656,64 @@ const
 
 var
  windowHash:TObjectHash;
- // virtual mice of the open windows (see FindVirtualMouse)
- vmRegistry:array of TVirtualMouse;
- vmRegistryLock:TLock;
+ // virtual mice of the open windows (see FindVirtualInput)
+ viRegistry:array of TVirtualInput;
+ viRegistryLock:TLock;
 
-{ TVirtualMouse }
+{ TScanSet }
 
-constructor TVirtualMouse.Create(owner:TWindow);
+procedure TScanSet.Clear;
+ begin
+  FillChar(bits,sizeof(bits),0);
+ end;
+
+procedure TScanSet.Put(code:integer;value:boolean);
+ begin
+  if (code<0) or (code>=Scan.Count) then exit;
+  if value then bits[code shr 5]:=bits[code shr 5] or (cardinal(1) shl (code and 31))
+   else bits[code shr 5]:=bits[code shr 5] and not (cardinal(1) shl (code and 31));
+ end;
+
+function TScanSet.Has(code:integer):boolean;
+ begin
+  result:=(code>=0) and (code<Scan.Count) and
+   (bits[code shr 5] and (cardinal(1) shl (code and 31))<>0);
+ end;
+
+{ TVirtualInput }
+
+constructor TVirtualInput.Create(owner:TWindow);
  var
   n:integer;
  begin
-  lock.Init('VirtualMouse',810);
+  lock.Init('VirtualInput',810);
   refCount:=1; // the window's reference
   ownerPtr:=owner;
   ownerName:=owner.name;
   applied.pos:=Types.Point(OFF_CANVAS,OFF_CANVAS);
-  vmRegistryLock.Enter;
+  viRegistryLock.Enter;
   try
-   n:=length(vmRegistry);
-   SetLength(vmRegistry,n+1);
-   vmRegistry[n]:=self;
+   n:=length(viRegistry);
+   SetLength(viRegistry,n+1);
+   viRegistry[n]:=self;
   finally
-   vmRegistryLock.Leave;
+   viRegistryLock.Leave;
   end;
  end;
 
-procedure TVirtualMouse.AddRef;
+procedure TVirtualInput.AddRef;
  begin
   Atomic.Inc(refCount);
  end;
 
-procedure TVirtualMouse.Release;
+procedure TVirtualInput.Release;
  begin
   if Atomic.Dec(refCount)>0 then exit;
   lock.Cleanup;
   Free;
  end;
 
-function TVirtualMouse.Queue(op:TVirtualMouseOp):int64;
+function TVirtualInput.Queue(op:TVirtualInputOp):int64;
  begin
   lock.Enter;
   try
@@ -677,12 +725,17 @@ function TVirtualMouse.Queue(op:TVirtualMouseOp):int64;
    inc(opCount);
    UpdateDone;
    case op.kind of
-    vmoMode:if op.enable<>reqActive then begin // a mode change ends the gesture
+    vioMode:if op.enable<>reqActive then begin // a mode change ends the gesture
      reqActive:=op.enable;
      reqButtons:=0;
+     reqKeys.Clear;
     end;
-    vmoReset:reqButtons:=0;
-    vmoButton:
+    vioReset:begin
+     reqButtons:=0;
+     reqKeys.Clear;
+    end;
+    vioKey:reqKeys.Put(op.scanCode,op.pressed);
+    vioButton:
      if op.pressed then reqButtons:=reqButtons or (1 shl (op.button-1))
       else reqButtons:=reqButtons and not (1 shl (op.button-1));
    end;
@@ -692,30 +745,30 @@ function TVirtualMouse.Queue(op:TVirtualMouseOp):int64;
   end;
  end;
 
-function TVirtualMouse.TicketState(ticket:int64):TVirtualMouseTicket;
+function TVirtualInput.TicketState(ticket:int64):TVirtualInputTicket;
  var
   i:integer;
  begin
   lock.Enter;
   try
-   if ticket>doneTicket then exit(vmtPending);
+   if ticket>doneTicket then exit(vitPending);
    for i:=0 to high(dropped) do
-    if (ticket>=dropped[i].lo) and (ticket<=dropped[i].hi) then exit(vmtDropped);
-   result:=vmtDone;
+    if (ticket>=dropped[i].lo) and (ticket<=dropped[i].hi) then exit(vitDropped);
+   result:=vitDone;
   finally
    lock.Leave;
   end;
  end;
 
 // Tickets complete in order: the one being applied (if any), then the queued ones
-procedure TVirtualMouse.UpdateDone;
+procedure TVirtualInput.UpdateDone;
  begin
   if takenTicket<>0 then doneTicket:=takenTicket-1
   else if opCount>0 then doneTicket:=ops[0].ticket-1
   else doneTicket:=issuedTicket;
  end;
 
-procedure TVirtualMouse.DropQueued;
+procedure TVirtualInput.DropQueued;
  var
   n:integer;
  begin
@@ -728,9 +781,10 @@ procedure TVirtualMouse.DropQueued;
   UpdateDone;
   reqActive:=activeValue;
   reqButtons:=applied.buttons;
+  reqKeys:=applied.keys;
  end;
 
-procedure TVirtualMouse.Cancel;
+procedure TVirtualInput.Cancel;
  begin
   lock.Enter;
   try
@@ -740,7 +794,7 @@ procedure TVirtualMouse.Cancel;
   end;
  end;
 
-function TVirtualMouse.RequestedActive:boolean;
+function TVirtualInput.RequestedActive:boolean;
  begin
   lock.Enter;
   try
@@ -750,7 +804,7 @@ function TVirtualMouse.RequestedActive:boolean;
   end;
  end;
 
-function TVirtualMouse.RequestedButtons:byte;
+function TVirtualInput.RequestedButtons:byte;
  begin
   lock.Enter;
   try
@@ -760,7 +814,17 @@ function TVirtualMouse.RequestedButtons:byte;
   end;
  end;
 
-function TVirtualMouse.QueuedCount:integer;
+function TVirtualInput.RequestedKeys:TScanSet;
+ begin
+  lock.Enter;
+  try
+   result:=reqKeys;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+function TVirtualInput.QueuedCount:integer;
  begin
   lock.Enter;
   try
@@ -770,7 +834,7 @@ function TVirtualMouse.QueuedCount:integer;
   end;
  end;
 
-function TVirtualMouse.LastTicket:int64;
+function TVirtualInput.LastTicket:int64;
  begin
   lock.Enter;
   try
@@ -780,7 +844,7 @@ function TVirtualMouse.LastTicket:int64;
   end;
  end;
 
-function TVirtualMouse.State:TVirtualMouseState;
+function TVirtualInput.State:TVirtualInputState;
  begin
   lock.Enter;
   try
@@ -790,12 +854,12 @@ function TVirtualMouse.State:TVirtualMouseState;
   end;
  end;
 
-function TVirtualMouse.IsActive:boolean;
+function TVirtualInput.IsActive:boolean;
  begin
   result:=activeValue;
  end;
 
-function TVirtualMouse.IsClosed:boolean;
+function TVirtualInput.IsClosed:boolean;
  begin
   lock.Enter;
   try
@@ -805,18 +869,19 @@ function TVirtualMouse.IsClosed:boolean;
   end;
  end;
 
-function TVirtualMouse.IsMainWindow:boolean;
+function TVirtualInput.IsMainWindow:boolean;
  begin
   result:=(ownerPtr<>nil) and (ownerPtr=pointer(mainWindow));
  end;
 
-function TVirtualMouse.TakeNext(out op:TVirtualMouseOp):boolean;
+function TVirtualInput.TakeNext(out op:TVirtualInputOp;nowMs:int64):boolean;
  begin
   if opCount=0 then exit(false); // a racy read is fine: the next frame takes it
   lock.Enter;
   try
-   result:=(opCount>0) and (takenTicket=0);
+   result:=(opCount>0) and (takenTicket=0) and (nowMs>=lastTakeMs+ops[0].delayMs);
    if not result then exit;
+   lastTakeMs:=nowMs;
    op:=ops[0];
    dec(opCount);
    if opCount>0 then Move(ops[1],ops[0],opCount*sizeof(ops[0]));
@@ -827,7 +892,7 @@ function TVirtualMouse.TakeNext(out op:TVirtualMouseOp):boolean;
   end;
  end;
 
-procedure TVirtualMouse.Complete(const ticket:int64;const st:TVirtualMouseState);
+procedure TVirtualInput.Complete(const ticket:int64;const st:TVirtualInputState);
  begin
   lock.Enter;
   try
@@ -840,12 +905,12 @@ procedure TVirtualMouse.Complete(const ticket:int64;const st:TVirtualMouseState)
   end;
  end;
 
-procedure TVirtualMouse.SetActive(enable:boolean);
+procedure TVirtualInput.SetActive(enable:boolean);
  begin
   activeValue:=enable;
  end;
 
-procedure TVirtualMouse.Close;
+procedure TVirtualInput.Close;
  var
   i:integer;
  begin
@@ -864,23 +929,24 @@ procedure TVirtualMouse.Close;
    UpdateDone;
    reqActive:=false;
    reqButtons:=0;
+   reqKeys.Clear;
    ownerPtr:=nil;
   finally
    lock.Leave;
   end;
-  vmRegistryLock.Enter;
+  viRegistryLock.Enter;
   try
-   for i:=high(vmRegistry) downto 0 do
-    if vmRegistry[i]=self then begin
-     vmRegistry[i]:=vmRegistry[high(vmRegistry)];
-     SetLength(vmRegistry,high(vmRegistry));
+   for i:=high(viRegistry) downto 0 do
+    if viRegistry[i]=self then begin
+     viRegistry[i]:=viRegistry[high(viRegistry)];
+     SetLength(viRegistry,high(viRegistry));
     end;
   finally
-   vmRegistryLock.Leave;
+   viRegistryLock.Leave;
   end;
  end;
 
-function FindVirtualMouse(const windowName:String8):TVirtualMouse;
+function FindVirtualInput(const windowName:String8):TVirtualInput;
  var
   i:integer;
   main:boolean;
@@ -889,17 +955,17 @@ function FindVirtualMouse(const windowName:String8):TVirtualMouse;
   result:=nil;
   name:=windowName.ToLower;
   main:=(name='') or (name='0') or (name='main');
-  vmRegistryLock.Enter;
+  viRegistryLock.Enter;
   try
-   for i:=0 to high(vmRegistry) do
-    if main and vmRegistry[i].IsMainWindow or
-       not main and vmRegistry[i].ownerName.Same(name) then begin
-     result:=vmRegistry[i];
+   for i:=0 to high(viRegistry) do
+    if main and viRegistry[i].IsMainWindow or
+       not main and viRegistry[i].ownerName.Same(name) then begin
+     result:=viRegistry[i];
      result.AddRef;
      exit;
     end;
   finally
-   vmRegistryLock.Leave;
+   viRegistryLock.Leave;
   end;
  end;
 
@@ -927,7 +993,7 @@ constructor TWindow.Create(const windowName:String8);
   surfaceInput.Init(0,0,96);
   Mem.Clear(surface,sizeof(surface));
   ResetFrameTiming;
-  virtualMouse:=TVirtualMouse.Create(self);
+  virtualInput:=TVirtualInput.Create(self);
   mousePos:=Types.Point(OFF_CANVAS,OFF_CANVAS);
   oldMousePos:=mousePos;
   pointerOutside:=true;
@@ -940,9 +1006,9 @@ constructor TWindow.Create(const windowName:String8);
 destructor TWindow.Destroy;
  begin
   DestroyQueuedElements(self); // elements still held by someone are leaked
-  virtualMouse.Close;
-  virtualMouse.Release;
-  virtualMouse:=nil;
+  virtualInput.Close;
+  virtualInput.Release;
+  virtualInput:=nil;
   if length(deletedUI)>0 then
    Log.Force('Window %s destroyed with %d held UI elements',[name,length(deletedUI)]);
   callQueue.lock.Cleanup;
@@ -1161,7 +1227,7 @@ procedure TWindow.BeginClose;
  begin
   Atomic.Exchange(closingValue,1);
   callQueue.Close; // so that no call is accepted after the final RunQueuedCalls
-  virtualMouse.Close; // pending virtual input is dropped, its holders see that
+  virtualInput.Close; // pending virtual input is dropped, its holders see that
  end;
 
 function TWindow.WaitReleased(timeoutMs:integer):boolean;
@@ -1430,12 +1496,12 @@ procedure TWindow.FlushMouseInput;
 
 procedure TWindow.SamplePointer;
  begin
-  if not virtualMouse.IsActive then SampleOSPointer;
+  if not virtualInput.IsActive then SampleOSPointer;
  end;
 
 procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=true);
  begin
-  if virtualMouse.IsActive then exit; // physical input must not interfere
+  if virtualInput.IsActive then exit; // physical input must not interfere
   if sample then SamplePointer; // fresh coords for hit-test at click moment
   // a press of a button that is still held: its release was lost (the OS capture was
   // taken away) - drop the stale bit so the press is a transition again
@@ -1446,7 +1512,7 @@ procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=tr
 
 procedure TWindow.PlatformCancelGesture;
  begin
-  if virtualMouse.IsActive or (mouseButtons=0) then exit;
+  if virtualInput.IsActive or (mouseButtons=0) then exit;
   LockState; // the UI capture and hover are dropped
   try
    CancelMouseGesture;
@@ -1456,12 +1522,41 @@ procedure TWindow.PlatformCancelGesture;
  end;
 
 procedure TWindow.PlatformReleaseKeys;
+ begin
+  if not virtualInput.IsActive then ReleaseKeys;
+ end;
+
+procedure TWindow.ReleaseKeys;
  var
   i:integer;
  begin
   for i:=1 to high(keyState) do
    if keyState[i] and 1<>0 then
     Signal('KBD\KEYUP',ord(keyCodes[i])+i shl 16);
+ end;
+
+function TWindow.KeysShiftState:byte;
+ function Down(code:integer):boolean;
+  begin
+   result:=keyState[code] and 1<>0;
+  end;
+ begin
+  result:=0;
+  if Down(Scan.LShift) or Down(Scan.RShift) then result:=result or sscShift;
+  if Down(Scan.LCtrl) or Down(Scan.RCtrl) then result:=result or sscCtrl;
+  if Down(Scan.LAlt) or Down(Scan.RAlt) then result:=result or sscAlt;
+  if Down(Scan.LWin) or Down(Scan.RWin) then result:=result or sscWin;
+  if Down(Scan.RShift) then result:=result or sscRShift;
+  if Down(Scan.RCtrl) then result:=result or sscRCtrl;
+  if Down(Scan.RAlt) then result:=result or sscRAlt;
+  if Down(Scan.RWin) then result:=result or sscRWin;
+ end;
+
+procedure TWindow.UpdateShiftState;
+ begin
+  if virtualInput.IsActive then shiftState:=KeysShiftState
+  else
+  if systemPlatform<>nil then shiftState:=systemPlatform.GetShiftKeysState;
  end;
 
 function TWindow.KeyTransition(scanCode:integer;key:TKey;pressed:boolean):boolean;
@@ -1480,7 +1575,7 @@ function TWindow.KeyTransition(scanCode:integer;key:TKey;pressed:boolean):boolea
 
 procedure TWindow.PlatformMouseWheel(delta:integer);
  begin
-  if virtualMouse.IsActive then exit;
+  if virtualInput.IsActive then exit;
   SamplePointer;
   DeliverMouseWheel(delta);
  end;
@@ -1541,26 +1636,26 @@ procedure TWindow.PlacePointer(const canvasPos:TPoint;onCanvas:boolean);
   end;
  end;
 
-procedure TWindow.FrameMouseInput(physicalPointer:boolean);
+procedure TWindow.FrameInput(physicalPointer:boolean);
  var
-  op:TVirtualMouseOp;
+  op:TVirtualInputOp;
   ticket:int64;
  begin
   ticket:=0;
-  if virtualMouse.TakeNext(op) then begin
+  if virtualInput.TakeNext(op,frameStartMs) then begin
    ticket:=op.ticket;
    try
-    ApplyVirtualMouseOp(op);
+    ApplyVirtualInputOp(op);
    except
-    on e:Exception do Log.Error('Window %s: virtual mouse operation failed: %s',[name,ExceptionMsg(e)]);
+    on e:Exception do Log.Error('Window %s: virtual input operation failed: %s',[name,ExceptionMsg(e)]);
    end;
   end;
-  if virtualMouse.IsActive or (ticket<>0) then begin
+  if virtualInput.IsActive or (ticket<>0) then begin
    // the ticket completes after the move dispatch: the hover is up to date by then
    try
     FlushMouseInput;
    finally
-    virtualMouse.Complete(ticket,VirtualMouseSnapshot);
+    virtualInput.Complete(ticket,VirtualInputSnapshot);
    end;
   end else
   if physicalPointer then begin
@@ -1569,23 +1664,30 @@ procedure TWindow.FrameMouseInput(physicalPointer:boolean);
   end;
  end;
 
-procedure TWindow.ApplyVirtualMouseOp(const op:TVirtualMouseOp);
+procedure TWindow.ApplyVirtualInputOp(const op:TVirtualInputOp);
  var
   p:TPoint;
  begin
   case op.kind of
-   vmoMode:
-    if op.enable<>virtualMouse.IsActive then begin
+   vioMode:
+    if op.enable<>virtualInput.IsActive then begin
      // entering: a physical gesture in progress ends without a click, the pointer
-     // starts outside the canvas; leaving: the same for the virtual gesture
-     if op.enable then virtualMouse.SetActive(true);
+     // starts outside the canvas, the held keys are released; leaving: the same for the
+     // virtual gesture and keys
+     if op.enable then virtualInput.SetActive(true);
      CancelMouseGesture;
-     if not op.enable then virtualMouse.SetActive(false);
+     ReleaseKeys;
+     if not op.enable then virtualInput.SetActive(false);
+     UpdateShiftState;
     end;
-   vmoReset:
-    if virtualMouse.IsActive then CancelMouseGesture;
-   vmoMove:
-    if virtualMouse.IsActive then begin
+   vioReset:
+    if virtualInput.IsActive then begin
+     CancelMouseGesture;
+     ReleaseKeys;
+     UpdateShiftState;
+    end;
+   vioMove:
+    if virtualInput.IsActive then begin
      if op.clientSpace then
       SetPointer(op.pos) // same mapping as the OS pointer
      else begin
@@ -1593,12 +1695,21 @@ procedure TWindow.ApplyVirtualMouseOp(const op:TVirtualMouseOp);
       PlacePointer(p,(p.x>=0) and (p.y>=0) and (p.x<canvasWidth) and (p.y<canvasHeight));
      end;
     end;
-   vmoButton:
-    if virtualMouse.IsActive and (op.button in [1..5]) then
+   vioButton:
+    if virtualInput.IsActive and (op.button in [1..5]) then
      DeliverMouseButton(op.button,op.pressed);
-   vmoWheel:
-    if virtualMouse.IsActive and (op.delta<>0) then
+   vioWheel:
+    if virtualInput.IsActive and (op.delta<>0) then
      DeliverMouseWheel(op.delta);
+   vioKey:
+    if virtualInput.IsActive then begin
+     // the events a platform sends (the platforms send none while the virtual input is on)
+     if op.pressed then Signal('KBD\KEYDOWN',ord(op.key)+op.scanCode shl 16)
+      else Signal('KBD\KEYUP',ord(op.key)+op.scanCode shl 16);
+     UpdateShiftState;
+    end;
+   vioChar:
+    if virtualInput.IsActive then Signal('KBD\UNICHAR',op.ch);
   end;
  end;
 
@@ -1642,11 +1753,12 @@ procedure TWindow.CancelMouseGesture;
    if (mouseButtons and (1 shl (btn-1)))<>0 then DeliverMouseButton(btn,false);
  end;
 
-function TWindow.VirtualMouseSnapshot:TVirtualMouseState;
+function TWindow.VirtualInputSnapshot:TVirtualInputState;
  var
   e:TUIElement;
+  i:integer;
  begin
-  result.active:=virtualMouse.IsActive;
+  result.active:=virtualInput.IsActive;
   result.pos:=mousePos;
   result.buttons:=mouseButtons;
   result.frame:=frameNum;
@@ -1657,6 +1769,17 @@ function TWindow.VirtualMouseSnapshot:TVirtualMouseState;
   end else begin
    result.under:='';
    result.underClass:='';
+  end;
+  result.keys.Clear;
+  for i:=1 to high(keyState) do
+   if keyState[i] and 1<>0 then result.keys.Put(i,true);
+  e:=TUIElement(focus.element);
+  if (e<>nil) and not e.deleted then begin
+   result.focus:=e.name;
+   result.focusClass:=String8(e.ClassName);
+  end else begin
+   result.focus:='';
+   result.focusClass:='';
   end;
  end;
 
@@ -2278,7 +2401,7 @@ var
  wnd:TWindow;
 begin
  wnd:=MouseWindow;
- result:=(wnd<>nil) and wnd.virtualMouse.IsActive;
+ result:=(wnd<>nil) and wnd.virtualInput.IsActive;
 end;
 
 function TWindow.ClientToCanvas(const p:TPoint):TPoint;
@@ -2556,7 +2679,7 @@ function ListWindows:TWindowArray;
 
 initialization
  windowHash.Init;
- vmRegistryLock.Init('VirtualMice',805);
+ viRegistryLock.Init('VirtualMice',805);
 
 finalization
  windowHash.Clear;

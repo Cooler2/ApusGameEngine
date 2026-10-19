@@ -1028,20 +1028,25 @@ begin
   result:=true;
 end;
 
-// --- Robot API: virtual mouse (robot_api_protocol.md, "Mouse input") ---
+// --- Robot API: virtual input (robot_api_protocol.md, "Virtual input") ---
 // The handlers run in the main loop thread only, so the lists below need no lock.
-// They never touch a window: only its TVirtualMouse, which outlives it.
+// They never touch a window: only its TVirtualInput, which outlives it.
 
 type
- TRobotMouseRequest=record
+ TRobotInputRequest=record
   serial:int64;        // TRobotRequest.serial
-  mouse:TVirtualMouse; // AddRef'ed
+  input:TVirtualInput; // AddRef'ed
   ticket:int64;        // the request is answered once this operation is done
  end;
+ TKeyArray=array of TKey;
+
+const
+ MAX_HOLD_MS=60000; // key.tap HOLD limit
+ MAX_TYPE_LENGTH=1000; // key.type TEXT limit (UTF-16 code units)
 
 var
- robotMouseRequests:array of TRobotMouseRequest; // postponed (waiting) requests
- robotMice:array of TVirtualMouse; // mice the robot switched to the virtual mode (AddRef'ed)
+ robotInputRequests:array of TRobotInputRequest; // postponed (waiting) requests
+ robotInputs:array of TVirtualInput; // inputs the robot switched to the virtual mode (AddRef'ed)
 
 function RobotFlag(const st:String8;default:boolean;out value:boolean):boolean;
  var
@@ -1070,9 +1075,22 @@ function RobotButtonsStr(buttons:byte):String8;
   if result='' then result:='none';
  end;
 
-function RobotMouseReport(vm:TVirtualMouse;ticket:int64;done:boolean):String8;
+function RobotKeysStr(const keys:TScanSet):String8;
  var
-  st:TVirtualMouseState;
+  i:integer;
+ begin
+  result:='';
+  for i:=1 to Scan.Count-1 do
+   if keys.Has(i) then begin
+    if result<>'' then result:=result+',';
+    result:=result+String8(Scan.Name(i));
+   end;
+  if result='' then result:='none';
+ end;
+
+function RobotInputReport(vm:TVirtualInput;ticket:int64;done:boolean):String8;
+ var
+  st:TVirtualInputState;
   wndName:String8;
  begin
   st:=vm.State;
@@ -1090,16 +1108,19 @@ function RobotMouseReport(vm:TVirtualMouse;ticket:int64;done:boolean):String8;
   result:=result+'buttons: '+RobotButtonsStr(st.buttons)+LineBreak;
   if st.underClass='' then result:=result+'under: (none)'+LineBreak
    else result:=result+'under: '+st.under+LineBreak+'underClass: '+st.underClass+LineBreak;
+  result:=result+'keys: '+RobotKeysStr(st.keys)+LineBreak;
+  if st.focusClass='' then result:=result+'focus: (none)'+LineBreak
+   else result:=result+'focus: '+st.focus+LineBreak+'focusClass: '+st.focusClass+LineBreak;
   result:=result+'queued: '+Conv.ToStr(vm.QueuedCount)+LineBreak+
    'frame: '+Conv.ToStr(st.frame)+LineBreak;
  end;
 
-// Mouse of the WINDOW parameter (AddRef'ed); needVirtual - the virtual mode must be on
+// Input of the WINDOW parameter (AddRef'ed); needVirtual - the virtual mode must be on
 // (as requested, i.e. after the operations queued so far)
-function RobotMouseTarget(const req:TRobotRequest;needVirtual:boolean;
-  out vm:TVirtualMouse;out err:String8):boolean;
+function RobotInputTarget(const req:TRobotRequest;needVirtual:boolean;
+  out vm:TVirtualInput;out err:String8):boolean;
  begin
-  vm:=FindVirtualMouse(req.Param('WINDOW'));
+  vm:=FindVirtualInput(req.Param('WINDOW'));
   if vm=nil then begin
    err:='window not found: '+req.Param('WINDOW');
    exit(false);
@@ -1107,34 +1128,34 @@ function RobotMouseTarget(const req:TRobotRequest;needVirtual:boolean;
   if needVirtual and not vm.RequestedActive then begin
    vm.Release;
    vm:=nil;
-   err:='virtual mouse is off: send mouse.mode with MODE: virtual first';
+   err:='virtual input is off: send input.mode with MODE: virtual first';
    exit(false);
   end;
   result:=true;
  end;
 
-procedure RobotMouseTrack(vm:TVirtualMouse;enabled:boolean);
+procedure RobotInputTrack(vm:TVirtualInput;enabled:boolean);
  var
   i:integer;
  begin
-  for i:=high(robotMice) downto 0 do
-   if (robotMice[i]=vm) or robotMice[i].IsClosed then begin
-    robotMice[i].Release;
-    robotMice[i]:=robotMice[high(robotMice)];
-    SetLength(robotMice,high(robotMice));
+  for i:=high(robotInputs) downto 0 do
+   if (robotInputs[i]=vm) or robotInputs[i].IsClosed then begin
+    robotInputs[i].Release;
+    robotInputs[i]:=robotInputs[high(robotInputs)];
+    SetLength(robotInputs,high(robotInputs));
    end;
   if enabled then begin
    vm.AddRef;
-   i:=length(robotMice);
-   SetLength(robotMice,i+1);
-   robotMice[i]:=vm;
+   i:=length(robotInputs);
+   SetLength(robotInputs,i+1);
+   robotInputs[i]:=vm;
   end;
  end;
 
 // Queue the operations of a request, answer at once (WAIT: no) or postpone it until the
 // last one is applied. Takes over the caller's reference to vm.
-function RobotMouseQueue(const req:TRobotRequest;vm:TVirtualMouse;
-  const ops:array of TVirtualMouseOp;out body:String8):boolean;
+function RobotInputQueue(const req:TRobotRequest;vm:TVirtualInput;
+  const ops:array of TVirtualInputOp;out body:String8):boolean;
  var
   i,n:integer;
   ticket:int64;
@@ -1155,14 +1176,14 @@ function RobotMouseQueue(const req:TRobotRequest;vm:TVirtualMouse;
     end;
    end;
    if not wait then begin
-    body:=RobotMouseReport(vm,ticket,vm.TicketState(ticket)=vmtDone);
+    body:=RobotInputReport(vm,ticket,vm.TicketState(ticket)=vitDone);
     exit(true);
    end;
-   n:=length(robotMouseRequests);
-   SetLength(robotMouseRequests,n+1);
-   robotMouseRequests[n].serial:=req.serial;
-   robotMouseRequests[n].mouse:=vm;
-   robotMouseRequests[n].ticket:=ticket;
+   n:=length(robotInputRequests);
+   SetLength(robotInputRequests,n+1);
+   robotInputRequests[n].serial:=req.serial;
+   robotInputRequests[n].input:=vm;
+   robotInputRequests[n].ticket:=ticket;
    vm:=nil; // the entry holds the reference now
    body:=PENDING_ORDERED_TOKEN;
    result:=true;
@@ -1173,22 +1194,22 @@ function RobotMouseQueue(const req:TRobotRequest;vm:TVirtualMouse;
 
 // A postponed request is retried every poll: it only checks its operations, never
 // queues them again
-function RobotMouseContinue(const req:TRobotRequest;out body:String8):boolean;
+function RobotInputContinue(const req:TRobotRequest;out body:String8):boolean;
  var
   i:integer;
-  vm:TVirtualMouse;
-  state:TVirtualMouseTicket;
+  vm:TVirtualInput;
+  state:TVirtualInputTicket;
  begin
-  for i:=0 to high(robotMouseRequests) do
-   if robotMouseRequests[i].serial=req.serial then begin
-    vm:=robotMouseRequests[i].mouse;
-    state:=vm.TicketState(robotMouseRequests[i].ticket);
-    if state=vmtPending then begin
+  for i:=0 to high(robotInputRequests) do
+   if robotInputRequests[i].serial=req.serial then begin
+    vm:=robotInputRequests[i].input;
+    state:=vm.TicketState(robotInputRequests[i].ticket);
+    if state=vitPending then begin
      body:=PENDING_ORDERED_TOKEN;
      exit(true);
     end;
-    if state=vmtDone then begin
-     body:=RobotMouseReport(vm,robotMouseRequests[i].ticket,true);
+    if state=vitDone then begin
+     body:=RobotInputReport(vm,robotInputRequests[i].ticket,true);
      result:=true;
     end else begin
      if vm.IsClosed then body:='window closed before the input was applied'
@@ -1196,8 +1217,8 @@ function RobotMouseContinue(const req:TRobotRequest;out body:String8):boolean;
      result:=false;
     end;
     vm.Release;
-    robotMouseRequests[i]:=robotMouseRequests[high(robotMouseRequests)];
-    SetLength(robotMouseRequests,high(robotMouseRequests));
+    robotInputRequests[i]:=robotInputRequests[high(robotInputRequests)];
+    SetLength(robotInputRequests,high(robotInputRequests));
     exit;
    end;
   body:='request state lost';
@@ -1220,7 +1241,7 @@ function RobotParseButton(const req:TRobotRequest;out btn:byte;out err:String8):
  end;
 
 // X,Y (+SPACE) into a move operation; optional - both may be absent (hasPos=false)
-function RobotParseMove(const req:TRobotRequest;optional:boolean;out op:TVirtualMouseOp;
+function RobotParseMove(const req:TRobotRequest;optional:boolean;out op:TVirtualInputOp;
   out hasPos:boolean;out err:String8):boolean;
  var
   sx,sy,space:String8;
@@ -1228,7 +1249,7 @@ function RobotParseMove(const req:TRobotRequest;optional:boolean;out op:TVirtual
  begin
   result:=false;
   FillChar(op,sizeof(op),0);
-  op.kind:=vmoMove;
+  op.kind:=vioMove;
   sx:=req.Param('X').Trim;
   sy:=req.Param('Y').Trim;
   hasPos:=(sx<>'') or (sy<>'');
@@ -1255,76 +1276,183 @@ function RobotParseMove(const req:TRobotRequest;optional:boolean;out op:TVirtual
   result:=true;
  end;
 
-function ButtonOp(btn:byte;pressed:boolean):TVirtualMouseOp;
+function ButtonOp(btn:byte;pressed:boolean):TVirtualInputOp;
  begin
   FillChar(result,sizeof(result),0);
-  result.kind:=vmoButton;
+  result.kind:=vioButton;
   result.button:=btn;
   result.pressed:=pressed;
  end;
 
-function RobotCmdMouseMode(const req:TRobotRequest; out body:String8):boolean;
- var
-  vm:TVirtualMouse;
-  mode:String8;
-  op:TVirtualMouseOp;
+function KeyOp(key:TKey;scanCode:integer;pressed:boolean;delayMs:integer=0):TVirtualInputOp;
  begin
-  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  FillChar(result,sizeof(result),0);
+  result.kind:=vioKey;
+  result.key:=key;
+  result.scanCode:=scanCode;
+  result.pressed:=pressed;
+  result.delayMs:=delayMs;
+ end;
+
+// KEY (a TKey name, the position on the US layout) or SCAN (a scancode, Scan.XXX)
+function RobotParseKey(const req:TRobotRequest;out key:TKey;out code:integer;out err:String8):boolean;
+ var
+  sk,sc:String8;
+ begin
+  result:=false;
+  sk:=req.Param('KEY').Trim;
+  sc:=req.Param('SCAN').Trim;
+  if (sk<>'') and (sc<>'') then begin
+   err:='KEY and SCAN are mutually exclusive';
+   exit;
+  end;
+  if sk<>'' then begin
+   key:=TKey.FromName(string(sk));
+   code:=Scan.FromKey(key);
+   if code=Scan.None then begin
+    err:='unknown KEY: '+sk;
+    exit;
+   end;
+  end else
+  if sc<>'' then begin
+   if not TryStrToInt(string(sc),code) or (code<=0) or (code>=Scan.Count) then begin
+    err:='SCAN should be a scancode 1..'+Conv.ToStr(Scan.Count-1);
+    exit;
+   end;
+   key:=Scan.ToKey(code);
+  end else begin
+   err:='KEY or SCAN parameter required';
+   exit;
+  end;
+  result:=true;
+ end;
+
+// MODS: modifiers separated by '+' or ','; shift/ctrl/alt/win - the left ones
+function RobotParseMods(const req:TRobotRequest;out keys:TKeyArray;out err:String8):boolean;
+ var
+  parts:Strings8;
+  i:integer;
+  st:String8;
+  key:TKey;
+ begin
+  result:=false;
+  SetLength(keys,0);
+  st:=req.Param('MODS').Trim.ToLower;
+  if st='' then exit(true);
+  parts:=st.Split(String8('+,'));
+  for i:=0 to high(parts) do begin
+   st:=parts[i].Trim;
+   if (st='shift') or (st='lshift') then key:=TKey.LShift
+   else if st='rshift' then key:=TKey.RShift
+   else if (st='ctrl') or (st='lctrl') then key:=TKey.LCtrl
+   else if st='rctrl' then key:=TKey.RCtrl
+   else if (st='alt') or (st='lalt') then key:=TKey.LAlt
+   else if st='ralt' then key:=TKey.RAlt
+   else if (st='win') or (st='lwin') then key:=TKey.LWin
+   else if st='rwin' then key:=TKey.RWin
+   else begin
+    err:='unknown modifier in MODS: '+st+' (expected shift, ctrl, alt, win, or with l/r)';
+    exit;
+   end;
+   keys:=keys+[key];
+  end;
+  result:=true;
+ end;
+
+function RobotCmdInputMode(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualInput;
+  mode:String8;
+  op:TVirtualInputOp;
+ begin
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
   mode:=req.Param('MODE').Trim.ToLower;
   if (mode<>'virtual') and (mode<>'physical') then begin
    body:='MODE should be virtual or physical';
    exit(false);
   end;
-  if not RobotMouseTarget(req,false,vm,body) then exit(false);
+  if not RobotInputTarget(req,false,vm,body) then exit(false);
   FillChar(op,sizeof(op),0);
-  op.kind:=vmoMode;
+  op.kind:=vioMode;
   op.enable:=mode='virtual';
-  RobotMouseTrack(vm,op.enable);
-  result:=RobotMouseQueue(req,vm,[op],body);
+  RobotInputTrack(vm,op.enable);
+  result:=RobotInputQueue(req,vm,[op],body);
  end;
 
-function RobotCmdMouseReset(const req:TRobotRequest; out body:String8):boolean;
+function RobotCmdInputReset(const req:TRobotRequest; out body:String8):boolean;
  var
-  vm:TVirtualMouse;
-  op:TVirtualMouseOp;
+  vm:TVirtualInput;
+  op:TVirtualInputOp;
  begin
-  if req.attempt>0 then exit(RobotMouseContinue(req,body));
-  if not RobotMouseTarget(req,false,vm,body) then exit(false);
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
+  if not RobotInputTarget(req,false,vm,body) then exit(false);
   if not vm.RequestedActive then begin // physical mode: nothing to reset
-   body:=RobotMouseReport(vm,0,true);
+   body:=RobotInputReport(vm,0,true);
    vm.Release;
    exit(true);
   end;
   FillChar(op,sizeof(op),0);
-  op.kind:=vmoReset;
-  result:=RobotMouseQueue(req,vm,[op],body);
+  op.kind:=vioReset;
+  result:=RobotInputQueue(req,vm,[op],body);
+ end;
+
+function RobotCmdInputState(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualInput;
+ begin
+  if not RobotInputTarget(req,false,vm,body) then exit(false);
+  body:=RobotInputReport(vm,0,true);
+  vm.Release;
+  result:=true;
+ end;
+
+// Postponed until every operation queued for the window so far is applied
+function RobotCmdInputWait(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualInput;
+  n:integer;
+ begin
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
+  if not RobotInputTarget(req,false,vm,body) then exit(false);
+  if vm.TicketState(vm.LastTicket)<>vitPending then begin
+   body:=RobotInputReport(vm,0,true);
+   vm.Release;
+   exit(true);
+  end;
+  n:=length(robotInputRequests);
+  SetLength(robotInputRequests,n+1);
+  robotInputRequests[n].serial:=req.serial;
+  robotInputRequests[n].input:=vm;
+  robotInputRequests[n].ticket:=vm.LastTicket;
+  body:=PENDING_ORDERED_TOKEN;
+  result:=true;
  end;
 
 function RobotCmdMouseMove(const req:TRobotRequest; out body:String8):boolean;
  var
-  vm:TVirtualMouse;
-  op:TVirtualMouseOp;
+  vm:TVirtualInput;
+  op:TVirtualInputOp;
   hasPos:boolean;
  begin
-  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
   if not RobotParseMove(req,false,op,hasPos,body) then exit(false);
-  if not RobotMouseTarget(req,true,vm,body) then exit(false);
-  result:=RobotMouseQueue(req,vm,[op],body);
+  if not RobotInputTarget(req,true,vm,body) then exit(false);
+  result:=RobotInputQueue(req,vm,[op],body);
  end;
 
 // mouse.down, mouse.up, mouse.click
 function RobotMouseButtonCmd(const req:TRobotRequest;down,up:boolean;out body:String8):boolean;
  var
-  vm:TVirtualMouse;
-  move:TVirtualMouseOp;
-  ops:array of TVirtualMouseOp;
+  vm:TVirtualInput;
+  move:TVirtualInputOp;
+  ops:array of TVirtualInputOp;
   hasPos,isDown:boolean;
   btn:byte;
  begin
-  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
   if not RobotParseButton(req,btn,body) then exit(false);
   if not RobotParseMove(req,true,move,hasPos,body) then exit(false);
-  if not RobotMouseTarget(req,true,vm,body) then exit(false);
+  if not RobotInputTarget(req,true,vm,body) then exit(false);
   isDown:=(vm.RequestedButtons and (1 shl (btn-1)))<>0;
   if down and isDown then body:='button is already down: '+req.Param('BUTTON')
   else if up and not down and not isDown then body:='button is not down: '+req.Param('BUTTON')
@@ -1337,7 +1465,7 @@ function RobotMouseButtonCmd(const req:TRobotRequest;down,up:boolean;out body:St
   if hasPos then ops:=[move];
   if down then ops:=ops+[ButtonOp(btn,true)];
   if up then ops:=ops+[ButtonOp(btn,false)];
-  result:=RobotMouseQueue(req,vm,ops,body);
+  result:=RobotInputQueue(req,vm,ops,body);
  end;
 
 function RobotCmdMouseDown(const req:TRobotRequest; out body:String8):boolean;
@@ -1358,79 +1486,148 @@ function RobotCmdMouseClick(const req:TRobotRequest; out body:String8):boolean;
 // mouse.wheel: move (optional), then turn the wheel
 function RobotCmdMouseWheel(const req:TRobotRequest; out body:String8):boolean;
  var
-  vm:TVirtualMouse;
-  move,wheel:TVirtualMouseOp;
-  ops:array of TVirtualMouseOp;
+  vm:TVirtualInput;
+  move,wheel:TVirtualInputOp;
+  ops:array of TVirtualInputOp;
   hasPos:boolean;
   delta:integer;
  begin
-  if req.attempt>0 then exit(RobotMouseContinue(req,body));
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
   if not TryStrToInt(string(req.Param('DELTA').Trim),delta) or (delta=0) then begin
    body:='DELTA should be a non-zero integer (120 per notch, positive - away from the user)';
    exit(false);
   end;
   if not RobotParseMove(req,true,move,hasPos,body) then exit(false);
-  if not RobotMouseTarget(req,true,vm,body) then exit(false);
+  if not RobotInputTarget(req,true,vm,body) then exit(false);
   FillChar(wheel,sizeof(wheel),0);
-  wheel.kind:=vmoWheel;
+  wheel.kind:=vioWheel;
   wheel.delta:=delta;
   SetLength(ops,0);
   if hasPos then ops:=[move];
   ops:=ops+[wheel];
-  result:=RobotMouseQueue(req,vm,ops,body);
+  result:=RobotInputQueue(req,vm,ops,body);
  end;
 
-function RobotCmdMouseState(const req:TRobotRequest; out body:String8):boolean;
+// key.down, key.up
+function RobotKeyCmd(const req:TRobotRequest;down:boolean;out body:String8):boolean;
  var
-  vm:TVirtualMouse;
+  vm:TVirtualInput;
+  key:TKey;
+  code:integer;
  begin
-  if not RobotMouseTarget(req,false,vm,body) then exit(false);
-  body:=RobotMouseReport(vm,0,true);
-  vm.Release;
-  result:=true;
- end;
-
-// Postponed until every operation queued for the window so far is applied
-function RobotCmdMouseWait(const req:TRobotRequest; out body:String8):boolean;
- var
-  vm:TVirtualMouse;
-  n:integer;
- begin
-  if req.attempt>0 then exit(RobotMouseContinue(req,body));
-  if not RobotMouseTarget(req,false,vm,body) then exit(false);
-  if vm.TicketState(vm.LastTicket)<>vmtPending then begin
-   body:=RobotMouseReport(vm,0,true);
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
+  if not RobotParseKey(req,key,code,body) then exit(false);
+  if not RobotInputTarget(req,true,vm,body) then exit(false);
+  if vm.RequestedKeys.Has(code)=down then begin
+   if down then body:='key is already down: '+String8(Scan.Name(code))
+    else body:='key is not down: '+String8(Scan.Name(code));
    vm.Release;
-   exit(true);
+   exit(false);
   end;
-  n:=length(robotMouseRequests);
-  SetLength(robotMouseRequests,n+1);
-  robotMouseRequests[n].serial:=req.serial;
-  robotMouseRequests[n].mouse:=vm;
-  robotMouseRequests[n].ticket:=vm.LastTicket;
-  body:=PENDING_ORDERED_TOKEN;
-  result:=true;
+  result:=RobotInputQueue(req,vm,[KeyOp(key,code,down)],body);
+ end;
+
+function RobotCmdKeyDown(const req:TRobotRequest; out body:String8):boolean;
+ begin
+  result:=RobotKeyCmd(req,true,body);
+ end;
+
+function RobotCmdKeyUp(const req:TRobotRequest; out body:String8):boolean;
+ begin
+  result:=RobotKeyCmd(req,false,body);
+ end;
+
+// key.tap: modifiers down, the key down, the key up (HOLD ms later), modifiers up
+function RobotCmdKeyTap(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualInput;
+  key:TKey;
+  code,hold,i:integer;
+  mods:TKeyArray;
+  modCodes:array of integer;
+  held:TScanSet;
+  ops:array of TVirtualInputOp;
+ begin
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
+  if not RobotParseKey(req,key,code,body) then exit(false);
+  if not RobotParseMods(req,mods,body) then exit(false);
+  hold:=0;
+  if (req.Param('HOLD').Trim<>'') and
+     (not TryStrToInt(string(req.Param('HOLD').Trim),hold) or (hold<0) or (hold>MAX_HOLD_MS)) then begin
+   body:='HOLD should be 0..'+Conv.ToStr(MAX_HOLD_MS)+' (milliseconds)';
+   exit(false);
+  end;
+  if not RobotInputTarget(req,true,vm,body) then exit(false);
+  held:=vm.RequestedKeys;
+  SetLength(modCodes,length(mods));
+  for i:=0 to high(mods) do begin
+   modCodes[i]:=Scan.FromKey(mods[i]);
+   if held.Has(modCodes[i]) or (modCodes[i]=code) then begin
+    body:='key is already down: '+String8(Scan.Name(modCodes[i]));
+    vm.Release;
+    exit(false);
+   end;
+   held.Put(modCodes[i],true);
+  end;
+  if held.Has(code) then begin
+   body:='key is already down: '+String8(Scan.Name(code));
+   vm.Release;
+   exit(false);
+  end;
+  SetLength(ops,0);
+  for i:=0 to high(mods) do ops:=ops+[KeyOp(mods[i],modCodes[i],true)];
+  ops:=ops+[KeyOp(key,code,true),KeyOp(key,code,false,hold)];
+  for i:=high(mods) downto 0 do ops:=ops+[KeyOp(mods[i],modCodes[i],false)];
+  result:=RobotInputQueue(req,vm,ops,body);
+ end;
+
+// key.type: the characters of TEXT, one per frame (KBD\UNICHAR, no key events)
+function RobotCmdKeyType(const req:TRobotRequest; out body:String8):boolean;
+ var
+  vm:TVirtualInput;
+  text:WideString;
+  ops:array of TVirtualInputOp;
+  i:integer;
+ begin
+  if req.attempt>0 then exit(RobotInputContinue(req,body));
+  text:=UTF8.ToWide(req.Param('TEXT'));
+  if text='' then begin
+   body:='TEXT parameter required';
+   exit(false);
+  end;
+  if length(text)>MAX_TYPE_LENGTH then begin
+   body:='TEXT is too long: '+Conv.ToStr(length(text))+' > '+Conv.ToStr(MAX_TYPE_LENGTH)+' UTF-16 units';
+   exit(false);
+  end;
+  if not RobotInputTarget(req,true,vm,body) then exit(false);
+  SetLength(ops,length(text));
+  for i:=0 to high(ops) do begin
+   FillChar(ops[i],sizeof(ops[i]),0);
+   ops[i].kind:=vioChar;
+   ops[i].ch:=word(text[i+1]);
+  end;
+  result:=RobotInputQueue(req,vm,ops,body);
  end;
 
 // Robot API is shutting down: its pending requests are gone, and no window must stay
 // in the virtual mode with nobody to drive it
-procedure RobotMouseShutdown;
+procedure RobotInputShutdown;
  var
   i:integer;
-  op:TVirtualMouseOp;
+  op:TVirtualInputOp;
  begin
-  for i:=0 to high(robotMouseRequests) do
-   robotMouseRequests[i].mouse.Release;
-  SetLength(robotMouseRequests,0);
+  for i:=0 to high(robotInputRequests) do
+   robotInputRequests[i].input.Release;
+  SetLength(robotInputRequests,0);
   FillChar(op,sizeof(op),0);
-  op.kind:=vmoMode;
+  op.kind:=vioMode;
   op.enable:=false;
-  for i:=0 to high(robotMice) do begin
-   robotMice[i].Cancel;
-   robotMice[i].Queue(op); // no-op for a closed window
-   robotMice[i].Release;
+  for i:=0 to high(robotInputs) do begin
+   robotInputs[i].Cancel;
+   robotInputs[i].Queue(op); // no-op for a closed window
+   robotInputs[i].Release;
   end;
-  SetLength(robotMice,0);
+  SetLength(robotInputs,0);
  end;
 
 procedure ApplyDefaultUIScale(wnd:TWindow);
@@ -1459,14 +1656,18 @@ initialization
  RegisterRobotCommand('ui.tree',@RobotCmdUITree);
  RegisterRobotCommand('ui.element',@RobotCmdUIElement);
  RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);
- RegisterRobotCommand('mouse.mode',@RobotCmdMouseMode);
- RegisterRobotCommand('mouse.reset',@RobotCmdMouseReset);
+ RegisterRobotCommand('input.mode',@RobotCmdInputMode);
+ RegisterRobotCommand('input.reset',@RobotCmdInputReset);
+ RegisterRobotCommand('input.state',@RobotCmdInputState);
+ RegisterRobotCommand('input.wait',@RobotCmdInputWait);
  RegisterRobotCommand('mouse.move',@RobotCmdMouseMove);
  RegisterRobotCommand('mouse.down',@RobotCmdMouseDown);
  RegisterRobotCommand('mouse.up',@RobotCmdMouseUp);
  RegisterRobotCommand('mouse.click',@RobotCmdMouseClick);
  RegisterRobotCommand('mouse.wheel',@RobotCmdMouseWheel);
- RegisterRobotCommand('mouse.state',@RobotCmdMouseState);
- RegisterRobotCommand('mouse.wait',@RobotCmdMouseWait);
- RegisterRobotShutdownHandler(RobotMouseShutdown);
+ RegisterRobotCommand('key.down',@RobotCmdKeyDown);
+ RegisterRobotCommand('key.up',@RobotCmdKeyUp);
+ RegisterRobotCommand('key.tap',@RobotCmdKeyTap);
+ RegisterRobotCommand('key.type',@RobotCmdKeyType);
+ RegisterRobotShutdownHandler(RobotInputShutdown);
  end.

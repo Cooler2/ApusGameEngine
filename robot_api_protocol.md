@@ -44,8 +44,8 @@ answers are still delivered together. Blocks are ordered by the moment each answ
 became available, not by the request order — match them by `ID`.
 
 Requests run in the order they are given. Most postponed commands do not hold the
-others back, but **input commands do** (`mouse.*` waiting for their input, see
-[Mouse input](#mouse-input-virtual-mouse)): the requests after such a command - in
+others back, but **input commands do** (`input.*`, `mouse.*`, `key.*` waiting for their
+input, see [Virtual input](#virtual-input)): the requests after such a command - in
 this batch and in the batches that arrive meanwhile - run only once it is answered.
 So `mouse.click` followed by `ui.element` in one batch reports the state after the
 click, and the answers come in the request order.
@@ -60,7 +60,7 @@ click, and the answers come in the request order.
 
 ### `windows` — window/render dimensions, DPI, screenScale, displayRect.
 - Returns for the main window (`WINDOW: 0`): `name` (accepted by the `WINDOW` parameter
-  of `mouse.*`), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`,
+  of `input.*`, `mouse.*`, `key.*`), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`,
   `screenDPI`, `screenScale`, `displayRect`.
 
 ### `window.move` - move main window, optionally with resize in one call.
@@ -170,48 +170,60 @@ size instead of returning the stale one.
 - `X`, `Y`: coordinates in that space.
 - Returns: x, y (as requested), space, pixel (`x,y` in real pixels), color (AARRGGBB hex).
 
-## Mouse input (virtual mouse)
+## Virtual input
 
-Simulated pointer input that does not touch the OS: the system cursor never moves,
-no focus is taken, no `SendInput`/`XTest`-like API is used, so it works the same on
-every platform. The input goes through the regular mouse routing of the engine -
-hit-test, hover (`underMouse`, `onMouseOver`/`onMouseOut`), pressed state, modal
-dialogs, disabled/hidden elements, mouse capture (drags), clicks, gameplay scenes'
-`onMouseMove`/`onMouseBtn`, `window.mouseButtons`, `MOUSE\BTNDOWN`/`MOUSE\BTNUP`
-signals; the wheel - `onMouseScroll` of the element under the pointer (gameplay scenes'
-`onMouseWheel` if no control takes it), `MOUSE\SCROLL`. Nothing calls a click handler directly.
+Simulated pointer and keyboard input that does not touch the OS: the system cursor never
+moves, no focus is taken, no `SendInput`/`XTest`-like API is used, so it works the same on
+every platform.
+
+The mouse goes through the regular mouse routing of the engine - hit-test, hover
+(`underMouse`, `onMouseOver`/`onMouseOut`), pressed state, modal dialogs, disabled/hidden
+elements, mouse capture (drags), clicks, gameplay scenes' `onMouseMove`/`onMouseBtn`,
+`window.mouseButtons`, `MOUSE\BTNDOWN`/`MOUSE\BTNUP` signals; the wheel - `onMouseScroll` of
+the element under the pointer (gameplay scenes' `onMouseWheel` if no control takes it),
+`MOUSE\SCROLL`.
+
+The keys are the `KBD\KEYDOWN`/`KBD\KEYUP` events a platform sends, so they take the regular
+keyboard path: UI focus, hotkeys, gameplay `onKeyDown`/`onKeyUp`, engine hotkeys, console,
+`IsKeyDown`/`IsKeyPressed`/`IsKeyReleased`, and the modifiers (`window.shiftState`) come from
+the virtual keys held. Text is `KBD\UNICHAR` characters, as a platform's text input sends
+them. Nothing calls a handler directly.
 
 It does not replace a check of the real OS input path: keep small OS-input smoke tests
-for that. Keyboard and touch are not simulated.
+for that. Touch is not simulated.
 
 ### Virtual mode
 
-The virtual mouse belongs to a window and is an explicit mode of that window:
+The virtual input belongs to a window and is an explicit mode of that window, for the
+mouse and the keyboard together:
 
-- `mouse.mode` with `MODE: virtual` switches it on. From then on the window ignores the
-  physical pointer and buttons (polling and OS button/wheel events, touch included):
-  they neither move the virtual pointer nor produce events in this window. A physical
-  gesture in progress is cancelled (see reset); the virtual pointer starts outside the
-  canvas with no buttons down.
-- `mouse.mode` with `MODE: physical` cancels the virtual gesture (see reset) and gives
-  the window back to the physical input. With the mode off, the physical input works
-  exactly as before.
-- `mouse.move`, `mouse.down`, `mouse.up`, `mouse.click`, `mouse.wheel` need the virtual mode (as
-  requested so far - a `mouse.mode` earlier in the same batch counts); without it they
-  return `STATUS: ERROR` and do nothing.
+- `input.mode` with `MODE: virtual` switches it on. From then on the window ignores the
+  physical pointer, buttons and keyboard (polling and OS button/wheel/key/text events, touch
+  included): they neither change the virtual state nor produce events in this window. A
+  physical gesture in progress is cancelled and the physical keys held are released (see
+  reset); the virtual pointer starts outside the canvas with no buttons and keys down.
+  Losing the OS focus does not release the virtual keys: the robot owns them.
+- `input.mode` with `MODE: physical` cancels the virtual gesture, releases the virtual keys
+  (see reset) and gives the window back to the physical input. With the mode off, the
+  physical input works exactly as before.
+- `mouse.*` and `key.*` commands need the virtual mode (as requested so far - an
+  `input.mode` earlier in the same batch counts); without it they return `STATUS: ERROR`
+  and do nothing.
 
-**Reset** (`mouse.reset`, also part of every mode switch) cancels the gesture without
+**Reset** (`input.reset`, also part of every mode switch) cancels the gesture without
 activating anything: the mouse capture is dropped the way it is when the captor gets
 hidden (the captor gets `onLostFocus`), the pointer leaves the canvas (hovered and
 pressed elements reset, so a pressed button does not click), then the held buttons are
-released - with nothing under the pointer, only gameplay scenes see the releases.
+released - with nothing under the pointer, only gameplay scenes see the releases; every
+held key gets `KBD\KEYUP`.
 
 ### Target window
 
-Every `mouse.*` command takes an optional `WINDOW`: empty, `0` or `main` - the main
-window (its name is `Main`); otherwise the window name (`TWindow.name`: the ASCII
-identifier given to `AddWindow`, `Window1`, `Window2`... if none), case-insensitive. Each window has its own virtual pointer and mode:
-input of one window never reaches another.
+Every `input.*`, `mouse.*` and `key.*` command takes an optional `WINDOW`: empty, `0` or
+`main` - the main window (its name is `Main`); otherwise the window name (`TWindow.name`:
+the ASCII identifier given to `AddWindow`, `Window1`, `Window2`... if none),
+case-insensitive. Each window has its own virtual input and mode: input of one window never
+reaches another.
 
 ### Coordinates
 
@@ -225,29 +237,61 @@ canvas edge, so a drag keeps going, exactly like the OS pointer.
 (canvas size, DPI scaling, letterbox placement - `displayRect` of `windows`). A point
 in the letterbox bars is outside the canvas.
 
+### Keys
+
+A key is given by one of:
+
+- `KEY` - the name of a `TKey`, case-insensitive: letters `A`..`Z`, digits `0`..`9` (or
+  `D0`..`D9`), `F1`..`F12`, `Enter`, `Escape`, `Space`, `Tab`, `Backspace`, `Insert`,
+  `Delete`, `Home`, `End`, `PageUp`, `PageDown`, `Left`, `Right`, `Up`, `Down`, `Num0`..`Num9`,
+  `Num*`, `Num+`, `Num-`, `Num.`, `Num/`, `LShift`, `RShift`, `LCtrl`, `RCtrl`, `LAlt`, `RAlt`,
+  `LWin`, `RWin`, `Menu`, `Pause`, `CapsLock`, `PrintScreen`, punctuation as the character
+  (`;`, `=`, `,`, `-`, `.`, `/`, `~`, `[`, `\`, `]`, `'`) or by name (`Semicolon`, `Equal`,
+  `Comma`, `Minus`, `Period`, `Slash`, `Tilde`, `BracketL`, `Backslash`, `BracketR`, `Quote`).
+  The key event gets this `TKey` and the scancode of its position on the US layout.
+- `SCAN` - a scancode (USB HID usage id, `Scan.XXX`, 1..511): a physical position; the key
+  event gets the `TKey` of that position on the US layout.
+
+The answers name the held keys by position (`Scan.Name`): `LShift`, `A`, `NumEnter`, or
+`Scan<number>` for a position without a name.
+
+`key.*` produces key events only, no text: `key.tap` of `A` does not type `a` into an edit
+box. Text is entered with `key.type`. A held key gives one `KEYDOWN` (no auto-repeat).
+
 ### Execution order and timing
 
 Commands queue operations for the window; the window's own thread applies them in
 order, **one operation per frame**, at the input step of the frame (before scenes are
 processed). `mouse.move` is one operation, `mouse.down` / `mouse.up` with `X`, `Y` are
 two (a move, then the button), `mouse.wheel` with `X`, `Y` - a move, then the wheel;
-`mouse.click` is a move (if `X`, `Y` are given), down and up: three frames, so the UI sees every transition and a click is never collapsed
-into "button up". No command sleeps or blocks a frame.
+`mouse.click` is a move (if `X`, `Y` are given), down and up: three frames, so the UI sees
+every transition and a click is never collapsed into "button up". `key.down` / `key.up` are
+one operation, `key.tap` - each modifier down, the key down, the key up, each modifier up;
+`key.type` - one character per frame. No command sleeps or blocks a frame.
+
+The mouse and the keys share the queue of the window, so their order is kept: `key.down`
+`LCtrl`, `mouse.click`, `key.up` `LCtrl` is a Ctrl+click even with `WAIT: no`.
 
 By default (`WAIT: yes`) a command is answered once its last operation has been
 applied, the UI has processed it and the hover is up to date: the next command can
 query the UI state. Being an input command, it also holds back the requests after it
 (see [Response Format](#response-format)). With `WAIT: no` the command is answered
-right after queueing (`state: queued`); `mouse.wait` then waits for the queue.
+right after queueing (`state: queued`); `input.wait` then waits for the queue.
 
 A postponed request is re-checked every frame but its input is queued only once: the
 operations of a request are applied exactly once whatever the number of checks.
 
 ### Commands
 
-#### `mouse.mode` - switch the input mode of a window
+#### `input.mode` - switch the input mode of a window
 - `MODE`: `virtual` or `physical` (required).
 - `WINDOW`, `WAIT`: see above.
+
+#### `input.reset` - cancel the gesture, release the keys (see above)
+- Does nothing (answers at once) in the physical mode.
+
+#### `input.state` - current state of the virtual input, answered at once
+#### `input.wait` - answered once every operation queued for the window is applied
 
 #### `mouse.move` - move the pointer
 - `X`, `Y`: required; `SPACE`: `canvas` (default) or `client`.
@@ -270,15 +314,31 @@ operations of a request are applied exactly once whatever the number of checks.
 - `X`, `Y` (+ `SPACE`): optional - move there first; otherwise the wheel turns at the
   current position.
 
-#### `mouse.reset` - cancel the gesture (see above)
-- Does nothing (answers at once) in the physical mode.
+#### `key.down` / `key.up` - press / release a key
+- `KEY` or `SCAN` (see [Keys](#keys)), required.
+- `key.down` of a key that is already down and `key.up` of a key that is not down are
+  errors. A held key stays down until `key.up`, a reset or a mode switch - also for a
+  long time: `IsKeyDown` sees it every frame (holding the throttle).
 
-#### `mouse.state` - current state of the virtual mouse, answered at once
-#### `mouse.wait` - answered once every operation queued for the window is applied
+#### `key.tap` - press and release a key, optionally with modifiers
+- `KEY` or `SCAN`, required.
+- `MODS`: optional modifiers separated by `+` or `,`: `shift`, `ctrl`, `alt`, `win` (the
+  left keys) or `lshift`, `rshift`, `lctrl`, `rctrl`, `lalt`, `ralt`, `lwin`, `rwin`. They
+  go down before the key, in the given order, and up after it, in the reverse order:
+  `KEY: S`, `MODS: ctrl` is Ctrl+S.
+- `HOLD`: optional, milliseconds `0..60000`: the key goes up not earlier than `HOLD` ms
+  after it went down (measured by the window's frame start times). Without it the key is
+  down for one frame.
+- The key and the modifiers must not be down already.
+
+#### `key.type` - enter text
+- `TEXT`: required, up to 1000 UTF-16 code units. Each one is a `KBD\UNICHAR` event, one per
+  frame, without key events: it goes to the element with the keyboard focus (the `focus` of
+  the answer), as text from a platform's text input does.
 
 ### Answers
 
-All `mouse.*` commands answer with the window's virtual mouse state:
+All `input.*`, `mouse.*` and `key.*` commands answer with the window's virtual input state:
 
 ```
 window: main            (or the window name)
@@ -289,6 +349,9 @@ position: 150,115       (canvas; "outside" - outside the canvas)
 buttons: left           (left,right,middle or none)
 under: OkButton         (UI element under the pointer: name, "(none)" if nothing)
 underClass: TUIButton   (absent when nothing is under the pointer)
+keys: LCtrl,S           (keys held, by position; none)
+focus: NameEdit         (UI element with the keyboard focus, "(none)" if nothing)
+focusClass: TUIEditBox  (absent when nothing has the focus)
 queued: 0               (operations not applied yet)
 frame: 1234             (window frame of the last applied operation)
 ```
@@ -297,10 +360,12 @@ The state is the one published by the window after its last applied operation (a
 the time of the answer), so in a batch every answer may already show a later state.
 
 `STATUS: ERROR` answers:
-- bad or missing parameters (`MODE`, `X`/`Y`, `SPACE`, `BUTTON`, `DELTA`, `WAIT`);
+- bad or missing parameters (`MODE`, `X`/`Y`, `SPACE`, `BUTTON`, `DELTA`, `KEY`/`SCAN`,
+  `MODS`, `HOLD`, `TEXT`, `WAIT`);
 - `window not found: <name>` - no such window, or it is closing;
-- `virtual mouse is off: ...` - the command needs the virtual mode;
-- `button is already down` / `button is not down`;
+- `virtual input is off: ...` - the command needs the virtual mode;
+- `button is already down` / `button is not down`, `key is already down: <key>` /
+  `key is not down: <key>`;
 - `window closed before the input was applied` - the window closed while the command
   was waiting; its remaining operations were dropped.
 
@@ -313,9 +378,9 @@ the time of the answer), so in a batch every answer may already show a later sta
 - **Robot API shut down** (`DoneRobotAPI`, e.g. on exit): pending requests are dropped
   unanswered (as for every command), queued operations are cancelled and every window
   the robot switched to the virtual mode goes back to the physical input with a reset -
-  no button stays held, no capture stays.
+  no button or key stays held, no capture stays.
 - A client that stops talking leaves the window in the virtual mode: switch it back
-  with `mouse.mode` (`MODE: physical`).
+  with `input.mode` (`MODE: physical`).
 
 ### Example
 
@@ -324,7 +389,7 @@ the physical mouse:
 
 ```
 ID: 1
-CMD: mouse.mode
+CMD: input.mode
 MODE: virtual
 ---
 ID: 2
@@ -357,17 +422,40 @@ X: 700
 Y: 500
 ---
 ID: 7
-CMD: mouse.state
+CMD: input.state
 ---
 ID: 8
-CMD: mouse.reset
----
+CMD: input.reset
+===
+```
+(`mouse.up` instead of `input.reset` would end the drag normally.)
+
+Fill a field and save with Ctrl+S, then hold the throttle for two seconds:
+```
 ID: 9
-CMD: mouse.mode
+CMD: mouse.click
+X: 300
+Y: 120
+---
+ID: 10
+CMD: key.type
+TEXT: Player 1
+---
+ID: 11
+CMD: key.tap
+KEY: S
+MODS: ctrl
+---
+ID: 12
+CMD: key.tap
+KEY: Up
+HOLD: 2000
+---
+ID: 13
+CMD: input.mode
 MODE: physical
 ===
 ```
-(`mouse.up` instead of `mouse.reset` would end the drag normally.)
 
 ## Error Handling
 
@@ -386,6 +474,6 @@ registered with `RegisterRobotShutdownHandler`.
 
 ## Future Extensions
 
-- `ui.type`, `ui.focus`, `ui.scroll` - more input simulation
+- `ui.focus`, `ui.scroll` - more input simulation
 - `var.get` / `var.set` — published variable access
 - `log` — recent log messages

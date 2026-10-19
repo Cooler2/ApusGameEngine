@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end smoke of the virtual mouse (Robot API mouse.* commands) on a real engine
+# End-to-end smoke of the virtual mouse (Robot API input.* and mouse.* commands) on a real engine
 # window: builds demo/UI, starts it with -ROBOT and drives it through robot_in.txt.
 # Needs a GL 3.3 display (DISPLAY, e.g. Xvfb + Mesa); xdotool (optional) sends real X
 # pointer events to check that they are ignored in the virtual mode and work again after.
@@ -93,14 +93,14 @@ check "engine answers" "$(field w STATUS)" "OK"
 center 'Main\Widgets'
 bx=$cx; by=$cy
 
-robot "ID: m\nCMD: mouse.mode\nMODE: virtual"
+robot "ID: m\nCMD: input.mode\nMODE: virtual"
 check "virtual mode" "$(field m mode)" "virtual"
 
 if command -v xdotool > /dev/null; then
   wid="$(xdotool search --onlyvisible --name 'UI Demo' | head -1)"
   xdotool mousemove --window "$wid" $bx $by click 1
   sleep 0.5
-  robot "ID: s\nCMD: mouse.state"
+  robot "ID: s\nCMD: input.state"
   check "X pointer does not move the virtual one" "$(field s position)" "outside"
   robot "ID: e\nCMD: ui.element\nNAME: Button1"
   check "X click ignored in the virtual mode" "$(field e STATUS)" "ERROR"
@@ -119,7 +119,7 @@ wait_element Button1; check "click opened the Widgets page" "$?" "0"
 center Button1
 robot "ID: d\nCMD: mouse.down\nX: $cx\nY: $cy"
 check "button held" "$(field d buttons)" "left"
-robot "ID: r\nCMD: mouse.reset"
+robot "ID: r\nCMD: input.reset"
 check "reset releases buttons" "$(field r buttons)" "none"
 check "reset moves the pointer out" "$(field r position)" "outside"
 
@@ -127,7 +127,7 @@ center 'Root\Close'
 robot "ID: c\nCMD: mouse.click\nX: $cx\nY: $cy"
 wait_hidden Button1; check "Back closed the page" "$?" "0"
 
-robot "ID: m\nCMD: mouse.mode\nMODE: physical"
+robot "ID: m\nCMD: input.mode\nMODE: physical"
 check "physical mode" "$(field m mode)" "physical"
 robot "ID: c\nCMD: mouse.click\nX: 1\nY: 1"
 check "virtual commands refused" "$(field c STATUS)" "ERROR"

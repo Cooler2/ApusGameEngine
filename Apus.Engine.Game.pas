@@ -1,4 +1,4 @@
-// Main runtime unit of the engine
+﻿// Main runtime unit of the engine
 //
 // IMPORTANT: Nevertheless BasicGame is implemented as class, it is
 //            NOT thread-safe itself i.e. does not allow multiple instances!
@@ -1333,7 +1333,7 @@ begin
  if event.Same('MAINLOOPDONE') then begin
    DoneGraph;
   end else
- if event.StartsWith('SINGLETOUCH',true) and window.virtualMouse.IsActive then begin
+ if event.StartsWith('SINGLETOUCH',true) and window.virtualInput.IsActive then begin
    // touch drives the pointer too: not while the virtual mouse owns it
  end else
  if event.Same('SINGLETOUCHSTART') then begin
@@ -1805,7 +1805,7 @@ procedure TGame.FrameLoop;
   Thread.Ping;
   window.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
   // the mouse buttons and the keys come with the events, published by OnFrame
-  window.shiftState:=systemPlatform.GetShiftKeysState;
+  window.UpdateShiftState; // the OS keys, or the virtual ones
   window.timings.phaseMetrics:=fpsMetricsPending or
     ((dfShowFPS in debug.features) and Bits.HasAll(window.shiftState,sscShift));
 
@@ -1844,7 +1844,7 @@ procedure TGame.FrameLoop;
     window.ApplyPendingSurface; // rebuild the surface (if requested) before anything reads it
     // poll cursor once per frame (frame-synced mouse input) or apply the next virtual
     // mouse operation, then aggregate the move and notify scenes once per frame
-    window.FrameMouseInput(true);
+    window.FrameInput(true);
     Signal('Engine\Frame\Begin',window.frameNum); // input is in, scenes not processed yet
   finally
     window.UnlockState;
@@ -2157,8 +2157,9 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd.LockState; // surface-change handlers and scene processing touch window state
     try
      wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
-     // no per-frame pointer sampling here (buttons sample it), only the virtual mouse
-     wnd.FrameMouseInput(false);
+     // no per-frame pointer sampling here (buttons sample it), only the virtual input
+     wnd.UpdateShiftState;
+     wnd.FrameInput(false);
      if wnd.OnFrame then
       wnd.screenChanged:=true;
     finally
