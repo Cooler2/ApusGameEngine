@@ -5,7 +5,10 @@
 //   SoundDemo                 - interactive mode: type commands or 1..N
 //   SoundDemo 5 w2000 1 w5000 - script mode: run the listed commands, then exit
 // A script item is either a command ("Play\Sample"), a predefined command
-// number, a delay in milliseconds ("w2000"), or a check:
+// number, a delay in milliseconds ("w2000"), a direct call of the sound API:
+//   tone:F,MS      - a procedural sine tone of F Hz for MS milliseconds
+//   sweep          - plays Sample and slides its speed from 1 to 2 over a second
+// or a check:
 //   check:music    - fails the run unless a music track is playing at that moment
 //   check:played=N - fails the run unless exactly N Sound\FilePlayed notifications came
 // "%res%" in a command is replaced with the resource folder.
@@ -24,7 +27,7 @@ uses
   Apus.Engine.Sound;
 
 const
- defaultCmd:array[1..16] of string=(
+ defaultCmd:array[1..19] of string=(
   'PlayMusic\testOGG',
   'PlayMusic\testMP3',
   'PlayMusic\testMOD::3',
@@ -40,10 +43,67 @@ const
   'StopAllFiles',
   'ClearCache',
   'PlayMusic\testLoop',      // the intro plays once, then the loop region repeats
-  'PlayMusic\testLoopTime'); // the same, the loop start given in seconds
+  'PlayMusic\testLoopTime',  // the same, the loop start given in seconds
+  'Play\Sample,speed=2',     // an octave higher, twice shorter
+  'tone:440,1000',
+  'sweep');
+
+type
+ // Procedural sound of the demo: a sine tone
+ TTone=record
+  freq:single;
+  duration:single; // seconds
+  phase:double;    // 0..1
+  left:integer;    // values per channel still to generate, -1 = not started
+ end;
+ PTone=^TTone;
 
 var
  filesPlayed:integer; // Sound\FilePlayed notifications received
+ tones:array of PTone; // freed after the sound system stops
+ i:integer;
+
+// Stream procedure (audio thread): it touches only the fields of its own tone
+function ToneProc(data:PSingle;count,channels,sampleRate:integer;userData:pointer):boolean;
+ var
+  tone:PTone;
+  i,c:integer;
+  v:single;
+ begin
+  tone:=userData;
+  if tone.left<0 then tone.left:=round(tone.duration*sampleRate);
+  for i:=1 to count do begin
+   v:=0;
+   if tone.left>0 then begin
+    v:=0.5*sin(2*Pi*tone.phase);
+    tone.phase:=frac(tone.phase+tone.freq/sampleRate);
+    dec(tone.left);
+   end;
+   for c:=1 to channels do begin
+    data^:=v;
+    inc(data);
+   end;
+  end;
+  result:=tone.left>0;
+ end;
+
+// tone:F,MS
+procedure PlayTone(const params:string);
+ var
+  tone:PTone;
+  p:integer;
+ begin
+  p:=Pos(',',params);
+  New(tone);
+  tone.freq:=Conv.ToInt(copy(params,1,p-1));
+  tone.duration:=Conv.ToInt(copy(params,p+1,10))/1000;
+  tone.phase:=0;
+  tone.left:=-1;
+  SetLength(tones,length(tones)+1);
+  tones[high(tones)]:=tone;
+  if sound.PlayStream(ToneProc,tone,1)=0 then
+   Log.Error('[SOUNDDEMO] the tone did not start');
+ end;
 
 procedure OnFilePlayed(event:TEventStr;tag:TTag);
  begin
@@ -63,7 +123,21 @@ function ExpandCommand(cmd:string):string;
  end;
 
 procedure RunCommand(cmd:string);
+ var
+  ch:TChannel;
  begin
+  cmd:=ExpandCommand(cmd);
+  if SameText(copy(cmd,1,5),'tone:') then begin
+   writeln(cmd);
+   PlayTone(copy(cmd,6,20));
+   exit;
+  end;
+  if SameText(cmd,'sweep') then begin
+   writeln('sweep: speed 1 -> 2 over 1 s');
+   ch:=sound.Play('Sample');
+   sound.SetChannelSpeed(ch,2,1);
+   exit;
+  end;
   if SameText(cmd,'check:music') then begin
    if sound.IsMusicPlaying then
     writeln('check:music - playing')
@@ -79,7 +153,7 @@ procedure RunCommand(cmd:string);
     Log.Error('[SOUNDDEMO] %s failed - %d file(s) played',[cmd,Atomic.Add(filesPlayed,0)]);
    exit;
   end;
-  cmd:=StringReplace(ExpandCommand(cmd),'%res%',soundFolderPath,[rfIgnoreCase]);
+  cmd:=StringReplace(cmd,'%res%',soundFolderPath,[rfIgnoreCase]);
   writeln('SOUND\'+cmd);
   Signal('SOUND\'+cmd);
  end;
@@ -136,6 +210,7 @@ begin
    else RunInteractive;
 
   sound.Done;
+  for i:=0 to high(tones) do Dispose(tones[i]);
   // Playback problems are logged as errors, so a script run can be a CI check
   if Logger.GetErrorCount>0 then begin
    writeln('FAILED: ',Logger.GetErrorCount,' error(s) logged, see SoundDemo.log');
