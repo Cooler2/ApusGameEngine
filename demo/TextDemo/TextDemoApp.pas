@@ -284,8 +284,10 @@ end;
 
 procedure TMainScene.HandleInput;
 const
-  F_SCANS:array[0..8] of integer=(59,60,61,62,63,64,65,66,67); // F1..F9
-  D_SCANS:array[0..8] of integer=(2,3,4,5,6,7,8,9,10); // 1..9
+  F_SCANS:array[0..8] of integer=(Scan.F1,Scan.F2,Scan.F3,Scan.F4,Scan.F5,
+    Scan.F6,Scan.F7,Scan.F8,Scan.F9);
+  D_SCANS:array[0..8] of integer=(Scan.D1,Scan.D2,Scan.D3,Scan.D4,Scan.D5,
+    Scan.D6,Scan.D7,Scan.D8,Scan.D9);
 var
   i,item:integer;
 begin

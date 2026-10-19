@@ -125,7 +125,8 @@ const
   CONTENT_PADDING=18;
   SCREEN_TOP_OFFSET=84;
 
-  TRACKED_SCANS:array[0..7] of integer=(17,30,31,32,57,42,29,15); // W,A,S,D,Space,LShift,LCtrl,Tab
+  TRACKED_SCANS:array[0..7] of integer=(Scan.W,Scan.A,Scan.S,Scan.D,Scan.Space,
+    Scan.LShift,Scan.LCtrl,Scan.Tab);
   TRACKED_NAMES:array[0..7] of string=('W','A','S','D','Space','LShift','LCtrl','Tab');
 
   SCREEN_TITLES:array[0..SCREEN_COUNT-1] of string=(
@@ -203,7 +204,7 @@ begin
   keyCode:=ord(key);
   inc(keyDownEvents);
   inc(secKeyEvents);
-  PushLog('KD',Format('key=%d scan=%d',[keyCode,scancode]));
+  PushLog('KD',Format('key=%d scan=%d (%s)',[keyCode,scancode,Scan.Name(scancode)]));
   if (window.shiftState=0) and (keyCode>=ord(TKey.F1)) and (keyCode<=ord(TKey.F6)) then
     currentScreen:=keyCode-ord(TKey.F1);
   for i:=0 to high(TRACKED_SCANS) do
@@ -214,7 +215,7 @@ end;
 function TMainScene.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
 begin
   inc(keyUpEvents);
-  PushLog('KU',Format('key=%d scan=%d',[ord(key),scancode]));
+  PushLog('KU',Format('key=%d scan=%d (%s)',[ord(key),scancode,Scan.Name(scancode)]));
   result:=false;
 end;
 
@@ -319,9 +320,9 @@ procedure TMainScene.HandleInput;
 var
   item:integer;
 begin
-  if IsKeyPressed(2) or IsKeyPressed(30) then traceMode:=1;
-  if IsKeyPressed(3) or IsKeyPressed(31) then traceMode:=2;
-  if IsKeyPressed(4) or IsKeyPressed(32) then traceMode:=3;
+  if IsKeyPressed(Scan.D1) then traceMode:=1;
+  if IsKeyPressed(Scan.D2) then traceMode:=2;
+  if IsKeyPressed(Scan.D3) then traceMode:=3;
 
   if LMBClicked and (window.mousePos.x>=0) and (window.mousePos.x<menuWidth) and
      (window.mousePos.y>=MENU_TOP) then begin

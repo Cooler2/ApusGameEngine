@@ -401,8 +401,10 @@ procedure TMainScene.HandleInput;
 var
   i,item:integer;
 const
-  SC_DIGIT:array[0..9] of integer=(2,3,4,5,6,7,8,9,10,11); // row keys 1..9,0
-  SC_NUM:array[0..9] of integer=(79,80,81,75,76,77,71,72,73,82); // numpad 1..9,0
+  SC_DIGIT:array[0..9] of integer=(Scan.D1,Scan.D2,Scan.D3,Scan.D4,Scan.D5,
+    Scan.D6,Scan.D7,Scan.D8,Scan.D9,Scan.D0); // row keys 1..9,0
+  SC_NUM:array[0..9] of integer=(Scan.Num1,Scan.Num2,Scan.Num3,Scan.Num4,Scan.Num5,
+    Scan.Num6,Scan.Num7,Scan.Num8,Scan.Num9,Scan.Num0); // numpad 1..9,0
 begin
   for i:=0 to SCREEN_COUNT-1 do begin
     if (window.shiftState=0) and (IsKeyPressed(SC_DIGIT[i]) or IsKeyPressed(SC_NUM[i])) then
