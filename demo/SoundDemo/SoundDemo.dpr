@@ -24,7 +24,7 @@ uses
   Apus.Engine.Sound;
 
 const
- defaultCmd:array[1..14] of string=(
+ defaultCmd:array[1..16] of string=(
   'PlayMusic\testOGG',
   'PlayMusic\testMP3',
   'PlayMusic\testMOD::3',
@@ -38,7 +38,9 @@ const
   'SetGroup\file,duck=20,exclusive=1',
   'PlayFile\%res%sampleStereo.ogg',
   'StopAllFiles',
-  'ClearCache');
+  'ClearCache',
+  'PlayMusic\testLoop',      // the intro plays once, then the loop region repeats
+  'PlayMusic\testLoopTime'); // the same, the loop start given in seconds
 
 var
  filesPlayed:integer; // Sound\FilePlayed notifications received
