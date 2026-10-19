@@ -8,6 +8,7 @@
 // number, a delay in milliseconds ("w2000"), a direct call of the sound API:
 //   tone:F,MS      - a procedural sine tone of F Hz for MS milliseconds
 //   sweep          - plays Sample and slides its speed from 1 to 2 over a second
+//   cut            - stops a 2 s tone after 0.5 s: the stop fades out, no click
 // or a check:
 //   check:music    - fails the run unless a music track is playing at that moment
 //   check:played=N - fails the run unless exactly N Sound\FilePlayed notifications came
@@ -26,27 +27,37 @@ uses
   Apus.EventMan,
   Apus.Engine.Sound;
 
+type
+ TPredefined=record
+  cmd,hint:string;
+ end;
+
 const
- defaultCmd:array[1..19] of string=(
-  'PlayMusic\testOGG',
-  'PlayMusic\testMP3',
-  'PlayMusic\testMOD::3',
-  'PlayMusic\None',
-  'Play\Sample',
-  'Play\Stereo',
-  'Play\Low',
-  'Play\Wav',
-  'Play\sampleLeft',
-  'Play\sampleQuiet',
-  'SetGroup\file,duck=20,exclusive=1',
-  'PlayFile\%res%sampleStereo.ogg',
-  'StopAllFiles',
-  'ClearCache',
-  'PlayMusic\testLoop',      // the intro plays once, then the loop region repeats
-  'PlayMusic\testLoopTime',  // the same, the loop start given in seconds
-  'Play\Sample,speed=2',     // an octave higher, twice shorter
-  'tone:440,1000',
-  'sweep');
+ defaultCmd:array[1..21] of TPredefined=(
+  (cmd:'PlayMusic\testOGG'; hint:'music, ogg'),
+  (cmd:'PlayMusic\testMP3'; hint:'music, mp3'),
+  (cmd:'PlayMusic\testMOD::3'; hint:'music, a module, transition 3 (fade-out, then fade-in)'),
+  (cmd:'PlayMusic\None'; hint:'stop the music'),
+  (cmd:'Play\Sample'; hint:'sample'),
+  (cmd:'Play\Stereo'; hint:'stereo sample'),
+  (cmd:'Play\Low'; hint:'low-rate sample'),
+  (cmd:'Play\Wav'; hint:'wav sample'),
+  (cmd:'Play\sampleLeft'; hint:'sample panned left'),
+  (cmd:'Play\sampleQuiet'; hint:'quiet sample'),
+  (cmd:'SetGroup\file,duck=20,exclusive=1'; hint:'files duck the music to 20%, one at a time'),
+  (cmd:'PlayFile\%res%sampleStereo.ogg'; hint:'play a file outside the config'),
+  (cmd:'StopAllFiles'; hint:'stop the files of 12 (not music or samples)'),
+  (cmd:'ClearCache'; hint:'unload the samples'),
+  (cmd:'PlayMusic\testLoop'; hint:'loop: 330 Hz intro once, then a seamless 440 Hz loop'),
+  (cmd:'PlayMusic\testLoopTime'; hint:'the same, the loop start given in seconds'),
+  (cmd:'Play\Sample,speed=2'; hint:'an octave higher, twice shorter'),
+  (cmd:'tone:440,1000'; hint:'procedural tone'),
+  (cmd:'sweep'; hint:'sample speed slides from 1 to 2'),
+  (cmd:'PlayMusic\testLoopBad'; hint:'a loop start 2 ms off: how a click sounds'),
+  (cmd:'cut'; hint:'a tone stopped early: no click'));
+
+ // Fade-in and fade-out of a tone (sec): a sine that starts or ends at full slope clicks
+ TONE_EDGE = 0.005;
 
 type
  // Procedural sound of the demo: a sine tone
@@ -54,6 +65,7 @@ type
   freq:single;
   duration:single; // seconds
   phase:double;    // 0..1
+  total:integer;   // values per channel in the tone
   left:integer;    // values per channel still to generate, -1 = not started
  end;
  PTone=^TTone;
@@ -67,15 +79,22 @@ var
 function ToneProc(data:PSingle;count,channels,sampleRate:integer;userData:pointer):boolean;
  var
   tone:PTone;
-  i,c:integer;
-  v:single;
+  i,c,edge:integer;
+  v,env:single;
  begin
   tone:=userData;
-  if tone.left<0 then tone.left:=round(tone.duration*sampleRate);
+  if tone.left<0 then begin
+   tone.total:=round(tone.duration*sampleRate);
+   tone.left:=tone.total;
+  end;
+  edge:=round(TONE_EDGE*sampleRate);
   for i:=1 to count do begin
    v:=0;
    if tone.left>0 then begin
-    v:=0.5*sin(2*Pi*tone.phase);
+    env:=1;
+    if tone.total-tone.left<edge then env:=(tone.total-tone.left)/edge;
+    if tone.left<edge then env:=tone.left/edge;
+    v:=0.5*env*sin(2*Pi*tone.phase);
     tone.phase:=frac(tone.phase+tone.freq/sampleRate);
     dec(tone.left);
    end;
@@ -88,7 +107,7 @@ function ToneProc(data:PSingle;count,channels,sampleRate:integer;userData:pointe
  end;
 
 // tone:F,MS
-procedure PlayTone(const params:string);
+function PlayTone(const params:string):TChannel;
  var
   tone:PTone;
   p:integer;
@@ -101,8 +120,8 @@ procedure PlayTone(const params:string);
   tone.left:=-1;
   SetLength(tones,length(tones)+1);
   tones[high(tones)]:=tone;
-  if sound.PlayStream(ToneProc,tone,1)=0 then
-   Log.Error('[SOUNDDEMO] the tone did not start');
+  result:=sound.PlayStream(ToneProc,tone,1);
+  if result=0 then Log.Error('[SOUNDDEMO] the tone did not start');
  end;
 
 procedure OnFilePlayed(event:TEventStr;tag:TTag);
@@ -119,7 +138,7 @@ function ExpandCommand(cmd:string):string;
   result:=cmd;
   if length(cmd)>2 then exit;
   v:=Conv.ToInt(cmd);
-  if (v>0) and (v<=high(defaultCmd)) then result:=defaultCmd[v];
+  if (v>0) and (v<=high(defaultCmd)) then result:=defaultCmd[v].cmd;
  end;
 
 procedure RunCommand(cmd:string);
@@ -130,6 +149,13 @@ procedure RunCommand(cmd:string);
   if SameText(copy(cmd,1,5),'tone:') then begin
    writeln(cmd);
    PlayTone(copy(cmd,6,20));
+   exit;
+  end;
+  if SameText(cmd,'cut') then begin
+   writeln('cut: a 2 s tone stopped after 0.5 s');
+   ch:=PlayTone('440,2000');
+   CoreTime.Sleep(500);
+   sound.StopChannel(ch);
    exit;
   end;
   if SameText(cmd,'sweep') then begin
@@ -180,11 +206,15 @@ procedure RunScript;
 procedure RunInteractive;
  var
   cmd:string;
+  i:integer;
  begin
+  for i:=1 to high(defaultCmd) do
+   writeln(i:3,'  ',defaultCmd[i].cmd,' - ',defaultCmd[i].hint);
   writeln('Enter a command (like "Play\Sample"), or 1..',high(defaultCmd),
     ' for predefined commands, or "q" to exit.');
   repeat
    write('Sound\:');
+   if EOF then break; // the input is closed (redirected from a file or a pipe)
    readln(cmd);
    if SameText(cmd,'q') then break;
    if cmd<>'' then RunCommand(cmd);

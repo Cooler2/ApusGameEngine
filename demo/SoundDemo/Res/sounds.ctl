@@ -28,7 +28,7 @@ $Section Music
   $EndOfSection
 
   $Section TestLoop
-    File     "loop.ogg"
+    File     "loop.wav"
     volume   50
     loop     ON
     ; loop start in samples: the 0.5 s intro plays once
@@ -36,11 +36,19 @@ $Section Music
   $EndOfSection
 
   $Section TestLoopTime
-    File     "loop.ogg"
+    File     "loop.wav"
     volume   50
     loop     ON
     ; the same loop start in seconds
     loopTime 0.5
+  $EndOfSection
+
+  $Section TestLoopBad
+    File     "loop.wav"
+    volume   50
+    loop     ON
+    ; the loop start is 2 ms late: the phase jumps, a click every second
+    loopTime 0.502
   $EndOfSection
 
   $Section TestMOD
