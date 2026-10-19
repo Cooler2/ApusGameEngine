@@ -97,6 +97,8 @@ type
  // Called in the audio thread: no allocations, logging, exceptions or waiting for
  // locks the game thread may hold; read the game's parameters through atomics.
  // Return false when the sound is over: playback stops after this piece.
+ // A stopped stream fades out over a few milliseconds and the procedure is still
+ // called meanwhile: userData must stay valid until IsPlaying turns false.
  TSoundStreamProc=function(data:PSingle;count,channels,sampleRate:integer;userData:pointer):boolean;
 
  // Interface for the backend sound library (API)
@@ -164,6 +166,8 @@ type
   procedure SetChannelVolume(channel:TChannel;volume:single;time:single=0); // 1 = as started
   procedure SetChannelPan(channel:TChannel;pan:single;time:single=0); // -1 = left, 1 = right
   procedure SetChannelSpeed(channel:TChannel;speed:single;time:single=0); // 1 = original speed (and pitch)
+  // Stop with a short fade-out (a cut would click) and clear the handle;
+  // IsPlaying of a copy of the handle turns false when the fade-out is over
   procedure StopChannel(var channel:TChannel);
   function IsPlaying(channel:TChannel):boolean;
  end;
@@ -1353,10 +1357,7 @@ procedure StopVoice(handle:TChannel);
     StopFilePlayback(pb);
     exit;
    end;
-  soundLib.StopChannel(ch);
-  soundLock.Enter;
-  voices[i].state:=vsFree;
-  soundLock.Leave;
+  soundLib.StopChannel(ch); // it fades out: UpdateVoices frees the voice when it's over
  end;
 
 // Sound thread: run an ISoundSystem call

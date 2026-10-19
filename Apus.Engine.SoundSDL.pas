@@ -57,6 +57,8 @@ const
  CARRIER_SIZE = 4096;
  // Values per channel a stream procedure generates at most in one call
  STREAM_PIECE = 1024;
+ // An early stop fades out over this time (sec): a cut in the middle of a wave clicks
+ STOP_FADE_TIME = 0.01;
  // Speed range of decoded PCM
  MIN_SPEED = 0.05;
  MAX_SPEED = 20;
@@ -89,9 +91,9 @@ type
  // What a mixing channel plays. Positions are counted in frames: a frame is one
  // value for every device channel. The effect runs in the audio thread: the fields
  // are set while the channel is halted (halting waits for the mixer), before the
- // effect is registered. Later the sound thread writes only targetSpeed and
- // speedRate, and the audio thread only finished (aligned 32-bit fields: plain
- // reads and writes are atomic)
+ // effect is registered. Later the sound thread writes only targetSpeed,
+ // speedRate and fadeLength, and the audio thread only finished (aligned 32-bit
+ // fields: plain reads and writes are atomic)
  TSource=record
   kind:TSourceKind;
   media:TMediaFileSDL;  // PCM: the media the data belongs to
@@ -106,6 +108,8 @@ type
   userData:pointer;
   streamChannels:integer;
   buf:array of single;  // stream: one piece from proc
+  fadeLength:integer;   // frames of the fade-out to the stop (0 = no stop requested)
+  fadePos:integer;      // audio thread: frames of the fade-out played
   finished:integer;     // the source has ended: Update halts the channel
  end;
  PSource=^TSource;
@@ -248,16 +252,61 @@ procedure FillStream(var src:TSource;dst:PSmallInt;frames:integer);
   end;
  end;
 
+// Audio thread: fade the filled frames out on the way to the stop, silence after it
+procedure ApplyFade(var src:TSource;dst:PSmallInt;frames,length:integer);
+ var
+  i,c:integer;
+  gain:single;
+ begin
+  for i:=0 to frames-1 do begin
+   if src.fadePos>=length then begin
+    src.finished:=1;
+    FillChar(dst^,(frames-i)*frameSize,0);
+    exit;
+   end;
+   gain:=1-src.fadePos/length;
+   for c:=0 to deviceChannels-1 do begin
+    dst^:=round(dst^*gain);
+    inc(dst);
+   end;
+   inc(src.fadePos);
+  end;
+ end;
+
 // Mixer effect of a channel (audio thread): replace the carrier data with the source
 procedure SourceEffect(chan:integer;stream:pointer;len:integer;udata:pointer); cdecl;
  var
   src:PSource;
+  frames,fade:integer;
  begin
   src:=udata;
-  case src.kind of
-   skPCM:FillPCM(src^,stream,len div frameSize);
-   skStream:FillStream(src^,stream,len div frameSize);
+  frames:=len div frameSize;
+  if src.finished<>0 then begin
+   FillChar(stream^,len,0);
+   exit;
   end;
+  case src.kind of
+   skPCM:FillPCM(src^,stream,frames);
+   skStream:FillStream(src^,stream,frames);
+  end;
+  fade:=src.fadeLength;
+  if fade>0 then ApplyFade(src^,stream,frames,fade);
+ end;
+
+// Fade a mixing channel out over time seconds, then it stops (Update halts it).
+// SDL_mixer's own fade changes the volume once per mixed buffer, in audible steps
+procedure FadeToStop(slot:integer;time:single);
+ var
+  frames:integer;
+ begin
+  if sources[slot].kind=skNone then begin
+   Mix_HaltChannel(slot);
+   exit;
+  end;
+  if sources[slot].fadeLength>0 then exit; // already on its way to the stop
+  frames:=round(time*deviceFreq);
+  if frames<1 then frames:=1;
+  sources[slot].fadeLength:=frames;
  end;
 
 // Frame in the decoded track (it's decoded at the device rate) for a time in seconds
@@ -713,12 +762,12 @@ procedure TSoundLibSDL.SlideChannel(channel:TChannel;attr:TChannelAttribute;newV
    src.targetSpeed:=newValue;
    exit;
   end;
-  // the volume can only fade out: SDL_mixer has no generic slide
+  // the volume can only fade out to the stop: SDL_mixer has no generic slide
   if (attr<>caVolume) or (newValue>0) then exit;
   if slot=MUSIC_SLOT then
    Mix_FadeOutMusic(round(timeInterval*1000))
   else
-   Mix_FadeOutChannel(slot,round(timeInterval*1000));
+   FadeToStop(slot,timeInterval);
  end;
 
 procedure TSoundLibSDL.Pause(pause:boolean);
@@ -752,7 +801,7 @@ procedure TSoundLibSDL.StopChannel(var channel:TChannel);
    Log.Info('[SDL_MIX] halt music');
    Mix_HaltMusic;
   end else
-   Mix_HaltChannel(slot);
+   FadeToStop(slot,STOP_FADE_TIME);
  end;
 
 end.
