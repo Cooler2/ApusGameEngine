@@ -26,7 +26,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-10 | UI Widget System Refactor | done | 100% | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Ring-buffer streaming, persistent text cache, profiling |
-| R-13 | Robot API Input Simulation | idea | 0% | `ui.click`/`ui.type`/`ui.focus` commands |
+| R-13 | Robot API Input Simulation | in-progress | 80% | `ui.focus`, element-level shortcuts |
 | R-14 | UI Widget Expansion | idea | 0% | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Directory restructure, HelloEngine, Text demo, merged demos, EngineTest distribution |
 | R-16 | Console Modernization | in-progress | ~90% | Scroll rework (sticky-bottom/ScrollToEnd), SDL editbox Enter |
@@ -244,13 +244,15 @@ Two tiers, not a version ladder:
   - [ ] Profiling on one representative scene shows measurable CPU reduction.
 
 ### [R-13] Robot API Input Simulation
-- Status: idea | Priority: P2 | Area: Tooling
+- Status: in-progress (~80%) | Priority: P2 | Area: Tooling
 - Value: Enable automated UI interaction tests via Robot API without manual user input.
-- Scope: extend the existing file-based Robot API (R-04) with input-simulation commands — `ui.click` (synthetic mouse click on element by name/path), `ui.type` (inject keyboard text into focused widget), `ui.focus` (set focus to element). Enables scripted test flows: open dialog → fill field → click button → verify state via `ui.element`.
+- Scope: extend the existing file-based Robot API (R-04) with input simulation. Enables scripted test flows: open dialog → fill field → click button → verify state via `ui.element`.
+- Done (a different shape than planned: OS-free virtual input per window instead of element-level commands; spec `robot_api_protocol.md`, "Virtual input"):
+  - [x] virtual mouse: `input.mode`/`reset`/`state`/`wait`, `mouse.move/down/up/click/wheel` through the regular routing (hit-test, hover, capture)
+  - [x] virtual keyboard (2026-10-20): `key.down/up/tap` (`KEY`/`SCAN`, `MODS`, `HOLD` ms), `key.type` (text to the focused element) through the `KBD\` pipeline; scancodes are USB HID on every platform (`Scan.*`)
 - Remaining:
-  - [ ] `ui.click` command (find element, synthesize mouse press/release)
-  - [ ] `ui.type` command (inject key events into focused widget)
   - [ ] `ui.focus` command (programmatic focus set)
+  - [ ] element-level shortcuts if scripts need them (`ui.click` by name = `ui.element` + `mouse.click` today)
 
 ### [R-14] UI Widget Expansion
 - Status: idea | Priority: P1 | Area: UI
