@@ -56,9 +56,10 @@ type
  TChannelAttributes = set of TChannelAttribute;
 
 
- // Playback handle: an opaque value defined by the backend, 0 = no channel.
- // A handle is not reused right after its playback ends, so a stale handle stays
- // safe for a reasonable time: IsPlaying returns false and other operations ignore it
+ // Playback handle: an opaque value, 0 = no playback. ISoundSystem and the backend
+ // (ISoundLib) give out handles of their own. A handle is not reused right after its
+ // playback ends, so a stale handle stays safe for a reasonable time: IsPlaying
+ // returns false and other operations ignore it
  TChannel=type cardinal;
  TMediaFile=class
   source:string;
@@ -127,13 +128,48 @@ type
   procedure Done;
  end;
 
-// Is a music track playing right now? (diagnostics: the sound thread can
-// change the current track at any moment)
-function IsMusicPlaying:boolean;
-// Initialize sound system
-procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
-// Shutdown sound system
-procedure DoneSoundSystem;
+ // Game-side sound API (the backend interface is ISoundLib). Calls from any thread
+ // return at once: the work is done by the sound thread, so a handle can refer to
+ // a playback that has not started yet. The Sound\... events do the same work
+ ISoundSystem=interface
+  // Start the sound thread with this backend (slDefault - whichever is compiled
+  // in) and load the configuration soundConfigFile
+  procedure Init(useLibrary:TSoundLib=slDefault;windowHandle:THandle=0;waitForPreload:boolean=true);
+  procedure Done;
+  // Global
+  procedure SetVolume(volumeType:TVolumeType;volume:single); // 0..1
+  procedure Pause(pause:boolean);
+  // Samples: events of the config (Sound\Play). Volume and speed multiply the
+  // configured values, pan is added to the configured one
+  function Play(const event:String8;volume:single=1;pan:single=0;speed:single=1):TChannel;
+  procedure ClearCache(const event:String8=''); // '' = all samples
+  // Music (Sound\PlayMusic): fadeOut - of the current track, startAfter - delay of
+  // the new one (when something plays), fadeIn - of the new one, all in seconds;
+  // fromPos - position in the new track (sec), restart - even if it already plays
+  procedure PlayMusic(const name:String8;fadeOut:single=1.2;startAfter:single=1;fadeIn:single=0;
+    fromPos:double=0;restart:boolean=false);
+  procedure StopMusic(fadeOut:single=1.2);
+  // Is a music track playing right now? (the sound thread can change it at any moment)
+  function IsMusicPlaying:boolean;
+  // Files outside the config (Sound\PlayFile): played once, unloaded when finished
+  function PlayFile(const path:String8;volume:single=1;const group:String8='file'):TChannel;
+  procedure StopFile(const path:String8);
+  procedure StopGroup(const group:String8);
+  // Playback policy of a file group (Sound\SetGroup): duck - music volume (0..1)
+  // while a file of the group plays, exclusive - a new file stops the others
+  procedure SetGroup(const group:String8;duck:single=1;exclusive:boolean=false);
+  // Procedural sound: mixed with the samples, follows the sounds volume and pause
+  function PlayStream(proc:TSoundStreamProc;userData:pointer;channels:integer=2;volume:single=1):TChannel;
+  // Any playback started above; time>0 changes the value smoothly over time seconds
+  procedure SetChannelVolume(channel:TChannel;volume:single;time:single=0); // 1 = as started
+  procedure SetChannelPan(channel:TChannel;pan:single;time:single=0); // -1 = left, 1 = right
+  procedure SetChannelSpeed(channel:TChannel;speed:single;time:single=0); // 1 = original speed (and pitch)
+  procedure StopChannel(var channel:TChannel);
+  function IsPlaying(channel:TChannel):boolean;
+ end;
+
+var
+ sound:ISoundSystem; // always assigned; without a backend the calls do nothing
 
 
 implementation
@@ -206,11 +242,76 @@ type
   procedure Execute; override;
  end;
 
+ TVoiceState=(vsFree,vsPending,vsPlaying);
+
+ // Playback started through ISoundSystem: its handle is given out at once, and the
+ // sound thread binds it to a backend channel when it runs the command
+ TVoice=record
+  generation:cardinal; // bumped on every new playback, so older handles of the voice become stale
+  state:TVoiceState;   // changed under soundLock
+  // sound thread only
+  channel:TChannel;    // backend channel
+  baseVolume:single;   // volume the playback started with
+  sliding:TChannelAttributes; // slides the backend can't do: animated in UpdateVoices
+  volume,pan:TAnimatedValue;
+ end;
+
+ TCommandKind=(ckPlay,ckPlayFile,ckPlayStream,ckPlayMusic,ckStopMusic,ckStopFile,
+  ckStopGroup,ckSetGroup,ckClearCache,ckSetVolume,ckPause,ckSetChannel,ckStopChannel);
+
+ // ISoundSystem call for the sound thread
+ TSoundCommand=record
+  kind:TCommandKind;
+  voice:TChannel;      // ISoundSystem handle of the playback
+  name,group:String8;
+  a,b,c:single;        // numeric parameters in the order of the ISoundSystem method
+  pos:double;
+  flag:boolean;
+  attr:TChannelAttribute;
+  volumeType:TVolumeType;
+  proc:TSoundStreamProc;
+  userData:pointer;
+  channels:integer;
+ end;
+ TSoundCommands=array of TSoundCommand;
+
+ TSoundSystem=class(TInterfacedObject,ISoundSystem)
+  procedure Init(useLibrary:TSoundLib;windowHandle:THandle;waitForPreload:boolean);
+  procedure Done;
+  procedure SetVolume(volumeType:TVolumeType;volume:single);
+  procedure Pause(pause:boolean);
+  function Play(const event:String8;volume,pan,speed:single):TChannel;
+  procedure ClearCache(const event:String8);
+  procedure PlayMusic(const name:String8;fadeOut,startAfter,fadeIn:single;fromPos:double;restart:boolean);
+  procedure StopMusic(fadeOut:single);
+  function IsMusicPlaying:boolean;
+  function PlayFile(const path:String8;volume:single;const group:String8):TChannel;
+  procedure StopFile(const path:String8);
+  procedure StopGroup(const group:String8);
+  procedure SetGroup(const group:String8;duck:single;exclusive:boolean);
+  function PlayStream(proc:TSoundStreamProc;userData:pointer;channels:integer;volume:single):TChannel;
+  procedure SetChannelVolume(channel:TChannel;volume,time:single);
+  procedure SetChannelPan(channel:TChannel;pan,time:single);
+  procedure SetChannelSpeed(channel:TChannel;speed,time:single);
+  procedure StopChannel(var channel:TChannel);
+  function IsPlaying(channel:TChannel):boolean;
+ private
+  // Queue the command for the sound thread; newVoice - it starts a playback: returns its handle
+  function Post(var cmd:TSoundCommand;newVoice:boolean=false):TChannel;
+  procedure SetAttribute(channel:TChannel;attr:TChannelAttribute;value,time:single);
+ end;
+
 const
  DEFAULT_FILE_GROUP = 'FILE';
  FILE_FADE_TIME = 0.1; // fade-out of a stopped file (sec)
  DUCK_DOWN_TIME = 1000; // music ducking (ms)
  DUCK_RESTORE_TIME = 1500;
+ // ISoundSystem handle layout: low 8 bits = voice index+1 (so 0 is "no playback"),
+ // high 24 bits = generation of the voice
+ MAX_VOICES = 255;
+ VOICE_BITS = 8;
+ VOICE_MASK = $FF;
+ GENERATION_MASK = $FFFFFF;
 
 var
  soundLib:ISoundLib;
@@ -242,6 +343,12 @@ var
  filePlaybacks:array of TFilePlayback;
  musicDuck:TAnimatedValue; // music volume factor requested by playing files
  appliedDuck:single=1.0;   // the factor music volume is currently set with
+
+ // ISoundSystem: the queue of calls and the playbacks they started
+ soundLock:TLock;
+ commands:TSoundCommands;
+ voices:array[0..MAX_VOICES-1] of TVoice;
+ musicPlaying:integer; // published by the sound thread for IsMusicPlaying
 
 // Cross-thread boolean flags
 procedure RaiseFlag(var flag:integer); inline;
@@ -599,6 +706,36 @@ procedure LoadConfig;
  end;
 
 
+// Sound event (uppercase name) with its sample loaded, nil if there is none
+function GetEventSample(const name:string8):TSoundEvent;
+ begin
+  result:=EvtHash.Get(name);
+  if result=nil then begin
+   Log.Msg('[SOUND] Event not found: '+name);
+   exit;
+  end;
+  result.Preload;
+  if result.sample=nil then result:=nil; // can't load the sample
+ end;
+
+// ISoundSystem.Play: volume and speed multiply the configured values, pan is added
+function PlayEvent(const name:string8;volume,pan,speed:single;out settings:TPlaySettings):TChannel;
+ var
+  evt:TSoundEvent;
+ begin
+  result:=0;
+  settings:=DefaultSettings;
+  if soundVolume=0 then exit;
+  evt:=GetEventSample(UpperCase(name));
+  if evt=nil then exit;
+  settings.volume:=evt.volume*volume;
+  settings.pan:=Clamp(evt.pan+pan,-1.0,1.0);
+  settings.speed:=evt.speed*speed;
+  settings.loop:=evt.loop;
+  evt.lastChannel:=soundLib.PlayMedia(evt.sample,settings);
+  result:=evt.lastChannel;
+ end;
+
 procedure PlaySound(event:TEventStr;tag:TTag);
  var
   sa:Strings8;
@@ -614,14 +751,8 @@ procedure PlaySound(event:TEventStr;tag:TTag);
    delete(event,1,5);
    sa:=event.Split(',','"');
    event:=sa[0];
-   // Get sample object
-   evt:=EvtHash.Get(event);
-   if evt=nil then begin
-     Log.Msg('[SOUND] Event not found: '+event);
-     exit;
-   end;
-   evt.Preload;
-   if evt.sample=nil then exit;   // Can't load sample => exit
+   evt:=GetEventSample(event);
+   if evt=nil then exit;
 
    // Configure playback settings
    // 1. Load defaults
@@ -690,65 +821,23 @@ procedure PlaySound(event:TEventStr;tag:TTag);
   {$IFEND}
  end;
 
-procedure PlayMusic(event:TEventStr;tag:TTag);
+// Switch the music: fade the current track out over fadeOut seconds (0 = stop it at
+// once) and start the new one (none if the name is empty or NONE) startAfter seconds
+// later (at once if nothing plays) with a fade-in of fadeIn seconds, from fromPos seconds
+procedure StartMusic(name:string8;fadeOut,startAfter,fadeIn:single;fromPos:double;restart:boolean);
  var
   mus:TMusicEntry;
   downtime:integer;
  begin
+   if name='NONE' then name:='';
    mus:=nil;
-   if event<>'NONE' then
-    mus:=MusHash.Get(event);
-   // Playback position
-   needMusicPlayFrom:=(tag shr 8)/100000;
-   tag:=tag and $FF;
-   if (tag and 128)>0 then
-    tag:=tag and $7F
-   else begin
-    // Already playing the requested track?
-    if (mus<>nil) and (curMusic=mus) then exit;
-   end;
-
-   case tag of
-    0:begin // normal: fade-out old music, then start new
-       downtime:=1200;
-       needslide:=0;
-       needMusicStartTime:=CoreTime.Ticks+1000;
-    end;
-    1:begin // fast fade-out, start new almost immediately
-       downtime:=400;
-       needslide:=0;
-       needMusicStartTime:=CoreTime.Ticks+300;
-    end;
-    2:begin // very slow fade-out
-       downtime:=2500;
-       needslide:=0;
-       needMusicStartTime:=CoreTime.Ticks+3000;
-    end;
-    3:begin // slow fade-out, smooth fade-in crossfade
-       downtime:=2000;
-       needslide:=2000;
-       needMusicStartTime:=CoreTime.Ticks+800;
-    end;
-    4:begin // slow fade-out, smooth fade-in without crossfade
-       downtime:=2500;
-       needslide:=2000;
-       needMusicStartTime:=CoreTime.Ticks+2000;
-    end;
-    5:begin // fast fade-out, slow fade-in crossfade
-       downtime:=500;
-       needslide:=2000;
-       needMusicStartTime:=CoreTime.Ticks+400;
-    end;
-    6:begin // fast fade-out, medium fade-in crossfade
-       downtime:=500;
-       needslide:=500;
-       needMusicStartTime:=CoreTime.Ticks+250;
-    end;
-    else begin
-     Log.Msg('[SOUND] PlayMusic: unknown tag %d',[tag]);
-     exit;
-    end;
-   end;
+   if name<>'' then mus:=MusHash.Get(name);
+   // Already playing the requested track?
+   if not restart and (mus<>nil) and (curMusic=mus) then exit;
+   needMusicPlayFrom:=fromPos;
+   needSlide:=round(fadeIn*1000);
+   needMusicStartTime:=CoreTime.Ticks+round(startAfter*1000);
+   downtime:=round(fadeOut*1000);
    // Fade-Out all playing music streams
    if curMusic<>nil then begin
      if downTime>0 then begin
@@ -767,11 +856,34 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    end else
     needMusicStartTime:=CoreTime.Ticks;
 
-   if event<>'NONE' then begin
-    mus:=MusHash.Get(event);
-    if mus<>nil then needMusic:=mus
-     else Log.Msg('[SOUND] Music not found: '+event);
-   end;
+   // a track that waits for its start is replaced too
+   needMusic:=mus;
+   if (name<>'') and (mus=nil) then Log.Msg('[SOUND] Music not found: '+name);
+ end;
+
+// Sound\PlayMusic\Name: the low 7 bits of the tag select a transition, bit 7 restarts
+// the track that already plays, the bits from 8 up give the start position (1/100000 s)
+procedure PlayMusicEvent(const name:string8;tag:TTag);
+ const
+  // fade-out, start delay, fade-in (sec)
+  TRANSITIONS:array[0..6,0..2] of single=(
+   (1.2, 1.0, 0),    // normal: fade-out old music, then start new
+   (0.4, 0.3, 0),    // fast fade-out, start new almost immediately
+   (2.5, 3.0, 0),    // very slow fade-out
+   (2.0, 0.8, 2.0),  // slow fade-out, smooth fade-in crossfade
+   (2.5, 2.0, 2.0),  // slow fade-out, smooth fade-in without crossfade
+   (0.5, 0.4, 2.0),  // fast fade-out, slow fade-in crossfade
+   (0.5, 0.25, 0.5)); // fast fade-out, medium fade-in crossfade
+ var
+  mode:integer;
+ begin
+  mode:=tag and $7F;
+  if mode>high(TRANSITIONS) then begin
+   Log.Msg('[SOUND] PlayMusic: unknown tag %d',[mode]);
+   exit;
+  end;
+  StartMusic(name,TRANSITIONS[mode,0],TRANSITIONS[mode,1],TRANSITIONS[mode,2],
+    (tag shr 8)/100000,tag and 128<>0);
  end;
 
  // Pause/resume all playback
@@ -870,35 +982,23 @@ procedure StopFiles(const path:string8;group:TFileGroup);
     StopFilePlayback(pb);
  end;
 
-// Path[,vol=N][,group=Name]
-procedure PlayFile(const params:string8);
+// Play a file once as a sample, it's unloaded when finished. Returns the backend channel
+function StartFile(const path:string8;volume:single;group:TFileGroup):TChannel;
  var
-  sa:Strings8;
-  par:TNameValue;
-  group:TFileGroup;
   settings:TPlaySettings;
   media:TMediaFile;
   pb:TFilePlayback;
-  i:integer;
  begin
-  sa:=params.Split(',','"');
-  if (length(sa)=0) or (sa[0]='') then exit;
-  group:=GetFileGroup(DEFAULT_FILE_GROUP);
+  result:=0;
+  if path='' then exit;
   settings:=DefaultSettings;
-  for i:=1 to high(sa) do begin
-   par.InitFrom(sa[i]);
-   if par.Named('vol') or par.Named('v') then settings.volume:=par.GetInt/100
-   else
-   if par.Named('group') then group:=GetFileGroup(par.value)
-   else
-    Log.Warn('[SOUND] PlayFile: unknown parameter '+sa[i]);
-  end;
-  Log.Msg('[SOUND] Play file '+sa[0]);
-  media:=soundLib.OpenMediaFile(Files.FixName(sa[0]),mlmLoadUnpack);
+  settings.volume:=volume;
+  Log.Msg('[SOUND] Play file '+path);
+  media:=soundLib.OpenMediaFile(Files.FixName(path),mlmLoadUnpack);
   if media=nil then exit; // the backend has logged the reason
   if group.exclusive then StopFiles('',group);
   pb:=TFilePlayback.Create;
-  pb.path:=sa[0];
+  pb.path:=path;
   pb.group:=group;
   pb.media:=media;
   pb.channel:=soundLib.PlayMedia(media,settings);
@@ -908,6 +1008,31 @@ procedure PlayFile(const params:string8);
   end;
   SetLength(filePlaybacks,length(filePlaybacks)+1);
   filePlaybacks[high(filePlaybacks)]:=pb;
+  result:=pb.channel;
+ end;
+
+// Path[,vol=N][,group=Name]
+procedure PlayFile(const params:string8);
+ var
+  sa:Strings8;
+  par:TNameValue;
+  group:TFileGroup;
+  volume:single;
+  i:integer;
+ begin
+  sa:=params.Split(',','"');
+  if length(sa)=0 then exit;
+  group:=GetFileGroup(DEFAULT_FILE_GROUP);
+  volume:=DefaultSettings.volume;
+  for i:=1 to high(sa) do begin
+   par.InitFrom(sa[i]);
+   if par.Named('vol') or par.Named('v') then volume:=par.GetInt/100
+   else
+   if par.Named('group') then group:=GetFileGroup(par.value)
+   else
+    Log.Warn('[SOUND] PlayFile: unknown parameter '+sa[i]);
+  end;
+  StartFile(sa[0],volume,group);
  end;
 
 // Drop finished playbacks (notify about the natural ends) and duck music while files play
@@ -1015,9 +1140,17 @@ procedure AnimateMusicVolume(mus:TMusicEntry);
    DelayedSignal('SOUND\AnimateMusicVol',10,TTag(mus));
  end;
 
+procedure SetGlobalVolume(volumeType:TVolumeType;volume:single);
+ begin
+  case volumeType of
+   vtSounds:soundVolume:=volume;
+   vtMusic:musicVolume:=volume;
+  end;
+  soundLib.SetVolume(volumeType,volume);
+ end;
+
 procedure EventHandler(event:TEventStr;tag:TTag);
  var
-  i,p,v,freq,vol,pan,newpan,newfreq,slide:integer;
   orig:TEventStr;
  begin
   try
@@ -1058,64 +1191,16 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
 
   // Play sound sample (load if not loaded)
-  if event.StartsWith('PLAY\') then
-   PlaySound(event,tag)
-  else
-  if event.StartsWith('CHANGE\') then
-   /// TODO
-   //SlideChannel(event,tag)
-  else
-
-  (*
-  // Change channel attributes
-  if pos('CHANGE\',event)=1 then begin
-   delete(event,1,7);
-
-   sa:=split {TODO: use st.Split(char)}(',',event,'"');
-   event:=sa[0];
-   pan:=-101;
-   v:=-1;
-   slide:=1;
-   if length(sa)>1 then begin
-    newfreq:=-1; newpan:=-101;
-    for i:=1 to length(sa)-1 do begin
-     sa2:=split {TODO: use st.Split(char)}('=',sa[i],#0);
-     if length(sa2)<2 then continue;
-     if (sa2[0]='VOL') or (sa2[0]='V') then v:=StrToInt(sa2[1]);
-     if (sa2[0]='PAN') or (sa2[0]='P') then pan:=StrToInt(sa2[1]);
-     if (sa2[0]='SLIDE') or (sa2[0]='S') then slide:=StrToInt(sa2[1]);
-     if (sa2[0]='NEWPAN') or (sa2[0]='NP') then newpan:=StrToInt(sa2[1]);
-     if (sa2[0]='NEWFREQ') or (sa2[0]='NF') then newfreq:=StrToInt(sa2[1]);
-    end;
-   end;
-   evt:=EvtHash.Get(event);
-   if evt=nil then begin
-    Log.Msg('SOUND: sound event not found - '+event);
-    exit;
-   end;
-   if evt.channel=0 then exit;
-   if tag and 255<>0 then v:=tag and 255;
-   freq:=(tag shr 8) and $FFFF;
-   if tag and $FF000000<>0 then p:=shortint(tag shr 24) else p:=evt.pan;
-   if pan<>-101 then p:=pan;  // тут хрень какая-то!
-
-   {$IFDEF IMX}
-   IMXChannelSlide(evt.channel,v,newpan,newfreq,slide);
-   {$ENDIF}
-
+  if event.StartsWith('PLAY\') then begin
+   PlaySound(event,tag);
    exit;
-  end;  *)
+  end;
 
   if event.StartsWith('SETVOLUME\') then begin
    delete(event,1,10);
-   if event='SOUND' then begin
-    soundVolume:=tag/100;
-    soundLib.SetVolume(vtSounds,soundVolume);
-   end else
-   if event='MUSIC' then begin
-    musicvolume:=tag/100;
-    soundLib.SetVolume(vtMusic,musicvolume);
-   end;
+   if event='SOUND' then SetGlobalVolume(vtSounds,tag/100)
+   else
+   if event='MUSIC' then SetGlobalVolume(vtMusic,tag/100);
    exit;
   end;
 
@@ -1130,23 +1215,241 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   if pos('PLAYMUSIC\',event)=1 then begin
    Log.Msg('[SOUND] '+event);
    delete(event,1,10);
-   PlayMusic(event,tag);
+   PlayMusicEvent(event,tag);
   end;
   except
    on e:exception do Log.Force('Sound event ('+event+') error: '+ExceptionMsg(e));
   end;
  end;
 
-function IsMusicPlaying:boolean;
- var
-  mus:TMusicEntry;
+{ ISoundSystem: voices and commands }
+
+// Index of the voice of a live handle, -1 for an empty or stale one (under soundLock)
+function VoiceIndex(handle:TChannel):integer;
  begin
-  mus:=curMusic;
-  result:=(soundLib<>nil) and (mus<>nil) and soundLib.IsPlaying(mus.channel);
+  result:=integer(cardinal(handle) and VOICE_MASK)-1;
+  if (result<0) or (result>=MAX_VOICES) then exit(-1);
+  if (voices[result].state=vsFree) or
+     (voices[result].generation<>cardinal(handle) shr VOICE_BITS) then result:=-1;
  end;
 
-procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
+// Take a free voice for a new playback (under soundLock), 0 if all are busy
+function AllocVoice:TChannel;
+ var
+  i:integer;
  begin
+  for i:=0 to high(voices) do
+   with voices[i] do
+    if state=vsFree then begin
+     generation:=(generation+1) and GENERATION_MASK;
+     state:=vsPending;
+     exit(TChannel((generation shl VOICE_BITS) or cardinal(i+1)));
+    end;
+  result:=0;
+ end;
+
+// Sound thread: index of a voice whose playback goes on, -1 if it has ended or not started
+function PlayingVoice(handle:TChannel):integer;
+ begin
+  soundLock.Enter;
+  try
+   result:=VoiceIndex(handle);
+   if (result>=0) and (voices[result].state<>vsPlaying) then result:=-1;
+  finally
+   soundLock.Leave;
+  end;
+ end;
+
+// Sound thread: the playback of a voice has started on this backend channel (0 = it failed)
+procedure BindVoice(handle,ch:TChannel;vol,panPos:single);
+ var
+  i:integer;
+ begin
+  soundLock.Enter;
+  try
+   i:=VoiceIndex(handle);
+   if i<0 then exit;
+   with voices[i] do
+    if ch=0 then state:=vsFree
+    else begin
+     state:=vsPlaying;
+     channel:=ch;
+     baseVolume:=vol;
+     sliding:=[];
+     volume.Init(1.0);
+     pan.Init(panPos);
+    end;
+  finally
+   soundLock.Leave;
+  end;
+ end;
+
+// Sound thread: drop the voices whose playback has ended, animate the slides the backend can't do
+procedure UpdateVoices;
+ var
+  i:integer;
+ begin
+  // only this thread turns a voice into vsPlaying and out of it, so reading that needs no lock
+  for i:=0 to high(voices) do
+   with voices[i] do begin
+    if state<>vsPlaying then continue;
+    if not soundLib.IsPlaying(channel) then begin
+     soundLock.Enter;
+     state:=vsFree;
+     soundLock.Leave;
+     continue;
+    end;
+    if caVolume in sliding then begin
+     soundLib.SetChannelAttribute(channel,caVolume,baseVolume*volume.Value);
+     if not volume.IsAnimating then exclude(sliding,caVolume);
+    end;
+    if caPanning in sliding then begin
+     soundLib.SetChannelAttribute(channel,caPanning,pan.Value);
+     if not pan.IsAnimating then exclude(sliding,caPanning);
+    end;
+   end;
+ end;
+
+// Sound thread: ISoundSystem.SetChannelVolume/Pan/Speed
+procedure SetVoice(const cmd:TSoundCommand);
+ var
+  i:integer;
+  value:single;
+ begin
+  i:=PlayingVoice(cmd.voice);
+  if i<0 then exit;
+  with voices[i] do
+   if (cmd.b>0) and (cmd.attr in [caVolume,caPanning]) and not (cmd.attr in soundLib.CanSlide) then begin
+    // the backend can't slide it: UpdateVoices animates the value
+    if cmd.attr=caVolume then volume.Animate(cmd.a,cardinal(round(cmd.b*1000)))
+     else pan.Animate(cmd.a,cardinal(round(cmd.b*1000)));
+    include(sliding,cmd.attr);
+   end else begin
+    exclude(sliding,cmd.attr);
+    value:=cmd.a;
+    if cmd.attr=caVolume then begin
+     volume.Assign(cmd.a);
+     value:=baseVolume*cmd.a;
+    end else
+    if cmd.attr=caPanning then pan.Assign(cmd.a);
+    if cmd.b>0 then soundLib.SlideChannel(channel,cmd.attr,value,cmd.b)
+     else soundLib.SetChannelAttribute(channel,cmd.attr,value);
+   end;
+ end;
+
+// Sound thread: ISoundSystem.StopChannel
+procedure StopVoice(handle:TChannel);
+ var
+  i:integer;
+  ch:TChannel;
+  pb:TFilePlayback;
+ begin
+  i:=PlayingVoice(handle);
+  if i<0 then exit;
+  ch:=voices[i].channel;
+  // a file stops through its playback: with a short fade-out and no Sound\FilePlayed
+  for pb in filePlaybacks do
+   if pb.channel=ch then begin
+    StopFilePlayback(pb);
+    exit;
+   end;
+  soundLib.StopChannel(ch);
+  soundLock.Enter;
+  voices[i].state:=vsFree;
+  soundLock.Leave;
+ end;
+
+// Sound thread: run an ISoundSystem call
+procedure RunCommand(const cmd:TSoundCommand);
+ var
+  settings:TPlaySettings;
+  ch:TChannel;
+  g:TFileGroup;
+ begin
+  case cmd.kind of
+   ckPlay:begin
+    ch:=PlayEvent(cmd.name,cmd.a,cmd.b,cmd.c,settings);
+    BindVoice(cmd.voice,ch,settings.volume,settings.pan);
+   end;
+   ckPlayFile:begin
+    ch:=StartFile(cmd.name,cmd.a,GetFileGroup(cmd.group));
+    BindVoice(cmd.voice,ch,cmd.a,0);
+   end;
+   ckPlayStream:begin
+    ch:=soundLib.PlayStream(cmd.proc,cmd.userData,cmd.channels,cmd.a);
+    BindVoice(cmd.voice,ch,cmd.a,0);
+   end;
+   ckPlayMusic:StartMusic(UpperCase(cmd.name),cmd.a,cmd.b,cmd.c,cmd.pos,cmd.flag);
+   ckStopMusic:StartMusic('',cmd.a,0,0,0,false);
+   ckStopFile:StopFiles(cmd.name,nil);
+   ckStopGroup:StopFiles('',GetFileGroup(cmd.group));
+   ckSetGroup:begin
+    g:=GetFileGroup(cmd.group);
+    g.duck:=Clamp(cmd.a,0.0,1.0);
+    g.exclusive:=cmd.flag;
+   end;
+   ckClearCache:ClearCache(UpperCase(cmd.name));
+   ckSetVolume:SetGlobalVolume(cmd.volumeType,cmd.a);
+   ckPause:PauseAll(cmd.flag);
+   ckSetChannel:SetVoice(cmd);
+   ckStopChannel:StopVoice(cmd.voice);
+  end;
+ end;
+
+// Sound thread: run the queued ISoundSystem calls
+procedure RunCommands;
+ var
+  list:TSoundCommands;
+  i:integer;
+ begin
+  soundLock.Enter;
+  list:=commands;
+  commands:=nil;
+  soundLock.Leave;
+  for i:=0 to high(list) do
+   try
+    RunCommand(list[i]);
+   except
+    on e:Exception do begin
+     Log.Error('[SOUND] command %d failed: %s',[ord(list[i].kind),ExceptionMsg(e)]);
+     // the playback it was to start won't come
+     if list[i].kind in [ckPlay,ckPlayFile,ckPlayStream] then BindVoice(list[i].voice,0,0,0);
+    end;
+   end;
+ end;
+
+{ TSoundSystem }
+
+function NewCommand(kind:TCommandKind):TSoundCommand;
+ begin
+  result:=Default(TSoundCommand);
+  result.kind:=kind;
+ end;
+
+function TSoundSystem.Post(var cmd:TSoundCommand;newVoice:boolean):TChannel;
+ begin
+  result:=0;
+  if not FlagIsSet(initialized) then exit;
+  soundLock.Enter;
+  try
+   if newVoice then begin
+    result:=AllocVoice;
+    cmd.voice:=result;
+   end;
+   if not newVoice or (result<>0) then begin
+    SetLength(commands,length(commands)+1);
+    commands[high(commands)]:=cmd;
+   end;
+  finally
+   soundLock.Leave;
+  end;
+  if newVoice and (result=0) then
+   Log.Warn('[SOUND] %d playbacks at once: no handle for a new one',[MAX_VOICES]);
+ end;
+
+procedure TSoundSystem.Init(useLibrary:TSoundLib;windowHandle:THandle;waitForPreload:boolean);
+ begin
+  if FlagIsSet(initialized) then exit;
   {$IF NOT DEFINED(SDLMIX) AND NOT DEFINED(IMX)}
   // Audio backends are opt-in (see defines.inc). With none of them compiled in
   // the sound system just stays inactive: this is a build-time choice, not a
@@ -1185,15 +1488,200 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForP
   until FlagIsSet(initialized) or FlagIsSet(failed);
   if FlagIsSet(failed) then begin
    soundThread.Free;
+   soundThread:=nil;
    raise EError.Create('[SOUND] Initialization failed!');
   end;
   soundThread.Priority:=tpHigher;
  end;
 
-procedure DoneSoundSystem;
+procedure TSoundSystem.Done;
+ var
+  i:integer;
  begin
   if not FlagIsSet(initialized) then exit;
+  Atomic.Exchange(initialized,0); // the calls from now on do nothing
   soundThread.Free; // stop & wait
+  soundThread:=nil;
+  soundLock.Enter;
+  commands:=nil;
+  for i:=0 to high(voices) do voices[i].state:=vsFree;
+  soundLock.Leave;
+  Atomic.Exchange(musicPlaying,0);
+ end;
+
+procedure TSoundSystem.SetVolume(volumeType:TVolumeType;volume:single);
+ var
+  cmd:TSoundCommand;
+ begin
+  if not FlagIsSet(initialized) then begin
+   // the sound thread applies it when it starts
+   case volumeType of
+    vtSounds:soundVolume:=volume;
+    vtMusic:musicVolume:=volume;
+   end;
+   exit;
+  end;
+  cmd:=NewCommand(ckSetVolume);
+  cmd.volumeType:=volumeType;
+  cmd.a:=volume;
+  Post(cmd);
+ end;
+
+procedure TSoundSystem.Pause(pause:boolean);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckPause);
+  cmd.flag:=pause;
+  Post(cmd);
+ end;
+
+function TSoundSystem.Play(const event:String8;volume,pan,speed:single):TChannel;
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckPlay);
+  cmd.name:=event;
+  cmd.a:=volume;
+  cmd.b:=pan;
+  cmd.c:=speed;
+  result:=Post(cmd,true);
+ end;
+
+procedure TSoundSystem.ClearCache(const event:String8);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckClearCache);
+  cmd.name:=event;
+  Post(cmd);
+ end;
+
+procedure TSoundSystem.PlayMusic(const name:String8;fadeOut,startAfter,fadeIn:single;fromPos:double;restart:boolean);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckPlayMusic);
+  cmd.name:=name;
+  cmd.a:=fadeOut;
+  cmd.b:=startAfter;
+  cmd.c:=fadeIn;
+  cmd.pos:=fromPos;
+  cmd.flag:=restart;
+  Post(cmd);
+ end;
+
+procedure TSoundSystem.StopMusic(fadeOut:single);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckStopMusic);
+  cmd.a:=fadeOut;
+  Post(cmd);
+ end;
+
+function TSoundSystem.IsMusicPlaying:boolean;
+ begin
+  result:=FlagIsSet(musicPlaying);
+ end;
+
+function TSoundSystem.PlayFile(const path:String8;volume:single;const group:String8):TChannel;
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckPlayFile);
+  cmd.name:=path;
+  cmd.a:=volume;
+  cmd.group:=group;
+  result:=Post(cmd,true);
+ end;
+
+procedure TSoundSystem.StopFile(const path:String8);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckStopFile);
+  cmd.name:=path;
+  Post(cmd);
+ end;
+
+procedure TSoundSystem.StopGroup(const group:String8);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckStopGroup);
+  cmd.group:=group;
+  Post(cmd);
+ end;
+
+procedure TSoundSystem.SetGroup(const group:String8;duck:single;exclusive:boolean);
+ var
+  cmd:TSoundCommand;
+ begin
+  cmd:=NewCommand(ckSetGroup);
+  cmd.group:=group;
+  cmd.a:=duck;
+  cmd.flag:=exclusive;
+  Post(cmd);
+ end;
+
+function TSoundSystem.PlayStream(proc:TSoundStreamProc;userData:pointer;channels:integer;volume:single):TChannel;
+ var
+  cmd:TSoundCommand;
+ begin
+  if not Assigned(proc) or (channels<1) then exit(0);
+  cmd:=NewCommand(ckPlayStream);
+  cmd.proc:=proc;
+  cmd.userData:=userData;
+  cmd.channels:=channels;
+  cmd.a:=volume;
+  result:=Post(cmd,true);
+ end;
+
+procedure TSoundSystem.SetAttribute(channel:TChannel;attr:TChannelAttribute;value,time:single);
+ var
+  cmd:TSoundCommand;
+ begin
+  if channel=0 then exit;
+  cmd:=NewCommand(ckSetChannel);
+  cmd.voice:=channel;
+  cmd.attr:=attr;
+  cmd.a:=value;
+  cmd.b:=time;
+  Post(cmd);
+ end;
+
+procedure TSoundSystem.SetChannelVolume(channel:TChannel;volume,time:single);
+ begin
+  SetAttribute(channel,caVolume,volume,time);
+ end;
+
+procedure TSoundSystem.SetChannelPan(channel:TChannel;pan,time:single);
+ begin
+  SetAttribute(channel,caPanning,pan,time);
+ end;
+
+procedure TSoundSystem.SetChannelSpeed(channel:TChannel;speed,time:single);
+ begin
+  SetAttribute(channel,caSpeed,speed,time);
+ end;
+
+procedure TSoundSystem.StopChannel(var channel:TChannel);
+ var
+  cmd:TSoundCommand;
+ begin
+  if channel=0 then exit;
+  cmd:=NewCommand(ckStopChannel);
+  cmd.voice:=channel;
+  Post(cmd);
+  channel:=0;
+ end;
+
+function TSoundSystem.IsPlaying(channel:TChannel):boolean;
+ begin
+  soundLock.Enter;
+  result:=VoiceIndex(channel)>=0;
+  soundLock.Leave;
  end;
 
 // A single-stream backend replaces the previous track when a new one starts:
@@ -1296,10 +1784,13 @@ begin
       Log.Msg('Error '+ExceptionMsg(e));
     end;
 
+    RunCommands;
     if (needmusic<>nil) and (CoreTime.Ticks>needMusicStartTime) then PlayNeededMusic;
     StopMusicChannels;
     soundLib.Update;
     UpdateFilePlaybacks;
+    UpdateVoices;
+    Atomic.Exchange(musicPlaying,ord((curMusic<>nil) and soundLib.IsPlaying(curMusic.channel)));
    except
     on e:exception do Log.Force('[SOUND] Error: '+ExceptionMsg(e));
    end;
@@ -1321,5 +1812,7 @@ begin
  Thread.Unregister;
 end;
 
-
+initialization
+ soundLock.Init('Sound');
+ sound:=TSoundSystem.Create;
 end.

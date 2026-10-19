@@ -78,7 +78,7 @@
 // so linking one makes the executable depend on its library (SDL2_mixer.dll
 // ships in bin*/, Linux uses the distro package) - a project that does not
 // need sound must not pay for that. With no backend compiled in the sound
-// system simply stays inactive (see Apus.Engine.Sound.InitSoundSystem).
+// system simply stays inactive (see ISoundSystem.Init in Apus.Engine.Sound).
 // ---------------------------------------------------------------------------
 
 // Keep deterministic floating-point behavior across compilers.

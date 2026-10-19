@@ -1584,3 +1584,29 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
 - SDL backend: a looped track with a loop region is decoded whole once and played
   on a reserved mixing channel (the loop is sample-exact); other music still
   streams through `Mix_Music`. One music stream at a time as before.
+
+## 2026-10-19 — Sound API: ISoundSystem, pitch, procedural sound
+
+- The game-side sound API is the `ISoundSystem` interface, the global `sound`
+  (always assigned: without a backend or before `Init` the calls do nothing):
+  `InitSoundSystem`/`DoneSoundSystem`/`IsMusicPlaying` -> `sound.Init`/`Done`/
+  `IsMusicPlaying`. Besides them it has direct calls for what the `Sound\...`
+  events do (`Play`, `PlayMusic`/`StopMusic`, `PlayFile`/`StopFile`/`StopGroup`/
+  `SetGroup`, `ClearCache`, `SetVolume`, `Pause`), procedural sound (`PlayStream`)
+  and control of a playback by its handle: `SetChannelVolume/Pan/Speed` (with an
+  optional slide time), `StopChannel`, `IsPlaying`. The events stay as they were.
+- Calls from any thread return at once: they are queued to the sound thread, and
+  a playback handle is given out before the playback starts.
+- `TSoundStreamProc` generates a procedural sound in the audio thread (float
+  samples, the rate is passed in); the contract is in its comment.
+- SDL backend: samples, streams and looped music play through the backend's own
+  mixing (a channel effect over a silent carrier), so samples get pitch: the
+  `speed`/`freq` of the config and of `Sound\Play`, which were ignored by the SDL
+  backend before, now apply - data with `speed`<>1 sounds the way it did in Engine 2.
+  At speed 1 a sample plays bit-exact as before.
+- `PlayMusic` transitions are three times in seconds (fade-out, start delay,
+  fade-in); the tag presets 0..6 of `Sound\PlayMusic` map onto them. The start
+  position (`fromPos`, the high bits of the tag, `Sound\MusicPos`) was stored but
+  never used - now the track starts from it. `PlayMusic\None` (or a missing
+  track) also cancels a track that waits for its start.
+- `Sound\Change\...` (a stub that did nothing) is removed.

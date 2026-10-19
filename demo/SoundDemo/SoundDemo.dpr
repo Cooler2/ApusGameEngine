@@ -65,7 +65,7 @@ function ExpandCommand(cmd:string):string;
 procedure RunCommand(cmd:string);
  begin
   if SameText(cmd,'check:music') then begin
-   if IsMusicPlaying then
+   if sound.IsMusicPlaying then
     writeln('check:music - playing')
    else
     // logged as an error, so a script run fails with a non-zero exit code
@@ -129,13 +129,13 @@ begin
   writeln('Sound resources: ',soundFolderPath);
   if not FileExists(soundConfigFile) then
    raise EError.Create('Sound configuration not found: '+soundConfigFile);
-  InitSoundSystem(slDefault); // whichever backend is compiled in
+  sound.Init(slDefault); // whichever backend is compiled in
   SetEventHandler('SOUND\FILEPLAYED',OnFilePlayed,emInstant);
 
   if ParamCount>0 then RunScript
    else RunInteractive;
 
-  DoneSoundSystem;
+  sound.Done;
   // Playback problems are logged as errors, so a script run can be a CI check
   if Logger.GetErrorCount>0 then begin
    writeln('FAILED: ',Logger.GetErrorCount,' error(s) logged, see SoundDemo.log');

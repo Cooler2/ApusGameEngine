@@ -540,7 +540,7 @@ procedure TGameApplication.LoadScenes;
 destructor TGameApplication.Destroy;
  begin
   if game<>nil then game.Stop;
-  DoneSoundSystem;
+  sound.Done;
   {$IFDEF STEAM}Steam.Shutdown;{$ENDIF}
   inherited;
  end;
@@ -826,7 +826,7 @@ begin
  Signal('GAMEAPP\InitSound');
  try
   // slDefault picks whichever backend is compiled in (see defines.inc)
-  InitSoundSystem(slDefault,mainWindow.GetHandle);
+  sound.Init(slDefault,mainWindow.GetHandle);
  except
   on e:Exception do begin
    Log.Force('Sound initialization failed. Continue without sound. '+e.message);
