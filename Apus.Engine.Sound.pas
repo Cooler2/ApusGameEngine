@@ -71,7 +71,10 @@ type
  TPlaySettings=record
   volume,pan,speed:single;
   loop:boolean;
-  loopStart,loopEnd:single;
+  // Loop region in seconds of the media file: a looped playback continues from
+  // loopStart when it reaches loopEnd (0 = the end of the file). Seconds stay
+  // valid when the file is resampled; double keeps sample positions exact
+  loopStart,loopEnd:double;
  end;
 
 const
@@ -158,7 +161,7 @@ type
   isModule:boolean;
   channel:TChannel;
   stopTime:int64; // stop channel at this time
-  loopPos:double; // in seconds
+  loopPos:double; // loop start in seconds, see TPlaySettings
   loop:boolean;
   curVolume:TAnimatedValue;
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
@@ -446,7 +449,6 @@ procedure LoadConfig;
    item.name:=name;
    fname:=ctlGetStr(path+'\file');
    item.loop:=ctlGetBool(path+'\loop',false);
-   item.looppos:=ctlGetInt(path+'\loopPos',0);
    fExt:=UpperCase {TODO: use st.ToUpper}(ExtractFileExt(fname));
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAV') then begin
     {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
@@ -481,6 +483,20 @@ procedure LoadConfig;
    if item.media=nil then begin
      Log.Force('[SOUND] Failed to load music file '+fName);
     exit;
+   end;
+   // Loop start: "loopTime" in seconds (survives resampling of the file) wins over
+   // "loopPos" in samples of the file (the unit of the original Engine 2 configs)
+   case ctlGetKeyType(path+'\loopTime') of
+    cktReal:item.loopPos:=ctlGetReal(path+'\loopTime');
+    cktInteger:item.loopPos:=ctlGetInt(path+'\loopTime');
+    else begin
+     looppos:=ctlGetInt(path+'\loopPos',0);
+     if looppos>0 then begin
+      if item.media.sampleRate<=0 then
+       Log.Warn('[SOUND] %s: unknown sample rate, loopPos assumes %d Hz',[fname,SampleRateOf(item.media)]);
+      item.loopPos:=looppos/SampleRateOf(item.media);
+     end;
+    end;
    end;
    item.volume:=ctlGetInt(path+'\volume',75)/100;
    MusHash.Put(item.name,item);
@@ -568,21 +584,6 @@ procedure LoadConfig;
   end;
  end;
 
-
-(* TODO
-// Callback для зацикливания потоковой музыки
-procedure LoopMusicProc(sync,chan,data,user:cardinal); stdcall;
- var
-  item:TMusicEntry;
- begin
-  {$IFDEF IMX}
-  item:=pointer(user);
-  if item.loopcount<>0 then
-    IMXChannelSetPosition(item.handle,item.loopPos);
-  inc(item.loopcount);
-  {$ENDIF}
- end;
-*)
 
 procedure PlaySound(event:TEventStr;tag:TTag);
  var

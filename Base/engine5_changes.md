@@ -1569,3 +1569,18 @@ faces in a render target (3D into an RT, a frame through the presentation RT, sc
 transition effects). The GL backend now switches the front face with the target, so a
 `TCullMode` keeps the same faces everywhere (`tests/TestCulling`). Code that compensated
 for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
+
+## 2026-10-19 — Music loop points
+
+- `TPlaySettings.loopStart/loopEnd` are `double` seconds of the media file,
+  `loopEnd=0` = the end of the file (were `single` with no stated unit and
+  ignored by the SDL backend). Seconds stay valid when a file is resampled;
+  double keeps a sample position exact.
+- Music entries of the sound config take the loop start in one of two keys:
+  `loopTime` in seconds, or `loopPos` in samples of the file - the unit of the
+  original Engine 2/IMX configs, which therefore work unchanged (verified on
+  Spectromancer tracks: the audio before `loopPos` matches the end of the track
+  at offset 0). `loopTime` wins when both are given.
+- SDL backend: a looped track with a loop region is decoded whole once and played
+  on a reserved mixing channel (the loop is sample-exact); other music still
+  streams through `Mix_Music`. One music stream at a time as before.
