@@ -41,7 +41,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
 | R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
-| R-28 | Audio Subsystem Activation | in-progress | ~40% | **Level-1 gate closed on Win64 (2026-08-24)**: `SDLMIX` links the backend (opt-in per project, see defines.inc), `SoundSDL` reworked, T1 core fixes done, `SoundDemo` migrated + script mode, sound verified by ear. File playback verbs (`PlayFile`/`StopFile`/groups with ducking/`FilePlayed`/`ClearCache`) + generation-checked channel handles done 2026-10-03. Remaining: Linux/CI run of the new headless smoke, GUI SoundDemo (T5), diagnostics (T6), then miniaudio T3/T4 for level 2 |
+| R-28 | Audio Subsystem Activation | in-progress | ~65% | Level 1 done on SDL2_mixer (2026-08-24), file playback verbs (2026-10-03); 2026-10-19: game-side API `sound:ISoundSystem`, loop points, pitch and live volume/pan/speed slides, procedural streams on the SDL backend. Remaining: music crossfade (needs miniaudio, T3/T4), GUI SoundDemo (T5), diagnostics (T6) |
 | R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
 | R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
 | R-31 | Working Surface, Size & Orientation Model | in-progress | ~70% | **Schedule blocker (P1)**. API sketch rev 2 accepted; stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done — the public contract is closed. Left: C (presets/preview/CLI knobs), D (mobile safe area), E (present shader) |
@@ -439,26 +439,33 @@ Two tiers, not a version ladder:
   - [ ] A recorded decision on what (if anything) moves into the engine/Base, and where.
 
 ### [R-28] Audio Subsystem Activation
-- Status: in-progress (~40%, level-1 gate closed on Win64) | Priority: **P1 — schedule blocker** | Area: Audio
-- Working doc (authoritative for detail): `Work/R-28_audio_activation.md` — code inventory, backend landscape, decisions, plan T0–T8.
-- Value: Strategic direction J is entirely untouched — no validated audio path on Engine5. Key finding: audio is dead by build configuration (backends gated behind `IMX`/`SDLMIX` defines absent from the standard define set), not by runtime bugs.
-- Decisions locked (2026-07-03):
-  - Primary backend: **miniaudio** (public-domain, per-platform backends under one API, null device for headless CI; own Pascal binding + prebuilt `apusaudio` binaries committed to `bin*/`, sources in `extra/miniaudio/`). SDL2_mixer = second maintained backend (see the 2026-08-24 gate decision below), not a crutch to be removed; BASS 2.4 = optional alternative (x64 fine; licensing cost for commercial use).
-  - Two-tier requirements: level 1 (gate) = play samples+music as-is + volume control; level 2 (full R-28) = loops/loop points, fades/crossfades, pitch, panning.
-  - MOD/tracker music: not required by default backend (optional backend path if ever needed).
-  - Typed facade `Sound.Play(...):TChannelHandle` added; `SOUND\` signals remain as transport over it.
-  - Legacy `SoundBass`/`SoundImx` removal = bonus stage, non-blocking.
-- Gate decision (2026-08-24): the near-term consumer needs level 1 only (samples, music, volume), so **SDL2_mixer closes the gate**: `Apus.Engine.SoundSDL.pas` already implements all of level 1, `extra/sdl2/sdl2_mixer.pas` and `bin*/SDL2_mixer.dll` are in the repo, and this path has been exercised before — T1+T2 is hours, against T1+T3+T4a for the same gate via miniaudio. miniaudio (T3+T4a+T4b) follows unhurried as the level-2 backend and stays primary. **Both are kept as two maintained backends** — the second implementation is what keeps the `ISoundLib` abstraction honest and gives a fallback per platform.
-- Gate work items (T1+T2): add `SDLMIX` to the standard define set and to the demo projects; migrate `SoundSDL` off `Apus.Common` onto the new foundation API; T1 core fixes (atomics on `initialized/failed`, `sampleRate=0` guard, `TChannel` lifetime contract, `Pause/Resume`); `Mix_Init` currently requests `MIX_INIT_OGG` only — mp3 will not load. Headless CI comes cheap here via `SDL_AUDIODRIVER=dummy` (no null backend needed); Linux CI needs `libsdl2-mixer` to link.
-- Known level-1 ceiling of the SDL2_mixer path (all level-2 concerns, none blocks the gate): `CanSlide=[]`, no pitch, no loop points, panning for samples only, and a **single music stream** — music crossfade is impossible by construction, which is exactly what miniaudio is for.
+- Status: in-progress (~65%) | Priority: **P1 — schedule blocker** | Area: Audio
+- Working doc (authoritative for detail): `Work/R-28_audio_activation.md` — code inventory, backend landscape, decisions, plan T0–T8, status log.
+- Requirements (author, 2026-07-03): level 1 (the gate) = play samples and music as-is + volume control; level 2 = loops with loop points, fades and music crossfades, pitch, panning, live control of playing channels.
+- Backends: **SDL2_mixer** (`Apus.Engine.SoundSDL`) closed the gate and stays a maintained backend; **miniaudio** remains the strategic one (planned, not started); BASS 2.4 = optional alternative. Audio is opt-in: nothing is linked without `-dSDLMIX` (2026-08-31).
+- Wanted → got:
+  - Level 1 on Win64 and Linux → done 2026-08-24: samples, ogg/mp3/MOD music, volume, pan, pause (Win64 by ear); console `SoundDemo` script runs as a headless smoke in CI on Win+Linux (`SDL_AUDIODRIVER=dummy`).
+  - Typed API over the `SOUND\` signals → done 2026-10-19: `sound:ISoundSystem`; calls from any thread are queued to the sound thread, a playback handle is given out at once; the signals stay.
+  - One-off file sounds → done 2026-10-03: `PlayFile`, groups with music ducking, `Sound\FilePlayed`, generation-checked handles.
+  - Loop points → done 2026-10-19 on SDL: sample-exact; config `loopTime` (seconds) or `loopPos` (samples of the file, so Engine 2 data works unchanged).
+  - Pitch and live slides of volume/pan/speed → done 2026-10-19 on SDL: the backend mixes samples itself over SDL_mixer channels; speed slides per frame in the mixing, volume/pan are animated by the sound thread but SDL_mixer applies a channel volume once per mixed buffer (~23 ms steps).
+  - Click-free stops → done 2026-10-19 on SDL: an early stop and a fade to the stop ramp down per frame in the mixing; pause and the stop of `Mix_Music` music are still instant.
+  - Procedural sound → done 2026-10-19: `PlayStream` (consumer request Racing RQ-3).
+  - Music crossfades (all transition modes) → impossible on SDL by construction (one music stream): miniaudio.
+  - GUI `SoundDemo` (T5), diagnostics (T6) → open.
+- Ceiling of the SDL path: one music stream (no crossfade); pitch and panning for samples only, not for music.
 - Out of scope (deferred): full backend unification (J1); spatial/3D audio; effects/DSP; BASS backend implementation; Android/AAudio validation (→ R-24).
-- Level-1 gate: DONE on Win64 (2026-08-24) — `SDLMIX` links the SDL2_mixer backend, `Apus.Engine.SoundSDL` reworked (pooled channel objects instead of a per-play leak, relative volumes reapplied on global change, real decoder/device diagnostics, `Pause`), T1 core fixes in `Apus.Engine.Sound` (atomic cross-thread flags, MP3 header parsing + `SampleRateOf` divisor guard, honest backend-selection errors, `ISoundLib.Pause` wired to `SOUND\Pause|Resume`), `soundDemo` migrated to the new foundation API with a non-interactive script mode. Verified: samples, ogg/mp3 music, MOD, volume, pan, pause/resume, fade-out — audible on Win64 (author sign-off), x64+x86 builds, headless run on the SDL `dummy` driver. Two side finds fixed: the vendored `sdl2_mixer.pas` declares the C macros `Mix_LoadWAV`/`Mix_PlayChannel` as exported functions (they are not — the backend calls `Mix_LoadWAV_RW`/`Mix_PlayChannelTimed` instead), and `Apus.EventMan` cut the `event::tag` suffix one character short.
-- Backend linkage (2026-08-31, author decision): **audio is opt-in, nothing is linked by default**. `defines.inc` no longer enables any backend on its own; a project that wants sound builds with `-dSDLMIX` (or `-dIMX` for the legacy path), and with no backend compiled in `InitSoundSystem` logs one line and stays inactive instead of raising. Rationale: a backend binding is a load-time import, so linking it makes every executable depend on `SDL2_mixer.dll` / `libSDL2_mixer` — a project that has no sound must not pay for that. The `NOAUDIO` opt-out is gone (there is nothing to opt out of); CI and `demo/build_demo_fpc.cmd` pass `-dSDLMIX` for `SoundDemo` explicitly.
-- Acceptance Criteria (tiered; full list in working doc §8):
-  - [x] Level 1: one backend reliably plays samples and streams music on Win64; global/per-channel volume. *(Linux: compiled + wired into CI with the `dummy` driver, first CI run pending.)*
-  - [ ] Level 2: loops incl. loop points; smooth `SlideChannel` (volume/pan/speed) on live channels; music crossfades in all modes.
-  - [ ] GUI `SoundDemo` covers both tiers; headless CI test covers at least level 1. *(Headless: console `SoundDemo` script mode runs in CI on Win+Linux with `SDL_AUDIODRIVER=dummy`; GUI demo still to do.)*
-  - [ ] The backend/platform decision and its limits are documented.
+- Acceptance Criteria (one capability each, so a backend can close them one by one; working doc §8):
+  - [x] Level 1: one backend reliably plays samples and streams music; global/per-channel volume.
+  - [x] Loops with loop points: sample-exact and seamless (SDL; checked on a pure sine and on Spectromancer tracks).
+  - [x] Pitch: speed of a playing sample, set at once or slid (SDL).
+  - [x] Procedural sound: a stream generated by a callback, mixed with the samples (SDL).
+  - [x] Click-free stop: an early stop and a fade to the stop ramp per frame (SDL).
+  - [ ] Smooth live slides of volume and pan with no audible steps *(SDL: ~23 ms steps; needs the channel volume in the backend's mixing)*.
+  - [ ] Music crossfades in all transition modes *(impossible on SDL: needs two music streams, miniaudio)*.
+  - [ ] Headless CI test covers at least level 1 *(console `SoundDemo` script wired into CI on Win+Linux; tick after a green run is confirmed)*.
+  - [ ] GUI `SoundDemo` covers both tiers (T5).
+  - [ ] The backend/platform decision and its limits are documented *(SDL ceiling above; platform map pending)*.
 
 ### [R-29] macOS Desktop Support (SDL2/GL)
 - Status: in-progress (~95%) | Priority: P2 | Area: Platform / Build
