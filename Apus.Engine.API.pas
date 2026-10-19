@@ -175,6 +175,7 @@ type
 
  TKey = Apus.Engine.Keys.TKey;
  TKeyMod = Apus.Engine.Keys.TKeyMod;
+ Scan = Apus.Engine.Keys.Scan;
 
  TDisplayMode = Apus.Engine.Types.TDisplayMode;
  TWindowFrame = Apus.Engine.Types.TWindowFrame;
@@ -285,7 +286,6 @@ type
   function LoadCursor(filename:string):THandle;
   procedure SetCursor(cur:THandle);
   procedure FreeCursor(cur:THandle);
-  function MapScanCodeToVirtualKey(key:integer):integer;
   function GetMousePos:TPoint; // mouse position on screen
   procedure SetMousePos(scrX,scrY:integer); // move mouse cursor (screen coordinates)
   function GetShiftKeysState:cardinal;
@@ -1037,7 +1037,7 @@ var
  function Dp(v:single):single; inline;
 
  // Utility functions
- function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
+ function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode (Scan.XXX) from KBD\KeyXXX event
  function GetKeyEventVirtualCode(tag:TTag):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
  function GetKeyUniChar(keyCode:cardinal):cardinal;  // Extract unicode character for value from ReadKey
@@ -1046,11 +1046,12 @@ var
 
  // Is mouse button pressed?
  function IsMouseBtn(btn:integer):boolean;
- // Is key down?
+ // Key state of the current window by scancode - the key position (Scan.XXX), not its meaning.
+ // Is the key down now?
  function IsKeyDown(scanCode:integer):boolean;
- // Was key pressed since last frame?
+ // Did the key go down in this frame? (a press shorter than a frame is seen too)
  function IsKeyPressed(scanCode:integer):boolean;
- // Was key released since last frame?
+ // Did the key go up in this frame?
  function IsKeyReleased(scanCode:integer):boolean;
 
  // Allow showing a system message box for critical errors. Disabled in exclusive
@@ -1081,7 +1082,7 @@ implementation
 
  function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
-   result:=(tag shr 24) and $FF;
+   result:=(tag shr 16) and $FFFF;
   end;
 
  function GetKeyEventVirtualCode(tag: TTag): cardinal;
@@ -1238,22 +1239,26 @@ function IsMouseBtn(btn:integer):boolean;
   result:=Bits.HasAll(window.mouseButtons,1 shl (btn-1));
  end;
 
-function IsKeyDown(scanCode:integer):boolean;
+function KeyStateBits(scanCode:integer):byte; inline;
  begin
   ASSERT(window<>nil);
-  result:=Bits.HasAll(window.keyState[scanCode],1);
+  if (scanCode>0) and (scanCode<Scan.Count) then result:=window.keyState[scanCode]
+   else result:=0;
+ end;
+
+function IsKeyDown(scanCode:integer):boolean;
+ begin
+  result:=KeyStateBits(scanCode) and 1<>0;
  end;
 
 function IsKeyPressed(scanCode:integer):boolean;
  begin
-  ASSERT(window<>nil);
-  result:=window.keyState[scanCode] and $3=1;
+  result:=KeyStateBits(scanCode) and 2<>0;
  end;
 
 function IsKeyReleased(scanCode:integer):boolean;
  begin
-  ASSERT(window<>nil);
-  result:=window.keyState[scanCode] and $3=2;
+  result:=KeyStateBits(scanCode) and 4<>0;
  end;
 
 procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);

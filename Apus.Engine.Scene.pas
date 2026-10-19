@@ -144,7 +144,7 @@ TGameScene=class(TNamedObject)
   // Read buffered text char: 0xAAAABBCC or 0 if none.
   // AAAA - unicode char, BB - scancode, CC - ansi char
   function ReadKey:cardinal; virtual;
-  // Put a key (press/release) into the key buffer (packing: keyCode|scancode<<16|pressed<<24)
+  // Put a key (press/release) into the key buffer (packing: keyCode|scancode<<8|pressed<<24)
   procedure WriteKey(key:cardinal); virtual;
   // Put an entered character into the text buffer (for polling via ReadKey)
   procedure WriteChar(ch:cardinal); virtual;
@@ -444,7 +444,7 @@ class procedure TGameScene.LoadAllScenes;
     k:=cardinal(item.data);
     // keys buffered before an input lock: drop the presses, keep the releases
     if ((k shr 24) and 1<>0) and not AcceptsInput then continue;
-    DispatchKey(TKey(k and $FFFF),(k shr 16) and $FF,shift,(k shr 24) and 1<>0);
+    DispatchKey(TKey(k and $FF),(k shr 8) and $FFFF,shift,(k shr 24) and 1<>0);
    end;
   end;
 

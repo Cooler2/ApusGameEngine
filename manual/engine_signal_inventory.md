@@ -75,8 +75,8 @@
 | `MOUSE\BTNDOWN` / `MOUSE\BTNUP` | notification | Platform backend + gamepad bridge (`TGame`) | `button` | Unified mouse button events for scenes/UI. |
 | `MOUSE\SCROLL` | notification | Platform backend | `wheelDelta` | Mouse wheel (scroll): 120 per notch, positive - away from the user, on every platform. |
 | `MOUSE\UPDATEPOS` | command | UI widgets (`TUIScrollBar`) | `0` | Request to update the mouse position after a virtual drag/clip. |
-| `KBD\KEYDOWN` / `KBD\KEYUP` | notification | Platform backend | `keyCode + scanCode<<16` | Low-level keyboard events. |
-| `KBD\CHAR` | notification | `TWindowsPlatform` | `ansi + scan<<16` | ANSI character (legacy compatibility). |
+| `KBD\KEYDOWN` / `KBD\KEYUP` | notification | Platform backend, `TWindow.PlatformReleaseKeys` | `keyCode + scanCode<<16` | Low-level keyboard events. `keyCode` - `TKey`, `scanCode` - USB HID usage id (`Scan.XXX`), the same on every platform. On focus loss the held keys get `KEYUP`. |
+| `KBD\CHAR` | notification | `TWindowsPlatform` | `ansi + scan<<16` | ANSI character (legacy compatibility); `scan` - HID usage id. |
 | `KBD\UNICHAR` | notification | Platform backend, Android bridge | unicode(+scan) | Unicode input. |
 | `PEN\PRESSURE` / `PEN\ROTATION` | notification | `TWindowsPlatform` (Pointer API) | sensor value | Pen telemetry. |
 | `ENGINE\SINGLETOUCHSTART/MOVE/RELEASE` | notification | Android/iOS bridge | packed `x,y` | Touch events, later transformed into the mouse/UI pipeline. |

@@ -80,7 +80,6 @@ type
   procedure SetCursor(cur:THandle);
   procedure FreeCursor(cur:THandle);
 
-  function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   function CreateWindow(const name:String8;title:string):TWindow;
  end;
@@ -505,59 +504,18 @@ function GetMouseButtonNum(btn:integer):integer;
   result:=0;
  end;
 
-function GetScancode(sdl_scancode:integer):byte;
+// TKey of a key event. Letters and digits follow the layout, as Windows VK codes do (a
+// letter of a non-Latin layout gives the Latin letter of its key, as on Windows); the
+// other keys - the key at the position on the US layout.
+function KeyFromSDL(sym,scancode:integer):TKey;
  begin
-  result:=sdl_scancode;
-  case sdl_scancode of
-   SDL_SCANCODE_ESCAPE:result:=1;
-   SDL_SCANCODE_RETURN:result:=$1C;
-   SDL_SCANCODE_GRAVE:result:=$29;
-   SDL_SCANCODE_LEFT:result:=$4B;
-   SDL_SCANCODE_RIGHT:result:=$4D;
-   SDL_SCANCODE_UP:result:=$48;
-   SDL_SCANCODE_DOWN:result:=$50;
+  case sym of
+   ord('a')..ord('z'):result:=TKey(sym-32);
+   ord('0')..ord('9'):result:=TKey(sym);
+  else
+   result:=Scan.ToKey(scancode);
   end;
  end;
-
-function GetKeyCode(sdl_keycode:integer):integer;
- var
-  c:char;
- begin
-  result:=sdl_keycode;
-   case sdl_keycode of
-    ord('a')..ord('z'):begin
-     c:=UpCase(char(sdl_keycode));
-     result:=ord(c);
-    end;
-    SDLK_F1:result:=integer(TKey.F1);
-    SDLK_F2:result:=integer(TKey.F2);
-    SDLK_F3:result:=integer(TKey.F3);
-    SDLK_F4:result:=integer(TKey.F4);
-    SDLK_F5:result:=integer(TKey.F5);
-    SDLK_F6:result:=integer(TKey.F6);
-    SDLK_F7:result:=integer(TKey.F7);
-    SDLK_F8:result:=integer(TKey.F8);
-    SDLK_F9:result:=integer(TKey.F9);
-    SDLK_F10:result:=integer(TKey.F10);
-    SDLK_F11:result:=integer(TKey.F11);
-    SDLK_F12:result:=integer(TKey.F12);
-    SDLK_PRINTSCREEN:result:=integer(TKey.PrintScreen);
-
-    SDLK_TAB:result:=integer(TKey.Tab);
-    SDLK_LEFT:result:=integer(TKey.Left);
-    SDLK_RIGHT:result:=integer(TKey.Right);
-    SDLK_UP:result:=integer(TKey.Up);
-    SDLK_DOWN:result:=integer(TKey.Down);
-    SDLK_HOME:result:=integer(TKey.Home);
-    SDLK_END:result:=integer(TKey.EndKey);
-    SDLK_PAGEUP:result:=integer(TKey.PageUp);
-    SDLK_PAGEDOWN:result:=integer(TKey.PageDown);
-    SDLK_INSERT:result:=integer(TKey.Insert);
-    SDLK_DELETE:result:=integer(TKey.Delete);
-    SDLK_BACKQUOTE:result:=integer(TKey.Tilde);
-    SDLK_BACKSPACE:result:=integer(TKey.Backspace);
-   end;
-  end;
 
 // Route an event: target is its window, nil if the event is not window-specific; false
 // if it names a window that is not ours (any more). Call under sdlEvents.
@@ -727,10 +685,15 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     case event.window.event of
      SDL_WINDOWEVENT_FOCUS_GAINED:;
      // a drag does not survive switching to another window (SDL 2.0.22+ captures the
-     // pointer while a button is held, so a release outside still comes)
-     SDL_WINDOWEVENT_FOCUS_LOST:PlatformCancelGesture;
+     // pointer while a button is held, so a release outside still comes), held keys are
+     // released (SDL releases them too: the second release is dropped)
+     SDL_WINDOWEVENT_FOCUS_LOST:begin
+      PlatformCancelGesture;
+      PlatformReleaseKeys;
+     end;
      SDL_WINDOWEVENT_HIDDEN:begin
       PlatformCancelGesture;
+      PlatformReleaseKeys;
       Log.Msg('Window hidden');
       Signal('ENGINE\SETACTIVE',0);
       Signal('ENGINE\WINDOW\HIDDEN');
@@ -742,6 +705,7 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
      end;
      SDL_WINDOWEVENT_MINIMIZED:begin
       PlatformCancelGesture;
+      PlatformReleaseKeys;
       Log.Msg('Window minimized');
       Signal('ENGINE\SETACTIVE',0);
       PlatformStateChanged(TWindowState.Minimized);
@@ -804,13 +768,13 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
    end;
 
    SDL_KEYDOWN:begin
-    Signal('KBD\KEYDOWN',GetKeyCode(event.key.keysym.sym) and $FFFF+
-      GetScanCode(event.key.keysym.scancode) shl 16);
+    Signal('KBD\KEYDOWN',ord(KeyFromSDL(event.key.keysym.sym,event.key.keysym.scancode))+
+      integer(event.key.keysym.scancode) shl 16);
    end;
 
    SDL_KEYUP:begin
-    Signal('KBD\KEYUP',GetKeyCode(event.key.keysym.sym) and $FFFF+
-      GetScanCode(event.key.keysym.scancode) shl 16);
+    Signal('KBD\KEYUP',ord(KeyFromSDL(event.key.keysym.sym,event.key.keysym.scancode))+
+      integer(event.key.keysym.scancode) shl 16);
    end;
 
    SDL_TEXTINPUT:begin
@@ -1248,11 +1212,6 @@ procedure TSDLGLWindow.Show(show:boolean);
    SDL_ShowWindow(wnd)
   else
    SDL_HideWindow(wnd);
- end;
-
-function TSDLPlatform.MapScanCodeToVirtualKey(key:integer):integer;
- begin
-  result:=GetKeyCode(SDL_GetKeyFromScancode(TSDL_Scancode(key)));
  end;
 
 

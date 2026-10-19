@@ -3,6 +3,36 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Keyboard: scancodes are USB HID usage ids on every platform (2026-10-20)
+
+- The scancode of `KBD\KEYDOWN`/`KBD\KEYUP`/`KBD\CHAR`/`KBD\UNICHAR`, of
+  `TGameScene.onKeyDown`/`onKeyUp`/`DispatchKey` and of `IsKeyDown`/`IsKeyPressed`/
+  `IsKeyReleased` is the USB HID usage id (= `SDL_Scancode`), the position of the key, the
+  same on every platform and layout. It used to be the platform's own code: Windows scan
+  set 1 (extended keys `or $80`) or, under SDL, a mix of SDL codes and a few set 1 values.
+  - New namespace `Scan` (record with constants, `Apus.Engine.Keys`, re-exported by
+    `Apus.Engine.API`): `Scan.A`, `Scan.D1`, `Scan.Up`, `Scan.LShift`, `Scan.Num5`... named
+    after the US layout; `Scan.Count` (512) - every scancode is below. `Scan.ToKey(code)` /
+    `Scan.FromKey(key)` - `TKey` at a position on the US layout and back; `Scan.Name(code)`.
+  - Numeric scancodes in game code must be replaced: `IsKeyPressed(2)` (set 1 key `1`) ->
+    `IsKeyPressed(Scan.D1)`, `$C8` (Up) -> `Scan.Up`, `$1C` (Enter) -> `Scan.Enter`.
+  - `window.keyState` is `array[0..Scan.Count-1]`, the bits changed: bit 0 - down now, bit 1
+    - went down in the frame, bit 2 - went up in the frame. Change it only through
+    `TWindow.KeyTransition`. `IsKeyPressed`/`IsKeyReleased` now see a press shorter than a
+    frame (both true); an auto-repeat is not a new press. A scancode out of range gives false.
+  - A release of a key that is not down is dropped (`TGame.KeyPressed`): the receivers get
+    down/up pairs.
+  - New `TWindow.PlatformReleaseKeys`: on focus loss (Windows `WM_ACTIVATE`, SDL focus
+    lost/hidden/minimized) every held key gets `KBD\KEYUP` - a held key no longer sticks.
+  - Scene key buffer packing (`WriteKey`): `keyCode|scancode<<8|pressed<<24`.
+  - `GetKeyEventScanCode(tag)` reads the scancode where the platforms put it (`tag shr 16`).
+- `TKey`: new `Pause`, `LWin`, `RWin`, `Menu`, `LShift`, `RShift`, `LCtrl`, `RCtrl`, `LAlt`,
+  `RAlt` (Windows already sent these codes). `TKey.FromSDL` removed. Under SDL the `TKey` of
+  a key event comes from its position except letters and digits (which follow the layout,
+  as Windows VK codes do): punctuation, keypad and modifiers no longer get wrong codes
+  (`'` used to arrive as `Right`, `Num1` as `Y`).
+- `ISystemPlatform.MapScanCodeToVirtualKey` removed (unused).
+
 ## TWindow: unused members removed, frame diagnostics and capture moved to records (2026-10-17)
 
 - Removed (nothing read them): `TWindow.textLink`, `textLinkRect` (the current text link is

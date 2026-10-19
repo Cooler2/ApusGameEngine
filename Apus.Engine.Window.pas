@@ -13,7 +13,7 @@
 unit Apus.Engine.Window;
 interface
 uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene, Apus.Threads,
-  Apus.Classes, Apus.Images, Apus.Engine.Resources;
+  Apus.Classes, Apus.Images, Apus.Engine.Resources, Apus.Engine.Keys;
 
 const
  FRAME_TIME_RING_SIZE=512;
@@ -332,9 +332,11 @@ public
   // buttons are ignored in this window.
   virtualMouse:TVirtualMouse;
   shiftState:byte; // shift keys: aggregate (sscBaseMask) + right-side bits (sscRightMask)
-  // bit 0 - pressed now, bit 1 - was pressed at the previous frame (01=just pressed,
-  // 10=just released); bit 2 is internal (pressed at this frame's publication)
-  keyState:array[0..255] of byte; // indexed by scancode
+  // Keys by scancode (Scan.XXX): bit 0 - down now; bit 1 - went down, bit 2 - went up in
+  // the published frame (a press shorter than a frame gives both); bits 3, 4 - the same
+  // since the publication (internal). Changed by KeyTransition.
+  keyState:array[0..Scan.Count-1] of byte;
+  keyCodes:array[0..Scan.Count-1] of TKey; // TKey of the held keys
   // Files dropped onto the window from a file manager: the last drop, valid until the
   // next one. Set by the window's thread right before ENGINE\WINDOW\DROPFILES (tag = count).
   droppedFiles:Strings8;
@@ -438,6 +440,13 @@ public
   // hidden): a physical gesture in progress ends without a click, the held buttons are
   // released (Mouse.WasReleased). Ignored while the virtual mouse is active.
   procedure PlatformCancelGesture;
+  // The platform lost the keyboard (focus lost, the window hidden): every held key is
+  // released through the regular path (KBD\KEYUP), as if the user let it go
+  procedure PlatformReleaseKeys;
+  // A key event (window's thread): updates keyState. False for a release of a key that is
+  // not down (pressed before the window got the focus): such a release is dropped, the
+  // receivers get down/up pairs. Scancode 0 (unknown key) is not tracked.
+  function KeyTransition(scanCode:integer;key:TKey;pressed:boolean):boolean;
   // Files dropped by the platform (window's thread): fills droppedFiles/dropPos and
   // sends ENGINE\WINDOW\DROPFILES
   procedure PlatformDropFiles(const files:Strings8;const clientPos:TPoint;hasPos:boolean);
@@ -1446,6 +1455,29 @@ procedure TWindow.PlatformCancelGesture;
   end;
  end;
 
+procedure TWindow.PlatformReleaseKeys;
+ var
+  i:integer;
+ begin
+  for i:=1 to high(keyState) do
+   if keyState[i] and 1<>0 then
+    Signal('KBD\KEYUP',ord(keyCodes[i])+i shl 16);
+ end;
+
+function TWindow.KeyTransition(scanCode:integer;key:TKey;pressed:boolean):boolean;
+ begin
+  result:=true;
+  if (scanCode<=0) or (scanCode>high(keyState)) then exit;
+  if pressed then begin
+   if keyState[scanCode] and 1=0 then // an auto-repeat is not a new press
+    keyState[scanCode]:=keyState[scanCode] or 1 or 8;
+   keyCodes[scanCode]:=key;
+  end else begin
+   if keyState[scanCode] and 1=0 then exit(false);
+   keyState[scanCode]:=keyState[scanCode] and $FE or 16;
+  end;
+ end;
+
 procedure TWindow.PlatformMouseWheel(delta:integer);
  begin
   if virtualMouse.IsActive then exit;
@@ -1903,9 +1935,9 @@ begin
  input.pendingPressed:=0;
  input.pendingReleased:=0;
  inc(input.num);
- // keyboard: bit 1 <- pressed at the previous publication (bit 2), bit 2 <- pressed now
+ // keyboard: the transitions since the last publication become the published ones
  for i:=0 to high(keyState) do
-  keyState[i]:=keyState[i] and 1 or (keyState[i] and 4) shr 1 or (keyState[i] and 1) shl 2;
+  keyState[i]:=keyState[i] and 1 or (keyState[i] and $18) shr 2;
 end;
 
 procedure TInputFrame.AddTransition(bit:byte;down:boolean);

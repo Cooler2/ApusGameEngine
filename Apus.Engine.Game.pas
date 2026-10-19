@@ -462,18 +462,15 @@ procedure TGame.KeyPressed(keyCode,scanCode:integer;pressed:boolean=true);
 var
  scene:TGameScene;
 begin
-  ASSERT(scancode in [0..255]);
+  ASSERT((scanCode>=0) and (scanCode<Scan.Count));
+  // a release of a key that is not down is dropped
+  if not window.KeyTransition(scanCode,TKey(keyCode and $FF),pressed) then exit;
   // Buffer the key event (down or up) into the kbd-topmost scene.
   // The engine drains it before Process via TGameScene.PumpInput → DispatchKey.
   scene:=TopmostSceneForKbd;
   if scene<>nil then
-   scene.WriteKey(cardinal(keyCode and $FFFF) or (cardinal(scanCode and $FF) shl 16) or (cardinal(ord(pressed)) shl 24));
+   scene.WriteKey(cardinal(keyCode and $FF) or (cardinal(scanCode and $FFFF) shl 8) or (cardinal(ord(pressed)) shl 24));
   HandleInternalHotkeys(keyCode,pressed);
-
-  if pressed then
-    window.keyState[scanCode]:=window.keyState[scanCode] or 1
-  else
-    window.keyState[scanCode]:=window.keyState[scanCode] and $FE;
 end;
 
 procedure TGame.Activate(activeState:boolean);

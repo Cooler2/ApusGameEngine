@@ -3,8 +3,12 @@
 // -----------------------------------------------------
 // Provides platform-independent key codes and modifier flags.
 //
-// TKey enum values match Windows VK_ codes, so no conversion
-// is needed on Windows. For SDL, use TKey.FromSDL().
+// Two codes come with every key event:
+//  - TKey - what the key means: values match Windows VK_ codes, letters (and on
+//    Windows other keys) follow the keyboard layout;
+//  - scancode - where the key is: USB HID usage ids (= SDL_Scancode), the same on
+//    every platform and layout, named in the Scan namespace. Key state polling
+//    (IsKeyDown...) uses them: WASD stays WASD on AZERTY.
 //
 // TKeyMods is a bitmask of modifier keys with L/R distinction:
 //   LShift/RShift/Shift, LCtrl/RCtrl/Ctrl, LAlt/RAlt/Alt, LWin/RWin/Win
@@ -26,7 +30,7 @@ type
   TKey=(
     None=0,
     Backspace=8, Tab=9, Enter=13,
-    CapsLock=20,
+    Pause=19, CapsLock=20,
     Escape=27, Space=32,
     PageUp=33, PageDown=34, EndKey=35, Home=36,
     Left=37, Up=38, Right=39, Down=40,
@@ -38,6 +42,7 @@ type
     A=65, B=66, C=67, D=68, E=69, F=70, G=71, H=72, I=73,
     J=74, K=75, L=76, M=77, N=78, O=79, P=80, Q=81, R=82,
     S=83, T=84, U=85, V=86, W=87, X=88, Y=89, Z=90,
+    LWin=91, RWin=92, Menu=93,
     // numpad
     Num0=96, Num1=97, Num2=98, Num3=99, Num4=100,
     Num5=101, Num6=102, Num7=103, Num8=104, Num9=105,
@@ -47,6 +52,8 @@ type
     F7=118, F8=119, F9=120, F10=121, F11=122, F12=123,
     // locks
     NumLock=144, ScrollLock=145,
+    // modifiers: a key event names the side
+    LShift=160, RShift=161, LCtrl=162, RCtrl=163, LAlt=164, RAlt=165,
     // browser/media keys
     BrowserBack=166, BrowserForward=167,
     VolumeMute=173, VolumeDown=174, VolumeUp=175,
@@ -79,8 +86,42 @@ type
     class function From(code:byte):TKey; static;
     // Convert Windows VK_xxx constant to TKey (masks to byte)
     class function FromWindowsVK(vk:cardinal):TKey; static;
-    // Convert SDL2 key code (SDLK_xxx) to TKey, handling scancodes and lowercase letters
-    class function FromSDL(sdlKey:integer):TKey; static;
+  end;
+
+  // Physical key positions: USB HID usage ids (= SDL_Scancode), the scancodes of the key
+  // events and of IsKeyDown/IsKeyPressed/IsKeyReleased on every platform. A key is named
+  // after the US layout: Scan.Z is the left key of the bottom letter row, whatever its
+  // label is (W on AZERTY). Codes without a name here are valid too (see SDL_Scancode).
+  Scan=record
+   const
+    None=0;
+    A=4; B=5; C=6; D=7; E=8; F=9; G=10; H=11; I=12; J=13; K=14; L=15; M=16;
+    N=17; O=18; P=19; Q=20; R=21; S=22; T=23; U=24; V=25; W=26; X=27; Y=28; Z=29;
+    D1=30; D2=31; D3=32; D4=33; D5=34; D6=35; D7=36; D8=37; D9=38; D0=39;
+    Enter=40; Escape=41; Backspace=42; Tab=43; Space=44;
+    Minus=45; Equal=46; BracketL=47; BracketR=48; Backslash=49;
+    Semicolon=51; Quote=52; Tilde=53; Comma=54; Period=55; Slash=56;
+    CapsLock=57;
+    F1=58; F2=59; F3=60; F4=61; F5=62; F6=63; F7=64; F8=65; F9=66; F10=67; F11=68; F12=69;
+    PrintScreen=70; ScrollLock=71; Pause=72;
+    Insert=73; Home=74; PageUp=75; Delete=76; EndKey=77; PageDown=78;
+    Right=79; Left=80; Down=81; Up=82;
+    NumLock=83; NumDiv=84; NumMul=85; NumSub=86; NumAdd=87; NumEnter=88;
+    Num1=89; Num2=90; Num3=91; Num4=92; Num5=93; Num6=94; Num7=95; Num8=96; Num9=97;
+    Num0=98; NumDot=99;
+    NonUSBackslash=100; // the extra key next to the left Shift (ISO keyboards)
+    Menu=101;
+    VolumeMute=127; VolumeUp=128; VolumeDown=129;
+    LCtrl=224; LShift=225; LAlt=226; LWin=227; RCtrl=228; RShift=229; RAlt=230; RWin=231;
+    MediaNext=258; MediaPrev=259; MediaStop=260; MediaPlayPause=261;
+    BrowserBack=270; BrowserForward=271;
+    Count=512; // every scancode is below
+   // The key at this position on the US layout (TKey.None if TKey has no such key)
+   class function ToKey(code:integer):TKey; static;
+   // Position of the key on the US layout (None if no key gives it)
+   class function FromKey(key:TKey):integer; static;
+   // Name of the key at this position on the US layout: 'A', 'NumEnter', 'Scan104'...
+   class function Name(code:integer):string; static;
   end;
 
   TKeyModsHelper=record helper for TKeyMods
@@ -126,6 +167,16 @@ begin
     TKey.PrintScreen:result:='PrintScreen';
     TKey.Insert:result:='Insert';
     TKey.Delete:result:='Delete';
+    TKey.Pause:result:='Pause';
+    TKey.LWin:result:='LWin';
+    TKey.RWin:result:='RWin';
+    TKey.Menu:result:='Menu';
+    TKey.LShift:result:='LShift';
+    TKey.RShift:result:='RShift';
+    TKey.LCtrl:result:='LCtrl';
+    TKey.RCtrl:result:='RCtrl';
+    TKey.LAlt:result:='LAlt';
+    TKey.RAlt:result:='RAlt';
     TKey.D0..TKey.D9:result:=chr(ord('0')+ord(self)-48);
     TKey.A..TKey.Z:result:=chr(ord('A')+ord(self)-65);
     TKey.Num0..TKey.Num9:result:='Num'+chr(ord('0')+ord(self)-96);
@@ -176,86 +227,96 @@ begin
   result:=TKey(vk and $FF);
 end;
 
-class function TKeyHelper.FromSDL(sdlKey:integer):TKey;
-const
-  SDLK_SCANCODE_MASK=1 shl 30;
-  SDL_SCANCODE_CAPSLOCK=57;
-  SDL_SCANCODE_F1=58;
-  SDL_SCANCODE_PRINTSCREEN=70;
-  SDL_SCANCODE_SCROLLLOCK=71;
-  SDL_SCANCODE_INSERT=73;
-  SDL_SCANCODE_HOME=74;
-  SDL_SCANCODE_PAGEUP=75;
-  SDL_SCANCODE_DELETE=76;
-  SDL_SCANCODE_END=77;
-  SDL_SCANCODE_PAGEDOWN=78;
-  SDL_SCANCODE_RIGHT=79;
-  SDL_SCANCODE_LEFT=80;
-  SDL_SCANCODE_DOWN=81;
-  SDL_SCANCODE_UP=82;
-  SDL_SCANCODE_NUMLOCKCLEAR=83;
-  SDL_SCANCODE_KP_DIVIDE=84;
-  SDL_SCANCODE_KP_MULTIPLY=85;
-  SDL_SCANCODE_KP_MINUS=86;
-  SDL_SCANCODE_KP_PLUS=87;
-  SDL_SCANCODE_KP_ENTER=88;
-  SDL_SCANCODE_KP_1=89;
-  SDL_SCANCODE_KP_0=98;
-  SDL_SCANCODE_KP_PERIOD=99;
-var
-  scan:integer;
+{ Scan }
+
+class function Scan.ToKey(code:integer):TKey;
 begin
-  // try direct mapping first (works for ASCII-range keys)
-  if (sdlKey>=0) and (sdlKey<=255) then
-    result:=TKey(sdlKey)
+  case code of
+    A..Z:result:=TKey(ord(TKey.A)+code-A);
+    D1..D9:result:=TKey(ord(TKey.D1)+code-D1);
+    D0:result:=TKey.D0;
+    Enter,NumEnter:result:=TKey.Enter; // Windows reports both as VK_RETURN
+    Escape:result:=TKey.Escape;
+    Backspace:result:=TKey.Backspace;
+    Tab:result:=TKey.Tab;
+    Space:result:=TKey.Space;
+    Minus:result:=TKey.Minus;
+    Equal:result:=TKey.Equal;
+    BracketL:result:=TKey.BracketL;
+    BracketR:result:=TKey.BracketR;
+    Backslash:result:=TKey.Backslash;
+    Semicolon:result:=TKey.Semicolon;
+    Quote:result:=TKey.Quote;
+    Tilde:result:=TKey.Tilde;
+    Comma:result:=TKey.Comma;
+    Period:result:=TKey.Period;
+    Slash:result:=TKey.Slash;
+    CapsLock:result:=TKey.CapsLock;
+    F1..F12:result:=TKey(ord(TKey.F1)+code-F1);
+    PrintScreen:result:=TKey.PrintScreen;
+    ScrollLock:result:=TKey.ScrollLock;
+    Pause:result:=TKey.Pause;
+    Insert:result:=TKey.Insert;
+    Home:result:=TKey.Home;
+    PageUp:result:=TKey.PageUp;
+    Delete:result:=TKey.Delete;
+    EndKey:result:=TKey.EndKey;
+    PageDown:result:=TKey.PageDown;
+    Right:result:=TKey.Right;
+    Left:result:=TKey.Left;
+    Down:result:=TKey.Down;
+    Up:result:=TKey.Up;
+    NumLock:result:=TKey.NumLock;
+    NumDiv:result:=TKey.NumDiv;
+    NumMul:result:=TKey.NumMul;
+    NumSub:result:=TKey.NumSub;
+    NumAdd:result:=TKey.NumAdd;
+    Num1..Num9:result:=TKey(ord(TKey.Num1)+code-Num1);
+    Num0:result:=TKey.Num0;
+    NumDot:result:=TKey.NumDot;
+    Menu:result:=TKey.Menu;
+    VolumeMute,262:result:=TKey.VolumeMute; // 262 - SDL "audio mute" (X11)
+    VolumeUp:result:=TKey.VolumeUp;
+    VolumeDown:result:=TKey.VolumeDown;
+    LCtrl:result:=TKey.LCtrl;
+    LShift:result:=TKey.LShift;
+    LAlt:result:=TKey.LAlt;
+    LWin:result:=TKey.LWin;
+    RCtrl:result:=TKey.RCtrl;
+    RShift:result:=TKey.RShift;
+    RAlt:result:=TKey.RAlt;
+    RWin:result:=TKey.RWin;
+    MediaNext:result:=TKey.MediaNext;
+    MediaPrev:result:=TKey.MediaPrev;
+    MediaStop:result:=TKey.MediaStop;
+    MediaPlayPause:result:=TKey.MediaPlayPause;
+    BrowserBack:result:=TKey.BrowserBack;
+    BrowserForward:result:=TKey.BrowserForward;
   else
     result:=TKey.None;
-
-  // handle special ASCII-range cases
-  case sdlKey of
-    ord('a')..ord('z'): // SDL sends lowercase, convert to uppercase key code
-      result:=TKey(sdlKey-32);
-    8:result:=TKey.Backspace;
-    9:result:=TKey.Tab;
-    13:result:=TKey.Enter;
-    27:result:=TKey.Escape;
-    32:result:=TKey.Space;
-    96:result:=TKey.Tilde; // SDL backquote
   end;
+end;
 
-  // scancode-based keys (high bit set = SDLK_SCANCODE_MASK)
-  if sdlKey and SDLK_SCANCODE_MASK<>0 then begin
-    scan:=sdlKey and $FFFF;
-    case scan of
-      SDL_SCANCODE_CAPSLOCK:result:=TKey.CapsLock;
-      SDL_SCANCODE_F1..SDL_SCANCODE_F1+11:
-        result:=TKey(ord(TKey.F1)+scan-SDL_SCANCODE_F1);
-      SDL_SCANCODE_PRINTSCREEN:result:=TKey.PrintScreen;
-      SDL_SCANCODE_SCROLLLOCK:result:=TKey.ScrollLock;
-      SDL_SCANCODE_INSERT:result:=TKey.Insert;
-      SDL_SCANCODE_HOME:result:=TKey.Home;
-      SDL_SCANCODE_PAGEUP:result:=TKey.PageUp;
-      SDL_SCANCODE_DELETE:result:=TKey.Delete;
-      SDL_SCANCODE_END:result:=TKey.EndKey;
-      SDL_SCANCODE_PAGEDOWN:result:=TKey.PageDown;
-      SDL_SCANCODE_RIGHT:result:=TKey.Right;
-      SDL_SCANCODE_LEFT:result:=TKey.Left;
-      SDL_SCANCODE_DOWN:result:=TKey.Down;
-      SDL_SCANCODE_UP:result:=TKey.Up;
-      SDL_SCANCODE_NUMLOCKCLEAR:result:=TKey.NumLock;
-      SDL_SCANCODE_KP_DIVIDE:result:=TKey.NumDiv;
-      SDL_SCANCODE_KP_MULTIPLY:result:=TKey.NumMul;
-      SDL_SCANCODE_KP_MINUS:result:=TKey.NumSub;
-      SDL_SCANCODE_KP_PLUS:result:=TKey.NumAdd;
-      SDL_SCANCODE_KP_ENTER:result:=TKey.Enter;
-      SDL_SCANCODE_KP_1..SDL_SCANCODE_KP_1+8:
-        result:=TKey(ord(TKey.Num1)+scan-SDL_SCANCODE_KP_1);
-      SDL_SCANCODE_KP_0:result:=TKey.Num0;
-      SDL_SCANCODE_KP_PERIOD:result:=TKey.NumDot;
-    else
-      result:=TKey.None;
-    end;
-  end;
+class function Scan.FromKey(key:TKey):integer;
+var
+  code:integer;
+begin
+  result:=None;
+  if key=TKey.None then exit;
+  // the main block comes first: Enter, not NumEnter
+  for code:=1 to Count-1 do
+    if ToKey(code)=key then exit(code);
+end;
+
+class function Scan.Name(code:integer):string;
+var
+  key:TKey;
+begin
+  if code=NumEnter then exit('NumEnter');
+  key:=ToKey(code);
+  if key<>TKey.None then exit(key.Name);
+  str(code,result);
+  result:='Scan'+result;
 end;
 
 { TKeyModsHelper }

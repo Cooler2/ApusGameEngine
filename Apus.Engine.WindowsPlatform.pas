@@ -69,7 +69,6 @@ type
   function LoadCursor(filename:string):THandle;
   procedure SetCursor(cur:THandle);
   procedure FreeCursor(cur:THandle);
-  function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   // Window factory
  function CreateWindow(const name:String8;title:string):TWindow;
@@ -230,11 +229,171 @@ procedure CancelGesture;
   if Apus.Engine.API.window<>nil then Apus.Engine.API.window.PlatformCancelGesture;
  end;
 
+// Windows scan code (set 1, $80 - an extended key) -> USB HID usage id (Scan.XXX), 0 if unknown
+function HIDScanCode(code:integer):integer;
+ begin
+  case code of
+   $01:result:=Scan.Escape;
+   $02..$0A:result:=Scan.D1+code-$02;
+   $0B:result:=Scan.D0;
+   $0C:result:=Scan.Minus;
+   $0D:result:=Scan.Equal;
+   $0E:result:=Scan.Backspace;
+   $0F:result:=Scan.Tab;
+   $10:result:=Scan.Q;
+   $11:result:=Scan.W;
+   $12:result:=Scan.E;
+   $13:result:=Scan.R;
+   $14:result:=Scan.T;
+   $15:result:=Scan.Y;
+   $16:result:=Scan.U;
+   $17:result:=Scan.I;
+   $18:result:=Scan.O;
+   $19:result:=Scan.P;
+   $1A:result:=Scan.BracketL;
+   $1B:result:=Scan.BracketR;
+   $1C:result:=Scan.Enter;
+   $1D:result:=Scan.LCtrl;
+   $1E:result:=Scan.A;
+   $1F:result:=Scan.S;
+   $20:result:=Scan.D;
+   $21:result:=Scan.F;
+   $22:result:=Scan.G;
+   $23:result:=Scan.H;
+   $24:result:=Scan.J;
+   $25:result:=Scan.K;
+   $26:result:=Scan.L;
+   $27:result:=Scan.Semicolon;
+   $28:result:=Scan.Quote;
+   $29:result:=Scan.Tilde;
+   $2A:result:=Scan.LShift;
+   $2B:result:=Scan.Backslash;
+   $2C:result:=Scan.Z;
+   $2D:result:=Scan.X;
+   $2E:result:=Scan.C;
+   $2F:result:=Scan.V;
+   $30:result:=Scan.B;
+   $31:result:=Scan.N;
+   $32:result:=Scan.M;
+   $33:result:=Scan.Comma;
+   $34:result:=Scan.Period;
+   $35:result:=Scan.Slash;
+   $36:result:=Scan.RShift;
+   $37:result:=Scan.NumMul;
+   $38:result:=Scan.LAlt;
+   $39:result:=Scan.Space;
+   $3A:result:=Scan.CapsLock;
+   $3B..$44:result:=Scan.F1+code-$3B;
+   $45:result:=Scan.Pause;
+   $46:result:=Scan.ScrollLock;
+   $47:result:=Scan.Num7;
+   $48:result:=Scan.Num8;
+   $49:result:=Scan.Num9;
+   $4A:result:=Scan.NumSub;
+   $4B:result:=Scan.Num4;
+   $4C:result:=Scan.Num5;
+   $4D:result:=Scan.Num6;
+   $4E:result:=Scan.NumAdd;
+   $4F:result:=Scan.Num1;
+   $50:result:=Scan.Num2;
+   $51:result:=Scan.Num3;
+   $52:result:=Scan.Num0;
+   $53:result:=Scan.NumDot;
+   $54:result:=154; // SysRq (Alt+PrintScreen)
+   $56:result:=Scan.NonUSBackslash;
+   $57:result:=Scan.F11;
+   $58:result:=Scan.F12;
+   $59:result:=103; // keypad =
+   $64..$6E:result:=104+code-$64; // F13..F23
+   $70:result:=136; // international keys (Japanese, Brazilian)
+   $73:result:=135;
+   $76:result:=115; // F24
+   $79:result:=138;
+   $7B:result:=139;
+   $7D:result:=137;
+   $7E:result:=133; // keypad comma
+   // extended keys
+   $90:result:=Scan.MediaPrev;
+   $99:result:=Scan.MediaNext;
+   $9C:result:=Scan.NumEnter;
+   $9D:result:=Scan.RCtrl;
+   $A0:result:=Scan.VolumeMute;
+   $A1:result:=266; // calculator
+   $A2:result:=Scan.MediaPlayPause;
+   $A4:result:=Scan.MediaStop;
+   $AE:result:=Scan.VolumeDown;
+   $B0:result:=Scan.VolumeUp;
+   $B2:result:=269; // browser home
+   $B5:result:=Scan.NumDiv;
+   $B7:result:=Scan.PrintScreen;
+   $B8:result:=Scan.RAlt;
+   $C5:result:=Scan.NumLock;
+   $C6:result:=Scan.Pause; // Ctrl+Break
+   $C7:result:=Scan.Home;
+   $C8:result:=Scan.Up;
+   $C9:result:=Scan.PageUp;
+   $CB:result:=Scan.Left;
+   $CD:result:=Scan.Right;
+   $CF:result:=Scan.EndKey;
+   $D0:result:=Scan.Down;
+   $D1:result:=Scan.PageDown;
+   $D2:result:=Scan.Insert;
+   $D3:result:=Scan.Delete;
+   $DB:result:=Scan.LWin;
+   $DC:result:=Scan.RWin;
+   $DD:result:=Scan.Menu;
+   $DE:result:=102; // power
+   $DF:result:=282; // sleep
+   $E5:result:=268; // browser search
+   $E6:result:=274; // browser favorites
+   $E7:result:=273; // browser refresh
+   $E8:result:=272; // browser stop
+   $E9:result:=Scan.BrowserForward;
+   $EA:result:=Scan.BrowserBack;
+   $EB:result:=267; // my computer
+   $EC:result:=265; // mail
+   $ED:result:=263; // media select
+  else
+   result:=0;
+  end;
+ end;
+
+// Codes of a key message: TKey (a modifier names its side) and the HID scancode
+procedure KeyMessageCodes(wParam:UIntPtr;lParam:IntPtr;out keyCode,scanCode:integer);
+ var
+  code:integer;
+  isExtended:boolean;
+  vkCode:cardinal;
+ begin
+  // wParam = virtual code; lParam[23..16] = scan code; lParam[24] = extended key flag
+  code:=(lParam shr 16) and $FF;
+  isExtended:=Bits.HasAll(cardinal(lParam shr 24),1);
+  vkCode:=wParam and $FFFF;
+  case vkCode of
+   VK_SHIFT:vkCode:=MapVirtualKey(code,MAPVK_VSC_TO_VK_EX);
+   VK_CONTROL:begin
+    if isExtended then vkCode:=VK_RCONTROL else vkCode:=VK_LCONTROL;
+   end;
+   VK_MENU:begin
+    if isExtended then vkCode:=VK_RMENU else vkCode:=VK_LMENU;
+   end;
+  end;
+  keyCode:=TKey.FromWindowsVK(vkCode).Code;
+  if isExtended then code:=code or $80;
+  case vkCode of // Pause and NumLock may come with the same scan code
+   VK_PAUSE:scanCode:=Scan.Pause;
+   VK_NUMLOCK:scanCode:=Scan.NumLock;
+  else
+   scanCode:=HIDScanCode(code);
+  end;
+  // no scan code (input injected with a virtual code only): the position on the US layout
+  if scanCode=0 then scanCode:=Scan.FromKey(TKey(keyCode));
+ end;
+
 function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
  i,charCode,scanCode,keyCode:integer;
- isExtended,inClient:boolean;
- vkCode:cardinal;
+ inClient:boolean;
  rc:TRect;
  pt:TPoint;
  ps:TPaintStruct;
@@ -272,45 +431,20 @@ begin
   WM_CHAR:begin
     charCode:=wParam and $FFFF;
     scanCode:=(lParam shr 16) and $FF;
+    if Bits.HasAll(cardinal(lParam shr 24),1) then scanCode:=scanCode or $80;
+    scanCode:=HIDScanCode(scanCode);
     Signal('KBD\CHAR',AsciiCodeFromUnicode(charCode)+scanCode shl 16);
     Signal('KBD\UNICHAR',charCode+scanCode shl 16);
   end;
 
   WM_KEYDOWN,WM_SYSKEYDOWN:begin
-    // wParam = Virtual Code; lParam[23..16] = scan; lParam[24] = extended key flag
-    scanCode:=(lParam shr 16) and $FF;
-    isExtended:=Bits.HasAll(cardinal(lParam shr 24),1);
-    vkCode:=wParam and $FFFF;
-    if vkCode=VK_SHIFT then
-      vkCode:=MapVirtualKey(scanCode,MAPVK_VSC_TO_VK_EX)
-    else
-    if vkCode=VK_CONTROL then begin
-      if isExtended then vkCode:=VK_RCONTROL else vkCode:=VK_LCONTROL;
-    end else
-    if vkCode=VK_MENU then begin
-      if isExtended then vkCode:=VK_RMENU else vkCode:=VK_LMENU;
-    end;
-    if isExtended then scanCode:=scanCode or $80;
-    keyCode:=TKey.FromWindowsVK(vkCode).Code;
-    Signal('KBD\KEYDOWN',keyCode+scancode shl 16);
+    KeyMessageCodes(wParam,lParam,keyCode,scanCode);
+    Signal('KBD\KEYDOWN',keyCode+scanCode shl 16);
   end;
 
   WM_KEYUP,WM_SYSKEYUP:begin
-    scanCode:=(lParam shr 16) and $FF;
-    isExtended:=Bits.HasAll(cardinal(lParam shr 24),1);
-    vkCode:=wParam and $FFFF;
-    if vkCode=VK_SHIFT then
-      vkCode:=MapVirtualKey(scanCode,MAPVK_VSC_TO_VK_EX)
-    else
-    if vkCode=VK_CONTROL then begin
-      if isExtended then vkCode:=VK_RCONTROL else vkCode:=VK_LCONTROL;
-    end else
-    if vkCode=VK_MENU then begin
-      if isExtended then vkCode:=VK_RMENU else vkCode:=VK_LMENU;
-    end;
-    if isExtended then scanCode:=scanCode or $80;
-    keyCode:=TKey.FromWindowsVK(vkCode).Code;
-    Signal('KBD\KEYUP',keyCode+scancode shl 16);
+    KeyMessageCodes(wParam,lParam,keyCode,scanCode);
+    Signal('KBD\KEYUP',keyCode+scanCode shl 16);
     if message=WM_SYSKEYUP then exit(0);
   end;
 
@@ -482,7 +616,12 @@ begin
    //Log.Msg('WM_ACTIVATE: %x %x',[wparam,lparam]);
    if loword(wparam)<>wa_inactive then i:=1
     else i:=0;
-   if i=0 then CancelGesture; // a drag does not survive switching to another window
+   // a drag does not survive switching to another window, held keys are released: their
+   // releases go to the other window
+   if (i=0) and (Apus.Engine.API.window<>nil) then begin
+    Apus.Engine.API.window.PlatformCancelGesture;
+    Apus.Engine.API.window.PlatformReleaseKeys;
+   end;
    Signal('ENGINE\SETACTIVE',i);
   end;
   // the system cancels modes (a dialog pops up, ...): DefWindowProc releases the capture
@@ -1338,11 +1477,6 @@ procedure TWinGLWindow.Show(show:boolean);
    windows.ShowWindow(window,SW_SHOWNORMAL)
   else
    windows.ShowWindow(window,SW_HIDE);
- end;
-
-function TWindowsPlatform.MapScanCodeToVirtualKey(key:integer):integer;
- begin
-  result:=MapVirtualKey(key,MAPVK_VSC_TO_VK);
  end;
 
 

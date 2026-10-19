@@ -425,16 +425,23 @@ procedure TestInputFrame;
   wndA.physPos:=Types.Point(-1,-1);
   RunFrame(wndA);
   // keyboard: the same frame boundary
-  wndA.keyState[30]:=wndA.keyState[30] or 1; // as TGame.KeyPressed
+  wndA.KeyTransition(Scan.A,TKey.A,true); // as TGame.KeyPressed
   RunFrame(wndA);
-  Check(IsKeyPressed(30),'key: pressed in its frame');
+  Check(IsKeyPressed(Scan.A),'key: pressed in its frame');
+  wndA.KeyTransition(Scan.A,TKey.A,true); // auto-repeat
   RunFrame(wndA);
-  Check(not IsKeyPressed(30) and IsKeyDown(30),'key: then only down');
-  wndA.keyState[30]:=wndA.keyState[30] and $FE;
+  Check(not IsKeyPressed(Scan.A) and IsKeyDown(Scan.A),'key: then only down, auto-repeat included');
+  wndA.KeyTransition(Scan.A,TKey.A,false);
   RunFrame(wndA);
-  Check(IsKeyReleased(30),'key: released in its frame');
+  Check(IsKeyReleased(Scan.A),'key: released in its frame');
   RunFrame(wndA);
-  Check(not IsKeyReleased(30),'key: released only once');
+  Check(not IsKeyReleased(Scan.A),'key: released only once');
+  // a press shorter than a frame is seen
+  wndA.KeyTransition(Scan.Up,TKey.Up,true);
+  wndA.KeyTransition(Scan.Up,TKey.Up,false);
+  RunFrame(wndA);
+  Check(IsKeyPressed(Scan.Up) and IsKeyReleased(Scan.Up) and not IsKeyDown(Scan.Up),'key: short press');
+  Check(not wndA.KeyTransition(Scan.Up,TKey.Up,false),'key: a release of a key that is not down is dropped');
   // the platform lost the pointer mid-gesture: released without a click
   wndA.physPos:=Types.Point(150,115);
   RunFrame(wndA);
