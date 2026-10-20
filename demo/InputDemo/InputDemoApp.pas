@@ -35,6 +35,7 @@ uses
   Apus.Conv,
   Apus.Strings,
   Apus.EventMan,
+  Apus.Log,
   Apus.Engine.Keys,
   Apus.Engine.Types,
   Apus.Engine.Scene;
@@ -155,6 +156,12 @@ begin
   result:=Mouse.WasPressed;
 end;
 
+// raw KBD\ signals of the platform, to game.log only: what came before the scene callbacks
+procedure KbdSignalLogger(event:TEventStr;tag:TTag);
+begin
+  Log.Msg('signal %s key=%d scan=%d',[event,tag and $FFFF,(tag shr 16) and $FFFF]);
+end;
+
 procedure InputEventHandler(event:TEventStr;tag:TTag);
 var
   x,y:integer;
@@ -252,6 +259,7 @@ begin
   UpdateMetrics;
   RebuildFonts;
   SetEventHandler('MOUSE\',InputEventHandler,emInstant);
+  SetEventHandler('KBD\',KbdSignalLogger,emInstant);
   loaded:=true;
 end;
 
@@ -277,6 +285,7 @@ begin
   logs[idx].t:=CoreTime.Ticks*0.001;
   logs[idx].kind:=kind;
   logs[idx].info:=info;
+  Log.Msg('%-6s %s',[kind,info]); // the same line in game.log
   logHead:=(logHead+1) mod Length(logs);
   if logCount<Length(logs) then inc(logCount);
 end;
