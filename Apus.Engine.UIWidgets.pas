@@ -1183,6 +1183,7 @@ function TUIEditBox.GetText:String8;
    if pressed then begin
     cursortimer:=CoreTime.Ticks;
     txtLen:=length(realText);
+    shiftState:=shiftState and sscBaseMask; // right Ctrl/Alt/Shift give the same shortcuts as the left ones
     useCtrl:=(shiftstate and sscCtrl)>0;
     useShift:=(shiftstate and sscShift)>0;
 

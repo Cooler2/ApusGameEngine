@@ -1783,7 +1783,8 @@ begin
     if window.scenes[i] is TUIScene then begin
      sc:=TUIScene(window.scenes[i]);
      if not sc.UI.flags.enabled then continue;
-     if (modal<>nil) and not modal.HasParent(sc.UI) then continue;
+     // a modal scene pushes its own root, a strict HasParent misses it
+     if (modal<>nil) and (modal<>sc.UI) and not modal.HasParent(sc.UI) then continue;
     end;
     // Topmost?
     if window.scenes[i].zorder>maxZ then begin

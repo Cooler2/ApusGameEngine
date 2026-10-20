@@ -1296,7 +1296,8 @@ function TUIElement.IsEnabled:boolean;
  function TUIElement.onKey(keycode:byte; pressed:boolean;shiftstate:byte):boolean;
   begin
    if pressed and (TKey.From(keyCode)=TKey.Tab) then begin
-    SetFocusToNext;
+    if shiftState and sscShift<>0 then SetFocusToPrev
+     else SetFocusToNext;
     result:=false;
     exit;
    end;
@@ -1939,9 +1940,29 @@ procedure TUIElement.MarkDeleted;
    if c.flags.canHaveFocus then c.SetFocus;
   end;
 
+ // reverse of SetFocusToNext: the preceding element in pre-order, wrapping at the root
  procedure TUIElement.SetFocusToPrev;
+  var
+   c:TUIElement;
+   i,idx:integer;
   begin
-   NotImplemented;
+   c:=self;
+   repeat
+    idx:=-1;
+    if c.parent<>nil then
+     for i:=0 to high(c.parent.children) do
+      if c.parent.children[i]=c then begin
+       idx:=i; break;
+      end;
+    if idx>0 then c:=c.parent.children[idx-1] // previous sibling: then its last descendant
+     else
+      if c.parent<>nil then begin
+       c:=c.parent; continue; // first child: the parent precedes it
+      end;
+    // the last element of the subtree (from the root: wrap around to the end of the tree)
+    while length(c.children)>0 do c:=c.children[high(c.children)];
+   until (c.flags.enabled and c.flags.visible and c.flags.canHaveFocus) or (c=self);
+   if c.flags.canHaveFocus then c.SetFocus;
   end;
 
  procedure TUIElement.SetHotKey(vKeyCode:integer;shiftstate:byte);

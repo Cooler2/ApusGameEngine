@@ -25,6 +25,7 @@ uses
   Apus.Engine.UIWidgets,
   Apus.Engine.UIShapes,
   Apus.Engine.UIScene,
+  Apus.Engine.Game,
   Apus.Engine.RobotAPI;
 
 {$I ..\Base\tests\Test.inc}
@@ -76,6 +77,11 @@ type
     function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
     function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; override;
     procedure AddEvent(const kind:String8;key:TKey;shift:byte);
+  end;
+
+  // opens the scene choice of TGame.KeyPressed/CharEntered
+  TKbdGame=class(TGame)
+    function KbdTarget:TGameScene;
   end;
 
 var
@@ -181,6 +187,13 @@ function TKeyProbe.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
  begin
   AddEvent('U',key,shift);
   result:=true;
+ end;
+
+{ TKbdGame }
+
+function TKbdGame.KbdTarget:TGameScene;
+ begin
+  result:=TopmostSceneForKbd;
  end;
 
 // TGame stand-in for the KBD\ events (the key part of TGame.KeyPressed/CharEntered):
@@ -703,6 +716,58 @@ procedure TestRules;
   EndTest;
  end;
 
+// The scene that gets the keys: a modal scene pushes its own root (B-56)
+procedure TestKeyboardTarget;
+ var
+  g:TKbdGame;
+ begin
+  StartTest('Keyboard target scene');
+  // TopmostSceneForKbd reads only the current window: no constructor (it wants a platform)
+  g:=TKbdGame(TKbdGame.NewInstance);
+  try
+   Check(g.KbdTarget=sceneA,'no modal: the topmost active scene');
+   dialog.SetStatus(ssActive);
+   wndA.modal.Push(dialog.UI);
+   try
+    Check(g.KbdTarget=dialog,'the modal scene gets the keys');
+   finally
+    wndA.modal.Pop(dialog.UI);
+    dialog.SetStatus(ssFrozen);
+   end;
+  finally
+   g.FreeInstance;
+  end;
+  EndTest;
+ end;
+
+// Edit box shortcuts with the right-side modifiers (B-57), Tab and Shift+Tab (B-58)
+procedure TestEditKeys;
+ var
+  form:TUIScene;
+  panel:TUIElement;
+  e1,e2,e3:TUIEditBox;
+ begin
+  StartTest('Edit box keys');
+  form:=TUIScene.Create('Form',false,wndA); // never active: no part in the mouse tests
+  panel:=TUIElement.Create(300,200,form.UI,'FormPanel');
+  e1:=TUIEditBox.Create(100,20,panel,'Edit1');
+  e2:=TUIEditBox.Create(100,20,panel,'Edit2');
+  e3:=TUIEditBox.Create(100,20,panel,'Edit3');
+  e1.text:='Login';
+  e1.SetFocus;
+  e1.selCount:=0;
+  e1.onKey(ord('A'),true,sscCtrl or sscRCtrl);
+  Check(e1.selCount=5,'right Ctrl+A selects all');
+  e1.onKey(ord(TKey.Tab),true,0);
+  Check(FocusedElement=e2,'Tab goes forward');
+  e2.onKey(ord(TKey.Tab),true,sscShift);
+  Check(FocusedElement=e1,'Shift+Tab goes back');
+  e1.onKey(ord(TKey.Tab),true,sscShift or sscRShift);
+  Check(FocusedElement=e3,'Shift+Tab from the first wraps to the last');
+  ClearFocus(wndA);
+  EndTest;
+ end;
+
 procedure TestDrag;
  var
   a:String8;
@@ -1118,6 +1183,8 @@ begin
   TestBatch;
   TestWheel;
   TestRules;
+  TestKeyboardTarget;
+  TestEditKeys;
   TestDrag;
   TestReset;
   TestPhysicalIgnored;
