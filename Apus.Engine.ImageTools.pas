@@ -519,7 +519,7 @@ begin
   if flags and liffTexture>0 then aflags:=aflags or aiTexture
     else aFlags:=aFlags or aiClampUV;
   if flags and liffPow2>0 then aflags:=aflags or aiTexture or aiPow2;
-  if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiAutoMipmap;
+  if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiAutoMipmap; // NPOT mip chains are baseline: no padding
   if imgInfo.miplevels>1 then flags:=flags or aiAutoMipmap;
   aFlags:=aFlags or (flags and $FF0000); // keep some flags
   // Non-unique label: file identity lives in the source registry (src), not in the

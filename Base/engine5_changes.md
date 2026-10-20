@@ -3,6 +3,19 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## NPOT textures: mip-maps without POT padding (2026-10-20)
+
+- `liffMipMaps` no longer implies `aiPow2`: an image loaded with mip-maps keeps its own size
+  (NPOT mip chains are baseline in GL 3.3 / GLES 3.0), `u2`/`v2` are 1. Padding happens only
+  with an explicit `liffPow2`/`aiPow2`.
+- POT-padded textures (`aiPow2` with an NPOT image) drew garbage (horizontal stripes): the CPU
+  copy of a level is packed by the image width, the upload read it with the storage width.
+  Reading such a texture back (`Lock` after `Upload`/`UploadPart`/`ClearPart`) failed or
+  overran the buffer. Both fixed.
+- `mipmaps` of an auto-mip-mapped texture is floor(log2) of the larger side (the last level of
+  an NPOT chain), still capped by `MAX_LEVEL`; a full `Lock` of a level of an odd size covers
+  exactly that level.
+
 ## Robot API: virtual keyboard, `mouse.mode` -> `input.mode` (2026-10-20)
 
 - Robot API commands renamed: `mouse.mode`/`mouse.reset`/`mouse.state`/`mouse.wait` ->

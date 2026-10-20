@@ -1019,18 +1019,38 @@ end;
 procedure TGLTexture.DownloadLevel(mipLevel:integer);
 var
  format,dataType,internal:cardinal;
+ {$IFNDEF GLES}
+ buf:ByteArray;
+ y,h,linePitch,realPitch,size:integer;
+ procedure GetLevel(var dest:ByteArray);
+  begin
+   if glFeatures.dsa then
+    glGetTextureImage(texname,mipLevel,format,dataType,length(dest),dest)
+   else begin
+    BindScratch;
+    glGetTexImage(GetTextureTarget,mipLevel,format,dataType,dest);
+   end;
+  end;
+ {$ENDIF}
 begin
   if pixelFormat in compressedFormats then
    raise EWarning.Create('Reading back a compressed texture is not supported: '+name);
   GetGLformat(pixelFormat,format,dataType,internal);
   {$IFDEF GLES}
-  GLESReadTexImage(GetTextureTarget,texname,mipLevel,width shr mipLevel,height shr mipLevel,format,dataType,realData[mipLevel]);
+  GLESReadTexImage(GetTextureTarget,texname,mipLevel,Max(width shr mipLevel,1),Max(height shr mipLevel,1),
+    format,dataType,realData[mipLevel]);
   {$ELSE}
-  if glFeatures.dsa then
-   glGetTextureImage(texname,mipLevel,format,dataType,length(realData[mipLevel]),realData[mipLevel])
+  if (realWidth=width) and (realHeight=height) then
+   GetLevel(realData[mipLevel])
   else begin
-   BindScratch;
-   glGetTexImage(GetTextureTarget,mipLevel,format,dataType,realData[mipLevel]);
+   // POT-padded storage: GL returns the whole level, keep the image part only
+   GetLevelSize(pixelFormat,Max(realWidth shr mipLevel,1),Max(realHeight shr mipLevel,1),realPitch,size);
+   SetLength(buf,size);
+   GetLevel(buf);
+   GetLevelSize(pixelFormat,Max(width shr mipLevel,1),Max(height shr mipLevel,1),linePitch,size);
+   h:=Max(height shr mipLevel,1);
+   for y:=0 to h-1 do
+    move(buf[y*realPitch],realData[mipLevel,y*linePitch],linePitch);
   end;
   {$ENDIF}
   CheckForGLError('DownL');
@@ -1165,7 +1185,7 @@ begin
   if locked=0 then BeginWrite; // outer lock: acquire exclusive sync (no-op in single-window mode)
   cs.Enter;
   try
-   if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel) // full rect
+   if r=nil then lockRect:=Rect(0,0,Max(width shr mipLevel,1)-1,Max(height shr mipLevel,1)-1) // full rect
     else lockRect:=r^;
    if (mode=lmCustomUpdate) and (r<>nil) then
     raise EWarning.Create('GLTex: for custom update must lock full surface');
@@ -1514,7 +1534,7 @@ procedure TGLTexture.UploadInternalData;
  var
   needInit,dsa:boolean;
   format,subformat,internalFormat,error:cardinal;
-  i,bpp,level:integer;
+  i,bpp,level,stride:integer;
  begin
   needInit:=false;
   cs.Enter;
@@ -1549,8 +1569,10 @@ procedure TGLTexture.UploadInternalData;
   end else
   for level:=0 to mipmaps do
     if dCount[level]<>0 then begin
-     // Upload texture data
-     glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth shr level);
+     // Upload texture data. The CPU copy of a level is packed by the image size (see Lock),
+     // not by the storage size: a POT-padded storage is wider
+     stride:=Max(width shr level,1);
+     glPixelStorei(GL_UNPACK_ROW_LENGTH,stride);
      CheckForGLError('14');
      bpp:=pixelSize[pixelFormat] div 8;
      if dCount[level]<0 then dCount[level]:=1;
@@ -1559,11 +1581,11 @@ procedure TGLTexture.UploadInternalData;
        {$IFNDEF GLES}
        if dsa then
         glTextureSubImage2D(texname,level,Left,Top,right-left+1,bottom-top+1,
-           format,subFormat,@realData[level,(left+top*realWidth)*bpp])
+           format,subFormat,@realData[level,(left+top*stride)*bpp])
        else
        {$ENDIF}
         glTexSubImage2D(GL_TEXTURE_2D,level,Left,Top,right-left+1,bottom-top+1,
-           format,subFormat,@realData[level,(left+top*realWidth)*bpp]);
+           format,subFormat,@realData[level,(left+top*stride)*bpp]);
      CheckForGLError('15');
      dCount[level]:=0;
     end;
@@ -1817,7 +1839,7 @@ begin
   // loaders provide level 0 only (a DDS mip chain would have to be uploaded level by level)
   if Bits.HasAll(flags,aiAutoMipmap) and not (pixFmt in compressedFormats) then begin
    Bits.SetFlag(tex.caps,tfAutoMipMap);
-   tex.mipmaps:=Clamp(Log2i(Max(width,height)),0,tex.MAX_LEVEL);
+   tex.mipmaps:=Clamp(Log2i(Max(width,height)+1)-1,0,tex.MAX_LEVEL); // floor(log2): an NPOT chain ends at 1 pixel
   end else
   if pixFmt in compressedFormats then
    tex.mipmaps:=0
@@ -1899,7 +1921,7 @@ begin
   // Mip-maps
  if Bits.HasAll(flags,aiAutoMipmap) then begin
   Bits.SetFlag(tex.caps,tfAutoMipMap);
-  tex.mipmaps:=Log2i(Max(width,height));
+  tex.mipmaps:=Log2i(Max(width,height)+1)-1; // floor(log2): an NPOT chain ends at 1 pixel
  end;
 
  tex.u1:=0; tex.u2:=tex.width/width;
