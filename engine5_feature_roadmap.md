@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-10-03
+Last updated: 2026-10-21
 
 Language policy: this roadmap is maintained in English.
 
@@ -15,42 +15,42 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | ID | Feature | Status | Readiness | Remaining |
 |----|---------|--------|-----------|-----------|
 | R-01 | Core GL Pipeline Modernization | done | 100% | — |
-| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Multi-monitor placement, per-window DPI flow, overlay refresh bug |
-| R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | AEM v1 spec, runtime loader alignment, Blender exporter MVP |
+| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Window locking, cross-thread entry and hot DPI change (UI scale + text follow without lag) landed. Left: multi-monitor placement/fullscreen and live DPI acceptance; F-9 (scene/UI lifetime after window close), F-11 (SDL second `AddWindow` hang), F-14 (intermittent lock timeout), F-15 (cross-window texture lifetime), F-27 (DPI monitor move shrinks a fixed window); overlay refresh bug |
+| R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Mostly design so far. Freeze AEM v1; implement the new model/instance/animation runtime and AEM loader (the existing AEMLoader is in `legacy/` on `TModel3D`); Blender exporter MVP; validate a production-like asset and revive CharAnimation on the new runtime |
 | R-04 | Robot Interaction Layer | done | 100% | — |
-| R-05 | CSS-Like UI Style System | in-progress | ~80% | Token/theme foundation landed; remaining: migrate hardcoded widget colors into themed styles, distinct `selected` state, selective-inheritance fix, real-screen validation, visual regression tests |
+| R-05 | CSS-Like UI Style System | in-progress | ~80% | Token/theme foundation, selective key inheritance and skin/content keys landed; partial real-screen validation (port B-16). Left: themed defaults for standard widgets, distinct `selected` state, resolver profiling/caching if needed, broader real-project acceptance, automated visual regression |
 | R-06 | 3D Material: Normal Mapping | done | 100% | Shipped: ComputeTangents/Normals, stock-shader TBN, demo port, CI smoke; visual handedness sign-off passed |
-| R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Linux validation, benchmark pass, SSE hot paths, remaining module migration |
+| R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~90% | Geometry/Spatial tests in CI on Win/Linux/macOS, benchmarks and vector SSE done. Left: UNIX branches of the matrix SSE paths (Pascal fallback works), Delphi check of the asm, an explicit list of active consumers still to migrate (legacy excluded) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | done | 100% | — |
-| R-09 | GL Performance Modernization | in-progress | ~40% | NSight baseline (Track A); Track C opt-in batching on demand |
+| R-09 | GL Performance Modernization | in-progress | ~45% | Done: telemetry, state-cache wins, fixed texture units, capability-gated DSA and `clearTexture`, `-GLBASELINE` clamp (no measured win claimed yet). Left: representative NSight baseline with a measured bottleneck; opt-in batching (Track C) if justified |
 | R-10 | UI Widget System Refactor | done | 100% | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Ring-buffer streaming, persistent text cache, profiling |
-| R-13 | Robot API Input Simulation | in-progress | 80% | `ui.focus`, element-level shortcuts |
-| R-14 | UI Widget Expansion | idea | 0% | New widget types, module split strategy |
-| R-15 | Demo Suite Restructuring | in-progress | ~25% | Directory restructure, HelloEngine, Text demo, merged demos, EngineTest distribution |
-| R-16 | Console Modernization | in-progress | ~90% | Scroll rework (sticky-bottom/ScrollToEnd), SDL editbox Enter |
-| R-17 | 3D Game Architecture Probe | idea | 0% | Top-down 3D skeleton to expose architecture white spots |
-| R-18 | Debug Draw Primitives (3D Gizmos) | planned | ~10% | `materialColor` tint uniform; solid/line sets; MeshLab showcase; NormalMap port |
+| R-13 | Robot API Input Simulation | in-progress | ~90% | Virtual mouse and keyboard (holds, modifiers, text, ordered queue, physical-input isolation) done and checked by tests and Racing. Left: `ui.focus`; startup without taking focus (RQ-13). Element-level shortcuts are optional |
+| R-14 | UI Widget Expansion | design | ~5% | Popup menu first (`Work/R-14_popup_menu.md`, branch `feature/r-14-popup-menu`): interface sketch awaits review; then the other widget types; also the unimplemented `TUISplitter.canResize` (PaintRaw E-10) |
+| R-15 | Demo Suite Restructuring | in-progress | ~35% | Done: TextDemo, InputDemo, Draw2D (absorbed NinePatch), automatic FPC builds of all active demos in CI. Left: directory restructure, HelloEngine (local folder has data only), merged input/gamepad, platform and advanced-graphics demos, GUI SoundDemo, EngineTest distribution, Delphi acceptance |
+| R-16 | Console Modernization | in-progress | ~90% | Left: scroll rework (sticky-bottom, `ScrollToEnd` unit fix); runtime acceptance on native Windows and SDL (Enter/Escape already handled in `TUIEditBox.onKey`, title-bar DPI fixed) |
+| R-17 | 3D Game Architecture Probe | design | ~5% | Seam-ordered probe plan exists (`Work/R-17_probe_plan_seam_ordered.md`): realistic multiplicity, several cameras/passes/materials, inline baseline, written abstraction verdicts. Racing findings are input, not acceptance |
+| R-18 | Debug Draw Primitives (3D Gizmos) | in-progress | ~95% | `Apus.Engine.DebugDraw` with solid + line sets, `materialColor` tint, MeshLab showcase and NormalMap port committed and author-verified; demos build on Linux CI. Left: Delphi compile check. Follow-ups: unit-global GPU-mesh cache/session lifetime, multi-window and context recreation |
 | R-19 | Mesh Representation Unification & Rework | done | 100% | — |
 | R-20 | Mesh Shape Generators (Procedural Primitives) | done | 100% | — |
 | R-21 | Mesh Editing Operations (Stateful Wrapper) | idea | 0% | Design-now / build-on-demand; first heavy consumer gates implementation |
-| R-22 | Toast Notifications (Implement + Extend `FireMessage`) | implemented | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
-| R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | done | 100% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Compiles x64+x86; demos ported. Committed (`f811e93`..`361bb9a`) on engine5 |
-| R-24 | Android Platform Revival | in-progress | ~50% | TouchDemo runs immersive fullscreen on ARM64/GLES 3 with packaged PNG, stable redraw, primary-touch drag, and important logcat output; next: lifecycle/context restore, text input, clean exit |
-| R-25 | Immediate Mode GUI API Wrapper | idea | 0% | ImGui-like frame API backed by existing `TUIScene`/`TUIElement` widgets; first target is developer/debug UI and runtime tuning panels |
+| R-22 | Toast Notifications (Implement + Extend `FireMessage`) | done | 100% | `Apus.Engine.Notifications` overlay; ShowToast/kinds/anchors/config, R-05-themed, SML, stacking+dissolve, hover-freeze; committed `d489ef8` on engine5 |
+| R-23 | Keyboard Input Pipeline Unification (Callbacks over Signals) | done | 100% | Collapsed 2 parallel `KBD\` consumers into one ordered `PumpInput`→`DispatchKey` pipeline; key signals dropped; scene `RegisterHotKey`. Committed (`f811e93`..`361bb9a`) on engine5. Scoped hotkeys, the threadvar element-hotkey registry and modifier policy stay with R-36 |
+| R-24 | Android Platform Revival | in-progress | ~50% | TouchDemo runs immersive fullscreen on the ARM64 emulator with GLES 3, packaged PNG, primary-touch drag and logcat; mobile audio deferred. Left: lifecycle/pause-resume and GLES context restore, text/IME input, clean exit, physical-device acceptance, reproducible CI compile/package gate |
+| R-25 | Immediate Mode GUI API Wrapper | design | ~5% | API design and acceptance checklist in `Work/R-25_immediate_mode_gui.md`; left: review, retained-backed ImUI MVP (identity/reuse/pruning), demo |
 | R-26 | Mouse/Pointer Input Pipeline Unification | done | 100% | Window-level mouse dispatch (single hit-test/frame), `TMoveKind`, capture-aware button delivery; mouse-side analogue of R-23 |
-| R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | planned | ~5% | Base a demo on the existing AH server; assess which server code to extract into the engine; give `HttpGameClient` a real counterpart + loopback integration tests |
-| R-28 | Audio Subsystem Activation | in-progress | ~65% | Level 1 done on SDL2_mixer (2026-08-24), file playback verbs (2026-10-03); 2026-10-19: game-side API `sound:ISoundSystem`, loop points, pitch and live volume/pan/speed slides, procedural streams on the SDL backend. Remaining: music crossfade (needs miniaudio, T3/T4), GUI SoundDemo (T5), diagnostics (T6) |
-| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo runs via SDL2/OpenGL with Robot-API smoke; `.app` bundle done incl. **distributable** (vendored official SDL2, controlled deployment target) + storage-dirs/config out of read-only bundle; remaining = close Retina-review findings #1–2 |
-| R-30 | iOS Platform Support | in-progress | ~25% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); remaining: on-device run (personal-team signing), then engine bring-up (GLES renderer shared with R-24, touch input) |
-| R-31 | Working Surface, Size & Orientation Model | in-progress | ~70% | **Schedule blocker (P1)**. API sketch rev 2 accepted; stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done — the public contract is closed. Left: C (presets/preview/CLI knobs), D (mobile safe area), E (present shader) |
-| R-32 | Image Decoders: WebP / AVIF + PNG Decoder Choice | done | 100% | Opt-in `-dWEBP` static WebP decode, bundled decoders for Win64/Linux x64/Android arm64, FPC reader Mono8/A8 fix; PNG choice stays compile-time (LodePNG faster). AVIF only on demand; macOS/iOS + Android on-device run pending |
-| R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache; TextDemo screen 9, GL test vs CPU reference. Port adopts on its side |
+| R-27 | Networking Demo + Server-Side Code (Astral Heroes server as base) | in-progress | ~85% | Stages A-D merged (2026-06-29): `Apus.HttpServer` (Base), `Apus.Engine.HttpGameServer`, loopback test in CI, multi-process `demo/Networking`; extraction/transport decisions recorded. Left: finalize the assessment write-up, demo acceptance and operational checks (loopback does not prove the 1000-connection envelope), optional real AH-server check |
+| R-28 | Audio Subsystem Activation | in-progress | ~65% | Level 1 on SDL2_mixer, file playback verbs, `sound:ISoundSystem`, loop points, pitch, procedural streams, click-free stop. Left: audibly smooth volume/pan slides (SDL: ~23 ms steps), music crossfade (needs miniaudio), GUI SoundDemo (T5), diagnostics and backend/platform capability map (T6) |
+| R-29 | macOS Desktop Support (SDL2/GL) | in-progress | ~95% | Base+demos on macOS CI, SimpleDemo via SDL2/OpenGL with Robot-API smoke, distributable `.app` bundle, storage dirs out of the read-only bundle, `SIZE_CHANGED` handled. Left: Retina finding #1 (Linux HiDPI gating), real-hardware Retina/monitor-transfer acceptance, fullscreen/VSync/capture runtime checks (multi-window under R-02) |
+| R-30 | iOS Platform Support | in-progress | ~40% | Gate-zero compile+link half proven by `platform/ios/shell/` (FPC trunk static archive in Xcode target, SDL2 UIKit lifecycle, GLES 3.0); engine TouchDemo renders on the iOS Simulator (2026-07-12) as a bring-up checkpoint. Left: HiDPI drawable size, touch and text/IME input, lifecycle, orientation/safe area, clean launch/exit on a physical iPhone |
+| R-31 | Working Surface, Size & Orientation Model | in-progress | ~75% | **Schedule blocker (P1)**. Stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done, logical canvas (`canvasDPI` + `SetupLogicalCanvas`). Left: C (`FitPreviewWindow`, preview/CLI knobs), D (mobile safe area/orientation), runtime resize/fullscreen/DPI and device/preview acceptance; E (present shader, integer scale) on demand only |
+| R-32 | Image Decoders: WebP / AVIF + PNG Decoder Choice | done | 100% | Done for WebP decoding and the PNG decoder decision: opt-in `-dWEBP`, bundled decoders for Win64/Linux x64/Android arm64, FPC reader Mono8/A8 fix; PNG choice stays compile-time (LodePNG faster). Outside: AVIF (on demand), Win32 binary, macOS/iOS, Android on-device run |
+| R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache, TextFXStyle integration; TextDemo screen 9, GL test vs CPU reference checked locally (CI only compiles GL tests) |
+| R-34 | Steam Integration, then Platform Store Entitlements | in-progress (stage 2 deferred) | ~50% | Port blocker B-24. Stage 1 done and adopted by the port (`Spectro.Steam`): `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded, DLC ownership, achievements, callbacks on `Engine\Frame\Begin`. Stage 2 (store-neutral entitlements + mobile-store backends) deferred until mobile work |
+| R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | in-progress | ~40% | Port blocker B-28. Layer 2 done (2026-10-17): `ReloadFileImages` (single render window, between frames, image creation/destruction suspended), `Files.SelectFile`/`SelectNewest`, `tests/TestImageReload`. Left: layer 1 (overlay data roots / PAK provider in `Files`, with B-03); Android context restore needs its own integration; themes stay game policy |
+| R-36 | UI Actions: Commands with Scoped Hotkeys | design | ~5% | Current sequence (`Work/R-14_popup_menu.md` §6): popup menu first, then a small `TUIAction` over the existing `RegisterHotKey`/`SetHotKey`; scoped bindings and the input-pipeline redesign (v3 doc `Work/R-36_actions_menus_design.md`) come later. No action code yet |
 
-| R-34 | Steam Integration, then Platform Store Entitlements | in-progress | ~50% | Port blocker B-24. Stage 1 done: `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded, DLC ownership verified against the Steam client (Spectromancer DLCs), callbacks dispatched on `Engine\Frame\Begin`; left: port adoption. Stage 2 (with mobile stores): platform-neutral ownership API |
-| R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | idea | 0% | Port blocker B-28 (theme switch, deferred by the port). Layer 1 (overlay data roots in `Files`) goes with B-03; layer 2 (in-place texture reload) waits for its first real consumer - Android context restore (R-24) or asset hot-reload; themes stay game policy |
-| R-36 | UI Actions: Commands with Scoped Hotkeys | idea | 0% | One action object (execute, enabled/checked, caption, shortcut) shared by buttons, menu items and keys; hotkeys bind to actions with an explicit scope; replaces the threadvar `SetHotKey` registry |
 ## GL Version Policy (locked 2026-07-03)
 
 Two tiers, not a version ladder:
@@ -157,7 +157,7 @@ Two tiers, not a version ladder:
 - File-based protocol, all commands, FPS telemetry, UI diagnostics. Protocol: `robot_api_protocol.md`.
 
 ### [R-05] CSS-Like UI Style System
-- Status: in-progress (~75%) | Priority: P1 | Area: UI
+- Status: in-progress (~80%) | Priority: P1 | Area: UI
 - Value: Declarative, reusable UI styling via inherited text-defined styles.
 - Scope: CSS-like text syntax for styles (`color: #fff; font: bold 14`), style inheritance from parent elements, `@ref` includes, state blocks (`hover:`, `pressed:`, `disabled:`), patch operations (`+key:val` / `-key`), named style catalog (`Styles['btn'] := '...'`), animated transitions via Tweenings. Drawer objects resolve styles instead of per-element draw procedures.
 - Out of scope: full web-CSS parity; advanced layout features (→ R-14).
@@ -244,7 +244,7 @@ Two tiers, not a version ladder:
   - [ ] Profiling on one representative scene shows measurable CPU reduction.
 
 ### [R-13] Robot API Input Simulation
-- Status: in-progress (~80%) | Priority: P2 | Area: Tooling
+- Status: in-progress (~90%) | Priority: P2 | Area: Tooling
 - Value: Enable automated UI interaction tests via Robot API without manual user input.
 - Scope: extend the existing file-based Robot API (R-04) with input simulation. Enables scripted test flows: open dialog → fill field → click button → verify state via `ui.element`.
 - Done (a different shape than planned: OS-free virtual input per window instead of element-level commands; spec `robot_api_protocol.md`, "Virtual input"):
@@ -255,7 +255,7 @@ Two tiers, not a version ladder:
   - [ ] element-level shortcuts if scripts need them (`ui.click` by name = `ui.element` + `mouse.click` today)
 
 ### [R-14] UI Widget Expansion
-- Status: idea | Priority: P1 | Area: UI
+- Status: design (~5%) — popup menu first, `Work/R-14_popup_menu.md` | Priority: P1 | Area: UI
 - Value: Extend the UI toolkit with commonly needed widgets absent from the current set.
 - New widgets (priority order):
   1. **TUIProgressBar** — display-only bar (value/min/max/fill direction)
@@ -272,13 +272,13 @@ Two tiers, not a version ladder:
 - Out of scope: animation on Section; TreeView drag-drop; alpha in ColorPicker MVP; OS-native file dialog.
 
 ### [R-15] Demo Suite Restructuring
-- Status: in-progress (~25%) | Priority: P1 | Area: Tooling
+- Status: in-progress (~35%) | Priority: P1 | Area: Tooling
 - Value: Coherent, progressive demo suite for onboarding, API reference, and CI validation.
 - Done: `InputDemo`, `Draw2D`, `TextDemo` created and integrated.
 - Remaining:
   - [ ] Directory structure → `1-start/`, `2-features/`, `3-advanced/`
   - [ ] HelloEngine demo (replaces SimpleDemo)
-  - [ ] Text demo with font/Unicode/formatting showcase
+  - [x] Text demo with font/Unicode/formatting showcase (`TextDemo`)
   - [x] Draw2D absorbs NinePatch and EngineTest cases — NinePatch (procedural stretch/tiled/animated) + clip/blend screens added (10 screens); compiles FPC x64; old `demo/NinePatch` removed. Remaining EngineTest 2D cases covered (mesh image-deform left for AdvancedGfx)
   - [ ] Input demo merges keyboard/mouse + gamepad (ControllerDemo)
   - [ ] Platform demo merges multi-window/DPI/borderless
@@ -289,7 +289,7 @@ Two tiers, not a version ladder:
 - Plan: `demo/demo_plan.md`
 
 ### [R-16] Console Modernization
-- Status: in-progress (~70%) | Priority: P1 | Area: Tooling
+- Status: in-progress (~90%) | Priority: P1 | Area: Tooling
 - Value: Replace the monolithic `Console.pas` (mixed buffer/render/command logic) with a layered, maintainable in-game console.
 - Scope: dissolve `Console.pas` into separate concerns — log mirror feeds `ConsoleScene`'s buffer, `CmdProc` handles commands with an `OnOutput` sink, DEBUG/ERROR messages bridge to the log. UX improvements: two-tier log filter, timestamp toggle, `clear`/`loglevel` commands, Ctrl+C clipboard copy, DPI-scaled font, per-source color palette.
 - Done: Console.pas dissolved; ConsoleScene owns log buffer; two-tier filter, timestamp toggle, `clear`/`loglevel`, Ctrl+C clipboard, DPI-scaled font, per-source colors. Merged to master.
@@ -300,7 +300,7 @@ Two tiers, not a version ladder:
 - Plan: `Work/R-16_console_modernization.md`
 
 ### [R-17] 3D Game Architecture Probe (Skeleton-First)
-- Status: idea | Priority: P1 | Area: Render/Core
+- Status: design (~5%) — seam-ordered plan `Work/R-17_probe_plan_seam_ordered.md` | Priority: P1 | Area: Render/Core
 - Value: No real 3D game has been built on this engine. Build a top-down integrated 3D skeleton to expose architecture white spots at subsystem seams — before committing to features like R-06 or a real game.
 - Guiding rule: new abstractions only if they provably simplify calling code vs. inline. Entities are hypotheses, not a checklist. Scale matters — pain only appears at realistic multiplicity (many objects, several passes, several materials).
 - Scope: render a scene with ≥2 passes + ≥2 materials; start fully inline; add abstractions only where inline actually hurts. Placeholder content is fine.
@@ -313,7 +313,7 @@ Two tiers, not a version ladder:
   - [ ] Findings report: each point of raw-GL/global-state/duplicate-logic → new card or "leave inline."
 
 ### [R-18] Debug Draw Primitives (3D Gizmos)
-- Status: planned (~10%) | Priority: P2 | Area: Render/Tooling
+- Status: in-progress (~95%) — T1–T5 committed on engine5 (`6348db78`, `27030e44`, `0e14aef7`), author-verified 2026-06-17; demos build on Linux CI; left: Delphi compile check | Priority: P2 | Area: Render/Tooling
 - Value: Ready-made debug/visualization primitives (axes, arrows, grid, box, sphere, capsule) without hand-rolling gizmos in every demo.
 - Scope:
   - **Solids** (primary): cached `TGpuMesh` from R-20 MeshShapes, lit by stock mesh shader, colour via `materialColor` tint uniform. Set: `Arrow3D`, `Axes`, `Box`, `Sphere`, `Capsule`.
@@ -337,7 +337,7 @@ Two tiers, not a version ladder:
 
 ### [R-20] Mesh Shape Generators (Procedural Primitives)
 - Status: **done** (2026-06-13)
-- 5 generators (Box/Cylinder/Plane/Octasphere/UVSphere) + `TMesh.Append`. 59 tests pass Win32/Win64. Design: `Work/R-20_meshshapes_design.md`.
+- 6 generators (Box/Cylinder/Plane/Octasphere/UVSphere/Torus) + `TMesh.Append`. 59 tests pass Win32/Win64. Design: `Work/R-20_meshshapes_design.md`.
 - Note: Plane uses XY/+Z orientation (author decision; differs from design doc's XZ/+Y).
 
 ### [R-21] Mesh Editing Operations (Stateful Wrapper)
@@ -362,7 +362,7 @@ Two tiers, not a version ladder:
 - Deferred: cross-line SML spans, 9-patch/icon look, top/edge anchors, OS-native/tray, history, sound, in-toast buttons.
 
 ### [R-23] Keyboard Input Pipeline Unification (Callbacks over Signals)
-- Status: implemented (runtime sign-off + commit pending) | Priority: P1 | Area: Core Runtime / Input
+- Status: **done** — committed on engine5 (`f811e93`..`361bb9a`) | Priority: P1 | Area: Core Runtime / Input
 - Value: keyboard input used to flow through **two independent `KBD\*` subscribers** — `TGame.onKbdEvent` (per-scene buffer + `SCENE\<name>\KeyDown` signal + internal hotkeys) and `TUIScene.KbdEventHandler` (focus / `ProcessHotKey`). Running in parallel, a gameplay hotkey (e.g. `[C]`) fired even while typing into a focused/modal field. The fix collapses both into one ordered pipeline, replacing key signals with synchronous callbacks (deterministic order, easier debug; async is now explicit via `Threads`/`Signal` inside a callback).
 - **IMPLEMENTED 2026-06-19** (branch `engine5`, compiles x64+x86 on the full demo graph):
   - `KBD\*` is the single platform ingress, consumed only by `TGame`, which buffers into the kbd-topmost scene. `TWindow.OnFrame` drains every active scene via `PumpInput(shift)` before `ProcessScenes` (render-synced, not in `Process`).
@@ -393,7 +393,7 @@ Two tiers, not a version ladder:
 - Design / options / staging / build process: `Work/R-24_android_revival.md`. GLES versions/bindings/limitations research (shared with R-30): `Work/gles_mobile_research.md`.
 
 ### [R-25] Immediate Mode GUI API Wrapper
-- Status: idea | Priority: P2 | Area: UI / Tooling
+- Status: design (~5%) — API and acceptance in `Work/R-25_immediate_mode_gui.md`, no code yet | Priority: P2 | Area: UI / Tooling
 - Goal: add an ImGui-like API wrapper for quickly declaring developer-facing UI each frame, without replacing the existing retained UI system.
 - Value: make debug panels, runtime tuning controls, demo knobs, lightweight inspectors, and future `TweakScene`-style tools cheap to write and easy to remove, while keeping the engine's current input, focus, style, DPI, Robot API, and widget rendering path.
 - Direction: **hybrid immediate-over-retained**. User code calls `BeginFrame`/`BeginWindow`/`Button`/`SliderFloat`/`Checkbox` each frame; the implementation keeps a stable cache of `TUIElement`/`TUIButton`/`TUIEditBox`/`TUIWindow` instances keyed by immediate IDs and updates/hides them at `EndFrame`.
@@ -424,10 +424,10 @@ Two tiers, not a version ladder:
 - Out of scope: full pointer-occlusion/capture parity on SDL (tracked in `Work/engine_work_ahead.md` release-tail).
 
 ### [R-27] Networking Demo + Server-Side Code (Astral Heroes server as base)
-- Status: planned (~5%) | Priority: P1 | Area: Networking / Tooling
+- Status: in-progress (~85%) — stages A-D merged into engine5 (`cf64c089`, 2026-06-29); left: stage E assessment (AC3), demo sign-off, optional F (real AH server) | Priority: P1 | Area: Networking / Tooling
 - Value: `Apus.Engine.HttpGameClient` (former `Networking3`) is a client of an online game service (accounts/auth, long-poll + batched POST over HTTP) that currently has **no server to talk to** — it is effectively dead, untestable code. The original counterpart it was written against is the **Astral Heroes server** (author-owned, external to this repo). Base it on that instead of building a server from scratch.
 - Direction: take the AH server as the reference/starting point; build a demo where the engine client talks to a running server; **assess which parts of the server code are generic enough to extract into the engine/Base** (candidate: an `Apus.HttpServer` over `Apus.Socket`/`Apus.TCP`, reusing `Apus.HttpRequests` parsing and/or `Apus.SCGI`) versus what stays game-specific demo code. The extraction scope is itself part of the task — decide, don't assume.
-- Existing building blocks: `Apus.Socket` → `Apus.TCP` → `Apus.HttpRequests` (client-side parse), `Apus.SCGI` (server protocol). No HTTP server class yet.
+- Existing building blocks: `Apus.Socket` → `Apus.TCP` → `Apus.HttpRequests` (client-side parse), `Apus.SCGI` (server protocol). The HTTP server class `Apus.HttpServer` was added by this card (stage A).
 - Scope:
   - Stand up the AH server (or a trimmed slice of it) as the demo backend.
   - A demo where `HttpGameClient` performs a real session against it (account/auth, message round-trip).
@@ -486,8 +486,8 @@ Two tiers, not a version ladder:
 - Plan / status log / review: `Work/R-29_macos_desktop.md`.
 
 ### [R-30] iOS Platform Support
-- Status: in-progress (~25%) | Priority: P2 | Area: Platform / Build / Mobile
-- Progress: gate-zero compile+link half proven by the reproducible lifecycle shell `platform/ios/shell/` (FPC trunk 3.3.1 static archive inside an Xcode app target, `SDL_UIKitRunApp` + GLES 3.0 + `SDL_iPhoneSetAnimationCallback`, vendored `redist/ios/SDL2.framework`); integration shape A and SDL-first settled by demonstration. Remaining gate-zero: on-device run (personal-team signing, physical iPhone).
+- Status: in-progress (~40%) | Priority: P2 | Area: Platform / Build / Mobile
+- Progress: gate-zero compile+link half proven by the reproducible lifecycle shell `platform/ios/shell/` (FPC trunk 3.3.1 static archive inside an Xcode app target, `SDL_UIKitRunApp` + GLES 3.0 + `SDL_iPhoneSetAnimationCallback`, vendored `redist/ios/SDL2.framework`); integration shape A and SDL-first settled by demonstration. Engine bring-up on the Simulator (2026-07-12, fixes committed on engine5): TouchDemo main scene renders with no GL errors (`Work/R-30_ios_bringup_fixes.md`). Remaining: HiDPI drawable size (content fills ~1/3 of the screen), touch input, on-device run (personal-team signing, physical iPhone).
 - Value: bring iOS arm64 back as the primary Apple mobile target with its own lifecycle/view/input/graphics/packaging. Existing iOS code (`Apus.Engine.IOSgame.pas`, `EAGLViewU.pas`) is near-fully commented-out OpenGL ES 1.1 legacy — historical hints, not a backend. Builds on the Darwin/FPC/CI/runtime work already done for macOS (R-29).
 - Split out of the former Apple umbrella (2026-07-02).
 - Direction / open assessments (decide during recon, do NOT assume):
@@ -552,7 +552,7 @@ Two tiers, not a version ladder:
 - Out of scope: purchase/checkout UI, server-side receipt validation (Astral Heroes did microtransactions through its own server), leaderboards/workshop.
 
 ### [R-35] Resource Sets: Overlay Data Roots + In-Place Texture Reload
-- Status: idea - scope agreed, layer 1 goes with B-03 | Area: Assets / Resources | Origin: Spectromancer port blocker B-28 (deferred by the port)
+- Status: in-progress (~40%) - layer 2 done 2026-10-17 (`31552ec6` `ReloadFileImages`, `803280d4` `Files.SelectFile`; report `Work/B-28_image_reload_report.md`), layer 1 goes with B-03 | Area: Assets / Resources | Origin: Spectromancer port blocker B-28 (deferred by the port)
 - Wanted by the port: switch the graphics theme at runtime (`Mods/<theme>/` first, base data second; ~30 themes, most replace only `Cards.pak`/`Faces.pak` and a loading background, one re-skins the whole UI), already loaded images update while every holder keeps its reference, switching back restores the originals. Engine 2 did it by reloading every texture with its saved load options and swapping object instances in memory.
 - Scope split (agreed 2026-10-03):
   1. **Overlay data roots in `Files`** ("look in `Mods/X/` first, then the base data"), added and removed at runtime - engine, cheap, the same provider-chain mechanism as the B-03 PAK provider (the port's themes are mostly PAKs); also serves mods, DLC content, localized images, HD packs. Built together with B-03.
@@ -562,7 +562,7 @@ Two tiers, not a version ladder:
 - Known hard parts: render-thread swap vs async loaders, shared immutable sources, `ClonePart` clones that copy parent UVs, size/format change of a replaced file, atlases and UI caches.
 
 ### [R-36] UI Actions: Commands with Scoped Hotkeys
-- Status: idea | Priority: P2 | Area: UI / Input
+- Status: design (~5%) — v3 doc `Work/R-36_actions_menus_design.md` cut down 2026-10-20: popup menu (R-14) first, actions after it | Priority: P2 | Area: UI / Input
 - Goal: one action object - execute, availability (enabled), checked, caption/icon, shortcut - shared by buttons, menu items and keys. Hotkeys bind to actions, each binding has an explicit scope: focused subtree, element, scene, window, application.
 - Value: editors (a 4X map editor, a texture editor) and game dialogs get one consistent command system: Undo keeps working when the toolbar is hidden, a button shows its action's shortcut and state, commands without a UI element use the same mechanism as element-bound ones.
 - Replaces the hotkey part of the UI thread-safety work: `TUIElement.SetHotKey` registers into a threadvar list (`Apus.Engine.UITypes`); its relation to the scene table `TGameScene.RegisterHotKey` (R-23) is to be decided.
