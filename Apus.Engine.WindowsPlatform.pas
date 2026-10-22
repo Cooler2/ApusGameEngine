@@ -813,6 +813,8 @@ function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;
    Apus.Engine.API.CursorID.ResizeH:name:=IDC_SIZENS;
    Apus.Engine.API.CursorID.ResizeW:name:=IDC_SIZEWE;
    Apus.Engine.API.CursorID.ResizeHW:name:=IDC_SIZEALL;
+   Apus.Engine.API.CursorID.ResizeNWSE:name:=IDC_SIZENWSE;
+   Apus.Engine.API.CursorID.ResizeNESW:name:=IDC_SIZENESW;
    Apus.Engine.API.CursorID.Cross:name:=IDC_CROSS;
   end;
   result:=Windows.LoadCursor(0,name);

@@ -158,8 +158,10 @@ type
    Help           =  4;  // Arrow with question mark
    ResizeH        = 10;  // resize height: N-S arrows
    ResizeW        = 11;  // resize width: E-W arrows
-   ResizeHW       = 12;  // N-S-E-W arrows
+   ResizeHW       = 12;  // N-S-E-W arrows (also the "move" cursor)
    Cross          = 13;  //
+   ResizeNWSE     = 14;  // diagonal resize: NW-SE arrows (top-left / bottom-right corner)
+   ResizeNESW     = 15;  // diagonal resize: NE-SW arrows (top-right / bottom-left corner)
    None           = 99;  // No cursor (hidden)
  end;
 

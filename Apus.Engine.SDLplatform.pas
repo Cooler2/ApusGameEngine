@@ -323,6 +323,8 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
    Apus.Engine.API.CursorID.ResizeH:cur:=SDL_SYSTEM_CURSOR_SIZENS;
    Apus.Engine.API.CursorID.ResizeW:cur:=SDL_SYSTEM_CURSOR_SIZEWE;
    Apus.Engine.API.CursorID.ResizeHW:cur:=SDL_SYSTEM_CURSOR_SIZEALL;
+   Apus.Engine.API.CursorID.ResizeNWSE:cur:=SDL_SYSTEM_CURSOR_SIZENWSE;
+   Apus.Engine.API.CursorID.ResizeNESW:cur:=SDL_SYSTEM_CURSOR_SIZENESW;
    Apus.Engine.API.CursorID.Cross:cur:=SDL_SYSTEM_CURSOR_CROSSHAIR;
   end;
   result:=THandle(SDL_CreateSystemCursor(cur));

@@ -918,7 +918,10 @@ function TUILabel.Right(text:String8):TUILabel;
    case c of
     1:cur:=CursorID.ResizeW;
     2:cur:=CursorID.ResizeH;
-    3:cur:=CursorID.ResizeHW;
+    3:if result and (wcLeftFrame+wcTopFrame) in [wcLeftFrame+wcTopFrame,0] then
+       cur:=CursorID.ResizeNWSE // top-left or bottom-right corner
+      else
+       cur:=CursorID.ResizeNESW;
    end;
   end;
 

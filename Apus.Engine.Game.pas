@@ -612,6 +612,8 @@ begin
   RegisterCursor(CursorID.ResizeH,5,systemPlatform.GetSystemCursor(CursorID.ResizeH));
   RegisterCursor(CursorID.ResizeW,5,systemPlatform.GetSystemCursor(CursorID.ResizeW));
   RegisterCursor(CursorID.ResizeHW,6,systemPlatform.GetSystemCursor(CursorID.ResizeHW));
+  RegisterCursor(CursorID.ResizeNWSE,5,systemPlatform.GetSystemCursor(CursorID.ResizeNWSE));
+  RegisterCursor(CursorID.ResizeNESW,5,systemPlatform.GetSystemCursor(CursorID.ResizeNESW));
   RegisterCursor(CursorID.Cross,6,systemPlatform.GetSystemCursor(CursorID.Cross));
   RegisterCursor(CursorID.None,99,0);
  end;
