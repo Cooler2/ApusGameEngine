@@ -3,6 +3,14 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Folder listing: `Folder.ListItems`, `Folder.Roots` (2026-10-22)
+
+- `Folder.ListItems(path,mask)` returns `TFolderItems`: subfolders and files with name, size,
+  time (`TFileInfo`) and the hidden flag. The mask filters the files only, the folders are
+  always listed (a file browser must still go into them). OS-level, like the other `Folder`
+  operations; nil if the folder can't be read.
+- `Folder.Roots`: the drive roots on Windows (`C:\`...), `/` elsewhere.
+
 ## NPOT textures: mip-maps without POT padding (2026-10-20)
 
 - `liffMipMaps` no longer implies `aiPow2`: an image loaded with mip-maps keeps its own size

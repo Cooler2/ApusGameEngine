@@ -26,6 +26,14 @@ type
     isDirectory:boolean;
   end;
 
+  // An entry of a folder listing (Folder.ListItems)
+  TFolderItem = record
+    name:String8;   // without the path
+    info:TFileInfo; // size is 0 for a folder
+    hidden:boolean; // hidden or system attribute on Windows, a name starting with '.' elsewhere
+  end;
+  TFolderItems = array of TFolderItem;
+
   TFileHandle = record
   private
     value:pointer;
@@ -124,6 +132,11 @@ type
     class function Find(const name,path:String8; findDir:boolean=false):String8; static; // recursive file/directory search
     // mask supports ';'-separated patterns, e.g. '*.png;*.jpg'
     class function ListFiles(const path:String8; const mask:String8='*'; recursive:boolean=false):Strings8; static;
+    // Subfolders and files of the folder, without '.' and '..', in the order the OS gives them.
+    // mask filters the files only, folders are always listed; nil if the folder can't be read
+    class function ListItems(const path:String8; const mask:String8='*'):TFolderItems; static;
+    // File system roots: the drives ('C:', 'D:'...) on Windows, '/' elsewhere
+    class function Roots:Strings8; static;
   end;
 
   // Interface for the filesystem API. Default OS provider is the chain tail.
@@ -693,10 +706,26 @@ begin
   if result then SysUtils.DeleteFile(probe);
 end;
 
+// Patterns of a ';' or ','-separated mask list, '*' if there are none
+function SplitMasks(const mask:String8):Strings8;
+var
+  i,start:integer;
+begin
+  result:=nil;
+  start:=1;
+  for i:=1 to length(mask)+1 do begin
+    if (i>length(mask)) or (mask[i] in [';',',']) then begin
+      if i>start then result.Add(mask.Substr(start,i-start));
+      start:=i+1;
+    end;
+  end;
+  if result=nil then result.Add('*');
+end;
+
 class function Folder.ListFiles(const path:String8; const mask:String8; recursive:boolean):Strings8;
 var
-  masks:array of String8;
-  mCnt,cnt,i,j,start:integer;
+  masks:Strings8;
+  mCnt,cnt,i,j:integer;
   sr:TSearchRec;
   dir:string;
   sub:Strings8;
@@ -706,24 +735,8 @@ begin
   if (length(dir)>0) and (dir[length(dir)]=PathDelim) then
     SetLength(dir,length(dir)-1);
 
-  // split mask by ';'
-  mCnt:=0;
-  start:=1;
-  for i:=1 to length(mask)+1 do begin
-    if (i>length(mask)) or (mask[i] in [';',',']) then begin
-      if i>start then begin
-        SetLength(masks,mCnt+1);
-        masks[mCnt]:=mask.Substr(start,i-start);
-        inc(mCnt);
-      end;
-      start:=i+1;
-    end;
-  end;
-  if mCnt=0 then begin
-    SetLength(masks,1);
-    masks[0]:='*';
-    mCnt:=1;
-  end;
+  masks:=SplitMasks(mask);
+  mCnt:=length(masks);
 
   // list files for each mask via provider
   for i:=0 to mCnt-1 do begin
@@ -756,6 +769,77 @@ begin
 
   SetLength(result,cnt);
 end;
+
+class function Folder.ListItems(const path:String8; const mask:String8):TFolderItems;
+var
+  masks:Strings8;
+  dir:string;
+  cnt,i:integer;
+
+  // Add the items found by the pattern: the folders, the files or both
+  procedure Scan(const pattern:string; folders,files:boolean);
+  var
+    sr:TSearchRec;
+    isFolder:boolean;
+  begin
+    if SysUtils.FindFirst(dir+pattern,faAnyFile,sr)<>0 then exit;
+    repeat
+      if (sr.Name='.') or (sr.Name='..') then continue;
+      isFolder:=sr.Attr and faDirectory<>0;
+      if (isFolder and not folders) or (not isFolder and not files) then continue;
+      if cnt>=length(result) then
+        SetLength(result,(cnt+16)*2);
+      with result[cnt] do begin
+        name:=String8(sr.Name);
+        info.isDirectory:=isFolder;
+        if isFolder then info.size:=0
+          else info.size:=sr.Size;
+        info.timestamp:=sr.TimeStamp;
+        {$IFDEF MSWINDOWS}
+        hidden:=sr.Attr and (FILE_ATTRIBUTE_HIDDEN or FILE_ATTRIBUTE_SYSTEM)<>0;
+        {$ELSE}
+        hidden:=sr.Name[1]='.';
+        {$ENDIF}
+      end;
+      inc(cnt);
+    until SysUtils.FindNext(sr)<>0;
+    SysUtils.FindClose(sr);
+  end;
+
+begin
+  result:=nil; cnt:=0;
+  dir:=string(path);
+  if dir<>'' then dir:=SysUtils.IncludeTrailingPathDelimiter(dir); // '' - the current folder
+  masks:=SplitMasks(mask);
+  if (length(masks)=1) and ((masks[0]='*') or (masks[0]='*.*')) then
+    Scan('*',true,true)
+  else begin
+    // a mask must not hide the folders to go into
+    Scan('*',true,false);
+    for i:=0 to high(masks) do
+      Scan(string(masks[i]),false,true);
+  end;
+  SetLength(result,cnt);
+end;
+
+class function Folder.Roots:Strings8;
+{$IFDEF MSWINDOWS}
+var
+  drives:cardinal;
+  i:integer;
+begin
+  result:=nil;
+  drives:=GetLogicalDrives;
+  for i:=0 to 25 do
+    if drives and (1 shl i)<>0 then
+      result.Add(String8(AnsiChar(ord('A')+i))+':');
+end;
+{$ELSE}
+begin
+  result:=nil;
+  result.Add('/');
+end;
+{$ENDIF}
 
 class function Folder.Find(const name,path:String8; findDir:boolean):String8;
 var

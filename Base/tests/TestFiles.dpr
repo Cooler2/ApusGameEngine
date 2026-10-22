@@ -348,6 +348,48 @@ begin
   EndTest;
 end;
 
+procedure TestListItems;
+var
+  items:TFolderItems;
+  i,fileCount,folderCount:integer;
+  sub,sized:boolean;
+  roots:Strings8;
+begin
+  StartTest('ListItems');
+  Folder.Create(TestDir+'/items/sub');
+  Files.Save(TestDir+'/items/a.txt','12345',false);
+  Files.Save(TestDir+'/items/b.png','');
+
+  items:=Folder.ListItems(TestDir+'/items');
+  Check(length(items)=3,'* = 2 files and a folder');
+  fileCount:=0; folderCount:=0; sub:=false; sized:=false;
+  for i:=0 to high(items) do
+    with items[i] do begin
+      if info.isDirectory then inc(folderCount) else inc(fileCount);
+      if (name='sub') and info.isDirectory and (info.size=0) then sub:=true;
+      if (name='a.txt') and (info.size=5) and (info.timestamp>0) then sized:=true;
+    end;
+  Check((fileCount=2) and (folderCount=1),'files and folders told apart');
+  Check(sub,'folder name without the path, size 0');
+  Check(sized,'file size and time');
+
+  // the mask filters the files, the folder stays
+  items:=Folder.ListItems(TestDir+'/items','*.png');
+  Check(length(items)=2,'*.png = the folder and b.png');
+  items:=Folder.ListItems(TestDir+'/items/','*.txt;*.png');
+  Check(length(items)=3,'*.txt;*.png with a trailing delimiter');
+
+  Check(Folder.ListItems(TestDir+'/missing')=nil,'missing folder = nil');
+
+  roots:=Folder.Roots;
+  Check(length(roots)>0,'roots are listed');
+  {$IFDEF MSWINDOWS}
+  Check(roots.Contains(String8(SysUtils.ExtractFileDrive(SysUtils.GetCurrentDir))+''),'roots have the current drive');
+  {$ENDIF}
+
+  EndTest;
+end;
+
 procedure TestFind;
 begin
   StartTest('Folder.Find');
@@ -765,6 +807,7 @@ begin
     TestFolderOps;
     TestWriteCreatesFolder;
     TestListFiles;
+    TestListItems;
     TestFind;
     TestPathUtils;
     TestProviderChain;
