@@ -16,6 +16,7 @@ type
    destructor Destroy; override;
    // TWindow overrides
    procedure Close; override;
+   procedure Terminate; override;
    procedure Configure(params:TGameSettings); override;
    procedure Show(show:boolean); override;
    function GetHandle:THandle; override;
@@ -509,6 +510,16 @@ begin
     else Signal('MOUSE\SCROLL',smallint(wParam shr 16)); // for external subscribers
   end;
 
+  // close button, Alt+F4: the app may ask the user first, so DefWindowProc must not destroy
+  // the window here (it is destroyed by Close when the window loop ends)
+  WM_CLOSE:begin
+   wnd:=FindWindowByHandle(THandle(Window));
+   if wnd<>nil then begin
+    wnd.RequestClose;
+    exit(0);
+   end;
+  end;
+
   WM_SIZE:begin
    wnd:=FindWindowByHandle(THandle(Window));
    if wnd<>nil then begin
@@ -688,6 +699,12 @@ procedure TWinGLWindow.Close;
  begin
   windows.ShowWindow(window,SW_HIDE);
   windows.DestroyWindow(window);
+ end;
+
+procedure TWinGLWindow.Terminate;
+ begin
+  terminated:=true;
+  if self=mainWindow then Signal('Engine\Cmd\Exit',0);
  end;
 
 procedure TWinGLWindow.FlashWindow(count: integer);

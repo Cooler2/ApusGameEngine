@@ -1671,3 +1671,16 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   never used - now the track starts from it. `PlayMusic\None` (or a missing
   track) also cancels a track that waits for its start.
 - `Sound\Change\...` (a stub that did nothing) is removed.
+
+## 2026-10-22 — Window close request: the app may keep the window
+
+- The OS close button, Alt+F4 and the OS quit command (SDL `SDL_QUIT`, e.g. Cmd+Q)
+  no longer close the window at once: they call `TWindow.RequestClose`, which sends
+  `ENGINE\WINDOW\CLOSEREQUEST`. A handler that wants to ask the user calls
+  `window.ClosePending` right away (instant handler, window's thread) and the window
+  stays; the app later closes it with `window.Terminate` (main window: as
+  `Engine\Cmd\Exit`). Without `ClosePending` the window closes as before.
+- The app's own close button should call `window.RequestClose` too, so it asks the
+  same way; `Terminate`/`Engine\Cmd\Exit` close without asking.
+- `ENGINE\WINDOW\CLOSE` (SDL only, sent when the window was already closing) is
+  removed: use `ENGINE\WINDOW\CLOSEREQUEST`.

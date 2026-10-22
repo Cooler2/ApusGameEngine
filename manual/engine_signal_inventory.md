@@ -15,7 +15,7 @@
 
 | Canonical signal | Type | Sender | `tag` | Purpose / details |
 |---|---|---|---|---|
-| `ENGINE\CMD\EXIT` | command | Platform windows (`TWinGLWindow`, `TSDLGLWindow`) | `0` | Request a normal shutdown of the main thread/application. The main graceful-shutdown path. |
+| `ENGINE\CMD\EXIT` | command | `Terminate` of the main window (`TWinGLWindow`, `TSDLGLWindow`) | `0` | Request a normal shutdown of the main thread/application. The main graceful-shutdown path. |
 | `ENGINE\CMD\CHANGESETTINGS` | command | `TGame` | `0` | Deferred application of new `TGameSettings` in the main-thread context. |
 | `ENGINE\CMD\SETSWAPINTERVAL` | command | `TGame` | `divider` | Request to change VSync/SwapInterval from a non-main thread. |
 | `ENGINE\CMD\UPDATEMOUSEPOS` | command | UI subsystem (`TUIScene`) | `0` | Force a mouse position refresh through the platform API when the local state may be stale. |
@@ -43,7 +43,8 @@
 | `ENGINE\MAINLOOPDONE` | command | `TGame` | `0` | Internal command to finalize the loop infrastructure. |
 | `ENGINE\AFTERMAINLOOP` | notification | `TGame` | `0` | The main loop has ended; final post-actions. |
 | `ENGINE\WINDOW\MINIMIZED/MAXIMIZED/RESTORED` | notification | `TWindow.PlatformStateChanged` (Windows `WM_SIZE`, SDL window events) | `0` | The window state (`window.state`) changed; `RESTORED` - back to normal. Sent on a change only. |
-| `ENGINE\WINDOW\HIDDEN/SHOWN/CLOSE` | notification | `TSDLPlatform` | `0` | SDL window events as signals for subscribers. |
+| `ENGINE\WINDOW\HIDDEN/SHOWN` | notification | `TSDLPlatform` | `0` | SDL window events as signals for subscribers. |
+| `ENGINE\WINDOW\CLOSEREQUEST` | hook | `TWindow.RequestClose` (Windows `WM_CLOSE`, SDL `SDL_WINDOWEVENT_CLOSE`/`SDL_QUIT`, the app's own close button) | `0` | The window is asked to close; `window` is that window. A handler that asks the user first calls `window.ClosePending` right away (instant handler, window's thread): the window stays, the app later calls `window.Terminate` or keeps it. Without `ClosePending` the window closes (the main one stops the app). |
 | `ENGINE\WINDOW\DROPFILES` | notification | `TWindow.PlatformDropFiles` (Windows `WM_DROPFILES`, SDL `SDL_DROPFILE`) | file count | Files were dropped onto the window from a file manager. Paths are in `window.droppedFiles`, the drop point in canvas coordinates is in `window.dropPos` (`(-1,-1)` under SDL2: it reports no point); both stay valid until the next drop. |
 | `ENGINE\PRESENTFRAME` | notification | iOS GL view bridge (legacy path) | `0` | A frame has been presented (used in the mobile branch/legacy code). |
 

@@ -370,6 +370,7 @@ public
   active:boolean; // true when window is visible and updated
   state:TWindowState; // set by the platform, changes send ENGINE\WINDOW\MINIMIZED/MAXIMIZED/RESTORED
   frame:TWindowFrame; // frame in effect, set by Configure: System in fullscreen
+  closeDeferred:boolean; // set by ClosePending during RequestClose
   // App-drawn frame (frame<>System): which part of the window is at a canvas point - caption
   // (drags the window), edges or client. nil - only the edges resize the window. Called on the
   // window's thread at the mouse polling rate: must be fast. It may take the state lock briefly
@@ -481,6 +482,17 @@ public
   // Window state reported by the platform (window's thread): sends ENGINE\WINDOW\MINIMIZED,
   // MAXIMIZED or RESTORED (back to normal) when it changes
   procedure PlatformStateChanged(newState:TWindowState);
+  // Request to close the window (window's thread): the OS close button, Alt+F4, quit command
+  // of the OS, or the app's own close button. Sends ENGINE\WINDOW\CLOSEREQUEST (window - the
+  // window being closed) and closes the window (Terminate) unless a handler called ClosePending.
+  // The handler must run in the window's thread right away (emInstant): a queued one is too late
+  procedure RequestClose;
+  // Called by a ENGINE\WINDOW\CLOSEREQUEST handler: the app asks the user first, the window
+  // stays open. The app then closes it with Terminate or keeps it. Valid for one request only
+  procedure ClosePending;
+  // Close without asking: the main window stops the app (as Engine\Cmd\Exit), an extra window
+  // stops its loop
+  procedure Terminate; virtual; abstract;
   // Pointer position from the platform (window's thread). SetPointer maps client pixels
   // to the canvas: outside the display rect the pointer is outside the canvas - the
   // off-canvas sentinel, or clamped to the canvas edge while a button is held, so a drag
@@ -1605,6 +1617,23 @@ procedure TWindow.PlatformStateChanged(newState:TWindowState);
    TWindowState.Minimized:Signal('ENGINE\WINDOW\MINIMIZED');
    TWindowState.Maximized:Signal('ENGINE\WINDOW\MAXIMIZED');
   end;
+ end;
+
+procedure TWindow.RequestClose;
+ begin
+  Log.Msg('Close request: window %s',[name]);
+  closeDeferred:=false;
+  Signal('ENGINE\WINDOW\CLOSEREQUEST');
+  if closeDeferred then begin
+   closeDeferred:=false;
+   Log.Msg('Close request deferred by the app');
+  end else
+   Terminate;
+ end;
+
+procedure TWindow.ClosePending;
+ begin
+  closeDeferred:=true;
  end;
 
 procedure TWindow.SetPointer(const clientPos:TPoint);

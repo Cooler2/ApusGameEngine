@@ -18,6 +18,7 @@ type
  TSDLGLWindow=class(TWindow)
   constructor Create(aWnd:PSDL_Window;const windowName:String8);
   procedure Close; override;
+  procedure Terminate; override;
   procedure Configure(params:TGameSettings); override;
   procedure Show(show:boolean); override;
   function GetHandle:THandle; override;
@@ -240,6 +241,12 @@ procedure TSDLGLWindow.Close;
   wnd:=nil;
  end;
 
+procedure TSDLGLWindow.Terminate;
+ begin
+  terminated:=true;
+  if self=mainWindow then Signal('Engine\Cmd\Exit',0);
+ end;
+
 procedure TSDLGLWindow.FlashWindow(count:integer);
  begin
  end;
@@ -432,6 +439,8 @@ constructor TSDLPlatform.Create;
   {$IFDEF MSWINDOWS}
   SetEnvironmentVariable('SDL_AUDIODRIVER','winmm');
   {$ENDIF}
+  // closing the last window is a close request (TWindow.RequestClose), not SDL_QUIT on top of it
+  SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE,'0');
   if SDL_Init(SDL_INIT_EVERYTHING)<>0 then
    raise EError.Create('SDL init error: '+SDL_GetError);
   SDL_EventState(SDL_DROPFILE,SDL_ENABLE); // on by default in SDL2, but windows accept drops only while it is on
@@ -536,6 +545,10 @@ function FindEventWindow(const event:TSDL_Event;out target:TSDLGLWindow):boolean
    SDL_KEYDOWN,SDL_KEYUP:id:=event.key.windowID;
    SDL_TEXTINPUT:id:=event.text.windowID;
    SDL_DROPFILE..SDL_DROPCOMPLETE:id:=event.drop.windowID;
+   SDL_QUITEV:begin // the app quits: the main window decides (TWindow.RequestClose)
+    if mainWindow is TSDLGLWindow then target:=TSDLGLWindow(mainWindow);
+    exit(true);
+   end;
    else exit(true);
   end;
   if id=0 then exit(true); // e.g. a key without a focused window
@@ -725,13 +738,7 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
       PlatformStateChanged(TWindowState.Maximized);
       UpdateFrame;
      end;
-     SDL_WINDOWEVENT_CLOSE:begin
-      Log.Msg('Window close');
-      terminated:=true;
-      if self=mainWindow then
-       Signal('Engine\Cmd\Exit',0);
-      Signal('ENGINE\WINDOW\CLOSE');
-     end;
+     SDL_WINDOWEVENT_CLOSE:RequestClose;
      // RESIZED covers user/window-manager resizing, SIZE_CHANGED also covers
       // programmatic ones (SDL_SetWindowSize) - both just post the request,
       // the window's own thread applies it at the start of its next frame.
@@ -807,11 +814,11 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     dropList:=nil;
    end;
 
-   SDL_QUITEV:begin
-    if mainWindow is TSDLGLWindow then
-     TSDLGLWindow(mainWindow).terminated:=true;
-    Signal('Engine\Cmd\Exit',0);
-   end;
+   // the OS quit command (Cmd+Q, Ctrl+C in a terminal), routed to the main window: a close
+   // request of the main window
+   SDL_QUITEV:
+    if self=mainWindow then RequestClose
+     else Signal('Engine\Cmd\Exit',0);
 
    SDL_JOYAXISMOTION..SDL_JOYDEVICEREMOVED:ProcessControllerEvent(event);
    SDL_CONTROLLERAXISMOTION..SDL_CONTROLLERDEVICEREMAPPED:ProcessControllerEvent(event);

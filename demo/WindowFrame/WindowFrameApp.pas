@@ -1,5 +1,5 @@
 // Window frame drawn by the app: TUIWindow bound to the OS window, caption row with a menu
-// and window buttons, frame policy switching
+// and window buttons, frame policy switching, confirmation before closing
 
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -19,7 +19,7 @@ interface
   application:TWindowFrameApp;
 
 implementation
- uses SysUtils, Apus.Core, Apus.EventMan, Apus.Engine.Types, Apus.Engine.UI;
+ uses SysUtils, Apus.Core, Apus.EventMan, Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.MessageScene;
 
  const
   CAPTION_H=32; // caption row height, UI units
@@ -39,6 +39,25 @@ implementation
 
  var
   mainScene:TMainScene;
+  askOnClose:boolean; // ask before closing the window
+  asking:boolean;     // the question is shown
+
+// The OS close button, Alt+F4 or the app's own one. The handler runs right away in the
+// window's thread: ClosePending keeps the window, the answer comes later
+procedure CloseRequestEvent(event:TEventStr;tag:TTag);
+ begin
+  if not askOnClose then exit; // the window closes
+  window.ClosePending;
+  if asking then exit; // the question is already shown
+  asking:=true;
+  Ask('Close the window?','Demo\Close\Yes','Demo\Close\No');
+ end;
+
+procedure CloseAnswerEvent(event:TEventStr;tag:TTag);
+ begin
+  asking:=false;
+  if SameText(event,'Demo\Close\Yes') then window.Terminate; // close without asking again
+ end;
 
 { TWindowFrameApp }
 
@@ -66,6 +85,8 @@ procedure TWindowFrameApp.CreateScenes;
   mainScene:=TMainScene.Create;
   mainScene.CreateUI;
   game.SwitchToScene(mainScene.name);
+  SetEventHandler('ENGINE\WINDOW\CLOSEREQUEST',CloseRequestEvent);
+  SetEventHandler('Demo\Close',CloseAnswerEvent);
  end;
 
 { Button handlers: run on the window's thread }
@@ -83,7 +104,7 @@ procedure MaximizeClick;
 
 procedure CloseClick;
  begin
-  Signal('Engine\Cmd\Exit');
+  window.RequestClose; // the same way as the OS close button
  end;
 
 procedure SetFrame(frame:TWindowFrame);
@@ -121,6 +142,7 @@ procedure TMainScene.CreateUI;
  var
   box:TUIElement;
   lab:TUILabel;
+  askBox:TUICheckBox;
 
   function WindowButton(caption:String8;index:integer;onClick:TProcedure):TUIButton;
    begin
@@ -165,13 +187,16 @@ procedure TMainScene.CreateUI;
   WindowButton('[ ]',1,MaximizeClick);
   WindowButton('_',2,MinimizeClick);
 
-  box:=TUIElement.Create(260,204,frameWnd);
+  box:=TUIElement.Create(260,248,frameWnd);
   box.Center;
   box.SetAnchors(0.5,0.5,0.5,0.5);
   FrameButton('OS frame',0,SystemFrameClick);
   FrameButton('Custom frame',1,CustomFrameClick);
   FrameButton('Custom when maximized',2,CustomMaximizedClick);
   FrameButton('Fullscreen',3,FullscreenClick);
+  askBox:=TUICheckBox.Create(220,32,box).Setup('Ask before closing',askOnClose);
+  askBox.SetPos(box.clientWidth/2,20+4*44,pivotTopCenter);
+  askBox.linkedToggled:=@askOnClose;
 
   status:=TUILabel.Create(frameWnd.clientWidth-24,24,frameWnd).Setup('');
   status.SetPos(12,frameWnd.clientHeight-4,pivotBottomLeft);
