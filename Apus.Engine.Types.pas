@@ -172,6 +172,8 @@ type
   vSync:integer;     // 0 - max FPS, N - FPS = refresh/N
   mode,altMode:TDisplayMode; // primary and alternate display mode (Alt+Enter)
   frame:TWindowFrame; // frame of the window modes
+  maximized:boolean; // create the window maximized (dmWindow only); width/height is then the normal size.
+                     // Applied once at creation: a fullscreen start goes to the maximized window on [Alt]+[Enter]
   surface:TSurfaceConfig; // working surface axes requested for this window (R-31)
   showSystemCursor:boolean; // draw system cursor instead of engine cursor
   zbuffer:byte; // depth buffer: 0 - none, otherwise 24 bits (the value is not a precision request yet)

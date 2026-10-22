@@ -45,7 +45,8 @@ type
   contextVAO:cardinal; // per-context VAO for shared secondary window
   terminated:boolean;
   graphInfo:TOpenGLContextDesc;
-  wasMaximized:boolean; // was maximized when switched to fullscreen: maximized again on return
+  wasMaximized:boolean; // maximize on the next switch to the window mode (start or return from fullscreen)
+  configured:boolean;   // Configure was called: the startup state is applied
   function CustomFrameActive:boolean;
   function FrameHitTestAt(const p:TPoint;const client:TRect):integer;
   procedure ApplySizeLimits(var info:TMinMaxInfo);
@@ -1420,6 +1421,10 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    // area, Win+arrows, snap and the system menu depend on it. An app-drawn frame only removes
    // the non-client area (WM_NCCALCSIZE)
    windowed:=params.mode in [dmWindow,dmFixedWindow];
+   if not configured then begin // startup state: only the resizable window is maximized
+    configured:=true;
+    wasMaximized:=params.maximized and (dmWindow in [params.mode,params.altMode]);
+   end;
    if windowed then frame:=params.frame
     else frame:=TWindowFrame.System;
    if windowed then begin
@@ -1456,11 +1461,12 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    end else
     SetWindowPos(window,0,0,0,game.screenWidth,game.screenHeight,SWP_APPLY);
 
-   windows.ShowWindow(Window, SW_SHOW);
-   if windowed and wasMaximized then begin // back from fullscreen
+   // The normal size is set above, so Restore returns to it. Shown maximized at once: no flash
+   if windowed and wasMaximized then begin
     wasMaximized:=false;
-    windows.ShowWindow(window,SW_MAXIMIZE);
-   end;
+    windows.ShowWindow(window,SW_SHOWMAXIMIZED);
+   end else
+    windows.ShowWindow(window,SW_SHOW);
    UpdateWindow(Window);
 
    GetWindowRect(window,r);
@@ -1483,9 +1489,10 @@ procedure TWinGLWindow.SetCaption(text:string);
 procedure TWinGLWindow.Show(show:boolean);
  begin
   //LoadCursor(0,IDC_ARROW);
-  if show then
-   windows.ShowWindow(window,SW_SHOWNORMAL)
-  else
+  if show then begin
+   if IsZoomed(window) then windows.ShowWindow(window,SW_SHOW) // SW_SHOWNORMAL would restore it
+    else windows.ShowWindow(window,SW_SHOWNORMAL);
+  end else
    windows.ShowWindow(window,SW_HIDE);
  end;
 

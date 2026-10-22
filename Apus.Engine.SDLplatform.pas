@@ -52,6 +52,8 @@ type
   eventCount:integer;
   dropList:Strings8;           // files of the drop in progress (SDL_DROPBEGIN..SDL_DROPCOMPLETE)
   customFrame:boolean;         // the window is borderless: the app draws the frame
+  configured:boolean;          // Configure was called: the startup state is applied
+  maximizePending:boolean;     // startup maximized state: applied on the first switch to dmWindow
   limitMin,limitMax:TSize;     // size limits passed to SDL, window coordinates, 0 - not set
   procedure UpdateFrame;       // border on/off for the frame policy and the window state
   procedure UpdateSizeLimits;  // pass TWindow.sizeLimits to SDL when they change
@@ -1158,6 +1160,10 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    screenHeight:=mode.h;
    w:=params.width;
    h:=params.height;
+   if not configured then begin
+    configured:=true;
+    maximizePending:=params.maximized and (Apus.Engine.Types.dmWindow in [params.mode,params.altMode]);
+   end;
    {$IFDEF ANDROID}
    // Android owns the native surface size. SDL_SetWindowSize only changes SDL's
    // logical drawable size here, leaving it out of sync with the Java surface.
@@ -1183,6 +1189,11 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
       SDL_SetWindowSize(wnd,w,h);
       SDL_GetWindowSize(wnd,@w,@h);
       MoveTo((screenWidth-w) div 2,(screenHeight-h) div 2,-1,-1);
+      // the normal size is set above, so Restore returns to it
+      if maximizePending and (params.mode=Apus.Engine.Types.dmWindow) then begin
+        maximizePending:=false;
+        SDL_MaximizeWindow(wnd);
+      end;
     end;
     dmFullScreen:begin
       SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN_DESKTOP);

@@ -43,6 +43,7 @@ interface
   TWindowSetup=record
    size:TSize;           // client area size
    fullscreen:boolean;   // start fullscreen ([Alt]+[Enter] switches to the window mode)
+   maximized:boolean;    // start maximized (resizable window only); size is the normal (restored) size
    frame:TWindowFrame;   // window frame in the window mode: OS or drawn by the app (TWindow.frameHitTest)
    resizable:boolean;    // user can resize the window
    scaleForDPI:boolean;  // enlarge the window if DPI is higher than the platform default (96 for desktop monitor); macOS window size is always in points
@@ -413,6 +414,7 @@ procedure TWindowSetup.Init;
  begin
   size:=MakeSize(1024,768);
   fullscreen:=false;
+  maximized:=false;
   frame:=TWindowFrame.System;
   resizable:=false;
   scaleForDPI:=true;
@@ -577,6 +579,10 @@ procedure TGameApplication.HandleParam(param: string);
   if param='-FULLSCREEN' then begin
     Log.Force('Windowed mode disabled by a command line parameter');
     windowSetup.fullscreen:=true;
+  end;
+  if param='-MAXIMIZED' then begin
+    Log.Force('Maximized window requested by a command line parameter');
+    windowSetup.maximized:=true;
   end;
   if param='-NOVSYNC' then begin
     Log.Force('VSYNC disabled by a command line parameter');
@@ -1069,6 +1075,9 @@ begin
    if windowSetup.fullscreen then altMode:=winDispMode
     else altMode:=dmFullScreen;
    frame:=windowSetup.frame;
+   maximized:=windowSetup.maximized;
+   if maximized and not windowSetup.resizable then
+    Log.Warn('windowSetup.maximized is ignored: the window is not resizable');
    surface:=surfaceConfig; // project declaration -> per-window request
 
    showSystemCursor:=windowSetup.systemCursor;
