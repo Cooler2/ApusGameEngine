@@ -21,19 +21,16 @@ procedural API (there is no facade).
 
 ## 2) Concepts
 
-**Document (`TConfig`).** An object holding a stack of *layers*. Code reads and writes the
-document through *node handles*; it never sees the layers directly.
-
-**Layer.** One source file together with the files it includes, parsed into a tree. Layers
-are ordered bottom to top: shipped defaults first, user settings above them, command-line
-overrides on top. A read looks through the layers from the top; a write goes into the one
-*writable* layer (section 6).
+**Document (`TConfig`).** One file together with the files it includes, parsed into a tree.
+Code reads and writes the document through *node handles*. Defaults live in the code: every
+read takes a default value, so a key that is missing from the file gets the current default
+of the program.
 
 **Node.** An element of the tree. Its kind is one of:
 
 | Kind | Meaning |
 |---|---|
-| `ckSection` | named children in source order; the root of every layer is a section |
+| `ckSection` | named children in source order; the root of the document is a section |
 | `ckArray` | unnamed items in order; items may be of any kind |
 | `ckScalar` | a single value, stored as its **source text** (the lexeme) |
 | `ckNull` | JSON `null`: present, but reads return the default |
@@ -120,20 +117,18 @@ contains a line break needs quotes.
 - **Array:** `[ value, value, ... ]`, one line or several. Items are separated by commas or
   line ends; an item may be a scalar, an inline or block section `{ ... }`, or an array.
   `( ... )` is accepted as a synonym of `[ ... ]` (CTL2 lists).
-- **Root:** the items of the file are the children of the layer root. A file whose first
+- **Root:** the items of the file are the children of the document root. A file whose first
   significant character is `{` is a JSON-style root object: it must be the only top-level
   item.
 
 ### 3.5 Duplicates
 
-Within one layer, including its included files:
+Within one document, including its included files:
 
 - a section that is defined again is the same section: the children of both definitions
   are merged in source order (one section may be split across files);
 - a scalar or array key that is defined again, or a key that is a section in one place and
   a value in another, is an error that names both locations (`file:line`).
-
-Replacing a value on purpose is what layers are for (section 6), not duplicates.
 
 ### 3.6 Include
 
@@ -170,8 +165,8 @@ A CTL2 file that is saved is written in CTL3 syntax (section 7).
 
 Objects, arrays, strings with JSON escapes, numbers, `true`, `false` and `null` are read as
 described above: an object is a section, keys are quoted, `:` is the separator. This makes
-any JSON text that uses only these elements a valid CTL3 document. A layer read from a file
-with the `.json` extension is written back as JSON (section 7).
+any JSON text that uses only these elements a valid CTL3 document. A document read from a
+file with the `.json` extension is written back as JSON (section 7).
 
 ### 3.9 Grammar summary
 
@@ -215,7 +210,7 @@ nearest `double`).
 
 - it never dangles: after the node is deleted it reports `ckNone`, after it is created
   again it sees the new node;
-- it sees the merged view of all layers (section 6) as it is at the moment of each call;
+- it sees the document as it is at the moment of each call;
 - a handle to a missing node is valid; its reads return defaults and its writes create the
   missing sections.
 
@@ -231,47 +226,28 @@ So chains need no checks: `cfg.Node('music').Node('intro').Int('volume',75)`.
 
 ### 5.3 Iteration
 
-`Count`, `Item(i)` and `for child in node do` go over the children of a section (in the
-order of section 6.2) or the items of an array. `Name` of a section child is its key; array
+`Count`, `Item(i)` and `for child in node do` go over the children of a section (in source
+order, new keys last) or the items of an array. `Name` of a section child is its key; array
 items have an empty name.
 
-## 6) Layers
-
-### 6.1 Building a document
+## 6) Documents
 
 ```pascal
-cfg:=TConfig.Create;
-cfg.AddLayer('game.ctl');                               // shipped defaults
-cfg.AddLayer(AppDataDir+'game.ctl',[lfWritable,lfOptional]); // user settings
-cfg.Override('options.fullScreen=on');                  // from the command line
+cfg:=TConfig.Create('config.ctl');                       // the file must exist
+user:=TConfig.Create(AppDataDir+'game.ctl',true);        // may be missing: empty document
+w:=user.Root.Int('options.windowWidth',1024);
+user.Root.SetInt('options.windowWidth',1280);
+user.Save;
 ```
 
-- `AddLayer` puts a layer on top of the existing ones. A file that fails to load raises
-  `EConfigError` and leaves the document unchanged.
-- `lfOptional`: a missing file is an empty layer (user settings before the first save).
-- `lfWritable`: the layer receives writes. At most one layer is writable.
-- `Override` adds an assignment to the topmost in-memory layer, which is never saved.
-- `TConfig.Load(fname)` is a shortcut for a document with one writable layer.
-
-### 6.2 Merged view
-
-- A scalar, array or null comes from the topmost layer that has the key; arrays are not
-  merged item by item.
-- Sections are merged: the children of all layers, in the order of the lowest layer that
-  has each key, with keys found only in upper layers following in the order of those
-  layers.
-- If layers disagree on the kind of a key (a section in one, a value in another), the
-  topmost wins and a warning names both locations.
-
-### 6.3 Writes
-
-- `Set...` stores the value in the writable layer, creating the missing sections there;
-  with no writable layer it raises `EConfigError`.
-- `Delete(path)` removes the key from the writable layer and hides it from the lower ones
-  (the user layer records the deletion).
-- `Reset(path)` removes the key from the writable layer only, so the value of the lower
-  layers shows through again.
-- `Save` writes the writable layer if it was modified (section 7). Nothing else is saved.
+- `Create(fname)` reads the file and its includes. A file that fails to load raises
+  `EConfigError`.
+- With `optional=true` a missing file gives an empty document; the first `Save` creates the
+  file.
+- `Set...` stores a value, creating the missing sections. `Delete(path)` removes a key
+  with everything under it.
+- `Save` writes the document if it was modified (section 7). A document that is only read
+  (shipped data, a file in a pack) is simply never saved.
 
 ## 7) Writing files
 
@@ -289,11 +265,11 @@ cfg.Override('options.fullScreen=on');                  // from the command line
     saved.
 - New keys go to the end of their section, as `key = value`, indented by two spaces per
   level. A new key under a section that came from an included file goes to that file; a
-  new key in the root goes to the main file of the layer.
+  new key in the root goes to the main file of the document.
 - A changed included file is written back as well.
-- A layer read as CTL2 is written in CTL3 syntax as a whole; comments are kept, with `;`
+- A file read as CTL2 is written in CTL3 syntax as a whole; comments are kept, with `;`
   turned into `#`.
-- A layer from a `.json` file is written as JSON, indented, without comments.
+- A `.json` file is written as JSON, indented, without comments.
 - The text is built completely before the file is written: a failed save leaves the file
   as it was.
 
@@ -302,8 +278,8 @@ cfg.Override('options.fullScreen=on');                  // from the command line
 Protection is not part of the syntax. `Apus.Config` gives two hooks; the algorithms live in
 separate units.
 
-**Protected layer (envelope).** `AddLayer(fname,flags,protector)` passes the file bytes
-through `protector.Unprotect` before parsing, and the text through `protector.Protect`
+**Protected document (envelope).** `TConfig.Create(fname,optional,protector)` passes the file
+bytes through `protector.Unprotect` before parsing, and the text through `protector.Protect`
 before saving:
 
 ```pascal
@@ -317,7 +293,7 @@ type
   end;
 ```
 
-Inside the envelope the layer is ordinary CTL3 text. It is meant for data a game writes for
+Inside the envelope the document is ordinary CTL3 text. It is meant for data a game writes for
 itself: purchase records with a server signature inside, authorization tokens. The envelope
 hides where things are, the signature makes the record unforgeable.
 
@@ -333,8 +309,8 @@ task.)
 an ordinary string.
 
 A protected document may keep its values obfuscated in memory as well (against memory
-scanners); this is an implementation option of the protected layer and does not change the
-API.
+scanners); this is an implementation option of the protected document and does not change
+the API.
 
 ## 9) Exchange
 
@@ -354,9 +330,9 @@ options.Exchange(cfg.Writer('options')); // save
 
 - `Reader` assigns each variable from the document, or the default when the key is
   missing or does not convert (the same rules as section 4).
-- `Writer` stores a variable in the writable layer only if it differs from the value the
-  lower layers give (the default when they have none); otherwise it resets the key. The
-  user file therefore holds only what the user changed.
+- `Writer` stores each variable, except that a key missing from the file is not added while
+  the variable equals its default. A setting the user never changed therefore stays out of
+  the file and follows the default of the code when a new version changes it.
 - `Section(name)` gives the exchange of a subsection.
 
 ## 10) Reloading
@@ -365,17 +341,16 @@ Servers pick up changed settings without a restart. A document remembers the siz
 of every file it read, main files and included ones, as `Files.GetFileInfo` reports them
 (so files in packs are covered too).
 
-- `Changed` tells whether any of these files differ now, or a file of an `lfOptional`
-  layer appeared or disappeared.
-- `Reload` reads all layers again. `ReloadIfChanged` reads again only the layers whose files
-  changed and returns `true` if anything was reloaded. There is no file watcher: a server
+- `Changed` tells whether any of these files differ now, or an optional file appeared or
+  disappeared.
+- `Reload` reads the document again. `ReloadIfChanged` does it only if `Changed` and
+  returns `true` if the document was reloaded. There is no file watcher: a server
   calls `ReloadIfChanged` on its own schedule, e.g. once a second from its timer.
 - A reload is atomic. The new content is parsed first; on an error the document keeps its
   previous content. `Reload` then raises `EConfigError`; `ReloadIfChanged` logs the error
   with its location, returns `false` and does not try that file again until it changes once
   more (a file caught in the middle of saving does not flood the log).
-- A writable layer with unsaved changes is not reloaded; a warning names it.
-- `Override` assignments are kept.
+- A document with unsaved changes is not reloaded; a warning names it.
 - Other threads see either the old or the new content, never a mix. Handles stay valid and
   see the new content (section 5.1).
 - After a successful reload the document sends the signal `Config\Reloaded` through
@@ -384,10 +359,9 @@ of every file it read, main files and included ones, as `Files.GetFileInfo` repo
 
 ## 11) Errors, threads, lifetime
 
-- Parse errors raise `EConfigError` with `file:line:column` and a description; the layer is
-  not added.
-- `EConfigError` is also raised by strict reads, by writes without a writable layer or
-  through a scalar (`a.b` where `a` is a value), and by a failed save.
+- Parse errors raise `EConfigError` with `file:line:column` and a description.
+- `EConfigError` is also raised by strict reads, by writes through a scalar (`a.b` where
+  `a` is a value), and by a failed save.
 - A `TConfig` is thread-safe: every call takes the document's own lock. Different documents
   share nothing.
 - Handles do not keep the document alive. Using a handle after its document is freed is a
@@ -404,8 +378,6 @@ type
   EConfigError=class(EError);
 
   TCfgKind=(ckNone,ckNull,ckScalar,ckSection,ckArray);
-  TLayerFlag=(lfWritable,lfOptional);
-  TLayerFlags=set of TLayerFlag;
 
   IConfigProtector=interface
     function Protect(const data:ByteArray):ByteArray;
@@ -422,7 +394,7 @@ type
     function Kind:TCfgKind;
     function Name:String8;
     function Path:String8;
-    function Location:String8; // 'file:line' of the topmost definition, '' if missing
+    function Location:String8; // 'file:line' of the definition, '' if missing
     // Navigation
     function Node(const path:String8):TCfgNode;
     function Child(const name:String8):TCfgNode;
@@ -446,7 +418,7 @@ type
     function ReqFloat(const path:String8):double;
     function ReqBool(const path:String8):boolean;
     function ReqStr(const path:String8):String8;
-    // Writes (section 6.3)
+    // Writes (section 6)
     procedure SetInt(const path:String8;value:int64);
     procedure SetFloat(const path:String8;value:double);
     procedure SetBool(const path:String8;value:boolean);
@@ -454,7 +426,6 @@ type
     procedure SetStrs(const path:String8;const values:Strings8);
     function AddSection(const path:String8):TCfgNode;
     procedure Delete(const path:String8);
-    procedure Reset(const path:String8);
   end;
 
   // Direction-agnostic accessor; see section 9
@@ -472,12 +443,9 @@ type
 
   TConfig=class
   public
-    constructor Create;
+    // optional: a missing file gives an empty document (section 6)
+    constructor Create(const fname:String8;optional:boolean=false;protector:IConfigProtector=nil);
     destructor Destroy; override;
-    // A document with one writable layer
-    class function Load(const fname:String8):TConfig;
-    procedure AddLayer(const fname:String8;flags:TLayerFlags=[];protector:IConfigProtector=nil);
-    procedure Override(const assignment:String8);
     function Changed:boolean;
     procedure Reload;
     function ReloadIfChanged:boolean;
@@ -494,8 +462,9 @@ Only the public part is shown; the records also carry private fields.
 
 ## 13) Open points
 
-Settled in review: levels are small, so no binary encoding of the tree is planned; reloading
-is required (section 10).
+Settled in review: a document is one file, defaults live in the code (no layering of
+files); levels are small, so no binary encoding of the tree is planned; reloading is
+required (section 10).
 
 1. **Duplicate scalar keys** are an error (3.5). CTL2 silently kept the last one, so old
    files with duplicates will stop loading and show the place of the duplicate.
@@ -507,8 +476,8 @@ is required (section 10).
 
 | `Apus.ControlFiles` | `Apus.Config` |
 |---|---|
-| `UseControlFile(f)` | `cfg:=TConfig.Load(f)` or a document with layers |
-| `ctlGetInt('f.ctl:\A\B',d)` | `cfg.Int('A.B',d)` |
+| `UseControlFile(f)` | `cfg:=TConfig.Create(f)` |
+| `ctlGetInt('f.ctl:\A\B',d)` | `cfg.Root.Int('A.B',d)` |
 | `ctlGetKeyType(p)` | `cfg.Node(p).Kind`; int and float are not told apart |
 | `ctlGetKeys(p)` + `Split(' ')` | `for n in cfg.Node(p) do ... n.Name` |
 | `ctlGetStrCnt` / `ctlGetStrInd` | `Node(p).Count` / `Item(i).AsStr`, or `Strs(p)` |
@@ -517,5 +486,5 @@ is required (section 10).
 | `SaveAllControlFiles` | `Save` of each document |
 | `FreeControlFile` | `cfg.Free` |
 | `$Include` (separate namespace) | merged into the including section |
-| binary (encrypted) files | not supported; use a protected layer (section 8) |
+| binary (encrypted) files | not supported; use a protected document (section 8) |
 | `TControlFile` | `TCfgNode` of a section |
