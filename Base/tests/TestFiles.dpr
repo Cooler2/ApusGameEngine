@@ -750,6 +750,46 @@ begin
   EndTest;
 end;
 
+// The value type of a textual key is detected from its literal
+procedure TestControlFileTypes;
+const
+  TYPES_CTL=
+    'I1 42'#13#10'I2 -7'#13#10'I3 +5'#13#10'I4 2147483647'#13#10'I5 -2147483648'#13#10+
+    'F1 0.5'#13#10'F2 1e3'#13#10'F3 -2.5E-2'#13#10'F4 2147483648'#13#10'F5 1.10'#13#10+
+    'S1 1.'#13#10'S2 .5'#13#10'S3 $FF'#13#10'S4 12abc'#13#10'S5 1e'#13#10'S6 "42"'#13#10+
+    'B1 on'#13#10;
+var
+  prev:IFileProvider;
+  h:integer;
+  // Check the detected type of a key
+  procedure CheckType(const key:String8;kt:ctlKeyTypes);
+  begin
+    Check(ctlGetKeyType('types.ctl:\'+key)=kt,'ctl: type of '+key);
+  end;
+begin
+  StartTest('Control file value types');
+  prev:=Files.GetProvider;
+  Files.SetProvider(TMemFileProvider.Create(prev));
+  try
+    Files.Save('vfs/types.ctl',TYPES_CTL,false);
+    h:=UseControlFile('vfs/types.ctl');
+    CheckType('I1',cktInteger); CheckType('I2',cktInteger); CheckType('I3',cktInteger);
+    CheckType('I4',cktInteger); CheckType('I5',cktInteger);
+    CheckType('F1',cktReal); CheckType('F2',cktReal); CheckType('F3',cktReal);
+    CheckType('F4',cktReal); CheckType('F5',cktReal);
+    CheckType('S1',cktString); CheckType('S2',cktString); CheckType('S3',cktString);
+    CheckType('S4',cktString); CheckType('S5',cktString); CheckType('S6',cktString);
+    CheckType('B1',cktBool);
+    Check((ctlGetInt('types.ctl:\I3')=5) and (ctlGetInt('types.ctl:\I5')=Low(integer)),'ctl: integer values');
+    Check((abs(ctlGetReal('types.ctl:\F3')+0.025)<1e-12) and (ctlGetReal('types.ctl:\F4')=2147483648.0),'ctl: float values');
+    Check(ctlGetStr('types.ctl:\S6')='42','ctl: quoted number is a string');
+    FreeControlFile(h);
+  finally
+    Files.SetProvider(prev);
+  end;
+  EndTest;
+end;
+
 begin
   try
     Cleanup;
@@ -769,6 +809,7 @@ begin
     TestPathUtils;
     TestProviderChain;
     TestControlFileErrors;
+    TestControlFileTypes;
 
     Cleanup;
 

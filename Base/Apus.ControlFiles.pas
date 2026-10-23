@@ -231,214 +231,50 @@ var
 
  critSect:TLock; // synchronization for multithreaded access
 
-//----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
-type
-  PLong = ^LongWord;
-
-{ Functions for working with the text notation of numbers. }
-function Q_StrToInt64(const S: String8; var V: Int64): Boolean;
-type
-  PArr64 = ^TArr64;
-  TArr64 = array[0..7] of Byte;
-var
-  P: PChar;
-  C: LongWord;
-  Sign: LongBool;
+// Skip decimal digits starting at position i, return their count
+function SkipDigits(const s:String8;var i:integer):integer;
 begin
-  V := 0;
-  P := Pointer(S);
-  if not Assigned(P) then
-  begin
-    Result := False;
-    Exit;
-  end;
-  while P^ = ' ' do
-    Inc(P);
-  if P^ = '-' then
-  begin
-    Sign := True;
-    Inc(P);
-  end else
-  begin
-    Sign := False;
-    if P^ = '+' then
-      Inc(P);
-  end;
-  if P^ <> '$' then
-  begin
-    if P^ = #0 then
-    begin
-      Result := False;
-      Exit;
-    end;
-    repeat
-      C := Byte(P^);
-      if Char(C) in ['0'..'9'] then
-        Dec(C,48)
-      else
-        Break;
-      if (V<0) or (V>$CCCCCCCCCCCCCCC) then
-      begin
-        Result := False;
-        Exit;
-      end;
-      V := V*10 + C;
-      Inc(P);
-    until False;
-    if V < 0 then
-    begin
-      Result := (V=$8000000000000000) and Sign and (C=0);
-      Exit;
-    end;
-  end else
-  begin
-    Inc(P);
-    repeat
-      C := Byte(P^);
-      case Char(C) of
-      '0'..'9': Dec(C,48);
-      'A'..'F': Dec(C,55);
-      'a'..'f': Dec(C,87);
-      else
-        Break;
-      end;
-      if PArr64(@V)^[7] >= $10 then
-      begin
-        Result := False;
-        Exit;
-      end;
-      V := V shl 4;
-      PLong(@V)^ := PLong(@V)^ or C;
-      Inc(P);
-    until False;
-    if Sign and (V=$8000000000000000) then
-    begin
-      Result := False;
-      Exit;
-    end;
-  end;
-  if Sign then
-    V := -V;
-  Result := C=0;
+ result:=0;
+ while (i<=length(s)) and (s[i] in ['0'..'9']) do begin
+  inc(i); inc(result);
+ end;
 end;
 
-function Q_BetweenInt64(const S: String8; LowBound, HighBound: Int64): Boolean;
+// Decimal integer in the 32-bit range: [sign]digits
+function IsInteger(const s:String8):boolean;
 var
-  N: Int64;
+ i,n:integer;
+ v:int64;
 begin
-  Result := Q_StrToInt64(S,N) and (N>=LowBound) and (N<=HighBound);
+ result:=false;
+ i:=1;
+ if (i<=length(s)) and (s[i] in ['-','+']) then inc(i);
+ n:=SkipDigits(s,i);
+ if (n=0) or (n>10) or (i<=length(s)) then exit;
+ v:=Conv.ToInt(s);
+ result:=(v>=Low(integer)) and (v<=High(integer));
 end;
 
-function Q_IsInteger(const S: String8): Boolean;
+// Decimal float: [sign]digits[.digits][e[sign]digits]
+function IsFloat(const s:String8):boolean;
 var
-  L,I: Integer;
-  P: PAnsiChar;
-  C: AnsiChar;
+ i:integer;
 begin
-  P := Pointer(S);
-  L := Length(S);
-  Result := False;
-  while (L>0) and (P^=' ') do
-  begin
-    Dec(L);
-    Inc(P);
-  end;
-  if L > 0 then
-  begin
-    C := P^;
-    Inc(P);
-    if C in ['-','+'] then
-    begin
-      C := P^;
-      Dec(L);
-      Inc(P);
-      if L = 0 then
-        Exit;
-    end;
-    if ((L<10) and (C in ['0'..'9'])) or ((L=10) and (C in ['0'..'1'])) then
-    begin
-      for I := 1 to L-1 do
-      begin
-        if not (P^ in ['0'..'9']) then
-          Exit;
-        Inc(P);
-      end;
-      Result := True;
-    end
-    else if (L=10) and (C='2') then
-      Result := Q_BetweenInt64(S,-2147483647-1,2147483647);
-  end;
+ result:=false;
+ i:=1;
+ if (i<=length(s)) and (s[i] in ['-','+']) then inc(i);
+ if SkipDigits(s,i)=0 then exit;
+ if (i<=length(s)) and (s[i]='.') then begin
+  inc(i);
+  if SkipDigits(s,i)=0 then exit;
+ end;
+ if (i<=length(s)) and (s[i] in ['e','E']) then begin
+  inc(i);
+  if (i<=length(s)) and (s[i] in ['-','+']) then inc(i);
+  if SkipDigits(s,i)=0 then exit;
+ end;
+ result:=i>length(s);
 end;
-function Q_IsFloat(const S: String8): Boolean;
-var
-  L: Integer;
-  P: PAnsiChar;
-begin
-  P := Pointer(S);
-  L := Length(S);
-  Result := False;
-  while (L>0) and (P^=' ') do
-  begin
-    Dec(L);
-    Inc(P);
-  end;
-  if L > 0 then
-  begin
-    if P^ in ['-','+'] then
-    begin
-      Dec(L);
-      Inc(P);
-      if L = 0 then
-        Exit;
-    end;
-    if not (P^ in ['0'..'9']) then
-      Exit;
-    repeat
-      Dec(L);
-      Inc(P);
-    until (L=0) or not (P^ in ['0'..'9']);
-    if L = 0 then
-    begin
-      Result := True;
-      Exit;
-    end;
-    if P^ = '.' then
-    begin
-      Dec(L);
-      Inc(P);
-      if (L=0) or not (P^ in ['0'..'9']) then
-        Exit;
-      repeat
-        Dec(L);
-        Inc(P);
-      until (L=0) or not (P^ in ['0'..'9']);
-      if L = 0 then
-      begin
-        Result := True;
-        Exit;
-      end;
-    end;
-    if P^ in ['E','e'] then
-    begin
-      Dec(L);
-      Inc(P);
-      if (L<>0) and (P^ in ['-','+']) then
-      begin
-        Dec(L);
-        Inc(P);
-      end;
-      if (L=0) or not (P^ in ['0'..'9']) then
-        Exit;
-      repeat
-        Dec(L);
-        Inc(P);
-      until (L=0) or not (P^ in ['0'..'9']);
-      Result := L = 0;
-    end;
-  end;
-end;
-
-// ------------------------------- End of QStrings
 
 constructor TNamedValue.Create;
 begin
@@ -732,12 +568,12 @@ function UseControlFile;
        value:=TBoolValue.Create;
        (value as TBoolValue).value:=(uArg='ON') or (uArg='YES');
       end else
-      if Q_IsInteger(arg) then begin
+      if IsInteger(arg) then begin
        // Integer
        value:=TIntValue.Create;
        (value as TIntValue).value:=Conv.ToInt(arg);
       end else
-      if Q_IsFloat(arg) then begin
+      if IsFloat(arg) then begin
        // Float
        value:=TFloatValue.Create;
        (value as TFloatValue).value:=Conv.ToFloat(arg);
