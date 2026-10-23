@@ -284,7 +284,7 @@ implementation
   end;
 
  // Log mirror: feeds engine diagnostics into the console buffer. Any thread.
- procedure ConsoleLogHandler(msg:String8;category:byte;level:TSeverity);
+ procedure ConsoleLogHandler(const msg:String8;category:byte;level:TSeverity);
   begin
    if level<conCaptureLevel then exit;    // tier-1 capture threshold (non-retrospective)
    if category=CAT_CONSOLE_CMD then exit; // command I/O arrives via the command sink

@@ -132,14 +132,15 @@ implementation
   end;
 
  // Custom handler called by Apus.Log for every Log.Msg call
- procedure AdvancedLogHandler(msg:String8; category:byte; level:TSeverity);
+ procedure AdvancedLogHandler(const msg:String8; category:byte; level:TSeverity);
   var
    time:TSystemTime;
    date:string[14];
-   st:String8;
+   st,text:String8;
   begin
    if level>=TSeverity.Error then inc(numFailures);
-   if length(msg)>maxLogMsgSize then SetLength(msg,maxLogMsgSize);
+   text:=msg;
+   if length(text)>maxLogMsgSize then SetLength(text,maxLogMsgSize);
    if not inited then exit;
 
    logSect.Enter;
@@ -172,7 +173,7 @@ implementation
 
     // Store in memory
     if level>=minLogMemLevel then
-     AddLogMsg(SystemTimeToDateTime(time),level,category,msg);
+     AddLogMsg(SystemTimeToDateTime(time),level,category,text);
 
     // Write to daily log file
     if level>=minLogFileLevel then begin
@@ -181,9 +182,9 @@ implementation
      date[13]:=' ';
      date[14]:=' ';
      if category>0 then
-      logCache:=logCache+date+'['+IntToStr(category)+'] '+msg+LineBreak
+      logCache:=logCache+date+'['+IntToStr(category)+'] '+text+LineBreak
      else
-      logCache:=logCache+date+msg+LineBreak;
+      logCache:=logCache+date+text+LineBreak;
      if level>=TSeverity.Warn then FlushLogs;
     end;
    finally
