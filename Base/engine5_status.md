@@ -217,7 +217,6 @@ Checked with `grep -rlE "\bApus\.(Common|CrossPlatform)\b"` over `*.pas`, `*.dpr
 
 ## Would be nice to do (but not required)
 
-* Optimize `UTF8.Format` performance in Delphi (currently significantly slower than `SysUtils.Format` in Delphi builds; FPC performance is comparable)
 * Optimize Mem.FillW/FillQ/FillF with SSE (currently simple loops, only FillD is SSE-optimized)
 * Optimize Mem.Copy with SSE for large blocks (currently uses RTL move())
 * Optimize Mem.IsZero with SSE (currently manual loop with NativeUInt alignment)
