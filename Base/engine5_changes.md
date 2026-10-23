@@ -3,6 +3,15 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Image preload queue: workers on `Thread.Start` (2026-10-23)
+
+- `Apus.Engine.ImgLoadQueue` launches its loading and unpacking workers through
+  `Apus.Threads.Thread.Start` and tracks them as `IThread`; the `Classes.TThread`
+  subclasses are gone. The public API (`StartLoadingThreads`, `QueueFileLoad`,
+  `GetImageFromQueue`) is unchanged.
+- The loading worker now checks for termination while waiting for an empty queue,
+  so shutdown no longer hangs when threads were started but nothing was queued.
+
 ## NPOT textures: mip-maps without POT padding (2026-10-20)
 
 - `liffMipMaps` no longer implies `aiPow2`: an image loaded with mip-maps keeps its own size

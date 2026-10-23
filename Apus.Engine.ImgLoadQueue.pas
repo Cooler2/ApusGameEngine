@@ -35,13 +35,12 @@ implementation
  //   (claim item under lock: lqsWaiting→lqsLoading, then I/O outside lock,
  //    then lqsLoading→lqsLoaded under lock)
  // - Queue entries are never freed (memory leak) — need Dispose after GetImageFromQueue
- // - Migrate TThread subclasses to Thread.Start() (removes Classes dependency)
  // - qrmReturnSource returns srcData while unpack thread reads it (data race)
  // - Replace spin-wait loops (Time.Sleep) with TLightweightEvent signaling
  uses
   Apus.Lib,
   Apus.Strings,
-  Classes,
+  Apus.Threads,
   Apus.GfxFormats;
 
  // Queue
@@ -70,18 +69,11 @@ implementation
   firstItem,lastItem:PQueueEntry;
 
  // Threads
- type
-  TLoadingThread=class(TThread)
-   procedure Execute; override;
-  end;
-  TUnpackThread=class(TThread)
-   procedure Execute; override;
-  end;
  var
   // This thread load image files
-  loadingThread:TLoadingThread;
+  loadingThread:IThread;
   // These threads are unpacking compressed images (JPG/PNG)
-  unpackThreads:array[1..4] of TUnpackThread;
+  unpackThreads:array[1..4] of IThread;
 
   maxUnpackTime:integer;
 
@@ -158,30 +150,30 @@ implementation
    end;
   end;
 
+ procedure LoadingThreadProc; forward;
+ procedure UnpackThreadProc; forward;
+
  procedure StartLoadingThreads(unpackThreadsNum:integer=2);
   var
    i:integer;
   begin
-   loadingThread:=TLoadingThread.Create(false);
+   loadingThread:=Thread.Start('QLoading',LoadingThreadProc);
    for i:=1 to Min(unpackThreadsNum,high(unpackThreads)) do
-    unpackThreads[i]:=TUnpackThread.Create(false);
+    unpackThreads[i]:=Thread.Start('QUnpack',UnpackThreadProc);
   end;
 
-{ TLoadingThread }
-
-procedure TLoadingThread.Execute;
+procedure LoadingThreadProc;
  var
   i,n:integer;
   item,start:PQueueEntry;
  procedure Restart;
   begin
    // Wait until queue not empty
-   while firstItem=nil do Time.Sleep(10);
+   while (firstItem=nil) and not CurrentThread.Terminating do Time.Sleep(10);
    start:=firstItem;
    item:=start;
   end;
  begin
-  Thread.Register('QLoading');
   try
   Restart;
   repeat
@@ -217,21 +209,17 @@ procedure TLoadingThread.Execute;
     continue;
    end;
    item:=item.next;
-  until terminated;
+  until CurrentThread.Terminating;
   except
    on e:Exception do SystemMessage('Error in LoadingThread: '+ExceptionMsg(e));
   end;
-  Thread.Unregister;
  end;
 
-{ TUnpackThread }
-
-procedure TUnpackThread.Execute;
+procedure UnpackThreadProc;
  var
   item:PQueueEntry;
   t:int64;
  begin
-  Thread.Register('QUnpack');
   try
   repeat
    Time.Sleep(1); // never wait inside CS
@@ -276,11 +264,10 @@ procedure TUnpackThread.Execute;
       end;
      end;
    end;
-  until terminated;
+  until CurrentThread.Terminating;
   except
    on e:Exception do SystemMessage('Error in UnpackingThread: '+ExceptionMsg(e));
   end;
-  Thread.Unregister;
  end;
 
 procedure TerminateThreads;
@@ -288,14 +275,16 @@ procedure TerminateThreads;
    i:integer;
  begin
    Log.Force('Terminating ILQ threads');
-   if (loadingThread<>nil) and not loadingThread.Terminated then begin
+   if loadingThread<>nil then begin
      loadingThread.Terminate;
-     loadingThread.WaitFor;
+     loadingThread.Wait;
+     loadingThread:=nil;
    end;
    for i:=1 to high(unpackThreads) do
-     if (unpackThreads[i]<>nil) and not unpackThreads[i].Terminated then begin
+     if unpackThreads[i]<>nil then begin
        unpackThreads[i].Terminate;
-       unpackThreads[i].WaitFor;
+       unpackThreads[i].Wait;
+       unpackThreads[i]:=nil;
      end;
    Log.Msg('ILQ threads terminated. Max unpack time was '+Conv.ToStr(maxUnpackTime));
  end;
