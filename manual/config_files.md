@@ -3,7 +3,7 @@
 **Status: draft for review.** Nothing described here is implemented yet; the current code is
 `Base/Apus.ControlFiles.pas` (format CTL2). Once accepted, this chapter is the reference for
 the intended behaviour of `Apus.Config`: where the code differs from the text, the text wins
-and the code is the thing to fix. Open points are collected in section 12.
+and the code is the thing to fix. Open points are collected in section 13.
 
 ## 1) Purpose and scope
 
@@ -359,7 +359,30 @@ options.Exchange(cfg.Writer('options')); // save
   user file therefore holds only what the user changed.
 - `Section(name)` gives the exchange of a subsection.
 
-## 10) Errors, threads, lifetime
+## 10) Reloading
+
+Servers pick up changed settings without a restart. A document remembers the size and time
+of every file it read, main files and included ones, as `Files.GetFileInfo` reports them
+(so files in packs are covered too).
+
+- `Changed` tells whether any of these files differ now, or a file of an `lfOptional`
+  layer appeared or disappeared.
+- `Reload` reads all layers again. `ReloadIfChanged` reads again only the layers whose files
+  changed and returns `true` if anything was reloaded. There is no file watcher: a server
+  calls `ReloadIfChanged` on its own schedule, e.g. once a second from its timer.
+- A reload is atomic. The new content is parsed first; on an error the document keeps its
+  previous content. `Reload` then raises `EConfigError`; `ReloadIfChanged` logs the error
+  with its location, returns `false` and does not try that file again until it changes once
+  more (a file caught in the middle of saving does not flood the log).
+- A writable layer with unsaved changes is not reloaded; a warning names it.
+- `Override` assignments are kept.
+- Other threads see either the old or the new content, never a mix. Handles stay valid and
+  see the new content (section 5.1).
+- After a successful reload the document sends the signal `Config\Reloaded` through
+  `Apus.EventMan`, with the document as the tag. Values that were copied into variables
+  (`Exchange`) are read again in its handler.
+
+## 11) Errors, threads, lifetime
 
 - Parse errors raise `EConfigError` with `file:line:column` and a description; the layer is
   not added.
@@ -370,7 +393,7 @@ options.Exchange(cfg.Writer('options')); // save
 - Handles do not keep the document alive. Using a handle after its document is freed is a
   programming error.
 
-## 11) Interface
+## 12) Interface
 
 ```pascal
 unit Apus.Config;
@@ -455,7 +478,9 @@ type
     class function Load(const fname:String8):TConfig;
     procedure AddLayer(const fname:String8;flags:TLayerFlags=[];protector:IConfigProtector=nil);
     procedure Override(const assignment:String8);
-    procedure Reload; // re-read all layers; unsaved changes are lost
+    function Changed:boolean;
+    procedure Reload;
+    function ReloadIfChanged:boolean;
     function Root:TCfgNode;
     function Node(const path:String8):TCfgNode; // Root.Node(path)
     function Reader(const path:String8=''):TCfgExchange;
@@ -467,20 +492,18 @@ type
 
 Only the public part is shown; the records also carry private fields.
 
-## 12) Open points
+## 13) Open points
 
-1. **Size of level files.** If levels are large (megabytes, many numeric arrays), a compact
-   binary encoding of the same tree may be needed for loading speed. It would be a second
-   *serialization* of the model, selected per layer, and needs no change to the API. What
-   is the typical size of a level?
-2. **Duplicate scalar keys** are an error (3.5). CTL2 silently kept the last one, so old
+Settled in review: levels are small, so no binary encoding of the tree is planned; reloading
+is required (section 10).
+
+1. **Duplicate scalar keys** are an error (3.5). CTL2 silently kept the last one, so old
    files with duplicates will stop loading and show the place of the duplicate.
-3. **Numeric types of `Exchange`:** `integer`, `int64`, `single`, `double`, `boolean`,
+2. **Numeric types of `Exchange`:** `integer`, `int64`, `single`, `double`, `boolean`,
    `String8`. Are enumerations (by name) and `cardinal` needed?
-4. **Change notifications** (a signal on `Set`, hot reload in development) are left for
-   later; they do not change this interface.
+3. **A signal on every `Set`** is left for later; it does not change this interface.
 
-## 13) Migration from Apus.ControlFiles
+## 14) Migration from Apus.ControlFiles
 
 | `Apus.ControlFiles` | `Apus.Config` |
 |---|---|
