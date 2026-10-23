@@ -65,7 +65,7 @@ function Foo(const st:UnicodeString):...;
 ```
 This replaces the old `ADDANSI` pattern. Use `{$IFDEF UNICODE}` directly.
 
-### Base Library (`Base/Apus.*.pas`) - 55 modules
+### Base Library (`Base/Apus.*.pas`) - 56 modules
 
 Full table with descriptions: `Base/README.md`; per-module build/test status: `Base/engine5_status.md`.
 
@@ -79,7 +79,7 @@ Full table with descriptions: `Base/README.md`; per-module build/test status: `B
 - **Network**: Socket, TCP, HttpRequests, HttpServer, GeoIP (Network - deprecated)
 - **Platform**: Android
 - **Utilities**: Utils, Files, Log, Logging, Threads, Profiling, StackTrace, CPU, MemoryLeakUtils
-- **Specialized**: Crypto, RSA, Database, Translation, HtmlTree, ControlFiles, Publics
+- **Specialized**: Crypto, RSA, Database, Translation, HtmlTree, Config, ControlFiles, Publics
 - **Auxiliary**: Compress, ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI
 
 Foundation modules (Core, Types, Conv, Strings, Log, Threads, Files) have no dependencies on the
@@ -119,7 +119,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 
 **Existing tests:**
 - `Base/tests/Test*.dpr` - one per Base module area (Core, Conv, Strings, Types, Containers, HashMaps,
-  Files, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, Colors, GfxFilters, GfxFormats, GlyphCache,
+  Files, Config, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, Colors, GfxFilters, GfxFormats, GlyphCache,
   Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
 - `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestWindowLock`, `TestVirtualMouse`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
   `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestBlendModes`, `TestPixelGrid`, `TestCulling`, `TestImageReload`, `TestTextureUnits`, `TestTextureNPOT`

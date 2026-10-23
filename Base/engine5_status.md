@@ -104,7 +104,8 @@ tests or the engine.
 | `Apus.Colors` | Win/Linux/macOS | - | `Color` record static-method API (2026-06-09); no free functions except `BilinearMixF` and `BilinearMix(PCardinal)`. |
 | `Apus.Compress` | Linux/macOS | TestCompress | Not in the Windows sweep (`buildtest.ps1`) yet. |
 | `Apus.Containers` | Win/Linux/macOS | TestContainers, BenchContainers |  |
-| `Apus.ControlFiles` | Win/Linux/macOS | - |  |
+| `Apus.Config` | Win/Linux/macOS | TestConfig | Configuration documents (CTL3, reads CTL2 and JSON); spec in `manual/config_files.md`. Engine consumers are not migrated yet. |
+| `Apus.ControlFiles` | Win/Linux/macOS | TestFiles | CTL2; to be replaced by `Apus.Config` and removed. |
 | `Apus.Conv` | Win/Linux/macOS | TestConv, BenchConv |  |
 | `Apus.Core` | Win/Linux/macOS | TestCore, BenchCore, BenchMem |  |
 | `Apus.Crypto` | Win/Linux/macOS | - |  |

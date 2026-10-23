@@ -1,9 +1,9 @@
 # Configuration Files (CTL3)
 
-**Status: draft for review.** Nothing described here is implemented yet; the current code is
-`Base/Apus.ControlFiles.pas` (format CTL2). Once accepted, this chapter is the reference for
-the intended behaviour of `Apus.Config`: where the code differs from the text, the text wins
-and the code is the thing to fix. Open points are collected in section 12.
+**Status: implemented in `Base/Apus.Config.pas` (tests: `Base/tests/TestConfig.dpr`); the engine
+still uses `Apus.ControlFiles` (format CTL2) until its consumers are migrated.** This chapter is
+the reference for the intended behaviour of `Apus.Config`: where the code differs from the
+text, the text wins and the code is the thing to fix. Open points are collected in section 12.
 
 ## 1) Purpose and scope
 
@@ -99,8 +99,9 @@ preload = ["click.ogg", "hit.ogg"]
 - **Single-quoted string** `'...'`: raw, no escapes (Windows paths: `'C:\Games\new'`). A
   single quote inside is written as two quotes `''`.
 - **Bare value:** everything else, up to the end of the line or a comment, with surrounding
-  spaces trimmed. Inside an inline container (3.4) a bare value also ends at `,`, `}` or
-  `]`. On a line of its own a trailing `,` is a separator, not part of the value. So
+  spaces trimmed. Inside an inline container (3.4) a bare value also ends at a blank, `,`,
+  `}` or `]`, so a missing comma there is an error (`{ a = 1 b = 2 }`) instead of the value
+  `1 b = 2`. On a line of its own a trailing `,` is a separator, not part of the value. So
   `title = Hello, world` is `"Hello, world"`, and `"a": 1,` in a multi-line JSON object is
   `1`.
 - **`null`** (bare) is a `ckNull` node.
@@ -362,7 +363,7 @@ type
   end;
 
   TConfig=class;
-  TCfgEnumerator=record;
+  TCfgEnumerator=class; // a record can't be declared ahead; for..in frees it
 
   // Position in a document; see section 5.1
   TCfgNode=record

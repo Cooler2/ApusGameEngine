@@ -88,6 +88,7 @@ build Apus.Huffman
 
 # === Level 6: Network and files ===
 build Apus.ControlFiles
+build Apus.Config
 build Apus.TCP
 
 # === Level 7: High-level network ===

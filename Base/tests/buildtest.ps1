@@ -94,6 +94,7 @@ Build-Module 'Apus.Huffman'
 
 # === Level 6: Network and files ===
 Build-Module 'Apus.ControlFiles'
+Build-Module 'Apus.Config'
 Build-Module 'Apus.TCP'
 
 # === Level 7: High-level network ===
