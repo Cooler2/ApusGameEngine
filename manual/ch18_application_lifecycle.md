@@ -264,7 +264,8 @@ overrides `SetupApplication` and sets its values there.
 `Prepare` is non-visual and can be called only once. It makes the process DPI-aware
 (per-monitor v2 on Windows — a precondition of the whole surface model), registers the
 calling thread's name, calls `SetupApplication`, resolves the writable storage
-directories, opens the log, loads the options, and then applies the command line
+directories, opens the log, opens `appSetup.configFile` as `appConfig` (see
+[Configuration files](config_files.md)) and loads the options from it, and then applies the command line
 through `HandleParam` — in that order, so a switch overrides the config file. No
 window, no graphics, no `game` object yet.
 

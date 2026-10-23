@@ -120,7 +120,7 @@ interface
 
 implementation
  uses Apus.Socket, Classes, Apus.Threads, Apus.Strings, Apus.Conv,
-    Apus.ControlFiles, Apus.Log, Apus.Logging, Apus.GeoIP;
+    Apus.Config, Apus.Log, Apus.Logging, Apus.GeoIP;
  procedure scgiLogProc(msg:String8; level:byte; msgtype:byte);
   begin
    Log.Msg(msg,msgtype,TSeverity(level));
@@ -163,7 +163,6 @@ implementation
   end;
 
  var
-  ctl:TControlFile;
   critSect:TLock;
 
   mainSock:TNativeSocket;
@@ -991,6 +990,9 @@ implementation
   end;
 
  procedure Initialize;
+  var
+   cfg:TConfig;
+   ctl:TCfgNode;
   begin
    // Logging
    if FileExists('scgi.log') then RenameFile('scgi.log','scgi.old');
@@ -1001,16 +1003,18 @@ implementation
    // Initialization
    critSect.Init('SCGI');
    // Load configuration
-   ctl:=TControlFile.Create('config.ctl','');
-   port:=ctl.GetInt('PORT',port);
-   worker_threads:=ctl.GetInt('WorkerThreads',worker_threads);
-   rootDir:=ctl.GetStr('rootDir',GetCurrentDir);
-   URIprefix:=lowercase(ctl.GetStr('URIprefix',''));
+   cfg:=TConfig.Create('config.ctl');
+   ctl:=cfg.Root;
+   port:=ctl.Int('PORT',port);
+   worker_threads:=ctl.Int('WorkerThreads',worker_threads);
+   rootDir:=ctl.Str('rootDir',GetCurrentDir);
+   URIprefix:=lowercase(ctl.Str('URIprefix',''));
    if (rootDir<>'') and (rootDir[length(rootDir)]<>'\') then rootDir:=rootDir+'\';
-   DB_HOST:=ctl.GetStr('MySQL\Host',DB_HOST);
-   DB_LOGIN:=ctl.GetStr('MySQL\Login',DB_LOGIN);
-   DB_PASSWORD:=ctl.GetStr('MySQL\Password',DB_PASSWORD);
-   DB_DATABASE:=ctl.GetStr('MySQL\Database',DB_DATABASE);
+   DB_HOST:=ctl.Str('MySQL.Host',DB_HOST);
+   DB_LOGIN:=ctl.Str('MySQL.Login',DB_LOGIN);
+   DB_PASSWORD:=ctl.Str('MySQL.Password',DB_PASSWORD);
+   DB_DATABASE:=ctl.Str('MySQL.Database',DB_DATABASE);
+   cfg.Free;
    Log.Force('SCGI Initialized');
    qStart:=0; qEnd:=0;
    requestsProcessed:=0;
@@ -1099,7 +1103,6 @@ implementation
    end;
    if liveWorkers>0 then Log.Warn('Not all workers terminated!');
    CloseSocket(MainSock);
-   ctl.Free;
    critSect.Cleanup;
    Log.Force('Terminated');
   end;

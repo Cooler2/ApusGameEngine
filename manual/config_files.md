@@ -1,7 +1,7 @@
 # Configuration Files (CTL3)
 
-**Status: implemented in `Base/Apus.Config.pas` (tests: `Base/tests/TestConfig.dpr`); the engine
-still uses `Apus.ControlFiles` (format CTL2) until its consumers are migrated.** This chapter is
+**Status: implemented in `Base/Apus.Config.pas` (tests: `Base/tests/TestConfig.dpr`) and used by
+the engine (`appConfig` of `Apus.Engine.GameApp`, the sound config, `Apus.SCGI`).** This chapter is
 the reference for the intended behaviour of `Apus.Config`: where the code differs from the
 text, the text wins and the code is the thing to fix. Open points are collected in section 12.
 

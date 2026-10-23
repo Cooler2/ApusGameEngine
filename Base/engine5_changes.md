@@ -1435,6 +1435,7 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
 - Still global: `deviceDPI`, `deviceScale`, `instanceID`, `gameLangCode`.
 - `appSetup.configFile` keeps the old `configFileName` behaviour: after
   `Prepare` it holds the bare file name used as the control file key.
+  (Changed on 2026-10-23: it holds the path of the file used, see "Configs: Apus.Config".)
 - Config keys (`Options\FullScreen`, `Options\scaleWindowSize`, ...) and command
   line options are unchanged.
 - Migration: move the assignments from the constructor (or from the program,
@@ -1695,6 +1696,32 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   never used - now the track starts from it. `PlayMusic\None` (or a missing
   track) also cancels a track that waits for its start.
 - `Sound\Change\...` (a stub that did nothing) is removed.
+
+## 2026-10-23 — Configs: Apus.Config
+
+- New `Apus.Config` (`manual/config_files.md`): documents in the CTL3 syntax (braced
+  sections, arrays, inline comments); CTL2 files and a JSON subset are read by the
+  same parser. The engine reads its configs through it; `Apus.ControlFiles` is still
+  in Base, but nothing in the engine opens files with it any more.
+- `Apus.Engine.GameApp`: the global `appConfig:TConfig` is the document of
+  `appSetup.configFile`: `Prepare` opens it, `SaveOptions` saves it, it is freed with
+  the application (nil without a config file). After `Prepare`, `appSetup.configFile`
+  holds the path of the file used (the copy in `AppDataDir` when the shipped one must
+  stay intact), no longer the bare name used as a control file key. The keys are
+  unchanged and case-insensitive: `appConfig.Root.Int('Options.WindowWidth',1024)`.
+- `Apus.Engine.Sound`: an event may also be a section,
+  `sampleQuiet = { file = "sample.ogg", vol = 30 }`; `PreloadSamples` may be an array
+  of files; a missing `PreloadSamples` means `NONE` (it was a config loading error).
+- `Apus.SCGI`: reads `config.ctl` through `Apus.Config`; the file is unchanged.
+- Data files: CTL2 files keep working. A CTL2 file that the program saves is written
+  in the CTL3 syntax. Duplicate keys in a file are an error now (CTL2 silently kept
+  the last one); `$Include` merges the file into the including section (in CTL2 the
+  included file was a separate namespace).
+- Migration of game code: `ctlGetInt(appSetup.configFile+':\Options\X',d)` →
+  `appConfig.Root.Int('Options.X',d)`; other files: `cfg:=TConfig.Create(name)` and
+  `cfg.Root.Str('A.B',...)`. The full table is section 13 of the manual chapter;
+  upgrader TODO rules are in `tools/engine5.upgrade`. The demo configs use the CTL3
+  syntax now.
 
 ## 2026-10-22 — Window close request: the app may keep the window
 
