@@ -654,14 +654,53 @@ begin
  {$ENDIF}
 end;
 
+// The wait strategy differs per platform on purpose, both are chosen by measurement
+// (2026-10-23, Xeon E5-2660 v4, 1..48 threads, sections of ~0 and ~100ns, 0..1us of work
+// outside the lock; throughput, ns per operation):
+// - Windows: Sleep(0) costs ~0.3us. Yielding at once is the best or equal in every case,
+//   any spinning before it (16..256 rounds, TTAS+pause) is slower up to 2-3x.
+// - Linux: Sleep(0) is nanosleep and costs ~88us. Yielding at once still wins at extreme
+//   contention, but with real work outside the lock it is 1.3-1.6x slower than 16 rounds
+//   of spinning first, and every collision stalls the thread for 88us. sched_yield instead
+//   of Sleep(0) after the spin is 3-5x slower at high contention.
+// macOS was not measured, it follows the Linux path (nanosleep as well).
+{$IFNDEF MSWINDOWS}
+const
+  SPIN_ROUNDS=16;
+
+procedure CpuPause; inline;
+begin
+  {$IF DEFINED(FPC) AND (DEFINED(CPUX86) OR DEFINED(CPUX64))}
+  asm pause end;
+  {$IFEND}
+end;
+{$ENDIF}
+
 procedure SpinLock(var lock:integer);
+{$IFDEF MSWINDOWS}
 begin
   while Atomic.CmpExchange(lock,1,0)<>0 do Time.Sleep(0);
 end;
+{$ELSE}
+var
+  i:integer;
+begin
+  repeat
+    if (lock=0) and (Atomic.CmpExchange(lock,1,0)=0) then exit;
+    // spin on a plain read (no cache line ping-pong), sleep only if the lock stays busy
+    i:=0;
+    while (lock<>0) and (i<SPIN_ROUNDS) do begin
+      CpuPause;
+      inc(i);
+    end;
+    if lock<>0 then Time.Sleep(0);
+  until false;
+end;
+{$ENDIF}
 
 procedure SpinLock; inline;
 begin
-  while Atomic.CmpExchange(globalSpinLock,1,0)<>0 do Time.Sleep(0);
+  SpinLock(globalSpinLock);
 end;
 
 procedure SpinUnlock(var lock:integer); inline;
