@@ -3,7 +3,7 @@
 **Status: draft for review.** Nothing described here is implemented yet; the current code is
 `Base/Apus.ControlFiles.pas` (format CTL2). Once accepted, this chapter is the reference for
 the intended behaviour of `Apus.Config`: where the code differs from the text, the text wins
-and the code is the thing to fix. Open points are collected in section 13.
+and the code is the thing to fix. Open points are collected in section 12.
 
 ## 1) Purpose and scope
 
@@ -312,30 +312,7 @@ A protected document may keep its values obfuscated in memory as well (against m
 scanners); this is an implementation option of the protected document and does not change
 the API.
 
-## 9) Exchange
-
-One routine describes a group of settings for both directions:
-
-```pascal
-procedure TWindowOptions.Exchange(const x:TCfgExchange);
-begin
-  x.Item('fullScreen',fullScreen,false);
-  x.Item('windowWidth',width,1024);
-  x.Item('windowHeight',height,768);
-end;
-
-options.Exchange(cfg.Reader('options')); // load
-options.Exchange(cfg.Writer('options')); // save
-```
-
-- `Reader` assigns each variable from the document, or the default when the key is
-  missing or does not convert (the same rules as section 4).
-- `Writer` stores each variable, except that a key missing from the file is not added while
-  the variable equals its default. A setting the user never changed therefore stays out of
-  the file and follows the default of the code when a new version changes it.
-- `Section(name)` gives the exchange of a subsection.
-
-## 10) Reloading
+## 9) Reloading
 
 Servers pick up changed settings without a restart. A document remembers the size and time
 of every file it read, main files and included ones, as `Files.GetFileInfo` reports them
@@ -355,9 +332,9 @@ of every file it read, main files and included ones, as `Files.GetFileInfo` repo
   see the new content (section 5.1).
 - After a successful reload the document sends the signal `Config\Reloaded` through
   `Apus.EventMan`, with the document as the tag. Values that were copied into variables
-  (`Exchange`) are read again in its handler.
+  are read again in its handler.
 
-## 11) Errors, threads, lifetime
+## 10) Errors, threads, lifetime
 
 - Parse errors raise `EConfigError` with `file:line:column` and a description.
 - `EConfigError` is also raised by strict reads, by writes through a scalar (`a.b` where
@@ -367,7 +344,7 @@ of every file it read, main files and included ones, as `Files.GetFileInfo` repo
 - Handles do not keep the document alive. Using a handle after its document is freed is a
   programming error.
 
-## 12) Interface
+## 11) Interface
 
 ```pascal
 unit Apus.Config;
@@ -428,19 +405,6 @@ type
     procedure Delete(const path:String8);
   end;
 
-  // Direction-agnostic accessor; see section 9
-  TCfgExchange=record
-  public
-    function Reading:boolean;
-    procedure Item(const name:String8;var v:integer;default:integer); overload;
-    procedure Item(const name:String8;var v:int64;default:int64); overload;
-    procedure Item(const name:String8;var v:single;default:single); overload;
-    procedure Item(const name:String8;var v:double;default:double); overload;
-    procedure Item(const name:String8;var v:boolean;default:boolean); overload;
-    procedure Item(const name:String8;var v:String8;const default:String8); overload;
-    function Section(const name:String8):TCfgExchange;
-  end;
-
   TConfig=class
   public
     // optional: a missing file gives an empty document (section 6)
@@ -451,8 +415,6 @@ type
     function ReloadIfChanged:boolean;
     function Root:TCfgNode;
     function Node(const path:String8):TCfgNode; // Root.Node(path)
-    function Reader(const path:String8=''):TCfgExchange;
-    function Writer(const path:String8=''):TCfgExchange;
     function Modified:boolean;
     procedure Save;
   end;
@@ -460,19 +422,18 @@ type
 
 Only the public part is shown; the records also carry private fields.
 
-## 13) Open points
+## 12) Open points
 
 Settled in review: a document is one file, defaults live in the code (no layering of
 files); levels are small, so no binary encoding of the tree is planned; reloading is
-required (section 10).
+required (section 9); no two-way binding of variables (an earlier `Exchange` helper was
+dropped: reading and saving stay explicit calls).
 
 1. **Duplicate scalar keys** are an error (3.5). CTL2 silently kept the last one, so old
    files with duplicates will stop loading and show the place of the duplicate.
-2. **Numeric types of `Exchange`:** `integer`, `int64`, `single`, `double`, `boolean`,
-   `String8`. Are enumerations (by name) and `cardinal` needed?
-3. **A signal on every `Set`** is left for later; it does not change this interface.
+2. **A signal on every `Set`** is left for later; it does not change this interface.
 
-## 14) Migration from Apus.ControlFiles
+## 13) Migration from Apus.ControlFiles
 
 | `Apus.ControlFiles` | `Apus.Config` |
 |---|---|
