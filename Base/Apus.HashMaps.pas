@@ -258,25 +258,35 @@ uses SysUtils, Variants, Apus.Strings;
 class function THashMap<T>.HashKey(const key:String8):cardinal;
 var
   i:integer;
-  c:byte;
-  v:QWord;
+  c:cardinal;
+  p:PByte;
 begin
   result:=2166136261; // FNV-1a
-  for i:=1 to length(key) do begin
-    c:=byte(key[i]);
-    if (c>=byte('a')) and (c<=byte('z')) then dec(c,32);
-    v:=(QWord(result xor c)*QWord(16777619)) and QWord($FFFFFFFF);
-    result:=cardinal(v);
+  p:=pointer(key);
+  for i:=0 to length(key)-1 do begin
+    c:=p[i];
+    if cardinal(c-byte('a'))<=cardinal(byte('z')-byte('a')) then dec(c,32); // ASCII upper case
+    result:=cardinal((result xor c)*cardinal(16777619)); // 32-bit multiply, wraps
   end;
 end;
 
+// ASCII case-insensitive, same folding as UpCase(AnsiChar)
 class function THashMap<T>.EqualKeys(const a,b:String8):boolean;
 var
   i:integer;
+  ca,cb:cardinal;
+  pa,pb:PByte;
 begin
+  if pointer(a)=pointer(b) then exit(true);
   if length(a)<>length(b) then exit(false);
-  for i:=1 to length(a) do
-    if UpCase(a[i])<>UpCase(b[i]) then exit(false);
+  pa:=pointer(a); pb:=pointer(b);
+  for i:=0 to length(a)-1 do begin
+    ca:=pa[i]; cb:=pb[i];
+    if ca<>cb then begin
+      if ca xor cb<>$20 then exit(false);
+      if cardinal((ca or $20)-byte('a'))>cardinal(byte('z')-byte('a')) then exit(false); // differ by bit 5 but not letters
+    end;
+  end;
   result:=true;
 end;
 

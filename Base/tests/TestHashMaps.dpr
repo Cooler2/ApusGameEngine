@@ -100,6 +100,16 @@ begin
   Check(m.Get('hello',v) and (v=2), 'value updated');
   m.Remove('hElLo');
   Check(m.count=0, 'removed via different case');
+  // non-letters that differ only by bit 5 ($20) are different keys
+  m.Put('a[',10);
+  m.Put('A{',11);
+  m.Put('@b',12);
+  m.Put('`B',13);
+  Check(m.count=4, 'bit-5 non-letter pairs are distinct');
+  Check(m.Get('A[',v) and (v=10), '[ is not {');
+  Check(m.Get('a{',v) and (v=11), '{ is not [');
+  Check(m.Get('@B',v) and (v=12), '@ is not `');
+  Check(m.Get('`b',v) and (v=13), '` is not @');
   EndTest;
 end;
 
