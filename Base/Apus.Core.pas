@@ -283,7 +283,7 @@ var
 
   procedure SpinLock(var lock:integer); overload;
   procedure SpinLock; overload; inline; // uses globalLock
-  procedure SpinUnlock(var lock:integer); overload;
+  procedure SpinUnlock(var lock:integer); overload; inline;
   procedure SpinUnlock; overload; inline; // uses globalLock
 
   // Stack trace support
@@ -666,12 +666,16 @@ end;
 
 procedure SpinUnlock(var lock:integer); inline;
 begin
-  Atomic.Exchange(lock,0);
+  {$IF DEFINED(CPUX86) OR DEFINED(CPUX64)}
+  lock:=0; // x86 does not reorder stores with earlier loads/stores: a plain store releases the lock
+  {$ELSE}
+  Atomic.Exchange(lock,0); // weak memory model (ARM): full barrier
+  {$IFEND}
 end;
 
 procedure SpinUnlock; inline;
 begin
-  Atomic.Exchange(globalSpinLock,0);
+  SpinUnlock(globalSpinLock);
 end;
 
 // =============================================================================
