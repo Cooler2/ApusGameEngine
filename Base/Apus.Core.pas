@@ -1553,16 +1553,22 @@ begin
   FillChar(data,count,value);
 end;
 
+// Word pairs are filled as dwords to reuse the FillD fast path
 class procedure Mem.FillW(var data;count:UIntPtr;value:word);
 var
   p:PWord;
 begin
   p:=@data;
-  while count>0 do begin
+  if (count>0) and (UIntPtr(p) and 2<>0) then begin // reach dword alignment
     p^:=value;
     inc(p);
     dec(count);
   end;
+  if count>=2 then begin
+    FillD(p^,count shr 1,value or (cardinal(value) shl 16));
+    inc(p,count and not UIntPtr(1));
+  end;
+  if count and 1<>0 then p^:=value;
 end;
 
 {$IF Defined(CPUX64) or Defined(CPUX86)}
@@ -1728,6 +1734,11 @@ class procedure Mem.FillQ(var data;count:UIntPtr;value:uint64);
 var
   p:PUInt64;
 begin
+  // equal halves (0, -1, repeated patterns) are a dword fill
+  if cardinal(value)=cardinal(value shr 32) then begin
+    FillD(data,count*2,cardinal(value));
+    exit;
+  end;
   p:=@data;
   while count>0 do begin
     p^:=value;
@@ -1736,16 +1747,12 @@ begin
   end;
 end;
 
+// A float is filled by its bit pattern
 class procedure Mem.FillF(var data;count:UIntPtr;value:single);
 var
-  p:PSingle;
+  bits:cardinal absolute value;
 begin
-  p:=@data;
-  while count>0 do begin
-    p^:=value;
-    inc(p);
-    dec(count);
-  end;
+  FillD(data,count,bits);
 end;
 
 class procedure Mem.Shift(var data;sizeInBytes,shiftOffset:integer);

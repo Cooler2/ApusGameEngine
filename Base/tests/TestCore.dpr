@@ -317,7 +317,8 @@ type
   end;
 var
   g:TGuarded;
-  i:integer;
+  i,offs,cnt:integer;
+  wOk:boolean;
 
   function GuardsIntact:boolean;
   var
@@ -355,6 +356,27 @@ begin
   FillChar(g,sizeof(g),GUARD);
   Mem.FillF(g.data[0],length(g.data) div 4,3.5);
   Check(GuardsIntact,'Mem.FillF must not touch guards');
+
+  // FillQ with equal halves takes the dword path
+  FillChar(g,sizeof(g),GUARD);
+  Mem.FillQ(g.data[0],3,uint64($ABCD1234ABCD1234));
+  Check(GuardsIntact and (PUInt64(@g.data[0])^=uint64($ABCD1234ABCD1234)) and
+    (PUInt64(@g.data[16])^=uint64($ABCD1234ABCD1234)) and (g.data[24]=GUARD),'Mem.FillQ equal halves');
+
+  // FillW: every start alignment and short counts (head word, dword pairs, tail word)
+  wOk:=true;
+  for offs:=0 to 3 do
+    for cnt:=0 to 9 do begin
+      FillChar(g,sizeof(g),GUARD);
+      Mem.FillW(g.data[offs],cnt,$BEEF);
+      for i:=0 to high(g.data) do
+        if (i>=offs) and (i<offs+cnt*2) then begin
+          if g.data[i]<>((i-offs) and 1)*$BE+(1-((i-offs) and 1))*$EF then wOk:=false;
+        end else
+          if g.data[i]<>GUARD then wOk:=false;
+      if not GuardsIntact then wOk:=false;
+    end;
+  Check(wOk,'Mem.FillW writes exactly count words at any alignment');
 
   EndTest;
 end;
