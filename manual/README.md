@@ -6,6 +6,8 @@ The engine5 manual is being written; only these chapters are published so far:
   state lives (application / window / thread) and which phases the engine calls on your code.
 - [Chapter 21. Resource System: Images and Textures](ch21_resource_system.md) - how
   images are loaded, found, shared and released.
+- [Configuration files (CTL3)](config_files.md) - draft for review: the CTL3 syntax,
+  typing rules, layers and the `Apus.Config` interface that replaces `Apus.ControlFiles`.
 - [Optional TextFX captions](ui_textfx_style.md) - button wrappers, caption children,
   shared content displacement and effect caching.
 - [Engine signal inventory](engine_signal_inventory.md) - snapshot of the signals the
