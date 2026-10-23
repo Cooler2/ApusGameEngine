@@ -427,7 +427,7 @@ var
  e:TUIEditBox;
  i:integer;
 begin
- e:=FindControl('Console\Input',false) as TUIEditBox;
+ e:=FindElement('Console\Input',false) as TUIEditBox;
  if e=nil then exit;
  i:=cmdList.IndexOf(e.text);
  if i>=0 then begin

@@ -127,7 +127,7 @@ procedure UseParentCmd(cmd:string8);
   delete(cmd,1,10);
   cmd:=UpperCase {TODO: use st.ToUpper}(cmd);
   if (defaults.parentObj<>nil) and (UpperCase {TODO: use st.ToUpper}(defaults.parentObj.name)=cmd) then exit;
-  c:=FindControl(cmd,false);
+  c:=FindElement(cmd,false);
   if c=nil then
    raise EWarning.Create('Object not found - '+cmd);
   defaults.parentObj:=c;
@@ -147,7 +147,7 @@ procedure SetFocusCmd(cmd:string8);
     if cmd[length(cmd)-8]<>'.' then
      raise EError.Create('Syntax error, object not specified!');
     setLength(cmd,length(cmd)-9);
-    c:=FindControl(cmd,false);
+    c:=FindElement(cmd,false);
    end;
    if c=nil then raise EError.Create('No object!');
    if not c.flags.canHaveFocus then raise EError.Create('This object can''t have focus!');
@@ -169,7 +169,7 @@ procedure CreateCmd(cmd:string8);
    sa:=cmd.Split(' ','"');
    if length(sa)<>2 then raise EError.Create('Must have 2 parameters');
    sa[0]:=sa[0].Trim.ToUpper;
-   c:=FindControl(sa[1],false);
+   c:=FindElement(sa[1],false);
    if c<>nil then begin
     curObj:=c;
     curObjClass:=TVarTypeUIElement;

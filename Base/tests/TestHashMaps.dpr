@@ -449,28 +449,6 @@ begin
   EndTest;
 end;
 
-procedure TestLegacySimpleHashAS;
-var
-  h:TSimpleHashAS;
-begin
-  StartTest('Legacy.TSimpleHashAS');
-  h.Init(8);
-  Check(h.Get('a')=-1, 'missing=-1');
-  h.Put('a',10);
-  h.Put('a',20);
-  Check(h.Get('a')=20, 'update value');
-  Check(h.Increment('a',5)=25, 'increment existing');
-  Check(h.Increment('b')=1, 'increment new');
-  Check(h.HasValue('a'), 'has a');
-  Check(h.HasValue('b'), 'has b');
-  h.Remove('a');
-  Check(not h.HasValue('a'), 'removed a');
-  Check(h.Get('a')=-1, 'removed get=-1');
-  h.Clear;
-  Check(not h.HasValue('b'), 'clear removed b');
-  EndTest;
-end;
-
 procedure TestObjectHash;
 var
   h,uninitialized:TObjectHash;
@@ -781,7 +759,6 @@ begin
     TestTHashLargeTable;
     TestSimpleHash;
     TestLegacySimpleHashS;
-    TestLegacySimpleHashAS;
     TestObjectHash;
     TestLegacyVarHash;
 

@@ -3,6 +3,21 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Deprecated wrappers removed (2026-10-23)
+
+- `Apus.Engine.UI`: `FindControl`, `FindControlAt`, `FindAnyControlAt` are gone;
+  use `FindElement`, `FindElementAt`, `FindAnyElementAt`.
+- `Apus.Geom2D`: `IdentMatrix2`, `IdentMatrix32` are gone; use `IdentMat2d`,
+  `IdentMat32d`.
+- `Apus.Engine.API`: `TGraphicsAPI.gaOpenGL` (fixed-function GL) is gone; the
+  enum is `(gaAuto, gaOpenGL2)`.
+- `Apus.Images`: the `ConvertLine(sour,dest,sf,df,palette,palFormat,count)`
+  overload is gone; use `ConvertLine(sour,dest,sf,df,count,@palette,palFormat)`
+  (palette and format may be omitted when there is no palette).
+- `Apus.HashMaps`: `TSimpleHashAS` and `TSimpleHash8` are gone; use
+  `THashMap<int64>`. The other legacy hashes (`TStrHash`, `TSimpleHashS`,
+  `TVarHash`) stay for now.
+
 ## Image preload queue: workers on `Thread.Start` (2026-10-23)
 
 - `Apus.Engine.ImgLoadQueue` launches its loading and unpacking workers through

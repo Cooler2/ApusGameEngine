@@ -130,14 +130,11 @@ type
 
   // Find an element by name (via hash - among all elements)
   function FindElement(name:string8;mustExist:boolean=true):TUIElement;
-  function FindControl(name:string8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
   // Find an element at the given screen point (returns true if an element is found and it is
   // enabled, taking all parents into account); ignores elements that are "transparent" at that point
   function FindElementAt(x,y:integer;out c:TUIElement):boolean;
-  function FindControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindElementAt';
   // Find an element at the given point without ignoring "transparent" ones (useful for debugging)
   function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
-  function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindAnyElementAt';
 
   // Dump all important UI data
   function DumpUI:string8;
@@ -387,11 +384,6 @@ implementation
    end;
   end;
 
- function FindControl(name:string8;mustExist:boolean=true):TUIElement;
-  begin
-   result:=FindElement(name,mustExist);
-  end;
-
  // any=false - ignore disabled elements
  function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIElement):boolean;
   var
@@ -436,16 +428,6 @@ implementation
   end;
 
  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
-  begin
-   result:=FindControlAtInternal(x,y,true,c);
-  end;
-
- function FindControlAt(x,y:integer;out c:TUIElement):boolean;
-  begin
-   result:=FindControlAtInternal(x,y,false,c);
-  end;
-
- function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean;
   begin
    result:=FindControlAtInternal(x,y,true,c);
   end;

@@ -163,9 +163,7 @@ type
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
-                 palette:pointer=nil;palformat:ImagePaletteFormat=palNone); overload;
- procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;
-                 var palette;palformat:ImagePaletteFormat;count:integer); overload; deprecated;
+                 palette:pointer=nil;palformat:ImagePaletteFormat=palNone);
 
  // Swap red<->blue channels for xRGB<->xBGR conversion
  procedure SwapRB(var data;count:integer);
@@ -229,14 +227,8 @@ begin
 end;
  end;
 
-procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;
-                var palette;palformat:ImagePaletteFormat;count:integer); overload;
-begin
-  ConvertLine(sour,dest,sourformat,destformat,count,@palette,palformat);
-end;
-
 procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
-                palette:pointer=nil;palformat:ImagePaletteFormat=palNone); overload;
+                palette:pointer=nil;palformat:ImagePaletteFormat=palNone);
  var
   buf:array[0..2047] of cardinal;
   sp,dp:PByte;
