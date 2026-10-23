@@ -90,7 +90,7 @@ implementation
         lastTime:=0;
         lastValue:=0;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -108,7 +108,7 @@ implementation
         lastTime:=0;
         lastValue:=0;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -118,7 +118,7 @@ implementation
       try
           SetLength(animations,0);
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -133,7 +133,7 @@ implementation
       try
           result:=(InternalValueAt(time+1)-InternalValueAt(time))*1000;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -146,7 +146,7 @@ implementation
         else
             result:=initialValue;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -156,7 +156,7 @@ implementation
       try
           result:=InternalValueAt(time);
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -246,7 +246,7 @@ implementation
         else
             result:=false;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -309,7 +309,7 @@ implementation
               e.message);
         end;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
