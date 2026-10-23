@@ -85,7 +85,7 @@ type
  THandler=record
   event:TEventStr;
   handler:TEventHandler;
-  threadNum:integer; // индекс в массиве нитей (-1 - асинхронная обработка)
+  threadNum:integer; // index in the thread array (-1 - asynchronous handling)
   mode:TEventMode;
   setFrom:pointer;
   next:PHandler;
@@ -100,33 +100,33 @@ type
   redirect,keepOriginalTag:boolean;
  end;
 
- // Элемент очереди событий
+ // Event queue item
  TQueuedEvent=record
-  event:TEventStr; // событие
-  handler:TEventHandler; // кто должен его обработать
+  event:TEventStr; // event
+  handler:TEventHandler; // who should handle it
   tag:TTag;
-  callerThread:TThreadIdent; // поток, из которого было
-  callerIP:UIntPtr; // точка вызова Signal
-  time:int64; // когда событие должно быть обработано (только для отложенных сигналов)
+  callerThread:TThreadIdent; // thread it was sent from
+  callerIP:UIntPtr; // Signal call site
+  time:int64; // when the event should be handled (only for delayed signals)
  end;
 
- // Очередь событий для каждого потока, в котором есть какие-либо обработчики сигналов
+ // Event queue for each thread that has any signal handlers
  TThreadQueue=record
   threadID:TThreadIdent;
   queue:array[0..queueMask] of TQueuedEvent;
   delayed:array[0..31] of TQueuedEvent;
   first,last,delcnt:integer;
-  procedure LogQueueDump; // пишет в лог состояние всей очереди
+  procedure LogQueueDump; // writes the state of the whole queue to the log
  end;
 
 var
- // Обработчики событий
+ // Event handlers
  handlers:array[0..255] of PHandler;
 
  threads:array of TThreadQueue;
  threadCnt:integer=0;
 
- // Стек событий (макс. глубина - 8 событий)
+ // Event stack (max depth - 8 events)
  StackSize:integer=0;
 // EventStack:array[1..8] of EventStr;
  eventnum:integer=0;
@@ -225,7 +225,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     SetEventHandler(copy(event,1,i-1),handler,mode);
     delete(event,1,i);
    until false;
-   // Если обработчик уже есть - повторно установлен не будет
+   // If the handler already exists - it will not be set again
    try
     CritSect.Enter;
     if event[length(event)]='\' then SetLength(event,length(event)-1);
@@ -248,7 +248,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
     event:=event.ToUpper;
     i:=hash(event);
-    // поиск имеющегося обработчика
+    // look for an existing handler
     // For queued/mixed handlers thread affinity is a part of registration identity.
     ph:=handlers[i];
     while ph<>nil do begin
@@ -363,7 +363,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
      [threadName,threadID,removed,handlerList,queued,delayed]);
   end;
 
- // Для внутреннего использования
+ // For internal use
  procedure HandleEvent(event:TEventStr;tag:TTag;time:int64;caller:UIntPtr=0);
   var
    i,h:integer;
@@ -389,7 +389,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    try
    repeat
     cnt:=0;
-    // Поиск обработчиков
+    // Look for handlers
     h:=Hash(event);
     hnd:=handlers[h];
     while hnd<>nil do begin
@@ -418,7 +418,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
          queue[last].callerIP:=caller;
          i:=0;
          while (last+1 and queueMask)=first do begin
-          // Сигнал в текущий поток
+          // Signal to the current thread
           if threads[hnd.threadNum].threadID=trID then begin
            CritSect.Leave;
            try
@@ -430,7 +430,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
           end;
           if i=0 then Log.Force('EventMan: queue overflow, waiting... Thread='+Conv.ToStr(trID));
           inc(i);
-          // Сперва подождать...
+          // Wait first...
           if i<50 then begin
            CritSect.Leave;
            CoreTime.Sleep(1);
@@ -454,7 +454,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     end;
     CritSect.Leave;
     try
-     // Вызовы обработчиков вынесены в безопасный код для достижения реентабельности
+     // Handler calls are moved into safe code to achieve reentrancy
      for i:=1 to cnt do
       try
        hndList[i](ev,tag);
@@ -465,7 +465,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
      CritSect.Enter;
     end;
 
-    // Обработка связей
+    // Process links
     link:=links[h];
     fl:=false;
     while link<>nil do begin
@@ -480,7 +480,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     end;
     if fl then break;
 
-    // Переход к более общему событию
+    // Move on to a more general event
     fl:=true;
     for i:=length(event) downto 1 do
      if event[i]='\' then begin
@@ -498,7 +498,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
  procedure Signal(event:TEventStr;tag:TTag=0);
   var
-   callerIP:UIntPtr; // адрес, откуда вызвана процедура
+   callerIP:UIntPtr; // address the procedure is called from
   begin
    if event='' then exit;
    {$IFDEF CPU386}
@@ -519,7 +519,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
  procedure DelayedSignal(event:TEventStr;delay:integer;tag:TTag=0);
   var
-   callerIP:UIntPtr; // адрес, откуда вызвана процедура
+   callerIP:UIntPtr; // address the procedure is called from
   begin
    {$IFDEF CPU386}
    asm
@@ -556,7 +556,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    try
     ID:=GetCurrentThreadID;
     count:=0;
-    for i:=1 to threadCnt do // Выбор очереди текущего потока
+    for i:=1 to threadCnt do // pick the current thread queue
      if threads[i-1].threadID=ID then with threads[i-1] do begin
       while first<>last do begin
        if count=100 then break;
@@ -616,7 +616,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
   end;
 
- // Для внутреннего использования
+ // For internal use
  procedure DeleteLink(hash:byte;var prev,link:PLink);
   var
    s:PLink;

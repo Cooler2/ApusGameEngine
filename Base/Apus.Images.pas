@@ -242,7 +242,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
   sp,dp:PByte;
   n:integer;
 begin
-  // А нужна ли вообще конверсия?
+  // Is conversion needed at all?
   if (sourformat=destformat) or
      (pixelSize[sourFormat]=32) and (pixelSize[destFormat]=32) then begin
    move(sour,dest,count*PixelSize[sourformat] div 8);
@@ -264,7 +264,7 @@ end;
    exit;
   end;
 
-  // По возможности используем оптимизированные процедуры блиттинга
+  // Use optimized blitting routines whenever possible
   if sourformat in [ipfARGB,ipfXRGB] then begin
    if destFormat=ipfRGB then begin
     PixelsTo24(sour,dest,count); exit;
@@ -276,13 +276,13 @@ end;
     PixelsTo15(sour,dest,count); exit;
    end;
   end;
-  // Если ничего не подошло, конвертируем через промежуточный 32-битный формат
+  // If nothing fits, convert via an intermediate 32-bit format
   sp:=@sour; dp:=@dest;
   while count>0 do begin
    n:=count;
    if n>2048 then n:=2048;
    if destformat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR] then begin
-    // Можно конвертировать сразу в приемник
+    // Can convert directly into the destination
     case sourformat of
      ipf555:PixelsFrom15(sp^,dp^,n);
      ipf1555:PixelsFrom15A(sp^,dp^,n);
@@ -297,7 +297,7 @@ end;
     if destFormat in [ipfABGR,ipfXBGR] then SwapRB(dp^,n);
    end else
    if sourformat in [ipfARGB,ipfXRGB] then begin
-    // Можно конвертировать прямо из источника
+    // Can convert directly from the source
     case destformat of
      ipf555:PixelsTo15(sp^,dp^,n);
      ipf1555:PixelsTo15A(sp^,dp^,n);
@@ -350,9 +350,9 @@ begin
  if (w<=0) or (h<=0) or (psize<0) then
   raise EError.Create('Images: Invalid parameters in TBMI.Create');
  case pf of
-  ipf1bit: pitch:=(1+(w-1) div 32)*4;  // Выравнивание по 32бита
+  ipf1bit: pitch:=(1+(w-1) div 32)*4;  // 32-bit alignment
   ipf4bit: pitch:=(1+(w-1) div 8)*4;
-  ipf8bit,ipfA8,ipfMono8: pitch:=(1+(w-1) div 8)*8;   // Выравнивание по 64 бита
+  ipf8bit,ipfA8,ipfMono8: pitch:=(1+(w-1) div 8)*8;   // 64-bit alignment
   ipf555,ipf1555,ipf565,ipf4444: pitch:=(1+(w-1) div 4)*8;
   ipfRGB: pitch:=(1+(w-1) div 4)*12;
   ipfXRGB,ipfARGB,ipfXBGR,ipfABGR: pitch:=(1+(w-1) div 2)*8;

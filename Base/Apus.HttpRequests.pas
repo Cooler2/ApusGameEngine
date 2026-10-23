@@ -73,7 +73,7 @@ type
    timeout:integer;
    contentType:TContentType;
    thread:IThread;
-   httpStatus:integer; // В случае получения ответа - здесь HTTP-код
+   httpStatus:integer; // HTTP code here once a response is received
    {$IFDEF IOS}
    con:id;
    {$ENDIF}
@@ -86,7 +86,7 @@ type
    HCon:HInternet;
    server:String8;
    port:word;
-   free:boolean; // используется ли в данный момент для запроса?
+   free:boolean; // is it currently used for a request?
   end;
   {$ENDIF}
   THTTPWorker=class
@@ -442,7 +442,7 @@ type
       requests[i].timeout:=timeout;
       requests[i].thread:=nil;
       requests[i].errorCode:=0;
-      SendRequest(requests[i]); // инициирует асинхронную отправку запроса
+      SendRequest(requests[i]); // starts asynchronous sending of the request
       exit;
      end;
     raise EWarning.Create('HTTP: too many HTTP requests');

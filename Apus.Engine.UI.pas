@@ -405,7 +405,7 @@ implementation
    window.LockState;
    try
    CollectUIRoots(roots,zOrders,true);
-   // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
+   // Simple principle: look for an element in the top layer, if not found - in the next one, etc.
    for i:=0 to high(roots) do begin
     // a disabled root (e.g. a scene fading out via SceneEffects) blocks input —
     // this replaces the old per-scene "if not UI.flags.enabled then exit" guard.
@@ -413,11 +413,11 @@ implementation
     if any then enabl:=roots[i].FindAnyElementAt(x,y,ct)
      else enabl:=roots[i].FindElementAt(x,y,ct);
     if ct<>nil then begin
-     c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
+     c2:=ct; // find the root ancestor of ct (in case it is not rootControls[i]?)
      while c2.parent<>nil do c2:=c2.parent;
      // skip roots blocked by an active modal in this window
      if not window.modal.Allows(c2) then continue;
-     // выбор элемента с максимальным уровнем Z
+     // pick the element with the highest Z level
      if zOrders[i]>maxZ then begin c:=ct; maxZ:=zOrders[i]; end;
     end;
    end;

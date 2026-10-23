@@ -276,7 +276,7 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
   result:=pc;
 
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pc,tPitch+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -286,31 +286,31 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
    end;
    inc(pc,2+(tPitch-width));
   end;
-  // Крайние пиксели (сверху)
+  // Edge pixels (top)
   pc:=result; inc(pc); o:=1;
   for x:=1 to width-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o+1],sour[o+pitch]);
    inc(pc); inc(o);
   end;
-  // снизу
+  // bottom
   pc:=result; inc(pc,tPitch*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o+1],sour[o-pitch]);
    inc(pc); inc(o);
   end;
-  // левый край
+  // left edge
   pc:=result; inc(pc,width); o:=pitch;
   for y:=1 to height-2 do begin
    pc^:=Avg32(sour[o],sour[o+1],sour[o-pitch],sour[o+pitch]);
    inc(pc,tPitch); inc(o,pitch);
   end;
-  // правый край
+  // right edge
   pc:=result; inc(pc,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o-pitch],sour[o+pitch]);
    inc(pc,tPitch); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // Corner pixels
   pc:=result; o:=0;
   pc^:=Avg32(sour[o],sour[o],sour[o+1],sour[o+pitch]);
   pc:=result; inc(pc,width-1); o:=width-1;
@@ -327,12 +327,12 @@ function Sharpen(buf:pointer;pitch,width,height,strength:integer;inplace:boolean
   sour:PARGBArray;
   x,y,v,o:integer;
   b:integer;
-  c0,c1,c2,c3,c4:integer; // это важно!
+  c0,c1,c2,c3,c4:integer; // this is important!
  begin
   GetMem(pc,width*height*4);
   result:=pc;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pc,width+1);
   pitch:=pitch div 4;
   for y:=1 to height-2 do begin
@@ -372,7 +372,7 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
   result:=pc;
   sour:=buf;
   s:=256-strength;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pc,width+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -513,7 +513,7 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
   GetMem(pb,width*height);
   result:=pb;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pb,width+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -523,31 +523,31 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
    end;
    inc(pb,2);
   end;
-  // Крайние пиксели (сверху)
+  // Edge pixels (top)
   pb:=result; inc(pb); o:=1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o+pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // снизу
+  // bottom
   pb:=result; inc(pb,width*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o-pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // левый край
+  // left edge
   pb:=result; inc(pb,width); o:=pitch;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o+1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,width); inc(o,pitch);
   end;
-  // правый край
+  // right edge
   pb:=result; inc(pb,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,width); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // Corner pixels
   pb:=result; o:=0;
   pb^:=(sour[o]*2+sour[o+1]+sour[o+pitch]) shr 2;
   pb:=result; inc(pb,width-1); o:=width-1;
@@ -577,7 +577,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
    pb:=target;
   result:=pb;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pb,tPitch+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -587,31 +587,31 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
    end;
    inc(pb,2+(tPitch-width));
   end;
-  // Крайние пиксели (сверху)
+  // Edge pixels (top)
   pb:=result; inc(pb); o:=1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o+pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // снизу
+  // bottom
   pb:=result; inc(pb,tPitch*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o-pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // левый край
+  // left edge
   pb:=result; inc(pb,width); o:=pitch;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o+1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,tPitch); inc(o,pitch);
   end;
-  // правый край
+  // right edge
   pb:=result; inc(pb,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,tPitch); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // Corner pixels
   pb:=result; o:=0;
   pb^:=(sour[o]*2+sour[o+1]+sour[o+pitch]) shr 2;
   pb:=result; inc(pb,width-1); o:=width-1;
@@ -620,7 +620,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
   pb^:=(sour[o]*2+sour[o+1]+sour[o-pitch]) shr 2;
   pb:=result; inc(pb,width*height-1); o:=pitch*(height-1)+width-1;
   pb^:=(sour[o]*2+sour[o-1]+sour[o-pitch]) shr 2;
-  if target=nil then begin  // !!! копирование в исходный буфер
+  if target=nil then begin  // !!! copy into the source buffer
    CopyRect8(result,width,buf,pitch,0,0,width,height,0,0);
    Freemem(result);
    result:=buf;

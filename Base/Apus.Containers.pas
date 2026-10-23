@@ -380,7 +380,7 @@ begin
   if parent<>nil then begin
    if PreserveOrder then begin
     parent.children.Delete(SelfIndex);
-    // Откорректировать SelfIndex для смещенных эл-тов
+    // Fix SelfIndex for the shifted elements
     for i:=SelfIndex to parent.children.Count-1 do begin
      item:=parent.children[i];
      item.SelfIndex:=i;

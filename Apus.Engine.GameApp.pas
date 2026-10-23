@@ -1017,7 +1017,7 @@ procedure TGameApplication.ControlLoop;
    try
     Apus.Threads.Thread.Ping;
     Apus.Threads.Thread.CheckTimeouts;
-    Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
+    Delay(5); // processes signals, thus allowing to react to them synchronously
     Signal('GAMEAPP\onIdle');
    except
     on e:exception do Log.Force('Error in Control Thread: '+e.message);

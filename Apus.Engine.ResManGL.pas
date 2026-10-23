@@ -250,10 +250,10 @@ implementation
   Apus.Engine.Graphics,
   Apus.Log;
 
-{ Принцип работы: по возможности текстуры создаются как обычные
-  буферы данных в памяти. По вызову MakeOnline данные перебрасываются
-  в текстуры GL. Обычно это происходит непосредственно перед отрисовкой
-  (и в потоке отрисовки), т.о. избегаем проблем многопоточности.
+{ How it works: whenever possible, textures are created as plain
+  memory data buffers. On MakeOnline the data is transferred
+  into GL textures. This usually happens right before drawing
+  (and in the render thread), thus avoiding multithreading issues.
 }
 
 const
@@ -262,7 +262,7 @@ const
 
 var
  mainThreadId:TThreadIdent;
- cSect:TLock; // TODO: зачем? Нет глобальных данных, нуждающихся в защите
+ cSect:TLock; // TODO: why? There is no global data that needs protection
  lastErrorTime:int64;
  errorTr:integer;
 

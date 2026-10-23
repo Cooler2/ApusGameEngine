@@ -814,7 +814,7 @@ function TUILabel.Right(text:String8):TUILabel;
    maxW:=1600; maxH:=1200;
    style.SetAttr('fill','$FFBCB8B0');
    area:=0;
-   order:=100; // выше чем прочие элементы.
+   order:=100; // above other elements.
   end;
 
  destructor TUIWindow.Destroy;
@@ -1965,7 +1965,7 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    shape:=shapeFull;
    items:=Copy(list);
    SetLength(tags,length(items));
-   // Исходные строки могут быть в формате "tag|text|hint" либо "tag|text" либо "text"
+   // Source lines can be in the format "tag|text|hint" or "tag|text" or "text"
    for i:=0 to high(items) do begin
     j:=pos('|',items[i]);
     if (j>1) and (items[i][1] in ['0'..'9']) then begin

@@ -816,8 +816,8 @@ var
  activeGlyphCache:TGlyphCache;
 
  // For complex text
- stack:array[0..7,0..31] of cardinal; // стек текущих атрибутов (0 - дефолтное значение)
- stackPos:array[0..7] of integer; // указатель на свободный элемент в стеке
+ stack:array[0..7,0..31] of cardinal; // stack of current attributes (0 - default value)
+ stackPos:array[0..7] of integer; // pointer to the free element in the stack
  cmdList:array[0..127] of cardinal; // bits 0..7 - what to change, bits 8..9= 0 - clear, 1 - set, 2 - pop
  cmdIndex:array of byte; // total number of commands that must be executed before i-th character
  // Underlined
@@ -970,8 +970,8 @@ var
    end;
 
    width:=0;
-   charSpacing:=0; // доп интервал между обычными символами
-   spaceSpacing:=0; // доп ширина пробелов
+   charSpacing:=0; // extra spacing between regular characters
+   spaceSpacing:=0; // extra width of spaces
    {$IFDEF FREETYPE}
    if Bits.HasAny(options,toLetterSpacing) or Bits.HasAny(font,fsLetterSpacing) then
     if ftFont<>nil then charSpacing:=round(ftFont.GetHeight(size)*0.1);
@@ -1011,7 +1011,7 @@ var
     end;
    end;
    {$IFDEF FREETYPE}
-   if (align=taCenter) and (obj is TFreeTypeFont) and (length(st)>0) then begin // при центрировании отступ игнорируется
+   if (align=taCenter) and (obj is TFreeTypeFont) and (length(st)>0) then begin // indent is ignored when centering
     dec(x,ftFont.CharPadding(st[0],size));
    end;
    {$ENDIF}
@@ -1153,11 +1153,11 @@ var
    inc(result.X); inc(result.Y); // padding
   end;
 
- // chardata - хэш для кэширования глифа (сам символ, шрифт, размер, стиль)
- // pnt - положение глифа в текстурном кэше
- // x,y - экранные координаты точки курсора
- // imageX, imageY - позиция глифа относительно точки курсора
- // imageWIdth, imageHeight - размеры глифа
+ // chardata - hash for glyph caching (the character itself, font, size, style)
+ // pnt - glyph position in the texture cache
+ // x,y - screen coordinates of the cursor point
+ // imageX, imageY - glyph position relative to the cursor point
+ // imageWIdth, imageHeight - glyph size
  procedure AddVertices(chardata:cardinal;pnt:TPoint;x,y:integer;imageX,imageY,imageWidth,imageHeight:integer;
    var data:PVertex;var counter:integer);
   var
@@ -1280,7 +1280,7 @@ var
    cmdPos:integer;
    fHeight:integer;
   begin
-   px:=x; // координата в реальных экранных пикселях
+   px:=x; // coordinate in real screen pixels
    if Bits.HasAny(options,toMeasure) then begin
     fHeight:=round(RawHeight(font)*1.1);
     textMetrics[0]:=types.Rect(x,y-fHeight,x+1,y);
@@ -1576,7 +1576,7 @@ begin // -----------------------------------------------------------
  if Bits.HasAny(options,toDontCache) then
   activeGlyphCache:=altGlyphCache; // keep dynamic glyph sizes out of the main atlas
 
- // Установка переменных, коррекция параметров, выравнивание
+ // Set up variables, adjust parameters, alignment
  Initialize;
 
  // RENDER TO BITMAP?
@@ -1597,7 +1597,7 @@ begin // -----------------------------------------------------------
 
  // NORMAL TEXT RENDERING
  if not Bits.HasAny(options,toDontDraw) then begin
-  if not DefineRectAndSetState then exit;  // Clipping (тут косяк с многострочностью)
+  if not DefineRectAndSetState then exit;  // Clipping (broken for multiline text)
 
   // Prevent text cache overflow
   if txtVertCount+length(st)*4>=4*MaxGlyphBufferCount then FlushTextCache;

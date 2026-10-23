@@ -585,10 +585,10 @@ function DescribeElement(c:TUIElement):String8;
       parentScrollY:=0;
      end;
      // Explanation of transformation:
-     //  result.x:=(p.x+paddingLeft); // теперь относительно угла элемента
-     //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
-     //  result.x:=result.x*scale.x; // теперь в масштабе предка
-     //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
+     //  result.x:=(p.x+paddingLeft); // now relative to the element corner
+     //  result.x:=result.x-size.x*pivot.x; // now relative to the pivot point
+     //  result.x:=result.x*scale.x; // now in the parent scale
+     //  result.x:=position.x-parentScrollX+result.x; // now relative to the top-left corner of the parent client area
      result.x:=position.x-parentScrollX-size.x*pivot.x+scale*(result.x+padding.Left);
      result.y:=position.y-parentScrollY-size.y*pivot.y+scale*(result.y+padding.Top);
     end;
@@ -1322,11 +1322,11 @@ function TUIElement.IsEnabled:boolean;
    if state then begin
     if flags.enabled and flags.canHaveFocus then SetFocus
      else begin
-      // если элемент, владеющий фокусом, является потомком данного, то фокус с него не убирать!
+      // if the element owning the focus is a descendant of this one, keep the focus on it!
   //    if not IsChild(FocusedControl) then SetFocusTo(nil);
   {    c:=self;
       while (c.parent<>nil) and not (c is TUIWindow) do c:=c.parent;
-      c.SetFocus; // перевести фокус на корень/окно того эл-та, по которому нажали
+      c.SetFocus; // move the focus to the root/window of the clicked element
   }
      end;
    end;
@@ -1914,28 +1914,28 @@ procedure TUIElement.MarkDeleted;
    c:=self;
    dir:=true;
    repeat
-    // если есть вложенные и можно идти вперед - идем вперед
+    // if there are nested elements and we can go forward - go forward
     if dir and (length(c.children)>0) then begin
      c:=c.children[0]; continue;
     end;
-    // Если вперед идти нельзя или невозможно, можно ли пойти на тот же уровень?
+    // If going forward is not allowed or not possible, can we move on the same level?
     if (c.parent<>nil) and (length(c.parent.children)>1) then begin
      fl:=false;
      for i:=0 to length(c.parent.children)-2 do
       if (c.parent.children[i]=c) then begin
        c:=c.parent.children[i+1];
-       dir:=true; // разрешить движение вперед
+       dir:=true; // allow moving forward
        fl:=true;
        break;
       end;
      if fl then continue;
     end;
-    // Если ничего другого не остается кроме как возвращаться назад...
+    // If nothing else is left but to go back...
     if c.parent<>nil then begin
      dir:=false;
      c:=c.parent;
     end else
-     dir:=true; // назад идти тоже нельзя
+     dir:=true; // going back is not allowed either
    until (c.flags.enabled and c.flags.visible and c.flags.canHaveFocus) or (c=self);
    if c.flags.canHaveFocus then c.SetFocus;
   end;

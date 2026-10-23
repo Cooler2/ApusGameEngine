@@ -93,7 +93,7 @@ var
 threadvar
  threadHandlersRegistered:boolean; // true after emQueued handlers registered for this render thread
 
- designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
+ designMode:boolean; // "design" mode in which elements can be dragged around the screen with the right mouse button
  hookedItem:TUIElement; // element to drag with mouse
 
 
@@ -248,7 +248,7 @@ function UIScene(name:String8):TUIScene;
       if IsRectEmpty(result) then
        result:=r
       else
-       UnionRect(result,result,r); // именно в таком порядке, иначе - косяк!
+       UnionRect(result,result,r); // exactly in this order, otherwise it breaks!
      end;
    // Root and children are already in screen coordinates.
   end;
@@ -578,7 +578,7 @@ function UIScene(name:String8):TUIScene;
     delta:=time-lastHandleTime;
     ProcessElementTree(UI);
 
-    // обработка хинтов
+    // hint handling
     if (window.hint.showTime>lastHandleTime) and (window.hint.showTime<=Time) then begin
      FindElementAt(window.mousePos.x,window.mousePos.y,c);
      if (c<>nil) then begin

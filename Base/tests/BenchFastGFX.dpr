@@ -17,23 +17,23 @@ const
   N_DEF  = 1000000;
   N_SLOW = 100000;
   
-  // Реалистичные размеры буферов
+  // Realistic buffer sizes
   WIDTH = 1024;
   HEIGHT = 768;
   SMALL_WIDTH = 256;
   SMALL_HEIGHT = 256;
 
-// Глобальные буферы для тестирования
+// Global buffers for testing
 var
-  // Основные буферы 1024x768 (3 МБ каждый для 32-битных пикселей)
+  // Main 1024x768 buffers (3 MB each for 32-bit pixels)
   buf32_1:array[0..HEIGHT-1,0..WIDTH-1] of cardinal;
   buf32_2:array[0..HEIGHT-1,0..WIDTH-1] of cardinal;
   
-  // Меньшие буферы для некоторых тестов
+  // Smaller buffers for some tests
   smallBuf32_1:array[0..SMALL_HEIGHT-1,0..SMALL_WIDTH-1] of cardinal;
   smallBuf32_2:array[0..SMALL_HEIGHT-1,0..SMALL_WIDTH-1] of cardinal;
   
-  // 8-битные буферы
+  // 8-bit buffers
   buf8_1:array[0..HEIGHT-1,0..WIDTH-1] of byte;
   buf8_2:array[0..HEIGHT-1,0..WIDTH-1] of byte;
 
@@ -55,7 +55,7 @@ procedure BenchColor_From16;
 var i:integer; color,r:cardinal;
 begin
   StartBench('ColorFrom16',N_FAST);
-  color:=$7BDE; // Пример 16-битного цвета
+  color:=$7BDE; // sample 16-bit color
   for i:=1 to N_FAST do
     r:=ColorFrom16(color);
   EndBench;
@@ -131,7 +131,7 @@ var i:integer; p:pointer;
 begin
   StartBench('GetPixelAddr (32-bit)',N_FAST);
   for i:=1 to N_FAST do
-    p:=GetPixelAddr(@buf32_1,WIDTH*4,512,384); // Центр изображения
+    p:=GetPixelAddr(@buf32_1,WIDTH*4,512,384); // image center
   EndBench;
 end;
 
@@ -140,7 +140,7 @@ var i:integer; p:pointer;
 begin
   StartBench('GetPixelAddr8 (8-bit)',N_FAST);
   for i:=1 to N_FAST do
-    p:=GetPixelAddr8(@buf8_1,WIDTH,512,384); // Центр изображения
+    p:=GetPixelAddr8(@buf8_1,WIDTH,512,384); // image center
   EndBench;
 end;
 
@@ -153,7 +153,7 @@ var i:integer;
 begin
   StartBench('FillRect 1024x768',N_SLOW div 100);
   for i:=1 to N_SLOW div 100 do
-    FillRect(@buf32_1,WIDTH*4,100,100,923,667,$FFAABBCC); // Большой прямоугольник
+    FillRect(@buf32_1,WIDTH*4,100,100,923,667,$FFAABBCC); // large rectangle
   EndBench;
 end;
 
@@ -203,7 +203,7 @@ var i:integer;
 begin
   StartBench('HLine32 1024px',N_DEF);
   for i:=1 to N_DEF do
-    HLine32(@buf32_1,WIDTH*4,0,WIDTH-1,384,$FFAABBCC); // Горизонтальная линия по центру
+    HLine32(@buf32_1,WIDTH*4,0,WIDTH-1,384,$FFAABBCC); // horizontal line through the center
   EndBench;
 end;
 
@@ -212,7 +212,7 @@ var i:integer;
 begin
   StartBench('VLine32 768px',N_DEF);
   for i:=1 to N_DEF do
-    VLine32(@buf32_1,WIDTH*4,512,0,HEIGHT-1,$FFAABBCC); // Вертикальная линия по центру
+    VLine32(@buf32_1,WIDTH*4,512,0,HEIGHT-1,$FFAABBCC); // vertical line through the center
   EndBench;
 end;
 
@@ -224,7 +224,7 @@ procedure BenchImage_Crop;
 var i:integer; r:TRect;
 begin
   StartBench('CropImage 1024x768',N_SLOW div 100);
-  // Заполним буфер прозрачными пикселями с непрозрачным прямоугольником в центре
+  // Fill the buffer with transparent pixels with an opaque rectangle in the center
   FillRect(@buf32_1,WIDTH*4,0,0,WIDTH-1,HEIGHT-1,0);
   FillRect(@buf32_1,WIDTH*4,300,200,723,567,$FFAABBCC);
   for i:=1 to N_SLOW div 100 do

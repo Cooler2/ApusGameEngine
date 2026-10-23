@@ -305,7 +305,7 @@ implementation
     size.Init(iWidth/globalScale,iHeight/globalScale);
     gfx.BeginPaint(hintImage);
     try
-     gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
+     gfx.target.Mask(true,true); // may potentially break drawing of the following elements
      gfx.target.Clear(0,-1,-1);
      draw.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
      draw.Rect(0,0,iwidth-3,iheight-3,$FF000000);
@@ -370,7 +370,7 @@ implementation
         exit;
        end;
       end;
-      // уточнить положение на экране (чтобы всегда был виден)
+      // adjust the on-screen position (so it is always visible)
       savePos:=position;
       AdjustHint(x1,y1,control as TUIHint);
       savePos.Sub(position);
@@ -622,7 +622,7 @@ implementation
     // draw the default body only for a style without 'fill' (avoids double blending)
     if element.GetStyleValue('fill')='' then draw.FillRect(x1,y1,x2,y2,col);
     if boundToWindow then exit; // the app draws the caption row of an OS window frame
-    if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
+    if element.IsActiveWindow then c:=$FF8080E0 // current window
      else c:=$FFB0B0B0;
     c:=Color.Mix(col,c,128);
     if resizeable then begin
@@ -825,7 +825,7 @@ implementation
      txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),
        copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);
     end;
-    if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
+    if (selcount>0) and (FocusedElement=control) then begin // part of the text is selected
      j:=xStart+offset;
      if txtLen=0 then begin
       prefixWidth:=0;
@@ -1140,15 +1140,15 @@ implementation
     y1:=top; y2:=bottom-1;
    end;
 
-   // Просто контейнер - заливка плюс рамка
+   // Plain container - fill plus frame
    if element.ClassType=TUIElement then
     DrawUIElement(element,x1,y1,x2,y2,context)
    else
-   // Надпись
+   // Label
    if element is TUILabel then
     DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
    else
-   // Кнопка
+   // Button
    if element.ClassType=TUIButton then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
@@ -1160,15 +1160,15 @@ implementation
    if element is TUIToggleButton then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
-   // Рамка
+   // Frame
    if element.ClassType=TUIFrame then
     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
-   // Произвольное изображение
+   // Arbitrary image
    if element.ClassType=TUIImage then
     DrawUIImage(element as TUIImage,x1,y1,x2,y2,context)
    else
-   // всплывающий хинт
+   // popup hint
    if element is TUIHint then
     DrawUIHint(element as TUIHint,x1,y1,x2,y2)
    else

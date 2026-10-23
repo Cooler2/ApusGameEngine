@@ -64,7 +64,7 @@ implementation
  var
   tweakerScene:TTweakerScene;
 
- /// TODO: сейчас у сцены UI - окно, а не экран. Окно должно быть дочерним элементом плноэкранного корневого элемента!
+ /// TODO: the scene UI is currently a window, not the screen. The window should be a child of a fullscreen root element!
 
  procedure EventHandler(event:TEventStr;tag:TTag);
   begin
