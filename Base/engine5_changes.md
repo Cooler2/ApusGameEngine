@@ -3,6 +3,30 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Deprecated wrappers removed (2026-10-23)
+
+- `Apus.Engine.UI`: `FindControl`, `FindControlAt`, `FindAnyControlAt` are gone;
+  use `FindElement`, `FindElementAt`, `FindAnyElementAt`.
+- `Apus.Geom2D`: `IdentMatrix2`, `IdentMatrix32` are gone; use `IdentMat2d`,
+  `IdentMat32d`.
+- `Apus.Engine.API`: `TGraphicsAPI.gaOpenGL` (fixed-function GL) is gone; the
+  enum is `(gaAuto, gaOpenGL2)`.
+- `Apus.Images`: the `ConvertLine(sour,dest,sf,df,palette,palFormat,count)`
+  overload is gone; use `ConvertLine(sour,dest,sf,df,count,@palette,palFormat)`
+  (palette and format may be omitted when there is no palette).
+- `Apus.HashMaps`: `TSimpleHashAS` and `TSimpleHash8` are gone; use
+  `THashMap<int64>`. The other legacy hashes (`TStrHash`, `TSimpleHashS`,
+  `TVarHash`) stay for now.
+
+## Image preload queue: workers on `Thread.Start` (2026-10-23)
+
+- `Apus.Engine.ImgLoadQueue` launches its loading and unpacking workers through
+  `Apus.Threads.Thread.Start` and tracks them as `IThread`; the `Classes.TThread`
+  subclasses are gone. The public API (`StartLoadingThreads`, `QueueFileLoad`,
+  `GetImageFromQueue`) is unchanged.
+- The loading worker now checks for termination while waiting for an empty queue,
+  so shutdown no longer hangs when threads were started but nothing was queued.
+
 ## NPOT textures: mip-maps without POT padding (2026-10-20)
 
 - `liffMipMaps` no longer implies `aiPow2`: an image loaded with mip-maps keeps its own size

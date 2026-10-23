@@ -380,7 +380,7 @@ begin
   if parent<>nil then begin
    if PreserveOrder then begin
     parent.children.Delete(SelfIndex);
-    // Откорректировать SelfIndex для смещенных эл-тов
+    // Fix SelfIndex for the shifted elements
     for i:=SelfIndex to parent.children.Count-1 do begin
      item:=parent.children[i];
      item.SelfIndex:=i;
@@ -506,7 +506,7 @@ function TQueue.Add(const item:TDataItem):boolean;
    free:=f;
    result:=true;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -514,7 +514,7 @@ procedure TQueue.Clear;
  begin
   SpinLock(lock);
   used:=0; free:=0;
-  lock:=0;
+  SpinUnlock(lock);
  end;
 
 function TQueue.Count:integer;
@@ -522,14 +522,14 @@ function TQueue.Count:integer;
   SpinLock(lock);
   result:=free-used;
   if result<0 then inc(result,length(data));
-  lock:=0;
+  SpinUnlock(lock);
  end;
 
 function TQueue.Empty:boolean;
  begin
   SpinLock(lock);
   result:=used=free;
-  lock:=0;
+  SpinUnlock(lock);
  end;
 
 function TQueue.Get(out item:TDataItem):boolean;
@@ -546,7 +546,7 @@ function TQueue.Get(out item:TDataItem):boolean;
    end else
     result:=false;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -576,7 +576,7 @@ function TGenQueue<T>.Add(const item:T):boolean;
    free:=f;
    result:=true;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -584,7 +584,7 @@ procedure TGenQueue<T>.Clear;
  begin
   SpinLock(lock);
   used:=0; free:=0;
-  lock:=0;
+  SpinUnlock(lock);
  end;
 
 function TGenQueue<T>.Count:integer;
@@ -592,14 +592,14 @@ function TGenQueue<T>.Count:integer;
   SpinLock(lock);
   result:=free-used;
   if result<0 then inc(result,length(data));
-  lock:=0;
+  SpinUnlock(lock);
  end;
 
 function TGenQueue<T>.Empty:boolean;
  begin
   SpinLock(lock);
   result:=used=free;
-  lock:=0;
+  SpinUnlock(lock);
  end;
 
 function TGenQueue<T>.Get:T;
@@ -623,7 +623,7 @@ function TGenQueue<T>.Get(out item:T):boolean;
    end else
     result:=false;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -654,7 +654,7 @@ function TPriorityQueue.Add(const item:TDataItem):boolean;
    end;
    data[p]:=item;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -688,7 +688,7 @@ function TPriorityQueue.Get(out item:TDataItem):boolean;
    data[count+1].value:=0.0/0.0;
    result:=true;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -713,7 +713,7 @@ procedure TPriorityQueue.UpdatePriorities(priorityFunc:TPriorityFunc);
     data[p]:=tmp[i];
    end;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -758,7 +758,7 @@ function TObjectList.Add(obj:TObject;uniqueOnly:boolean=false):boolean;
    data[count]:=obj;
    inc(count);
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -773,7 +773,7 @@ function TObjectList.Remove:TObject;
    end else
     result:=nil;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -790,7 +790,7 @@ function TObjectList.RemoveFirst:TObject;
    end else
     result:=nil;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -813,7 +813,7 @@ function TObjectList.Remove(obj:TObject;keepOrder:boolean=false):boolean;
      break;
     end;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -843,7 +843,7 @@ procedure TObjectList.Clear(freeObjects:boolean=false);
    count:=0;
    SetLength(data,32);
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -859,7 +859,7 @@ procedure TObjectList.FreeAll;
    count:=0;
    SetLength(data,32);
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
   for obj in list do
    obj.Free;
@@ -872,7 +872,7 @@ function TObjectList.Get(index:cardinal):TObject;
    if index<length(data) then result:=data[index]
     else result:=nil;
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 
@@ -883,7 +883,7 @@ function TObjectList.GetAll:TObjectArray;
    result:=data;
    SetLength(result,count);
   finally
-   lock:=0;
+   SpinUnlock(lock);
   end;
  end;
 

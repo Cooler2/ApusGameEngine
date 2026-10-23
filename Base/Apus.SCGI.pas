@@ -223,10 +223,10 @@ implementation
      p:=requestBody.IndexOf(boundary);
      if p=0 then exit;
      repeat
-      i:=p+length(boundary)+2; // первый байт заголовка параметра
+      i:=p+length(boundary)+2; // first byte of the parameter header
       q:=requestBody.IndexOf(#13#10#13#10,i);
       if q=0 then break;
-      p:=requestBody.IndexOf(boundary,q); // конец данных
+      p:=requestBody.IndexOf(boundary,q); // end of data
       if p=0 then break;
       fHeaders:=copy(requestBody,i,q-i);
       q:=q+4;
@@ -390,7 +390,7 @@ implementation
    st:=st+' '; // Terminator
    // Pass 1 - translate using locals
    if temp.count>0 then begin
-    p:=1; start:=0; // указатель на начало слова (первый символ после $)
+    p:=1; start:=0; // pointer to the word start (first character after $)
     while p<=length(st) do begin
      if (start>1) and not (st[p] in ['A'..'Z','0'..'9','_']) and (p>start) then begin
       key:=copy(st,start,p-start);
@@ -415,7 +415,7 @@ implementation
      key:=copy(st,start,p-start);
      // Any parameters?
      if st[p]='{' then begin
-      // если после имени идёт скобка, то ищем в скобках строки вида A=XXX;B=YYY, и устанавливаем temp{A}=XXX и т.д.
+      // if the name is followed by a parenthesis, look inside for strings like A=XXX;B=YYY and set temp{A}=XXX etc.
       q:=p; bad:=true;
       while (q<=length(st)) and (st[q]<>'}') do begin
        if st[q]='=' then bad:=false;
@@ -496,9 +496,9 @@ implementation
    end;
   end;
 
- // Возможны 2 варианта:
- // 1) файл целиком - один шаблон, имя шаблона = имя файла (uppercase)
- // 2) Файл содержит несколько шаблонов, т.е. содержит строки вида #NAME:
+ // Two variants are possible:
+ // 1) the whole file is one template, template name = file name (uppercase)
+ // 2) the file contains several templates, i.e. contains lines like #NAME:
  procedure LoadTemplatesFromFile(fname:String8);
   var
    f:text;
@@ -530,7 +530,7 @@ implementation
      fl:=false;
      for i:=1 to length(value) do
       if value[i]>' ' then begin
-       fl:=true; // единственная строка, игнорировать всё, что дальше
+       fl:=true; // single line, ignore everything after it
        break;
       end;
      if not fl then value:=''; // no characters in value String8
@@ -550,7 +550,7 @@ implementation
    r,p:integer;
    date,fileDate:TDateTime;
   begin
-   critSect.Enter; // в принципе это больше не нужно!
+   critSect.Enter; // basically this is no longer needed!
    try
    r:=FindFirst('templates\*.*',faArchive,sr);
    while r=0 do begin
@@ -730,7 +730,7 @@ implementation
    if CoreTime.Ticks>t+10 then Log.Warn('WARN: long socket reading');
   end;
 
- // Записывает данные в сокет
+ // Writes data to the socket
  procedure WriteData(s:TNativeSocket);
   var
    i,res,size:integer;
@@ -821,7 +821,7 @@ implementation
    if CoreTime.Ticks>t+20 then Log.Warn('WARN: long AcceptNew '+Conv.ToStr(CoreTime.Ticks-t));
   end;
 
- // Проверяет сокеты, ожидающие поступления запросов, на наличие поступивших данных
+ // Checks sockets waiting for requests for incoming data
  procedure ReadIncomingData;
   var
    readSet:TFDSet;

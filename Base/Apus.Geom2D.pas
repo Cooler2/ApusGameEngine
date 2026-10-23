@@ -190,8 +190,6 @@ interface
   IdentMat32d:TMat32d=(v:((1,0),(0,1),(0,0)));
   IdentMat2:TMat2=((1,0),(0,1));
   IdentMat32:TMat32=((1,0),(0,1),(0,0));
-  IdentMatrix2:TMat2d=(v:((1,0),(0,1))) deprecated 'Use IdentMat2d';
-  IdentMatrix32:TMat32d=(v:((1,0),(0,1),(0,0))) deprecated 'Use IdentMat32d';
 
   InvalidPoint2:TVec2d=(x:NaN;y:NaN);
   InvalidVec2:TVec2=(x:NaN;y:NaN);

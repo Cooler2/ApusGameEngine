@@ -61,18 +61,18 @@ implementation
   Apus.Log;
  type
   // single rule
-  // Special characters: E1FA-E1FF - in sour (типы спецсимволов подстрок, %*, %w, %d ...)
+  // Special characters: E1FA-E1FF - in sour (types of substring special characters, %*, %w, %d ...)
   // E1E0-E1E9,E1F0-E1F9 - in dest (X or XY, where X is substr index, Y - translation rule)
   TRule=record
    sour,dest:MyString;
    sPos:array[0..9] of smallint;
-   sCnt:integer; // кол-во спецсимволов в sour
+   sCnt:integer; // number of special characters in sour
    mask1,mask2:cardinal;
   end;
 
   TCache=record
    sour,dest:array[0..31] of MyString;
-   first,last:integer; // первый занятый элемент, первый свободный
+   first,last:integer; // first occupied element, first free one
   end;
 
   TRulesSet=class
@@ -204,7 +204,7 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
   if rCount>=length(rules) then begin
    SetLength(rules,length(rules)*2+10);
   end;
-  // Заменить %* в sour
+  // Replace %* in sour
   i:=1; c:=0;
   while i<length(sour) do begin
    if (sour[i]='%') and (sour[i+1] in ['*','d','w','+']) then begin
@@ -217,7 +217,7 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
    end;
    inc(i);
   end;
-  // Заменить %d{n} в dest
+  // Replace %d{n} in dest
   i:=1;
   while i<length(dest) do begin
    if (dest[i]='%') and (dest[i+1] in ['1'..'9']) then begin
@@ -231,18 +231,18 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
    end;
    inc(i);
   end;
-  // Добавить префикс и суффикс если необходимо
+  // Add prefix and suffix if needed
   w:=word(sour[1]);
   if w<$E1FA then begin
-   sour:=WideChar($E1FA)+sour; // %* в начало
-   dest:=WideChar($E1E0)+dest; // %0 в начало
+   sour:=WideChar($E1FA)+sour; // %* at the start
+   dest:=WideChar($E1E0)+dest; // %0 at the start
   end;
   w:=word(sour[length(sour)]);
   if w<>$E1FA then begin
-   sour:=sour+WideChar($E1FA); // %* в конец
-   dest:=dest+WideChar($E1E0+c+1); // %n в конец
+   sour:=sour+WideChar($E1FA); // %* at the end
+   dest:=dest+WideChar($E1E0+c+1); // %n at the end
   end;
-  // запомнить позиции спецсимволов
+  // remember positions of special characters
   c:=0;
   for i:=1 to length(sour) do begin
    w:=word(sour[i]);
@@ -252,7 +252,7 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
    end;
   end;
   rules[rCount].sCnt:=c;
-  // вычислить битмаску
+  // compute the bitmask
   CalcBitmask(sour,rules[rCount].mask1,rules[rCount].mask2);
 
   // rule data
@@ -311,7 +311,7 @@ function WStrPos(substr,str:MyString;index:integer):integer; inline;
   end;
  end;
 
-// Забагованная процедура!
+// Buggy procedure!
 function TRulesSet.Translate(st: MyString): MyString;
  var
   i,j,k,r,p1,p2:integer;
@@ -324,7 +324,7 @@ function TRulesSet.Translate(st: MyString): MyString;
   result:=st;
   if self=nil then exit;
   if rcount=0 then exit;
-  // поиск в кэше
+  // cache lookup
   with cache do begin
    if first<>last then begin
     i:=last;
@@ -342,33 +342,33 @@ function TRulesSet.Translate(st: MyString): MyString;
 
   CalcBitmask(st,m1,m2);
   for i:=0 to rCount-1 do with rules[i] do begin
-   // если в масках правила есть хоть один бит, которого нет в маске строки - значит правило к строке не подходит
+   // if the rule masks have at least one bit missing from the string mask - the rule does not fit the string
    if ((mask1 and not m1)>0) or
       ((mask2 and not m2)>0) then continue;
-   // попробуем применить правило
-   // нужно а) найти все подстроки из правила в правильном порядке б) произвести замены
-   mcnt:=0; // сколько подстрок найдено
-   k:=1; // точка начала поиска
+   // try to apply the rule
+   // need to a) find all substrings of the rule in the right order b) perform replacements
+   mcnt:=0; // how many substrings were found
+   k:=1; // search start point
    p1:=sPos[0];
    for j:=1 to sCnt-1 do begin
     p2:=sPos[j];
     r:=WStrPos(copy(sour,p1+1,p2-p1-1),st,k);
     if r=0 then break;
     inc(mcnt);
-    mPos[mcnt]:=r; // индекс начала найденной цепочки в st
+    mPos[mcnt]:=r; // index of the start of the found chain in st
     mEnd[mcnt]:=r+p2-p1-2;
-    k:=(p2-p1-1)+r; // тут еще нужна валидация очередного спецсимвола, если он необычный
+    k:=(p2-p1-1)+r; // validation of the next special character is still needed here if it is unusual
     p1:=p2;
    end;
    if mcnt<sCnt-1 then begin
     inc(trRuleFault);
-    continue; // правило не подходит
+    continue; // the rule does not fit
    end;
-   // если дошли сюда - значит правило подходит и нужно его применить
+   // if we got here - the rule fits and must be applied
    inc(trRuleSuccess);
-   // здесь используется ручной код вместо стандартных ф-ций т.к. это НАМНОГО увеличивает скорость
-   setLength(result,length(dest)+length(st)); // заведомо достаточная длина
-   k:=0; // кол-во добавленных в result символов
+   // hand-written code is used instead of standard functions since it is MUCH faster
+   setLength(result,length(dest)+length(st)); // a length that is surely sufficient
+   k:=0; // number of characters added to result
    mEnd[0]:=0;
    mPos[mcnt+1]:=length(st)+1;
    for j:=1 to length(dest) do begin

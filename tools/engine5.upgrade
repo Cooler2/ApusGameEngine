@@ -427,3 +427,10 @@ DoneSoundSystem -> sound.Done [Apus.Engine.Sound]
 IsMusicPlaying -> sound.IsMusicPlaying [Apus.Engine.Sound]
 // The Sound\... events stay; ISoundSystem has the same verbs as direct calls with handles.
 // Sound\Change\... was a stub that did nothing: use sound.SetChannelVolume/Pan/Speed
+
+// === Deprecated wrappers removed (Apus.Engine.UI, Apus.Engine.API, Apus.Images) ===
+FindControlAt -> FindElementAt [Apus.Engine.UI]
+FindAnyControlAt -> FindAnyElementAt [Apus.Engine.UI]
+FindControl -> FindElement [Apus.Engine.UI]
+// TGraphicsAPI.gaOpenGL (fixed-function GL) is gone: use gaOpenGL2 or gaAuto
+// ConvertLine(sour,dest,sf,df,palette,palFormat,count) is gone: use ConvertLine(sour,dest,sf,df,count,@palette,palFormat)

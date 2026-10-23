@@ -186,7 +186,7 @@ var
 begin
  // Lookup hash
  s:=round(size*4*47);
- // Как-то не особо эффективно это по памяти - хэш весьма разрежен. Но тут надо хорошенько подумать как сделать лучше
+ // Not very memory-efficient - the hash is quite sparse. Needs careful thought on how to do it better
  h:=((integer(ch1)*61)+integer(ch2)+s) and $FFF;
  if (intervalHash[h].ch1=ch1) and
     (intervalHash[h].ch2=ch2) and

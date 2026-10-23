@@ -47,11 +47,11 @@ procedure FillD_SSE2(var data; count:UIntPtr; value:Cardinal);
   test    rdx, rdx
   jz      @@exit
 
-  // 'д®а¬Ёа®ў вм xmm0 = {value,value,value,value}
+  // build xmm0 = {value,value,value,value}
   movd    xmm0, r8d
   pshufd  xmm0, xmm0, 0
 
-  // Џа®ўҐаЁ¬ ўла ў­Ёў ­ЁҐ
+  // check alignment
   test    rcx, 15
   jz      @@aligned
 
@@ -102,7 +102,7 @@ procedure FillD_NT(var data; count:UIntPtr; value:Cardinal);
   movd    xmm0, r8d
   pshufd  xmm0, xmm0, 0
 
-  // Выравниваем адрес на 16 байт
+  // Align the address to 16 bytes
   test    rcx, 15
   jz      @@aligned
 
@@ -137,7 +137,7 @@ procedure FillD_NT(var data; count:UIntPtr; value:Cardinal);
   dec     rdx
   jnz     @@tail_loop
 
-  sfence                  // синхронизация для NT store
+  sfence                  // sync for NT store
 
 @@exit:
 end;

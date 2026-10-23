@@ -182,26 +182,6 @@ type
     fFree:integer;
   end deprecated;
 
-  TSimpleHashAS=object
-    keys:Strings8;
-    values:array of int64;
-    count:integer;
-    procedure Init(estimatedCount:integer=256);
-    procedure Clear;
-    procedure Put(key:String8;value:int64);
-    function Get(key:String8):int64;
-    function Increment(key:String8;v:int64=1):int64;
-    function HasValue(key:String8):boolean;
-    procedure Remove(key:String8);
-  private
-    lock:integer;
-    links:array of integer;
-    next:array of integer;
-    hMask:integer;
-    fFree:integer;
-  end deprecated;
-  TSimpleHash8=TSimpleHashAS deprecated;
-
   // Specialized open-address structure to lookup for Named Objects (doesn't store keys, only values: keys are inside them).
   PObjectHash=^TObjectHash;
   TObjectHash=object
@@ -258,25 +238,35 @@ uses SysUtils, Variants, Apus.Strings;
 class function THashMap<T>.HashKey(const key:String8):cardinal;
 var
   i:integer;
-  c:byte;
-  v:QWord;
+  c:cardinal;
+  p:PByte;
 begin
   result:=2166136261; // FNV-1a
-  for i:=1 to length(key) do begin
-    c:=byte(key[i]);
-    if (c>=byte('a')) and (c<=byte('z')) then dec(c,32);
-    v:=(QWord(result xor c)*QWord(16777619)) and QWord($FFFFFFFF);
-    result:=cardinal(v);
+  p:=pointer(key);
+  for i:=0 to length(key)-1 do begin
+    c:=p[i];
+    if cardinal(c-byte('a'))<=cardinal(byte('z')-byte('a')) then dec(c,32); // ASCII upper case
+    result:=cardinal((result xor c)*cardinal(16777619)); // 32-bit multiply, wraps
   end;
 end;
 
+// ASCII case-insensitive, same folding as UpCase(AnsiChar)
 class function THashMap<T>.EqualKeys(const a,b:String8):boolean;
 var
   i:integer;
+  ca,cb:cardinal;
+  pa,pb:PByte;
 begin
+  if pointer(a)=pointer(b) then exit(true);
   if length(a)<>length(b) then exit(false);
-  for i:=1 to length(a) do
-    if UpCase(a[i])<>UpCase(b[i]) then exit(false);
+  pa:=pointer(a); pb:=pointer(b);
+  for i:=0 to length(a)-1 do begin
+    ca:=pa[i]; cb:=pb[i];
+    if ca<>cb then begin
+      if ca xor cb<>$20 then exit(false);
+      if cardinal((ca or $20)-byte('a'))>cardinal(byte('z')-byte('a')) then exit(false); // differ by bit 5 but not letters
+    end;
+  end;
   result:=true;
 end;
 
@@ -320,7 +310,7 @@ begin
     SetLength(fValues,cap);
     count:=0;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -350,7 +340,7 @@ begin
       if count*2>integer(fMask) then DoResize;
     end;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -373,7 +363,7 @@ begin
       result:=false;
     end;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -390,7 +380,7 @@ begin
     else
       result:=defValue;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -401,7 +391,7 @@ begin
   try
     result:=FindSlot(key)>=0;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -438,7 +428,7 @@ begin
       i:=(i+1) and fMask;
     end;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -526,7 +516,7 @@ begin
     SetLength(fValues,cap);
     count:=0;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -556,7 +546,7 @@ begin
       if count*2>integer(fMask) then DoResize;
     end;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -579,7 +569,7 @@ begin
       result:=false;
     end;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -596,7 +586,7 @@ begin
     else
       result:=defValue;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -607,7 +597,7 @@ begin
   try
     result:=FindSlot(key)>=0;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -645,7 +635,7 @@ begin
       i:=(i+1) and fMask;
     end;
   finally
-    fLock:=0;
+    SpinUnlock(fLock);
   end;
 end;
 
@@ -892,7 +882,7 @@ begin
   SetLength(links,64);
   hMask:=$3F;
   BuildHash;
-  lock:=0;
+  SpinUnlock(lock);
 end;
 function THash.Find(const key:String8):integer;
 begin
@@ -914,7 +904,7 @@ begin
   try
     result:=Find(key)>=0;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure THash.Remove(const key:String8);
@@ -926,7 +916,7 @@ begin
     idx:=Find(key);
     if idx>=0 then RemoveKey(idx);
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function THash.Get(const key:String8;item:integer=0):variant;
@@ -952,7 +942,7 @@ begin
     end else
       result:=Unassigned;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function THash.GetNext:variant;
@@ -965,7 +955,7 @@ begin
     end else
       result:=Unassigned;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function THash.GetAll(const key:String8):VariantArray;
@@ -1071,7 +1061,7 @@ begin
       vCount:=count;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure THash.BuildHash;
@@ -1096,7 +1086,7 @@ begin
     for i:=0 to count-1 do
       result[i]:=keys[i];
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure THash.SortKeys;
@@ -1139,7 +1129,7 @@ begin
     QuickSort(0,count-1);
     BuildHash;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 { TSimpleHash }
@@ -1173,7 +1163,7 @@ begin
     fFree:=-1;
     for i:=0 to hMask do links[i]:=-1;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TSimpleHash.Put(key,value:int64);
@@ -1207,7 +1197,7 @@ begin
       links[h]:=i;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TSimpleHash.Get(key:int64):int64;
@@ -1221,7 +1211,7 @@ begin
     while (i>=0) and (keys[i]<>key) do i:=next[i];
     if i>=0 then result:=values[i] else result:=-1;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TSimpleHash.HasValue(key:int64):boolean;
@@ -1235,7 +1225,7 @@ begin
     while (i>=0) and (keys[i]<>key) do i:=next[i];
     result:=i>=0;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TSimpleHash.Increment(key:int64;v:int64=1):int64;
@@ -1255,7 +1245,7 @@ begin
       found:=true;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
   if not found then begin
     Put(key,v);
@@ -1284,7 +1274,7 @@ begin
       fFree:=i;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TSimpleHash.RemoveValue(value:int64);
@@ -1306,7 +1296,7 @@ begin
       i:=next[i];
     end;
   end;
-  lock:=0;
+  SpinUnlock(lock);
   for i:=0 to n-1 do
     Remove(toRemove[i]);
 end;
@@ -1336,7 +1326,7 @@ begin
     fFree:=-1;
     for i:=0 to hMask do links[i]:=-1;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TSimpleHashS.Put(key:string;value:int64);
@@ -1370,7 +1360,7 @@ begin
       links[h]:=i;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TSimpleHashS.Get(key:string):int64;
@@ -1384,7 +1374,7 @@ begin
     while (i>=0) and (keys[i]<>key) do i:=next[i];
     if i>=0 then result:=values[i] else result:=-1;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TSimpleHashS.Increment(key:string;v:int64=1):int64;
@@ -1404,7 +1394,7 @@ begin
       found:=true;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
   if not found then begin
     Put(key,v);
@@ -1422,7 +1412,7 @@ begin
     while (i>=0) and (keys[i]<>key) do i:=next[i];
     result:=i>=0;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TSimpleHashS.Remove(key:string);
@@ -1447,147 +1437,7 @@ begin
       fFree:=i;
     end;
   finally
-    lock:=0;
-  end;
-end;
-{ TSimpleHashAS }
-procedure TSimpleHashAS.Init(estimatedCount:integer=256);
-var
-  i:integer;
-begin
-  SetLength(keys,estimatedCount);
-  SetLength(values,estimatedCount);
-  SetLength(next,estimatedCount);
-  count:=0;
-  fFree:=-1;
-  hMask:=$FFFF;
-  while (hMask>estimatedCount) and (hMask>$1F) do hMask:=hMask shr 1;
-  SetLength(links,hMask+1);
-  for i:=0 to hMask do links[i]:=-1;
-  lock:=0;
-end;
-procedure TSimpleHashAS.Clear;
-var
-  i:integer;
-begin
-  SpinLock(lock);
-  try
-    count:=0;
-    fFree:=-1;
-    for i:=0 to hMask do links[i]:=-1;
-  finally
-    lock:=0;
-  end;
-end;
-procedure TSimpleHashAS.Put(key:String8;value:int64);
-var
-  h,i,n:integer;
-begin
-  SpinLock(lock);
-  try
-    h:=StrHash(key) and hMask;
-    i:=links[h];
-    while (i>=0) and (keys[i]<>key) do i:=next[i];
-    if i>=0 then
-      values[i]:=value
-    else begin
-      if fFree>=0 then begin
-        i:=fFree;
-        fFree:=next[fFree];
-      end else begin
-        i:=count;
-        inc(count);
-        if count>length(keys) then begin
-          n:=length(keys)*2+64;
-          SetLength(keys,n);
-          SetLength(values,n);
-          SetLength(next,n);
-        end;
-      end;
-      keys[i]:=key;
-      values[i]:=value;
-      next[i]:=links[h];
-      links[h]:=i;
-    end;
-  finally
-    lock:=0;
-  end;
-end;
-function TSimpleHashAS.Get(key:String8):int64;
-var
-  h,i:integer;
-begin
-  SpinLock(lock);
-  try
-    h:=StrHash(key) and hMask;
-    i:=links[h];
-    while (i>=0) and (keys[i]<>key) do i:=next[i];
-    if i>=0 then result:=values[i] else result:=-1;
-  finally
-    lock:=0;
-  end;
-end;
-function TSimpleHashAS.Increment(key:String8;v:int64=1):int64;
-var
-  h,i:integer;
-  found:boolean;
-begin
-  found:=false;
-  SpinLock(lock);
-  try
-    h:=StrHash(key) and hMask;
-    i:=links[h];
-    while (i>=0) and (keys[i]<>key) do i:=next[i];
-    if i>=0 then begin
-      values[i]:=values[i]+v;
-      result:=values[i];
-      found:=true;
-    end;
-  finally
-    lock:=0;
-  end;
-  if not found then begin
-    Put(key,v);
-    result:=v;
-  end;
-end;
-function TSimpleHashAS.HasValue(key:String8):boolean;
-var
-  h,i:integer;
-begin
-  SpinLock(lock);
-  try
-    h:=StrHash(key) and hMask;
-    i:=links[h];
-    while (i>=0) and (keys[i]<>key) do i:=next[i];
-    result:=i>=0;
-  finally
-    lock:=0;
-  end;
-end;
-procedure TSimpleHashAS.Remove(key:String8);
-var
-  h,i,prev:integer;
-begin
-  SpinLock(lock);
-  try
-    h:=StrHash(key) and hMask;
-    i:=links[h];
-    prev:=-1;
-    while (i>=0) and (keys[i]<>key) do begin
-      prev:=i;
-      i:=next[i];
-    end;
-    if i>=0 then begin
-      if prev>=0 then next[prev]:=next[i]
-      else links[h]:=next[i];
-      keys[i]:='';
-      values[i]:=-1;
-      next[i]:=fFree;
-      fFree:=i;
-    end;
-  finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 { TObjectHash }
@@ -1608,7 +1458,7 @@ begin
     Mem.Clear(values[0],length(values)*sizeof(pointer));
     hashMiss:=0;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TObjectHash.ListKeys:Strings8;
@@ -1617,7 +1467,7 @@ begin
   try
     result:=InternalListKeys;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TObjectHash.InternalListKeys:Strings8;
@@ -1650,7 +1500,7 @@ begin
   try
     result:=InternalListObjects;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TObjectHash.Put(value:TNamedObject);
@@ -1662,7 +1512,7 @@ begin
     InternalPut(value);
     if count*2>mask then Resize;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TObjectHash.InternalPut(value:TNamedObject);
@@ -1696,7 +1546,7 @@ begin
       h:=(h+1) and mask;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TObjectHash.Remove(value:TNamedObject);
@@ -1717,7 +1567,7 @@ begin
       dec(count);
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TObjectHash.Resize;
@@ -1758,7 +1608,7 @@ begin
     end;
     hashMiss:=0;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TVarHash.ListKeys:Strings8;
@@ -1767,7 +1617,7 @@ begin
   try
     result:=InternalListKeys;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TVarHash.InternalListKeys:Strings8;
@@ -1804,7 +1654,7 @@ begin
     InternalPut(key,value);
     if count*2>mask then Resize;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TVarHash.InternalPut(key:string8;value:variant);
@@ -1838,7 +1688,7 @@ begin
       h:=(h+1) and mask;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 function TVarHash.HasKey(key:String8):boolean;
@@ -1859,7 +1709,7 @@ begin
       h:=(h+1) and mask;
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TVarHash.Remove(key:String8);
@@ -1880,7 +1730,7 @@ begin
       dec(count);
     end;
   finally
-    lock:=0;
+    SpinUnlock(lock);
   end;
 end;
 procedure TVarHash.Resize;

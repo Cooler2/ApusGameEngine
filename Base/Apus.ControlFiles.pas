@@ -114,7 +114,7 @@ implementation
   Apus.Strings, Apus.Conv, Apus.Files;
 
 type
- // комментарий
+ // comment
  TCommentLine=class
   line:String8;
  end;
@@ -125,7 +125,7 @@ type
   destructor Destroy; override;
  end;
 
- // Базовый класс для именованых элементов
+ // Base class for named elements
  TNamedValue=class
   name:String8; // item's name
   fullname:string; // full item name (including path), uppercase (for hash)
@@ -222,20 +222,20 @@ const
  itStrList  = 14;
 
 var
- // Все загруженные данные хранятся в одном дереве
- // Элементы 1-го уровня - файлы
+ // All loaded data is stored in a single tree
+ // 1st-level elements are files
  items:TGenericTree;
- // Хэш для быстрого доступа к именованным элементам дерева (кроме файлов)
+ // Hash for fast access to named tree elements (except files)
  hash:TStrHash;
  lasthandle:integer=0;
 
- critSect:TLock; // синхронизация для многопоточного доступа
+ critSect:TLock; // synchronization for multithreaded access
 
 //----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
 type
   PLong = ^LongWord;
 
-{ Функции для работы с символьной записью чисел. }
+{ Functions for working with the text notation of numbers. }
 function Q_StrToInt64(const S: String8; var V: Int64): Boolean;
 type
   PArr64 = ^TArr64;
@@ -444,10 +444,10 @@ constructor TNamedValue.Create;
 begin
 end;
 
-// Удаление именованного эл-та
+// Delete a named element
 destructor TNamedValue.Destroy;
 begin
- // Попаытаемся удалить из хэша:
+ // Try to remove it from the hash:
  hash.Remove(fullname);
  inherited;
 end;
@@ -646,7 +646,7 @@ function UseControlFile;
   i:integer;
   ctl:TCtlFile;
 
- // Загрузить указанный файл, вернуть его handle
+ // Load the specified file, return its handle
  function Load(filename:String8;code:cardinal):integer;
   var
    data:ByteArray;
@@ -655,7 +655,7 @@ function UseControlFile;
    i:integer;
    mode:TFileMode;
 
-  // Загрузить файл текстового формата в указанный объект
+  // Load a text-format file into the specified object
   procedure LoadTextual(filename:String8;item:TGenericTree);
    var
     st:String8;
@@ -685,7 +685,7 @@ function UseControlFile;
        item.AddChild(comment);
        continue;
       end;
-      // Разделим команду и аргумент
+      // Split the command and the argument
       arg:='';
       for i:=1 to length(st) do
        if st[i] in [' ',#9] then begin
@@ -694,10 +694,10 @@ function UseControlFile;
         break;
        end;
 
-      // Директива
+      // Directive
       if st[1]='$' then begin
        // End of section
-       if st.ToUpper='$ENDOFSECTION' then break; // конец секции
+       if st.ToUpper='$ENDOFSECTION' then break; // end of section
        // Section
        if (System.Length(st)>=8) and (System.Copy(st,1,8).ToUpper='$SECTION') then begin
         sect:=TSection.Create;
@@ -771,7 +771,7 @@ function UseControlFile;
        end;
       end;
 
-      // Добавим элемент в структуры
+      // Add the element to the structures
       value.name:=st;
       value.fullname:=string((path+'\'+st).ToUpper);
       i:=item.AddChild(value);
@@ -800,7 +800,7 @@ function UseControlFile;
     c:cardinal;
     size:integer;
 
-   // Прочитать содержимое секции из двоичного файла
+   // Read the section content from a binary file
    procedure ReadSection(item:TGenericTree;path:String8);
     var
      cnt,i,j,n:integer;
@@ -924,7 +924,7 @@ function UseControlFile;
     if (h.sign1<=100000000) and (abs((h.sign2 xor h.sign1)-28301740)<=100) then mode:=fmBinary;
    end;
 
-   // Создаем объект и добавляем его в структуры
+   // Create the object and add it to the structures
    ctl:=TCtlFile.Create(filename,mode);
    ctl.fname:=filename;
    ctl.name:=ExtractFileName(filename);
@@ -985,7 +985,7 @@ var
     content:=content+line+sLineBreak;
    end;
 
-  // Сохранить в файл содержимое секции (с указанным отступом)
+  // Save the section content to a file (with the specified indent)
   procedure SaveSection(item:TGenericTree;indent:integer);
    var
     i,j:integer;
@@ -1003,7 +1003,7 @@ var
       WriteLine(pad+(o as TCommentLine).line);
       continue;
      end;
-     // Директивы
+     // Directives
      if o is TInclude then begin
       WriteLine(pad+'$Include '+(o as TInclude).include);
       SaveControlFile((o as TInclude).handle);
@@ -1016,7 +1016,7 @@ var
       continue;
      end;
      // Format String8 for named value
-     // Все прочие варианты должны быть обработаны выше!
+     // All other cases must be handled above!
      if o is TNamedValue then begin
       st:=pad+(o as TNamedValue).name+'    ';
       while length(st) mod 8<>0 do st:=st+' ';
@@ -1043,7 +1043,7 @@ var
      // Save String8 value
      if o is TStringValue then begin
       //st:=st+QuoteStr((o as TStringValue).value);
-      // Принудительное заключение в кавычки чтобы избежать конфликта с числами
+      // Force quoting to avoid a conflict with numbers
       st:=st+'"'+(o as TStringValue).value+'"';
       WriteLine(st);
       continue;
@@ -1064,7 +1064,7 @@ var
         st:=pad;
        end;
       end;
-      // если осталась незаписанная строка
+      // if an unwritten line remains
       if (length(st)<=75) and (st<>pad) then WriteLine(st);
       continue;
      end;
@@ -1116,7 +1116,7 @@ var
        WriteString((o as TCommentLine).line);
        continue;
       end;
-      // Директивы
+      // Directives
       if o is TInclude then begin
        b:=itInclude;
        ms.Write(b,1);
@@ -1476,7 +1476,7 @@ procedure ctlCreateSection(key:String8);
   fname:=copy(key,1,pos(':',key)-1); // filename part of path
   delete(key,1,pos(':',key)+1);
   key:=key+'\';
-  // Нужно найти файл в котором нужно создать секцию
+  // Need to find the file in which to create the section
   item:=nil;
   for i:=0 to items.GetChildrenCount-1 do begin
    f:=items.GetChild(i).data;
@@ -1514,7 +1514,7 @@ procedure ctlCreateSection(key:String8);
   finally critSect.Leave; end;
  end;
 
-// Создает элемент заданного типа, возвращает объект (но не лист дерева!)
+// Creates an element of the given type, returns the object (but not the tree leaf!)
 function CreateKey(key:String8;KeyType:TNamedValueClass):TObject;
  var
   i,n:integer;
@@ -1834,7 +1834,7 @@ initialization
  critSect.Init('CtlFiles2',300);
 
 finalization
-// Удалять свои объекты не стоит - толку никакого, программа все-равно завершает работу
-// а вот на баги нарываться не хочется...
+// There is no point in deleting own objects - the program is terminating anyway
+// and running into bugs is undesirable...
  critSect.Cleanup;
 end.

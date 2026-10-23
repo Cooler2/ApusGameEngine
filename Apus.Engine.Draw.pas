@@ -721,7 +721,7 @@ begin
  if not clippingAPI.Prepare(x_-h-w,y_-h-w,x_+h+w,y_+h+w) then exit;
  x_:=x_-0.5; y_:=y_-0.5;
 
- // Тут надо что-то придумать умное, чтобы не было заблуренности
+ // Need something smart here to avoid blurriness
 { if abs(round(w)-w)>0.1 then begin
   x_:=x_+0.5*cos(angle);
   y_:=y_+0.5*sin(angle);
@@ -867,7 +867,7 @@ begin
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
  end;
 
- // Вообще-то это должен делать вызывающий код
+ // Actually this should be done by the calling code
  glActiveTexture(GL_TEXTURE1);
  glDisable(GL_TEXTURE_2D);
  glActiveTexture(GL_TEXTURE0);
@@ -1456,7 +1456,7 @@ procedure TDrawer.Particles(x,y:integer;data:PParticle;stride,count:integer;tex:
 type
  PartArr=array[0..10000] of TParticle;
 var
- idx:array of integer;  // массив индексов партиклов (сортировка по z)
+ idx:array of integer;  // array of particle indices (sorted by z)
  i,j,n:integer;
  part:^PartArr;
  needSort:boolean;
@@ -1475,7 +1475,7 @@ begin
   if part[i].z<>0 then needSort:=true;
   idx[i]:=i;
  end;
- if needSort then // сортировка (в будущем заменить на quicksort)
+ if needSort then // sorting (replace with quicksort in the future)
   for i:=0 to count-2 do begin
    n:=i; minZ:=part[idx[n]].z;
    for j:=i+1 to count-1 do
@@ -1484,7 +1484,7 @@ begin
    idx[i]:=idx[n];
    idx[n]:=j;
   end;
- // заполним вершинный буфер
+ // fill the vertex buffer
  for i:=0 to count-1 do begin
   n:=idx[i];
   startU:=part[n].index and $FF;
@@ -1493,8 +1493,8 @@ begin
   sizeV:=part[n].index shr 20 and $F;
   if sizeU=0 then sizeU:=1;
   if sizeV=0 then sizeV:=1;
-  if part[n].z<-ZDist+0.01 then part[n].z:=-ZDist+0.01; // модификация исходных данных, осторожно!
-  // сперва рассчитаем экранные к-ты частицы
+  if part[n].z<-ZDist+0.01 then part[n].z:=-ZDist+0.01; // modifies the source data, careful!
+  // first compute screen coordinates of the particle
   sx:=x+ZDist*part[n].x/(part[n].z+ZDist);
   sy:=y+ZDist*part[n].y/(part[n].z+ZDist);
   uStart:=tex.u1+tex.stepU*(1+2*gridSize*startU);
@@ -1699,7 +1699,7 @@ begin
  shader.UseTexture(tex);
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
-{ if part[count-1].index and (partEndpoint+partLoop)=0 then   // Модификация исходных данных недопустима!
+{ if part[count-1].index and (partEndpoint+partLoop)=0 then   // Modifying the source data is not allowed!
   part[count-1].index:=part[count-1].index or partEndpoint; }
 
  if tex<>nil then begin
@@ -1711,41 +1711,41 @@ begin
   u1:=0; u2:=0; v1:=0; vstep:=0;
  end;
 
- // заполним вершинный буфер
+ // fill the vertex buffer
  noPrv:=true;
  loopstart:=0;
  primcount:=0;
  idx:=0;
  for i:=0 to count-1 do begin
-   // сперва рассчитаем экранные к-ты частицы
+   // first compute screen coordinates of the particle
    sx:=x+part[i].x;
    sy:=y+part[i].y;
 
    if noPrv or
      (part[i].index and partEndpoint>0) or
      ((i=count-1) and (part[i].index and partLoop=0)) then begin
-     // начальная либо конечная вершина
+     // start or end vertex
      if noPrv then begin
-       if part[i].index and partLoop>0 then begin // первая вершина цикла
+       if part[i].index and partLoop>0 then begin // first vertex of the loop
         j:=i+1;
         while (j<count) and (part[j].index and partLoop=0) do inc(j);
         part[i].index:=part[i].index and (not partLoop);
        end else
-        j:=i; // первая вершина линии
+        j:=i; // first vertex of the line
        qx:=part[i+1].x-part[j].x;
        qy:=part[i+1].y-part[j].y;
      end else begin
-       // последняя вершина линии
+       // last vertex of the line
        qx:=part[i].x-part[i-1].x;
        qy:=part[i].y-part[i-1].y;
      end;
    end else begin
      if part[i].index and partLoop>0 then begin
-      // последняя вершина цикла
+      // last vertex of the loop
       qx:=part[loopStart].x-part[i-1].x;
       qy:=part[loopStart].y-part[i-1].y;
      end else begin
-      // промежуточная вершина
+      // intermediate vertex
       qx:=part[i+1].x-part[i-1].x;
       qy:=part[i+1].y-part[i-1].y;
      end;
@@ -1758,7 +1758,7 @@ begin
    end;
 
    color:=part[i].color;
-   // первая вершина
+   // first vertex
    partBuf[i*2].  Init(sx-rx,sy-ry, zPlane, u1,v1+vStep*(part[i].index and $FF),color);
    partBuf[i*2+1].Init(sx+rx,sy+ry, zPlane, u2,v1+vStep*(part[i].index and $FF),color);
    noPrv:=false;
@@ -1772,11 +1772,11 @@ begin
      noprv:=true;
    end else
      next:=i+1;
-   // первый треугольник - (0,1,2)
+   // first triangle - (0,1,2)
    bandInd[idx]:=i*2; inc(idx);
    bandInd[idx]:=i*2+1; inc(idx);
    bandInd[idx]:=next*2; inc(idx);
-   // второй треугольник - (2,1,3)
+   // second triangle - (2,1,3)
    bandInd[idx]:=next*2; inc(idx);
    bandInd[idx]:=i*2+1; inc(idx);
    bandInd[idx]:=next*2+1; inc(idx);

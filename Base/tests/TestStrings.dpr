@@ -570,6 +570,8 @@ begin
   // %g format
   Check(UTF8.Format('%g',[100.0])='100','%g integer');
   Check(UTF8.Format('%g',[3.14])='3.14','%g decimal');
+  // pointer: full width, upper case hex
+  Check(UTF8.Format('%p',[pointer($12AB)])=StringOfChar('0',2*sizeof(pointer)-4)+'12AB','%p');
   EndTest;
 end;
 

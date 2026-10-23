@@ -568,7 +568,7 @@ implementation
   begin
    neg:=false;
    if (a[7] and $80000000>0) or (b[7] and $80000000>0) then begin
-    // умножение со знаком
+    // signed multiplication
     neg:=(a[7] and $80000000>0) xor (b[7] and $80000000>0);
     if a[7] and $80000000>0 then bNeg(a);
     if b[7] and $80000000>0 then bNeg(b);
@@ -640,14 +640,14 @@ implementation
   begin
    neg:=false;
    if (a[15] and $80000000>0) or (b[15] and $80000000>0) then begin
-    // умножение со знаком
+    // signed multiplication
     neg:=(a[15] and $80000000>0) xor (b[15] and $80000000>0);
     if a[15] and $80000000>0 then bNeg2(a);
     if b[15] and $80000000>0 then bNeg2(b);
    end;
    fillchar(result,sizeof(result),0);
    for i:=0 to 7 do begin
-    // умножить a на a[i] и прибавить к результату
+    // multiply a by a[i] and add to the result
     v:=0;
     fillchar(c,sizeof(c),0);
     for j:=0 to 7 do begin
@@ -864,7 +864,7 @@ implementation
   begin
    fillchar(res,sizeof(res),0);
    for i:=0 to 7 do begin
-    // умножить a на a[i] и прибавить к результату
+    // multiply a by a[i] and add to the result
     v:=0;
     fillchar(r,sizeof(r),0);
     for j:=0 to 7 do begin
@@ -878,7 +878,7 @@ implementation
   end;
 
 
- // Это в 13 раз быстрее, чем bMult(a,a)
+ // This is 13 times faster than bMult(a,a)
  procedure bSqrOld(var a:TBigInt);
   var
    aa,ab,ac,ad,bb,bc,bd,cc,cd,dd,v:int64;
@@ -947,7 +947,7 @@ implementation
    bAdd(a,b);
   end;
 
- // деление цифрами по 16 бит
+ // division by 16-bit digits
  procedure bDiv(a,m:TBigInt;var r,k:TBigInt); // r=a/m, k=a mod m
   type
    TBigInt2=array[0..15] of word;
@@ -970,7 +970,7 @@ implementation
    while (t>=0) and (m2[t]=0) do dec(t);
    s:=l-t;
    n:=m;
-   if s>0 then // Сдвиг на s слов влево
+   if s>0 then // shift left by s words
     for i:=15 downto 0 do
      if i>=s then n2[i]:=n2[i-s] else n2[i]:=0;
 
@@ -981,8 +981,8 @@ implementation
    for i:=s downto 0 do begin
     v:=v shl 16+a2[l];
 //    if bCmp(a,n)>=0 then begin
-     // цифра ненулевая, нужно её угадать
-     if t=0 then d:=v div u // тривиальный случай
+     // the digit is non-zero, need to guess it
+     if t=0 then d:=v div u // trivial case
      else
       if l>0 then d:=(v shl 16+a2[l-1]) div u
        else d:=0;
@@ -990,7 +990,7 @@ implementation
      r2[i]:=d;
 
      if d<>0 then begin
-     // Умножение на d
+     // Multiply by d
      w:=int64(n[0])*d;
      nd[0]:=w;
      for j:=1 to 7 do begin
@@ -999,7 +999,7 @@ implementation
       nd[j]:=w;
      end;
 
-{     if bCmp(a,nd)<0 then begin // Ошибочка вышла (довольно редко, кстати)
+{     if bCmp(a,nd)<0 then begin // Oops, a mistake (quite rare, by the way)
       dec(d);
       r2[i]:=d;
       bSub(nd,n);
@@ -1042,7 +1042,7 @@ implementation
    while (t>=0) and (m2[t]=0) do dec(t);
    s:=l-t;
    n:=m;
-   if s>0 then // Сдвиг на s слов влево
+   if s>0 then // shift left by s words
     for i:=31 downto 0 do
      if i>=s then n2[i]:=n2[i-s] else n2[i]:=0;
 
@@ -1053,8 +1053,8 @@ implementation
    for i:=s downto 0 do begin
     v:=v shl 16+a2[l];
 //    if bCmp(a,n)>=0 then begin
-     // цифра ненулевая, нужно её угадать
-     if t=0 then d:=v div u // тривиальный случай
+     // the digit is non-zero, need to guess it
+     if t=0 then d:=v div u // trivial case
      else
       if l>0 then d:=(v shl 16+a2[l-1]) div u
        else d:=0;
@@ -1062,7 +1062,7 @@ implementation
      r2[i]:=d;
 
      if d<>0 then begin
-     // Умножение на d
+     // Multiply by d
      w:=int64(n[0])*d;
      nd[0]:=w;
      for j:=1 to 15 do begin
@@ -1071,7 +1071,7 @@ implementation
       nd[j]:=w;
      end;
 
-{     if bCmp(a,nd)<0 then begin // Ошибочка вышла (довольно редко, кстати)
+{     if bCmp(a,nd)<0 then begin // Oops, a mistake (quite rare, by the way)
       dec(d);
       r2[i]:=d;
       bSub(nd,n);

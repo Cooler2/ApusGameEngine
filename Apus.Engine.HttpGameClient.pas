@@ -80,13 +80,13 @@ implementation
    procedure Execute;
   end;
 
-  TConnectionState=(csNone,           // до инициализации
-                    csConnecting,     // подключение (получение временного ID)
-                    csConnected,      // подключено, но не авторизовано
-                    csLogging,        // идёт авторизация
-                    csLogged,         // авторизация прошла - можно работать
+  TConnectionState=(csNone,           // before initialization
+                    csConnecting,     // connecting (obtaining a temporary ID)
+                    csConnected,      // connected but not authorized
+                    csLogging,        // authorization in progress
+                    csLogged,         // authorized - ready to work
                     csDisconnecting,
-                    csDisconnected);  // соединение завершено (нормально или же по ошибке)
+                    csDisconnected);  // connection closed (normally or due to an error)
 
  var
   mainThread:IThread;
@@ -98,7 +98,7 @@ implementation
   serial:cardinal; // request serial number
   activePollRequest:integer; // current poll request ID (0 - no active poll request)
   activePostRequest:integer; // current post request ID (0 - no active post request)
-  lastPostSent:TDateTime; // when the first POST-request was sent с ID=activePostRequest (for timeout)
+  lastPostSent:TDateTime; // when the first POST-request with ID=activePostRequest was sent (for timeout)
   lastPollURL:string;
   lastPostURL,lastPostData:string;
   lastPostType:TContentType;
@@ -109,10 +109,10 @@ implementation
   outStart,outFree:integer;
 
   // inbox messages
-  // сообщения хранятся в кольцевом буфере постоянно, старые перезаписываются новыми
+  // messages are kept in a ring buffer, old ones are overwritten by new ones
   inQueue:array[0..63] of string;
   inQueueTag:array[0..63] of integer;
-  inPos:integer; // сюда нужно писать очередное сообщение
+  inPos:integer; // the next message is written here
   lastTag:integer;
 
 {$IFDEF DARWIN}{$DEFINE NETLIB_C}{$ENDIF}
@@ -347,12 +347,12 @@ procedure EventHandler(event:TEventStr;tag:TTag);
        activePollRequest:=0;
       end;
       if tag=activePostRequest then begin
-       // Нужно либо обнулить activePostRequest (чтобы разрешить последующую отправку данных)
-       // либо перевыслать запрос
+       // Either reset activePostRequest (to allow sending more data)
+       // or resend the request
        if (response<>'OK') and (response<>'IGNORED') then begin
         Log.Msg('HGC: bad response to request '+inttostr(tag)+': '+response);
-        if (Now>lastPostSent+120/86400) or    // соединение считать разорванным если не удалось доставить пакет за 120 секунд
-           (httpStatus>400) then begin // доставка невозможна
+        if (Now>lastPostSent+120/86400) or    // consider the connection broken if the packet could not be delivered within 120 seconds
+           (httpStatus>400) then begin // delivery is impossible
          Log.Msg('HGC: delivery timeout');
          activePostRequest:=0;
          state:=csDisconnected;
@@ -383,7 +383,7 @@ function StrToHex(st:string):string;
   end;
  end;
 
-// Формирует тело запроса из очереди исходящих сообщений и отправляет запрос
+// Builds the request body from the outgoing message queue and sends the request
 procedure SendMessages(server:string);
  var
   i,size,count:integer;
@@ -392,7 +392,7 @@ procedure SendMessages(server:string);
   names,values:Strings8;
   cType:TContentType;
  begin
-  // Тут нужно определиться каким способом отправлять сообщения
+  // Need to decide here how to send the messages
   size:=0; count:=0;
   while (outStart<>outFree) and (count<10) do begin // don't send more than 10 messages at once
    inc(count);
@@ -511,7 +511,7 @@ procedure TMainWorker.Execute;
    end;
 
    state:=csDisconnected;
-   DoneHTTPrequests; // может не надо? - сессий может быть много!
+   DoneHTTPrequests; // maybe not needed? - there can be many sessions!
   except
    on e:exception do begin
     state:=csDisconnected;

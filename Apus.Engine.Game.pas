@@ -398,7 +398,7 @@ begin
   altHeight:=params.height;
  end;
 
- if running then begin // смена параметров во время работы
+ if running then begin // parameters changed while running
   Log.Msg('Change mode to: %s, %d x %d',[params.mode.ToString,params.width,params.height]);
   window.SetSurfaceConfig(params.surface);
   window.Configure(params);
@@ -1275,15 +1275,15 @@ begin
  if mainThread=nil then
   Signal('Engine\MainLoopDone')
  else begin
-  mainThread.Terminate; // Для экономии времени
+  mainThread.Terminate; // to save time
   canExitNow:=true;
 
-  // Прибить главный поток (только в случае вызова из другого потока)
+  // Kill the main thread (only when called from another thread)
   if not mainThread.IsCurrent then begin
-   // Ждем 2 секунды пока поток не завершится по-хорошему
+   // Wait 2 seconds for the thread to finish gracefully
    for i:=1 to 40 do
     if running then CoreTime.Sleep(50) else break;
-   // Иначе прибиваем силой
+   // Otherwise kill it by force
    if running then begin
     Signal('Error\MainThreadHangs');
     Log.Force('Killing main thread');
@@ -1372,7 +1372,7 @@ begin
  end;
 end;
 
-// Обработка событий, являющихся командами движку
+// Handling of events that are engine commands
 procedure TGame.onCmdEvent(event:String8;tag:NativeInt);
 var
  rawEvent:String8;
@@ -1456,11 +1456,11 @@ var
     for i:=0 to high(activeCustomPoints) do
      with activeCustomPoints[i] do begin
       dx:=x-window.mousePos.x; dy:=y-window.mousePos.y;
-      d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
+      d:=dx*nx+dy*ny; // distance along the vector (dot product)
       if d<=1 then continue;
-      // расстояние в перпендикулярном направлении больше?
+      // is the perpendicular distance larger?
       if d<abs(dx*ny+dy*nx) then
-        d:=5000+round(sqrt(dx*dx+dy*dy)) // тогда просто ближайшая точка но со штрафом
+        d:=5000+round(sqrt(dx*dx+dy*dy)) // then just the nearest point, but with a penalty
       else
         d:=d+abs(dx*ny+dy*nx);
       if d<best then begin
@@ -1936,7 +1936,7 @@ procedure TGame.RenderAndPresentFrame;
     window.timings.idleRedrawAccUs:=0;
 
    if window.active or (params.mode<>dmSwitchResolution) then begin
-    // Если программа активна, то выполним отрисовку кадра
+    // If the program is active, render the frame
     if window.screenChanged then begin
      if window.timings.phaseMetrics then Timer.Start(phaseTimer);
      try
@@ -1957,11 +1957,11 @@ procedure TGame.RenderAndPresentFrame;
     end;
    end;
 
-   // Здесь можно что-нибудь сделать
+   // Something can be done here
    if window.timings.phaseMetrics then Timer.Start(phaseTimer);
    CoreTime.Sleep(onFrameDelay);
    if window.timings.phaseMetrics then sleepUs:=round(Timer.Get(phaseTimer)*1000000);
-   // Теперь нужно вывести кадр на экран
+   // Now the frame must be presented
    if (window.active or (params.mode<>dmSwitchResolution)) and
       window.screenChanged then begin
     if window.timings.phaseMetrics then Timer.Start(phaseTimer);
@@ -1991,7 +1991,7 @@ procedure TGame.MainThreadLoop;
  var
   wnd:TWindow;
  begin
-  // Инициализация
+  // Initialization
   mainThreadErrorMsg:='';
   mainLoopExitRequested:=false;
   try
@@ -2007,11 +2007,11 @@ procedure TGame.MainThreadLoop;
    window.frameNum:=0;
    window.ResetFrameTiming;
    PublishVar(@window.surface.dpi,'ScreenDPI',TVarTypeInteger);
-   gameEx.InitMainLoop; // вызывает InitGraph
+   gameEx.InitMainLoop; // calls InitGraph
 
-   game.running:=true; // Это как-бы семафор для завершения функции Run
+   game.running:=true; // acts as a semaphore for Run to finish
    Log.Msg('MainLoop started');
-   // Главный цикл
+   // Main loop
    repeat
     try
      gameEx.FrameLoop;
@@ -2025,11 +2025,11 @@ procedure TGame.MainThreadLoop;
    gameEx.terminated:=true;
    Signal('Engine\AfterMainLoop');
 
-   // Состояние ожидания команды остановки потока из безопасного места
+   // Wait for the thread stop command in a safe place
    while not gameEx.canExitNow do CoreTime.Sleep(20);
    Log.Force('Finalization');
 
-   // Финализация
+   // Finalization
    if window<>nil then begin
     window.BeginClose;
     window.RunQueuedCalls;
@@ -2055,7 +2055,7 @@ procedure TGame.MainThreadLoop;
   end;
 
   Log.Force('Main thread done');
-  game.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
+  game.running:=false; // this line must be the LAST one!
  end;
 
 // --- Extra window render thread ---

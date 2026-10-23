@@ -100,6 +100,16 @@ begin
   Check(m.Get('hello',v) and (v=2), 'value updated');
   m.Remove('hElLo');
   Check(m.count=0, 'removed via different case');
+  // non-letters that differ only by bit 5 ($20) are different keys
+  m.Put('a[',10);
+  m.Put('A{',11);
+  m.Put('@b',12);
+  m.Put('`B',13);
+  Check(m.count=4, 'bit-5 non-letter pairs are distinct');
+  Check(m.Get('A[',v) and (v=10), '[ is not {');
+  Check(m.Get('a{',v) and (v=11), '{ is not [');
+  Check(m.Get('@B',v) and (v=12), '@ is not `');
+  Check(m.Get('`b',v) and (v=13), '` is not @');
   EndTest;
 end;
 
@@ -439,28 +449,6 @@ begin
   EndTest;
 end;
 
-procedure TestLegacySimpleHashAS;
-var
-  h:TSimpleHashAS;
-begin
-  StartTest('Legacy.TSimpleHashAS');
-  h.Init(8);
-  Check(h.Get('a')=-1, 'missing=-1');
-  h.Put('a',10);
-  h.Put('a',20);
-  Check(h.Get('a')=20, 'update value');
-  Check(h.Increment('a',5)=25, 'increment existing');
-  Check(h.Increment('b')=1, 'increment new');
-  Check(h.HasValue('a'), 'has a');
-  Check(h.HasValue('b'), 'has b');
-  h.Remove('a');
-  Check(not h.HasValue('a'), 'removed a');
-  Check(h.Get('a')=-1, 'removed get=-1');
-  h.Clear;
-  Check(not h.HasValue('b'), 'clear removed b');
-  EndTest;
-end;
-
 procedure TestObjectHash;
 var
   h,uninitialized:TObjectHash;
@@ -771,7 +759,6 @@ begin
     TestTHashLargeTable;
     TestSimpleHash;
     TestLegacySimpleHashS;
-    TestLegacySimpleHashAS;
     TestObjectHash;
     TestLegacyVarHash;
 

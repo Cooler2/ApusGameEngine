@@ -35,24 +35,24 @@ type
 
   // Main log API
   Log = record
-    class procedure Msg(msg:String8; category:byte=0; level:TSeverity=TSeverity.Normal); overload; static;
-    class procedure Msg(msg:String8; params:array of const; category:byte=0; level:TSeverity=TSeverity.Normal); overload; static;
-    class procedure Debug(msg:String8; category:byte=0); overload; static;
-    class procedure Debug(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Info(msg:String8; category:byte=0); overload; static;
-    class procedure Info(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Force(msg:String8; category:byte=0); overload; static;
-    class procedure Force(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Warn(msg:String8; category:byte=0); overload; static;
-    class procedure Warn(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Error(msg:String8; category:byte=0); overload; static;
-    class procedure Error(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Fatal(msg:String8; category:byte=0); overload; static;
-    class procedure Fatal(msg:String8; params:array of const; category:byte=0); overload; static;
+    class procedure Msg(const msg:String8; category:byte=0; level:TSeverity=TSeverity.Normal); overload; static;
+    class procedure Msg(const msg:String8; const params:array of const; category:byte=0; level:TSeverity=TSeverity.Normal); overload; static;
+    class procedure Debug(const msg:String8; category:byte=0); overload; static;
+    class procedure Debug(const msg:String8; const params:array of const; category:byte=0); overload; static;
+    class procedure Info(const msg:String8; category:byte=0); overload; static;
+    class procedure Info(const msg:String8; const params:array of const; category:byte=0); overload; static;
+    class procedure Force(const msg:String8; category:byte=0); overload; static;
+    class procedure Force(const msg:String8; const params:array of const; category:byte=0); overload; static;
+    class procedure Warn(const msg:String8; category:byte=0); overload; static;
+    class procedure Warn(const msg:String8; const params:array of const; category:byte=0); overload; static;
+    class procedure Error(const msg:String8; category:byte=0); overload; static;
+    class procedure Error(const msg:String8; const params:array of const; category:byte=0); overload; static;
+    class procedure Fatal(const msg:String8; category:byte=0); overload; static;
+    class procedure Fatal(const msg:String8; const params:array of const; category:byte=0); overload; static;
   end;
 
   // Log interception handler. msg doesn't contain date/time!
-  TLogProc = procedure(msg:String8; category:byte=0; level:TSeverity=TSeverity.Normal);
+  TLogProc = procedure(const msg:String8; category:byte=0; level:TSeverity=TSeverity.Normal);
 
   // Basic logger API
   Logger = record
@@ -67,7 +67,7 @@ type
   end;
 
 implementation
-uses SysUtils, Apus.Threads;
+uses SysUtils, Apus.Threads, Apus.Conv, Apus.Strings;
 
 {$IFDEF ANDROID}
 {$linklib log}
@@ -93,9 +93,9 @@ begin
     priority:=ANDROID_LOG_FATAL;
   end;
   if category>0 then
-    text:=UTF8String('['+IntToStr(category)+'] '+string(msg))
+    text:='['+Conv.ToStr(integer(category))+'] '+msg
   else
-    text:=UTF8String(msg);
+    text:=msg;
   AndroidLogWrite(priority,'ApusEngine',PAnsiChar(text));
 end;
 {$ENDIF}
@@ -106,7 +106,8 @@ var
   minLogLevel:TSeverity = TSeverity.Info;
   logAlwaysOpened:boolean;
   logFile:file;
-  cacheBuf:RawByteString;
+  cacheBuf:array of byte; // pending log text, cacheLen bytes are used
+  cacheLen:integer;
   cacheEnabled:boolean;
   bypassCacheSeverity:TSeverity = TSeverity.Forced;
   debugMirrorEnabled:boolean=true;
@@ -121,18 +122,16 @@ var
   flushThreadActive:boolean;
   terminateFlushThread:boolean;
 
-// 12-character time: HH:MM:SS.mmm
-function FormatLogText(const text:string):string;
-begin
-  result:=string(Apus.Core.Time.Stamp)+'  '+text;
-end;
+const
+  CACHE_LIMIT=65000; // cached text is written out when it would exceed this size
 
-function BuildText(const msg:String8; category:byte):string;
+// Log line without the line break: "HH:MM:SS.mmm  [category] msg"
+function BuildLine(const msg:String8; category:byte):String8;
 begin
-  if category > 0 then
-    result:='['+IntToStr(category)+'] '+string(msg)
+  if category>0 then
+    result:=CoreTime.Stamp+'  ['+Conv.ToStr(integer(category))+'] '+msg
   else
-    result:=string(msg);
+    result:=CoreTime.Stamp+'  '+msg;
 end;
 
 function QuoteCmdArg(const st:string):string;
@@ -176,52 +175,45 @@ procedure IntFlushLog;
 begin
   if logFileName = '' then exit;
   try
-    AppendLogFile(cacheBuf[1], length(cacheBuf));
-    cacheBuf := '';
+    AppendLogFile(cacheBuf[0], cacheLen);
+    cacheLen := 0;
   except
   end;
 end;
 
-procedure InternalLogWrite(const msg:String8; category:byte; level:TSeverity);
+// Append line+LineBreak to the cache; the caller checked that it fits CACHE_LIMIT
+procedure CacheAppend(const line:String8);
+const
+  LB:String8=LineBreak; // a single char on Unix, so index a string copy
+var
+  n:integer;
+begin
+  if length(cacheBuf)<CACHE_LIMIT then SetLength(cacheBuf,CACHE_LIMIT);
+  n:=length(line);
+  if n>0 then Move(line[1],cacheBuf[cacheLen],n);
+  inc(cacheLen,n);
+  Move(LB[1],cacheBuf[cacheLen],length(LB));
+  inc(cacheLen,length(LB));
+end;
+
+procedure InternalLogWrite(const line:String8; level:TSeverity);
 var
   st:String8;
-  text:string;
 begin
-  if logFileName='' then exit;
-  if level<minLogLevel then exit;
-
-  // Format message
-  text:=BuildText(msg,category);
-
-  st:=String8(FormatLogText(text));
   logLock.Enter;
   try
-    if level>=bypassCacheSeverity then begin
-      // Bypass cache - write directly
-      if cacheBuf<>'' then IntFlushLog;
+    if (level<bypassCacheSeverity) and cacheEnabled and
+       (cacheLen+length(line)+length(LineBreak)<CACHE_LIMIT) then
+      CacheAppend(line)
+    else begin
+      // bypass severity, cache disabled or full - write directly
+      if cacheLen>0 then IntFlushLog;
       try
-        st:=st+String8(LineBreak);
-        AppendLogFile(st[1], length(st));
+        st:=line+LineBreak;
+        AppendLogFile(st[1],length(st));
       except
         on e:Exception do begin
           // Can't log error in log, avoid recursion
-        end;
-      end;
-    end else begin
-      // Use cache
-      if cacheEnabled and (length(cacheBuf) + length(st) < 65000) then begin
-        // Cache available and has space
-        cacheBuf:=cacheBuf+st+LineBreak;
-      end else begin
-        // Cache disabled or full
-        if cacheBuf<>'' then IntFlushLog;
-        try
-          st:=st+String8(LineBreak);
-          AppendLogFile(st[1],length(st));
-        except
-          on e:Exception do begin
-            // Can't log error in log
-          end;
         end;
       end;
     end;
@@ -238,33 +230,33 @@ begin
   repeat
     inc(tick);
     sleep(10);
-    if (length(cacheBuf)>20000) or (tick mod 50=0) then
+    if (cacheLen>20000) or (tick mod 50=0) then
       Logger.Flush;
   until terminateFlushThread;
 end;
 
 { Log }
 
-class procedure Log.Msg(msg:String8; category:byte; level:TSeverity);
+class procedure Log.Msg(const msg:String8; category:byte; level:TSeverity);
 var
-  text:string;
+  line:String8;
+  toFile,toMirror:boolean;
 begin
   // Call custom handler if set
   if Assigned(customHandler) then
     customHandler(msg, category, level);
 
-  // Call default handler unless disabled
-  if not disableDefault then
-    InternalLogWrite(msg, category, level);
-
   {$IFDEF ANDROID}
   MirrorToAndroidLog(msg,category,level);
   {$ENDIF}
 
-  // Optional mirroring to debug console.
-  if debugMirrorEnabled and (level>=debugMirrorMinSeverity) then begin
-    text:=BuildText(msg,category);
-    DebugMsg(FormatLogText(text));
+  // Default handler (unless disabled) and optional mirroring to debug console share the line
+  toFile:=not disableDefault and (logFileName<>'') and (level>=minLogLevel);
+  toMirror:=debugMirrorEnabled and (level>=debugMirrorMinSeverity);
+  if toFile or toMirror then begin
+    line:=BuildLine(msg,category);
+    if toFile then InternalLogWrite(line,level);
+    if toMirror then DebugMsg(line);
   end;
 
   // Track errors
@@ -272,67 +264,67 @@ begin
     Atomic.Inc(logErrorCount);
 end;
 
-class procedure Log.Msg(msg:String8; params:array of const; category:byte; level:TSeverity);
+class procedure Log.Msg(const msg:String8; const params:array of const; category:byte; level:TSeverity);
 begin
-  Log.Msg(Format(string(msg), params), category, level);
+  Log.Msg(UTF8.Format(msg, params), category, level);
 end;
 
-class procedure Log.Debug(msg:String8; category:byte);
+class procedure Log.Debug(const msg:String8; category:byte);
 begin
   Log.Msg(msg, category, TSeverity.Debug);
 end;
 
-class procedure Log.Debug(msg:String8; params:array of const; category:byte);
+class procedure Log.Debug(const msg:String8; const params:array of const; category:byte);
 begin
   Log.Msg(msg, params, category, TSeverity.Debug);
 end;
 
-class procedure Log.Info(msg:String8; category:byte);
+class procedure Log.Info(const msg:String8; category:byte);
 begin
   Log.Msg(msg, category, TSeverity.Info);
 end;
 
-class procedure Log.Info(msg:String8; params:array of const; category:byte);
+class procedure Log.Info(const msg:String8; const params:array of const; category:byte);
 begin
   Log.Msg(msg, params, category, TSeverity.Info);
 end;
 
-class procedure Log.Force(msg:String8; category:byte);
+class procedure Log.Force(const msg:String8; category:byte);
 begin
   Log.Msg(msg, category, TSeverity.Forced);
 end;
 
-class procedure Log.Force(msg:String8; params:array of const; category:byte);
+class procedure Log.Force(const msg:String8; const params:array of const; category:byte);
 begin
   Log.Msg(msg, params, category, TSeverity.Forced);
 end;
 
-class procedure Log.Warn(msg:String8; category:byte);
+class procedure Log.Warn(const msg:String8; category:byte);
 begin
   Log.Msg(msg, category, TSeverity.Warn);
 end;
 
-class procedure Log.Warn(msg:String8; params:array of const; category:byte);
+class procedure Log.Warn(const msg:String8; const params:array of const; category:byte);
 begin
   Log.Msg(msg, params, category, TSeverity.Warn);
 end;
 
-class procedure Log.Error(msg:String8; category:byte);
+class procedure Log.Error(const msg:String8; category:byte);
 begin
   Log.Msg(msg, category, TSeverity.Error);
 end;
 
-class procedure Log.Error(msg:String8; params:array of const; category:byte);
+class procedure Log.Error(const msg:String8; const params:array of const; category:byte);
 begin
   Log.Msg(msg, params, category, TSeverity.Error);
 end;
 
-class procedure Log.Fatal(msg:String8; category:byte);
+class procedure Log.Fatal(const msg:String8; category:byte);
 begin
   Log.Msg(msg, category, TSeverity.Fatal);
 end;
 
-class procedure Log.Fatal(msg:String8; params:array of const; category:byte);
+class procedure Log.Fatal(const msg:String8; const params:array of const; category:byte);
 begin
   Log.Msg(msg, params, category, TSeverity.Fatal);
 end;
@@ -399,7 +391,7 @@ class procedure Logger.LogCacheMode(enableCache:boolean; bypassSeverity:TSeverit
 begin
   cacheEnabled:=enableCache;
   bypassCacheSeverity:=bypassSeverity;
-  if not enableCache and (cacheBuf<>'') then
+  if not enableCache and (cacheLen>0) then
     Logger.Flush;
 end;
 
@@ -408,7 +400,7 @@ begin
   if logFileName = '' then exit;
   logLock.Enter;
   try
-    if cacheBuf = '' then exit;
+    if cacheLen = 0 then exit;
     try
       IntFlushLog;
     except
