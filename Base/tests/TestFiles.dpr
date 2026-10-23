@@ -790,6 +790,112 @@ begin
   EndTest;
 end;
 
+// Fixes of the stage 1 of the config redesign: each block failed on the previous code
+procedure TestControlFileFixes;
+const
+  FIX_CTL='# head'#13#10'Width 800'#13#10'$Section Sub'#13#10'  ; comment first'#13#10+
+    '  A 1'#13#10'  B 2'#13#10'$EndOfSection'#13#10;
+  // typed: a bare float literal is extended on some targets and never equals a double
+  F1:double=1e-7;
+  F2:double=0.3;
+  F3:double=1/3;
+  F5:double=1e20;
+var
+  prev:IFileProvider;
+  h:integer;
+  ctl:TControlFile;
+  sep:char;
+  ok:boolean;
+  msg:string;
+  before,after:String8;
+begin
+  StartTest('Control file fixes');
+  prev:=Files.GetProvider;
+  Files.SetProvider(TMemFileProvider.Create(prev));
+  sep:={$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator;
+  {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:=',';
+  try
+    Files.Save('vfs/fix.ctl',FIX_CTL,false);
+    // Loading doesn't touch the global random generator
+    RandSeed:=12345;
+    h:=UseControlFile('vfs/fix.ctl');
+    Check(RandSeed=12345,'ctl: load keeps RandSeed');
+
+    // Key list of a section that starts with a comment
+    Check(ctlGetKeys('fix.ctl:\Sub')='A B','ctl: GetKeys has no leading space: "'+ctlGetKeys('fix.ctl:\Sub')+'"');
+
+    // TControlFile: absolute key and relative delete
+    ctl:=TControlFile.Create('vfs/fix.ctl');
+    try
+      ok:=false;
+      try ok:=ctl.GetInt('fix.ctl:\Width')=800; except end;
+      Check(ok,'ctl: TControlFile accepts an absolute key');
+      ok:=false;
+      try ctl.DeleteKey('Sub\B'); ok:=not IsKeyExists('fix.ctl:\Sub\B'); except end;
+      Check(ok,'ctl: TControlFile.DeleteKey takes a relative key');
+    finally
+      ctl.Free;
+    end;
+
+    // A key and a section created in the file root survive save and reload
+    ctlSetInt('fix.ctl:\NewKey',5);
+    ctlCreateSection('fix.ctl:\New\Deep');
+    // Floats are saved exactly, keep their type and don't depend on the decimal separator
+    ctlSetReal('fix.ctl:\F1',F1);
+    ctlSetReal('fix.ctl:\F2',F2);
+    ctlSetReal('fix.ctl:\F3',F3);
+    ctlSetReal('fix.ctl:\F4',1.0);
+    ctlSetReal('fix.ctl:\F5',F5);
+    ctlSetReal('fix.ctl:\F6',-2.5);
+    ctlSetStr('fix.ctl:\Quoted','say "hi"');
+    SaveControlFile(h,fmText);
+    FreeControlFile(h);
+    Check(Pos('0,',String(Files.LoadAsString('vfs/fix.ctl')))=0,'ctl: float saved with a dot');
+    ok:=false;
+    try h:=UseControlFile('vfs/fix.ctl'); ok:=true; except end;
+    Check(ok,'ctl: file with keys created in the root reloads');
+    if ok then begin
+      Check(ctlGetInt('fix.ctl:\NewKey',0)=5,'ctl: root key value');
+      Check(ctlGetKeyType('fix.ctl:\New\Deep')=cktSection,'ctl: created section');
+      Check(ctlGetReal('fix.ctl:\F1',0)=F1,'ctl: float 1e-7');
+      Check(ctlGetReal('fix.ctl:\F2',0)=F2,'ctl: float 0.3');
+      Check(ctlGetReal('fix.ctl:\F3',0)=F3,'ctl: float 1/3');
+      Check(ctlGetKeyType('fix.ctl:\F4')=cktReal,'ctl: float 1.0 stays float');
+      Check(ctlGetReal('fix.ctl:\F5',0)=F5,'ctl: float 1e20');
+      Check(ctlGetReal('fix.ctl:\F6',0)=-2.5,'ctl: float -2.5');
+      Check(ctlGetStr('fix.ctl:\Quoted','')='say "hi"','ctl: string with quotes');
+
+      // A line break can't be saved in the textual format: error, file untouched
+      before:=Files.LoadAsString('vfs/fix.ctl');
+      ctlSetStr('fix.ctl:\Bad','a'#10'b');
+      msg:='';
+      try SaveControlFile(h,fmText); except on e:Exception do msg:=e.Message; end;
+      after:=Files.LoadAsString('vfs/fix.ctl');
+      Check((Pos(Files.FixName('vfs/fix.ctl'),msg)>0) and (Pos('Bad',msg)>0),'ctl: save error names the file and the key: '+msg);
+      Check(before=after,'ctl: failed save leaves the file intact');
+      ctlDeleteKey('fix.ctl:\Bad');
+
+      // Another file with the same name is a conflict, the loaded one stays intact
+      Files.Save('vfs/other/fix.ctl','Width 1'#13#10,false);
+      msg:='';
+      try UseControlFile('vfs/other/fix.ctl'); except on e:Exception do msg:=e.Message; end;
+      Check(Pos(Files.FixName('vfs/fix.ctl'),msg)>0,'ctl: name conflict is an error: '+msg);
+      Check(ctlGetInt('fix.ctl:\Width',0)=800,'ctl: loaded file is not shadowed');
+
+      // Saving doesn't touch the global random generator either
+      RandSeed:=12345;
+      SaveControlFile(h,fmBinary);
+      Check(RandSeed=12345,'ctl: save keeps RandSeed');
+      FreeControlFile(h);
+    end;
+    Check({$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator=',','ctl: decimal separator is not changed');
+  finally
+    {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:=sep;
+    Files.SetProvider(prev);
+  end;
+  EndTest;
+end;
+
 begin
   try
     Cleanup;
@@ -810,6 +916,7 @@ begin
     TestProviderChain;
     TestControlFileErrors;
     TestControlFileTypes;
+    TestControlFileFixes;
 
     Cleanup;
 

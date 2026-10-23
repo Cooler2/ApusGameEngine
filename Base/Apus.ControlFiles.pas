@@ -230,6 +230,16 @@ var
  lasthandle:integer=0;
 
  critSect:TLock; // synchronization for multithreaded access
+ rndState:cardinal; // state of the own random generator: the global one (RandSeed) is not touched
+
+// Random number in [0..range-1] from the own xorshift generator
+function CtlRandom(range:cardinal):cardinal;
+begin
+ rndState:=rndState xor (rndState shl 13);
+ rndState:=rndState xor (rndState shr 17);
+ rndState:=rndState xor (rndState shl 5);
+ result:=rndState mod range;
+end;
 
 // Skip decimal digits starting at position i, return their count
 function SkipDigits(const s:String8;var i:integer):integer;
@@ -276,6 +286,30 @@ begin
  result:=i>length(s);
 end;
 
+// Float literal (already validated by IsFloat) to its exact value
+function CtlToFloat(const s:String8):double;
+var
+ code:integer;
+begin
+ Val(string(s),result,code);
+end;
+
+// Float as a literal that reads back to the same value and is detected as a float again
+function CtlFloatToStr(v:double):String8;
+var
+ fs:TFormatSettings;
+ digits:integer;
+begin
+ {$IFDEF FPC}fs:=DefaultFormatSettings;{$ELSE}fs:=TFormatSettings.Create;{$ENDIF}
+ fs.DecimalSeparator:='.';
+ // the shortest of the forms: 15 digits are exact for most values, 17 - for any
+ for digits:=15 to 17 do begin
+  result:=String8(FloatToStrF(v,ffGeneral,digits,0,fs));
+  if CtlToFloat(result)=v then break;
+ end;
+ if IsInteger(result) then result:=result+'.0';
+end;
+
 constructor TNamedValue.Create;
 begin
 end;
@@ -317,7 +351,7 @@ end;
 { TIntValue }
 constructor TIntValue.Create;
 begin
- c:=random($10000000);
+ c:=CtlRandom($10000000);
  v:=1028349272;
  v2:=v xor $28402850;
 end;
@@ -339,7 +373,7 @@ end;
 { TFloatValue }
 constructor TFloatValue.Create;
 begin
- c:=random($10000000);
+ c:=CtlRandom($10000000);
 end;
 
 function TFloatValue.GetFloatValue: double;
@@ -359,7 +393,7 @@ end;
 { TBoolValue }
 constructor TBoolValue.Create;
 begin
- c:=random(2)=0;
+ c:=CtlRandom(2)=0;
 end;
 
 function TBoolValue.GetBoolValue: boolean;
@@ -377,7 +411,7 @@ end;
 { TStringValue }
 constructor TStringValue.Create;
 begin
- key:=random(100000000);
+ key:=CtlRandom(100000000);
 end;
 
 function TStringValue.GetStrValue: String8;
@@ -403,7 +437,7 @@ end;
 
 constructor TStringListValue.Create;
 begin
- key:=random(100000000);
+ key:=CtlRandom(100000000);
 end;
 
 function TStringListValue.GetCount: integer;
@@ -561,7 +595,6 @@ function UseControlFile;
       // Otherwise it's a value: check its type
       if arg='' then
        raise EWarning.Create('CTL2: no value for key '+st+' in '+filename+' line: '+Conv.ToStr(ln));
-      {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
       uArg:=arg.ToUpper;
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
        // boolean
@@ -576,7 +609,7 @@ function UseControlFile;
       if IsFloat(arg) then begin
        // Float
        value:=TFloatValue.Create;
-       (value as TFloatValue).value:=Conv.ToFloat(arg);
+       (value as TFloatValue).value:=CtlToFloat(arg);
       end else begin
        // String8 or String8 list
        if arg[1]='(' then begin
@@ -784,26 +817,31 @@ function UseControlFile;
   end;
 
 begin
+ critSect.Enter;
  try
-  // Was the file already loaded? The key is the VFS name: the file doesn't have to exist on disk
-  filename:=Files.FixName(filename);
-  for i:=0 to items.GetChildrenCount-1 do begin
-   ctl:=items.GetChild(i).data;
-   if ctl.fname=filename then begin
-    result:=ctl.handle;
-    inc(ctl.RefCounter);
-    exit;
+  try
+   // Was the file already loaded? The key is the VFS name: the file doesn't have to exist on disk
+   filename:=Files.FixName(filename);
+   for i:=0 to items.GetChildrenCount-1 do begin
+    ctl:=items.GetChild(i).data;
+    if ctl.fname=filename then begin
+     result:=ctl.handle;
+     inc(ctl.RefCounter);
+     exit;
+    end;
+    // keys are addressed by the bare file name, so it must be unique
+    if UpperCase(ctl.name)=UpperCase(ExtractFileName(filename)) then
+     raise EError.Create('a file with this name is already loaded: '+ctl.fname);
    end;
+   if password<>'' then
+    code:=CheckSumSlow(password[1],length(password),1)
+   else code:=0;
+   result:=Load(filename,code);
+  except
+   on e:Exception do
+    raise EError.Create('CTL2: Can''t load control file: '+filename+', exception: '+e.Message);
   end;
-  if password<>'' then
-   code:=CheckSumSlow(password[1],length(password),1)
-  else code:=0;
-  result:=Load(filename,code);
-
- except
-  on e:Exception do
-   raise EError.Create('CTL2: Can''t load control file: '+filename+', exception: '+e.Message);
- end;
+ finally critSect.Leave; end;
 end;
 
 procedure SaveControlFile;
@@ -821,6 +859,13 @@ var
     content:=content+line+sLineBreak;
    end;
 
+  // A value of the textual format can't contain a line break
+  procedure CheckTextual(const value:String8;o:TNamedValue);
+   begin
+    if (Pos(#10,value)>0) or (Pos(#13,value)>0) then
+     raise EWarning.Create('line break in the value of '+o.name);
+   end;
+
   // Save the section content to a file (with the specified indent)
   procedure SaveSection(item:TGenericTree;indent:integer);
    var
@@ -828,7 +873,6 @@ var
     o:TObject;
     pad,st:String8;
    begin
-    {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
     for i:=0 to item.GetChildrenCount-1 do begin
      o:=item.GetChild(i).data;
      SetLength(pad,indent);
@@ -872,7 +916,7 @@ var
      end;
      // Save float value
      if o is TFloatValue then begin
-      st:=st+floattostrf((o as TFloatValue).Value,ffFixed,9,6);
+      st:=st+CtlFloatToStr((o as TFloatValue).Value);
       WriteLine(st);
       continue;
      end;
@@ -880,6 +924,7 @@ var
      if o is TStringValue then begin
       //st:=st+QuoteStr((o as TStringValue).value);
       // Force quoting to avoid a conflict with numbers
+      CheckTextual((o as TStringValue).value,o as TNamedValue);
       st:=st+'"'+(o as TStringValue).value+'"';
       WriteLine(st);
       continue;
@@ -893,6 +938,7 @@ var
       for j:=1 to length(pad) do pad[j]:=' ';
       for j:=1 to count do begin
        while length(st) mod 8<>1 do st:=st+' ';
+       CheckTextual(value[j-1],o as TNamedValue);
        st:=st+value[j-1].Quote;
        if j<count then st:=st+',' else st:=st+')';
        if length(st)>75 then begin
@@ -1016,11 +1062,11 @@ var
      end;
     end;
   begin
-   p:=random(20);
-   h.sign1:=random(100000000);
+   p:=CtlRandom(20);
+   h.sign1:=CtlRandom(100000000);
    h.sign2:=h.sign1 xor (28301740+p);
-   code:=random(1000000);
-   for i:=0 to 23 do h.data[i]:=random(256);
+   code:=CtlRandom(1000000);
+   for i:=0 to 23 do h.data[i]:=CtlRandom(256);
    move(code,h.data[p],4);
    o:=item.data;
    inc(code,(o as TCtlFile).code); // Actual encryption code
@@ -1037,20 +1083,23 @@ var
 
 begin
  name:='unknown';
+ critSect.Enter;
  try
-  item:=FileByHandle(handle);
-  if item=nil then
-   raise EWarning.Create('invalid handle passed');
-  ctl:=item.data;
-  if mode=fmDefault then mode:=ctl.CurMode;
-  if mode=fmText then SaveTextual(item,ctl.fname)
-   else SaveBinary(item,ctl.fname);
-  ctl.modified:=false;
-
- except
-  on e:Exception do
-   raise EWarning.Create('CTL2: Can''t save control file: '+name+', exception: '+e.Message);
- end;
+  try
+   item:=FileByHandle(handle);
+   if item=nil then
+    raise EWarning.Create('invalid handle passed');
+   ctl:=item.data;
+   name:=ctl.fname;
+   if mode=fmDefault then mode:=ctl.CurMode;
+   if mode=fmText then SaveTextual(item,ctl.fname)
+    else SaveBinary(item,ctl.fname);
+   ctl.modified:=false;
+  except
+   on e:Exception do
+    raise EWarning.Create('CTL2: Can''t save control file: '+name+', exception: '+e.Message);
+  end;
+ finally critSect.Leave; end;
 end;
 
 procedure SaveAllControlFiles;
@@ -1285,7 +1334,7 @@ function ctlGetKeys(key:String8):String8;
   for i:=0 to item.GetChildrenCount-1 do begin
    o:=item.GetChild(i).data;
    if o is TNamedValue then begin
-    if i>0 then result:=result+' ';
+    if result<>'' then result:=result+' ';
     result:=result+(o as TNamedValue).name;
    end;
   end;
@@ -1583,7 +1632,7 @@ var
  i:integer;
 begin
  if pos(':',key)>0 then begin
-  result:=path; exit;
+  result:=key; exit;
  end;
  result:=path;
  if (result<>'') and (result[length(result)]='\') then delete(result,length(result),1);
@@ -1641,7 +1690,7 @@ end;
 
 procedure TControlFile.DeleteKey(key: String8);
 begin
- ctlDeleteKey(key);
+ ctlDeleteKey(GetAbsPath(key));
 end;
 
 function TControlFile.GetBool(key: String8; default: boolean): boolean;
@@ -1668,6 +1717,8 @@ initialization
  items:=TGenericTree.Create(true,true);
  hash:=TStrHash.Create;
  critSect.Init('CtlFiles2',300);
+ rndState:=cardinal(CoreTime.Ticks) xor $9E3779B9;
+ if rndState=0 then rndState:=1;
 
 finalization
 // There is no point in deleting own objects - the program is terminating anyway
