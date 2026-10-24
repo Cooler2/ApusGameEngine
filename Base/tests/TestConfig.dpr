@@ -16,6 +16,7 @@ const
   F03:double=0.3;
   F1E7:double=1e-7;
   F13:double=1/3;
+  S03:single=0.3;
 
 type
   // XOR with a random nonce: the output differs on every call
@@ -574,6 +575,9 @@ const
     'f2 = 1E-7'#10+
     'f3 = 0.3333333333333333'#10+
     'f4 = 2.0'#10+
+    'f5 = 0.33333'#10+
+    'f6 = 0.3'#10+
+    'f7 = 1234.6'#10+
     's = "line1\nline2 \"q\" back\\slash"'#10+
     'b = on'#10+
     'new {'#10+
@@ -594,10 +598,14 @@ begin
     r:=cfg.Root;
     r.SetStrs('list',['x','y']);
     r.Delete('gone');
-    r.SetFloat('f1',F03);
-    r.SetFloat('f2',F1E7);
-    r.SetFloat('f3',F13);
+    r.SetFloat('f1',F03,0);
+    r.SetFloat('f2',F1E7,0);
+    r.SetFloat('f3',F13,0);
     r.SetFloat('f4',2);
+    // 5 significant digits by default
+    r.SetFloat('f5',F13);
+    r.SetFloat('f6',S03);
+    r.SetFloat('f7',1234.56);
     r.SetStr('s','line1'#10'line2 "q" back\slash');
     r.SetBool('b',true);
     r.AddSection('new.sub');

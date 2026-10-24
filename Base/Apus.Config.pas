@@ -76,7 +76,8 @@ type
     // Writes create the missing sections; a write the content doesn't allow (through a value,
     // a value over a section) is reported and skipped
     procedure SetInt(const path:String8;value:int64);
-    procedure SetFloat(const path:String8;value:double);
+    // digits: significant digits; 0 - the shortest form that reads back exactly
+    procedure SetFloat(const path:String8;value:double;digits:integer=5);
     procedure SetBool(const path:String8;value:boolean);
     procedure SetStr(const path:String8;const value:String8);
     procedure SetStrs(const path:String8;const values:Strings8);
@@ -553,8 +554,10 @@ begin
   if neg then result:='-'+result;
 end;
 
-// Shortest form that reads back to the same double; integral values get '.0' to look like floats
-function FloatLexeme(v:double):String8;
+// A float with the given number of significant digits, trailing zeros dropped; precision<=0 or
+// above 15: the shortest form that reads back to the same double. Integral values get '.0'
+// to look like floats
+function FloatLexeme(v:double;precision:integer):String8;
 var
   fs:TFormatSettings;
   digits:integer;
@@ -563,6 +566,11 @@ var
 begin
   {$IFDEF FPC}fs:=DefaultFormatSettings;{$ELSE}fs:=TFormatSettings.Create;{$ENDIF}
   fs.DecimalSeparator:='.';
+  if (precision>0) and (precision<=15) then begin
+    result:=String8(FloatToStrF(v,ffGeneral,precision,0,fs));
+    if IsIntLiteral(result) then result:=result+'.0';
+    exit;
+  end;
   for digits:=15 to 17 do begin
     result:=String8(FloatToStrF(v,ffGeneral,digits,0,fs));
     exact:=IsFloatLiteral(result) and (LiteralToFloat(result)=v);
@@ -2880,11 +2888,11 @@ begin
   finally doc.lock.Leave; end;
 end;
 
-procedure TCfgNode.SetFloat(const path:String8;value:double);
+procedure TCfgNode.SetFloat(const path:String8;value:double;digits:integer);
 var
   s:String8;
 begin
-  s:=FloatLexeme(value);
+  s:=FloatLexeme(value,digits);
   doc.lock.Enter;
   try
     StoreValue(doc,Extended(path).segs,NewScalar(s,s));

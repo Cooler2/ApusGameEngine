@@ -1715,6 +1715,8 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   once fixed. Every problem (a failed load, reload or save, a value that does not
   convert, a write the content does not allow) is logged and passed to `onConfigProblem`;
   GameApp shows it as a toast. `Reload` and `Save` are functions returning success.
+- `SetFloat(path,value,digits=5)` writes 5 significant digits by default; `digits=0`
+  gives the shortest form that reads back exactly.
 - `Apus.Engine.GameApp`: a missing `appSetup.configFile` is no longer a `FatalError`: the
   defaults are used, a toast says so, and `SaveOptions` creates the file.
 - `Apus.Engine.Sound`: an event may also be a section,

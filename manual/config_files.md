@@ -265,8 +265,10 @@ user.Save;
 - A changed scalar keeps its line and loses only its old value. New values are written
   canonically:
   - integers in decimal;
-  - floats in the shortest form that reads back to the same `double` (15 to 17 digits),
-    with `.0` added to an integral value;
+  - floats with 5 significant digits by default, trailing zeros dropped (`0.33333`,
+    `12.5`), so a value computed or kept in a `single` does not clutter the file; precision
+    is rarely needed, and `SetFloat(path,value,0)` writes the shortest form that reads back
+    to the same `double` (up to 17 digits). An integral value gets `.0`;
   - booleans in the style of the old lexeme (`on`/`off`, `true`/`false` or `yes`/`no`,
     keeping its letter case), `on`/`off` for new keys;
   - strings in double quotes with escapes, so any string, line breaks included, can be
@@ -418,7 +420,7 @@ type
     function ReqStr(const path:String8):String8;
     // Writes (section 6)
     procedure SetInt(const path:String8;value:int64);
-    procedure SetFloat(const path:String8;value:double);
+    procedure SetFloat(const path:String8;value:double;digits:integer=5); // 0: exact
     procedure SetBool(const path:String8;value:boolean);
     procedure SetStr(const path:String8;const value:String8);
     procedure SetStrs(const path:String8;const values:Strings8);
