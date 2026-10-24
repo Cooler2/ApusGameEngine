@@ -692,6 +692,12 @@ procedure SetDPIAwareness;
  end;
 {$ENDIF}
 
+// Config problems are shown as toasts: noticeable, while the program goes on with the defaults
+procedure ShowConfigProblem(const msg:String8);
+ begin
+  ShowToast(msg,TToastKind.Warning);
+ end;
+
 procedure TGameApplication.Prepare;
  var
   i:integer;
@@ -701,6 +707,7 @@ procedure TGameApplication.Prepare;
  begin
   if prepared then raise EError.Create('TGameApplication.Prepare can be called only once');
   prepared:=true;
+  if not Assigned(onConfigProblem) then onConfigProblem:=ShowConfigProblem;
   try
    {$IFDEF MSWINDOWS}
    SetDPIAwareness; // a DPI-aware process is a precondition of the surface model
@@ -737,8 +744,6 @@ procedure TGameApplication.Prepare;
 
    if appSetup.configFile<>'' then begin
     appSetup.configFile:=Files.FixName(appSetup.configFile);
-    if not Files.Exists(appSetup.configFile) then
-     FatalError('Config file not found: '+appSetup.configFile);
     // Decide where the persistent config lives. Normally it stays next to the
     // shipped file (dev tree or a writable install) so behaviour is unchanged.
     // It moves to the per-platform writable AppDataDir (seeded once from the
@@ -750,11 +755,15 @@ procedure TGameApplication.Prepare;
     if bundleMode or not Folder.Writable(String8(st)) then begin
      Folder.Create(AppDataDir);
      st:=string(AppDataDir)+ExtractFileName(string(appSetup.configFile));
-     if not Files.Exists(String8(st)) then
+     if not Files.Exists(String8(st)) and Files.Exists(appSetup.configFile) then
       Files.CopyFile(String8(appSetup.configFile),String8(st)); // seed from shipped defaults
      appSetup.configFile:=st;
     end;
-    appConfig:=TConfig.Create(appSetup.configFile);
+    // Config problems are not fatal. A missing file: the defaults are used, the first save
+    // creates it. A broken file: the defaults, a toast, and the file is not overwritten
+    if not Files.Exists(String8(appSetup.configFile)) then
+     ReportConfigProblem('Config file not found: '+String8(appSetup.configFile)+'; defaults are used');
+    appConfig:=TConfig.Create(appSetup.configFile,true);
     LoadOptions;
     SaveOptions; // Save modified settings (if default values were added)
    end;

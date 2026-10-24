@@ -73,7 +73,8 @@ type
     function ReqFloat(const path:String8):double;
     function ReqBool(const path:String8):boolean;
     function ReqStr(const path:String8):String8;
-    // Writes create the missing sections
+    // Writes create the missing sections; a write the content doesn't allow (through a value,
+    // a value over a section) is reported and skipped
     procedure SetInt(const path:String8;value:int64);
     procedure SetFloat(const path:String8;value:double);
     procedure SetBool(const path:String8;value:boolean);
@@ -102,21 +103,44 @@ type
     protector:IConfigProtector;
     data:TObject; // TCfgData
     modifiedFlag:boolean;
-    failedState:String8; // file states of the last failed ReloadIfChanged
+    failedState:String8; // file states of the last failed load
+    fLoadError:String8;
+    placeholder:boolean; // the content is empty because the load failed
     function FileStates:String8;
     procedure ApplyReload(newData:TObject);
+    function TryLoad(out newData:TObject):boolean;
   public
-    // optional: a missing file gives an empty document, the first Save creates it
+    // Never raises on the file content: a file that fails to load gives an empty document,
+    // the problem is reported (see onConfigProblem) and kept in LoadError.
+    // optional: a missing file is not a problem, the first Save creates it
     constructor Create(const fname:String8;optional:boolean=false;protector:IConfigProtector=nil);
     destructor Destroy; override;
     function Changed:boolean;
-    procedure Reload;
+    // Both keep the current content when the new one fails to load; true if reloaded
+    function Reload:boolean;
     function ReloadIfChanged:boolean;
     function Root:TCfgNode;
     function Node(const path:String8):TCfgNode; // Root.Node(path)
     function Modified:boolean;
-    procedure Save;
+    // Why the last load or reload failed, '' if it succeeded. While it is set, Save doesn't
+    // write: the file is kept for the user to fix
+    function LoadError:String8;
+    // False if the document could not be written (the problem is reported)
+    function Save:boolean;
   end;
+
+  // Receives a problem found in a config: a failed load, reload or save, a value that does not
+  // convert, a write that conflicts with the file content
+  TConfigProblemProc=procedure(const msg:String8);
+
+var
+  // Called for every problem after it is logged, from the thread that found it.
+  // The engine shows the problems as toasts: noticeable, while the program goes on with defaults
+  onConfigProblem:TConfigProblemProc=nil;
+
+// Logs a problem of a config and passes it to onConfigProblem: for code that interprets
+// config values itself
+procedure ReportConfigProblem(const msg:String8);
 
 implementation
 uses SysUtils, Apus.Strings, Apus.Files, Apus.Log, Apus.EventMan;
@@ -180,6 +204,36 @@ type
 
 const
   wInt=1; wFloat=2; wBool=4; wStr=8; wEnum=16; wStrs=32;
+
+{ Problems }
+
+procedure Problem(const msg:String8;error:boolean);
+begin
+  if error then Log.Error(msg) else Log.Warn(msg);
+  if Assigned(onConfigProblem) then
+    try
+      onConfigProblem(msg);
+    except
+      on e:Exception do Log.Error('Config: problem handler failed: '+String8(e.Message));
+    end;
+end;
+
+procedure ReportConfigProblem(const msg:String8);
+begin
+  Problem(msg,false);
+end;
+
+// The message of an exception without the call stack prefix of EBaseException
+function PlainMessage(e:Exception):String8;
+var
+  i:integer;
+begin
+  result:=String8(e.Message);
+  if (e is EBaseException) and (result<>'') and (result[1]='[') then begin
+    i:=Pos(String8('] '),result);
+    if i>0 then result:=copy(result,i+2,length(result));
+  end;
+end;
 
 { Helpers }
 
@@ -1476,12 +1530,15 @@ begin
   result:=-1;
 end;
 
-// Reads a document: the main file and its includes
+// Reads a document: the main file and its includes. On an error visited gets the names of the
+// files read so far, the failed one included
 function LoadData(const fname:String8;optional:boolean;protector:IConfigProtector;
-  const overNames,overTexts:Strings8):TCfgData;
+  const overNames,overTexts:Strings8;out visited:Strings8):TCfgData;
 var
   loader:TLoader;
+  i:integer;
 begin
+  visited:=nil;
   result:=TCfgData.Create;
   loader:=TLoader.Create;
   try
@@ -1492,6 +1549,8 @@ begin
     try
       loader.LoadFile(fname,result.root,optional,'');
     except
+      SetLength(visited,length(result.files));
+      for i:=0 to high(result.files) do visited[i]:=result.files[i].name;
       FreeAndNil(result);
       raise;
     end;
@@ -2005,7 +2064,11 @@ begin
   fileName:=fname;
   self.optional:=optional;
   self.protector:=protector;
-  data:=LoadData(fname,optional,protector,nil,nil);
+  if not TryLoad(data) then begin
+    placeholder:=true;
+    failedState:=FileStates;
+    Problem('Config: '+fLoadError+'; defaults are used',true);
+  end;
 end;
 
 destructor TConfig.Destroy;
@@ -2013,6 +2076,43 @@ begin
   FreeAndNil(data);
   lock.Cleanup;
   inherited;
+end;
+
+// Reads the document into newData. On an error newData is an empty document that remembers
+// the states of the files it tried, and LoadError is set
+function TConfig.TryLoad(out newData:TObject):boolean;
+var
+  visited:Strings8;
+  d:TCfgData;
+  src:TSrcFile;
+  i:integer;
+begin
+  try
+    newData:=LoadData(fileName,optional,protector,nil,nil,visited);
+    for src in TCfgData(newData).files do src.ReadInfo;
+    fLoadError:='';
+    result:=true;
+  except
+    on e:Exception do begin
+      fLoadError:=PlainMessage(e);
+      if not (e is EConfigError) then fLoadError:=fileName+': '+fLoadError;
+      if length(visited)=0 then begin
+        SetLength(visited,1);
+        visited[0]:=Files.FixName(fileName);
+      end;
+      d:=TCfgData.Create;
+      SetLength(d.files,length(visited));
+      for i:=0 to high(visited) do begin
+        src:=TSrcFile.Create;
+        src.name:=visited[i];
+        src.lineBreak:=sLineBreak;
+        src.ReadInfo;
+        d.files[i]:=src;
+      end;
+      newData:=d;
+      result:=false;
+    end;
+  end;
 end;
 
 function TConfig.Root:TCfgNode;
@@ -2031,6 +2131,14 @@ begin
   lock.Enter;
   try
     result:=modifiedFlag;
+  finally lock.Leave; end;
+end;
+
+function TConfig.LoadError:String8;
+begin
+  lock.Enter;
+  try
+    result:=fLoadError;
   finally lock.Leave; end;
 end;
 
@@ -2064,77 +2172,75 @@ begin
 end;
 
 procedure TConfig.ApplyReload(newData:TObject);
-var
-  f:TSrcFile;
 begin
-  for f in TCfgData(newData).files do f.ReadInfo;
   data.Free;
   data:=newData;
+  modifiedFlag:=false;
 end;
 
-procedure TConfig.Reload;
+function TConfig.Reload:boolean;
 var
-  newData:TCfgData;
+  newData:TObject;
 begin
+  result:=false;
   lock.Enter;
   try
-    if modifiedFlag then begin
+    // unsaved changes can't be saved over a file that failed to load, so they don't hold a reload
+    if modifiedFlag and (fLoadError='') then begin
       Log.Warn('Config: %s has unsaved changes, not reloaded',[fileName]);
       exit;
     end;
-    newData:=LoadData(fileName,optional,protector,nil,nil);
-    ApplyReload(newData);
-    failedState:='';
+    if TryLoad(newData) then begin
+      ApplyReload(newData);
+      placeholder:=false;
+      failedState:='';
+      result:=true;
+    end else begin
+      if placeholder then begin
+        // there is no content of the file to keep: the new empty document knows the files tried now
+        ApplyReload(newData);
+        Problem('Config: '+fLoadError+'; defaults are used',true);
+      end else begin
+        newData.Free;
+        Problem('Config: '+fLoadError+'; the previous content is kept',true);
+      end;
+      failedState:=FileStates;
+    end;
   finally lock.Leave; end;
-  Signal('Config\Reloaded',TTag(UIntPtr(self)));
+  if result then Signal('Config\Reloaded',TTag(UIntPtr(self)));
 end;
 
 function TConfig.ReloadIfChanged:boolean;
-var
-  newData:TCfgData;
-  states:String8;
 begin
   result:=false;
   if not Changed then exit;
   lock.Enter;
   try
-    if modifiedFlag then begin
-      Log.Warn('Config: %s has unsaved changes, not reloaded',[fileName]);
-      exit;
-    end;
-    states:=FileStates;
-    if states=failedState then exit;
-    try
-      newData:=LoadData(fileName,optional,protector,nil,nil);
-    except
-      on e:Exception do begin
-        Log.Warn('Config: reload of %s failed: %s',[fileName,e.Message]);
-        failedState:=states;
-        exit;
-      end;
-    end;
-    ApplyReload(newData);
-    failedState:='';
-    result:=true;
+    if FileStates=failedState then exit; // the same broken files are not tried again
   finally lock.Leave; end;
-  if result then Signal('Config\Reloaded',TTag(UIntPtr(self)));
+  result:=Reload;
 end;
 
-procedure TConfig.Save;
+function TConfig.Save:boolean;
 var
   d,newData:TCfgData;
   i,n:integer;
   em:TEmitter;
   src:TSrcFile;
-  names,texts:Strings8;
+  names,texts,visited:Strings8;
   written:array of boolean;
   text:String8;
   bytes:ByteArray;
   allNames,allTexts:Strings8;
 begin
+  result:=true;
   lock.Enter;
   try
     if not modifiedFlag then exit;
+    if fLoadError<>'' then begin
+      Log.Warn('Config: %s is not saved: it failed to load, the file is kept as it is',[fileName]);
+      exit(false);
+    end;
     d:=TCfgData(data);
     try
       // Build all the texts first
@@ -2184,7 +2290,7 @@ begin
             if d.files[i].hasBOM then allTexts[i]:=UTF8BOM+allTexts[i];
           end;
       end;
-      newData:=LoadData(fileName,optional,nil,allNames,allTexts);
+      newData:=LoadData(fileName,optional,nil,allNames,allTexts,visited);
       for i:=0 to high(newData.files) do begin
         src:=newData.files[i];
         src.ReadInfo;
@@ -2199,8 +2305,10 @@ begin
       data:=newData;
       modifiedFlag:=false;
     except
-      on e:EConfigError do raise;
-      on e:Exception do raise EConfigError.Create('Config: can''t save '+string(fileName)+': '+e.Message);
+      on e:Exception do begin
+        Problem('Config: can''t save '+fileName+': '+PlainMessage(e),true);
+        result:=false;
+      end;
     end;
   finally lock.Leave; end;
 end;
@@ -2297,7 +2405,7 @@ procedure WarnValue(data:TCfgData;it:TItem;flag:byte;const what:String8);
 begin
   if it.warned and flag<>0 then exit;
   it.warned:=it.warned or flag;
-  Log.Warn('Config: %s: "%s" is not %s',[data.Loc(it),it.value,what]);
+  Problem('Config: '+data.Loc(it)+': "'+it.value+'" is not '+what+', the default is used',false);
 end;
 
 function KindName(k:TCfgKind):String8;
@@ -2318,7 +2426,7 @@ begin
   if it.kind<>ckScalar then begin
     if it.warned and flag=0 then begin
       it.warned:=it.warned or flag;
-      Log.Warn('Config: %s: %s is %s, not %s',[TCfgData(doc.data).Loc(it),PathText(segs),KindName(it.kind),what]);
+      Problem('Config: '+TCfgData(doc.data).Loc(it)+': '+PathText(segs)+' is '+KindName(it.kind)+', not '+what+', the default is used',false);
     end;
     exit;
   end;
@@ -2558,7 +2666,7 @@ begin
       end;
       ckSection:if it.warned and wStrs=0 then begin
         it.warned:=it.warned or wStrs;
-        Log.Warn('Config: %s: %s is a section, not a list of strings',[TCfgData(doc.data).Loc(it),PathText(s)]);
+        Problem('Config: '+TCfgData(doc.data).Loc(it)+': '+PathText(s)+' is a section, not a list of strings',false);
       end;
     end;
   finally doc.lock.Leave; end;
@@ -2650,26 +2758,40 @@ begin
   result:=0;
 end;
 
+// A write that the file content doesn't allow: reported, the document is left as it is
+procedure WriteConflict(doc:TConfig;const segs:TCfgSegments;const why:String8);
+begin
+  Problem('Config: '+doc.fileName+': "'+PathText(segs)+'" is not written: '+why,false);
+end;
+
 // Walks the path creating missing sections; returns the container of the last step and the
-// item there (nil if missing). An empty path gives the root as the item.
-procedure PrepareWrite(doc:TConfig;const segs:TCfgSegments;out parent,item:TItem);
+// item there (nil if missing). An empty path gives the root as the item. False (reported) if
+// the content of the document doesn't allow the path
+function PrepareWrite(doc:TConfig;const segs:TCfgSegments;out parent,item:TItem):boolean;
 var
   i:integer;
   cur,next:TItem;
 begin
+  result:=false;
   cur:=TCfgData(doc.data).root;
   parent:=nil;
   item:=cur;
   for i:=0 to high(segs) do begin
     if segs[i].index>=0 then begin
-      if cur.kind<>ckArray then
-        raise EConfigError.Create(string('Config: '+doc.fileName+': "'+PathText(Copy(segs,0,i))+'" is not an array'));
+      if cur.kind<>ckArray then begin
+        WriteConflict(doc,segs,'"'+PathText(Copy(segs,0,i))+'" is '+KindName(cur.kind)+', not an array');
+        exit;
+      end;
       next:=VisibleChild(cur,segs[i].index);
-      if next=nil then
-        raise EConfigError.Create(string('Config: '+doc.fileName+': no item '+PathText(Copy(segs,0,i+1))));
+      if next=nil then begin
+        WriteConflict(doc,segs,'no such item');
+        exit;
+      end;
     end else begin
-      if cur.kind<>ckSection then
-        raise EConfigError.Create(string('Config: '+doc.fileName+': can''t write through "'+PathText(Copy(segs,0,i))+'": it is '+KindName(cur.kind)));
+      if cur.kind<>ckSection then begin
+        WriteConflict(doc,segs,'"'+PathText(Copy(segs,0,i))+'" is '+KindName(cur.kind)+', not a section');
+        exit;
+      end;
       next:=FindChild(cur,segs[i].name);
       if (next=nil) and (i<high(segs)) then begin
         next:=TItem.Create(ckSection);
@@ -2682,6 +2804,7 @@ begin
     item:=next;
     cur:=next;
   end;
+  result:=true;
 end;
 
 procedure ReplaceItem(parent,old,new:TItem);
@@ -2709,14 +2832,20 @@ var
 begin
   try
     if length(segs)=0 then raise EConfigError.Create('Config: can''t write a value to the root');
-    PrepareWrite(doc,segs,parent,item);
+    if not PrepareWrite(doc,segs,parent,item) then begin
+      value.Free;
+      exit;
+    end;
     if item=nil then begin
       value.name:=segs[high(segs)].name;
       AppendChild(parent,value);
       parent.structDirty:=true;
     end else begin
-      if item.kind=ckSection then
-        raise EConfigError.Create(string('Config: '+TCfgData(doc.data).Loc(item)+': "'+PathText(segs)+'" is a section'));
+      if item.kind=ckSection then begin
+        WriteConflict(doc,segs,'it is a section at '+TCfgData(doc.data).Loc(item));
+        value.Free;
+        exit;
+      end;
       if (value.kind=ckScalar) and (item.kind in [ckScalar,ckNull]) then begin
         item.kind:=ckScalar;
         item.value:=value.value;
@@ -2819,7 +2948,7 @@ begin
   result.segs:=s;
   doc.lock.Enter;
   try
-    PrepareWrite(doc,s,parent,item);
+    if not PrepareWrite(doc,s,parent,item) then exit;
     if item=nil then begin
       item:=TItem.Create(ckSection);
       item.name:=s[high(s)].name;
@@ -2828,7 +2957,7 @@ begin
       doc.modifiedFlag:=true;
     end else
     if item.kind<>ckSection then
-      raise EConfigError.Create(string('Config: '+TCfgData(doc.data).Loc(item)+': "'+PathText(s)+'" is not a section'));
+      WriteConflict(doc,s,'it is '+KindName(item.kind)+' at '+TCfgData(doc.data).Loc(item));
   finally doc.lock.Leave; end;
 end;
 

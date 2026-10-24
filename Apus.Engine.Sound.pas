@@ -557,15 +557,20 @@ procedure LoadConfig;
    p:TCfgNode;
   begin
    evt:=TSoundEvent.Create(UpperCase {TODO: use st.ToUpper}(node.Name));
-   if node.Kind=ckSection then
-    for p in node do SetEventParam(evt,p.Name,p.AsStr)
-   else begin
-    st:='file='+node.AsStr;
-    params:=st.Split(',','"');
-    for i:=0 to length(params)-1 do begin
-     param:=params[i].Split('=');
-     if length(param)>=2 then SetEventParam(evt,param[0],param[1]);
+   try
+    if node.Kind=ckSection then
+     for p in node do SetEventParam(evt,p.Name,p.AsStr)
+    else begin
+     st:='file='+node.AsStr;
+     params:=st.Split(',','"');
+     for i:=0 to length(params)-1 do begin
+      param:=params[i].Split('=');
+      if length(param)>=2 then SetEventParam(evt,param[0],param[1]);
+     end;
     end;
+   except
+    evt.Free;
+    raise;
    end;
    evtHash.Put(evt.name,evt);
   end;
@@ -638,11 +643,12 @@ procedure LoadConfig;
   var
    n:TCfgNode;
   begin
+   // a broken event is reported and skipped, the others still load
    for n in root.Node('SoundEvents') do
     if n.Kind in [ckScalar,ckSection] then try
      AddEvent(n);
     except
-     on e:Exception do raise EError.Create('Error in sound event definition: '+ExceptionMsg(e));
+     on e:Exception do ReportConfigProblem('[SOUND] '+n.Location+': sound event '+n.Name+' is skipped: '+String8(e.Message));
     end;
   end;
 
@@ -698,10 +704,8 @@ procedure LoadConfig;
    LoadMusicEntries;
    Log.Msg('[SOUND] Config loaded');
   except
-   on e:Exception do begin
-    Log.Force('[SOUND] config loading error: '+ExceptionMsg(e));
-    RaiseFlag(failed);
-   end;
+   // not fatal: the sound system works with what was loaded
+   on e:Exception do ReportConfigProblem('[SOUND] config loading error: '+String8(ExceptionMsg(e)));
   end;
   cfg.Free;
  end;

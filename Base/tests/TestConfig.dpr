@@ -26,6 +26,8 @@ type
 
 var
   reloadSignals:integer=0;
+  problems:integer=0;
+  lastProblem:String8;
 
 function TTestProtector.Protect(const data:ByteArray):ByteArray;
 var
@@ -48,6 +50,12 @@ end;
 procedure OnReloaded(event:TEventStr;tag:TTag);
 begin
   inc(reloadSignals);
+end;
+
+procedure OnProblem(const msg:String8);
+begin
+  inc(problems);
+  lastProblem:=msg;
 end;
 
 // A string from bytes: a char literal above 127 is not a byte in a Unicode compiler
@@ -83,17 +91,17 @@ begin
   result:=NormLF(GetRaw(name));
 end;
 
-// The message of the error a document load raises ('' - loaded)
+// The error of a document load ('' - loaded); a load never raises
 function LoadError(const name:String8):string;
 var
   cfg:TConfig;
 begin
-  result:='';
+  result:='raised';
   try
     cfg:=TConfig.Create(DIR+name);
+    result:=string(cfg.LoadError);
     cfg.Free;
   except
-    on e:Exception do result:=e.Message;
   end;
 end;
 
@@ -594,12 +602,13 @@ begin
     r.SetBool('b',true);
     r.AddSection('new.sub');
     r.SetInt('new.sub.k',1);
+    problems:=0;
     failed:=false;
-    try r.SetInt('a.b',1); except on e:EConfigError do failed:=true; end;
-    Check(failed,'write through a value raises');
+    try r.SetInt('a.b',1); except failed:=true; end;
+    Check(not failed and (r.Int('a')=1) and (problems=1),'write through a value is reported and skipped');
     failed:=false;
-    try r.SetInt('new',1); except on e:EConfigError do failed:=true; end;
-    Check(failed,'a value over a section raises');
+    try r.SetInt('new',1); except failed:=true; end;
+    Check(not failed and (r.Node('new').Kind=ckSection) and (problems=2),'a value over a section is reported and skipped');
     failed:=false;
     try r.Delete(''); except on e:EConfigError do failed:=true; end;
     Check(failed,'the root can''t be deleted');
@@ -823,8 +832,13 @@ var
 begin
   StartTest('Optional file');
   failed:=false;
-  try TConfig.Create(DIR+'opt.ctl').Free; except on e:EConfigError do failed:=true; end;
-  Check(failed,'a missing file raises');
+  try
+    cfg:=TConfig.Create(DIR+'opt.ctl');
+    failed:=(Pos('not found',cfg.LoadError)>0) and (cfg.Root.Count=0);
+    cfg.Free;
+  except
+  end;
+  Check(failed,'a missing file: an empty document with LoadError');
   cfg:=TConfig.Create(DIR+'opt.ctl',true);
   try
     Check(cfg.Root.Count=0,'empty document');
@@ -896,9 +910,9 @@ begin
     Check(not cfg.ReloadIfChanged,'a broken file is not reloaded');
     Check(h.AsInt=22,'previous content kept');
     Check(not cfg.ReloadIfChanged,'the same broken file is not tried again');
-    failed:=false;
-    try cfg.Reload; except on e:EConfigError do failed:=true; end;
-    Check(failed and (h.AsInt=22),'Reload raises on a broken file');
+    failed:=true;
+    try failed:=cfg.Reload; except end;
+    Check(not failed and (h.AsInt=22) and (cfg.LoadError<>''),'Reload of a broken file fails and keeps the content');
     Put('rel.ctl','a = 333'#10);
     Check(cfg.ReloadIfChanged and (h.AsInt=333),'fixed file reloaded');
     cfg.Root.SetInt('b',1);
@@ -912,8 +926,63 @@ begin
   EndTest;
 end;
 
+// Problems in the files are reported, not raised; a broken file is not overwritten
+procedure TestProblems;
+var
+  cfg:TConfig;
+  failed:boolean;
+  before:String8;
+begin
+  StartTest('Problems are not fatal');
+  Put('bad.ctl','a = 1'#10'a = 2'#10);
+  problems:=0;
+  failed:=false;
+  cfg:=nil;
+  try cfg:=TConfig.Create(DIR+'bad.ctl'); except failed:=true; end;
+  Check(not failed,'a broken file doesn''t raise');
+  if cfg<>nil then
+    try
+      Check((problems=1) and (Pos('bad.ctl:2',lastProblem)>0),'the problem is reported with its place: '+string(lastProblem));
+      Check(Pos('duplicate',cfg.LoadError)>0,'LoadError: '+string(cfg.LoadError));
+      Check((cfg.Root.Count=0) and (cfg.Root.Int('a',7)=7),'the defaults are used');
+      before:=GetRaw('bad.ctl');
+      cfg.Root.SetInt('a',5);
+      Check(not cfg.Save and (GetRaw('bad.ctl')=before),'the broken file is not overwritten');
+      Check(not cfg.ReloadIfChanged,'the unchanged broken file is not reloaded');
+      Put('bad.ctl','a = 3'#10);
+      Check(cfg.ReloadIfChanged and (cfg.Root.Int('a')=3) and (cfg.LoadError=''),'the fixed file is picked up');
+      cfg.Root.SetInt('a',4);
+      Check(cfg.Save and (Get('bad.ctl')='a = 4'#10),'saved after the fix');
+    finally
+      cfg.Free;
+    end;
+  // a broken included file: its fix is noticed as well
+  Put('imain.ctl','x = 1'#10'@include "ibad.ctl"'#10);
+  Put('ibad.ctl','y = "open'#10);
+  cfg:=TConfig.Create(DIR+'imain.ctl');
+  try
+    Check((cfg.LoadError<>'') and (cfg.Root.Int('x',0)=0),'a broken include fails the document');
+    Put('ibad.ctl','y = 2'#10);
+    Check(cfg.ReloadIfChanged and (cfg.Root.Int('y')=2) and (cfg.Root.Int('x')=1),'the fixed include is picked up');
+  finally
+    cfg.Free;
+  end;
+  // a value that doesn't convert is reported once
+  Put('val.ctl','b = maybe'#10);
+  cfg:=TConfig.Create(DIR+'val.ctl');
+  try
+    problems:=0;
+    cfg.Root.Bool('b',true);
+    Check(cfg.Root.Bool('b',true) and (problems=1) and (Pos('val.ctl:1',lastProblem)>0),'a bad value is reported once: '+string(lastProblem));
+  finally
+    cfg.Free;
+  end;
+  EndTest;
+end;
+
 begin
   try
+    onConfigProblem:=OnProblem;
     writeln('Testing Apus.Config');
     writeln;
     Cleanup;
@@ -935,6 +1004,7 @@ begin
     TestOptional;
     TestProtected;
     TestReload;
+    TestProblems;
 
     Cleanup;
     writeln;

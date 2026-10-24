@@ -1709,9 +1709,19 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   holds the path of the file used (the copy in `AppDataDir` when the shipped one must
   stay intact), no longer the bare name used as a control file key. The keys are
   unchanged and case-insensitive: `appConfig.Root.Int('Options.WindowWidth',1024)`.
+- Config problems are not fatal, but noticeable. `TConfig.Create` never raises on the
+  file: a missing or broken file gives an empty document (the defaults), `LoadError` and a
+  report; such a file is not overwritten by `Save` and is picked up by `ReloadIfChanged`
+  once fixed. Every problem (a failed load, reload or save, a value that does not
+  convert, a write the content does not allow) is logged and passed to `onConfigProblem`;
+  GameApp shows it as a toast. `Reload` and `Save` are functions returning success.
+- `Apus.Engine.GameApp`: a missing `appSetup.configFile` is no longer a `FatalError`: the
+  defaults are used, a toast says so, and `SaveOptions` creates the file.
 - `Apus.Engine.Sound`: an event may also be a section,
   `sampleQuiet = { file = "sample.ogg", vol = 30 }`; `PreloadSamples` may be an array
   of files; a missing `PreloadSamples` means `NONE` (it was a config loading error).
+  A broken event is reported and skipped; a config error no longer fails the sound
+  initialization.
 - `Apus.SCGI`: reads `config.ctl` through `Apus.Config`; the file is unchanged.
 - Data files: CTL2 files keep working. A CTL2 file that the program saves is written
   in the CTL3 syntax. Duplicate keys in a file are an error now (CTL2 silently kept

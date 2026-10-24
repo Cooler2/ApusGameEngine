@@ -188,8 +188,9 @@ scalar    = string | rawstring | bare | "null"
 
 Each typed read takes a path (section 5.2) and a default. A *lenient* read returns the
 default when the node is missing, is `ckNull`, or does not convert; a conversion failure
-also logs a warning once per node with its `file:line`. A *strict* read (`Req...`) raises
-`EConfigError` with the location instead.
+is also reported once per node with its `file:line` (section 10). A *strict* read
+(`Req...`) raises `EConfigError` with the location instead: it is the one place where the
+caller asks for an exception.
 
 | Read | Accepts | Gives the default (warning) for |
 |---|---|---|
@@ -241,14 +242,20 @@ user.Root.SetInt('options.windowWidth',1280);
 user.Save;
 ```
 
-- `Create(fname)` reads the file and its includes. A file that fails to load raises
-  `EConfigError`.
-- With `optional=true` a missing file gives an empty document; the first `Save` creates the
-  file.
-- `Set...` stores a value, creating the missing sections. `Delete(path)` removes a key
-  with everything under it.
-- `Save` writes the document if it was modified (section 7). A document that is only read
-  (shipped data, a file in a pack) is simply never saved.
+- `Create(fname)` reads the file and its includes. It never raises because of the file:
+  a file that fails to load (missing, a syntax error, a duplicate key, a broken include)
+  gives an empty document, so every read returns its default; the problem is reported
+  (section 10) and kept in `LoadError`.
+- With `optional=true` a missing file is not a problem: the document is empty, and the
+  first `Save` creates the file.
+- `Set...` stores a value, creating the missing sections. A write that the content does not
+  allow (through a value: `a.b` where `a` is a value; a value over a section; an array item
+  that does not exist) is reported and skipped. `Delete(path)` removes a key with
+  everything under it.
+- `Save` writes the document if it was modified (section 7) and returns `false` if it could
+  not. A document that is only read (shipped data, a file in a pack) is simply never saved.
+- While `LoadError` is set, `Save` does not write: the broken file stays as it is for the
+  user to fix, and the changes made over the defaults are not saved.
 
 ## 7) Writing files
 
@@ -321,14 +328,17 @@ of every file it read, main files and included ones, as `Files.GetFileInfo` repo
 
 - `Changed` tells whether any of these files differ now, or an optional file appeared or
   disappeared.
-- `Reload` reads the document again. `ReloadIfChanged` does it only if `Changed` and
-  returns `true` if the document was reloaded. There is no file watcher: a server
+- `Reload` reads the document again. `ReloadIfChanged` does it only if `Changed`. Both
+  return `true` if the document was reloaded. There is no file watcher: a server
   calls `ReloadIfChanged` on its own schedule, e.g. once a second from its timer.
 - A reload is atomic. The new content is parsed first; on an error the document keeps its
-  previous content. `Reload` then raises `EConfigError`; `ReloadIfChanged` logs the error
-  with its location, returns `false` and does not try that file again until it changes once
-  more (a file caught in the middle of saving does not flood the log).
-- A document with unsaved changes is not reloaded; a warning names it.
+  previous content, the error is reported with its location and set as `LoadError`, and
+  `ReloadIfChanged` does not try the same files again until they change once more (a file
+  caught in the middle of saving does not flood the log).
+- A document whose load failed watches the files it tried to read, included ones too: a
+  fixed file is picked up by `ReloadIfChanged`, and the defaults give way to its content.
+- A document with unsaved changes is not reloaded; a warning names it. A document whose
+  last load failed is reloaded anyway: its changes can't be saved over the broken file.
 - Other threads see either the old or the new content, never a mix. Handles stay valid and
   see the new content (section 5.1).
 - After a successful reload the document sends the signal `Config\Reloaded` through
@@ -337,9 +347,18 @@ of every file it read, main files and included ones, as `Files.GetFileInfo` repo
 
 ## 10) Errors, threads, lifetime
 
-- Parse errors raise `EConfigError` with `file:line:column` and a description.
-- `EConfigError` is also raised by strict reads, by writes through a scalar (`a.b` where
-  `a` is a value), and by a failed save.
+A problem in a config is never fatal: the program goes on with the defaults, and the
+problem is made noticeable.
+
+- Every problem is logged and passed to the global `onConfigProblem` handler, from the
+  thread that found it. Problems are: a failed load, reload or save (an error in the log),
+  a value that does not convert and a write that the content does not allow (a warning).
+  The messages carry the place, `file:line:column` for parse errors.
+- The engine (`Apus.Engine.GameApp`) sets the handler to show each problem as a toast.
+  Code that interprets config values itself (e.g. the parameters of a sound event)
+  reports its problems through `ReportConfigProblem` and gets the same treatment.
+- `EConfigError` is raised only for errors in the calling code: strict reads (section 4),
+  a malformed path (`a[x`), a value written to the root, deleting the root.
 - A `TConfig` is thread-safe: every call takes the document's own lock. Different documents
   share nothing.
 - Handles do not keep the document alive. Using a handle after its document is freed is a
@@ -356,6 +375,7 @@ type
   EConfigError=class(EError);
 
   TCfgKind=(ckNone,ckNull,ckScalar,ckSection,ckArray);
+  TConfigProblemProc=procedure(const msg:String8);
 
   IConfigProtector=interface
     function Protect(const data:ByteArray):ByteArray;
@@ -408,17 +428,23 @@ type
 
   TConfig=class
   public
-    // optional: a missing file gives an empty document (section 6)
+    // never raises on the file; optional: a missing file is not a problem (section 6)
     constructor Create(const fname:String8;optional:boolean=false;protector:IConfigProtector=nil);
     destructor Destroy; override;
     function Changed:boolean;
-    procedure Reload;
+    function Reload:boolean;
     function ReloadIfChanged:boolean;
     function Root:TCfgNode;
     function Node(const path:String8):TCfgNode; // Root.Node(path)
     function Modified:boolean;
-    procedure Save;
+    function LoadError:String8; // '' if the last load or reload succeeded
+    function Save:boolean;
   end;
+
+var
+  onConfigProblem:TConfigProblemProc=nil; // section 10
+
+procedure ReportConfigProblem(const msg:String8);
 ```
 
 Only the public part is shown; the records also carry private fields.
@@ -438,7 +464,7 @@ dropped: reading and saving stay explicit calls).
 
 | `Apus.ControlFiles` | `Apus.Config` |
 |---|---|
-| `UseControlFile(f)` | `cfg:=TConfig.Create(f)` |
+| `UseControlFile(f)` | `cfg:=TConfig.Create(f)` (does not raise; `LoadError` tells the problem) |
 | `ctlGetInt('f.ctl:\A\B',d)` | `cfg.Root.Int('A.B',d)` |
 | `ctlGetKeyType(p)` | `cfg.Node(p).Kind`; int and float are not told apart |
 | `ctlGetKeys(p)` + `Split(' ')` | `for n in cfg.Node(p) do ... n.Name` |
