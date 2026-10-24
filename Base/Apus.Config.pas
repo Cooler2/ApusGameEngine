@@ -462,18 +462,66 @@ begin
   end;
 end;
 
+// Where there is no extended (FPC on Win64) FloatToStrF stops at 15 digits; Str(v:width) gives
+// more: digits+7 is the width of "-d.dddE+ddd". The result has the form of ffGeneral
+function StrLexeme(v:double;digits:integer):String8;
+const
+  ZEROS:String8='0000000000000000';
+var
+  s:ShortString;
+  t,m:String8;
+  p,e,code:integer;
+  neg:boolean;
+begin
+  Str(v:digits+7,s);
+  t:=String8(Trim(string(s)));
+  result:=t;
+  p:=Pos(String8('E'),t);
+  if p=0 then exit;
+  Val(string(copy(t,p+1,length(t))),e,code);
+  if code<>0 then exit;
+  m:=copy(t,1,p-1);
+  neg:=(m<>'') and (m[1]='-');
+  if neg then System.Delete(m,1,1);
+  if (length(m)<2) or (m[2]<>'.') then exit;
+  System.Delete(m,2,1); // the digits only
+  while (length(m)>1) and (m[length(m)]='0') do SetLength(m,length(m)-1);
+  if (e>=-4) and (e<digits) then begin
+    if e<0 then result:='0.'+copy(ZEROS,1,-e-1)+m
+    else
+    if e+1>=length(m) then result:=m+copy(ZEROS,1,e+1-length(m))
+    else result:=copy(m,1,e+1)+'.'+copy(m,e+2,length(m));
+  end else begin
+    result:=copy(m,1,1);
+    if length(m)>1 then result:=result+'.'+copy(m,2,length(m));
+    result:=result+'E'+String8(IntToStr(e));
+  end;
+  if neg then result:='-'+result;
+end;
+
 // Shortest form that reads back to the same double; integral values get '.0' to look like floats
 function FloatLexeme(v:double):String8;
 var
   fs:TFormatSettings;
   digits:integer;
+  exact:boolean;
+  s:String8;
 begin
   {$IFDEF FPC}fs:=DefaultFormatSettings;{$ELSE}fs:=TFormatSettings.Create;{$ENDIF}
   fs.DecimalSeparator:='.';
   for digits:=15 to 17 do begin
     result:=String8(FloatToStrF(v,ffGeneral,digits,0,fs));
-    if IsFloatLiteral(result) and (LiteralToFloat(result)=v) then break;
+    exact:=IsFloatLiteral(result) and (LiteralToFloat(result)=v);
+    if exact then break;
   end;
+  if not exact then
+    for digits:=16 to 17 do begin
+      s:=StrLexeme(v,digits);
+      if IsFloatLiteral(s) and (LiteralToFloat(s)=v) then begin
+        result:=s;
+        break;
+      end;
+    end;
   if IsIntLiteral(result) then result:=result+'.0';
 end;
 
