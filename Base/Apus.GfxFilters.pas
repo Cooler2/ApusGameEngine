@@ -118,7 +118,7 @@ procedure paddsb(var src; var dst; count:integer); pascal;
 
 
 implementation
-uses Apus.FastGFX,Apus.Colors;
+uses Apus.Core,Apus.FastGFX,Apus.Colors;
 
 type
  ByteArray=array[0..1000] of byte;
@@ -339,14 +339,11 @@ function Sharpen(buf:pointer;pitch,width,height,strength:integer;inplace:boolean
    o:=y*pitch+1;
    for x:=1 to width-2 do begin
     c0:=sour[o]; c1:=sour[o-1]; c2:=sour[o+1]; c3:=sour[o-pitch]; c4:=sour[o+pitch];
-    b:=((c0 and 255) shl 3-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and 255) shl 3-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4,0,255);
     v:=b+c0 and $FF000000;
-    b:=((c0 and $FF00) shl 3-(c1 and $FF00)-(c2 and $FF00)-(c3 and $FF00)-(c4 and $FF00)) div $400;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and $FF00) shl 3-(c1 and $FF00)-(c2 and $FF00)-(c3 and $FF00)-(c4 and $FF00)) div $400,0,255);
     v:=v+(b shl 8);
-    b:=((c0 and $FF0000) shl 3-(c1 and $FF0000)-(c2 and $FF0000)-(c3 and $FF0000)-(c4 and $FF0000)) div $40000;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and $FF0000) shl 3-(c1 and $FF0000)-(c2 and $FF0000)-(c3 and $FF0000)-(c4 and $FF0000)) div $40000,0,255);
     v:=v+(b shl 16);
     pc^:=Color.Mix(v,c0,strength);
     inc(pc); inc(o);
@@ -378,8 +375,7 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
    o:=y*pitch+1;
    for x:=1 to width-2 do begin
     c0:=sour[o]; c1:=sour[o-1]; c2:=sour[o+1]; c3:=sour[o-pitch]; c4:=sour[o+pitch];
-    b:=((c0 and 255)*8-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and 255)*8-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4,0,255);
     pc^:=(b*strength+c0*s) shr 8;
     inc(pc); inc(o);
    end;
@@ -1349,9 +1345,9 @@ procedure HeightToNormalMap(srcBuf:pointer;srcPitch:integer;
     n.y:=-(Lum(x,y+1)-Lum(x,y-1))*scale;
     n.z:=1;
     n.Normalize;
-    nx:=round(127.5+n.x*127.5); if nx<0 then nx:=0; if nx>255 then nx:=255;
-    ny:=round(127.5+n.y*127.5); if ny<0 then ny:=0; if ny>255 then ny:=255;
-    nz:=round(127.5+n.z*127.5); if nz<0 then nz:=0; if nz>255 then nz:=255;
+    nx:=Clamp(round(127.5+n.x*127.5),0,255);
+    ny:=Clamp(round(127.5+n.y*127.5),0,255);
+    nz:=Clamp(round(127.5+n.z*127.5),0,255);
     dp^:=$FF000000 or cardinal(nx shl 16) or cardinal(ny shl 8) or cardinal(nz);
     inc(dp);
    end;
@@ -1373,15 +1369,9 @@ procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMat34);
     b:=v and $FF; v:=v shr 8;
     g:=v and $FF; v:=v shr 8;
     r:=v and $FF;
-    nb:=round(mat[0,0]*b+mat[1,0]*g+mat[2,0]*r+mat[3,0]);
-    ng:=round(mat[0,1]*b+mat[1,1]*g+mat[2,1]*r+mat[3,1]);
-    nr:=round(mat[0,2]*b+mat[1,2]*g+mat[2,2]*r+mat[3,2]);
-    if nb<0 then nb:=0;
-    if nb>255 then nb:=255;
-    if ng<0 then ng:=0;
-    if ng>255 then ng:=255;
-    if nr<0 then nr:=0;
-    if nr>255 then nr:=255;
+    nb:=Clamp(round(mat[0,0]*b+mat[1,0]*g+mat[2,0]*r+mat[3,0]),0,255);
+    ng:=Clamp(round(mat[0,1]*b+mat[1,1]*g+mat[2,1]*r+mat[3,1]),0,255);
+    nr:=Clamp(round(mat[0,2]*b+mat[1,2]*g+mat[2,2]*r+mat[3,2]),0,255);
     p^:=(p^ and $FF000000) or nb or (ng shl 8) or (nr shl 16);
     inc(p);
    end;

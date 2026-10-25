@@ -1163,7 +1163,7 @@ begin
   a:=i*3.1416/6.5;
   x:=window.canvasWidth/2+32*cos(a);
   y:=window.canvasHeight/2-32*sin(a);
-  L:=50+round(-256*i/13-CoreTime.Ticks*0.3) and 255;
+  L:=50+(round(-256*i/13-CoreTime.Ticks*0.3) and 255)*205 shr 8; // 50..254: the alpha must fit a byte
   L:=round(v.Value*L);
   draw.RotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;

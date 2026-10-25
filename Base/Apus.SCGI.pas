@@ -23,7 +23,7 @@ interface
   WORKER_THREADS:integer=3;
   local_IP:cardinal=$7F000001; // localhost
 
-  rootDir:string; // root dir for site "/" path (ends with '\')
+  rootDir:string; // root dir for site "/" path (ends with a path delimiter)
   URIprefix:String8; // this prefix is removed from URI before request is processed
 
  threadvar
@@ -1009,7 +1009,7 @@ implementation
    worker_threads:=ctl.Int('WorkerThreads',worker_threads);
    rootDir:=ctl.Str('rootDir',GetCurrentDir);
    URIprefix:=lowercase(ctl.Str('URIprefix',''));
-   if (rootDir<>'') and (rootDir[length(rootDir)]<>'\') then rootDir:=rootDir+'\';
+   if rootDir<>'' then rootDir:=IncludeTrailingPathDelimiter(rootDir);
    DB_HOST:=ctl.Str('MySQL.Host',DB_HOST);
    DB_LOGIN:=ctl.Str('MySQL.Login',DB_LOGIN);
    DB_PASSWORD:=ctl.Str('MySQL.Password',DB_PASSWORD);

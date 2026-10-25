@@ -368,21 +368,6 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end; // Success
  end;
 
-function StrToHex(st:string):string;
- const
-  hex:array[0..15] of char=('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
- var
-  i:integer;
-  b:byte;
- begin
-  SetLength(result,length(st)*2);
-  for i:=1 to length(st) do begin
-   b:=byte(st[i]);
-   result[i*2-1]:=hex[b shr 4];
-   result[i*2]:=hex[b and 15];
-  end;
- end;
-
 // Builds the request body from the outgoing message queue and sends the request
 procedure SendMessages(server:string);
  var
@@ -604,18 +589,20 @@ procedure EventHandler2(event:TEventStr;tag:TTag);
 procedure CreateAccount(server,login,password,name,extras:string);
  var
   query,data:string;
+  enc:String8;
   b:byte;
   i:integer;
  begin
   RemoveEventHandler(EventHandler2);
   SetEventHandler('HTTP_Event2',EventHandler2,emInstant);
   query:=name+#9+login+#9+ShortMD5(password)+#9+extras;
+  SetLength(enc,length(query));
   b:=47;
   for i:=1 to length(query) do begin
-   query[i]:=char(byte(query[i]) xor b);
+   enc[i]:=AnsiChar(byte(query[i]) xor b);
    inc(b,39);
   end;
-  data:='A='+StrToHex(query);
+  data:='A='+Conv.EncodeHex(enc);
   HTTPRequest(server+'/newacc',data,'HTTP_Event2',0,ctUrlencoded);
  end;
 

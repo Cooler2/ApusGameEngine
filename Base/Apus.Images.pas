@@ -171,7 +171,7 @@ type
  function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
-uses SysUtils, Apus.Core, Apus.Types, Apus.Conv;
+uses SysUtils, Apus.Core, Apus.Conv, Apus.Colors;
 
 function PixFmt2Str(ipf:TImagePixelFormat):string;
 begin
@@ -221,7 +221,7 @@ procedure SwapRB(var data;count:integer);
 begin
   pc:=@data;
   while count>0 do begin
-   pc^:=pc^ and $FF00FF00 or (pc^ and $FF shl 16) or (pc^ and $FF0000 shr 16);
+   pc^:=Color.Swap(pc^);
    inc(pc);
    dec(count);
 end;

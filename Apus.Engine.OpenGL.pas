@@ -191,6 +191,7 @@ type
   procedure UploadStreamVertices(vertices:pointer;vertexLayout:TVertexLayout;vertexCount:integer);
   procedure UploadStreamIndices(indices:pointer;indexCount:integer);
   procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
+  procedure UseClientArrays(vertices,indices:pointer);
   procedure TrackArrayBufferBinding(buffer:cardinal);
   procedure TrackElementBufferBinding(buffer:cardinal);
  end;
@@ -983,38 +984,34 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
   end;
   CheckForGLError(111);
  end;
+// Draws from RAM pointers (compatibility profile only) or from the bound buffers (vertices=indices=nil)
+procedure TRenderDevice.UseClientArrays(vertices,indices:pointer);
+ begin
+  if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
+   ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
+  if not IsCoreProfile then begin
+   if (vertices<>nil) and (boundArrayBuffer<>0) then begin
+    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+    TrackArrayBufferBinding(0);
+   end;
+   if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
+    TrackElementBufferBinding(0);
+   end;
+  end;
+ end;
+
 
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount:integer);
  var
-  indexCount,vertexCount:integer;
-  useStream:boolean;
+  indexCount:integer;
  begin
   EnsureThreadState;
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  // TODO(low): consider removing this overload or extending it with vrtCount; stream upload without vertex count is unsafe.
-  useStream:=false;
-  if useStream then begin
-   vertexCount:=indexCount;
-   UploadStreamVertices(vertices,vertexLayout,vertexCount);
-   UploadStreamIndices(indices,indexCount);
-   vertices:=nil;
-   indices:=nil;
-  end else begin
-   if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
-    ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
-   if not IsCoreProfile then begin
-    if (vertices<>nil) and (boundArrayBuffer<>0) then begin
-     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
-     TrackArrayBufferBinding(0);
-    end;
-    if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
-     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
-     TrackElementBufferBinding(0);
-    end;
-   end;
-  end;
+  // TODO(low): consider removing this overload or extending it with vrtCount: RAM data can't be streamed without the vertex count
+  UseClientArrays(vertices,indices);
   SetupAttributes(vertices,vertexLayout);
   if window<>nil then begin
    inc(window.stats.drawCalls);
@@ -1076,34 +1073,13 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
 procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount,instances:integer);
  var
-  indexCount,vertexCount:integer;
-  useStream:boolean;
+  indexCount:integer;
  begin
   EnsureThreadState;
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  // TODO(low): consider removing this overload or extending it with vrtCount; stream upload without vertex count is unsafe.
-  useStream:=false;
-  if useStream then begin
-   vertexCount:=indexCount;
-   UploadStreamVertices(vertices,vertexLayout,vertexCount);
-   UploadStreamIndices(indices,indexCount);
-   vertices:=nil;
-   indices:=nil;
-  end else begin
-   if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
-    ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
-   if not IsCoreProfile then begin
-    if (vertices<>nil) and (boundArrayBuffer<>0) then begin
-     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
-     TrackArrayBufferBinding(0);
-    end;
-    if (indices<>nil) and (boundElementArrayBuffer<>0) then begin
-     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
-     TrackElementBufferBinding(0);
-    end;
-   end;
-  end;
+  // TODO(low): consider removing this overload or extending it with vrtCount: RAM data can't be streamed without the vertex count
+  UseClientArrays(vertices,indices);
   SetupAttributes(vertices,vertexLayout);
   if window<>nil then begin
    inc(window.stats.drawCalls);

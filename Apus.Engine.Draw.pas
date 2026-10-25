@@ -1014,7 +1014,7 @@ procedure TDrawer.Scaled(x1, y1, x2, y2: single; image: TTexture;
   color: cardinal);
 var
  vrt:array[0..3] of TVertex;
- v,u1,v1,u2,v2:single;
+ u1,v1,u2,v2:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2,y2) then exit;
  x1:=x1-0.01; y1:=y1-0.01;
@@ -1024,12 +1024,12 @@ begin
  v1:=image.v1+image.StepV; v2:=image.v2-image.stepV;
 
  if x1>x2 then begin
-  v:=x1; x1:=x2; x2:=v;
-  v:=u1; u1:=u2; u2:=v;
+  Swap(x1,x2);
+  Swap(u1,u2);
  end;
  if y1>y2 then begin
-  v:=y1; y1:=y2; y2:=v;
-  v:=v1; v1:=v2; v2:=v;
+  Swap(y1,y2);
+  Swap(v1,v2);
  end;
  vrt[0].Init(x1,y1, zPlane, u1, v1, color);
  vrt[1].Init(x2,y1, zPlane, u2, v1, color);

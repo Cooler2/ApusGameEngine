@@ -400,8 +400,7 @@ function FindProperFile(fname:String8;dontFail:boolean=false):String8;
   for i:=0 to high(EXTENSIONS) do begin
    {$IFNDEF WEBP}if EXTENSIONS[i]='.webp' then continue;{$ENDIF}
    {$IFNDEF IOS}if EXTENSIONS[i]='.pvr' then continue;{$ENDIF}
-   SetLength(names,length(names)+1);
-   names[high(names)]:=fname+EXTENSIONS[i];
+   names.Add(fname+EXTENSIONS[i]);
   end;
   i:=Files.SelectFile(names); // a layered provider may prefer its top layer
   if i>=0 then result:=names[i]

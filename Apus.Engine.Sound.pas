@@ -460,7 +460,7 @@ function LoadMediaAsSample(fName:string):TMediaFile;
   Log.Msg('[SOUND] Load sample from '+st);
   result:=soundLib.OpenMediaFile(st,mlmLoadUnpack);
   if result<>nil then
-   mediaFilesHash.Put(UpperCase {TODO: use st.ToUpper}(fName),UIntPtr(result));
+   mediaFilesHash.Put(UpperCase(fName),UIntPtr(result));
  end;
 
 constructor TSoundEvent.Create(name: string);
@@ -534,7 +534,7 @@ procedure LoadConfig;
  // One parameter of a sound event: file, vol, pan, freq or speed
  procedure SetEventParam(evt:TSoundEvent;name,value:string8);
   begin
-   name:=UpperCase {TODO: use st.ToUpper}(name);
+   name:=name.ToUpper;
    if name='FILE' then begin
     evt.fileName:=value;
     // check if this media file is already loaded
@@ -556,7 +556,7 @@ procedure LoadConfig;
    evt:TSoundEvent;
    p:TCfgNode;
   begin
-   evt:=TSoundEvent.Create(UpperCase {TODO: use st.ToUpper}(node.Name));
+   evt:=TSoundEvent.Create(node.Name.ToUpper);
    try
     if node.Kind=ckSection then
      for p in node do SetEventParam(evt,p.Name,p.AsStr)
@@ -584,11 +584,11 @@ procedure LoadConfig;
   begin
    if node.Kind<>ckSection then exit;
    item:=TMusicEntry.Create;
-   item.name:=UpperCase {TODO: use st.ToUpper}(node.Name);
+   item.name:=node.Name.ToUpper;
    fname:=node.Str('file');
    item.loop:=node.Bool('loop',false);
    loop:=item.loop;
-   fExt:=UpperCase {TODO: use st.ToUpper}(ExtractFileExt(fname));
+   fExt:=UpperCase(ExtractFileExt(fname));
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAV') then begin
     {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
     // Copy file to data folder
@@ -664,7 +664,7 @@ procedure LoadConfig;
    if length(names)=1 then names:=names[0].Split(',');
    if length(names)=0 then mode:='NONE'
    else
-   if length(names)=1 then mode:=UpperCase {TODO: use st.ToUpper}(names[0])
+   if length(names)=1 then mode:=names[0].ToUpper
    else mode:='LIST';
    Log.Force('[SOUND] Preloading mode: '+mode);
    if mode<>'NONE' then Log.Msg('[SOUND] Preloading');
@@ -1161,7 +1161,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   try
   delete(event,1,6);
   orig:=event; // file paths keep their case
-  event:=UpperCase {TODO: use st.ToUpper}(event);
+  event:=event.ToUpper;
 
   if event='ANIMATEMUSICVOL' then AnimateMusicVolume(TMusicEntry(tag));
 
@@ -1217,7 +1217,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   if event.StartsWith('PAUSE') or event.startsWith('RESUME') then
    PauseAll(event.StartsWith('PAUSE'));
 
-  if pos('PLAYMUSIC\',event)=1 then begin
+  if event.StartsWith('PLAYMUSIC\') then begin
    Log.Msg('[SOUND] '+event);
    delete(event,1,10);
    PlayMusicEvent(event,tag);
