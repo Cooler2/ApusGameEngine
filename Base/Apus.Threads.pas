@@ -944,7 +944,6 @@ var
   idx,i,counter,minFree:integer;
   pattern:String8;
   used:array of boolean;
-  found:boolean;
 begin
   // check for % pattern (auto-increment)
   idx:=Pos('%',name);

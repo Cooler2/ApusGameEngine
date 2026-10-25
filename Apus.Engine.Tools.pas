@@ -10,7 +10,7 @@ unit Apus.Engine.Tools;
 interface
  uses Apus.Core, Apus.Engine.API, Apus.Images,
     Apus.Engine.UIWidgets, Apus.Engine.UIShapes,
-    Apus.UnicodeFont, Apus.Types, Apus.Engine.Game;
+    Apus.Engine.Game;
 
 var
  rootDir:string='';
@@ -113,7 +113,7 @@ type
 implementation
  uses SysUtils,
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
-    Apus.GfxFormats,Classes,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
+    Classes,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
     Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,
   Apus.Lib,
   Apus.Strings,
@@ -329,7 +329,7 @@ end;
  procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:String32;
      textColor,glowColor,glowDepth,glowBlur:cardinal;glowOfsX,glowOfsY:integer);
   var
-   w,h,d,i:integer;
+   w,h,d:integer;
    alpha:pointer;
    pb:PByte;
    tmp:PByte;

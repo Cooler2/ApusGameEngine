@@ -145,7 +145,7 @@ function MakeRange(img:TTexture; x,y,dx,dy:integer; var range:TPatchRange):boole
 
 procedure TCustomNinePatch.BuildRanges(tex:TTexture);
  var
-  x,y,i,n:integer;
+  x,y,n:integer;
  begin
    // Top line
    x:=1; y:=0;
@@ -647,7 +647,7 @@ end;
 { TNinePatch }
 procedure TCustomNinePatch.BuildMeshForSize(width,height:single);
  var
-  i,j,nH,nW:integer;
+  nH,nW:integer;
   du,dv:single;
   xx,yy:TGridArray;
  begin
@@ -687,8 +687,6 @@ procedure TCustomNinePatch.BuildMeshForSize(width,height:single);
  end;
 
 constructor TCustomNinePatch.Create(fromImage: TTexture);
- var
-  x,y,n:integer;
  begin
   ASSERT((fromImage.width>=3) and (fromImage.height>=3));
   scaleFactor:=1;

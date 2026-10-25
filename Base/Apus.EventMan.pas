@@ -129,7 +129,6 @@ var
  // Event stack (max depth - 8 events)
  StackSize:integer=0;
 // EventStack:array[1..8] of EventStr;
- eventnum:integer=0;
 // stacklog:string;
 
  links:array[0..255] of PLink;

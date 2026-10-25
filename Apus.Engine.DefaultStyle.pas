@@ -31,7 +31,7 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
   defaultBtnColor:cardinal=$FFB0A0C0;
 
 implementation
- uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Tweenings,
+ uses Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
     Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
@@ -431,7 +431,6 @@ implementation
     '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
-   duration:integer;
    col,vColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
@@ -646,8 +645,8 @@ implementation
 
  procedure DrawUIScrollbar(element:TUIScrollbar;x1,y1,x2,y2:integer);
   var
-   c,d,v,col,trackColor:cardinal;
-   size,width,startPos,endPos,minSize:integer;
+   col,trackColor:cardinal;
+   size,width:integer;
    scale,trackWidth,sliderWidth,sliderRadius,f:single;
    sStyle:string8;
    context:TContext;
@@ -773,7 +772,6 @@ implementation
   var
    wst:String32;
    i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
-   c:cardinal;
    font:TFontHandle;
    col:cardinal;
   begin
@@ -859,7 +857,7 @@ implementation
  procedure DrawUIListBox(control:TUIListBox;x1,y1,x2,y2:integer);
   var
    i,lY:integer;
-   c,c1,c2:cardinal;
+   c:cardinal;
    scrollPos,lineH:single;
    font:TFontHandle;
   begin

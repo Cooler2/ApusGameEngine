@@ -221,7 +221,7 @@ var
  procedure FillPolygon(points:PVec2;count:integer;color:cardinal); // not yet implemented
 
 implementation
- uses Apus.Types, {$IFDEF ANDROID}SysUtils,{$ENDIF} Apus.Colors, Math, Apus.Core;
+ uses {$IFDEF ANDROID}SysUtils,{$ENDIF} Apus.Colors, Math, Apus.Core;
 
 threadvar
  // Default drawing target
@@ -1162,7 +1162,6 @@ const
   var
    sp:PByte;
    dp:PCardinal;
-   i:integer;
    c:cardinal;
   begin
    sp:=@sour; dp:=@dest;

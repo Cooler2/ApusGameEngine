@@ -375,7 +375,7 @@ interface
   end;
 
 implementation
- uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Engine.Clipboard,
+ uses SysUtils, Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Engine.Clipboard,
   Apus.Strings, Apus.Threads, Apus.Engine.UIRender, Apus.Engine.UI;
 
  type
@@ -1958,7 +1958,6 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
 
 constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil);
   var
-   btn:TUIButton;
    i,j:integer;
   begin
    inherited Create(width,height,parent_,name);

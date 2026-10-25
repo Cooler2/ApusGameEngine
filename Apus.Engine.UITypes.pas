@@ -8,7 +8,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UIShapes,
+uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UIShapes,
   Apus.Engine.Scene, Apus.Engine.Window, Apus.Engine.Style;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -618,8 +618,6 @@ function DescribeElement(c:TUIElement):String8;
  function TUIElement.TransformFromScreen(const p:TVec2):TVec2;
   var
    kx,ky,bx,by:single;
-   c:TUIElement;
-   sx:single;
   begin
    // Xscr = k*x+b, so test x=0 and x=1 to calculate K and B
    // This is probably not very efficient, but easier and safier
@@ -755,8 +753,6 @@ constructor TUIGroupBox.Create(width,height:single;parent_:TUIElement;name_:Stri
 
 constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
   var
-   n:integer;
-   wnd:TWindow;
    defColor:cardinal;
   begin
    position:=Vec2(0,0);
@@ -1066,8 +1062,6 @@ destructor TUIElement.Destroy;
   end;
 
  procedure TUIElement.Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
-  var
-   r:TUIRect;
   begin
    if parent=nil then exit;
    if snapTo=smNone then exit;
@@ -1118,7 +1112,7 @@ destructor TUIElement.Destroy;
 
  function TUIElement.GetPrev:TUIElement;
   var
-   i,n:integer;
+   i:integer;
   begin
    if parent=nil then exit(self);
    i:=childIndex-1;
@@ -1448,7 +1442,6 @@ function TUIElement.GetClientHeight:single;
  procedure TUIElement.MoveBy(dx,dy:single);
   var
    s:single;
-   delta:TVec2;
   begin
    s:=1/globalScale;
    dx:=dx*s; dy:=dy*s;

@@ -182,7 +182,7 @@ end;
 function TTCPServer.AcceptNewConnection:boolean;
 var
   s:TNativeSocket;
-  i,res,n:integer;
+  res,n:integer;
   addr:SockAddr_IN;
   addrLen:integer;
   user:TTCPServerUser;

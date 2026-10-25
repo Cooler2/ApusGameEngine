@@ -1020,8 +1020,6 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
  end;
 
 procedure TGLShadersAPI.UseCustom(shader:TShader);
- var
-  stage:integer;
  begin
   EnsureThreadState;
   isCustom:=true;

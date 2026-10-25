@@ -20,7 +20,7 @@ uses
   {$IFDEF DARWIN}NetDB,{$ELSE}CNetDB,{$ENDIF}
   {$ENDIF}
 {$ENDIF}
-  Apus.Types,Apus.Core;
+  Apus.Core;
 
 const
  LOCAL_IP = $7F000001; // localhost = 127.0.0.1

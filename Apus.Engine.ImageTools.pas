@@ -131,7 +131,6 @@ var
 
 var
  loadingTime:integer; // total image loading time in ms
- loadingJPEGTime:integer; // total JPEG loading time in ms
 
 var
  defaultLoadImageFlags:cardinal=0;

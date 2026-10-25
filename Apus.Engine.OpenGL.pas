@@ -518,7 +518,6 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
 
 procedure TOpenGL.BeginPaint(target: TTexture);
  var
-  rw,rh:integer;
   grp:String8;
  begin
   if target=nil then
@@ -984,6 +983,7 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
   end;
   CheckForGLError(111);
  end;
+
 // Draws from RAM pointers (compatibility profile only) or from the bound buffers (vertices=indices=nil)
 procedure TRenderDevice.UseClientArrays(vertices,indices:pointer);
  begin
@@ -1000,7 +1000,6 @@ procedure TRenderDevice.UseClientArrays(vertices,indices:pointer);
    end;
   end;
  end;
-
 
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount:integer);

@@ -564,7 +564,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
  var
   pb:PByte;
   sour:PByteArray;
-  x,y,v,o:integer;
+  x,y,o:integer;
  begin
   if target=nil then begin
    GetMem(pb,width*height);

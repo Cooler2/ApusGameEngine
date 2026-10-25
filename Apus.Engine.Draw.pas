@@ -1686,7 +1686,7 @@ type
  VertexArray=array[0..100] of TVertex;
 var
  //vrt:^VertexArray;
- i,j,n,loopStart,next,primcount:integer;
+ i,j,loopStart,next,primcount:integer;
  part:^PartArr;
  u1,u2,v1,rx,ry,qx,qy,l,vstep:single;
  sx,sy:single;
@@ -1795,7 +1795,6 @@ end;
 
 function TDrawer.Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 var
- w,h:integer;
  u,v,r1,r2:single;
 begin
  u:=0; v:=0;

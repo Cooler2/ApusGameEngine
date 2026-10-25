@@ -218,7 +218,7 @@ interface
  procedure Triangulate(pnts:PVec2;count:integer); overload;
 
 implementation
- uses Math, Apus.Types, Apus.Core, SysUtils;
+ uses Math, Apus.Core, SysUtils;
 
 function TVec2d.Length:double;
  begin

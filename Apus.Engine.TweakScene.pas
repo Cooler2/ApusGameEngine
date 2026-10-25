@@ -85,7 +85,7 @@ implementation
 
  procedure StyleDrawer(control:TUIElement);
   var
-   x1,y1,x2,y2,h:integer;
+   x1,y1,x2,y2:integer;
   begin
    with control do begin
     x1:=globalrect.Left;
@@ -128,7 +128,7 @@ implementation
 
 constructor TTweakerScene.Create(tinyFont_,normalFont_:cardinal);
 var
- i,h:integer;
+ h:integer;
 begin
  inherited Create('Tweaker',false);
  ignoreKeyboardEvents:=true;
@@ -282,7 +282,7 @@ var
  i,j:integer;
  xx,yy:integer;
  step:single;
- fl,focused:boolean;
+ focused:boolean;
  c:cardinal;
 begin
  focused:=self=focusedElement;
@@ -422,7 +422,6 @@ constructor TValueEditor.Create(vName,vValue,iValue:string;parent:TUIElement);
 var
  c,ic:cardinal;
  i:integer;
- btn:TUIButton;
 begin
  inherited Create(parent.width-20,24+window.canvasHeight div 40,parent,'Editor_'+vName);
  SetPos(10,parent.height-5);

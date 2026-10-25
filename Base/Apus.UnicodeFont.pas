@@ -126,7 +126,7 @@ implementation
  // Alpha blending for glyph rendering
  function Blend(background,foreground:cardinal;alpha:byte):cardinal;
   var
-   v1,v2:byte;
+   v1:byte;
    c1:TARGBColor absolute background;
    c2:TARGBColor absolute foreground;
    v:cardinal;
@@ -301,7 +301,6 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
   i,j,s,ofs,metadata,size:integer;
   ch:WideChar;
   found:boolean;
-  w:word;
  begin
    InitDefaults;
    data.Read(header,sizeof(header));

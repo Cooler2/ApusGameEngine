@@ -534,8 +534,6 @@ procedure TGameApplication.CreateScenes;
  end;
 
 procedure TGameApplication.LoadScenes;
- var
-  scene:TGameScene;
  begin
   Signal('GAMEAPP\LoadScenes');
   TGameScene.LoadAllScenes;

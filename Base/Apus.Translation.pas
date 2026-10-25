@@ -54,7 +54,7 @@ interface
  function Translate(st:MyString;ruleset:integer=0):MyString;
 
 implementation
- uses SysUtils,StrUtils,
+ uses SysUtils,
   Apus.Conv,
   Apus.Strings,
   Apus.Files,
@@ -196,10 +196,8 @@ implementation
 
 procedure TRulesSet.AddRule(sour, dest: MyString);
  var
-  b:byte;
-  i,c,l:integer;
-  m1,m2:cardinal;
-  w,wPrv:word;
+  i,c:integer;
+  w:word;
  begin
   if rCount>=length(rules) then begin
    SetLength(rules,length(rules)*2+10);
@@ -276,8 +274,6 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
  end;
 
 constructor TRulesSet.Create;
- var
-  i:integer;
  begin
   rCount:=0;
   setLength(rules,10);

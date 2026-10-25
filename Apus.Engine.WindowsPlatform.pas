@@ -6,7 +6,7 @@
 {$I defines.inc}
 unit Apus.Engine.WindowsPlatform;
 interface
-uses Windows, Apus.Types, Apus.Core, Apus.Engine.API, Apus.Engine.Keys, Apus.Engine.OpenGL;
+uses Windows, Apus.Core, Apus.Engine.API, Apus.Engine.Keys, Apus.Engine.OpenGL;
 
 type
  { TWinGLWindow - Windows + WGL window implementation }

@@ -71,7 +71,6 @@ implementation
    tmp:pointer;
    r:TRect;
    list:array of TUIElement;
-   maskChange:boolean;
    clipping:boolean;
   begin
    if not item.flags.visible then exit;

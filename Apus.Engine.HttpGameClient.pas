@@ -69,7 +69,7 @@ var
 
 
 implementation
- uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
+ uses {$IFDEF MSWINDOWS}winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
       {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Apus.EventMan,DCPmd5a,
       Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Threads;
 
@@ -373,7 +373,7 @@ procedure SendMessages(server:string);
  var
   i,size,count:integer;
   msgs:array[1..10] of integer;
-  query,boundary,sign:string;
+  query,sign:string;
   names,values:Strings8;
   cType:TContentType;
  begin

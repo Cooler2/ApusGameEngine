@@ -270,7 +270,6 @@ implementation
 
  function Cookie(name:String8):String8;
   var
-   p,e,i:integer;
    cookies,items:Strings8;
    st:String8;
   begin
@@ -381,7 +380,7 @@ implementation
  // Apply templates to a String8
  function TranslateString(st:String8):String8;
   var
-   i,j,k,p,q,r,start,after,action:integer;
+   j,k,p,q,r,start,after,action:integer;
    key,subst,tmp,pName,pValue:String8;
    keep,bad:boolean;
    sa:Strings8;
@@ -502,7 +501,7 @@ implementation
   var
    f:text;
    st,name,value:String8;
-   i,j,p:integer;
+   i,p:integer;
    fl,firstName:boolean;
   begin
    assign(f,fname);
@@ -546,8 +545,7 @@ implementation
  procedure LoadTemplates;
   var
    sr:TSearchRec;
-   r,p:integer;
-   date,fileDate:TDateTime;
+   r:integer;
   begin
    critSect.Enter; // basically this is no longer needed!
    try
@@ -679,7 +677,7 @@ implementation
  // (always called inside critsect)
  procedure ReadData(s:TNativeSocket);
   var
-   i,res,size,p,start:integer;
+   i,res,size:integer;
    t:int64;
   begin
    t:=CoreTime.Ticks;
@@ -1022,8 +1020,7 @@ implementation
 
  procedure RunServer;
   var
-   i,n,idx,res,addrLen:integer;
-   arg:cardinal;
+   i:integer;
   begin
    startTime:=now;
    lastTimerTime:=CoreTime.Ticks;
@@ -1213,7 +1210,6 @@ constructor TWorker.Create(id: integer);
 procedure TWorker.Execute;
  var
   r,count,duration:integer;
-  req:TRequest;
   state,isPending,isSpecial:boolean;
   t:int64;
  begin
@@ -1365,8 +1361,6 @@ procedure TWorker.Execute;
   end;
 
 
-var
- st:String8;
 begin
  // Default handler
  handlers[0].uri:='';

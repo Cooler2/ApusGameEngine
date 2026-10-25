@@ -164,7 +164,6 @@ implementation
 
 procedure LoadingThreadProc;
  var
-  i,n:integer;
   item,start:PQueueEntry;
  procedure Restart;
   begin

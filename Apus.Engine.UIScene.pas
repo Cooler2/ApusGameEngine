@@ -513,7 +513,6 @@ function UIScene(name:String8):TUIScene;
    st:String8;
    procedure ProcessElementTree(c:TUIElement);
     var
-     cnt:integer;
      list:TUIElements;
      child:TUIElement;
     begin

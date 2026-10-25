@@ -430,7 +430,7 @@ implementation
 
  procedure PublishFunction(name:String8;f:TFunction;tag:integer=0);
   var
-   i,n:integer;
+   n:integer;
   begin
    ASSERT(ValidIdentifier(name),name+'is not a valid function name!');
    ASSERT(@f<>nil);
@@ -461,7 +461,7 @@ implementation
 
  procedure PublishVar(variable:pointer;name:String8;vtype:TVarClass);
   var
-   n,h,l:integer;
+   n,h:integer;
    lowname:String8;
   begin
    ASSERT(variable<>nil);
@@ -548,7 +548,7 @@ implementation
 
  procedure PublishConst(name:String8;value:String8);
   var
-   i,j,n:integer;
+   j,n:integer;
    lowname:String8;
   begin
    ASSERT(ValidIdentifier(name),name+' is not a valid name');
@@ -645,8 +645,7 @@ implementation
  // Universal search
  function FindVar(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
-   i:integer;
-   p,p2:integer;
+   p:integer;
    field:String8;
    objClass:TVarClass;
    obj:pointer;
@@ -1050,7 +1049,6 @@ procedure SetGlobals(cmd:String8;contextName:String8);
 var
  i:integer;
  contextIdx:integer;
- context:TGlobalContext;
 begin
  // Same context? Change nothing...
  if lastAssignCmd=cmd then exit;

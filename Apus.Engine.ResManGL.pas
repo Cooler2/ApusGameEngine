@@ -729,7 +729,7 @@ end;
 procedure TGLTextureArray.UploadInternalData;
 var
  needInit:boolean;
- format,subformat,internalFormat,error:cardinal;
+ format,subformat,internalFormat:cardinal;
  i,bpp,z,depth,level:integer;
  glTarget:integer;
 begin
@@ -1317,7 +1317,7 @@ end;
 procedure TGLTexture.UpdateFilter;
 var
  fMin,fMax:integer;
- target,aTex:GLInt;
+ target:GLInt;
  aniso,maxAniso:single;
 begin
  if texname=0 then exit;
@@ -1378,9 +1378,8 @@ procedure TGLTexture.Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePi
 
 procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
  var
-  format,subformat,internalFormat,error:cardinal;
-  bpp,y,lineSize:integer;
-  sp,dp:PByte;
+  format,subformat,internalFormat:cardinal;
+  bpp:integer;
   {$IFDEF GLES}
   uploadBuf:pointer;
   {$ENDIF}
@@ -1439,7 +1438,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
 
 procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
  var
-  format,subformat,internalFormat,error:cardinal;
+  format,subformat,internalFormat:cardinal;
   bpp:integer;
   {$IFDEF GLES}
   uploadBuf:pointer;
@@ -1479,7 +1478,7 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
 
 procedure TGLTexture.InitStorage;
  var
-  format,subformat,internalFormat,error:cardinal;
+  format,subformat,internalFormat:cardinal;
   mipLevel:integer;
  begin
   if texName<>0 then exit;
@@ -1533,7 +1532,7 @@ function TGLTexture.IsBound(stage:integer):boolean;
 procedure TGLTexture.UploadInternalData;
  var
   needInit,dsa:boolean;
-  format,subformat,internalFormat,error:cardinal;
+  format,subformat,internalFormat:cardinal;
   i,bpp,level,stride:integer;
  begin
   needInit:=false;
@@ -1770,7 +1769,6 @@ function TGLResourceManager.AllocImage(width,height,mipLevels:integer; PixFmt:TI
   name:String8):TTexture;
 var
  tex:TGlTexture;
- dataSize:integer;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT((pixFmt<>ipfNone) or Bits.HasAll(flags,aiDepthBuffer),'Invalid pixel format for '+name);
@@ -2005,7 +2003,6 @@ end;
 procedure TGLResourceManager.FreeImage(var image:TTexture);
 var
  tex:TGLTexture;
- level:integer;
 begin
  // Must run on render thread with active GL context for actual GPU deletion.
  // Non-main thread requests are marshalled via GLImages\DeleteTexture signal.

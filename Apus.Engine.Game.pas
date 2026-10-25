@@ -1208,8 +1208,6 @@ end;
 
 
 procedure TGame.PrepareRun;
-var
- i:integer;
 begin
  game:=self;
  gameEx:=self;
@@ -1502,7 +1500,7 @@ end;
 
 procedure Delay(time:integer);
 var
- t,delta:int64;
+ t:int64;
 begin
  t:=CoreTime.Ticks+time;
  repeat
@@ -1862,7 +1860,6 @@ procedure TGame.FrameLoop;
 procedure TGame.RenderAndPresentFrame;
  var
   startUs:int64;
-  i:integer;
   deltaUs:int64;
   sampleUs:integer;
   presented:boolean;

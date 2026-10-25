@@ -470,7 +470,7 @@ const
 
 
 implementation
-uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
+uses Apus.Core, Apus.CPU, SysUtils, Math;
 
 type
   // Internal aliases for absolute overlays in matrix decomposition

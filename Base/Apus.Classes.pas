@@ -6,7 +6,7 @@
 
 unit Apus.Classes;
 interface
-uses Apus.Core, Apus.Types;
+uses Apus.Core;
 
 type
   TObjectEx=class

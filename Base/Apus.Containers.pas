@@ -16,7 +16,7 @@
 unit Apus.Containers;
 
 interface
-uses Apus.Core, Apus.Types, Classes;
+uses Apus.Core, Classes;
 
 type
  TErrorState=(
@@ -202,8 +202,7 @@ type
 
 
 implementation
- uses SysUtils, Variants,
-   Apus.Strings  // FastHash, StrHash
+ uses SysUtils, Variants
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
  const
