@@ -17,9 +17,12 @@ interface
   // Menu line: a button that draws its caption on the left and the shortcut text on the right.
   // Not focusable: the menu keeps the focus and tracks the current line.
   // A disabled line stays visible but never becomes current.
+  // The command is any of the button handlers - onClick, onClickAsync, onClickEvent - or
+  // a method in 'handler' (onClick can't take a method under FPC); all run after the menu
+  // is closed: Add('Save','Ctrl+S').handler:=Save
   TUIMenuItem=class(TUIButton)
    shortcut:String8;      // display only (the key itself is registered elsewhere)
-   handler:TObjProcedure; // called after the menu is closed
+   handler:TObjProcedure; // a method to call, after the inherited handlers
    constructor Create(menu:TUIPopupMenu;const caption,shortcut,name:String8);
    function Menu:TUIPopupMenu;
    function IsHovered:boolean; override; // highlighted = the current line of the menu
@@ -27,7 +30,7 @@ interface
    function ShortcutFontSize:single;     // 'shortcut-font-size', smaller than the caption by default
    function ShortcutFont:TFontHandle;
   protected
-   procedure DoClick; override;          // close the menu, then call the handler
+   procedure DoClick; override;          // close the menu, then call the handlers
   end;
 
   // A thin line between groups of menu lines
@@ -44,9 +47,9 @@ interface
    lineHeight:single;    // height of a line, 0 - by the font size
    constructor Create(parent:TUIElement;name:String8='');
    destructor Destroy; override;
-   // A line; name '' - '<menu name>\<caption without "&" and "...">'
-   function Add(const caption:String8;handler:TObjProcedure;const shortcut:String8='';
-     const name:String8=''):TUIMenuItem;
+   // A line without a command (set one on the result); name '' - '<menu name>\<caption>'
+   // with "&" and a trailing "..." removed, other signs -> '_'
+   function Add(const caption:String8;const shortcut:String8='';const name:String8=''):TUIMenuItem;
    function AddSeparator:TUIMenuSeparator;
    procedure Clear;
    // Open with the top-left corner at (x,y) of root (nil - the root of the menu's parent)
@@ -244,15 +247,13 @@ implementation
    inherited;
   end;
 
- function TUIPopupMenu.Add(const caption:String8;handler:TObjProcedure;const shortcut:String8;
-   const name:String8):TUIMenuItem;
+ function TUIPopupMenu.Add(const caption,shortcut,name:String8):TUIMenuItem;
   var
    n:String8;
   begin
    n:=name;
    if n='' then n:=DefaultItemName(self,caption);
    result:=TUIMenuItem.Create(self,caption,shortcut,n);
-   result.handler:=handler;
   end;
 
  function TUIPopupMenu.AddSeparator:TUIMenuSeparator;

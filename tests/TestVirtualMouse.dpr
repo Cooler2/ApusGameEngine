@@ -247,6 +247,20 @@ procedure TMenuProbe.DoQuit;
   inc(quits);
  end;
 
+// plain menu commands: inline and async (the async one runs in its own thread)
+var
+  menuPlainCalls,menuAsyncCalls:integer;
+
+procedure MenuPlainClick;
+ begin
+  inc(menuPlainCalls);
+ end;
+
+procedure MenuAsyncClick;
+ begin
+  Atomic.Inc(menuAsyncCalls);
+ end;
+
 { TKbdGame }
 
 function TKbdGame.KbdTarget:TGameScene;
@@ -489,6 +503,7 @@ procedure TestPopupMenu;
   probe:TMenuProbe;
   edit,edit2:TUIEditBox;
   itemNew,itemUndo,itemSave,itemQuit:TUIMenuItem;
+  t:integer;
  begin
   StartTest('Popup menu');
   probe:=TMenuProbe.Create;
@@ -497,12 +512,15 @@ procedure TestPopupMenu;
   edit:=TUIEditBox.Create(100,20,sceneA.UI,'MenuEdit');
   edit.SetPos(500,300,pivotTopLeft);
   testMenu:=TUIPopupMenu.Create(sceneA.UI,'TestMenu');
-  itemNew:=testMenu.Add('New',probe.DoNew,'Ctrl+N');
-  itemUndo:=testMenu.Add('Undo',nil,'Ctrl+Z');
+  itemNew:=testMenu.Add('New','Ctrl+N');
+  itemNew.handler:=probe.DoNew;
+  itemUndo:=testMenu.Add('Undo','Ctrl+Z');
   itemUndo.Disable;
   testMenu.AddSeparator;
-  itemSave:=testMenu.Add('Save...',probe.DoSave,'Ctrl+S');
-  itemQuit:=testMenu.Add('&Quit now',probe.DoQuit);
+  itemSave:=testMenu.Add('Save...','Ctrl+S');
+  itemSave.handler:=probe.DoSave;
+  itemQuit:=testMenu.Add('&Quit now');
+  itemQuit.handler:=probe.DoQuit;
   Check((itemSave.name='TestMenu\Save') and (itemQuit.name='TestMenu\Quit_now'),'default line names: '+itemSave.name+', '+itemQuit.name);
   // the anchor opens the menu below itself; its next press closes the menu for good
   Sleep(60); // TUIButton drops clicks in the first 50 ms of the program (its double-click guard)
@@ -534,6 +552,19 @@ procedure TestPopupMenu;
   sceneA.DispatchKey(TKey.Enter,0,0,true);
   Check((probe.saves=1) and not testMenu.IsOpen,'Enter runs the current line and closes the menu');
   Check(probe.focusAtCall=edit,'the command finds the focus already restored');
+  // the button handlers of a line run too: inline, async, then the method
+  menuPlainCalls:=0; menuAsyncCalls:=0;
+  itemQuit.onClick:=@MenuPlainClick;
+  itemQuit.onClickAsync:=@MenuAsyncClick;
+  testMenu.OpenBelow(menuBtn);
+  testMenu.current:=itemQuit;
+  sceneA.DispatchKey(TKey.Enter,0,0,true);
+  Check((menuPlainCalls=1) and (probe.quits=1) and not testMenu.IsOpen,'a line runs its onClick and its method');
+  t:=0;
+  while (Atomic.CmpExchange(menuAsyncCalls,0,0)=0) and (t<200) do begin
+   Sleep(5); inc(t);
+  end;
+  Check(menuAsyncCalls=1,'a line runs its onClickAsync');
   // Esc restores the focus, nil included
   testMenu.OpenBelow(menuBtn);
   sceneA.DispatchKey(TKey.Escape,0,0,true);

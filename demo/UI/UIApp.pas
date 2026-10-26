@@ -29,18 +29,9 @@ implementation
    procedure Render; override;
   end;
 
-  // Commands of the popup menu on the Widgets page: menu handlers are methods
-  TMenuCommands=class
-   procedure CmdNew;
-   procedure CmdOpen;
-   procedure CmdSave;
-   procedure CmdClose;
-  end;
-
  var
   sceneMain:TMainScene;
   root:TUIElement;
-  menuCommands:TMenuCommands;
   demoMenu:TUIPopupMenu;
   menuResult:TUILabel;
 
@@ -93,26 +84,20 @@ procedure TestButtons;
   InitTestLayer;
  end;
 
-{ TMenuCommands }
-
-procedure TMenuCommands.CmdNew;
+// Commands of the popup menu on the Widgets page
+procedure CmdNew;
  begin
   menuResult.caption:='Menu: New';
  end;
 
-procedure TMenuCommands.CmdOpen;
+procedure CmdOpen;
  begin
   menuResult.caption:='Menu: Open';
  end;
 
-procedure TMenuCommands.CmdSave;
+procedure CmdSave;
  begin
   menuResult.caption:='Menu: Save';
- end;
-
-procedure TMenuCommands.CmdClose;
- begin
-  root.Hide;
  end;
 
 // The Menu button owns the menu: the menu opens below it, the next press closes it
@@ -121,19 +106,19 @@ procedure ShowDemoMenu;
   demoMenu.OpenBelow(UIButton('MenuBtn'));
  end;
 
-// Popup menu: lines with shortcut texts (display only), separators, disabled lines
+// Popup menu: lines with shortcut texts (display only), separators, disabled lines.
+// A line is a button: its command is onClick, onClickAsync, onClickEvent or a method in 'handler'
 procedure CreateDemoMenu;
  begin
-  if menuCommands=nil then menuCommands:=TMenuCommands.Create;
   demoMenu:=TUIPopupMenu.Create(root,'DemoMenu');
-  demoMenu.Add('New',menuCommands.CmdNew,'Ctrl+N');
-  demoMenu.Add('Open...',menuCommands.CmdOpen,'Ctrl+O');
-  demoMenu.Add('Save',menuCommands.CmdSave,'Ctrl+S');
+  demoMenu.Add('New','Ctrl+N').onClick:=@CmdNew;
+  demoMenu.Add('Open...','Ctrl+O').onClick:=@CmdOpen;
+  demoMenu.Add('Save','Ctrl+S').onClick:=@CmdSave;
   demoMenu.AddSeparator;
-  demoMenu.Add('Undo',nil,'Ctrl+Z').Disable;
-  demoMenu.Add('Redo',nil,'Ctrl+Y').Disable;
+  demoMenu.Add('Undo','Ctrl+Z').Disable;
+  demoMenu.Add('Redo','Ctrl+Y').Disable;
   demoMenu.AddSeparator;
-  demoMenu.Add('Close page',menuCommands.CmdClose);
+  demoMenu.Add('Close page').onClickAsync:=@RootCloseClick; // like the Back button
  end;
 
 procedure TestWidgets;
