@@ -305,6 +305,7 @@ procedure SetSelected(e:TUIElement);
   old:TUIElement;
  begin
   if (e<>nil) and not e.Acquire then e:=nil;
+  if e<>nil then Log.Msg('UI inspector: selected %s',[e.ObjInfo]);
   selLock.Enter;
   old:=selected;
   selected:=e;
@@ -352,6 +353,7 @@ procedure SetTarget(wnd:TWindow);
   SetSelected(nil);
   if target<>nil then target.Release;
   target:=wnd;
+  if target<>nil then Log.Msg('UI inspector: inspecting window %s',[target.name]);
   expandedList:=nil;
   if (target<>nil) and target.Lock then
    try
@@ -566,7 +568,7 @@ constructor TInspectorScene.Create(wnd:TWindow);
  begin
   inherited Create('_Inspector',true,wnd);
   UI.styleinfo:=UTF8.Format('%x',[COLOR_BACK]);
-  w:=UI.size.x; h:=UI.size.y;
+  w:=UI.clientWidth; h:=UI.clientHeight; // children are placed in the root's own (scaled) units
   headerH:=24;
   header:=TUILabel.Create(w-8,headerH,UI,'_InspectorHeader');
   header.SetPos(4,0).SetAnchors(0,0,1,0);
