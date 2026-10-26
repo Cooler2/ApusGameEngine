@@ -22,6 +22,7 @@ var
   img:TUIImage;
   list:TUIListBox;
   bar:TUIScrollBar;
+  lbl:TUILabel;
 
 // Value of a published variable as the console shows it ('?' operator)
 function Ask(const name:String8):String8;
@@ -32,6 +33,34 @@ function Ask(const name:String8):String8;
   v:=FindVar(name,vc);
   if (v=nil) or (vc=nil) then exit('<undefined>');
   result:=vc.GetValue(v);
+ end;
+
+// Field list of a published element, as the inspector gets it
+function FieldsOf(const name:String8):String8;
+ var
+  v:pointer;
+  vc:TVarClass;
+ begin
+  v:=FindVar(name,vc);
+  if (v=nil) or not vc.InheritsFrom(TVarTypeStruct) then exit('<undefined>');
+  result:=','+TVarClassStruct(vc).ListFieldsOf(v)+',';
+ end;
+
+// Names from the element's field list that GetField does not resolve
+function UnresolvedFields(const name:String8):String8;
+ var
+  v,f:pointer;
+  vc,fc:TVarClass;
+  list:Strings8;
+  i:integer;
+ begin
+  result:='';
+  v:=FindVar(name,vc);
+  list:=TVarClassStruct(vc).ListFieldsOf(v).Split(',');
+  for i:=0 to high(list) do begin
+   f:=TVarClassStruct(vc).GetField(v,list[i],fc);
+   if (f=nil) or (fc=nil) then result:=result+name+'.'+list[i]+' ';
+  end;
  end;
 
 function Near(a,b:single):boolean;
@@ -92,6 +121,38 @@ procedure TestComputed;
   EndTest;
  end;
 
+procedure TestFieldList;
+ type
+  TEnumClass=class of TVarTypeEnum;
+ var
+  v:pointer;
+  vc:TVarClass;
+  st:String8;
+ begin
+  StartTest('Field list');
+  st:=UnresolvedFields('TBox')+UnresolvedFields('TBtn')+UnresolvedFields('TEdit')+
+    UnresolvedFields('TImg')+UnresolvedFields('TList')+UnresolvedFields('TBar')+UnresolvedFields('TLbl');
+  Check(st='','every listed field resolves: '+st);
+  Check(pos(',caption,',FieldsOf('TBox'))>0,'common field is listed');
+  Check(pos(',pressed,',FieldsOf('TBtn'))>0,'button field is listed for a button');
+  Check(pos(',pressed,',FieldsOf('TBox'))=0,'button field is not listed for an element');
+  Check(Ask('TBox.pressed')='<undefined>','button field does not resolve for an element');
+  v:=FindVar('TBox',vc);
+  st:=','+TVarClassStruct(vc).ListFields+',';
+  Check((pos(',visible,',st)>0) and (pos(',pressed,',st)=0),'ListFields: fields of any element only');
+  Check(Ask('TBox.parent')='nil','no parent: nil');
+  Check(Ask('TBtn.parent')='TUIElement(''TBox'')','parent is shown by name: '+Ask('TBtn.parent'));
+  Check(pos('parent:TUIElement(''TBox'')',Ask('TBtn'))>0,'element dump shows the parent by name');
+  ExecCmd('TBtn.parent.width=120');
+  Check(Near(box.size.x,120),'field of the parent is written through the reference');
+  ExecCmd('TBox.children[0].caption="Kid"');
+  Check(btn.caption='Kid','field of a child is written through the reference');
+  v:=FindVar('TLbl.align',vc);
+  Check((v<>nil) and vc.InheritsFrom(TVarTypeEnum) and
+    (TEnumClass(vc).ListValues='Left,Right,Center,Justify'),'alignment lists its values');
+  EndTest;
+ end;
+
 begin
   FormatSettings.DecimalSeparator:=','; // as on a Russian Windows
   box:=TUIElement.Create(100,40,nil,'TBox');
@@ -100,9 +161,11 @@ begin
   img:=TUIImage.Create(10,10,nil,'TImg','');
   list:=TUIListBox.Create(100,100,nil,'TList',20);
   bar:=TUIScrollBar.Create(10,100,nil,'TBar');
+  lbl:=TUILabel.Create(50,20,nil,'TLbl');
   TestStrings;
   TestNumbers;
   TestComputed;
+  TestFieldList;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

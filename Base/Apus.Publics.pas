@@ -33,6 +33,8 @@ interface
    class function GetField(variable:pointer;fieldName:String8;out varClass:TVarClass):pointer; virtual;
    // Return the list of all fields (comma-separated)
    class function ListFields:String8; virtual;
+   // Fields of this particular variable, when they depend on its value (default: ListFields)
+   class function ListFieldsOf(variable:pointer):String8; virtual;
   end;
 
   // List type, syntax: name[index] where index is string (may be integer)
@@ -807,7 +809,7 @@ class function TVarTypeStruct.GetValue(variable:pointer):String8;
   f:pointer;
   vc:TVarClass;
  begin
-  sa:=ListFields.Split(',');
+  sa:=ListFieldsOf(variable).Split(',');
   for i:=0 to length(sa)-1 do begin
    f:=GetField(variable,sa[i],vc);
    if f<>nil then
@@ -827,6 +829,11 @@ class function TVarType.GetValue(variable:pointer):String8;
 class function TVarTypeStruct.ListFields:String8;
  begin
   result:='';
+ end;
+
+class function TVarTypeStruct.ListFieldsOf(variable:pointer):String8;
+ begin
+  result:=ListFields;
  end;
 
 { TVarTypeArray }

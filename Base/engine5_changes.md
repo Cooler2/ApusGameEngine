@@ -1782,3 +1782,17 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   same way; `Terminate`/`Engine\Cmd\Exit` close without asking.
 - `ENGINE\WINDOW\CLOSE` (SDL only, sent when the window was already closing) is
   removed: use `ENGINE\WINDOW\CLOSEREQUEST`.
+
+## 2026-10-26 — Console publication of UI elements: the full field list
+
+- `Apus.Publics`: `TVarTypeStruct.ListFieldsOf(variable)` returns the fields of this
+  particular variable (by default `ListFields`); `TVarTypeStruct.GetValue` lists them.
+- `Apus.Engine.UIScript`: the published fields of an element are one table.
+  `ListFieldsOf` gives every field the element has, its widget's fields included;
+  `ListFields` gives the fields any element has. `?name` in the console prints all of
+  them (it was 8 fields).
+- `parent` and `children[i]` are element references: their value is `TClass('name')`
+  (`nil` without a parent), their fields work as before (`btn.parent.width=120`),
+  assigning to the reference itself is an error.
+- Enumerated fields list their values (`TVarTypeEnum.ListValues`): `align`,
+  `transpmode`, `signals`, `pivot`.
