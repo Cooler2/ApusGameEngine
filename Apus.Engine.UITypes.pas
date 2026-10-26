@@ -226,7 +226,9 @@ type
   procedure onMouseMove; virtual;
   procedure onMouseScroll(value:integer); virtual;
   procedure onMouseButtons(button:byte;state:boolean); virtual;
-  function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual; // return false to suppress
+  // Key press/release for the focused element. Return false for the keys the element handled
+  // (consumed: UI hotkeys and the scene don't get them), true to pass the key on.
+  function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
   procedure onChar(ch:char;scancode:byte); virtual;
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;

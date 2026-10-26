@@ -79,6 +79,15 @@ type
     procedure AddEvent(const kind:String8;key:TKey;shift:byte);
   end;
 
+  // a UI scene that records the keys reaching the scene: its hotkey and gameplay receivers
+  TKeyForm=class(TUIScene)
+    log:String8; // 'D:B U:Space ...'
+    saves:integer; // Ctrl+S hotkey calls
+    function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
+    function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; override;
+    procedure SaveHotKey;
+  end;
+
   // opens the scene choice of TGame.KeyPressed/CharEntered
   TKbdGame=class(TGame)
     function KbdTarget:TGameScene;
@@ -187,6 +196,25 @@ function TKeyProbe.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
  begin
   AddEvent('U',key,shift);
   result:=true;
+ end;
+
+{ TKeyForm }
+
+function TKeyForm.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  log:=log+'D:'+String8(key.Name)+' ';
+  result:=true;
+ end;
+
+function TKeyForm.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  log:=log+'U:'+String8(key.Name)+' ';
+  result:=true;
+ end;
+
+procedure TKeyForm.SaveHotKey;
+ begin
+  inc(saves);
  end;
 
 { TKbdGame }
@@ -847,6 +875,51 @@ procedure TestPhysicalIgnored;
   EndTest;
  end;
 
+// A focused element stops only the keys it consumes, the rest reach the scene (R-14 step 0)
+procedure TestFocusKeys;
+ var
+  form:TKeyForm;
+  b:TProbeButton;
+  e:TUIEditBox;
+ begin
+  StartTest('Focus and scene keys');
+  form:=TKeyForm.Create('KeyForm',false,wndA); // the keys are dispatched directly, not by frames
+  form.SetStatus(ssActive); // an inactive scene has its UI disabled: no focus routing at all
+  form.RegisterHotKey(TKey.S,sscCtrl,form.SaveHotKey);
+  b:=NewButton(form.UI,'FocusBtn',10,10);
+  e:=TUIEditBox.Create(100,20,form.UI,'FocusEdit');
+  // a focused button takes only Enter and Space
+  b.SetFocus;
+  form.DispatchKey(TKey.B,0,0,true);
+  Check(form.log='D:B ','a focused button passes B on to the scene: '+form.log);
+  form.log:='';
+  form.DispatchKey(TKey.Space,0,0,true);
+  Check((b.clicks=1) and (form.log=''),'Space presses the focused button and stops there: '+form.log);
+  form.DispatchKey(TKey.Space,0,0,false);
+  Check(form.log='U:Space ','the release goes on to the scene: '+form.log);
+  // a focused edit box takes the keys that type text and the editing keys
+  e.SetFocus;
+  form.log:='';
+  form.DispatchKey(TKey.B,0,0,true);
+  form.DispatchKey(TKey.B,0,sscShift,true);
+  form.DispatchKey(TKey.Q,0,sscCtrl+sscAlt,true); // AltGr
+  form.DispatchKey(TKey.C,0,sscCtrl,true);
+  form.DispatchKey(TKey.Left,0,0,true);
+  Check(form.log='','the edit box consumes text, AltGr, editing and caret keys: '+form.log);
+  form.DispatchKey(TKey.S,0,sscCtrl,true);
+  Check((form.saves=1) and (form.log=''),'Ctrl+S in the edit box reaches the scene hotkey');
+  form.DispatchKey(TKey.F5,0,0,true);
+  form.DispatchKey(TKey.Escape,0,0,true);
+  form.DispatchKey(TKey.B,0,0,false);
+  Check(form.log='D:F5 D:Escape U:B ','F5, Esc and releases go on to the scene: '+form.log);
+  ClearFocus(wndA);
+  form.log:='';
+  form.DispatchKey(TKey.B,0,0,true);
+  Check(form.log='D:B ','no focus: the scene gets the key: '+form.log);
+  form.SetStatus(ssFrozen);
+  EndTest;
+ end;
+
 procedure TestKeyboard;
  var
   textHi:String8;
@@ -1185,6 +1258,7 @@ begin
   TestRules;
   TestKeyboardTarget;
   TestEditKeys;
+  TestFocusKeys;
   TestDrag;
   TestReset;
   TestPhysicalIgnored;

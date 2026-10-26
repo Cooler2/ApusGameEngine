@@ -89,6 +89,9 @@ type
     class function FromName(const name:string):TKey; static;
     // Convert Windows VK_xxx constant to TKey (masks to byte)
     class function FromWindowsVK(vk:cardinal):TKey; static;
+    // A key that types a character when pressed alone or with Shift: letters, digits, Space,
+    // numpad digits and operators, OEM punctuation
+    function IsText:boolean;
   end;
 
   // Physical key positions: USB HID usage ids (= SDL_Scancode), the scancodes of the key
@@ -224,6 +227,15 @@ end;
 class function TKeyHelper.From(code:byte):TKey;
 begin
   result:=TKey(code);
+end;
+
+function TKeyHelper.IsText:boolean;
+begin
+  case self of
+    TKey.Space,TKey.D0..TKey.D9,TKey.A..TKey.Z,TKey.Num0..TKey.NumDiv,
+    TKey.Semicolon..TKey.Tilde,TKey.BracketL..TKey.Quote:result:=true;
+    else result:=ord(self)=226; // VK_OEM_102: the extra key of ISO keyboards
+  end;
 end;
 
 class function TKeyHelper.FromName(const name:string):TKey;

@@ -3,6 +3,19 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Keyboard: a focused element stops only the keys it consumes (2026-10-26)
+
+- `TUIScene.DispatchKey`: a key press or release the focused element does not consume goes on
+  to the UI hotkeys and then to the scene (`RegisterHotKey`, `onKeyDown`/`onKeyUp`). It used to
+  stop at any focus: one click on a focusable button silenced all scene hotkeys.
+- `TUIElement.onKey` returns false exactly for the keys the element handled. `TUIEditBox`
+  consumes the keys that type text (alone, with Shift or AltGr), the editing and caret keys and
+  Ctrl+C/X/V/A/Z; Enter (unless it accepts a completion), Esc, F-keys and other shortcuts go
+  on. `TUIButton` consumes Enter/Space, `TUIComboBox` its navigation keys.
+- Game code: a custom text field must consume its keys in `onKey`, otherwise typing reaches
+  the scene; `onKeyUp` may get a release without a press seen by the scene.
+- New `TKey.IsText` (`Apus.Engine.Keys`): the key types a character alone or with Shift.
+
 ## Deprecated wrappers removed (2026-10-23)
 
 - `Apus.Engine.UI`: `FindControl`, `FindControlAt`, `FindAnyControlAt` are gone;

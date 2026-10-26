@@ -734,42 +734,39 @@ function UIScene(name:String8):TUIScene;
    end;
   end;
 
- // UI scene keyboard routing: focused element / hotkeys first, then gameplay (onKeyDown/Up).
- // Gameplay keys fire only when no UI element holds focus — so typing into a (modal) field
- // never leaks a gameplay key like [C] to the scene logic.
+ // UI scene keyboard routing: focused element, then UI hotkeys, then the scene (RegisterHotKey,
+ // onKeyDown/Up). The focused element stops only the keys it consumes: an edit box consumes the
+ // keys that type text, so typing never leaks a gameplay key like [C], while Ctrl+S or F5 work
+ // with the focus anywhere. A release the focus did not consume reaches the scene as well.
  function TUIScene.DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean;
   var
    c:TUIElement;
    keyc:integer;
-   uiConsumed,hasFocus:boolean;
+   uiConsumed:boolean;
   begin
    uiConsumed:=false;
-   hasFocus:=false;
    keyc:=ord(key);
    window.LockState;
    try
     if (UI<>nil) and UI.flags.enabled then begin
      if pressed and (keyc=ord('S')) and (shift=8+2) then PrintUILog; // Win+Ctrl+S
      c:=FocusedElement;
-     if c<>nil then begin
-      hasFocus:=true;
-      if c.IsEnabled then
-       if pressed then begin
-        if c.onKey(keyc,true,shift) then
-         uiConsumed:=ProcessHotKey(keyc,shift) // onKey allowed hotkey processing
-        else
-         uiConsumed:=true;                     // focus consumed the key
-       end else
-        if not c.onKey(keyc,false,shift) then uiConsumed:=true;
+     if (c<>nil) and c.IsEnabled then begin
+      if pressed then begin
+       if c.onKey(keyc,true,shift) then
+        uiConsumed:=ProcessHotKey(keyc,shift) // focus passed the key on: UI hotkeys may claim it
+       else
+        uiConsumed:=true;                     // focus consumed the key
+      end else
+       uiConsumed:=not c.onKey(keyc,false,shift);
      end else
-      // no focus — UI hotkeys may still claim the key
+      // no (enabled) focus — UI hotkeys may still claim the key
       if pressed then uiConsumed:=ProcessHotKey(keyc,shift);
     end;
    finally
     window.UnlockState;
    end;
    if uiConsumed then exit(true);
-   if hasFocus then exit(false); // a focused element captures input → gameplay is suppressed
    result:=inherited DispatchKey(key,scancode,shift,pressed); // scene hotkeys + onKeyDown/Up
   end;
 
