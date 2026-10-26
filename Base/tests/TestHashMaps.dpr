@@ -542,6 +542,17 @@ begin
   h.Put('a',11); // replace
   Check(h.Get('a')=11, 'replace a=11');
 
+  // Delphi compares false, 0 and '' as equal to Unassigned: they must still be stored
+  h.Put('f',false);
+  h.Put('z',0);
+  h.Put('e','');
+  v:=h.Get('f');
+  Check(VarType(v)=varBoolean, 'false is stored');
+  v:=h.Get('z');
+  Check(not VarIsEmpty(v) and (v=0), 'zero is stored');
+  Check(h.HasKey('e'), 'empty string is stored');
+  h.Remove('f'); h.Remove('z'); h.Remove('e');
+
   keys:=h.ListKeys;
   Check(length(keys)=2, 'listkeys has 2 items');
 

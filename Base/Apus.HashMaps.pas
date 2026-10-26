@@ -1627,7 +1627,7 @@ begin
   SetLength(result,count);
   n:=0;
   for i:=0 to high(keys) do
-    if values[i]<>Unassigned then begin
+    if not VarIsEmpty(values[i]) then begin
       result[n]:=keys[i];
       inc(n);
     end;
@@ -1640,7 +1640,7 @@ begin
   SetLength(result,count);
   n:=0;
   for i:=0 to high(values) do
-    if values[i]<>Unassigned then begin
+    if not VarIsEmpty(values[i]) then begin
       result[n]:=values[i];
       inc(n);
     end;
@@ -1648,7 +1648,7 @@ end;
 procedure TVarHash.Put(key:String8;value:variant);
 begin
   if initialized='' then Init;
-  if (key='') or (value=Unassigned) then exit;
+  if (key='') or VarIsEmpty(value) then exit;
   SpinLock(lock);
   try
     InternalPut(key,value);
@@ -1662,11 +1662,11 @@ var
   h:cardinal;
 begin
   h:=FastHash(key) and mask;
-  while values[h]<>Unassigned do begin
+  while not VarIsEmpty(values[h]) do begin
     if key.Same(keys[h]) then break;
     h:=(h+1) and mask;
   end;
-  if values[h]=Unassigned then inc(count); // only for new insertions, not updates
+  if VarIsEmpty(values[h]) then inc(count); // only for new insertions, not updates
   keys[h]:=key;
   values[h]:=value;
 end;
@@ -1680,7 +1680,7 @@ begin
     h:=h and mask;
     result:=Unassigned;
     while keys[h]<>'' do begin
-      if key.Same(keys[h]) and (values[h]<>Unassigned) then begin
+      if key.Same(keys[h]) and not VarIsEmpty(values[h]) then begin
         result:=values[h];
         break;
       end;
@@ -1701,7 +1701,7 @@ begin
     h:=h and mask;
     result:=false;
     while keys[h]<>'' do begin
-      if key.Same(keys[h]) and (values[h]<>Unassigned) then begin
+      if key.Same(keys[h]) and not VarIsEmpty(values[h]) then begin
         result:=true;
         break;
       end;
