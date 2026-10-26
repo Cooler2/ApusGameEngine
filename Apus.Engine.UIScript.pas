@@ -7,6 +7,29 @@ unit Apus.Engine.UIScript;
 interface
 uses Apus.Core, Apus.Publics;
 
+type
+ // UI element published by name: its fields are listed in one table (see InitFields)
+ TVarTypeUIElement=class(TVarTypeStruct)
+  class function GetValue(variable:pointer):string8; override;
+  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+  class function ListFields:string8; override;
+  class function ListFieldsOf(variable:pointer):string8; override;
+ end;
+
+ // reference to an element (parent, children[i]): the variable is ^TUIElement, its value is the short name
+ TVarTypeElementRef=class(TVarTypeStruct)
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
+  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+  class function ListFieldsOf(variable:pointer):string8; override;
+ end;
+
+ // children of an element (read-only)
+ TVarTypeElements=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
+ end;
+
  function GetVarTypeFor(typeName:string8):TVarClass;
 
 implementation
@@ -34,21 +57,6 @@ type
   class function ListValues:string8; override;
  end;
 
- TVarTypeUIElement=class(TVarTypeStruct)
-  class function GetValue(variable:pointer):string8; override;
-  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
-  class function ListFields:string8; override;
-  class function ListFieldsOf(variable:pointer):string8; override;
- end;
-
- // reference to an element (parent, children[i]): the variable is ^TUIElement, its value is the short name
- TVarTypeElementRef=class(TVarTypeStruct)
-  class procedure SetValue(variable:pointer;v:string8); override;
-  class function GetValue(variable:pointer):string8; override;
-  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
-  class function ListFieldsOf(variable:pointer):string8; override;
- end;
-
  TVarTypeStyleInfo=class(TVarType)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
@@ -61,11 +69,6 @@ type
  end;
 
  TVarTypeClientWidth=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string8); override;
-  class function GetValue(variable:pointer):string8; override;
- end;
-
- TVarTypeElements=class(TVarType) // array of TUIElement
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
  end;

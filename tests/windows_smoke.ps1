@@ -98,6 +98,7 @@ Invoke-FpcTarget 'tests/TestCulling.dpr' -CompileOnly # needs a GL window: run l
 Invoke-FpcTarget 'tests/TestStyle.dpr'
 Invoke-FpcTarget 'tests/TestUIHint.dpr'
 Invoke-FpcTarget 'tests/TestUIScript.dpr'
+Invoke-FpcTarget 'tests/TestUIInspector.dpr'
 Invoke-FpcTarget 'tests/TestWindowLock.dpr'
 Invoke-FpcTarget 'tests/TestVirtualMouse.dpr'
 Invoke-FpcTarget 'tests/TestSurface.dpr'

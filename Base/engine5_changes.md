@@ -1796,3 +1796,13 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   assigning to the reference itself is an error.
 - Enumerated fields list their values (`TVarTypeEnum.ListValues`): `align`,
   `transpmode`, `signals`, `pivot`.
+
+## 2026-10-26 — UI inspector (debug builds)
+
+- New `Apus.Engine.UIInspector`: a separate window with the UI tree of another window
+  and the published fields of the selected element, read and edited live. GameApp links
+  it only with `DEBUG` defined (`-dDEBUG` for FPC); open it with Ctrl+Shift+I in the
+  window to inspect, or with the console command `inspector`. Closing the inspector
+  window hides it.
+- `Apus.Engine.UIScript`: `TVarTypeUIElement`, `TVarTypeElementRef` and
+  `TVarTypeElements` are in the interface section.

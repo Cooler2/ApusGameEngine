@@ -197,7 +197,8 @@ implementation
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
-  {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF},
+  {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF}
+  {$IFDEF DEBUG},Apus.Engine.UIInspector{$ENDIF},
   Apus.Conv,
   Apus.Files,
   Apus.Log,
@@ -1000,6 +1001,7 @@ procedure TGameApplication.ControlLoop;
   if startupScenes.message then InitMessageScene;
   InitNotifications;
   if startupScenes.console then AddConsoleScene;
+  {$IFDEF DEBUG}InitInspector;{$ENDIF} // UI inspector: Ctrl+Shift+I
   if startupScenes.tweaker then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
   // Create scenes
   try
