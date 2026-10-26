@@ -100,7 +100,8 @@ procedure CmdSave;
   menuResult.caption:='Menu: Save';
  end;
 
-// The Menu button owns the menu: the menu opens below it, the next press closes it
+// The Menu button owns the menu: the menu opens below it, the next press closes it.
+// A tool button takes no focus, so closing the menu returns the focus where it was
 procedure ShowDemoMenu;
  begin
   demoMenu.OpenBelow(UIButton('MenuBtn'));
@@ -147,7 +148,7 @@ procedure TestWidgets;
   cont.style.SetAttr('color','$FF202020');
   TUIButton.Create(140,30,cont,'Button1').Setup('Button 1');
   TUIButton.Create(140,30,cont,'Disabled').Disable;
-  TUIButton.Create(140,30,cont,'MenuBtn').Setup('Menu').onClick:=@ShowDemoMenu;
+  TUIToolButton.Create(140,30,cont,'MenuBtn').Setup('Menu').onClick:=@ShowDemoMenu;
   menuResult:=TUILabel.Create(-1,20,cont,'MenuResult');
   CreateDemoMenu;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);

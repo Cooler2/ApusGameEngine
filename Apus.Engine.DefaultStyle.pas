@@ -1177,7 +1177,8 @@ implementation
    av:=context.active.Value;
    dv:=context.disabled.Value;
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
-   isButton:=(element.ClassType=TUIButton) or ((element is TUIToggleButton) and not (element is TUICheckbox));
+   isButton:=(element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
+     ((element is TUIToggleButton) and not (element is TUICheckbox));
 
    // Outer block: base values
    if isButton then fillColor:=element.GetBaseStyleColor('fill',defaultBtnColor)
@@ -1252,7 +1253,7 @@ implementation
   begin
    context:=PrepareContext(element);
    context.Update(element);
-   if (element.ClassType=TUIButton) or
+   if (element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
      ((element is TUIToggleButton) and not (element is TUICheckBox)) then begin
     // Buttons use scroll to move all children as a group. Assign absolutely.
     element.scroll.X:=0;
@@ -1274,7 +1275,7 @@ implementation
     DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
    else
    // Button
-   if element.ClassType=TUIButton then
+   if (element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    if element is TUICheckbox then

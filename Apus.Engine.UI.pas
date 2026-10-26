@@ -50,6 +50,7 @@ type
   TUIScrollable   = Apus.Engine.UITypes.TUIScrollable;
   TUISplitter     = Apus.Engine.UIWidgets.TUISplitter;
   TUIButton       = Apus.Engine.UIWidgets.TUIButton;
+  TUIToolButton   = Apus.Engine.UIWidgets.TUIToolButton;
   TUIToggleButton = Apus.Engine.UIWidgets.TUIToggleButton;
   TUICheckbox     = Apus.Engine.UIWidgets.TUICheckbox;
   TUIRadioButton  = Apus.Engine.UIWidgets.TUIRadioButton;

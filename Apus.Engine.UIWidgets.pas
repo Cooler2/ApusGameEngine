@@ -114,6 +114,8 @@ interface
   // window as its `window` context and the button as `sender`; it does not hold the
   // window lock (take window.Lock around UI changes). The button is held (Acquire) until
   // the handler returns, even if onClick deletes it.
+  // A click focuses the button (Enter/Space repeat it); class attribute 'defaultCanHaveFocus'
+  // overrides that for a class and its descendants.
   TUIButton=class(TUIElement)
    default:boolean;          // default button (affects rendering only)
    pressed:boolean;          // transient: true while mouse is held down
@@ -138,6 +140,12 @@ interface
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
+  end;
+
+  // Button of a toolbar or a menu owner: never takes the focus, so a click leaves the keys
+  // where they were (an edit box, the scene hotkeys). Otherwise the same as TUIButton.
+  TUIToolButton=class(TUIButton)
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
   end;
 
   // Toggle button: latches in toggled state on click.
@@ -507,7 +515,7 @@ implementation
   begin
    inherited Create(width,height,parent,name);
    shape:=shapeFull;
-   flags.canHaveFocus:=true;
+   flags.canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',true);
    sendSignals:=ssMajor;
   end;
 
@@ -604,6 +612,14 @@ implementation
     if pr then Signal('UI\Button\Down\'+name,UIntPtr(self))
           else Signal('UI\Button\Up\'+name,UIntPtr(self));
    end;
+  end;
+
+{ TUIToolButton }
+
+ constructor TUIToolButton.Create(width,height:single;parent:TUIElement;name:String8);
+  begin
+   inherited Create(width,height,parent,name);
+   flags.canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
   end;
 
 { TUIToggleButton }

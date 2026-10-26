@@ -63,6 +63,10 @@ type
     procedure DoClick; override;
   end;
 
+  // the class attribute 'defaultCanHaveFocus' overrides the button default
+  TNoFocusButton=class(TUIButton)
+  end;
+
   // records what the Mouse queries give in Process
   TProbeScene=class(TGameScene)
     rect:TRect; // for InRect/WasInRect
@@ -476,10 +480,16 @@ procedure TestPhysicalBefore;
 var
   testMenu:TUIPopupMenu;
   menuBtn:TProbeButton;
+  menuToolBtn:TUIToolButton;
 
 procedure ShowTestMenu;
  begin
   testMenu.OpenBelow(menuBtn);
+ end;
+
+procedure ShowTestMenuFromTool;
+ begin
+  testMenu.OpenBelow(menuToolBtn);
  end;
 
 function CenterOf(e:TUIElement):TPoint;
@@ -503,6 +513,7 @@ procedure TestPopupMenu;
   probe:TMenuProbe;
   edit,edit2:TUIEditBox;
   itemNew,itemUndo,itemSave,itemQuit:TUIMenuItem;
+  noFocusBtn:TUIButton;
   t:integer;
  begin
   StartTest('Popup menu');
@@ -530,6 +541,23 @@ procedure TestPopupMenu;
   Sleep(60); // past the double-click guard of TUIButton.DoClick
   PhysicalClickAt(CenterOf(menuBtn));
   Check(not testMenu.IsOpen,'the press on the anchor closes the menu, its click does not reopen it');
+  // a tool button anchor takes no focus: the menu returns it to the edit box
+  menuToolBtn:=TUIToolButton.Create(100,30,sceneA.UI,'MenuToolBtn');
+  menuToolBtn.SetPos(250,300,pivotTopLeft); // 250..350 x 300..330
+  menuToolBtn.onClick:=ShowTestMenuFromTool;
+  Check(not menuToolBtn.flags.canHaveFocus and menuBtn.flags.canHaveFocus,'a tool button has no focus, a button has');
+  edit.SetFocus;
+  PhysicalClickAt(CenterOf(menuToolBtn));
+  Check(testMenu.IsOpen and (FocusedElement=testMenu),'a click on a tool button anchor opens the menu');
+  Sleep(60); // past the double-click guard of TUIButton.DoClick
+  PhysicalClickAt(CenterOf(menuToolBtn));
+  Check(not testMenu.IsOpen and (FocusedElement=edit),'its next press closes the menu, the focus is back in the edit box');
+  menuToolBtn.Remove;
+  // the class attribute overrides the default of a button class
+  TNoFocusButton.SetDefault('canHaveFocus',false);
+  noFocusBtn:=TNoFocusButton.Create(10,10,sceneA.UI,'NoFocusBtn');
+  Check(not noFocusBtn.flags.canHaveFocus,'SetDefault(''canHaveFocus'',false) removes the focus of a button class');
+  noFocusBtn.Remove;
   // keys: the current line skips the disabled line and the separator, wraps around
   edit.SetFocus;
   testMenu.OpenBelow(menuBtn);

@@ -47,7 +47,7 @@ implementation
    layer:TTextEffectLayer;
    isButton:boolean;
   begin
-   isButton:=(element.ClassType=TUIButton) or
+   isButton:=(element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
      ((element is TUIToggleButton) and not (element is TUICheckBox));
    if not isButton and (element.ClassType<>TUIElement) and
      not (element is TUILabel) and not (element is TUIImage) then begin

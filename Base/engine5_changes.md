@@ -3,6 +3,18 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: `TUIToolButton`, button focus by class attribute (2026-10-26)
+
+- New `TUIToolButton` (`Apus.Engine.UIWidgets`, alias in `Apus.Engine.UI`): a `TUIButton`
+  that never takes the focus, for toolbars and menu owners. A click leaves the keys where they
+  were: an edit box keeps typing, closing a menu returns the focus there.
+- `TUIButton` keeps taking the focus on click, but now reads the default from the class
+  attribute, like other elements: `TMyButton.SetDefault('canHaveFocus',false)` changes it for a
+  class and its descendants (`TUIButton.SetDefault(...)` for all buttons of an app).
+- Delphi only: `TVarHash` (class attributes, `SetDefault`) silently dropped `false`, `0` and
+  `''`, since Delphi compares them as equal to `Unassigned`. Such defaults now take effect, e.g.
+  `TUIComboBox` no longer handles the mouse while disabled (as under FPC).
+
 ## Styles: `box-shadow`, compound values with tokens (2026-10-26)
 
 - New box key `box-shadow: <color> [dx dy [blur]]` or `none` (logical units), drawn by the

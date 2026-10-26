@@ -333,7 +333,7 @@ implementation
     end;
 
    // Button
-   if item.ClassType=TUIButton then
+   if (item.ClassType=TUIButton) or (item.ClassType=TUIToolButton) then
     DrawButton(item as TUIButton,sNum);
   end;
 
