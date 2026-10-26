@@ -23,7 +23,7 @@ procedure DrawDebugMagnifier(var state:TDebugState);
 implementation
 uses Types, SysUtils, Apus.Core, Apus.Lib, Apus.Strings, Apus.Colors,
   Apus.Images, Apus.FastGFX,
-  Apus.Engine.Window, Apus.Engine.Scene, Apus.Engine.UIScene,
+  Apus.Engine.Window, Apus.Engine.Scene,
   Apus.Engine.ImageTools, Apus.Engine.TextDraw
   {$IFDEF MSWINDOWS}
   ,Windows

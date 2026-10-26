@@ -186,13 +186,13 @@ implementation
   end;
 
  var
-  crSection:TLock; // используется для доступа к глобальным переменным
+  crSection:TLock; // used to access global variables
 
   publicVarHash:array[0..63] of integer;
-  lastFreeItem:integer; // индекс последней "дырки" (-1 - нет)
-  functions:array of TPublicFunction; // список поддерживается в отсортированном виде!
+  lastFreeItem:integer; // index of the last "hole" (-1 - none)
+  functions:array of TPublicFunction; // the list is kept sorted!
 
-  // Контексты (наборы дефолтных присваиваний)
+  // Contexts (sets of default assignments)
   globalContexts:array[0..5] of TGlobalContext;
   globalContextsCount:integer;
   lastContextIdx:integer;
@@ -214,8 +214,8 @@ implementation
     end;
   end;
 
- // Проверяет, является ли выражение - вызовом ф-ции, и если да - возвращает ф-цию и изменяет аргумент на аргумент ф-ции
- // Если нет - возвращает nil, аргумент не меняет
+ // Checks whether the expression is a function call, and if so - returns the function and replaces the argument with the function argument
+ // If not - returns nil, the argument is not changed
  function IsFunction(var expression:String8;out tag:integer):TFunction;
   var
    name:String8;
@@ -249,7 +249,7 @@ implementation
    if length(expression)=0 then begin
     result:=0; exit;
    end;
-   // Сканирование на операции типа сравнения
+   // Scan for comparison-type operations
    d:=0;
    for i:=length(expression) downto 2 do begin
     if expression[i]=')' then inc(d);
@@ -286,13 +286,13 @@ implementation
      end;
     end;
    end;
-   // Сканирование на операции типа сложения
+   // Scan for addition-type operations
    d:=0;
    for i:=length(expression) downto 2 do begin
     if expression[i]=')' then inc(d);
     if expression[i]='(' then dec(d);
     if (d=0) and (expression[i] in ['+','-']) then begin
-     if (expression[i]='-') and (expression[i-1] in ['*','/']) then continue; // унарный минус, а не вычитание
+     if (expression[i]='-') and (expression[i-1] in ['*','/']) then continue; // unary minus, not subtraction
      v1:=EvalFloat(copy(expression,1,i-1),varFunc,context,contextClass);
      v2:=EvalFloat(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
      if expression[i]='+' then result:=v1+v2
@@ -300,7 +300,7 @@ implementation
      exit;
     end;
    end;
-   // Сканирование на операции типа умножения
+   // Scan for multiplication-type operations
    d:=0;
    for i:=length(expression) downto 2 do begin
     if expression[i]=')' then inc(d);
@@ -316,14 +316,14 @@ implementation
      exit;
     end;
    end;
-   // Раскрытие скобок
+   // Expand parentheses
    if (expression[1]='(') and (expression[length(expression)]=')') then begin
     result:=EvalFloat(copy(expression,2,length(expression)-2),VarFunc,context,contextClass);
     exit;
    end;
-   // Константа, переменная либо функция
+   // Constant, variable or function
    if expression[1]='$' then begin
-    // Hex-константа
+    // Hex constant
     result:=Conv.HexToInt(expression);
     exit;
    end;
@@ -333,13 +333,13 @@ implementation
      fl:=false; break;
     end;
    if fl then begin
-    // Числовая константа
+    // Numeric constant
     d:=pos('.',expression);
     if d=0 then begin
      // integer
      result:=Conv.ToInt(expression);
     end else begin
-     // ручной парсинг чтобы не иметь проблем с '.' в качестве разделителя
+     // manual parsing to avoid problems with '.' as a separator
      v1:=Conv.ToInt(copy(expression,1,d-1));
      v2:=0;
      for i:=length(expression) downto d+1 do
@@ -349,9 +349,9 @@ implementation
      if (v1=0) and (expression[1]='-') then result:=-result;
     end;
    end else begin
-    // переменная или константа
+    // variable or constant
     fl:=false;
-    if expression[1]='-' then begin // унарный минус
+    if expression[1]='-' then begin // unary minus
      delete(expression,1,1);
      fl:=true;
     end;
@@ -430,7 +430,7 @@ implementation
 
  procedure PublishFunction(name:String8;f:TFunction;tag:integer=0);
   var
-   i,n:integer;
+   n:integer;
   begin
    ASSERT(ValidIdentifier(name),name+'is not a valid function name!');
    ASSERT(@f<>nil);
@@ -461,7 +461,7 @@ implementation
 
  procedure PublishVar(variable:pointer;name:String8;vtype:TVarClass);
   var
-   n,h,l:integer;
+   n,h:integer;
    lowname:String8;
   begin
    ASSERT(variable<>nil);
@@ -497,13 +497,13 @@ implementation
     n:=length(publicVars)-1;
     for i:=0 to n do
      if publicVars[i].addr=variable then begin
-      // удаляем элемент
+      // delete the element
       h:=NameHash(publicVars[i].lowname);
       publicVars[i].addr:=nil;
       publicVars[i].varClass:=nil;
-      if publicVarHash[h]=i then // удаление из начала списка
+      if publicVarHash[h]=i then // removal from the list head
        publicVarHash[h]:=publicVars[i].next
-      else begin // удаление из середины списка
+      else begin // removal from the middle of the list
        m:=publicVarHash[h];
        while publicVars[m].next<>i do m:=publicVars[m].next;
        publicVars[m].next:=publicVars[i].next;
@@ -548,7 +548,7 @@ implementation
 
  procedure PublishConst(name:String8;value:String8);
   var
-   i,j,n:integer;
+   j,n:integer;
    lowname:String8;
   begin
    ASSERT(ValidIdentifier(name),name+' is not a valid name');
@@ -592,7 +592,7 @@ implementation
    end;
   end;
 
- // Поиск только среди глобальных переменных (имя должно быть в нижнем регистре!)
+ // Search only among global variables (the name must be lowercase!)
  function FindGlobal(name:String8;out varClass:TVarClass):pointer;
   var
    i:integer;
@@ -612,7 +612,7 @@ implementation
    end;
   end;
 
- // Рекурсивный поиск поля заданного объекта (имя должно быть в нижнем регистре!)
+ // Recursive search of a field of the given object (the name must be lowercase!)
  function FindField(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    p:integer;
@@ -642,11 +642,10 @@ implementation
   end;
 
 
- // Универсальный поиск
+ // Universal search
  function FindVar(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
-   i:integer;
-   p,p2:integer;
+   p:integer;
    field:String8;
    objClass:TVarClass;
    obj:pointer;
@@ -654,7 +653,7 @@ implementation
    result:=nil;
    name:=name.ToLower;
    if context<>nil then begin
-    // попытка получить поле текущего объекта
+    // try to get a field of the current object
     result:=FindField(name,varClass,context,contextClass);
     if result<>nil then exit;
    end;
@@ -669,13 +668,13 @@ implementation
     end;
    end;
    p:=pos('.',name);
-   if p>0 then begin // попытка получить поле указанного объекта
+   if p>0 then begin // try to get a field of the specified object
     field:=copy(name,p+1,length(name)-p);
     SetLength(name,p-1);
     obj:=FindGlobal(name,objClass);
     if (obj<>nil) and objClass.InheritsFrom(TVarTypeStruct) then
      result:=FindField(field,varClass,obj,TVarClassStruct(objClass));
-   end else // поиск среди глобальных переменных
+   end else // search among global variables
     result:=FindGlobal(name,varClass);
   end;
 
@@ -910,7 +909,7 @@ begin
   1:result:=-MaxDouble;
   2:result:=MaxDouble;
  end;
- sa:=params.Split(',');   // проблема с min(3,max(2,1),3) - запятая в скобках!
+ sa:=params.Split(',');   // problem with min(3,max(2,1),3) - comma inside parentheses!
  for i:=0 to length(sa)-1 do begin
   v:=EvalFloat(sa[i],nil,context,contextClass);
   case tag of
@@ -925,7 +924,7 @@ var
  sa:Strings8;
  v:double;
 begin
- sa:=params.Split(','); // проблема с запятыми в подфункциях
+ sa:=params.Split(','); // problem with commas in nested functions
  if length(sa)<3 then raise EWarning.Create('Invalid parameters: '+params);
  v:=EvalFloat(sa[0],nil,context,contextClass);
  if abs(v)>0.00000001 then result:=EvalFloat(sa[1],nil,context,contextClass)
@@ -1050,9 +1049,8 @@ procedure SetGlobals(cmd:String8;contextName:String8);
 var
  i:integer;
  contextIdx:integer;
- context:TGlobalContext;
 begin
- // Всё тот же контекст? Ничего не менять...
+ // Same context? Change nothing...
  if lastAssignCmd=cmd then exit;
 
  crSection.Enter;

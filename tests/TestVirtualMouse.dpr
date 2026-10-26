@@ -1,6 +1,7 @@
 // Virtual mouse through the Robot API (mouse.* commands): the input goes through the
 // regular routing of the engine - hit-test, hover, pressed state, capture, modal dialogs,
 // clicks - and is checked by the state of real UI elements, not by handler calls.
+// Also the keyboard routing around the focus and the popup menu (mouse and keys).
 // No native window: TTestWindow plays the platform (OS pointer, OS button events), the
 // frames run the window-level steps of TGame.FrameLoop, the main window in this thread,
 // the second one in its own thread like an extra window.
@@ -25,6 +26,7 @@ uses
   Apus.Engine.UIWidgets,
   Apus.Engine.UIShapes,
   Apus.Engine.UIScene,
+  Apus.Engine.UIMenu,
   Apus.Engine.Game,
   Apus.Engine.RobotAPI;
 
@@ -61,6 +63,10 @@ type
     procedure DoClick; override;
   end;
 
+  // the class attribute 'defaultCanHaveFocus' overrides the button default
+  TNoFocusButton=class(TUIButton)
+  end;
+
   // records what the Mouse queries give in Process
   TProbeScene=class(TGameScene)
     rect:TRect; // for InRect/WasInRect
@@ -77,6 +83,24 @@ type
     function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
     function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; override;
     procedure AddEvent(const kind:String8;key:TKey;shift:byte);
+  end;
+
+  // a UI scene that records the keys reaching the scene: its hotkey and gameplay receivers
+  TKeyForm=class(TUIScene)
+    log:String8; // 'D:B U:Space ...'
+    saves:integer; // Ctrl+S hotkey calls
+    function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
+    function onKeyUp(key:TKey;scancode:integer;shift:byte):boolean; override;
+    procedure SaveHotKey;
+  end;
+
+  // records the menu commands and the focus they find
+  TMenuProbe=class
+    news,saves,quits:integer;
+    focusAtCall:TUIElement;
+    procedure DoNew;
+    procedure DoSave;
+    procedure DoQuit;
   end;
 
   // opens the scene choice of TGame.KeyPressed/CharEntered
@@ -187,6 +211,58 @@ function TKeyProbe.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
  begin
   AddEvent('U',key,shift);
   result:=true;
+ end;
+
+{ TKeyForm }
+
+function TKeyForm.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  log:=log+'D:'+String8(key.Name)+' ';
+  result:=true;
+ end;
+
+function TKeyForm.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  log:=log+'U:'+String8(key.Name)+' ';
+  result:=true;
+ end;
+
+procedure TKeyForm.SaveHotKey;
+ begin
+  inc(saves);
+ end;
+
+{ TMenuProbe }
+
+procedure TMenuProbe.DoNew;
+ begin
+  inc(news);
+  focusAtCall:=FocusedElement;
+ end;
+
+procedure TMenuProbe.DoSave;
+ begin
+  inc(saves);
+  focusAtCall:=FocusedElement;
+ end;
+
+procedure TMenuProbe.DoQuit;
+ begin
+  inc(quits);
+ end;
+
+// plain menu commands: inline and async (the async one runs in its own thread)
+var
+  menuPlainCalls,menuAsyncCalls:integer;
+
+procedure MenuPlainClick;
+ begin
+  inc(menuPlainCalls);
+ end;
+
+procedure MenuAsyncClick;
+ begin
+  Atomic.Inc(menuAsyncCalls);
  end;
 
 { TKbdGame }
@@ -398,6 +474,172 @@ procedure TestPhysicalBefore;
   wndA.physPos:=Types.Point(-1,-1);
   RunFrame(wndA);
   btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+  EndTest;
+ end;
+
+var
+  testMenu:TUIPopupMenu;
+  menuBtn:TProbeButton;
+  menuToolBtn:TUIToolButton;
+
+procedure ShowTestMenu;
+ begin
+  testMenu.OpenBelow(menuBtn);
+ end;
+
+procedure ShowTestMenuFromTool;
+ begin
+  testMenu.OpenBelow(menuToolBtn);
+ end;
+
+function CenterOf(e:TUIElement):TPoint;
+ var
+  r:TRect;
+ begin
+  r:=e.GetPosOnScreen;
+  result:=Types.Point((r.Left+r.Right) div 2,(r.Top+r.Bottom) div 2);
+ end;
+
+procedure PhysicalClickAt(const p:TPoint);
+ begin
+  wndA.PhysicalClick(p.x,p.y);
+  RunFrame(wndA);
+  RunFrame(wndA);
+ end;
+
+// Popup menu (R-14): opening, keys, current line, commands, a press outside, focus
+procedure TestPopupMenu;
+ var
+  probe:TMenuProbe;
+  edit,edit2:TUIEditBox;
+  itemNew,itemUndo,itemSave,itemQuit:TUIMenuItem;
+  noFocusBtn:TUIButton;
+  t:integer;
+ begin
+  StartTest('Popup menu');
+  probe:=TMenuProbe.Create;
+  menuBtn:=NewButton(sceneA.UI,'MenuBtn',100,300); // 100..200 x 300..330
+  menuBtn.onClick:=ShowTestMenu;
+  edit:=TUIEditBox.Create(100,20,sceneA.UI,'MenuEdit');
+  edit.SetPos(500,300,pivotTopLeft);
+  testMenu:=TUIPopupMenu.Create(sceneA.UI,'TestMenu');
+  itemNew:=testMenu.Add('New','Ctrl+N');
+  itemNew.handler:=probe.DoNew;
+  itemUndo:=testMenu.Add('Undo','Ctrl+Z');
+  itemUndo.Disable;
+  testMenu.AddSeparator;
+  itemSave:=testMenu.Add('Save...','Ctrl+S');
+  itemSave.handler:=probe.DoSave;
+  itemQuit:=testMenu.Add('&Quit now');
+  itemQuit.handler:=probe.DoQuit;
+  Check((itemSave.name='TestMenu\Save') and (itemQuit.name='TestMenu\Quit_now'),'default line names: '+itemSave.name+', '+itemQuit.name);
+  // the anchor opens the menu below itself; its next press closes the menu for good
+  Sleep(60); // TUIButton drops clicks in the first 50 ms of the program (its double-click guard)
+  PhysicalClickAt(CenterOf(menuBtn));
+  Check(testMenu.IsOpen and (FocusedElement=testMenu),'a click on the anchor opens the menu, the menu takes the focus');
+  Check(testMenu.GetPosOnScreen.Top>=330,'the menu is below the anchor');
+  Sleep(60); // past the double-click guard of TUIButton.DoClick
+  PhysicalClickAt(CenterOf(menuBtn));
+  Check(not testMenu.IsOpen,'the press on the anchor closes the menu, its click does not reopen it');
+  // a tool button anchor takes no focus: the menu returns it to the edit box
+  menuToolBtn:=TUIToolButton.Create(100,30,sceneA.UI,'MenuToolBtn');
+  menuToolBtn.SetPos(250,300,pivotTopLeft); // 250..350 x 300..330
+  menuToolBtn.onClick:=ShowTestMenuFromTool;
+  Check(not menuToolBtn.flags.canHaveFocus and menuBtn.flags.canHaveFocus,'a tool button has no focus, a button has');
+  edit.SetFocus;
+  PhysicalClickAt(CenterOf(menuToolBtn));
+  Check(testMenu.IsOpen and (FocusedElement=testMenu),'a click on a tool button anchor opens the menu');
+  Sleep(60); // past the double-click guard of TUIButton.DoClick
+  PhysicalClickAt(CenterOf(menuToolBtn));
+  Check(not testMenu.IsOpen and (FocusedElement=edit),'its next press closes the menu, the focus is back in the edit box');
+  menuToolBtn.Remove;
+  // the class attribute overrides the default of a button class
+  TNoFocusButton.SetDefault('canHaveFocus',false);
+  noFocusBtn:=TNoFocusButton.Create(10,10,sceneA.UI,'NoFocusBtn');
+  Check(not noFocusBtn.flags.canHaveFocus,'SetDefault(''canHaveFocus'',false) removes the focus of a button class');
+  noFocusBtn.Remove;
+  // keys: the current line skips the disabled line and the separator, wraps around
+  edit.SetFocus;
+  testMenu.OpenBelow(menuBtn);
+  Check(testMenu.current=nil,'no current line when opened');
+  sceneA.DispatchKey(TKey.Down,0,0,true);
+  Check(testMenu.current=itemNew,'Down: the first line');
+  sceneA.DispatchKey(TKey.Down,0,0,true);
+  Check(testMenu.current=itemSave,'Down skips the disabled line and the separator');
+  sceneA.DispatchKey(TKey.Up,0,0,true);
+  Check(testMenu.current=itemNew,'Up skips them too');
+  sceneA.DispatchKey(TKey.EndKey,0,0,true);
+  sceneA.DispatchKey(TKey.Down,0,0,true);
+  Check(testMenu.current=itemNew,'End, then Down wraps to the first line');
+  Check(itemNew.IsHovered and not itemSave.IsHovered,'the current line is drawn as hovered');
+  Check(sceneA.DispatchKey(TKey.B,0,0,true) and testMenu.IsOpen,'other keys stop at the open menu');
+  testMenu.current:=itemUndo;
+  Check(testMenu.current=nil,'a disabled line can not be current');
+  // Enter: close, restore the focus, then run the command
+  testMenu.current:=itemSave;
+  sceneA.DispatchKey(TKey.Enter,0,0,true);
+  Check((probe.saves=1) and not testMenu.IsOpen,'Enter runs the current line and closes the menu');
+  Check(probe.focusAtCall=edit,'the command finds the focus already restored');
+  // the button handlers of a line run too: inline, async, then the method
+  menuPlainCalls:=0; menuAsyncCalls:=0;
+  itemQuit.onClick:=@MenuPlainClick;
+  itemQuit.onClickAsync:=@MenuAsyncClick;
+  testMenu.OpenBelow(menuBtn);
+  testMenu.current:=itemQuit;
+  sceneA.DispatchKey(TKey.Enter,0,0,true);
+  Check((menuPlainCalls=1) and (probe.quits=1) and not testMenu.IsOpen,'a line runs its onClick and its method');
+  t:=0;
+  while (Atomic.CmpExchange(menuAsyncCalls,0,0)=0) and (t<200) do begin
+   Sleep(5); inc(t);
+  end;
+  Check(menuAsyncCalls=1,'a line runs its onClickAsync');
+  // Esc restores the focus, nil included
+  testMenu.OpenBelow(menuBtn);
+  sceneA.DispatchKey(TKey.Escape,0,0,true);
+  Check(not testMenu.IsOpen and (FocusedElement=edit),'Esc closes the menu and restores the focus');
+  ClearFocus(wndA);
+  testMenu.OpenBelow(menuBtn);
+  sceneA.DispatchKey(TKey.Escape,0,0,true);
+  Check(FocusedElement=nil,'no focus before - no focus after');
+  // the mouse picks the current line, a disabled line clears it
+  testMenu.OpenBelow(menuBtn);
+  wndA.physPos:=CenterOf(itemSave);
+  RunFrame(wndA);
+  Check(testMenu.current=itemSave,'the line under the mouse is current');
+  wndA.physPos:=CenterOf(itemUndo);
+  RunFrame(wndA);
+  Check(testMenu.current=nil,'a disabled line under the mouse is not current');
+  // a click on a line runs it, a click on a disabled line does nothing
+  PhysicalClickAt(CenterOf(itemUndo));
+  Check(testMenu.IsOpen,'a click on a disabled line keeps the menu open');
+  PhysicalClickAt(CenterOf(itemNew));
+  Check((probe.news=1) and not testMenu.IsOpen,'a click on a line runs it and closes the menu');
+  // a press outside closes the menu and reaches its target
+  btn.clicks:=0;
+  testMenu.OpenBelow(menuBtn);
+  PhysicalClickAt(Types.Point(150,115));
+  Check(not testMenu.IsOpen and (btn.clicks=1),'a click outside closes the menu and reaches the button');
+  // the focus taken away closes the menu and stays with the taker
+  testMenu.OpenBelow(menuBtn);
+  edit.SetFocus;
+  Check(not testMenu.IsOpen and (FocusedElement=edit),'a focus change closes the menu');
+  // the remembered focus is removed while the menu is open
+  edit2:=TUIEditBox.Create(100,20,sceneA.UI,'MenuEdit2');
+  edit2.SetPos(500,330,pivotTopLeft);
+  edit2.SetFocus;
+  testMenu.OpenBelow(menuBtn);
+  edit2.Remove;
+  sceneA.DispatchKey(TKey.Escape,0,0,true);
+  Check(FocusedElement=nil,'a removed focus is not restored');
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+  testMenu.Remove;
+  menuBtn.Remove;
+  edit.Remove;
+  ClearFocus(wndA);
+  RunFrame(wndA);
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+  probe.Free;
   EndTest;
  end;
 
@@ -847,6 +1089,51 @@ procedure TestPhysicalIgnored;
   EndTest;
  end;
 
+// A focused element stops only the keys it consumes, the rest reach the scene (R-14 step 0)
+procedure TestFocusKeys;
+ var
+  form:TKeyForm;
+  b:TProbeButton;
+  e:TUIEditBox;
+ begin
+  StartTest('Focus and scene keys');
+  form:=TKeyForm.Create('KeyForm',false,wndA); // the keys are dispatched directly, not by frames
+  form.SetStatus(ssActive); // an inactive scene has its UI disabled: no focus routing at all
+  form.RegisterHotKey(TKey.S,sscCtrl,form.SaveHotKey);
+  b:=NewButton(form.UI,'FocusBtn',10,10);
+  e:=TUIEditBox.Create(100,20,form.UI,'FocusEdit');
+  // a focused button takes only Enter and Space
+  b.SetFocus;
+  form.DispatchKey(TKey.B,0,0,true);
+  Check(form.log='D:B ','a focused button passes B on to the scene: '+form.log);
+  form.log:='';
+  form.DispatchKey(TKey.Space,0,0,true);
+  Check((b.clicks=1) and (form.log=''),'Space presses the focused button and stops there: '+form.log);
+  form.DispatchKey(TKey.Space,0,0,false);
+  Check(form.log='U:Space ','the release goes on to the scene: '+form.log);
+  // a focused edit box takes the keys that type text and the editing keys
+  e.SetFocus;
+  form.log:='';
+  form.DispatchKey(TKey.B,0,0,true);
+  form.DispatchKey(TKey.B,0,sscShift,true);
+  form.DispatchKey(TKey.Q,0,sscCtrl+sscAlt,true); // AltGr
+  form.DispatchKey(TKey.C,0,sscCtrl,true);
+  form.DispatchKey(TKey.Left,0,0,true);
+  Check(form.log='','the edit box consumes text, AltGr, editing and caret keys: '+form.log);
+  form.DispatchKey(TKey.S,0,sscCtrl,true);
+  Check((form.saves=1) and (form.log=''),'Ctrl+S in the edit box reaches the scene hotkey');
+  form.DispatchKey(TKey.F5,0,0,true);
+  form.DispatchKey(TKey.Escape,0,0,true);
+  form.DispatchKey(TKey.B,0,0,false);
+  Check(form.log='D:F5 D:Escape U:B ','F5, Esc and releases go on to the scene: '+form.log);
+  ClearFocus(wndA);
+  form.log:='';
+  form.DispatchKey(TKey.B,0,0,true);
+  Check(form.log='D:B ','no focus: the scene gets the key: '+form.log);
+  form.SetStatus(ssFrozen);
+  EndTest;
+ end;
+
 procedure TestKeyboard;
  var
   textHi:String8;
@@ -1175,6 +1462,7 @@ begin
   TestShortScrollRange;
   TestModeErrors;
   TestPhysicalBefore;
+  TestPopupMenu;
   TestInputFrame;
   TestEnable;
   TestMoveHover;
@@ -1185,6 +1473,7 @@ begin
   TestRules;
   TestKeyboardTarget;
   TestEditKeys;
+  TestFocusKeys;
   TestDrag;
   TestReset;
   TestPhysicalIgnored;

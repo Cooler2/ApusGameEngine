@@ -114,6 +114,8 @@ interface
   // window as its `window` context and the button as `sender`; it does not hold the
   // window lock (take window.Lock around UI changes). The button is held (Acquire) until
   // the handler returns, even if onClick deletes it.
+  // A click focuses the button (Enter/Space repeat it); class attribute 'defaultCanHaveFocus'
+  // overrides that for a class and its descendants.
   TUIButton=class(TUIElement)
    default:boolean;          // default button (affects rendering only)
    pressed:boolean;          // transient: true while mouse is held down
@@ -138,6 +140,12 @@ interface
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
+  end;
+
+  // Button of a toolbar or a menu owner: never takes the focus, so a click leaves the keys
+  // where they were (an edit box, the scene hotkeys). Otherwise the same as TUIButton.
+  TUIToolButton=class(TUIButton)
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
   end;
 
   // Toggle button: latches in toggled state on click.
@@ -375,8 +383,8 @@ interface
   end;
 
 implementation
- uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Engine.Clipboard,
-  Apus.Strings, Apus.Threads, Apus.Engine.UIRender, Apus.Engine.UI;
+ uses SysUtils, Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Engine.Clipboard,
+  Apus.Strings, Apus.Threads, Apus.Engine.Keys, Apus.Engine.UIRender, Apus.Engine.UI;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -507,7 +515,7 @@ implementation
   begin
    inherited Create(width,height,parent,name);
    shape:=shapeFull;
-   flags.canHaveFocus:=true;
+   flags.canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',true);
    sendSignals:=ssMajor;
   end;
 
@@ -604,6 +612,14 @@ implementation
     if pr then Signal('UI\Button\Down\'+name,UIntPtr(self))
           else Signal('UI\Button\Up\'+name,UIntPtr(self));
    end;
+  end;
+
+{ TUIToolButton }
+
+ constructor TUIToolButton.Create(width,height:single;parent:TUIElement;name:String8);
+  begin
+   inherited Create(width,height,parent,name);
+   flags.canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
   end;
 
 { TUIToggleButton }
@@ -814,7 +830,7 @@ function TUILabel.Right(text:String8):TUILabel;
    maxW:=1600; maxH:=1200;
    style.SetAttr('fill','$FFBCB8B0');
    area:=0;
-   order:=100; // выше чем прочие элементы.
+   order:=100; // above other elements.
   end;
 
  destructor TUIWindow.Destroy;
@@ -1175,6 +1191,19 @@ function TUIEditBox.GetText:String8;
        selCount:=cursorPos-anchor;
       end;
     end;
+   // Keys the edit box handles: the ones that type text (they come as characters via onUniChar)
+   // alone, with Shift or with AltGr (= Ctrl+Alt), and the editing and caret keys
+   function IsOwnKey(key:TKey;mods:byte):boolean;
+    begin
+     if key.IsText and (((mods and not sscShift)=0) or ((mods and (sscCtrl+sscAlt))=sscCtrl+sscAlt)) then
+      exit(true);
+     case key of
+      TKey.Left,TKey.Right,TKey.Home,TKey.EndKey,TKey.Backspace,TKey.Delete:result:=true;
+      TKey.Insert:result:=(mods and (sscCtrl+sscShift))<>0;
+      TKey.C,TKey.X,TKey.V,TKey.A,TKey.Z:result:=mods=sscCtrl;
+      else result:=false;
+     end;
+    end;
   var
    newPos,txtLen:integer;
    useCtrl,useShift:boolean;
@@ -1200,6 +1229,7 @@ function TUIEditBox.GetText:String8;
       selcount:=0;
       Signal('UI\'+name+'\AutoCompletion',0);
       Signal('UI\Editbox\AutoCompletion\'+name,0);
+      result:=false; // Enter accepted the completion: it is not the dialog's Enter
      end else begin
       Signal('UI\'+name+'\Enter',0);
       Signal('UI\Editbox\Enter\'+name,0);
@@ -1280,6 +1310,8 @@ function TUIEditBox.GetText:String8;
      end;
     end;
     AdjustState;
+    // Enter (unless it took a completion), Esc, F-keys and shortcuts like Ctrl+S go on
+    if IsOwnKey(TKey(keycode),shiftState) then result:=false;
    end;
    if (sendSignals=ssAll) and (oldText<>realText) then begin
     savedText:=oldText;
@@ -1958,14 +1990,13 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
 
 constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil);
   var
-   btn:TUIButton;
    i,j:integer;
   begin
    inherited Create(width,height,parent_,name);
    shape:=shapeFull;
    items:=Copy(list);
    SetLength(tags,length(items));
-   // Исходные строки могут быть в формате "tag|text|hint" либо "tag|text" либо "text"
+   // Source lines can be in the format "tag|text|hint" or "tag|text" or "text"
    for i:=0 to high(items) do begin
     j:=pos('|',items[i]);
     if (j>1) and (items[i][1] in ['0'..'9']) then begin

@@ -90,7 +90,7 @@ implementation
         lastTime:=0;
         lastValue:=0;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -108,7 +108,7 @@ implementation
         lastTime:=0;
         lastValue:=0;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -118,7 +118,7 @@ implementation
       try
           SetLength(animations,0);
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -133,7 +133,7 @@ implementation
       try
           result:=(InternalValueAt(time+1)-InternalValueAt(time))*1000;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -146,7 +146,7 @@ implementation
         else
             result:=initialValue;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -156,7 +156,7 @@ implementation
       try
           result:=InternalValueAt(time);
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -173,7 +173,7 @@ implementation
       else t:=time;
 
       if (t>=animations[i].endTime) then
-        if time=0 then begin // все анимации уже в прошлом
+        if time=0 then begin // all animations are already in the past
             initialValue:=animations[i].value2;
             if logName<>'' then
               Log.Msg(Conv.ToStr(CoreTime.Ticks mod 1000)+'>'+
@@ -191,7 +191,7 @@ implementation
           result:=lastValue;
           exit;
         end;
-      // Вычисление значения из текущих анимаций
+      // Compute the value from the current animations
       for i:=0 to length(animations)-1 do
         with animations[i] do begin
             if t>=endTime then v:=value2
@@ -205,7 +205,7 @@ implementation
             if (i>0) and (animations[i-1].endTime>startTime) and (t<animations[i-1].endTime) then begin
                 r:=animations[i-1].endTime;
                 if endTime<r then r:=endTime;
-                if (r-animations[i-1].startTime)<>0 then // почему так?
+                if (r-animations[i-1].startTime)<>0 then // why so?
                     k:=(startTime-animations[i-1].startTime)/(r-animations[i-1].startTime)
                 else k:=0;
                 if k>1 then k:=1;
@@ -246,7 +246,7 @@ implementation
         else
             result:=false;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 
@@ -288,7 +288,7 @@ implementation
             if delay=0 then v:=InternalValueAt(0)
           else
               v:=InternalValueAt(t);
-          // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
+          // special case - animation after other animations have started, i.e. not from the current value
 
           n:=length(animations);
           SetLength(animations,n+1);
@@ -309,7 +309,7 @@ implementation
               e.message);
         end;
       finally
-        lock:=0;
+        SpinUnlock(lock);
       end;
     end;
 

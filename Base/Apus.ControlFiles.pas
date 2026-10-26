@@ -114,7 +114,7 @@ implementation
   Apus.Strings, Apus.Conv, Apus.Files;
 
 type
- // комментарий
+ // comment
  TCommentLine=class
   line:String8;
  end;
@@ -125,7 +125,7 @@ type
   destructor Destroy; override;
  end;
 
- // Базовый класс для именованых элементов
+ // Base class for named elements
  TNamedValue=class
   name:String8; // item's name
   fullname:string; // full item name (including path), uppercase (for hash)
@@ -222,232 +222,150 @@ const
  itStrList  = 14;
 
 var
- // Все загруженные данные хранятся в одном дереве
- // Элементы 1-го уровня - файлы
+ // All loaded data is stored in a single tree
+ // 1st-level elements are files
  items:TGenericTree;
- // Хэш для быстрого доступа к именованным элементам дерева (кроме файлов)
+ // Hash for fast access to named tree elements (except files)
  hash:TStrHash;
  lasthandle:integer=0;
 
- critSect:TLock; // синхронизация для многопоточного доступа
+ critSect:TLock; // synchronization for multithreaded access
+ rndState:cardinal; // state of the own random generator: the global one (RandSeed) is not touched
 
-//----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
-type
-  PLong = ^LongWord;
-
-{ Функции для работы с символьной записью чисел. }
-function Q_StrToInt64(const S: String8; var V: Int64): Boolean;
-type
-  PArr64 = ^TArr64;
-  TArr64 = array[0..7] of Byte;
-var
-  P: PChar;
-  C: LongWord;
-  Sign: LongBool;
+// Random number in [0..range-1] from the own xorshift generator
+function CtlRandom(range:cardinal):cardinal;
 begin
-  V := 0;
-  P := Pointer(S);
-  if not Assigned(P) then
-  begin
-    Result := False;
-    Exit;
-  end;
-  while P^ = ' ' do
-    Inc(P);
-  if P^ = '-' then
-  begin
-    Sign := True;
-    Inc(P);
-  end else
-  begin
-    Sign := False;
-    if P^ = '+' then
-      Inc(P);
-  end;
-  if P^ <> '$' then
-  begin
-    if P^ = #0 then
-    begin
-      Result := False;
-      Exit;
-    end;
-    repeat
-      C := Byte(P^);
-      if Char(C) in ['0'..'9'] then
-        Dec(C,48)
-      else
-        Break;
-      if (V<0) or (V>$CCCCCCCCCCCCCCC) then
-      begin
-        Result := False;
-        Exit;
-      end;
-      V := V*10 + C;
-      Inc(P);
-    until False;
-    if V < 0 then
-    begin
-      Result := (V=$8000000000000000) and Sign and (C=0);
-      Exit;
-    end;
-  end else
-  begin
-    Inc(P);
-    repeat
-      C := Byte(P^);
-      case Char(C) of
-      '0'..'9': Dec(C,48);
-      'A'..'F': Dec(C,55);
-      'a'..'f': Dec(C,87);
-      else
-        Break;
-      end;
-      if PArr64(@V)^[7] >= $10 then
-      begin
-        Result := False;
-        Exit;
-      end;
-      V := V shl 4;
-      PLong(@V)^ := PLong(@V)^ or C;
-      Inc(P);
-    until False;
-    if Sign and (V=$8000000000000000) then
-    begin
-      Result := False;
-      Exit;
-    end;
-  end;
-  if Sign then
-    V := -V;
-  Result := C=0;
+ rndState:=rndState xor (rndState shl 13);
+ rndState:=rndState xor (rndState shr 17);
+ rndState:=rndState xor (rndState shl 5);
+ result:=rndState mod range;
 end;
 
-function Q_BetweenInt64(const S: String8; LowBound, HighBound: Int64): Boolean;
-var
-  N: Int64;
+// Skip decimal digits starting at position i, return their count
+function SkipDigits(const s:String8;var i:integer):integer;
 begin
-  Result := Q_StrToInt64(S,N) and (N>=LowBound) and (N<=HighBound);
+ result:=0;
+ while (i<=length(s)) and (s[i] in ['0'..'9']) do begin
+  inc(i); inc(result);
+ end;
 end;
 
-function Q_IsInteger(const S: String8): Boolean;
+// Decimal integer in the 32-bit range: [sign]digits
+function IsInteger(const s:String8):boolean;
 var
-  L,I: Integer;
-  P: PAnsiChar;
-  C: AnsiChar;
+ i,n:integer;
+ v:int64;
 begin
-  P := Pointer(S);
-  L := Length(S);
-  Result := False;
-  while (L>0) and (P^=' ') do
-  begin
-    Dec(L);
-    Inc(P);
-  end;
-  if L > 0 then
-  begin
-    C := P^;
-    Inc(P);
-    if C in ['-','+'] then
-    begin
-      C := P^;
-      Dec(L);
-      Inc(P);
-      if L = 0 then
-        Exit;
-    end;
-    if ((L<10) and (C in ['0'..'9'])) or ((L=10) and (C in ['0'..'1'])) then
-    begin
-      for I := 1 to L-1 do
-      begin
-        if not (P^ in ['0'..'9']) then
-          Exit;
-        Inc(P);
-      end;
-      Result := True;
-    end
-    else if (L=10) and (C='2') then
-      Result := Q_BetweenInt64(S,-2147483647-1,2147483647);
-  end;
-end;
-function Q_IsFloat(const S: String8): Boolean;
-var
-  L: Integer;
-  P: PAnsiChar;
-begin
-  P := Pointer(S);
-  L := Length(S);
-  Result := False;
-  while (L>0) and (P^=' ') do
-  begin
-    Dec(L);
-    Inc(P);
-  end;
-  if L > 0 then
-  begin
-    if P^ in ['-','+'] then
-    begin
-      Dec(L);
-      Inc(P);
-      if L = 0 then
-        Exit;
-    end;
-    if not (P^ in ['0'..'9']) then
-      Exit;
-    repeat
-      Dec(L);
-      Inc(P);
-    until (L=0) or not (P^ in ['0'..'9']);
-    if L = 0 then
-    begin
-      Result := True;
-      Exit;
-    end;
-    if P^ = '.' then
-    begin
-      Dec(L);
-      Inc(P);
-      if (L=0) or not (P^ in ['0'..'9']) then
-        Exit;
-      repeat
-        Dec(L);
-        Inc(P);
-      until (L=0) or not (P^ in ['0'..'9']);
-      if L = 0 then
-      begin
-        Result := True;
-        Exit;
-      end;
-    end;
-    if P^ in ['E','e'] then
-    begin
-      Dec(L);
-      Inc(P);
-      if (L<>0) and (P^ in ['-','+']) then
-      begin
-        Dec(L);
-        Inc(P);
-      end;
-      if (L=0) or not (P^ in ['0'..'9']) then
-        Exit;
-      repeat
-        Dec(L);
-        Inc(P);
-      until (L=0) or not (P^ in ['0'..'9']);
-      Result := L = 0;
-    end;
-  end;
+ result:=false;
+ i:=1;
+ if (i<=length(s)) and (s[i] in ['-','+']) then inc(i);
+ n:=SkipDigits(s,i);
+ if (n=0) or (n>10) or (i<=length(s)) then exit;
+ v:=Conv.ToInt(s);
+ result:=(v>=Low(integer)) and (v<=High(integer));
 end;
 
-// ------------------------------- End of QStrings
+// Decimal float: [sign]digits[.digits][e[sign]digits]
+function IsFloat(const s:String8):boolean;
+var
+ i:integer;
+begin
+ result:=false;
+ i:=1;
+ if (i<=length(s)) and (s[i] in ['-','+']) then inc(i);
+ if SkipDigits(s,i)=0 then exit;
+ if (i<=length(s)) and (s[i]='.') then begin
+  inc(i);
+  if SkipDigits(s,i)=0 then exit;
+ end;
+ if (i<=length(s)) and (s[i] in ['e','E']) then begin
+  inc(i);
+  if (i<=length(s)) and (s[i] in ['-','+']) then inc(i);
+  if SkipDigits(s,i)=0 then exit;
+ end;
+ result:=i>length(s);
+end;
+
+// Float literal (already validated by IsFloat) to its exact value
+function CtlToFloat(const s:String8):double;
+var
+ code:integer;
+begin
+ Val(string(s),result,code);
+end;
+
+// Where there is no extended (FPC on Win64) FloatToStrF stops at 15 digits; Str(v:width) gives
+// more: digits+7 is the width of "-d.dddE+ddd". The result has the form of ffGeneral
+function StrFloat(v:double;digits:integer):String8;
+const
+ ZEROS:String8='0000000000000000';
+var
+ s:ShortString;
+ t,m:String8;
+ p,e,code:integer;
+ neg:boolean;
+begin
+ Str(v:digits+7,s);
+ t:=String8(Trim(string(s)));
+ result:=t;
+ p:=Pos(String8('E'),t);
+ if p=0 then exit;
+ Val(string(copy(t,p+1,length(t))),e,code);
+ if code<>0 then exit;
+ m:=copy(t,1,p-1);
+ neg:=(m<>'') and (m[1]='-');
+ if neg then System.Delete(m,1,1);
+ if (length(m)<2) or (m[2]<>'.') then exit;
+ System.Delete(m,2,1); // the digits only
+ while (length(m)>1) and (m[length(m)]='0') do SetLength(m,length(m)-1);
+ if (e>=-4) and (e<digits) then begin
+  if e<0 then result:='0.'+copy(ZEROS,1,-e-1)+m
+  else
+  if e+1>=length(m) then result:=m+copy(ZEROS,1,e+1-length(m))
+  else result:=copy(m,1,e+1)+'.'+copy(m,e+2,length(m));
+ end else begin
+  result:=copy(m,1,1);
+  if length(m)>1 then result:=result+'.'+copy(m,2,length(m));
+  result:=result+'E'+String8(IntToStr(e));
+ end;
+ if neg then result:='-'+result;
+end;
+
+// Float as a literal that reads back to the same value and is detected as a float again
+function CtlFloatToStr(v:double):String8;
+var
+ fs:TFormatSettings;
+ digits:integer;
+ exact:boolean;
+ s:String8;
+begin
+ {$IFDEF FPC}fs:=DefaultFormatSettings;{$ELSE}fs:=TFormatSettings.Create;{$ENDIF}
+ fs.DecimalSeparator:='.';
+ // the shortest of the forms: 15 digits are exact for most values, 17 - for any
+ for digits:=15 to 17 do begin
+  result:=String8(FloatToStrF(v,ffGeneral,digits,0,fs));
+  exact:=IsFloat(result) and (CtlToFloat(result)=v);
+  if exact then break;
+ end;
+ if not exact then
+  for digits:=16 to 17 do begin
+   s:=StrFloat(v,digits);
+   if IsFloat(s) and (CtlToFloat(s)=v) then begin
+    result:=s;
+    break;
+   end;
+  end;
+ if IsInteger(result) then result:=result+'.0';
+end;
 
 constructor TNamedValue.Create;
 begin
 end;
 
-// Удаление именованного эл-та
+// Delete a named element
 destructor TNamedValue.Destroy;
 begin
- // Попаытаемся удалить из хэша:
+ // Try to remove it from the hash:
  hash.Remove(fullname);
  inherited;
 end;
@@ -481,7 +399,7 @@ end;
 { TIntValue }
 constructor TIntValue.Create;
 begin
- c:=random($10000000);
+ c:=CtlRandom($10000000);
  v:=1028349272;
  v2:=v xor $28402850;
 end;
@@ -503,7 +421,7 @@ end;
 { TFloatValue }
 constructor TFloatValue.Create;
 begin
- c:=random($10000000);
+ c:=CtlRandom($10000000);
 end;
 
 function TFloatValue.GetFloatValue: double;
@@ -523,7 +441,7 @@ end;
 { TBoolValue }
 constructor TBoolValue.Create;
 begin
- c:=random(2)=0;
+ c:=CtlRandom(2)=0;
 end;
 
 function TBoolValue.GetBoolValue: boolean;
@@ -541,7 +459,7 @@ end;
 { TStringValue }
 constructor TStringValue.Create;
 begin
- key:=random(100000000);
+ key:=CtlRandom(100000000);
 end;
 
 function TStringValue.GetStrValue: String8;
@@ -567,7 +485,7 @@ end;
 
 constructor TStringListValue.Create;
 begin
- key:=random(100000000);
+ key:=CtlRandom(100000000);
 end;
 
 function TStringListValue.GetCount: integer;
@@ -646,7 +564,7 @@ function UseControlFile;
   i:integer;
   ctl:TCtlFile;
 
- // Загрузить указанный файл, вернуть его handle
+ // Load the specified file, return its handle
  function Load(filename:String8;code:cardinal):integer;
   var
    data:ByteArray;
@@ -655,7 +573,7 @@ function UseControlFile;
    i:integer;
    mode:TFileMode;
 
-  // Загрузить файл текстового формата в указанный объект
+  // Load a text-format file into the specified object
   procedure LoadTextual(filename:String8;item:TGenericTree);
    var
     st:String8;
@@ -685,7 +603,7 @@ function UseControlFile;
        item.AddChild(comment);
        continue;
       end;
-      // Разделим команду и аргумент
+      // Split the command and the argument
       arg:='';
       for i:=1 to length(st) do
        if st[i] in [' ',#9] then begin
@@ -694,10 +612,10 @@ function UseControlFile;
         break;
        end;
 
-      // Директива
+      // Directive
       if st[1]='$' then begin
        // End of section
-       if st.ToUpper='$ENDOFSECTION' then break; // конец секции
+       if st.ToUpper='$ENDOFSECTION' then break; // end of section
        // Section
        if (System.Length(st)>=8) and (System.Copy(st,1,8).ToUpper='$SECTION') then begin
         sect:=TSection.Create;
@@ -725,22 +643,21 @@ function UseControlFile;
       // Otherwise it's a value: check its type
       if arg='' then
        raise EWarning.Create('CTL2: no value for key '+st+' in '+filename+' line: '+Conv.ToStr(ln));
-      {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
       uArg:=arg.ToUpper;
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
        // boolean
        value:=TBoolValue.Create;
        (value as TBoolValue).value:=(uArg='ON') or (uArg='YES');
       end else
-      if Q_IsInteger(arg) then begin
+      if IsInteger(arg) then begin
        // Integer
        value:=TIntValue.Create;
        (value as TIntValue).value:=Conv.ToInt(arg);
       end else
-      if Q_IsFloat(arg) then begin
+      if IsFloat(arg) then begin
        // Float
        value:=TFloatValue.Create;
-       (value as TFloatValue).value:=Conv.ToFloat(arg);
+       (value as TFloatValue).value:=CtlToFloat(arg);
       end else begin
        // String8 or String8 list
        if arg[1]='(' then begin
@@ -771,7 +688,7 @@ function UseControlFile;
        end;
       end;
 
-      // Добавим элемент в структуры
+      // Add the element to the structures
       value.name:=st;
       value.fullname:=string((path+'\'+st).ToUpper);
       i:=item.AddChild(value);
@@ -800,7 +717,7 @@ function UseControlFile;
     c:cardinal;
     size:integer;
 
-   // Прочитать содержимое секции из двоичного файла
+   // Read the section content from a binary file
    procedure ReadSection(item:TGenericTree;path:String8);
     var
      cnt,i,j,n:integer;
@@ -924,7 +841,7 @@ function UseControlFile;
     if (h.sign1<=100000000) and (abs((h.sign2 xor h.sign1)-28301740)<=100) then mode:=fmBinary;
    end;
 
-   // Создаем объект и добавляем его в структуры
+   // Create the object and add it to the structures
    ctl:=TCtlFile.Create(filename,mode);
    ctl.fname:=filename;
    ctl.name:=ExtractFileName(filename);
@@ -948,26 +865,31 @@ function UseControlFile;
   end;
 
 begin
+ critSect.Enter;
  try
-  // Was the file already loaded? The key is the VFS name: the file doesn't have to exist on disk
-  filename:=Files.FixName(filename);
-  for i:=0 to items.GetChildrenCount-1 do begin
-   ctl:=items.GetChild(i).data;
-   if ctl.fname=filename then begin
-    result:=ctl.handle;
-    inc(ctl.RefCounter);
-    exit;
+  try
+   // Was the file already loaded? The key is the VFS name: the file doesn't have to exist on disk
+   filename:=Files.FixName(filename);
+   for i:=0 to items.GetChildrenCount-1 do begin
+    ctl:=items.GetChild(i).data;
+    if ctl.fname=filename then begin
+     result:=ctl.handle;
+     inc(ctl.RefCounter);
+     exit;
+    end;
+    // keys are addressed by the bare file name, so it must be unique
+    if UpperCase(ctl.name)=UpperCase(ExtractFileName(filename)) then
+     raise EError.Create('a file with this name is already loaded: '+ctl.fname);
    end;
+   if password<>'' then
+    code:=CheckSumSlow(password[1],length(password),1)
+   else code:=0;
+   result:=Load(filename,code);
+  except
+   on e:Exception do
+    raise EError.Create('CTL2: Can''t load control file: '+filename+', exception: '+e.Message);
   end;
-  if password<>'' then
-   code:=CheckSumSlow(password[1],length(password),1)
-  else code:=0;
-  result:=Load(filename,code);
-
- except
-  on e:Exception do
-   raise EError.Create('CTL2: Can''t load control file: '+filename+', exception: '+e.Message);
- end;
+ finally critSect.Leave; end;
 end;
 
 procedure SaveControlFile;
@@ -985,14 +907,20 @@ var
     content:=content+line+sLineBreak;
    end;
 
-  // Сохранить в файл содержимое секции (с указанным отступом)
+  // A value of the textual format can't contain a line break
+  procedure CheckTextual(const value:String8;o:TNamedValue);
+   begin
+    if (Pos(#10,value)>0) or (Pos(#13,value)>0) then
+     raise EWarning.Create('line break in the value of '+o.name);
+   end;
+
+  // Save the section content to a file (with the specified indent)
   procedure SaveSection(item:TGenericTree;indent:integer);
    var
     i,j:integer;
     o:TObject;
     pad,st:String8;
    begin
-    {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
     for i:=0 to item.GetChildrenCount-1 do begin
      o:=item.GetChild(i).data;
      SetLength(pad,indent);
@@ -1003,7 +931,7 @@ var
       WriteLine(pad+(o as TCommentLine).line);
       continue;
      end;
-     // Директивы
+     // Directives
      if o is TInclude then begin
       WriteLine(pad+'$Include '+(o as TInclude).include);
       SaveControlFile((o as TInclude).handle);
@@ -1016,7 +944,7 @@ var
       continue;
      end;
      // Format String8 for named value
-     // Все прочие варианты должны быть обработаны выше!
+     // All other cases must be handled above!
      if o is TNamedValue then begin
       st:=pad+(o as TNamedValue).name+'    ';
       while length(st) mod 8<>0 do st:=st+' ';
@@ -1036,14 +964,15 @@ var
      end;
      // Save float value
      if o is TFloatValue then begin
-      st:=st+floattostrf((o as TFloatValue).Value,ffFixed,9,6);
+      st:=st+CtlFloatToStr((o as TFloatValue).Value);
       WriteLine(st);
       continue;
      end;
      // Save String8 value
      if o is TStringValue then begin
       //st:=st+QuoteStr((o as TStringValue).value);
-      // Принудительное заключение в кавычки чтобы избежать конфликта с числами
+      // Force quoting to avoid a conflict with numbers
+      CheckTextual((o as TStringValue).value,o as TNamedValue);
       st:=st+'"'+(o as TStringValue).value+'"';
       WriteLine(st);
       continue;
@@ -1057,6 +986,7 @@ var
       for j:=1 to length(pad) do pad[j]:=' ';
       for j:=1 to count do begin
        while length(st) mod 8<>1 do st:=st+' ';
+       CheckTextual(value[j-1],o as TNamedValue);
        st:=st+value[j-1].Quote;
        if j<count then st:=st+',' else st:=st+')';
        if length(st)>75 then begin
@@ -1064,7 +994,7 @@ var
         st:=pad;
        end;
       end;
-      // если осталась незаписанная строка
+      // if an unwritten line remains
       if (length(st)<=75) and (st<>pad) then WriteLine(st);
       continue;
      end;
@@ -1116,7 +1046,7 @@ var
        WriteString((o as TCommentLine).line);
        continue;
       end;
-      // Директивы
+      // Directives
       if o is TInclude then begin
        b:=itInclude;
        ms.Write(b,1);
@@ -1180,11 +1110,11 @@ var
      end;
     end;
   begin
-   p:=random(20);
-   h.sign1:=random(100000000);
+   p:=CtlRandom(20);
+   h.sign1:=CtlRandom(100000000);
    h.sign2:=h.sign1 xor (28301740+p);
-   code:=random(1000000);
-   for i:=0 to 23 do h.data[i]:=random(256);
+   code:=CtlRandom(1000000);
+   for i:=0 to 23 do h.data[i]:=CtlRandom(256);
    move(code,h.data[p],4);
    o:=item.data;
    inc(code,(o as TCtlFile).code); // Actual encryption code
@@ -1201,20 +1131,23 @@ var
 
 begin
  name:='unknown';
+ critSect.Enter;
  try
-  item:=FileByHandle(handle);
-  if item=nil then
-   raise EWarning.Create('invalid handle passed');
-  ctl:=item.data;
-  if mode=fmDefault then mode:=ctl.CurMode;
-  if mode=fmText then SaveTextual(item,ctl.fname)
-   else SaveBinary(item,ctl.fname);
-  ctl.modified:=false;
-
- except
-  on e:Exception do
-   raise EWarning.Create('CTL2: Can''t save control file: '+name+', exception: '+e.Message);
- end;
+  try
+   item:=FileByHandle(handle);
+   if item=nil then
+    raise EWarning.Create('invalid handle passed');
+   ctl:=item.data;
+   name:=ctl.fname;
+   if mode=fmDefault then mode:=ctl.CurMode;
+   if mode=fmText then SaveTextual(item,ctl.fname)
+    else SaveBinary(item,ctl.fname);
+   ctl.modified:=false;
+  except
+   on e:Exception do
+    raise EWarning.Create('CTL2: Can''t save control file: '+name+', exception: '+e.Message);
+  end;
+ finally critSect.Leave; end;
 end;
 
 procedure SaveAllControlFiles;
@@ -1449,7 +1382,7 @@ function ctlGetKeys(key:String8):String8;
   for i:=0 to item.GetChildrenCount-1 do begin
    o:=item.GetChild(i).data;
    if o is TNamedValue then begin
-    if i>0 then result:=result+' ';
+    if result<>'' then result:=result+' ';
     result:=result+(o as TNamedValue).name;
    end;
   end;
@@ -1476,7 +1409,7 @@ procedure ctlCreateSection(key:String8);
   fname:=copy(key,1,pos(':',key)-1); // filename part of path
   delete(key,1,pos(':',key)+1);
   key:=key+'\';
-  // Нужно найти файл в котором нужно создать секцию
+  // Need to find the file in which to create the section
   item:=nil;
   for i:=0 to items.GetChildrenCount-1 do begin
    f:=items.GetChild(i).data;
@@ -1514,7 +1447,7 @@ procedure ctlCreateSection(key:String8);
   finally critSect.Leave; end;
  end;
 
-// Создает элемент заданного типа, возвращает объект (но не лист дерева!)
+// Creates an element of the given type, returns the object (but not the tree leaf!)
 function CreateKey(key:String8;KeyType:TNamedValueClass):TObject;
  var
   i,n:integer;
@@ -1687,7 +1620,7 @@ constructor TControlFile.Create(fname:String8;password:String8='');
 begin
  handle:=-1;
  handle:=UseControlFile(fname,password);
- path:=ExtractFileName(fname)+':';
+ path:=ExtractFileName(Files.FixName(fname))+':'; // FixName: Delphi doesn't take '/' as a separator
 end;
 
 procedure TControlFile.CreateSection(key: String8);
@@ -1747,7 +1680,7 @@ var
  i:integer;
 begin
  if pos(':',key)>0 then begin
-  result:=path; exit;
+  result:=key; exit;
  end;
  result:=path;
  if (result<>'') and (result[length(result)]='\') then delete(result,length(result),1);
@@ -1805,7 +1738,7 @@ end;
 
 procedure TControlFile.DeleteKey(key: String8);
 begin
- ctlDeleteKey(key);
+ ctlDeleteKey(GetAbsPath(key));
 end;
 
 function TControlFile.GetBool(key: String8; default: boolean): boolean;
@@ -1832,9 +1765,11 @@ initialization
  items:=TGenericTree.Create(true,true);
  hash:=TStrHash.Create;
  critSect.Init('CtlFiles2',300);
+ rndState:=cardinal(CoreTime.Ticks) xor $9E3779B9;
+ if rndState=0 then rndState:=1;
 
 finalization
-// Удалять свои объекты не стоит - толку никакого, программа все-равно завершает работу
-// а вот на баги нарываться не хочется...
+// There is no point in deleting own objects - the program is terminating anyway
+// and running into bugs is undesirable...
  critSect.Cleanup;
 end.

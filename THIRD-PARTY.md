@@ -89,23 +89,16 @@ declares — nothing is inferred:
 | `RegExpr.pas` | TRegExpr, Andrey V. Sorokin | permissive custom terms, in the header | `Apus.RegExpr` |
 | `freetypeh.pas` | Free Pascal RTL | FPC modified LGPL (linking exception) | `Apus.FreeTypeFont` |
 | `winsock2_jedi.pas` + `ws2*.inc` | Alex Konshin / JEDI, from Microsoft headers | MPL-1.1 | nothing (dead) |
-| `QStrings.pas` | Andrew N. Driazgov, 2000–2001 | **none stated** — copyright only | not compiled; parts copy-pasted into `Apus.ControlFiles` |
 | `ZLIBEX.PAS` | ZLibEx, Roberto Della Pasqua / base2 / Borland | **none stated** — copyrights only | `Apus.HttpRequests` |
 | `jni.pas` | JNI header translation | **none stated** | `Apus.Android`, Android audio |
 | `mysql.pas` + `mysql_win32.inc` | translation of MySQL AB's C headers | header points at **MySQL's own GPL notice** | `Apus.Database`, `Apus.SCGI` |
 | `IMixEx.pas` | IMixerPro header, Igor Lobanchikov | proprietary library, header only | `legacy/Apus.Engine.SoundImx.pas` |
 
-The last five are the ones to look at before any commercial redistribution — not
+The last four are the ones to look at before any commercial redistribution — not
 because a problem is known, but because the files themselves do not settle the
 question. Most are legacy: `mysql.pas` binds a client library the engine does not
 ship, `IMixEx.pas` belongs to the Win32-only audio backend that R-28 retires, and
 `winsock2_jedi.pas` is already unreferenced.
-
-`QStrings.pas` is the one that is not merely legacy: the unit itself is not
-compiled (it does not build under FPC), but a block of its code was copy-pasted
-into `Apus.ControlFiles.pas` (marked there as such), so that code ships inside a
-BSD-3 unit while its origin declares no licence at all. Replacing that block with
-an own implementation would close the question outright.
 
 ## What a product built on the engine redistributes
 

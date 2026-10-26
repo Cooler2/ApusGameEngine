@@ -372,7 +372,7 @@ begin
   crSect.Enter;
   try
    if DBquery='' then begin
-    // Пустой запрос для поддержания связи с БД
+    // Empty query to keep the DB connection alive
     SetLength(result,0);
     r:=mysql_ping(ms);
     if r<>0 then begin
@@ -383,7 +383,7 @@ begin
     end;
     exit;
    end;
-   // непустой запрос
+   // non-empty query
    time1:=0; time2:=0; time3:=0;
    t:=CoreTime.Ticks;
    r:=mysql_real_query(ms,@DBquery[1],length(DBquery));
@@ -414,7 +414,7 @@ begin
      setLength(result,0);
     exit;
    end;
-   flds:=mysql_num_fields(res); // кол-во полей в результате
+   flds:=mysql_num_fields(res); // number of fields in the result
    rows:=mysql_num_rows(res);
    colCount:=flds;
    rowCount:=rows;
@@ -424,7 +424,7 @@ begin
     j:=0;
     setLength(result,flds*rows);
     while true do begin
-     // выборка строки и извлечение данных в массив row
+     // fetch a row and extract data into the row array
      myrow:=mysql_fetch_row(res);
      if myrow<>nil then begin
       for i:=0 to flds-1 do begin

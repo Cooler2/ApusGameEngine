@@ -64,7 +64,7 @@ implementation
  var
   tweakerScene:TTweakerScene;
 
- /// TODO: сейчас у сцены UI - окно, а не экран. Окно должно быть дочерним элементом плноэкранного корневого элемента!
+ /// TODO: the scene UI is currently a window, not the screen. The window should be a child of a fullscreen root element!
 
  procedure EventHandler(event:TEventStr;tag:TTag);
   begin
@@ -85,7 +85,7 @@ implementation
 
  procedure StyleDrawer(control:TUIElement);
   var
-   x1,y1,x2,y2,h:integer;
+   x1,y1,x2,y2:integer;
   begin
    with control do begin
     x1:=globalrect.Left;
@@ -128,7 +128,7 @@ implementation
 
 constructor TTweakerScene.Create(tinyFont_,normalFont_:cardinal);
 var
- i,h:integer;
+ h:integer;
 begin
  inherited Create('Tweaker',false);
  ignoreKeyboardEvents:=true;
@@ -282,7 +282,7 @@ var
  i,j:integer;
  xx,yy:integer;
  step:single;
- fl,focused:boolean;
+ focused:boolean;
  c:cardinal;
 begin
  focused:=self=focusedElement;
@@ -348,14 +348,14 @@ end;
 function TTracker.onKey(keycode: byte; pressed: boolean;
   shiftstate: byte): boolean;
 begin
- result:=false;
+ result:=inherited onKey(keycode,pressed,shiftstate); // false = consumed
  if pressed then
   case TKey(keyCode) of
-   TKey.Left:begin ChangeValue(-1); result:=true; end;
-   TKey.Right:begin ChangeValue(+1); result:=true; end;
-   TKey.Up:begin SetFocusToPrev; result:=true; end;
-   TKey.Down:begin SetFocusToNext; result:=true; end;
-   TKey.R:begin value:=initialValue; result:=true; end;   // [R] - reset to initial value
+   TKey.Left:begin ChangeValue(-1); result:=false; end;
+   TKey.Right:begin ChangeValue(+1); result:=false; end;
+   TKey.Up:begin SetFocusToPrev; result:=false; end;
+   TKey.Down:begin SetFocusToNext; result:=false; end;
+   TKey.R:begin value:=initialValue; result:=false; end;   // [R] - reset to initial value
   end;
 end;
 
@@ -422,7 +422,6 @@ constructor TValueEditor.Create(vName,vValue,iValue:string;parent:TUIElement);
 var
  c,ic:cardinal;
  i:integer;
- btn:TUIButton;
 begin
  inherited Create(parent.width-20,24+window.canvasHeight div 40,parent,'Editor_'+vName);
  SetPos(10,parent.height-5);

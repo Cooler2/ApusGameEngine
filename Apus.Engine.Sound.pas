@@ -180,7 +180,7 @@ implementation
 
 // The old Java SoundPool/MediaPlayer path is opt-in until it is migrated away
 // from the removed MyServis API. SDL-first Android builds currently defer audio.
-uses SysUtils, Apus.ControlFiles, Apus.HashMaps, Apus.Utils, Apus.EventMan, Classes
+uses SysUtils, Apus.Config, Apus.HashMaps, Apus.Utils, Apus.EventMan, Classes
   {$IFDEF IMX},Apus.Engine.SoundImx{$ENDIF}
   {$IFDEF SDLMIX},Apus.Engine.SoundSDL{$ENDIF}
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)},Apus.Android,Apus.AndroidSoundPool,Apus.AndroidMediaPlayer{$IFEND}
@@ -325,7 +325,6 @@ var
  failed:integer=0;
  soundThread:TSoundThread;
  wndHandle:THandle=0;
- ctl:integer;
 
  evtHash:TStrHash; // event -> TSoundEvent
  musHash:TStrHash; // event -> TMusicEntry
@@ -461,7 +460,7 @@ function LoadMediaAsSample(fName:string):TMediaFile;
   Log.Msg('[SOUND] Load sample from '+st);
   result:=soundLib.OpenMediaFile(st,mlmLoadUnpack);
   if result<>nil then
-   mediaFilesHash.Put(UpperCase {TODO: use st.ToUpper}(fName),UIntPtr(result));
+   mediaFilesHash.Put(UpperCase(fName),UIntPtr(result));
  end;
 
 constructor TSoundEvent.Create(name: string);
@@ -529,52 +528,67 @@ function LoadSample(s:TSample):boolean;
 // Load sound configuration
 procedure LoadConfig;
  var
-  ctlRoot:string8;
-  path,st:string8;
-  sa:Strings8;
-  fl:boolean;
+  cfg:TConfig;
+  root:TCfgNode;
 
- procedure AddEvent(st,name:string8);
-  var
-   params,param:Strings8;
-   i,j:integer;
-   evt:TSoundEvent;
+ // One parameter of a sound event: file, vol, pan, freq or speed
+ procedure SetEventParam(evt:TSoundEvent;name,value:string8);
   begin
-   evt:=TSoundEvent.Create(name);
-   params:=st.Split(',','"');
-   for i:=0 to length(params)-1 do begin
-    param:=params[i].Split('=');
-    param[0]:=UpperCase {TODO: use st.ToUpper}(param[0]);
-    if param[0]='FILE' then begin
-     evt.fileName:=param[1];
-     // check if this media file is already loaded
-     if mediaFilesHash.HasValue(UpperCase(evt.fileName)) then
-      evt.sample:=pointer(mediaFilesHash.Get(UpperCase(evt.fileName)));
+   name:=name.ToUpper;
+   if name='FILE' then begin
+    evt.fileName:=value;
+    // check if this media file is already loaded
+    if mediaFilesHash.HasValue(UpperCase(evt.fileName)) then
+     evt.sample:=pointer(mediaFilesHash.Get(UpperCase(evt.fileName)));
+   end;
+   if name='VOL' then evt.volume:=StrToInt(value)/100;
+   if name='PAN' then evt.pan:=StrToInt(value)/100;
+   if name='FREQ' then evt.speed:=StrToInt(value)/44100;
+   if name='SPEED' then evt.speed:=Conv.ToFloat(value);
+  end;
+
+ // An event is a string "file,vol=xx,pan=yy" or a section { file = "...", vol = xx }
+ procedure AddEvent(node:TCfgNode);
+  var
+   st:string8;
+   params,param:Strings8;
+   i:integer;
+   evt:TSoundEvent;
+   p:TCfgNode;
+  begin
+   evt:=TSoundEvent.Create(node.Name.ToUpper);
+   try
+    if node.Kind=ckSection then
+     for p in node do SetEventParam(evt,p.Name,p.AsStr)
+    else begin
+     st:='file='+node.AsStr;
+     params:=st.Split(',','"');
+     for i:=0 to length(params)-1 do begin
+      param:=params[i].Split('=');
+      if length(param)>=2 then SetEventParam(evt,param[0],param[1]);
+     end;
     end;
-    if param[0]='VOL' then evt.volume:=StrToInt(param[1])/100;
-    if param[0]='PAN' then evt.pan:=StrToInt(param[1])/100;
-    if param[0]='FREQ' then evt.speed:=StrToInt(param[1])/44100;
-    if param[0]='SPEED' then evt.speed:=Conv.ToFloat(param[1]);
+   except
+    evt.Free;
+    raise;
    end;
    evtHash.Put(evt.name,evt);
   end;
 
- procedure AddMusicEntry(name:string);
+ procedure AddMusicEntry(node:TCfgNode);
   var
    item:TMusicEntry;
-   fname,lname,fExt:string;
-   loop,found:boolean;
+   fname,fExt:string;
+   loop:boolean;
    looppos:integer;
-   i:integer;
   begin
-   path:=ctlRoot+'Music\'+name;
-   name:=UpperCase {TODO: use st.ToUpper}(name);
-   if ctlGetKeyType(path)<>cktSection then exit;
+   if node.Kind<>ckSection then exit;
    item:=TMusicEntry.Create;
-   item.name:=name;
-   fname:=ctlGetStr(path+'\file');
-   item.loop:=ctlGetBool(path+'\loop',false);
-   fExt:=UpperCase {TODO: use st.ToUpper}(ExtractFileExt(fname));
+   item.name:=node.Name.ToUpper;
+   fname:=node.Str('file');
+   item.loop:=node.Bool('loop',false);
+   loop:=item.loop;
+   fExt:=UpperCase(ExtractFileExt(fname));
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAV') then begin
     {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
     // Copy file to data folder
@@ -611,52 +625,47 @@ procedure LoadConfig;
    end;
    // Loop start: "loopTime" in seconds (survives resampling of the file) wins over
    // "loopPos" in samples of the file (the unit of the original Engine 2 configs)
-   case ctlGetKeyType(path+'\loopTime') of
-    cktReal:item.loopPos:=ctlGetReal(path+'\loopTime');
-    cktInteger:item.loopPos:=ctlGetInt(path+'\loopTime');
-    else begin
-     looppos:=ctlGetInt(path+'\loopPos',0);
-     if looppos>0 then begin
-      if item.media.sampleRate<=0 then
-       Log.Warn('[SOUND] %s: unknown sample rate, loopPos assumes %d Hz',[fname,SampleRateOf(item.media)]);
-      item.loopPos:=looppos/SampleRateOf(item.media);
-     end;
+   if node.Node('loopTime').Exists then
+    item.loopPos:=node.Float('loopTime')
+   else begin
+    looppos:=node.Int('loopPos',0);
+    if looppos>0 then begin
+     if item.media.sampleRate<=0 then
+      Log.Warn('[SOUND] %s: unknown sample rate, loopPos assumes %d Hz',[fname,SampleRateOf(item.media)]);
+     item.loopPos:=looppos/SampleRateOf(item.media);
     end;
    end;
-   item.volume:=ctlGetInt(path+'\volume',75)/100;
+   item.volume:=node.Int('volume',75)/100;
    MusHash.Put(item.name,item);
   end;
 
  procedure LoadSoundEvents;
   var
-   kt:ctlKeyTypes;
-   i:integer;
+   n:TCfgNode;
   begin
-   path:=ctlRoot+'SoundEvents';
-   st:=ctlGetKeys(path);
-   sa:=st.Split(' ');
-   path:=path+'\';
-   for i:=0 to length(sa)-1 do begin
-    kt:=ctlGetKeyType(path+sa[i]);
-    if kt=cktString then try
-     // event defined as a string value
-     AddEvent('file='+ctlGetStr(path+sa[i]),UpperCase {TODO: use st.ToUpper}(sa[i]));
+   // a broken event is reported and skipped, the others still load
+   for n in root.Node('SoundEvents') do
+    if n.Kind in [ckScalar,ckSection] then try
+     AddEvent(n);
     except
-     on e:Exception do raise EError.Create('Error in sound event definition: '+ExceptionMsg(e));
+     on e:Exception do ReportConfigProblem('[SOUND] '+n.Location+': sound event '+n.Name+' is skipped: '+String8(e.Message));
     end;
-   end;
   end;
 
  procedure PreloadSamples;
   var
-   evt:TSoundEvent;
    i:integer;
-   st,mode,fName:string8;
+   mode,fName:string8;
    list:PointerArray;
+   names:Strings8;
   begin
-   path:=ctlRoot+'Settings\';
-   st:=ctlGetStr(path+'PreloadSamples');
-   mode:=UpperCase {TODO: use st.ToUpper}(st);
+   // a list of files (comma-separated or an array), ALL or NONE
+   names:=root.Strs('Settings.PreloadSamples');
+   if length(names)=1 then names:=names[0].Split(',');
+   if length(names)=0 then mode:='NONE'
+   else
+   if length(names)=1 then mode:=names[0].ToUpper
+   else mode:='LIST';
    Log.Force('[SOUND] Preloading mode: '+mode);
    if mode<>'NONE' then Log.Msg('[SOUND] Preloading');
    if mode='ALL' then begin
@@ -665,48 +674,40 @@ procedure LoadConfig;
     for i:=0 to high(list) do
      TSoundEvent(list[i]).Preload;
    end else
-   if mode='NONE' then
-   else begin
+   if mode<>'NONE' then
     // preload listed
-    sa:=st.Split(',');
-    for fName in sa do LoadMediaAsSample(fName);
-   end;
+    for fName in names do LoadMediaAsSample(fName.Trim);
    if mode<>'NONE' then Log.Msg('[SOUND] samples preloading done');
   end;
 
  procedure LoadMusicEntries;
   var
-   i:integer;
+   n:TCfgNode;
   begin
-   // Load music entries
-   path:=ctlRoot+'Music';
-   st:=ctlGetKeys(path);
-   sa:=st.Split(' ');
-   for i:=0 to length(sa)-1 do
-    AddMusicEntry(sa[i]);
+   for n in root.Node('Music') do AddMusicEntry(n);
   end;
 
  begin
   Log.Msg('[SOUND] Loading config');
+  cfg:=nil;
   try
    evtHash:=TStrHash.Create;
    mediaFilesHash.Init(100);
    musHash:=TStrHash.Create;
-   ctlRoot:=ExtractFileName(soundConfigFile)+':\';
-   path:=ctlRoot+'Settings\';
-{  SetSoundVolume(ctlGetInt(path+'SoundVolume'));
-  SetMusicVolume(ctlGetInt(path+'MusicVolume'));}
+   cfg:=TConfig.Create(soundConfigFile);
+   root:=cfg.Root;
+{  SetSoundVolume(root.Int('Settings.SoundVolume'));
+  SetMusicVolume(root.Int('Settings.MusicVolume'));}
 
    LoadSoundEvents;
    PreloadSamples;
    LoadMusicEntries;
    Log.Msg('[SOUND] Config loaded');
   except
-   on e:Exception do begin
-    Log.Force('[SOUND] config loading error: '+ExceptionMsg(e));
-    RaiseFlag(failed);
-   end;
+   // not fatal: the sound system works with what was loaded
+   on e:Exception do ReportConfigProblem('[SOUND] config loading error: '+String8(ExceptionMsg(e)));
   end;
+  cfg.Free;
  end;
 
 
@@ -1160,7 +1161,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   try
   delete(event,1,6);
   orig:=event; // file paths keep their case
-  event:=UpperCase {TODO: use st.ToUpper}(event);
+  event:=event.ToUpper;
 
   if event='ANIMATEMUSICVOL' then AnimateMusicVolume(TMusicEntry(tag));
 
@@ -1216,7 +1217,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   if event.StartsWith('PAUSE') or event.startsWith('RESUME') then
    PauseAll(event.StartsWith('PAUSE'));
 
-  if pos('PLAYMUSIC\',event)=1 then begin
+  if event.StartsWith('PLAYMUSIC\') then begin
    Log.Msg('[SOUND] '+event);
    delete(event,1,10);
    PlayMusicEvent(event,tag);
@@ -1767,7 +1768,6 @@ begin
   pools[0]:=TSoundPool.Create; // Also registers current thread
   {$IFEND}
 
-  ctl:=UseControlFile(soundConfigFile,'');
   musicDuck.Init(1.0);
   SetEventHandler('SOUND',EventHandler,emQueued);
   if not waitForPreload then RaiseFlag(initialized);
@@ -1801,7 +1801,6 @@ begin
   FreeFilePlaybacks;
   soundLib.Done;
 
-  FreeControlFile(ctl);
   MusHash.Free;
   EvtHash.Free;
  except

@@ -28,6 +28,7 @@ test.bat Strings      → runs TestStrings
 | `Containers` | Generic collections (lists, queues) |
 | `HashMaps` | Hash map operations |
 | `Files` | File I/O utilities |
+| `Config` | Configuration documents (`Apus.Config`): CTL3/CTL2/JSON parsing, typing, saving, reloading |
 | `EventMan` | Event system |
 | `Threads` | Threading primitives |
 | `Tweenings` | Tweening interpolation, delays, interruptions |

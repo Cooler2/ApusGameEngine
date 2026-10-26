@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.EventMan, Apus.Colors,
-   Apus.Engine.UI;
+   Apus.Engine.UI, Apus.Engine.UIMenu;
 
  type
   // This will be our single scene
@@ -32,6 +32,8 @@ implementation
  var
   sceneMain:TMainScene;
   root:TUIElement;
+  demoMenu:TUIPopupMenu;
+  menuResult:TUILabel;
 
 procedure TMainApp.SetupApplication;
  begin
@@ -82,6 +84,44 @@ procedure TestButtons;
   InitTestLayer;
  end;
 
+// Commands of the popup menu on the Widgets page
+procedure CmdNew;
+ begin
+  menuResult.caption:='Menu: New';
+ end;
+
+procedure CmdOpen;
+ begin
+  menuResult.caption:='Menu: Open';
+ end;
+
+procedure CmdSave;
+ begin
+  menuResult.caption:='Menu: Save';
+ end;
+
+// The Menu button owns the menu: the menu opens below it, the next press closes it.
+// A tool button takes no focus, so closing the menu returns the focus where it was
+procedure ShowDemoMenu;
+ begin
+  demoMenu.OpenBelow(UIButton('MenuBtn'));
+ end;
+
+// Popup menu: lines with shortcut texts (display only), separators, disabled lines.
+// A line is a button: its command is onClick, onClickAsync, onClickEvent or a method in 'handler'
+procedure CreateDemoMenu;
+ begin
+  demoMenu:=TUIPopupMenu.Create(root,'DemoMenu');
+  demoMenu.Add('New','Ctrl+N').onClick:=@CmdNew;
+  demoMenu.Add('Open...','Ctrl+O').onClick:=@CmdOpen;
+  demoMenu.Add('Save','Ctrl+S').onClick:=@CmdSave;
+  demoMenu.AddSeparator;
+  demoMenu.Add('Undo','Ctrl+Z').Disable;
+  demoMenu.Add('Redo','Ctrl+Y').Disable;
+  demoMenu.AddSeparator;
+  demoMenu.Add('Close page').onClickAsync:=@RootCloseClick; // like the Back button
+ end;
+
 procedure TestWidgets;
  var
   cont,hCont:TUIElement;
@@ -108,6 +148,9 @@ procedure TestWidgets;
   cont.style.SetAttr('color','$FF202020');
   TUIButton.Create(140,30,cont,'Button1').Setup('Button 1');
   TUIButton.Create(140,30,cont,'Disabled').Disable;
+  TUIToolButton.Create(140,30,cont,'MenuBtn').Setup('Menu').onClick:=@ShowDemoMenu;
+  menuResult:=TUILabel.Create(-1,20,cont,'MenuResult');
+  CreateDemoMenu;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   TUIToggleButton.Create(140,30,cont,'Switch1').Setup('Toggle Button');
   hCont:=TUIGroupBox.Create(-1,30,cont);

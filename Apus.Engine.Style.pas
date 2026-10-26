@@ -201,6 +201,10 @@ procedure SetTokenColor(const name:String8; color:cardinal);
 // Raw token value (NO &-expansion); defVal if not defined.
 function GetToken(const name:String8; const defVal:String8=''):String8;
 function HasToken(const name:String8):boolean;
+// '&name' -> the token's value (recursively), other values as is; '' for an unknown token.
+// Resolvers expand whole values; a compound value ('&shadow 2 3') passes as is, and the
+// drawer expands its parts.
+function ExpandToken(const value:String8; depth:integer=0):String8;
 procedure RemoveToken(const name:String8);
 procedure ClearTokens;
 
@@ -943,6 +947,7 @@ function ExpandToken(const value:String8; depth:integer=0):String8;
  begin
   s:=value.Trim;
   if (s='') or (s[1]<>'&') then exit(value); // not a token reference
+  if s.IndexOf(' ',1)>0 then exit(value); // a compound value: the drawer expands its parts
   if depth>=MAX_TOKEN_DEPTH then begin
    Log.Warn('Style: token cycle at %s',[s]);
    exit('');
@@ -1152,7 +1157,7 @@ procedure RegisterBuiltinThemes;
    'danger=$FFC04040', 'danger-text=$FFFFFFFF',
    'success=$FF40A040', 'success-text=$FFFFFFFF',
    'warning=$FFD0A030', 'warning-text=$FF202020',
-   'focus=$80FFFF80']);
+   'focus=$80FFFF80', 'shadow=$50000000']);
   DefineTheme('dark',[
    'surface=$FF303038', 'surface-alt=$FF383840', 'overlay=$FF404048',
    'text=$FFE0E0E0', 'text-muted=$FF909090', 'text-on-accent=$FFFFFFFF',
@@ -1162,7 +1167,7 @@ procedure RegisterBuiltinThemes;
    'danger=$FFD05050', 'danger-text=$FFFFFFFF',
    'success=$FF50B050', 'success-text=$FFFFFFFF',
    'warning=$FFE0B040', 'warning-text=$FF202020',
-   'focus=$80FFFF80']);
+   'focus=$80FFFF80', 'shadow=$A0000000']);
  end;
 
 initialization

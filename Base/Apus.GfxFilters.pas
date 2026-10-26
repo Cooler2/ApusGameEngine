@@ -118,7 +118,7 @@ procedure paddsb(var src; var dst; count:integer); pascal;
 
 
 implementation
-uses Apus.FastGFX,Apus.Colors;
+uses Apus.Core,Apus.FastGFX,Apus.Colors;
 
 type
  ByteArray=array[0..1000] of byte;
@@ -276,7 +276,7 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
   result:=pc;
 
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pc,tPitch+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -286,31 +286,31 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
    end;
    inc(pc,2+(tPitch-width));
   end;
-  // Крайние пиксели (сверху)
+  // Edge pixels (top)
   pc:=result; inc(pc); o:=1;
   for x:=1 to width-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o+1],sour[o+pitch]);
    inc(pc); inc(o);
   end;
-  // снизу
+  // bottom
   pc:=result; inc(pc,tPitch*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o+1],sour[o-pitch]);
    inc(pc); inc(o);
   end;
-  // левый край
+  // left edge
   pc:=result; inc(pc,width); o:=pitch;
   for y:=1 to height-2 do begin
    pc^:=Avg32(sour[o],sour[o+1],sour[o-pitch],sour[o+pitch]);
    inc(pc,tPitch); inc(o,pitch);
   end;
-  // правый край
+  // right edge
   pc:=result; inc(pc,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o-pitch],sour[o+pitch]);
    inc(pc,tPitch); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // Corner pixels
   pc:=result; o:=0;
   pc^:=Avg32(sour[o],sour[o],sour[o+1],sour[o+pitch]);
   pc:=result; inc(pc,width-1); o:=width-1;
@@ -327,26 +327,23 @@ function Sharpen(buf:pointer;pitch,width,height,strength:integer;inplace:boolean
   sour:PARGBArray;
   x,y,v,o:integer;
   b:integer;
-  c0,c1,c2,c3,c4:integer; // это важно!
+  c0,c1,c2,c3,c4:integer; // this is important!
  begin
   GetMem(pc,width*height*4);
   result:=pc;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pc,width+1);
   pitch:=pitch div 4;
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
    for x:=1 to width-2 do begin
     c0:=sour[o]; c1:=sour[o-1]; c2:=sour[o+1]; c3:=sour[o-pitch]; c4:=sour[o+pitch];
-    b:=((c0 and 255) shl 3-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and 255) shl 3-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4,0,255);
     v:=b+c0 and $FF000000;
-    b:=((c0 and $FF00) shl 3-(c1 and $FF00)-(c2 and $FF00)-(c3 and $FF00)-(c4 and $FF00)) div $400;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and $FF00) shl 3-(c1 and $FF00)-(c2 and $FF00)-(c3 and $FF00)-(c4 and $FF00)) div $400,0,255);
     v:=v+(b shl 8);
-    b:=((c0 and $FF0000) shl 3-(c1 and $FF0000)-(c2 and $FF0000)-(c3 and $FF0000)-(c4 and $FF0000)) div $40000;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and $FF0000) shl 3-(c1 and $FF0000)-(c2 and $FF0000)-(c3 and $FF0000)-(c4 and $FF0000)) div $40000,0,255);
     v:=v+(b shl 16);
     pc^:=Color.Mix(v,c0,strength);
     inc(pc); inc(o);
@@ -372,14 +369,13 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
   result:=pc;
   sour:=buf;
   s:=256-strength;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pc,width+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
    for x:=1 to width-2 do begin
     c0:=sour[o]; c1:=sour[o-1]; c2:=sour[o+1]; c3:=sour[o-pitch]; c4:=sour[o+pitch];
-    b:=((c0 and 255)*8-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4;
-    if b<0 then b:=0; if b>255 then b:=255;
+    b:=Clamp(((c0 and 255)*8-(c1 and 255)-(c2 and 255)-(c3 and 255)-(c4 and 255)) div 4,0,255);
     pc^:=(b*strength+c0*s) shr 8;
     inc(pc); inc(o);
    end;
@@ -513,7 +509,7 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
   GetMem(pb,width*height);
   result:=pb;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pb,width+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -523,31 +519,31 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
    end;
    inc(pb,2);
   end;
-  // Крайние пиксели (сверху)
+  // Edge pixels (top)
   pb:=result; inc(pb); o:=1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o+pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // снизу
+  // bottom
   pb:=result; inc(pb,width*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o-pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // левый край
+  // left edge
   pb:=result; inc(pb,width); o:=pitch;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o+1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,width); inc(o,pitch);
   end;
-  // правый край
+  // right edge
   pb:=result; inc(pb,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,width); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // Corner pixels
   pb:=result; o:=0;
   pb^:=(sour[o]*2+sour[o+1]+sour[o+pitch]) shr 2;
   pb:=result; inc(pb,width-1); o:=width-1;
@@ -568,7 +564,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
  var
   pb:PByte;
   sour:PByteArray;
-  x,y,v,o:integer;
+  x,y,o:integer;
  begin
   if target=nil then begin
    GetMem(pb,width*height);
@@ -577,7 +573,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
    pb:=target;
   result:=pb;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // Main (central) part of the buffer
   inc(pb,tPitch+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -587,31 +583,31 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
    end;
    inc(pb,2+(tPitch-width));
   end;
-  // Крайние пиксели (сверху)
+  // Edge pixels (top)
   pb:=result; inc(pb); o:=1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o+pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // снизу
+  // bottom
   pb:=result; inc(pb,tPitch*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o-pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // левый край
+  // left edge
   pb:=result; inc(pb,width); o:=pitch;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o+1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,tPitch); inc(o,pitch);
   end;
-  // правый край
+  // right edge
   pb:=result; inc(pb,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,tPitch); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // Corner pixels
   pb:=result; o:=0;
   pb^:=(sour[o]*2+sour[o+1]+sour[o+pitch]) shr 2;
   pb:=result; inc(pb,width-1); o:=width-1;
@@ -620,7 +616,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
   pb^:=(sour[o]*2+sour[o+1]+sour[o-pitch]) shr 2;
   pb:=result; inc(pb,width*height-1); o:=pitch*(height-1)+width-1;
   pb^:=(sour[o]*2+sour[o-1]+sour[o-pitch]) shr 2;
-  if target=nil then begin  // !!! копирование в исходный буфер
+  if target=nil then begin  // !!! copy into the source buffer
    CopyRect8(result,width,buf,pitch,0,0,width,height,0,0);
    Freemem(result);
    result:=buf;
@@ -1349,9 +1345,9 @@ procedure HeightToNormalMap(srcBuf:pointer;srcPitch:integer;
     n.y:=-(Lum(x,y+1)-Lum(x,y-1))*scale;
     n.z:=1;
     n.Normalize;
-    nx:=round(127.5+n.x*127.5); if nx<0 then nx:=0; if nx>255 then nx:=255;
-    ny:=round(127.5+n.y*127.5); if ny<0 then ny:=0; if ny>255 then ny:=255;
-    nz:=round(127.5+n.z*127.5); if nz<0 then nz:=0; if nz>255 then nz:=255;
+    nx:=Clamp(round(127.5+n.x*127.5),0,255);
+    ny:=Clamp(round(127.5+n.y*127.5),0,255);
+    nz:=Clamp(round(127.5+n.z*127.5),0,255);
     dp^:=$FF000000 or cardinal(nx shl 16) or cardinal(ny shl 8) or cardinal(nz);
     inc(dp);
    end;
@@ -1373,15 +1369,9 @@ procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMat34);
     b:=v and $FF; v:=v shr 8;
     g:=v and $FF; v:=v shr 8;
     r:=v and $FF;
-    nb:=round(mat[0,0]*b+mat[1,0]*g+mat[2,0]*r+mat[3,0]);
-    ng:=round(mat[0,1]*b+mat[1,1]*g+mat[2,1]*r+mat[3,1]);
-    nr:=round(mat[0,2]*b+mat[1,2]*g+mat[2,2]*r+mat[3,2]);
-    if nb<0 then nb:=0;
-    if nb>255 then nb:=255;
-    if ng<0 then ng:=0;
-    if ng>255 then ng:=255;
-    if nr<0 then nr:=0;
-    if nr>255 then nr:=255;
+    nb:=Clamp(round(mat[0,0]*b+mat[1,0]*g+mat[2,0]*r+mat[3,0]),0,255);
+    ng:=Clamp(round(mat[0,1]*b+mat[1,1]*g+mat[2,1]*r+mat[3,1]),0,255);
+    nr:=Clamp(round(mat[0,2]*b+mat[1,2]*g+mat[2,2]*r+mat[3,2]),0,255);
     p^:=(p^ and $FF000000) or nb or (ng shl 8) or (nr shl 16);
     inc(p);
    end;

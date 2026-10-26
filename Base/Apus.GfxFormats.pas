@@ -174,7 +174,7 @@ procedure LoadPVR(data:ByteArray;var image:TRawImage;allocate:boolean=false);
     dp:=image.data; inc(dp,y*image.pitch);
     if imginfo.format<>image.PixelFormat then begin
      // Copy data with format conversion
-     ConvertLine(sp^,dp^,imginfo.format,image.PixelFormat,sp^,palNone,imginfo.width);
+     ConvertLine(sp^,dp^,imginfo.format,image.PixelFormat,imginfo.width);
     end else // Just copy data
      move(sp^,dp^,linesize);
    end; // for
@@ -221,7 +221,7 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
     ASSERT(PtrInside(dp,image.data,image.dataSize));
     if format<>image.PixelFormat then begin
      // Copy data with format conversion
-     ConvertLine(sp^,dp^,format,image.PixelFormat,sp^,palNone,width);
+     ConvertLine(sp^,dp^,format,image.PixelFormat,width);
     end else // Just copy data
      move(sp^,dp^,linesize);
    end; // for
@@ -378,7 +378,7 @@ procedure LoadTGA;
    if conversion then begin
     // Copy data with format conversion
     sp:=pb; dp:=pb2;
-    ConvertLine(sp^,dp^,format,image.PixelFormat,sourPal^,palFormat,width);
+    ConvertLine(sp^,dp^,format,image.PixelFormat,width,sourPal,palFormat);
    end else // Just copy data
      move(pb^,pb2^,linesize);
 
@@ -962,7 +962,7 @@ function CheckFileFormat(fname:string):TImageFileType;
    bmp.PixelFormat:=pf32bit;
    pb:=image.data;
    for y:=0 to image.height-1 do begin
-    ConvertLine(pb^,bmp.scanline[y]^,image.PixelFormat,ipfXRGB,i,palNone,image.width);
+    ConvertLine(pb^,bmp.scanline[y]^,image.PixelFormat,ipfXRGB,image.width);
     inc(pb,image.pitch);
    end;
    jpg:=TJpegImage.Create;
@@ -1022,7 +1022,7 @@ function CheckFileFormat(fname:string):TImageFileType;
    h:=Min(image.height,bmp.Height);
    dp:=image.data;
    for i:=0 to h-1 do begin
-    ConvertLine(bmp.scanline[i]^,dp^,ipfRGB,image.PixelFormat,dp^,palNone,w);
+    ConvertLine(bmp.scanline[i]^,dp^,ipfRGB,image.PixelFormat,w);
     inc(dp,image.pitch);
    end;
    bmp.Free;
@@ -1124,7 +1124,7 @@ function CheckFileFormat(fname:string):TImageFileType;
    end;
    // Transfer to the target
    for i:=0 to height-1 do begin
-    ConvertLine(sour^,image.scanline(i)^,ipfABGR,image.PixelFormat,sour,palNone,width);
+    ConvertLine(sour^,image.scanline(i)^,ipfABGR,image.PixelFormat,width);
     inc(sour,width*4);
    end;
    image.Unlock;
@@ -1171,7 +1171,7 @@ function CheckFileFormat(fname:string):TImageFileType;
    // Convert to ABGR
    image.Lock;
    for y:=0 to image.height-1 do
-    ConvertLine(image.scanline(y)^,data[y*image.width],image.PixelFormat,ipfABGR,err,palNone,image.width);
+    ConvertLine(image.scanline(y)^,data[y*image.width],image.PixelFormat,ipfABGR,image.width);
    image.Unlock;
    // Pack and save
    png:=nil;

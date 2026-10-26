@@ -906,7 +906,7 @@ begin
   WakeByAddressSingle(@state);
   {$ELSE}
   Atomic.Exchange(state,1);
-  // Linux: futex wake - требует syscall, пока упрощенная версия
+  // Linux: futex wake - requires a syscall, simplified version for now
   {$ENDIF}
 end;
 
@@ -925,7 +925,7 @@ begin
   if state=1 then exit(true);
   result:=WaitOnAddress(@state,@expected,sizeof(integer),timeoutMs);
   {$ELSE}
-  // Linux: futex wait - требует syscall, пока простая реализация
+  // Linux: futex wait - requires a syscall, simple implementation for now
   startTime:=CoreTime.Ticks;
   while (state=0) and ((timeoutMs=INFINITE) or (CoreTime.Ticks-startTime<timeoutMs)) do
     CoreTime.Sleep(1);
@@ -944,7 +944,6 @@ var
   idx,i,counter,minFree:integer;
   pattern:String8;
   used:array of boolean;
-  found:boolean;
 begin
   // check for % pattern (auto-increment)
   idx:=Pos('%',name);

@@ -28,7 +28,7 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses SysUtils, Classes, Types, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Lib, Apus.Log,
+ uses SysUtils, Classes, Apus.Core, Apus.Strings, Apus.EventMan, Apus.Lib, Apus.Log,
   Apus.Engine.Clipboard,
   Apus.Engine.Types,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
@@ -284,7 +284,7 @@ implementation
   end;
 
  // Log mirror: feeds engine diagnostics into the console buffer. Any thread.
- procedure ConsoleLogHandler(msg:String8;category:byte;level:TSeverity);
+ procedure ConsoleLogHandler(const msg:String8;category:byte;level:TSeverity);
   begin
    if level<conCaptureLevel then exit;    // tier-1 capture threshold (non-retrospective)
    if category=CAT_CONSOLE_CMD then exit; // command I/O arrives via the command sink
@@ -427,7 +427,7 @@ var
  e:TUIEditBox;
  i:integer;
 begin
- e:=FindControl('Console\Input',false) as TUIEditBox;
+ e:=FindElement('Console\Input',false) as TUIEditBox;
  if e=nil then exit;
  i:=cmdList.IndexOf(e.text);
  if i>=0 then begin

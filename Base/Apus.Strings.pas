@@ -1970,50 +1970,68 @@ begin
   end;
 end;
 
-// Format int64: base=10 or 16, uppercase hex, minimum digit count
-function FormatInt8(v:int64;base:integer;upperCase:boolean;minDigits:integer;showSign:boolean):String8;
+type
+  TNumBuf=array[0..255] of AnsiChar;
+
+// Write int64 as text into the end of buf: base=10 or 16, uppercase hex, minimum digit
+// count (zeros are prepended to the whole text). Returns the index of the first char
+function IntToBuf(var buf:TNumBuf;v:int64;base:integer;upperCase:boolean;minDigits:integer;showSign:boolean):integer;
 const
-  HexU:String8='0123456789ABCDEF';
-  HexL:String8='0123456789abcdef';
+  HexU:array[0..15] of AnsiChar='0123456789ABCDEF';
+  HexL:array[0..15] of AnsiChar='0123456789abcdef';
 var
   uv:uint64;
+  u32:cardinal;
   neg:boolean;
-  hexChars:PString8;
+  i:integer;
 begin
-  result:='';
+  i:=High(buf)+1;
   if base=16 then begin
-    if upperCase then hexChars:=@HexU else hexChars:=@HexL;
     uv:=uint64(v);
     repeat
-      result:=hexChars^[(uv and 15)+1]+result;
+      dec(i);
+      if upperCase then buf[i]:=HexU[uv and 15]
+        else buf[i]:=HexL[uv and 15];
       uv:=uv shr 4;
     until uv=0;
   end else begin
     neg:=v<0;
     if neg then uv:=uint64(-v) else uv:=uint64(v);
-    if uv=0 then result:='0'
-    else
-      repeat
-        result:=AnsiChar(ord('0')+(uv mod 10))+result;
-        uv:=uv div 10;
-      until uv=0;
-    if neg then result:='-'+result
-    else if showSign then result:='+'+result;
+    // 64-bit division only while the value needs it (it is a library call on 32-bit CPUs)
+    while uv>High(cardinal) do begin
+      dec(i);
+      buf[i]:=AnsiChar(ord('0')+(uv mod 10));
+      uv:=uv div 10;
+    end;
+    u32:=cardinal(uv);
+    repeat
+      dec(i);
+      buf[i]:=AnsiChar(ord('0')+(u32 mod 10));
+      u32:=u32 div 10;
+    until u32=0;
+    if neg then begin
+      dec(i); buf[i]:='-';
+    end else
+    if showSign then begin
+      dec(i); buf[i]:='+';
+    end;
   end;
-  while System.Length(result)<minDigits do result:='0'+result;
+  if minDigits>High(buf)+1 then minDigits:=High(buf)+1;
+  while High(buf)+1-i<minDigits do begin
+    dec(i); buf[i]:='0';
+  end;
+  result:=i;
 end;
 
 // Format double: 'f'=fixed, 'g'/'G'=general (removes trailing zeros)
 function FormatFloat8(v:double;spec:AnsiChar;prec:integer):String8;
 var
-  s:string;
   i:integer;
 begin
-  Str(v:0:prec,s);
-  result:=String8(s);
+  Str(v:0:prec,result);
   if spec in ['g','G'] then begin
     // trim trailing zeros after decimal point
-    if System.Pos('.',s)>0 then begin
+    if System.Pos('.',result)>0 then begin
       i:=System.Length(result);
       while (i>0) and (result[i]='0') do dec(i);
       if (i>0) and (result[i]='.') then dec(i);
@@ -2028,45 +2046,86 @@ end;
 
 class function UTF8.Format(const fmt:String8; const args:array of const):String8;
 var
-  i,start,argIdx,w,prec,minD:integer;
+  i,start,argIdx,w,prec,minD,len,fmtLen,n:integer;
   leftAlign,zeroPad,showSign,hasPrec:boolean;
   piece:String8;
+  num:TNumBuf;
+  arg:PVarRec;
+  pf:PAnsiChar;
 
-  // Append piece to result, applying width and alignment
-  procedure Emit(const s:String8);
-  var pad:integer;
+  // Append n bytes, the result grows geometrically and is trimmed at the end
+  procedure Add(p:pointer;n:integer);
+  var cap:integer;
   begin
-    pad:=w-System.Length(s);
-    if leftAlign then begin
-      result:=result+s;
-      if pad>0 then result:=result+String8(StringOfChar(' ',pad));
-    end else begin
-      if pad>0 then
-        if zeroPad then result:=result+String8(StringOfChar('0',pad))
-        else result:=result+String8(StringOfChar(' ',pad));
-      result:=result+s;
+    if n<=0 then exit;
+    cap:=System.Length(result);
+    if len+n>cap then begin
+      cap:=cap*2;
+      if cap<len+n then cap:=len+n;
+      if cap<64 then cap:=64;
+      SetLength(result,cap);
     end;
+    Move(p^,PAnsiChar(pointer(result))[len],n);
+    inc(len,n);
+  end;
+
+  procedure AddFill(c:AnsiChar;n:integer);
+  var cap:integer;
+  begin
+    if n<=0 then exit;
+    cap:=System.Length(result);
+    if len+n>cap then begin
+      cap:=cap*2;
+      if cap<len+n then cap:=len+n;
+      if cap<64 then cap:=64;
+      SetLength(result,cap);
+    end;
+    FillChar(PAnsiChar(pointer(result))[len],n,c);
+    inc(len,n);
+  end;
+
+  // Append text, applying width and alignment
+  procedure Emit(p:pointer;n:integer);
+  begin
+    if leftAlign then begin
+      Add(p,n);
+      AddFill(' ',w-n);
+    end else begin
+      if zeroPad then AddFill('0',w-n)
+        else AddFill(' ',w-n);
+      Add(p,n);
+    end;
+  end;
+
+  procedure EmitInt(v:int64;base:integer;upperCase:boolean;minDigits:integer;sign:boolean);
+  var first:integer;
+  begin
+    first:=IntToBuf(num,v,base,upperCase,minDigits,sign);
+    Emit(@num[first],High(num)+1-first);
   end;
 
 begin
   result:='';
+  len:=0;
   argIdx:=0;
+  fmtLen:=System.Length(fmt);
+  pf:=PAnsiChar(pointer(fmt))-1; // pf[i] = fmt[i]
   i:=1;
-  while i<=System.Length(fmt) do begin
-    if fmt[i]<>'%' then begin
+  while i<=fmtLen do begin
+    if pf[i]<>'%' then begin
       start:=i;
-      while (i<=System.Length(fmt)) and (fmt[i]<>'%') do inc(i);
-      result:=result+System.Copy(fmt,start,i-start); // literal run as one piece
+      while (i<=fmtLen) and (pf[i]<>'%') do inc(i);
+      Add(@pf[start],i-start); // literal run as one piece
       continue;
     end;
     inc(i);
-    if i>System.Length(fmt) then break;
-    if fmt[i]='%' then begin result:=result+'%'; inc(i); continue; end;
+    if i>fmtLen then break;
+    if pf[i]='%' then begin AddFill('%',1); inc(i); continue; end;
     // flags
     leftAlign:=false; zeroPad:=false; showSign:=false;
     repeat
-      if i>System.Length(fmt) then break;
-      case fmt[i] of
+      if i>fmtLen then break;
+      case pf[i] of
         '-': begin leftAlign:=true; zeroPad:=false; end;
         '0': if not leftAlign then zeroPad:=true;
         '+': showSign:=true;
@@ -2076,61 +2135,72 @@ begin
     until false;
     // width
     w:=0;
-    while (i<=System.Length(fmt)) and (fmt[i]>='0') and (fmt[i]<='9') do begin
-      w:=w*10+(ord(fmt[i])-ord('0')); inc(i);
+    while (i<=fmtLen) and (pf[i]>='0') and (pf[i]<='9') do begin
+      w:=w*10+(ord(pf[i])-ord('0')); inc(i);
     end;
     // precision
     prec:=6; hasPrec:=false;
-    if (i<=System.Length(fmt)) and (fmt[i]='.') then begin
+    if (i<=fmtLen) and (pf[i]='.') then begin
       inc(i); hasPrec:=true; prec:=0;
-      while (i<=System.Length(fmt)) and (fmt[i]>='0') and (fmt[i]<='9') do begin
-        prec:=prec*10+(ord(fmt[i])-ord('0')); inc(i);
+      while (i<=fmtLen) and (pf[i]>='0') and (pf[i]<='9') do begin
+        prec:=prec*10+(ord(pf[i])-ord('0')); inc(i);
       end;
     end;
-    if (i>System.Length(fmt)) or (argIdx>High(args)) then break;
-    case fmt[i] of
+    if (i>fmtLen) or (argIdx>High(args)) then break;
+    arg:=@args[argIdx];
+    case pf[i] of
       'd','i': begin
-        Emit(FormatInt8(VarRecToInt(args[argIdx]),10,false,1,showSign));
+        EmitInt(VarRecToInt(arg^),10,false,1,showSign);
         inc(argIdx);
       end;
       'u': begin
         // treat as unsigned 32-bit
-        Emit(FormatInt8(VarRecToInt(args[argIdx]) and $FFFFFFFF,10,false,1,false));
+        EmitInt(VarRecToInt(arg^) and $FFFFFFFF,10,false,1,false);
         inc(argIdx);
       end;
-      'x': begin
+      'x','X': begin
         if hasPrec then minD:=prec else minD:=1;
-        Emit(FormatInt8(VarRecToInt(args[argIdx]),16,false,minD,false));
-        inc(argIdx);
-      end;
-      'X': begin
-        if hasPrec then minD:=prec else minD:=1;
-        Emit(FormatInt8(VarRecToInt(args[argIdx]),16,true,minD,false));
+        EmitInt(VarRecToInt(arg^),16,pf[i]='X',minD,false);
         inc(argIdx);
       end;
       'f': begin
         if not hasPrec then prec:=6;
-        Emit(FormatFloat8(VarRecToFloat(args[argIdx]),'f',prec));
+        piece:=FormatFloat8(VarRecToFloat(arg^),'f',prec);
+        Emit(pointer(piece),System.Length(piece));
         inc(argIdx);
       end;
       'g','G': begin
         if not hasPrec then prec:=6;
-        Emit(FormatFloat8(VarRecToFloat(args[argIdx]),fmt[i],prec));
+        piece:=FormatFloat8(VarRecToFloat(arg^),pf[i],prec);
+        Emit(pointer(piece),System.Length(piece));
         inc(argIdx);
       end;
       's': begin
-        piece:=VarRecToStr(args[argIdx]);
-        if hasPrec and (System.Length(piece)>prec) then SetLength(piece,prec);
-        Emit(piece);
+        if (arg^.VType=vtAnsiString) and
+           (StringCodePage(RawByteString(arg^.VAnsiString))=CP_UTF8) then begin
+          // UTF-8 string argument: copy the bytes directly
+          n:=System.Length(RawByteString(arg^.VAnsiString));
+          if hasPrec and (n>prec) then n:=prec;
+          Emit(arg^.VAnsiString,n);
+        end else begin
+          piece:=VarRecToStr(arg^);
+          n:=System.Length(piece);
+          if hasPrec and (n>prec) then n:=prec;
+          Emit(pointer(piece),n);
+        end;
         inc(argIdx);
       end;
       'p': begin
-        Emit(Conv.ToHex(VarRecToInt(args[argIdx]),2*sizeof(pointer)));
+        if arg^.VType=vtPointer then
+          EmitInt(int64(UIntPtr(arg^.VPointer)),16,true,2*sizeof(pointer),false)
+        else
+          EmitInt(VarRecToInt(arg^),16,true,2*sizeof(pointer),false);
         inc(argIdx);
       end;
     end;
     inc(i);
   end;
+  SetLength(result,len);
 end;
 
 { TStringsReader }

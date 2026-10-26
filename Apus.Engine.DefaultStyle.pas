@@ -31,9 +31,9 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
   defaultBtnColor:cardinal=$FFB0A0C0;
 
 implementation
- uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Tweenings,
+ uses Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
+    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings;
 
@@ -53,7 +53,6 @@ implementation
    destructor Destroy; override;
    constructor Create(element:TUIElement);
    procedure Update(element:TUIElement);
-   function HoverState(element:TUIElement):byte;
    // Resolve a 'background-image' value to a texture. 'file:' textures are loaded once
    // and memoized (the context holds one reference each); 'tex:' ones are looked up
    // every call and never owned (the creator of a named texture keeps it alive)
@@ -110,16 +109,6 @@ implementation
   end;}
 
 
- // Get font handle from element's style cascade. The UI scale (DPI included) reaches the text
- // through element.globalScale only, so the text scale of the calling thread is ignored
- function StyleFont(element:TUIElement):TFontHandle;
-  var name:String8; size:single;
-  begin
-   name:=element.GetStyleValue('font','Default');
-   size:=element.GetStyleNumber('font-size',9);
-   result:=txt.GetFont(name,round(size*element.globalScale),fsIgnoreScale);
-  end;
-
  type
   // Content (text) style of an element, resolved for its current state.
   // Offsets are screen pixels (logical style units multiplied by globalScale).
@@ -152,7 +141,7 @@ implementation
    end;
   begin
    scale:=element.globalScale;
-   result.font:=StyleFont(element);
+   result.font:=element.StyleFont;
    result.hover:=context.hover.Value;
    result.pressed:=context.active.Value;
    result.disabled:=context.disabled.Value;
@@ -192,7 +181,7 @@ implementation
       if parts[i].Trim<>'' then begin
        parts[n]:=parts[i].Trim; inc(n);
       end;
-     if n>0 then result.shadowColor:=ParseStyleColor(parts[0]);
+     if n>0 then result.shadowColor:=ParseStyleColor(ExpandToken(parts[0]));
      if n>=3 then begin
       result.shadowX:=ParseStyleNumber(parts[1]);
       result.shadowY:=ParseStyleNumber(parts[2]);
@@ -278,7 +267,7 @@ implementation
    i,h,iWidth,iHeight,dw,lw:integer;
    font:TFontHandle;
   begin
-   font:=StyleFont(hnt);
+   font:=hnt.StyleFont;
    if font=0 then font:=defaultHintFont;
    if font=0 then font:=txt.GetFont('Default',7);
    with hnt do begin
@@ -305,7 +294,7 @@ implementation
     size.Init(iWidth/globalScale,iHeight/globalScale);
     gfx.BeginPaint(hintImage);
     try
-     gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
+     gfx.target.Mask(true,true); // may potentially break drawing of the following elements
      gfx.target.Clear(0,-1,-1);
      draw.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
      draw.Rect(0,0,iwidth-3,iheight-3,$FF000000);
@@ -370,7 +359,7 @@ implementation
         exit;
        end;
       end;
-      // уточнить положение на экране (чтобы всегда был виден)
+      // adjust the on-screen position (so it is always visible)
       savePos:=position;
       AdjustHint(x1,y1,control as TUIHint);
       savePos.Sub(position);
@@ -431,7 +420,6 @@ implementation
     '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
-   duration:integer;
    col,vColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
@@ -562,6 +550,39 @@ implementation
     end;
   end;
 
+ // Menu line: the box (hover = the current line) is drawn by the common path. Caption on the
+ // left, shortcut on the right in 'shortcut-color' (the text color by default; the text color
+ // anyway while highlighted or disabled)
+ procedure DrawUIMenuItem(item:TUIMenuItem;context:TContext);
+  var
+   r:TRect;
+   ts:TTextStyle;
+   y:integer;
+  begin
+   ts:=ResolveTextStyle(item,context,clBlack,taLeft);
+   r:=item.GetClientPosOnScreen;
+   y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
+   gfx.clip.Rect(item.GetPosOnScreen);
+   WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
+   if item.shortcut<>'' then begin
+    ts.align:=taRight;
+    ts.font:=item.ShortcutFont; // smaller by default, on the same baseline
+    ts.color:=Color.Mix(item.GetStyleColor('shortcut-color',ts.color),ts.color,
+      Max(context.hover.Value,context.disabled.Value));
+    WriteStyled(ts,r.Right-1,y,item.shortcut);
+   end;
+   gfx.clip.Restore;
+  end;
+
+ procedure DrawUIMenuSeparator(sep:TUIMenuSeparator;x1,y1,x2,y2:integer);
+  var
+   d,y:integer;
+  begin
+   d:=round(4*sep.globalScale);
+   y:=(y1+y2) div 2;
+   draw.Line(x1+d,y,x2-d,y,sep.GetStyleColor('line-color',$60000000));
+  end;
+
  procedure DrawUIFrame(control:TUIFrame;x1,y1,x2,y2:integer);
   var
    c1,c2:cardinal;
@@ -622,7 +643,7 @@ implementation
     // draw the default body only for a style without 'fill' (avoids double blending)
     if element.GetStyleValue('fill')='' then draw.FillRect(x1,y1,x2,y2,col);
     if boundToWindow then exit; // the app draws the caption row of an OS window frame
-    if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
+    if element.IsActiveWindow then c:=$FF8080E0 // current window
      else c:=$FFB0B0B0;
     c:=Color.Mix(col,c,128);
     if resizeable then begin
@@ -646,8 +667,8 @@ implementation
 
  procedure DrawUIScrollbar(element:TUIScrollbar;x1,y1,x2,y2:integer);
   var
-   c,d,v,col,trackColor:cardinal;
-   size,width,startPos,endPos,minSize:integer;
+   col,trackColor:cardinal;
+   size,width:integer;
    scale,trackWidth,sliderWidth,sliderRadius,f:single;
    sStyle:string8;
    context:TContext;
@@ -773,11 +794,10 @@ implementation
   var
    wst:String32;
    i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
-   c:cardinal;
    font:TFontHandle;
    col:cardinal;
   begin
-   font:=StyleFont(control);
+   font:=control.StyleFont;
    col:=control.GetStyleColor('color',$FF202020);
    with control do begin
     wst:=realtext;
@@ -825,7 +845,7 @@ implementation
      txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),
        copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);
     end;
-    if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
+    if (selcount>0) and (FocusedElement=control) then begin // part of the text is selected
      j:=xStart+offset;
      if txtLen=0 then begin
       prefixWidth:=0;
@@ -859,11 +879,11 @@ implementation
  procedure DrawUIListBox(control:TUIListBox;x1,y1,x2,y2:integer);
   var
    i,lY:integer;
-   c,c1,c2:cardinal;
+   c:cardinal;
    scrollPos,lineH:single;
    font:TFontHandle;
   begin
-   font:=StyleFont(control);
+   font:=control.StyleFont;
    with control do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
@@ -924,6 +944,110 @@ implementation
      draw.Line(cx,cy+2+i,cx+4,cy-2+i,c);
     end;
    end;
+  end;
+
+ // 'box-shadow: <color> [dx dy [blur]]' or 'none'; dx,dy,blur in logical units.
+ // The blur is a piecewise linear falloff: full color inside, half at the shifted box edge,
+ // zero at blur/2 outside; corners are fans. The core is not filled under the box itself,
+ // except a strip of the corner radius - the box covers the rest.
+ procedure DrawBoxShadow(element:TUIElement;radius:single);
+  const
+   CORNER_STEPS=6;
+   MAX_VERTICES=2*(4+4*CORNER_STEPS)*6+4*6;
+  var
+   st:String8;
+   parts:Strings8;
+   i,n,cnt:integer;
+   col,half,none:cardinal;
+   dx,dy,blur,b2,scale:single;
+   mx1,my1,mx2,my2,ix1,iy1,ix2,iy2,c:single;
+   vrt:array[0..MAX_VERTICES-1] of TVertex;
+  procedure Add(x,y:single;color:cardinal);
+   begin
+    vrt[cnt].Init(x,y,0,color);
+    inc(cnt);
+   end;
+  procedure Quad(x1,y1,x2,y2,x3,y3,x4,y4:single;c1,c2:cardinal); // edge 1-2 in c1, 3-4 in c2
+   begin
+    Add(x1,y1,c1); Add(x2,y2,c1); Add(x3,y3,c2);
+    Add(x1,y1,c1); Add(x3,y3,c2); Add(x4,y4,c2);
+   end;
+  procedure Fill(x1,y1,x2,y2:single);
+   begin
+    if (x2>x1) and (y2>y1) then Quad(x1,y1,x2,y1,x2,y2,x1,y2,col,col);
+   end;
+  // A band from distance d1 (color c1) to d2 (color c2) around the core box
+  procedure Band(d1,d2:single;c1,c2:cardinal);
+   procedure Corner(cx,cy,a:single);
+    var
+     k:integer;
+     a0,a1:single;
+    begin
+     for k:=0 to CORNER_STEPS-1 do begin
+      a0:=a+k*(Pi/2)/CORNER_STEPS;
+      a1:=a0+(Pi/2)/CORNER_STEPS;
+      Quad(cx+cos(a0)*d1,cy+sin(a0)*d1,cx+cos(a1)*d1,cy+sin(a1)*d1,
+           cx+cos(a1)*d2,cy+sin(a1)*d2,cx+cos(a0)*d2,cy+sin(a0)*d2,c1,c2);
+     end;
+    end;
+   begin
+    Quad(ix1,iy1-d1,ix2,iy1-d1,ix2,iy1-d2,ix1,iy1-d2,c1,c2); // top
+    Quad(ix2+d1,iy1,ix2+d1,iy2,ix2+d2,iy2,ix2+d2,iy1,c1,c2); // right
+    Quad(ix2,iy2+d1,ix1,iy2+d1,ix1,iy2+d2,ix2,iy2+d2,c1,c2); // bottom
+    Quad(ix1-d1,iy2,ix1-d1,iy1,ix1-d2,iy1,ix1-d2,iy2,c1,c2); // left
+    Corner(ix1,iy1,Pi);
+    Corner(ix2,iy1,Pi*1.5);
+    Corner(ix2,iy2,0);
+    Corner(ix1,iy2,Pi*0.5);
+   end;
+  begin
+   st:=element.GetStyleValue('box-shadow');
+   if (st='') or SameText(st,'none') then exit;
+   parts:=st.Split(' ');
+   n:=0;
+   for i:=0 to high(parts) do
+    if parts[i].Trim<>'' then begin
+     parts[n]:=parts[i].Trim; inc(n);
+    end;
+   col:=ParseStyleColor(ExpandToken(parts[0]));
+   if col shr 24=0 then exit;
+   scale:=element.globalScale;
+   dx:=0; dy:=0; blur:=0;
+   if n>=3 then begin
+    dx:=ParseStyleNumber(parts[1])*scale;
+    dy:=ParseStyleNumber(parts[2])*scale;
+   end;
+   if n>=4 then blur:=Max(ParseStyleNumber(parts[3])*scale,0);
+   half:=(col and $FFFFFF) or ((col shr 25) shl 24);
+   none:=col and $FFFFFF;
+   // the box in vertex coordinates (pixel edges), the core: the shifted box shrunk by blur/2
+   with element.globalRect do begin
+    mx1:=Left-0.5; my1:=Top-0.5;
+    mx2:=Right-0.5; my2:=Bottom-0.5;
+   end;
+   b2:=blur/2;
+   ix1:=mx1+dx+b2; ix2:=mx2+dx-b2;
+   iy1:=my1+dy+b2; iy2:=my2+dy-b2;
+   if ix2<ix1 then begin c:=(ix1+ix2)/2; ix1:=c; ix2:=c; end;
+   if iy2<iy1 then begin c:=(iy1+iy2)/2; iy1:=c; iy2:=c; end;
+   cnt:=0;
+   if b2>=0.5 then begin
+    Band(0,b2,col,half);
+    Band(b2,blur,half,none);
+   end;
+   // the core minus the box (inset by the radius)
+   radius:=radius*scale;
+   mx1:=mx1+radius; my1:=my1+radius;
+   mx2:=mx2-radius; my2:=my2-radius;
+   if (mx2<=ix1) or (mx1>=ix2) or (my2<=iy1) or (my1>=iy2) then
+    Fill(ix1,iy1,ix2,iy2)
+   else begin
+    Fill(ix1,iy1,ix2,my1); // above
+    Fill(ix1,my2,ix2,iy2); // below
+    Fill(ix1,Max(iy1,my1),mx1,Min(iy2,my2)); // left
+    Fill(mx2,Max(iy1,my1),ix2,Min(iy2,my2)); // right
+   end;
+   if cnt>0 then draw.TrgList(@vrt[0],cnt div 3,nil);
   end;
 
  // Common box path: fill / background-image, border, radius, inner block.
@@ -1053,7 +1177,8 @@ implementation
    av:=context.active.Value;
    dv:=context.disabled.Value;
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
-   isButton:=(element.ClassType=TUIButton) or ((element is TUIToggleButton) and not (element is TUICheckbox));
+   isButton:=(element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
+     ((element is TUIToggleButton) and not (element is TUICheckbox));
 
    // Outer block: base values
    if isButton then fillColor:=element.GetBaseStyleColor('fill',defaultBtnColor)
@@ -1061,6 +1186,7 @@ implementation
    borderColor:=element.GetBaseStyleColor('border-color');
    radius:=element.GetBaseStyleNumber('radius');
    bWidth:=element.GetBaseStyleNumber('border-width');
+   DrawBoxShadow(element,radius); // under the box
 
    // Background image: base layer + state layers (cross-fade)
    layerCount:=0;
@@ -1127,7 +1253,7 @@ implementation
   begin
    context:=PrepareContext(element);
    context.Update(element);
-   if (element.ClassType=TUIButton) or
+   if (element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
      ((element is TUIToggleButton) and not (element is TUICheckBox)) then begin
     // Buttons use scroll to move all children as a group. Assign absolutely.
     element.scroll.X:=0;
@@ -1140,16 +1266,16 @@ implementation
     y1:=top; y2:=bottom-1;
    end;
 
-   // Просто контейнер - заливка плюс рамка
+   // Plain container - fill plus frame
    if element.ClassType=TUIElement then
     DrawUIElement(element,x1,y1,x2,y2,context)
    else
-   // Надпись
+   // Label
    if element is TUILabel then
     DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
    else
-   // Кнопка
-   if element.ClassType=TUIButton then
+   // Button
+   if (element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    if element is TUICheckbox then
@@ -1160,15 +1286,15 @@ implementation
    if element is TUIToggleButton then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
-   // Рамка
+   // Frame
    if element.ClassType=TUIFrame then
     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
-   // Произвольное изображение
+   // Arbitrary image
    if element.ClassType=TUIImage then
     DrawUIImage(element as TUIImage,x1,y1,x2,y2,context)
    else
-   // всплывающий хинт
+   // popup hint
    if element is TUIHint then
     DrawUIHint(element as TUIHint,x1,y1,x2,y2)
    else
@@ -1190,7 +1316,14 @@ implementation
    else
    // Combo box
    if element is TUIComboBox then
-    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context);
+    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context)
+   else
+   // Popup menu: the panel is drawn by the common box path
+   if element is TUIMenuItem then
+    DrawUIMenuItem(element as TUIMenuItem,context)
+   else
+   if element is TUIMenuSeparator then
+    DrawUIMenuSeparator(element as TUIMenuSeparator,x1,y1,x2,y2);
    {else
     DrawUIElement(element,x1,y1,x2,y2);}
   end;
@@ -1242,7 +1375,7 @@ constructor TContext.Create(element:TUIElement);
  begin
   if element.IsEnabled then v:=0 else v:=1;
   disabled.Assign(v);
-  hover.Assign(HoverState(element));
+  hover.Assign(ord(element.IsHovered));
   v:=0;
   if element is TUIButton then
    if TUIButton(element).pressed then v:=1;
@@ -1256,7 +1389,7 @@ procedure TContext.Update(element:TUIElement);
   v,duration:integer;
  begin
   // Mouse hover state
-  v:=HoverState(element);
+  v:=ord(element.IsHovered);
   if hover.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
    duration:=element.GetStyleInt('hover-time',duration);
@@ -1311,19 +1444,13 @@ function TContext.GetImage(const src:String8):TTexture;
   imgTex[n]:=result;
  end;
 
-function TContext.HoverState(element:TUIElement):byte;
- var
-  hoverEl:TUIElement;
- begin
-  hoverEl:=element;
-  if SameText(element.GetStyleValue('hover-target'),'parent') and (element.parent<>nil) then
-   hoverEl:=element.parent;
-  if (underMouse=hoverEl) or hoverEl.HasChild(underMouse) then result:=1
-   else result:=0;
- end;
-
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
+ TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
+   'color:&text; box-shadow:&shadow 2 3 4');
+ TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
+   ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
+ TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
 end.
 

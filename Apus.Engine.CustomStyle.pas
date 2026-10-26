@@ -33,7 +33,7 @@ implementation
    name,lowname:string;
    width,height,textOffsetX,textOffsetY:integer;
    offsetX,offsetY:single;
-   opacity,timeUp,timeDown:integer; // прозрачность imageOver и скорость ее нарастания/снижения
+   opacity,timeUp,timeDown:integer; // imageOver opacity and its fade-in/fade-out speed
    image,imageOver,imageDown,imageDefault,imageFocused,imageDisabled:integer;
    imageColor,imageColorOver,imageColorDown,imageColorDisabled:cardinal;
    color,colorOver,colorDown,colorFocused,colorDisabled,ColorShadow,ColorShadowDisabled:cardinal;
@@ -85,7 +85,7 @@ implementation
 
   hash:array[0..255] of byte;
 
-  path:string; // путь к битмапкам
+  path:string; // path to bitmaps
 
  function StrToAMode(s:string):TAlphaMode;
   begin
@@ -139,9 +139,9 @@ implementation
          if tag<0 then tag:=0;
         end;
 
-        // Обычное состояния
+        // Normal state
         if (enabled or (bStyle.imageDisabled=0)) and (bStyle.image<>0) then begin
-         // не рисовать если наведено и переходы мгновенны
+         // do not draw if hovered and transitions are instant
          if (tag>0) and enabled and (bStyle.timeUp=0) and
            (bStyle.timeDown=0) or
            (pressed and (bStyle.imageDown<>0)) then
@@ -151,32 +151,32 @@ implementation
           DrawBtnImage(bPos,btnImages[bStyle.image].image,c,sx,sy);
          end;
         end;
-        // Кнопка недоступна
+        // Button is disabled
         if not enabled and (bStyle.imageDisabled<>0) then
          DrawBtnImage(bpos,btnImages[bStyle.imageDisabled].image,bStyle.imageColorDisabled,sx,sy);
-        // Нажатое состояние
+        // Pressed state
         if (pressed) and (bStyle.imageDown<>0) then
          DrawBtnImage(bpos,btnImages[bStyle.imageDown].image,bStyle.imageColorDown,sx,sy);
-        // Кнопка по умолчанию
+        // Default button
         if (default) and (bStyle.imageDefault<>0) then
          DrawBtnImage(bpos,btnImages[bStyle.imageDefault].image,bStyle.imageColor,sx,sy);
-        // Кнопка имеет фокус
+        // Button has focus
         if (focusedElement=but) and (bStyle.imageFocused<>0) then
          DrawBtnImage(bpos,btnImages[bStyle.imageFocused].image,bStyle.imageColor,sx,sy);
-        // Подсветка
+        // Highlight
         if enabled and (tag>0) and not pressed then
          if bStyle.imageOver<>0 then begin
           if (bStyle.timeUp=0) and (bStyle.timeDown=0) then
            DrawBtnImage(bpos,btnImages[bStyle.imageOver].image,bStyle.imageColorOver,sx,sy)
-          else // для подсветки используется отдельное изображение, прозрачность которого уменьшается до opacity
+          else // highlight uses a separate image whose opacity decreases down to opacity
            DrawBtnImage(bpos,btnImages[bStyle.imageOver].image,$808080+tag shl 24,sx,sy);
          end;
 
-        // Вывод надписи (если есть)
+        // Draw the caption (if any)
         if caption<>'' then begin
          ix:=bStyle.textOffsetX;
          iy:=bStyle.textOffsetY;
-         // Вычисление цвета надписи
+         // Compute caption color
          col2:=bStyle.ColorShadow;
          if bStyle.color<>0 then col:=bStyle.color;
          if not pressed and (focusedElement=but) and (bStyle.colorFocused<>0) then
@@ -188,7 +188,7 @@ implementation
          if tag>0 then col:=Color.Mix(bStyle.colorOver,col,tag);
          if pressed and (bStyle.colorDown<>0) then col:=bStyle.colorDown;
 
-         // перевод ДО разделения на подстроки!
+         // translate BEFORE splitting into substrings!
          sa:=translate(caption).Split('~');
          cRect:=but.GetClientPosOnScreen;
          gfx.clip.Rect(cRect);
@@ -204,7 +204,7 @@ implementation
           if mode=TTextAlignment.taLeft then ix:=ix+cRect.left+byte(pressed)+cRect.width div 6 else
           if mode=TTextAlignment.taRight then ix:=ix+cRect.left+byte(pressed)+cRect.width*7 div 8;
          end;
-          // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
+          // Draw as plain text (everything here is outdated and needs rethinking)
           for j:=0 to length(sa)-1 do begin
            txt.Write(font,ix,iy,col,sa[j],mode,toAddBaseline);
            if bStyle.underline then begin
@@ -241,7 +241,7 @@ implementation
    bool:boolean;
    int,sNum:integer;
   begin
-   // Определение общих св-в элемента
+   // Common element properties
    enabl:=item.flags.enabled;
    con:=item;
    while con.parent<>nil do begin
@@ -255,17 +255,17 @@ implementation
 
    // Skinned windows are drawn by the default style box path ('background-image')
 
-   // Полоса прокрутки
+   // Scrollbar
    if item is TUIScrollBar then with item as TUIScrollBar do begin
     c:=GetStyleColor('color',$FFA8B0BC);
     v:=Color.Mix(c,$40101010,96);
     d:=Color.Sub(v,$202020);
     c:=Color.Add(v,$202020);
     if horizontal then begin
-     // горизонтальная
+     // horizontal
 
     end else begin
-     // вертикальная
+     // vertical
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
      if flags.enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
       c:=Color.Mix(GetStyleColor('color',$FFA8B0BC),$FF909090,128);
@@ -285,7 +285,7 @@ implementation
     end;
    end;
 
-   // Поиск стиля
+   // Style lookup
    sNum:=0;
    j:=(cardinal(item) div 3) and $FF;
    i:=hash[j];
@@ -316,7 +316,7 @@ implementation
    end;
 
 
-   // поле ввода
+   // edit box
    if item.ClassType=TUIEditBox then
     with item as TUIEditbox do begin
       if sNum>0 then begin
@@ -332,8 +332,8 @@ implementation
       noborder:=bool;
     end;
 
-   // Кнопка
-   if item.ClassType=TUIButton then
+   // Button
+   if (item.ClassType=TUIButton) or (item.ClassType=TUIToolButton) then
     DrawButton(item as TUIButton,sNum);
   end;
 
@@ -349,7 +349,7 @@ implementation
    end;
    customStyleID:=styleID;
    RegisterUIStyle(customStyleID,CustomStyleHandler);
-   // адрес произвольный ибо объект уникальный
+   // arbitrary address since the object is unique
    PublishVar(@CustomStyleHandler,'CustomStyle',TVarTypeCustomStyle);
   end;
 
@@ -359,7 +359,7 @@ implementation
    item.styleInfo:=styleName;
   end;
 
- // Возвращает хэндл изображения, если надо - загружает его
+ // Returns the image handle, loads it if needed
  function ImageHandle(name:string):integer;
   var
    i:integer;
@@ -423,7 +423,7 @@ var
  item:^TButtonStyle;
  st:string;
 begin
- // varname = "group\property" либо "groupName"
+ // varname = "group\property" or "groupName"
  result:=nil;
  i:=pos('\',fieldname);
  if i=0 then begin
@@ -434,7 +434,7 @@ begin
     varClass:=TVarTypeBtnStyle;
    end;
   if result=nil then begin
-   // группы с таким именем нет => создать
+   // no group with this name => create it
    n:=NewButtonStyle(fieldname);
    result:=@btnStyles[n];
    varClass:=TVarTypeBtnStyle;

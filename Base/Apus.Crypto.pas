@@ -370,7 +370,7 @@ function CheckSumSlow;
    ReallocMem(buffer,0);
   end;
 
- // Деление 128-битного числа на 32-битное с остатком
+ // Division of a 128-bit number by a 32-bit one with remainder
  procedure Divide128(const sour:Word128;arg:cardinal;var res:Word128;var rest:cardinal);
   var
    i:integer;
@@ -398,7 +398,7 @@ function CheckSumSlow;
   begin
    randomize;
    repeat
-    // попытка сгенерить ключи
+    // attempt to generate keys
     divcnt:=0;
     fillchar(n,sizeof(n),0);
     for i:=0 to 3 do begin
@@ -406,11 +406,11 @@ function CheckSumSlow;
      n[3]:=n[3] or (Random(256) shl (i*8));
     end;
     n[0]:=1; m:=1;
-    // Теперь будем раскладывать на множители
+    // Now factorize
     d:=3;
     repeat
      Divide128(n,d,n1,r);
-     if r=0 then begin // Найден множитель
+     if r=0 then begin // factor found
       m:=m*d; n:=n1; inc(divcnt); dividers[divcnt]:=d;
      end else begin
       inc(d,2);

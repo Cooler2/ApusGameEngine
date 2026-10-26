@@ -126,12 +126,11 @@ var
   aHash:array[1..max_subimages] of cardinal;
   aSubCount:integer;
 
-  // "имя файла" -> cardinal(TJpegImage) - для предзагрузки jpeg'ов
+  // "file name" -> cardinal(TJpegImage) - for jpeg preloading
   jpegImageHash:THash;
 
 var
- loadingTime:integer; // суммарное время загрузки изображений в мс
- loadingJPEGTime:integer; // суммарное время загрузки JPEG в мс
+ loadingTime:integer; // total image loading time in ms
 
 var
  defaultLoadImageFlags:cardinal=0;
@@ -166,7 +165,7 @@ begin
 end; *)
 
 
-// подогнать формат пикселя под поддерживаемый системой
+// adjust the pixel format to one supported by the system
 procedure AdjustFormat(var ForceFormat:TImagePixelFormat);
 begin
  {$IFDEF OPENGL}
@@ -295,9 +294,9 @@ begin
   end;
  end;
  if ftype=0 then raise EError.Create('Unsupported texture type: '+fname);
- // этап 1 - загрузка исходного файла и его параметров в буфер
+ // stage 1 - load the source file and its parameters into a buffer
  if ftype=1 then begin
-  // загружаем DDS
+  // load DDS
   buf:=Files.LoadAsBytes(fname);
   CheckImageFormat(buf);
   if format=ipfNone then format:=imgInfo.format;
@@ -329,15 +328,15 @@ begin
  end else
  /// TODO: load other file types
  ;
- // этап 2 - создание текстуры
+ // stage 2 - create the texture
  tex:=AllocImage(imginfo.width,imginfo.height,format,
    aiTexture+aiAutoMipmap+aiPow2,fname) as TTexture;
 
- // этап 3 - Загрузка данных в текстуру
+ // stage 3 - upload data into the texture
  for i:=0 to tex.mipmaps-1 do begin
-  // загрузка i-го уровня
+  // upload i-th level
   tex.Lock(i);
-  // копируем содержимое levels[i]
+  // copy levels[i] content
   sp:=levels[i].data;
   dp:=tex.data;
   for j:=0 to levels[i].height-1 do begin
@@ -400,8 +399,7 @@ function FindProperFile(fname:String8;dontFail:boolean=false):String8;
   for i:=0 to high(EXTENSIONS) do begin
    {$IFNDEF WEBP}if EXTENSIONS[i]='.webp' then continue;{$ENDIF}
    {$IFNDEF IOS}if EXTENSIONS[i]='.pvr' then continue;{$ENDIF}
-   SetLength(names,length(names)+1);
-   names[high(names)]:=fname+EXTENSIONS[i];
+   names.Add(fname+EXTENSIONS[i]);
   end;
   i:=Files.SelectFile(names); // a layered provider may prefer its top layer
   if i>=0 then result:=names[i]
@@ -532,7 +530,7 @@ begin
    tex.SetLoadRequest(request);
   end;
   tex.Lock(0);
-  img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
+  img:=tex.GetRawImage; // get a RAW Image object to access texture data
 
   if preloaded<>nil then begin
    img.CopyPixelDataFrom(preloaded); // don't free preloaded as it is kept in the queue
@@ -821,25 +819,25 @@ function CropImage(image:TTexture;x1,y1,x2,y2:integer):TTexture;
        aiSysMem*byte(sysMem),'_'+image.name) as TTexture;
    result.Lock;
    if (newWidth>image.width) or (newHeight>image.height) then begin
-    // При растяжении изображений на верхней и нижней линии вероятны артефакты,
-    // поэтому создадим временную картинку расширив исходную на бордюр в 1px
+    // When stretching images, artifacts are likely on the top and bottom lines,
+    // so create a temporary image by extending the source with a 1px border
     w:=image.width+2; h:=image.height+2;
     SetLength(tmp,w*h);
 //   Mem.Fill(tmp[0],w*h*4,0);
     image.Lock(0,lmReadOnly);
-    CopyRect(image.data,image.pitch,@tmp[0],w*4,0,0,w-2,h-2,1,1); // Основная часть
+    CopyRect(image.data,image.pitch,@tmp[0],w*4,0,0,w-2,h-2,1,1); // main part
     image.Unlock;
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,1,   w-2,1,  1,0); // Верхняя линия
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,h-2, w-2,1,  1,h-1); // нижняя линия
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,0,   1,h,    0,0); // левая линия
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, w-2,0, 1,h,    w-1,0); // правая линия
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,1,   w-2,1,  1,0); // top line
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,h-2, w-2,1,  1,h-1); // bottom line
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,0,   1,h,    0,0); // left line
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, w-2,0, 1,h,    w-1,0); // right line
 
     FillRect(result.data,result.pitch,0,0,newWidth-1,newHeight-1,$0);
     StretchDraw(@tmp[w+1],w*4,result.data,result.pitch,
       0,0,newWidth-1,newHeight-1,
       0,0,w-2,h-2,blCopy);
    end else begin
-    // При уменьшении всё гораздо проще
+    // Downscaling is much simpler
     image.Lock(0,lmReadOnly);
     u1:=0; u2:=image.width;
     v1:=0; v2:=image.height;

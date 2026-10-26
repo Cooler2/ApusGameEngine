@@ -71,7 +71,6 @@ implementation
    tmp:pointer;
    r:TRect;
    list:array of TUIElement;
-   maskChange:boolean;
    clipping:boolean;
   begin
    if not item.flags.visible then exit;
@@ -124,7 +123,7 @@ implementation
 
    // Process children elements
    if cnt>0 then begin
-    // Затем отсортировать и нарисовать вложенные эл-ты
+    // Then sort and draw the nested elements
     for i:=0 to cnt-2 do
      for j:=cnt-1 downto i+1 do
       if list[j].order<list[j-1].order then begin
@@ -140,7 +139,7 @@ implementation
     end;
 
     for i:=0 to cnt-1 do begin
-     // если элемент не клипится и фон - не прозрачный - нарисовать без отсечения
+     // if the element is not clipped and its background is opaque - draw without clipping
      if clipping and list[i].flags.noParentClip and not transpBgnd then begin
       gfx.clip.Nothing;
       DrawUITree(list[i],manualDraw,true);
@@ -151,7 +150,7 @@ implementation
 
     if clipping then gfx.clip.Restore;
    end;
-{   // вернуть маску назад
+{   // restore the mask
    if maskChange then gfx.target.UnMask;}
   end;
 

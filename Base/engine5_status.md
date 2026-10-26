@@ -104,7 +104,8 @@ tests or the engine.
 | `Apus.Colors` | Win/Linux/macOS | - | `Color` record static-method API (2026-06-09); no free functions except `BilinearMixF` and `BilinearMix(PCardinal)`. |
 | `Apus.Compress` | Linux/macOS | TestCompress | Not in the Windows sweep (`buildtest.ps1`) yet. |
 | `Apus.Containers` | Win/Linux/macOS | TestContainers, BenchContainers |  |
-| `Apus.ControlFiles` | Win/Linux/macOS | - |  |
+| `Apus.Config` | Win/Linux/macOS | TestConfig | Configuration documents (CTL3, reads CTL2 and JSON); spec in `manual/config_files.md`. Used by GameApp, Sound and SCGI. |
+| `Apus.ControlFiles` | Win/Linux/macOS | TestFiles | CTL2; no longer used by the engine, to be removed. |
 | `Apus.Conv` | Win/Linux/macOS | TestConv, BenchConv |  |
 | `Apus.Core` | Win/Linux/macOS | TestCore, BenchCore, BenchMem |  |
 | `Apus.Crypto` | Win/Linux/macOS | - |  |
@@ -217,7 +218,6 @@ Checked with `grep -rlE "\bApus\.(Common|CrossPlatform)\b"` over `*.pas`, `*.dpr
 
 ## Would be nice to do (but not required)
 
-* Optimize `UTF8.Format` performance in Delphi (currently significantly slower than `SysUtils.Format` in Delphi builds; FPC performance is comparable)
 * Optimize Mem.FillW/FillQ/FillF with SSE (currently simple loops, only FillD is SSE-optimized)
 * Optimize Mem.Copy with SSE for large blocks (currently uses RTL move())
 * Optimize Mem.IsZero with SSE (currently manual loop with NativeUInt alignment)

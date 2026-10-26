@@ -259,7 +259,7 @@ begin
    DontPlay:=true;
   end;
  end;
- // последняя строчка
+ // last line
  prevtimer:=timer;
 end;
 
@@ -379,7 +379,7 @@ begin
  end;
  initialized:=false;
  buffer:=nil;
- // Показ модального окна
+ // Show a modal window
  wnd:=scene.UI.GetWindow;
  wnd.LockState;
  try
@@ -556,12 +556,12 @@ begin
 
  try
  if eff=1 then begin
-  // Эффект изменения прозрачности
+  // Opacity change effect
   col:=cardinal(stage) shl 24+$808080;
   draw.Image(x,y,buffer,col);
  end;
  if eff=2 then begin
-  // Эффект "телевизора"
+  // "TV" effect
 //  col:=round(300-10000/(stage+34));
   col:=stage;
   if col>255 then col:=255;
@@ -572,7 +572,7 @@ begin
   draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,col);
  end;
  if eff=3 then begin
-  // обратный телевизор (выключение)
+  // reverse TV (turning off)
   stage:=255-stage;
   col:=round(stage*0.9);
   col:=Color.Add($FF808080,col+col shl 8+col shl 16);
@@ -583,7 +583,7 @@ begin
   draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,col);
  end;
  if eff in [4,8] then begin
-  // появление снизу
+  // appear from the bottom
   col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
 //  dy:=round(h*spline(stage/256,0,1.2,1,0,0.6));
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
@@ -592,7 +592,7 @@ begin
   draw.Scaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,col);
  end;
  if eff in [5,9] then begin
-  // появление сверху
+  // appear from the top
   col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
@@ -600,7 +600,7 @@ begin
   draw.Scaled(x,y+cy,x+w,y+cy+dy,buffer,col);
  end;
  if eff in [6,10] then begin
-  // появление слева
+  // appear from the left
   col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
@@ -608,7 +608,7 @@ begin
   draw.Scaled(x+cx,y,x+cx+dx,y+h,buffer,col);
  end;
  if eff in [7,11] then begin
-  // появление справа
+  // appear from the right
   col:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
@@ -616,7 +616,7 @@ begin
   draw.Scaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,col);
  end;
  if eff=22 then begin
-  // Эффект масштабирования (не особо линейного)
+  // Scaling effect (not quite linear)
   col:=stage;
   if col>255 then col:=255;
   col:=col shl 24+$808080;
@@ -627,7 +627,7 @@ begin
     centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,col);
  end;
  if eff=23 then begin
-  // Эффект масштабирования (не особо линейного)
+  // Scaling effect (not quite linear)
   col:=stage;
   if col>255 then col:=255;
   col:=col shl 24+$808080;

@@ -805,8 +805,7 @@ procedure TSDLGLWindow.HandleEvent(const event:TSDL_Event);
     SetLength(ust,len);
     if len>0 then move(event.drop.file_^,ust[1],len); // raw copy: SDL paths are UTF-8
     SDL_free(event.drop.file_);
-    SetLength(dropList,length(dropList)+1);
-    dropList[high(dropList)]:=ust;
+    dropList.Add(ust);
    end;
    SDL_DROPTEXT:SDL_free(event.drop.file_);
    SDL_DROPCOMPLETE:begin

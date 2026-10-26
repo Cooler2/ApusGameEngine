@@ -16,7 +16,7 @@ All modules are written in Pascal (compatible with Delphi 12+ and FPC 3.2+).
 | **Networking** | Socket, TCP, HttpRequests, HttpServer, GeoIP | Network communication |
 | **Platform** | Android | Android integration |
 | **Utilities** | Utils, Files, Log, Logging, Threads, Profiling, StackTrace, CPU, MemoryLeakUtils | General-purpose tools |
-| **Specialized** | Crypto, RSA, Database, Translation, HtmlTree, ControlFiles, Publics | Domain-specific modules (`Publics`: named variables and expression evaluation) |
+| **Specialized** | Crypto, RSA, Database, Translation, HtmlTree, Config, ControlFiles, Publics | Domain-specific modules (`Config`: configuration documents, see `manual/config_files.md`; `ControlFiles`: the CTL2 predecessor; `Publics`: named variables and expression evaluation) |
 | **Auxiliary** | Compress, ProdCons, Huffman, ADPCM, LongMath, RegExpr, SCGI | Compression, codecs, math |
 
 `Network` is deprecated (use `Socket`); it stays only for `Apus.Engine.UdpTransport`.

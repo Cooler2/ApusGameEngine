@@ -221,18 +221,18 @@ var
  procedure FillPolygon(points:PVec2;count:integer;color:cardinal); // not yet implemented
 
 implementation
- uses Apus.Types, {$IFDEF ANDROID}SysUtils,{$ENDIF} Apus.Colors, Math, Apus.Core;
+ uses {$IFDEF ANDROID}SysUtils,{$ENDIF} Apus.Colors, Math, Apus.Core;
 
 threadvar
- // Место для отрисовки по умолчанию
+ // Default drawing target
  rBuf:pointer;
- rPitch:integer; // в пикселях!
+ rPitch:integer; // in pixels!
  rWidth,rHeight:integer;
 
 
 {$IFDEF CPU386}
 const
- Alpha1:int64=$0100010001000100; // 4 слова по 100h
+ Alpha1:int64=$0100010001000100; // 4 words of 100h
  MaskW0:int64=$000000000000FFFF;
  MaskW1:int64=$00000000FFFF0000;
  MaskW2:int64=$0000FFFF00000000;
@@ -258,7 +258,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // Start address
    mov eax,y
    imul pitch
    mov edi,x2
@@ -285,7 +285,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // Start address
    mov eax,y
    imul pitch
    mov edi,x2
@@ -312,7 +312,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // Start address
    mov eax,y1
    imul pitch
    mov edi,x
@@ -339,7 +339,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // Start address
    mov eax,y1
    imul pitch
    mov edi,x
@@ -368,7 +368,7 @@ const
   begin
     asm
      pushad
-     // Определить направления и углы
+     // Determine directions and angles
      mov edi,pitch
      mov esi,4
      mov eax,x2
@@ -386,7 +386,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // is the segment horizontal
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -406,8 +406,8 @@ const
 
      mov edx,l
      shr edx,1
-     // загрузить альфаканал
-     pxor mm7,mm7 // константа 0
+     // load alpha channel
+     pxor mm7,mm7 // constant 0
      movd mm6,HighByte
 
      xor ebx,ebx
@@ -416,20 +416,20 @@ const
      shl ebx,8
      mov bl,bh
      movd mm1,ebx // 0AAA
-     punpcklbw mm1,mm6 // mm1 - альфа фона (100 0AA 0AA 0AA)
+     punpcklbw mm1,mm6 // mm1 - background alpha (100 0AA 0AA 0AA)
      movq mm2,Alpha1
-     psubw mm2,mm1 // альфа цвета (старшее слово - 00 1-A 1-A 1-A)
+     psubw mm2,mm1 // color alpha (high word - 00 1-A 1-A 1-A)
 
-     // Загрузить цвет
+     // Load color
      movd mm0,color
      punpcklbw mm0,mm7
-     pmullw mm0,mm2 // Сколько нужно прибавить к цвету фона
+     pmullw mm0,mm2 // how much to add to the background color
 @inner:
      movd mm3,[edi]
-     // Вычислить цвет точки
-     punpcklbw mm3,mm7 // mm1 - цвет фона
-     pmullw mm3,mm1   // Доля цвета фона
-     paddw mm3,mm0   // pre-multiplied цвет точки
+     // Compute the point color
+     punpcklbw mm3,mm7 // mm1 - background color
+     pmullw mm3,mm1   // background color share
+     paddw mm3,mm0   // pre-multiplied point color
      psrlw mm3,8
      packuswb mm3,mm7
      movd [edi],mm3
@@ -461,7 +461,7 @@ const
 
     asm
      pushad
-     // Определить направления и углы
+     // Determine directions and angles
      mov edi,pitch
      mov esi,2
      mov eax,x2
@@ -479,7 +479,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // is the segment horizontal
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -499,8 +499,8 @@ const
 
      mov edx,l
      shr edx,1
-     // загрузить альфаканал
-     pxor mm7,mm7 // константа 0
+     // load alpha channel
+     pxor mm7,mm7 // constant 0
      movd mm6,HighByte
 
      xor ebx,ebx
@@ -509,24 +509,24 @@ const
      shl ebx,8
      mov bl,bh
      movd mm1,ebx // 0AAA
-     punpcklbw mm1,mm6 // mm1 - альфа фона (100 0AA 0AA 0AA)
+     punpcklbw mm1,mm6 // mm1 - background alpha (100 0AA 0AA 0AA)
      movq mm2,Alpha1
-     psubw mm2,mm1 // альфа цвета (старшее слово - 00 1-A 1-A 1-A)
+     psubw mm2,mm1 // color alpha (high word - 00 1-A 1-A 1-A)
 
-     // Загрузить цвет
+     // Load color
      movd mm0,color
      punpcklbw mm0,mm7
-     pmullw mm0,mm2 // Сколько нужно прибавить к цвету фона
+     pmullw mm0,mm2 // how much to add to the background color
 @inner:
      push edx
      push ecx
      movzx eax,word ptr [edi]
-     // Распаковать цвет
+     // Unpack color
      call ColorFrom16
      movd mm3,eax
-     // Вычислить цвет точки
-     pmullw mm3,mm1   // Доля цвета фона
-     paddw mm3,mm0   // pre-multiplied цвет точки
+     // Compute the point color
+     pmullw mm3,mm1   // background color share
+     paddw mm3,mm0   // pre-multiplied point color
 
      psrlw mm3,8
      packuswb mm3,mm7
@@ -562,7 +562,7 @@ const
   begin
     asm
      pushad
-     // Определить направления и углы
+     // Determine directions and angles
      mov edi,pitch
      mov esi,4
      mov eax,x2
@@ -580,7 +580,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // is the segment horizontal
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -590,7 +590,7 @@ const
      mov NextLine,edi
 
      mov ebx,color
-     inc ecx // на одну точку больше
+     inc ecx // one more point
      // Calculate address of the first pixel
      mov eax,y1
      imul pitch
@@ -628,7 +628,7 @@ const
   begin
     asm
      pushad
-     // Определить направления и углы
+     // Determine directions and angles
      mov edi,pitch
      mov esi,2
      mov eax,x2
@@ -646,7 +646,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // is the segment horizontal
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -656,7 +656,7 @@ const
      mov NextLine,edi
 
      mov ebx,color
-     inc ecx // на одну точку больше
+     inc ecx // one more point
      // Calculate address of the first pixel
      mov eax,y1
      imul pitch
@@ -1162,7 +1162,6 @@ const
   var
    sp:PByte;
    dp:PCardinal;
-   i:integer;
    c:cardinal;
   begin
    sp:=@sour; dp:=@dest;
@@ -1356,7 +1355,7 @@ const
   end;
   {$ENDIF}
 
- procedure PixelsFrom8P(var sour,dest,palette;count:integer); // Палитра 32-битная!
+ procedure PixelsFrom8P(var sour,dest,palette;count:integer); // 32-bit palette!
   {$IFDEF CPU386}
   asm
    pushad
@@ -1390,7 +1389,7 @@ const
    end;
   end;
   {$ENDIF}
- procedure PixelsFrom8P24(var sour,dest,palette;count:integer); // Палитра 24-битная (медленно!)
+ procedure PixelsFrom8P24(var sour,dest,palette;count:integer); // 24-bit palette (slow!)
   {$IFDEF CPU386}
   asm
    pushad
@@ -1711,8 +1710,8 @@ const
 
  procedure SimpleDrawEx(sour:pointer;sNext,sPitch:integer;
                         dest:pointer;dPitch:integer;
-                        x,y, // точка вывода в dest
-                        width,height:integer; // размер рисуемого изображения
+                        x,y, // output point in dest
+                        width,height:integer; // size of the drawn image
                         blender:TBlenderFunc);
   var
    sp,dp,s,p:PCardinal;
@@ -1737,8 +1736,8 @@ const
 
  procedure StretchDraw(sour:pointer;sPitch:integer;
                        dest:pointer;dPitch:integer;
-                       x1,y1,x2,y2:integer; // область вывода в dest
-                       u1,v1,u2,v2:single;  // текстурные к-ты
+                       x1,y1,x2,y2:integer; // output area in dest
+                       u1,v1,u2,v2:single;  // texture coordinates
                        blender:TBlenderFunc);
   var
    sp,dp,p:PCardinal;
@@ -1779,10 +1778,10 @@ const
    end;
   end;
 
- procedure StretchDraw1(sour:pointer;sPitch:integer; // текстура
+ procedure StretchDraw1(sour:pointer;sPitch:integer; // texture
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:integer;   // область вывода в dest (в целых пикселях
-                        u1,v1,u2,v2:integer;   // область текстуры (в целых текселях)
+                        x1,y1,x2,y2:integer;   // output area in dest (in whole pixels
+                        u1,v1,u2,v2:integer;   // texture area (in whole texels)
                         blender:TBlenderFunc);
   var
    scaleX,scaleY,bX,bY:single;
@@ -1798,10 +1797,10 @@ const
     blender);
   end;
 
- procedure StretchDraw2(sour:pointer;sPitch:integer; // текстура
+ procedure StretchDraw2(sour:pointer;sPitch:integer; // texture
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:single;   // область вывода в dest
-                        u1,v1,u2,v2:integer;  // текстурные к-ты, соответствующие краям области вывода
+                        x1,y1,x2,y2:single;   // output area in dest
+                        u1,v1,u2,v2:integer;  // texture coordinates matching the edges of the output area
                         blender:TBlenderFunc);
   var
    scaleX,scaleY:single;

@@ -133,6 +133,32 @@ style.GetStateNumber( -> ?use element.GetStateStyleNumber(state,key,def) [Apus.E
 .background:= -> ?TUIWindow.background removed: style 'background-image' [Apus.Engine.UIWidgets]
 
 // === TODO markers: need manual rewrite (call style changes) ===
+// Apus.ControlFiles -> Apus.Config (manual/config_files.md, section 13). Paths use '.' and
+// have no 'file.ctl:' prefix; the game config is appConfig of Apus.Engine.GameApp.
+// Order: longer names first
+UseControlFile -> ?cfg:=TConfig.Create(fname); the game config is already open as appConfig [Apus.Config]
+SaveAllControlFiles -> ?cfg.Save for each document (appConfig: SaveOptions) [Apus.Config]
+SaveControlFile -> ?cfg.Save [Apus.Config]
+FreeControlFile -> ?cfg.Free [Apus.Config]
+ctlGetKeyType -> ?cfg.Node(path).Kind (ints and floats are not told apart) [Apus.Config]
+ctlGetKeys -> ?for n in cfg.Node(path) do ... n.Name [Apus.Config]
+ctlGetStrInd -> ?cfg.Node(path).Item(i).AsStr [Apus.Config]
+ctlGetStrCnt -> ?cfg.Node(path).Count, or cfg.Root.Strs(path) [Apus.Config]
+ctlGetBool -> ?cfg.Root.Bool(path,default) [Apus.Config]
+ctlGetInt -> ?cfg.Root.Int(path,default) [Apus.Config]
+ctlGetReal -> ?cfg.Root.Float(path,default) [Apus.Config]
+ctlGetStr -> ?cfg.Root.Str(path,default) [Apus.Config]
+ctlSetStrInd -> ?rebuild the list and cfg.Root.SetStrs(path,list) [Apus.Config]
+ctlSetStrCnt -> ?cfg.Root.SetStrs(path,list) [Apus.Config]
+ctlSetBool -> ?cfg.Root.SetBool(path,value) [Apus.Config]
+ctlSetInt -> ?cfg.Root.SetInt(path,value) [Apus.Config]
+ctlSetReal -> ?cfg.Root.SetFloat(path,value) [Apus.Config]
+ctlSetStr -> ?cfg.Root.SetStr(path,value) [Apus.Config]
+ctlAddStr -> ?cfg.Root.SetStrs(path,list+[value]) [Apus.Config]
+ctlCreateSection -> ?cfg.Root.AddSection(path) [Apus.Config]
+ctlDeleteKey -> ?cfg.Root.Delete(path) [Apus.Config]
+IsKeyExists -> ?cfg.Node(path).Exists [Apus.Config]
+TControlFile -> ?a TCfgNode of a section: cfg.Node(path) [Apus.Config]
 InitCritSect -> ?use lock.Init(name[,level]) [Apus.Threads]
 DeleteCritSect -> ?use lock.Cleanup [Apus.Threads]
 SameText8 -> ?use a.Same(b) [Apus.Strings]
@@ -427,3 +453,10 @@ DoneSoundSystem -> sound.Done [Apus.Engine.Sound]
 IsMusicPlaying -> sound.IsMusicPlaying [Apus.Engine.Sound]
 // The Sound\... events stay; ISoundSystem has the same verbs as direct calls with handles.
 // Sound\Change\... was a stub that did nothing: use sound.SetChannelVolume/Pan/Speed
+
+// === Deprecated wrappers removed (Apus.Engine.UI, Apus.Engine.API, Apus.Images) ===
+FindControlAt -> FindElementAt [Apus.Engine.UI]
+FindAnyControlAt -> FindAnyElementAt [Apus.Engine.UI]
+FindControl -> FindElement [Apus.Engine.UI]
+// TGraphicsAPI.gaOpenGL (fixed-function GL) is gone: use gaOpenGL2 or gaAuto
+// ConvertLine(sour,dest,sf,df,palette,palFormat,count) is gone: use ConvertLine(sour,dest,sf,df,count,@palette,palFormat)

@@ -51,7 +51,7 @@ begin
   inc(eventCount);
 end;
 
-procedure DanglingLogHandler(msg:String8;category:byte;level:TSeverity);
+procedure DanglingLogHandler(const msg:String8;category:byte;level:TSeverity);
 begin
   if (level=TSeverity.Warn) and
      (Pos('mt\dangling -> ',LowerCase(string(msg)))>0) then

@@ -3,6 +3,65 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: `TUIToolButton`, button focus by class attribute (2026-10-26)
+
+- New `TUIToolButton` (`Apus.Engine.UIWidgets`, alias in `Apus.Engine.UI`): a `TUIButton`
+  that never takes the focus, for toolbars and menu owners. A click leaves the keys where they
+  were: an edit box keeps typing, closing a menu returns the focus there.
+- `TUIButton` keeps taking the focus on click, but now reads the default from the class
+  attribute, like other elements: `TMyButton.SetDefault('canHaveFocus',false)` changes it for a
+  class and its descendants (`TUIButton.SetDefault(...)` for all buttons of an app).
+- Delphi only: `TVarHash` (class attributes, `SetDefault`) silently dropped `false`, `0` and
+  `''`, since Delphi compares them as equal to `Unassigned`. Such defaults now take effect, e.g.
+  `TUIComboBox` no longer handles the mouse while disabled (as under FPC).
+
+## Styles: `box-shadow`, compound values with tokens (2026-10-26)
+
+- New box key `box-shadow: <color> [dx dy [blur]]` or `none` (logical units), drawn by the
+  common box path under the element. The popup menu uses `box-shadow:&shadow 2 3 4`.
+- New palette token `shadow` in both built-in themes.
+- A value that starts with a token and has more parts (`&shadow 2 3`) used to be taken as
+  one unknown token name and resolved to ''. Now it passes as is and the drawer expands the
+  parts: `ExpandToken` is exported from `Apus.Engine.Style`; `text-shadow` accepts a token
+  as its color too.
+
+## Keyboard: a focused element stops only the keys it consumes (2026-10-26)
+
+- `TUIScene.DispatchKey`: a key press or release the focused element does not consume goes on
+  to the UI hotkeys and then to the scene (`RegisterHotKey`, `onKeyDown`/`onKeyUp`). It used to
+  stop at any focus: one click on a focusable button silenced all scene hotkeys.
+- `TUIElement.onKey` returns false exactly for the keys the element handled. `TUIEditBox`
+  consumes the keys that type text (alone, with Shift or AltGr), the editing and caret keys and
+  Ctrl+C/X/V/A/Z; Enter (unless it accepts a completion), Esc, F-keys and other shortcuts go
+  on. `TUIButton` consumes Enter/Space, `TUIComboBox` its navigation keys.
+- Game code: a custom text field must consume its keys in `onKey`, otherwise typing reaches
+  the scene; `onKeyUp` may get a release without a press seen by the scene.
+- New `TKey.IsText` (`Apus.Engine.Keys`): the key types a character alone or with Shift.
+
+## Deprecated wrappers removed (2026-10-23)
+
+- `Apus.Engine.UI`: `FindControl`, `FindControlAt`, `FindAnyControlAt` are gone;
+  use `FindElement`, `FindElementAt`, `FindAnyElementAt`.
+- `Apus.Geom2D`: `IdentMatrix2`, `IdentMatrix32` are gone; use `IdentMat2d`,
+  `IdentMat32d`.
+- `Apus.Engine.API`: `TGraphicsAPI.gaOpenGL` (fixed-function GL) is gone; the
+  enum is `(gaAuto, gaOpenGL2)`.
+- `Apus.Images`: the `ConvertLine(sour,dest,sf,df,palette,palFormat,count)`
+  overload is gone; use `ConvertLine(sour,dest,sf,df,count,@palette,palFormat)`
+  (palette and format may be omitted when there is no palette).
+- `Apus.HashMaps`: `TSimpleHashAS` and `TSimpleHash8` are gone; use
+  `THashMap<int64>`. The other legacy hashes (`TStrHash`, `TSimpleHashS`,
+  `TVarHash`) stay for now.
+
+## Image preload queue: workers on `Thread.Start` (2026-10-23)
+
+- `Apus.Engine.ImgLoadQueue` launches its loading and unpacking workers through
+  `Apus.Threads.Thread.Start` and tracks them as `IThread`; the `Classes.TThread`
+  subclasses are gone. The public API (`StartLoadingThreads`, `QueueFileLoad`,
+  `GetImageFromQueue`) is unchanged.
+- The loading worker now checks for termination while waiting for an empty queue,
+  so shutdown no longer hangs when threads were started but nothing was queued.
+
 ## Folder listing: `Folder.ListItems`, `Folder.Roots` (2026-10-22)
 
 - `Folder.ListItems(path,mask)` returns `TFolderItems`: subfolders and files with name, size,
@@ -1419,6 +1478,7 @@ the new `SetupApplication` hook. Design: `Work/gameapp_settings_namespaces.md`.
 - Still global: `deviceDPI`, `deviceScale`, `instanceID`, `gameLangCode`.
 - `appSetup.configFile` keeps the old `configFileName` behaviour: after
   `Prepare` it holds the bare file name used as the control file key.
+  (Changed on 2026-10-23: it holds the path of the file used, see "Configs: Apus.Config".)
 - Config keys (`Options\FullScreen`, `Options\scaleWindowSize`, ...) and command
   line options are unchanged.
 - Migration: move the assignments from the constructor (or from the program,
@@ -1679,6 +1739,44 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   never used - now the track starts from it. `PlayMusic\None` (or a missing
   track) also cancels a track that waits for its start.
 - `Sound\Change\...` (a stub that did nothing) is removed.
+
+## 2026-10-23 — Configs: Apus.Config
+
+- New `Apus.Config` (`manual/config_files.md`): documents in the CTL3 syntax (braced
+  sections, arrays, inline comments); CTL2 files and a JSON subset are read by the
+  same parser. The engine reads its configs through it; `Apus.ControlFiles` is still
+  in Base, but nothing in the engine opens files with it any more.
+- `Apus.Engine.GameApp`: the global `appConfig:TConfig` is the document of
+  `appSetup.configFile`: `Prepare` opens it, `SaveOptions` saves it, it is freed with
+  the application (nil without a config file). After `Prepare`, `appSetup.configFile`
+  holds the path of the file used (the copy in `AppDataDir` when the shipped one must
+  stay intact), no longer the bare name used as a control file key. The keys are
+  unchanged and case-insensitive: `appConfig.Root.Int('Options.WindowWidth',1024)`.
+- Config problems are not fatal, but noticeable. `TConfig.Create` never raises on the
+  file: a missing or broken file gives an empty document (the defaults), `LoadError` and a
+  report; such a file is not overwritten by `Save` and is picked up by `ReloadIfChanged`
+  once fixed. Every problem (a failed load, reload or save, a value that does not
+  convert, a write the content does not allow) is logged and passed to `onConfigProblem`;
+  GameApp shows it as a toast. `Reload` and `Save` are functions returning success.
+- `SetFloat(path,value,digits=5)` writes 5 significant digits by default; `digits=0`
+  gives the shortest form that reads back exactly.
+- `Apus.Engine.GameApp`: a missing `appSetup.configFile` is no longer a `FatalError`: the
+  defaults are used, a toast says so, and `SaveOptions` creates the file.
+- `Apus.Engine.Sound`: an event may also be a section,
+  `sampleQuiet = { file = "sample.ogg", vol = 30 }`; `PreloadSamples` may be an array
+  of files; a missing `PreloadSamples` means `NONE` (it was a config loading error).
+  A broken event is reported and skipped; a config error no longer fails the sound
+  initialization.
+- `Apus.SCGI`: reads `config.ctl` through `Apus.Config`; the file is unchanged.
+- Data files: CTL2 files keep working. A CTL2 file that the program saves is written
+  in the CTL3 syntax. Duplicate keys in a file are an error now (CTL2 silently kept
+  the last one); `$Include` merges the file into the including section (in CTL2 the
+  included file was a separate namespace).
+- Migration of game code: `ctlGetInt(appSetup.configFile+':\Options\X',d)` →
+  `appConfig.Root.Int('Options.X',d)`; other files: `cfg:=TConfig.Create(name)` and
+  `cfg.Root.Str('A.B',...)`. The full table is section 13 of the manual chapter;
+  upgrader TODO rules are in `tools/engine5.upgrade`. The demo configs use the CTL3
+  syntax now.
 
 ## 2026-10-22 — Window close request: the app may keep the window
 

@@ -47,7 +47,7 @@ implementation
    layer:TTextEffectLayer;
    isButton:boolean;
   begin
-   isButton:=(element.ClassType=TUIButton) or
+   isButton:=(element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
      ((element is TUIToggleButton) and not (element is TUICheckBox));
    if not isButton and (element.ClassType<>TUIElement) and
      not (element is TUILabel) and not (element is TUIImage) then begin
@@ -78,7 +78,7 @@ implementation
     // Alignment, color and text offsets follow the parent text state.
     ts.font:=txt.GetFont(CaptionStyleValue(element,source,'font','Default'),
       round(ParseStyleNumber(CaptionStyleValue(element,source,'font-size','9'))*element.globalScale),
-      fsIgnoreScale); // globalScale already holds the UI scale, as in StyleFont
+      fsIgnoreScale); // globalScale already holds the UI scale, as in TUIElement.StyleFont
    end;
    if isButton then begin
     clipRect:=element.GetPosOnScreen;

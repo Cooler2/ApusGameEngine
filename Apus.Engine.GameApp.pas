@@ -8,7 +8,7 @@ unit Apus.Engine.GameApp;
 interface
  uses
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}jni,{$IFEND}
-  Apus.Core, Apus.Threads, Apus.Engine.API;
+  Apus.Core, Apus.Threads, Apus.Config, Apus.Engine.API;
 
  type
   {$SCOPEDENUMS ON}
@@ -24,9 +24,8 @@ interface
   TAppSetup=record
    title:string;       // window caption, shown to the user
    storageName:string; // name of the writable storage folders (see SetupStorageDirs); title is used when empty
-   // Config file to load (may contain a path). Prepare replaces it with the bare file name,
-   // which is then used as the control file key (configFile+':\Options\...').
-   // TODO: separate the path from the key
+   // Config file to load (may contain a path). Prepare opens it as appConfig and replaces the
+   // name with the file actually used: a copy in AppDataDir when the shipped one must stay intact
    configFile:String8;
    logFile:string;     // log file name, the folder is chosen by Prepare
    procedure Init;
@@ -83,6 +82,9 @@ interface
    deviceScale:single=1.0; // deviceDPI/96
    instanceID:integer=0;
    gameLangCode:string='en';
+   // The application config document (appSetup.configFile), opened by Prepare and freed with
+   // the application; nil when there is no config file
+   appConfig:TConfig=nil;
 
  type
   TGameApplication=class
@@ -187,7 +189,7 @@ implementation
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
   {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_NATIVE_JNI)}Apus.Android,{$IFEND}
-   SysUtils,Types,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
+   SysUtils,Types,Apus.AnimatedValues,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.UIScene,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.Notifications,Apus.Engine.RobotAPI,
@@ -532,8 +534,6 @@ procedure TGameApplication.CreateScenes;
  end;
 
 procedure TGameApplication.LoadScenes;
- var
-  scene:TGameScene;
  begin
   Signal('GAMEAPP\LoadScenes');
   TGameScene.LoadAllScenes;
@@ -544,6 +544,7 @@ destructor TGameApplication.Destroy;
   if game<>nil then game.Stop;
   sound.Done;
   {$IFDEF STEAM}Steam.Shutdown;{$ENDIF}
+  FreeAndNil(appConfig);
   inherited;
  end;
 
@@ -629,25 +630,27 @@ procedure TGameApplication.LoadFonts;
 procedure TGameApplication.LoadOptions;
  var
   i:integer;
+  cfg:TCfgNode;
  begin
   try
+   cfg:=appConfig.Root;
    // InstanceID = random constant
-   instanceID:=CtlGetInt(appSetup.configFile+':\InstanceID',0);
+   instanceID:=cfg.Int('InstanceID',0);
    if instanceID=0 then begin
     instanceID:=(1000*random(50000)+CoreTime.Ticks shl 8+round(now*1000)) mod 100000000;
-    CtlSetInt(appSetup.configFile+':\InstanceID',instanceID);
+    cfg.SetInt('InstanceID',instanceID);
    end;
 
    // Window or Fullscreen
-   if ctlGetBool(appSetup.configFile+':\Options\FullScreen',false) then windowSetup.fullscreen:=true;
+   if cfg.Bool('Options.FullScreen',false) then windowSetup.fullscreen:=true;
 
    // Window size
-   i:=CtlGetInt(appSetup.configFile+':\Options\WindowWidth',-1);
+   i:=cfg.Int('Options.WindowWidth',-1);
    if i>0 then begin
     windowSetup.size.cx:=i;
-    windowSetup.size.cy:=CtlGetInt(appSetup.configFile+':\Options\WindowHeight',windowSetup.size.cy);
+    windowSetup.size.cy:=cfg.Int('Options.WindowHeight',windowSetup.size.cy);
    end;
-   windowSetup.scaleForDPI:=ctlGetBool(appSetup.configFile+':\Options\scaleWindowSize',windowSetup.scaleForDPI);
+   windowSetup.scaleForDPI:=cfg.Bool('Options.scaleWindowSize',windowSetup.scaleForDPI);
 
    Signal('GAMEAPP\OptionsLoaded');
   except
@@ -687,6 +690,12 @@ procedure SetDPIAwareness;
  end;
 {$ENDIF}
 
+// Config problems are shown as toasts: noticeable, while the program goes on with the defaults
+procedure ShowConfigProblem(const msg:String8);
+ begin
+  ShowToast(msg,TToastKind.Warning);
+ end;
+
 procedure TGameApplication.Prepare;
  var
   i:integer;
@@ -696,6 +705,7 @@ procedure TGameApplication.Prepare;
  begin
   if prepared then raise EError.Create('TGameApplication.Prepare can be called only once');
   prepared:=true;
+  if not Assigned(onConfigProblem) then onConfigProblem:=ShowConfigProblem;
   try
    {$IFDEF MSWINDOWS}
    SetDPIAwareness; // a DPI-aware process is a precondition of the surface model
@@ -732,8 +742,6 @@ procedure TGameApplication.Prepare;
 
    if appSetup.configFile<>'' then begin
     appSetup.configFile:=Files.FixName(appSetup.configFile);
-    if not Files.Exists(appSetup.configFile) then
-     FatalError('Config file not found: '+appSetup.configFile);
     // Decide where the persistent config lives. Normally it stays next to the
     // shipped file (dev tree or a writable install) so behaviour is unchanged.
     // It moves to the per-platform writable AppDataDir (seeded once from the
@@ -745,12 +753,15 @@ procedure TGameApplication.Prepare;
     if bundleMode or not Folder.Writable(String8(st)) then begin
      Folder.Create(AppDataDir);
      st:=string(AppDataDir)+ExtractFileName(string(appSetup.configFile));
-     if not Files.Exists(String8(st)) then
+     if not Files.Exists(String8(st)) and Files.Exists(appSetup.configFile) then
       Files.CopyFile(String8(appSetup.configFile),String8(st)); // seed from shipped defaults
      appSetup.configFile:=st;
     end;
-    UseControlFile(appSetup.configFile);
-    appSetup.configFile:=ExtractFileName(appSetup.configFile); // from now on it's the control file key
+    // Config problems are not fatal. A missing file: the defaults are used, the first save
+    // creates it. A broken file: the defaults, a toast, and the file is not overwritten
+    if not Files.Exists(String8(appSetup.configFile)) then
+     ReportConfigProblem('Config file not found: '+String8(appSetup.configFile)+'; defaults are used');
+    appConfig:=TConfig.Create(appSetup.configFile,true);
     LoadOptions;
     SaveOptions; // Save modified settings (if default values were added)
    end;
@@ -1017,7 +1028,7 @@ procedure TGameApplication.ControlLoop;
    try
     Apus.Threads.Thread.Ping;
     Apus.Threads.Thread.CheckTimeouts;
-    Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
+    Delay(5); // processes signals, thus allowing to react to them synchronously
     Signal('GAMEAPP\onIdle');
    except
     on e:exception do Log.Force('Error in Control Thread: '+e.message);
@@ -1035,7 +1046,7 @@ procedure TGameApplication.ControlLoop;
 procedure TGameApplication.SaveOptions;
  begin
   try
-   SaveAllControlFiles;
+   if appConfig<>nil then appConfig.Save;
   except
    on e:exception do Log.Force('Error in options saving:'+ExceptionMsg(e));
   end;
@@ -1150,7 +1161,7 @@ begin
   a:=i*3.1416/6.5;
   x:=window.canvasWidth/2+32*cos(a);
   y:=window.canvasHeight/2-32*sin(a);
-  L:=50+round(-256*i/13-CoreTime.Ticks*0.3) and 255;
+  L:=50+(round(-256*i/13-CoreTime.Ticks*0.3) and 255)*205 shr 8; // 50..254: the alpha must fit a byte
   L:=round(v.Value*L);
   draw.RotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;

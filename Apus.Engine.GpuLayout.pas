@@ -103,7 +103,7 @@ function VertexFormatSize(format:TVertexFormat):integer;
 function VertexFormatComponents(format:TVertexFormat):integer;
 
 implementation
-uses Apus.Strings, Apus.Conv; // String8 helpers, ToStr
+uses Apus.Conv; // ToStr
 
 const
  FNV_OFFSET=uint64(14695981039346656037);

@@ -69,7 +69,7 @@ var
 
 
 implementation
- uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
+ uses {$IFDEF MSWINDOWS}winsock,{$ELSE}Sockets,BaseUnix,{$ENDIF}
       {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Apus.EventMan,DCPmd5a,
       Apus.Conv,Apus.HttpRequests,Apus.Log,Apus.Threads;
 
@@ -80,13 +80,13 @@ implementation
    procedure Execute;
   end;
 
-  TConnectionState=(csNone,           // до инициализации
-                    csConnecting,     // подключение (получение временного ID)
-                    csConnected,      // подключено, но не авторизовано
-                    csLogging,        // идёт авторизация
-                    csLogged,         // авторизация прошла - можно работать
+  TConnectionState=(csNone,           // before initialization
+                    csConnecting,     // connecting (obtaining a temporary ID)
+                    csConnected,      // connected but not authorized
+                    csLogging,        // authorization in progress
+                    csLogged,         // authorized - ready to work
                     csDisconnecting,
-                    csDisconnected);  // соединение завершено (нормально или же по ошибке)
+                    csDisconnected);  // connection closed (normally or due to an error)
 
  var
   mainThread:IThread;
@@ -98,7 +98,7 @@ implementation
   serial:cardinal; // request serial number
   activePollRequest:integer; // current poll request ID (0 - no active poll request)
   activePostRequest:integer; // current post request ID (0 - no active post request)
-  lastPostSent:TDateTime; // when the first POST-request was sent с ID=activePostRequest (for timeout)
+  lastPostSent:TDateTime; // when the first POST-request with ID=activePostRequest was sent (for timeout)
   lastPollURL:string;
   lastPostURL,lastPostData:string;
   lastPostType:TContentType;
@@ -109,10 +109,10 @@ implementation
   outStart,outFree:integer;
 
   // inbox messages
-  // сообщения хранятся в кольцевом буфере постоянно, старые перезаписываются новыми
+  // messages are kept in a ring buffer, old ones are overwritten by new ones
   inQueue:array[0..63] of string;
   inQueueTag:array[0..63] of integer;
-  inPos:integer; // сюда нужно писать очередное сообщение
+  inPos:integer; // the next message is written here
   lastTag:integer;
 
 {$IFDEF DARWIN}{$DEFINE NETLIB_C}{$ENDIF}
@@ -347,12 +347,12 @@ procedure EventHandler(event:TEventStr;tag:TTag);
        activePollRequest:=0;
       end;
       if tag=activePostRequest then begin
-       // Нужно либо обнулить activePostRequest (чтобы разрешить последующую отправку данных)
-       // либо перевыслать запрос
+       // Either reset activePostRequest (to allow sending more data)
+       // or resend the request
        if (response<>'OK') and (response<>'IGNORED') then begin
         Log.Msg('HGC: bad response to request '+inttostr(tag)+': '+response);
-        if (Now>lastPostSent+120/86400) or    // соединение считать разорванным если не удалось доставить пакет за 120 секунд
-           (httpStatus>400) then begin // доставка невозможна
+        if (Now>lastPostSent+120/86400) or    // consider the connection broken if the packet could not be delivered within 120 seconds
+           (httpStatus>400) then begin // delivery is impossible
          Log.Msg('HGC: delivery timeout');
          activePostRequest:=0;
          state:=csDisconnected;
@@ -368,31 +368,16 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end; // Success
  end;
 
-function StrToHex(st:string):string;
- const
-  hex:array[0..15] of char=('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
- var
-  i:integer;
-  b:byte;
- begin
-  SetLength(result,length(st)*2);
-  for i:=1 to length(st) do begin
-   b:=byte(st[i]);
-   result[i*2-1]:=hex[b shr 4];
-   result[i*2]:=hex[b and 15];
-  end;
- end;
-
-// Формирует тело запроса из очереди исходящих сообщений и отправляет запрос
+// Builds the request body from the outgoing message queue and sends the request
 procedure SendMessages(server:string);
  var
   i,size,count:integer;
   msgs:array[1..10] of integer;
-  query,boundary,sign:string;
+  query,sign:string;
   names,values:Strings8;
   cType:TContentType;
  begin
-  // Тут нужно определиться каким способом отправлять сообщения
+  // Need to decide here how to send the messages
   size:=0; count:=0;
   while (outStart<>outFree) and (count<10) do begin // don't send more than 10 messages at once
    inc(count);
@@ -511,7 +496,7 @@ procedure TMainWorker.Execute;
    end;
 
    state:=csDisconnected;
-   DoneHTTPrequests; // может не надо? - сессий может быть много!
+   DoneHTTPrequests; // maybe not needed? - there can be many sessions!
   except
    on e:exception do begin
     state:=csDisconnected;
@@ -604,18 +589,20 @@ procedure EventHandler2(event:TEventStr;tag:TTag);
 procedure CreateAccount(server,login,password,name,extras:string);
  var
   query,data:string;
+  enc:String8;
   b:byte;
   i:integer;
  begin
   RemoveEventHandler(EventHandler2);
   SetEventHandler('HTTP_Event2',EventHandler2,emInstant);
   query:=name+#9+login+#9+ShortMD5(password)+#9+extras;
+  SetLength(enc,length(query));
   b:=47;
   for i:=1 to length(query) do begin
-   query[i]:=char(byte(query[i]) xor b);
+   enc[i]:=AnsiChar(byte(query[i]) xor b);
    inc(b,39);
   end;
-  data:='A='+StrToHex(query);
+  data:='A='+Conv.EncodeHex(enc);
   HTTPRequest(server+'/newacc',data,'HTTP_Event2',0,ctUrlencoded);
  end;
 

@@ -187,17 +187,13 @@ end;
 {$R-}
 function Spline0(x,x0,x1,y0,y1:single):single;
 begin
- x:=(x-x0)/(x1-x0);
- if x<0 then x:=0;
- if x>1 then x:=1;
- result:=y0+(y1-y0)*x;
+ x:=Sat((x-x0)/(x1-x0));
+ result:=Lerp(y0,y1,x);
 end;
 
 function Spline1(x,x0,x1,y0,y1:single):single; // ease-in-out 25-50-25
 begin
- x:=(x-x0)/(x1-x0);
- if x<0 then x:=0;
- if x>1 then x:=1;
+ x:=Sat((x-x0)/(x1-x0));
  if x<0.25 then result:=2.666666*sqr(x) else
   if x>0.75 then result:=1-2.666666*sqr(1-x) else
    result:=1.333333*x-0.16666666;
@@ -206,18 +202,14 @@ end;
 
 function Spline2(x,x0,x1,y0,y1:single):single; // ease-out (decelerate)
 begin
- x:=(x-x0)/(x1-x0);
- if x<0 then x:=0;
- if x>1 then x:=1;
+ x:=Sat((x-x0)/(x1-x0));
  result:=1-sqr(1-x);
  result:=y0+(y1-y0)*result;
 end;
 
 function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
 begin
- x:=(x-x0)/(x1-x0);
- if x<0 then x:=0;
- if x>1 then x:=1;
+ x:=Sat((x-x0)/(x1-x0));
  result:=x*x;
  result:=y0+(y1-y0)*result;
 end;
@@ -226,8 +218,7 @@ function Spline(x:double;v0,k0,v1,k1:double;v:double=0.5):double;
 var
   a,b:double;
 begin
-  if x<0 then x:=0;
-  if x>1 then x:=1;
+  x:=Sat(x);
   x:=(2-4*v)*x*x+(4*v-1)*x;
   a:=k0-(v1-v0);
   b:=-k1+(v1-v0);

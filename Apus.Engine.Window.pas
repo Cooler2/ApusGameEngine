@@ -747,9 +747,7 @@ function TVirtualInput.Queue(op:TVirtualInputOp):int64;
      reqKeys.Clear;
     end;
     vioKey:reqKeys.Put(op.scanCode,op.pressed);
-    vioButton:
-     if op.pressed then reqButtons:=reqButtons or (1 shl (op.button-1))
-      else reqButtons:=reqButtons and not (1 shl (op.button-1));
+    vioButton:Bits.Modify(reqButtons,1 shl (op.button-1),op.pressed);
    end;
    result:=issuedTicket;
   finally
@@ -1518,7 +1516,7 @@ procedure TWindow.PlatformMouseButton(btn:byte;pressed:boolean;sample:boolean=tr
   // a press of a button that is still held: its release was lost (the OS capture was
   // taken away) - drop the stale bit so the press is a transition again
   if pressed and (btn in [1..5]) then
-   mouseButtons:=mouseButtons and not (1 shl (btn-1));
+   Bits.Clear(mouseButtons,1 shl (btn-1));
   DeliverMouseButton(btn,pressed);
  end;
 
@@ -1752,8 +1750,7 @@ procedure TWindow.DeliverMouseButton(btn:byte;pressed:boolean);
    if pressed=((mouseButtons and bit)<>0) then exit; // no transition
    LockState;
    try
-    if pressed then mouseButtons:=mouseButtons or bit
-     else mouseButtons:=mouseButtons and not bit;
+    Bits.Modify(mouseButtons,bit,pressed);
     input.AddTransition(bit,pressed);
    finally
     UnlockState;
@@ -2109,6 +2106,34 @@ begin
  current:='';
 end;
 
+var
+ tooManyScenesLogged:boolean;
+
+// Puts the active scenes into sc sorted by Z order (equal Z keep the list order), returns their count.
+// Scenes that do not fit into sc are not drawn.
+function SortActiveScenes(const scenes:TSceneArray;var sc:array of TGameScene):integer;
+var
+ i,j:integer;
+begin
+ result:=0;
+ for i:=low(scenes) to high(scenes) do
+  if scenes[i].IsActive then begin
+   if result>high(sc) then begin
+    if not tooManyScenesLogged then
+     Log.Error('Too many active scenes (%d max): %s is not drawn',[length(sc),scenes[i].name]);
+    tooManyScenesLogged:=true;
+    continue;
+   end;
+   j:=result;
+   while (j>0) and (sc[j-1].zorder>scenes[i].zorder) do begin
+    sc[j]:=sc[j-1];
+    dec(j);
+   end;
+   sc[j]:=scenes[i];
+   inc(result);
+  end;
+end;
+
 // Shadows (dimming layers) to draw under the scenes sc[0..n-1], sorted bottom to top.
 // A scene draws only the part of its shadow not covered by the shadows above it: the area
 // under scene i ends up dimmed by the strongest shadow among scenes i..n-1. A stack of modal
@@ -2132,7 +2157,7 @@ end;
 procedure TWindow.RenderFrame(const params:TGameSettings;
   drawCursor,drawOverlays:TRenderProc);
 var
- i,j,n:integer;
+ i,n:integer;
  sc:array[1..50] of TGameScene;
  shadows:array[1..50] of cardinal;
  effect:TSceneEffect;
@@ -2194,19 +2219,7 @@ begin
   frameLog.Add('Sorting');
   n:=0;
   try
-   for i:=low(scenes) to high(scenes) do
-    if scenes[i].IsActive then begin
-     ASSERT(n<high(sc),'Too many active scenes');
-     if n=0 then begin
-      sc[1]:=scenes[i]; inc(n); continue;
-     end;
-     fl:=true;
-     for j:=n downto 1 do
-      if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
-       else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
-     if fl then sc[1]:=scenes[i];
-     inc(n);
-    end;
+   n:=SortActiveScenes(scenes,sc);
   except
    on e:exception do CriticalError('RFrame3 '+ExceptionMsg(e));
   end;
@@ -2256,31 +2269,16 @@ end;
 
 procedure TWindow.RenderScenes(drawOverlays:TRenderProc);
 var
- i,j,n:integer;
+ i,n:integer;
  sc:array[1..50] of TGameScene;
  shadows:array[1..50] of cardinal;
- fl:boolean;
  oldWindow:TWindow;
 begin
  oldWindow:=window;
  window:=self;
  try
   SetupViewport; // backend state is shared between windows - re-assert ours every frame
-  // sort active scenes by Z order
-  n:=0;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].IsActive then begin
-    ASSERT(n<high(sc),'Too many active scenes');
-    if n=0 then begin
-     sc[1]:=scenes[i]; inc(n); continue;
-    end;
-    fl:=true;
-    for j:=n downto 1 do
-     if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
-      else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
-    if fl then sc[1]:=scenes[i];
-    inc(n);
-   end;
+  n:=SortActiveScenes(scenes,sc);
   if n>0 then topmostScene:=sc[n]
    else topmostScene:=nil;
 

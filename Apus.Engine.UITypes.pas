@@ -8,7 +8,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UIShapes,
+uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UIShapes,
   Apus.Engine.Scene, Apus.Engine.Window, Apus.Engine.Style;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -226,7 +226,9 @@ type
   procedure onMouseMove; virtual;
   procedure onMouseScroll(value:integer); virtual;
   procedure onMouseButtons(button:byte;state:boolean); virtual;
-  function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual; // return false to suppress
+  // Key press/release for the focused element. Return false for the keys the element handled
+  // (consumed: UI hotkeys and the scene don't get them), true to pass the key on.
+  function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
   procedure onChar(ch:char;scancode:byte); virtual;
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
@@ -241,6 +243,9 @@ type
   // --- Queries ---
   function IsOpaque(x,y:single):boolean; virtual; // hit test in tmCustom mode (coords in 0..1 range)
   function IsOutOfOrder:boolean; virtual;          // out-of-order elements skip layouter and group ops
+  // Drawn as hovered: the mouse is over the element or its descendant ('hover-target:parent' -
+  // over the parent). Physical hover (cursor, hints, button press cancel) is underMouse
+  function IsHovered:boolean; virtual;
   class function IsWindow:boolean; virtual;        // windows track focused child
   function IsActiveWindow:boolean; virtual;
 
@@ -263,6 +268,9 @@ type
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetStyleNumber(const key:String8; defVal:single=0):single;
   function GetStyleInt(const key:String8; defVal:integer=0):integer;
+  // Font of the style cascade ('font', 'font-size') at the element's global scale: the UI scale
+  // (DPI included) reaches the text through globalScale only, the thread's text scale is ignored
+  function StyleFont:TFontHandle;
   // Base value without state overrides — for transition blending
   function GetBaseStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetBaseStyleNumber(const key:String8; defVal:single=0):single;
@@ -585,10 +593,10 @@ function DescribeElement(c:TUIElement):String8;
       parentScrollY:=0;
      end;
      // Explanation of transformation:
-     //  result.x:=(p.x+paddingLeft); // теперь относительно угла элемента
-     //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
-     //  result.x:=result.x*scale.x; // теперь в масштабе предка
-     //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
+     //  result.x:=(p.x+paddingLeft); // now relative to the element corner
+     //  result.x:=result.x-size.x*pivot.x; // now relative to the pivot point
+     //  result.x:=result.x*scale.x; // now in the parent scale
+     //  result.x:=position.x-parentScrollX+result.x; // now relative to the top-left corner of the parent client area
      result.x:=position.x-parentScrollX-size.x*pivot.x+scale*(result.x+padding.Left);
      result.y:=position.y-parentScrollY-size.y*pivot.y+scale*(result.y+padding.Top);
     end;
@@ -618,8 +626,6 @@ function DescribeElement(c:TUIElement):String8;
  function TUIElement.TransformFromScreen(const p:TVec2):TVec2;
   var
    kx,ky,bx,by:single;
-   c:TUIElement;
-   sx:single;
   begin
    // Xscr = k*x+b, so test x=0 and x=1 to calculate K and B
    // This is probably not very efficient, but easier and safier
@@ -755,8 +761,6 @@ constructor TUIGroupBox.Create(width,height:single;parent_:TUIElement;name_:Stri
 
 constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
   var
-   n:integer;
-   wnd:TWindow;
    defColor:cardinal;
   begin
    position:=Vec2(0,0);
@@ -1066,8 +1070,6 @@ destructor TUIElement.Destroy;
   end;
 
  procedure TUIElement.Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
-  var
-   r:TUIRect;
   begin
    if parent=nil then exit;
    if snapTo=smNone then exit;
@@ -1118,7 +1120,7 @@ destructor TUIElement.Destroy;
 
  function TUIElement.GetPrev:TUIElement;
   var
-   i,n:integer;
+   i:integer;
   begin
    if parent=nil then exit(self);
    i:=childIndex-1;
@@ -1274,6 +1276,15 @@ function TUIElement.IsEnabled:boolean;
    result:=(order<0) or (order>=$10000) or flags.noParentClip;
   end;
 
+ function TUIElement.IsHovered:boolean;
+  var
+   hoverEl:TUIElement;
+  begin
+   hoverEl:=self;
+   if (parent<>nil) and SameText(GetStyleValue('hover-target'),'parent') then hoverEl:=parent;
+   result:=(underMouse=hoverEl) or hoverEl.HasChild(underMouse);
+  end;
+
  procedure TUIElement.onChar(ch:char; scancode:byte);
   begin
    if (sendSignals=ssAll) and (name<>'') then begin
@@ -1322,11 +1333,11 @@ function TUIElement.IsEnabled:boolean;
    if state then begin
     if flags.enabled and flags.canHaveFocus then SetFocus
      else begin
-      // если элемент, владеющий фокусом, является потомком данного, то фокус с него не убирать!
+      // if the element owning the focus is a descendant of this one, keep the focus on it!
   //    if not IsChild(FocusedControl) then SetFocusTo(nil);
   {    c:=self;
       while (c.parent<>nil) and not (c is TUIWindow) do c:=c.parent;
-      c.SetFocus; // перевести фокус на корень/окно того эл-та, по которому нажали
+      c.SetFocus; // move the focus to the root/window of the clicked element
   }
      end;
    end;
@@ -1448,7 +1459,6 @@ function TUIElement.GetClientHeight:single;
  procedure TUIElement.MoveBy(dx,dy:single);
   var
    s:single;
-   delta:TVec2;
   begin
    s:=1/globalScale;
    dx:=dx*s; dy:=dy*s;
@@ -1619,6 +1629,12 @@ function TUIElement.GetClientHeight:single;
  function TUIElement.GetStyleInt(const key:String8; defVal:integer):integer;
   begin
    result:=round(GetStyleNumber(key,defVal));
+  end;
+
+ function TUIElement.StyleFont:TFontHandle;
+  begin
+   result:=txt.GetFont(GetStyleValue('font','Default'),
+     round(GetStyleNumber('font-size',9)*globalScale),fsIgnoreScale);
   end;
 
  function TUIElement.GetStateStyleValue(const state,key:String8; const defVal:String8):String8;
@@ -1914,28 +1930,28 @@ procedure TUIElement.MarkDeleted;
    c:=self;
    dir:=true;
    repeat
-    // если есть вложенные и можно идти вперед - идем вперед
+    // if there are nested elements and we can go forward - go forward
     if dir and (length(c.children)>0) then begin
      c:=c.children[0]; continue;
     end;
-    // Если вперед идти нельзя или невозможно, можно ли пойти на тот же уровень?
+    // If going forward is not allowed or not possible, can we move on the same level?
     if (c.parent<>nil) and (length(c.parent.children)>1) then begin
      fl:=false;
      for i:=0 to length(c.parent.children)-2 do
       if (c.parent.children[i]=c) then begin
        c:=c.parent.children[i+1];
-       dir:=true; // разрешить движение вперед
+       dir:=true; // allow moving forward
        fl:=true;
        break;
       end;
      if fl then continue;
     end;
-    // Если ничего другого не остается кроме как возвращаться назад...
+    // If nothing else is left but to go back...
     if c.parent<>nil then begin
      dir:=false;
      c:=c.parent;
     end else
-     dir:=true; // назад идти тоже нельзя
+     dir:=true; // going back is not allowed either
    until (c.flags.enabled and c.flags.visible and c.flags.canHaveFocus) or (c=self);
    if c.flags.canHaveFocus then c.SetFocus;
   end;

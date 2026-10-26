@@ -19,6 +19,7 @@ TESTS=(
   HashMaps
   GlyphCache
   Files
+  Config
   EventMan
   Threads
   Tweenings

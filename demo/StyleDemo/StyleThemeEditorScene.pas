@@ -41,7 +41,7 @@ interface
   end;
 
  const
-  STYLEDEMO_PALETTE:array[0..18] of String8=(
+  STYLEDEMO_PALETTE:array[0..19] of String8=(
    'surface','surface-alt','overlay',
    'text','text-muted','text-on-accent',
    'border','border-light','border-dark',
@@ -50,7 +50,7 @@ interface
    'danger','danger-text',
    'success','success-text',
    'warning','warning-text',
-   'focus');
+   'focus','shadow');
 
   STYLEDEMO_STYLE_NAMES:array[0..6] of String8=(
    'demo-panel','demo-button','demo-input','demo-list','demo-slider',
