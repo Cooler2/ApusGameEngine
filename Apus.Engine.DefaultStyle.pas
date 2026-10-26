@@ -53,7 +53,6 @@ implementation
    destructor Destroy; override;
    constructor Create(element:TUIElement);
    procedure Update(element:TUIElement);
-   function HoverState(element:TUIElement):byte;
    // Resolve a 'background-image' value to a texture. 'file:' textures are loaded once
    // and memoized (the context holds one reference each); 'tex:' ones are looked up
    // every call and never owned (the creator of a named texture keeps it alive)
@@ -110,16 +109,6 @@ implementation
   end;}
 
 
- // Get font handle from element's style cascade. The UI scale (DPI included) reaches the text
- // through element.globalScale only, so the text scale of the calling thread is ignored
- function StyleFont(element:TUIElement):TFontHandle;
-  var name:String8; size:single;
-  begin
-   name:=element.GetStyleValue('font','Default');
-   size:=element.GetStyleNumber('font-size',9);
-   result:=txt.GetFont(name,round(size*element.globalScale),fsIgnoreScale);
-  end;
-
  type
   // Content (text) style of an element, resolved for its current state.
   // Offsets are screen pixels (logical style units multiplied by globalScale).
@@ -152,7 +141,7 @@ implementation
    end;
   begin
    scale:=element.globalScale;
-   result.font:=StyleFont(element);
+   result.font:=element.StyleFont;
    result.hover:=context.hover.Value;
    result.pressed:=context.active.Value;
    result.disabled:=context.disabled.Value;
@@ -278,7 +267,7 @@ implementation
    i,h,iWidth,iHeight,dw,lw:integer;
    font:TFontHandle;
   begin
-   font:=StyleFont(hnt);
+   font:=hnt.StyleFont;
    if font=0 then font:=defaultHintFont;
    if font=0 then font:=txt.GetFont('Default',7);
    with hnt do begin
@@ -775,7 +764,7 @@ implementation
    font:TFontHandle;
    col:cardinal;
   begin
-   font:=StyleFont(control);
+   font:=control.StyleFont;
    col:=control.GetStyleColor('color',$FF202020);
    with control do begin
     wst:=realtext;
@@ -861,7 +850,7 @@ implementation
    scrollPos,lineH:single;
    font:TFontHandle;
   begin
-   font:=StyleFont(control);
+   font:=control.StyleFont;
    with control do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
@@ -1240,7 +1229,7 @@ constructor TContext.Create(element:TUIElement);
  begin
   if element.IsEnabled then v:=0 else v:=1;
   disabled.Assign(v);
-  hover.Assign(HoverState(element));
+  hover.Assign(ord(element.IsHovered));
   v:=0;
   if element is TUIButton then
    if TUIButton(element).pressed then v:=1;
@@ -1254,7 +1243,7 @@ procedure TContext.Update(element:TUIElement);
   v,duration:integer;
  begin
   // Mouse hover state
-  v:=HoverState(element);
+  v:=ord(element.IsHovered);
   if hover.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
    duration:=element.GetStyleInt('hover-time',duration);
@@ -1307,17 +1296,6 @@ function TContext.GetImage(const src:String8):TTexture;
   SetLength(imgTex,n+1);
   imgSrc[n]:=src;
   imgTex[n]:=result;
- end;
-
-function TContext.HoverState(element:TUIElement):byte;
- var
-  hoverEl:TUIElement;
- begin
-  hoverEl:=element;
-  if SameText(element.GetStyleValue('hover-target'),'parent') and (element.parent<>nil) then
-   hoverEl:=element.parent;
-  if (underMouse=hoverEl) or hoverEl.HasChild(underMouse) then result:=1
-   else result:=0;
  end;
 
 initialization

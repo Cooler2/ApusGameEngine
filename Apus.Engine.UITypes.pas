@@ -243,6 +243,9 @@ type
   // --- Queries ---
   function IsOpaque(x,y:single):boolean; virtual; // hit test in tmCustom mode (coords in 0..1 range)
   function IsOutOfOrder:boolean; virtual;          // out-of-order elements skip layouter and group ops
+  // Drawn as hovered: the mouse is over the element or its descendant ('hover-target:parent' -
+  // over the parent). Physical hover (cursor, hints, button press cancel) is underMouse
+  function IsHovered:boolean; virtual;
   class function IsWindow:boolean; virtual;        // windows track focused child
   function IsActiveWindow:boolean; virtual;
 
@@ -265,6 +268,9 @@ type
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetStyleNumber(const key:String8; defVal:single=0):single;
   function GetStyleInt(const key:String8; defVal:integer=0):integer;
+  // Font of the style cascade ('font', 'font-size') at the element's global scale: the UI scale
+  // (DPI included) reaches the text through globalScale only, the thread's text scale is ignored
+  function StyleFont:TFontHandle;
   // Base value without state overrides — for transition blending
   function GetBaseStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetBaseStyleNumber(const key:String8; defVal:single=0):single;
@@ -1270,6 +1276,15 @@ function TUIElement.IsEnabled:boolean;
    result:=(order<0) or (order>=$10000) or flags.noParentClip;
   end;
 
+ function TUIElement.IsHovered:boolean;
+  var
+   hoverEl:TUIElement;
+  begin
+   hoverEl:=self;
+   if (parent<>nil) and SameText(GetStyleValue('hover-target'),'parent') then hoverEl:=parent;
+   result:=(underMouse=hoverEl) or hoverEl.HasChild(underMouse);
+  end;
+
  procedure TUIElement.onChar(ch:char; scancode:byte);
   begin
    if (sendSignals=ssAll) and (name<>'') then begin
@@ -1614,6 +1629,12 @@ function TUIElement.GetClientHeight:single;
  function TUIElement.GetStyleInt(const key:String8; defVal:integer):integer;
   begin
    result:=round(GetStyleNumber(key,defVal));
+  end;
+
+ function TUIElement.StyleFont:TFontHandle;
+  begin
+   result:=txt.GetFont(GetStyleValue('font','Default'),
+     round(GetStyleNumber('font-size',9)*globalScale),fsIgnoreScale);
   end;
 
  function TUIElement.GetStateStyleValue(const state,key:String8; const defVal:String8):String8;
