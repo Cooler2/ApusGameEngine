@@ -44,6 +44,12 @@ type
   class function GetValue(variable:pointer):string8; override;
  end;
 
+ // boolean flag published with the opposite meaning (clipchildren -> dontClipChildren)
+ TVarTypeNotBool=class(TVarTypeBool)
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
+ end;
+
  TVarTypeClientWidth=class(TVarType)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
@@ -325,13 +331,13 @@ begin
       end else
       if fieldname='caption' then begin
        result:=@obj.caption;
-       varClass:=TVarTypeString;
+       varClass:=TVarTypeString8;
       end else
       if fieldname='cursor' then begin
-       result:=@obj.cursor; varClass:=TVarTypeInteger;
+       result:=@obj.cursor; varClass:=TVarTypeNativeInt;
       end else
       if fieldname='clipchildren' then begin
-       result:=@obj.flags.dontClipChildren; varClass:=TVarTypeBool;
+       result:=@obj.flags.dontClipChildren; varClass:=TVarTypeNotBool;
       end else
       if fieldname='customdraw' then begin
        result:=@obj.flags.manualDraw; varClass:=TVarTypeBool;
@@ -376,20 +382,20 @@ begin
        result:=@obj.size.y; varClass:=TVarTypeSingle;
       end else
       if fieldname='hint' then begin
-       result:=@obj.hint; varClass:=TVarTypeString;
+       result:=@obj.hint; varClass:=TVarTypeString8;
       end else
       if false then begin end; // hintifdisabled/hintdelay/hintduration moved to element.attributes
   'l':if (fieldname='lineheight') and (obj is TUIListBox) then begin
-       varClass:=TVarTypeInteger; result:=@TUIListBox(obj).lineHeight;
+       varClass:=TVarTypeSingle; result:=@TUIListBox(obj).lineHeight;
       end;
   'm':if (fieldname='maxlength') and (obj is TUIEditBox) then begin
        varClass:=TVarTypeInteger; result:=@TUIEditBox(obj).maxlength;
       end else
       if (fieldname='min') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).min;
+       varClass:=TVarTypeSingle; result:=@TUIScrollBar(obj).min;
       end else
       if (fieldname='max') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
+       varClass:=TVarTypeSingle; result:=@TUIScrollBar(obj).max;
       end;
   'n':if fieldname='name' then begin
        result:=obj; varClass:=TVarTypeElementName;
@@ -399,7 +405,7 @@ begin
        result:=@obj.order; varClass:=TVarTypeInteger;
       end;
   'p':if fieldname='parentclip' then begin
-       result:=@obj.flags.noParentClip; varClass:=TVarTypeBool;
+       result:=@obj.flags.noParentClip; varClass:=TVarTypeNotBool;
       end else
       if fieldname='parent' then begin
        result:=obj.parent; varClass:=TVarTypeUIElement;
@@ -429,7 +435,7 @@ begin
        result:=@obj.padding.bottom; varClass:=TVarTypeSingle;
       end else
       if (fieldname='pagesize') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;
+       varClass:=TVarTypeSingle; result:=@TUIScrollBar(obj).pagesize;
       end;
   's':if fieldname='styleinfo' then begin
        result:=obj; varClass:=TVarTypeStyleinfo;
@@ -441,13 +447,13 @@ begin
        result:=@obj.sendsignals; varClass:=TVarTypeSendSignals;
       end else
       if (fieldname='src') and (obj is TUIImage) then begin
-       result:=@TUIImage(obj).src; varClass:=TVarTypeString;
+       result:=@TUIImage(obj).src; varClass:=TVarTypeString8;
       end;
   't':if fieldname='transpmode' then begin
        result:=@obj.shape; varClass:=TVarTypeTranspMode;
       end else
       if (fieldname='text') and (obj is TUIEditBox) then begin
-       varClass:=TVarTypeWideString; result:=@TUIEditBox(obj).realtext;
+       varClass:=TVarTypeString32; result:=@TUIEditBox(obj).realText;
       end else
       if (fieldname='topofs') and (obj is TUILabel) then begin
        varClass:=TVarTypeInteger; result:=@TUILabel(obj).verticalOffset;
@@ -533,6 +539,24 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string8);
   raise EWarning.Create('Invalid pivot value: '+v);
  end;
 
+{ TVarTypeNotBool }
+
+class function TVarTypeNotBool.GetValue(variable:pointer):string8;
+ var
+  b:boolean;
+ begin
+  b:=not PBoolean(variable)^;
+  result:=inherited GetValue(@b);
+ end;
+
+class procedure TVarTypeNotBool.SetValue(variable:pointer;v:string8);
+ var
+  b:boolean;
+ begin
+  inherited SetValue(@b,v);
+  PBoolean(variable)^:=not b;
+ end;
+
 { TVarTypeStyleinfo }
 
 class function TVarTypeStyleinfo.GetValue(variable:pointer):string8;
@@ -554,7 +578,7 @@ class function TVarTypeElementFont.GetValue(variable:pointer):string8;
 
 class procedure TVarTypeElementFont.SetValue(variable:pointer; v:string8);
  begin
-  // font is now style-based; set via element.style.SetAttr('font','name') + 'font-size'
+  TUIElement(variable).style.SetAttr('font',v); // the font is a style attribute
  end;
 
 { TVarTypeAlignment }
@@ -609,7 +633,9 @@ class function TVarTypeElementColor.GetValue(variable:pointer):string8;
 
 class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string8);
  begin
-  TUIElement(variable).style.SetAttr('color','$'+v);
+  // bare hex digits get '$'; '$AARRGGBB', '#RGB' and tokens ('&name') are stored as is
+  if (v<>'') and (v[1] in ['0'..'9','A'..'F','a'..'f']) then v:='$'+v;
+  TUIElement(variable).style.SetAttr('color',v);
  end;
 
 { TVarTypeElementScale }
@@ -640,7 +666,7 @@ class procedure TVarTypeClientWidth.SetValue(variable: pointer; v: string8);
 
 class function TVarTypeClientHeight.GetValue(variable: pointer):string8;
  begin
-  result:=FloatToStr(TUIElement(variable).clientWidth);
+  result:=FloatToStr(TUIElement(variable).clientHeight);
  end;
 
 class procedure TVarTypeClientHeight.SetValue(variable: pointer; v: string8);
@@ -655,6 +681,7 @@ class function TVarTypeElements.GetValue(variable: pointer):string8;
   list:^TUIElements;
   i:integer;
  begin
+  result:='';
   list:=variable;
   for i:=0 to high(list^) do begin
    if result<>'' then result:=result+', ';

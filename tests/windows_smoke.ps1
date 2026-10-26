@@ -97,6 +97,7 @@ Invoke-FpcTarget 'tests/TestPixelGrid.dpr' -CompileOnly # needs a GL window: run
 Invoke-FpcTarget 'tests/TestCulling.dpr' -CompileOnly # needs a GL window: run locally
 Invoke-FpcTarget 'tests/TestStyle.dpr'
 Invoke-FpcTarget 'tests/TestUIHint.dpr'
+Invoke-FpcTarget 'tests/TestUIScript.dpr'
 Invoke-FpcTarget 'tests/TestWindowLock.dpr'
 Invoke-FpcTarget 'tests/TestVirtualMouse.dpr'
 Invoke-FpcTarget 'tests/TestSurface.dpr'
