@@ -85,11 +85,11 @@ Full table with descriptions: `Base/README.md`; per-module build/test status: `B
 Foundation modules (Core, Types, Conv, Strings, Log, Threads, Files) have no dependencies on the
 higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintroduce them.
 
-### Engine (`Apus.Engine.*.pas`) - 53 modules
+### Engine (`Apus.Engine.*.pas`) - 54 modules
 
 **Core**: GameApp, Game, API, Types
 **Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene, MessageScene, Notifications
-**UI**: UITypes, UIWidgets, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle, TextFXStyle
+**UI**: UITypes, UIWidgets, UIMenu, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle, TextFXStyle
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller, Clipboard
