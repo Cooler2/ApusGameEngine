@@ -773,13 +773,14 @@ end;
 class function Folder.ListItems(const path:String8; const mask:String8):TFolderItems;
 var
   masks:Strings8;
-  dir:string;
+  dir:UnicodeString;
   cnt,i:integer;
 
-  // Add the items found by the pattern: the folders, the files or both
-  procedure Scan(const pattern:string; folders,files:boolean);
+  // Add the items found by the pattern: the folders, the files or both.
+  // UTF-16 search: under FPC the string one gives names in the ANSI code page
+  procedure Scan(const pattern:UnicodeString; folders,files:boolean);
   var
-    sr:TSearchRec;
+    sr:{$IFDEF FPC}TUnicodeSearchRec{$ELSE}TSearchRec{$ENDIF};
     isFolder:boolean;
   begin
     if SysUtils.FindFirst(dir+pattern,faAnyFile,sr)<>0 then exit;
@@ -790,7 +791,7 @@ var
       if cnt>=length(result) then
         SetLength(result,(cnt+16)*2);
       with result[cnt] do begin
-        name:=String8(sr.Name);
+        name:=UTF8Encode(sr.Name);
         info.isDirectory:=isFolder;
         if isFolder then info.size:=0
           else info.size:=sr.Size;
@@ -808,7 +809,7 @@ var
 
 begin
   result:=nil; cnt:=0;
-  dir:=string(path);
+  dir:=UnicodeString(path);
   if dir<>'' then dir:=SysUtils.IncludeTrailingPathDelimiter(dir); // '' - the current folder
   masks:=SplitMasks(mask);
   if (length(masks)=1) and ((masks[0]='*') or (masks[0]='*.*')) then
@@ -817,7 +818,7 @@ begin
     // a mask must not hide the folders to go into
     Scan('*',true,false);
     for i:=0 to high(masks) do
-      Scan(string(masks[i]),false,true);
+      Scan(UnicodeString(masks[i]),false,true);
   end;
   SetLength(result,cnt);
 end;

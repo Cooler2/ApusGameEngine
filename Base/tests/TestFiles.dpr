@@ -349,6 +349,8 @@ begin
 end;
 
 procedure TestListItems;
+const
+  CYR_NAME:String8='Папка';
 var
   items:TFolderItems;
   i,fileCount,folderCount:integer;
@@ -380,6 +382,15 @@ begin
   Check(length(items)=3,'*.txt;*.png with a trailing delimiter');
 
   Check(Folder.ListItems(TestDir+'/missing')=nil,'missing folder = nil');
+
+  // non-ASCII names come in UTF-8 and go in as UTF-8 (FPC: not in the ANSI code page)
+  SysUtils.ForceDirectories(UnicodeString(TestDir+'/names/'+CYR_NAME+'/sub'));
+  items:=Folder.ListItems(TestDir+'/names');
+  // bytes, not '=': FPC converts the code page an ANSI string carries before comparing
+  Check((length(items)=1) and (length(items[0].name)=length(CYR_NAME)) and
+    CompareMem(pointer(items[0].name),pointer(CYR_NAME),length(CYR_NAME)),'non-ASCII name in UTF-8');
+  items:=Folder.ListItems(TestDir+'/names/'+CYR_NAME);
+  Check((length(items)=1) and (items[0].name='sub'),'non-ASCII path');
 
   roots:=Folder.Roots;
   Check(length(roots)>0,'roots are listed');

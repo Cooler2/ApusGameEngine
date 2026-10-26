@@ -68,6 +68,8 @@ Use it as the primary reference when updating old code.
   time (`TFileInfo`) and the hidden flag. The mask filters the files only, the folders are
   always listed (a file browser must still go into them). OS-level, like the other `Folder`
   operations; nil if the folder can't be read.
+- Names and the path are UTF-8 under FPC too: the listing searches in UTF-16, the string
+  search of FPC returns names in the ANSI code page.
 - `Folder.Roots`: the drive roots on Windows (`C:\`...), `/` elsewhere.
 
 ## NPOT textures: mip-maps without POT padding (2026-10-20)
