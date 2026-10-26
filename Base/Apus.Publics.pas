@@ -80,6 +80,17 @@ interface
    class function GetValue(variable:pointer):String8; override;
   end;
 
+  TVarTypeString32=class(TVarType)
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
+  end;
+
+  // NativeInt variable (pointer-sized)
+  TVarTypeNativeInt=class(TVarTypeInteger)
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
+  end;
+
   TVarTypeARGB=class(TVarTypeCardinal)
   end;
 
@@ -755,6 +766,30 @@ class procedure TVarTypeWideString.SetValue(variable:pointer;v:String8);
   PWideString(variable)^:=UTF8.ToWide(v);
  end;
 
+{ TVarTypeString32 }
+
+class function TVarTypeString32.GetValue(variable:pointer):String8;
+ begin
+  result:=UTF8.Encode(PString32(variable)^);
+ end;
+
+class procedure TVarTypeString32.SetValue(variable:pointer;v:String8);
+ begin
+  PString32(variable)^:=UTF8.Decode(v);
+ end;
+
+{ TVarTypeNativeInt }
+
+class function TVarTypeNativeInt.GetValue(variable:pointer):String8;
+ begin
+  result:=Conv.ToStr(int64(NativeInt(variable^)));
+ end;
+
+class procedure TVarTypeNativeInt.SetValue(variable:pointer;v:String8);
+ begin
+  NativeInt(variable^):=Conv.ToInt(v);
+ end;
+
 
 { TVarType }
 
@@ -839,7 +874,7 @@ end;
 class function TVarTypeRect2s.GetField(variable:pointer;fieldName:String8;
   out varClass:TVarClass):pointer;
 begin
- varClass:=TVarTypeInteger;
+ varClass:=TVarTypeSingle;
  with PRect2(variable)^ do
   if fieldname='x1' then result:=@(x1) else
   if fieldname='y1' then result:=@(y1) else
