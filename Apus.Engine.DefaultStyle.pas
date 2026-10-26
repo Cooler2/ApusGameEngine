@@ -551,7 +551,8 @@ implementation
   end;
 
  // Menu line: the box (hover = the current line) is drawn by the common path. Caption on the
- // left, shortcut on the right in 'shortcut-color' - the text color while highlighted or disabled
+ // left, shortcut on the right in 'shortcut-color' (the text color by default; the text color
+ // anyway while highlighted or disabled)
  procedure DrawUIMenuItem(item:TUIMenuItem;context:TContext);
   var
    r:TRect;
@@ -565,6 +566,7 @@ implementation
    WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
    if item.shortcut<>'' then begin
     ts.align:=taRight;
+    ts.font:=item.ShortcutFont; // smaller by default, on the same baseline
     ts.color:=Color.Mix(item.GetStyleColor('shortcut-color',ts.color),ts.color,
       Max(context.hover.Value,context.disabled.Value));
     WriteStyled(ts,r.Right-1,y,item.shortcut);
@@ -1340,7 +1342,7 @@ initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; color:&text');
- TUIMenuItem.SetDefault('styleInfo','radius:2; shortcut-color:&text-muted; hover-time:0; '+
+ TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
    ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
 end.

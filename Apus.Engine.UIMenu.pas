@@ -24,6 +24,8 @@ interface
    function Menu:TUIPopupMenu;
    function IsHovered:boolean; override; // highlighted = the current line of the menu
    procedure onMouseMove; override;      // the mouse picks the current line
+   function ShortcutFontSize:single;     // 'shortcut-font-size', smaller than the caption by default
+   function ShortcutFont:TFontHandle;
   protected
    procedure DoClick; override;          // close the menu, then call the handler
   end;
@@ -77,8 +79,11 @@ implementation
  uses Apus.EventMan, Apus.Geom2D, Apus.Engine.Window, Apus.Engine.UIShapes;
 
  const
-  SEPARATOR_HEIGHT=7;
-  CHECK_INTERVAL=200; // ms between the safety checks of an open menu
+  SEPARATOR_HEIGHT=9;
+  LINE_HEIGHT=2.6;     // default line height, in font sizes
+  SHORTCUT_GAP=3;      // min space between the captions and the shortcuts, in font sizes
+  SHORTCUT_SCALE=0.85; // default shortcut font size relative to the caption font
+  CHECK_INTERVAL=200;  // ms between the safety checks of an open menu
 
  var
   openMenu:TUIPopupMenu;  // one popup menu is open at a time
@@ -105,14 +110,22 @@ implementation
    result:=(e is TUIMenuItem) and e.flags.visible and e.flags.enabled;
   end;
 
- // Text width in the units of the element
- function TextWidth(e:TUIElement;const text:String8):single;
+ // Width of the caption or the shortcut in the units of the line
+ function TextWidth(item:TUIMenuItem;shortcut:boolean):single;
+  var
+   text:String8;
+   size:single;
+   font:TFontHandle;
   begin
+   if shortcut then text:=item.shortcut else text:=item.caption;
    if text='' then exit(0);
-   if txt=nil then // no text drawer (headless): an estimate by the font size
-    result:=length(text)*e.GetStyleNumber('font-size',9)*0.6
-   else
-    result:=txt.Width(e.StyleFont,text)/e.globalScale;
+   if txt=nil then begin // no text drawer (headless): an estimate by the font size
+    if shortcut then size:=item.ShortcutFontSize
+     else size:=item.GetStyleNumber('font-size',9);
+    exit(length(text)*size*0.6);
+   end;
+   if shortcut then font:=item.ShortcutFont else font:=item.StyleFont;
+   result:=txt.Width(font,text)/item.globalScale;
   end;
 
  // The name must be a valid identifier (elements are published by name): spaces and other
@@ -145,7 +158,18 @@ implementation
    self.caption:=caption;
    self.shortcut:=shortcut;
    flags.canHaveFocus:=false;
-   SetPaddings(8,0,8,0);
+   SetPaddings(12,0,12,0);
+  end;
+
+ function TUIMenuItem.ShortcutFontSize:single;
+  begin
+   result:=GetStyleNumber('shortcut-font-size',GetStyleNumber('font-size',9)*SHORTCUT_SCALE);
+  end;
+
+ function TUIMenuItem.ShortcutFont:TFontHandle;
+  begin
+   if txt=nil then exit(0);
+   result:=txt.GetFont(GetStyleValue('font','Default'),round(ShortcutFontSize*globalScale),fsIgnoreScale);
   end;
 
  function TUIMenuItem.Menu:TUIPopupMenu;
@@ -206,7 +230,7 @@ implementation
    flags.visible:=false;
    flags.noParentClip:=true;
    order:=$10000; // above the siblings, out of the layout
-   SetPaddings(3,3,3,3);
+   SetPaddings(4,4,4,4);
    if not handlerSet then begin
     handlerSet:=true;
     SetEventHandler('MOUSE\BTNDOWN',MouseDownHandler,emInstant);
@@ -259,20 +283,26 @@ implementation
   var
    c:TUIElement;
    item:TUIMenuItem;
-   capW,cutW,w,h,y,fontSize:single;
+   capW,cutW,padR,w,h,y,fontSize:single;
+   hasCuts:boolean;
   begin
-   capW:=0; cutW:=0;
+   capW:=0; cutW:=0; padR:=0;
+   hasCuts:=false;
    for c in children do
     if (c is TUIMenuItem) and c.flags.visible then begin
      item:=TUIMenuItem(c);
-     capW:=Max(capW,item.padding.Left+TextWidth(item,item.caption));
-     cutW:=Max(cutW,TextWidth(item,item.shortcut)+item.padding.Right);
+     capW:=Max(capW,item.padding.Left+TextWidth(item,false));
+     if item.shortcut<>'' then begin
+      hasCuts:=true;
+      cutW:=Max(cutW,TextWidth(item,true));
+     end;
+     padR:=Max(padR,item.padding.Right);
     end;
-   if cutW>0 then begin
+   w:=capW+cutW+padR;
+   if hasCuts then begin
     fontSize:=GetStyleNumber('font-size',9);
-    w:=capW+fontSize*2+cutW; // a gap between the captions and the shortcuts
-   end else
-    w:=capW+8;
+    w:=w+fontSize*SHORTCUT_GAP;
+   end;
    y:=0;
    for c in children do begin
     if not c.flags.visible then continue;
@@ -280,7 +310,7 @@ implementation
     else
     if lineHeight>0 then h:=lineHeight
     else
-     h:=round(c.GetStyleNumber('font-size',9)*2.2);
+     h:=round(c.GetStyleNumber('font-size',9)*LINE_HEIGHT);
     c.pivot:=Vec2(0,0);
     c.position:=Vec2(0,y);
     c.size:=Vec2(w,h);
