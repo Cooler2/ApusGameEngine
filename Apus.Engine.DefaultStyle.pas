@@ -181,7 +181,7 @@ implementation
       if parts[i].Trim<>'' then begin
        parts[n]:=parts[i].Trim; inc(n);
       end;
-     if n>0 then result.shadowColor:=ParseStyleColor(parts[0]);
+     if n>0 then result.shadowColor:=ParseStyleColor(ExpandToken(parts[0]));
      if n>=3 then begin
       result.shadowX:=ParseStyleNumber(parts[1]);
       result.shadowY:=ParseStyleNumber(parts[2]);
@@ -946,6 +946,110 @@ implementation
    end;
   end;
 
+ // 'box-shadow: <color> [dx dy [blur]]' or 'none'; dx,dy,blur in logical units.
+ // The blur is a piecewise linear falloff: full color inside, half at the shifted box edge,
+ // zero at blur/2 outside; corners are fans. The core is not filled under the box itself,
+ // except a strip of the corner radius - the box covers the rest.
+ procedure DrawBoxShadow(element:TUIElement;radius:single);
+  const
+   CORNER_STEPS=6;
+   MAX_VERTICES=2*(4+4*CORNER_STEPS)*6+4*6;
+  var
+   st:String8;
+   parts:Strings8;
+   i,n,cnt:integer;
+   col,half,none:cardinal;
+   dx,dy,blur,b2,scale:single;
+   mx1,my1,mx2,my2,ix1,iy1,ix2,iy2,c:single;
+   vrt:array[0..MAX_VERTICES-1] of TVertex;
+  procedure Add(x,y:single;color:cardinal);
+   begin
+    vrt[cnt].Init(x,y,0,color);
+    inc(cnt);
+   end;
+  procedure Quad(x1,y1,x2,y2,x3,y3,x4,y4:single;c1,c2:cardinal); // edge 1-2 in c1, 3-4 in c2
+   begin
+    Add(x1,y1,c1); Add(x2,y2,c1); Add(x3,y3,c2);
+    Add(x1,y1,c1); Add(x3,y3,c2); Add(x4,y4,c2);
+   end;
+  procedure Fill(x1,y1,x2,y2:single);
+   begin
+    if (x2>x1) and (y2>y1) then Quad(x1,y1,x2,y1,x2,y2,x1,y2,col,col);
+   end;
+  // A band from distance d1 (color c1) to d2 (color c2) around the core box
+  procedure Band(d1,d2:single;c1,c2:cardinal);
+   procedure Corner(cx,cy,a:single);
+    var
+     k:integer;
+     a0,a1:single;
+    begin
+     for k:=0 to CORNER_STEPS-1 do begin
+      a0:=a+k*(Pi/2)/CORNER_STEPS;
+      a1:=a0+(Pi/2)/CORNER_STEPS;
+      Quad(cx+cos(a0)*d1,cy+sin(a0)*d1,cx+cos(a1)*d1,cy+sin(a1)*d1,
+           cx+cos(a1)*d2,cy+sin(a1)*d2,cx+cos(a0)*d2,cy+sin(a0)*d2,c1,c2);
+     end;
+    end;
+   begin
+    Quad(ix1,iy1-d1,ix2,iy1-d1,ix2,iy1-d2,ix1,iy1-d2,c1,c2); // top
+    Quad(ix2+d1,iy1,ix2+d1,iy2,ix2+d2,iy2,ix2+d2,iy1,c1,c2); // right
+    Quad(ix2,iy2+d1,ix1,iy2+d1,ix1,iy2+d2,ix2,iy2+d2,c1,c2); // bottom
+    Quad(ix1-d1,iy2,ix1-d1,iy1,ix1-d2,iy1,ix1-d2,iy2,c1,c2); // left
+    Corner(ix1,iy1,Pi);
+    Corner(ix2,iy1,Pi*1.5);
+    Corner(ix2,iy2,0);
+    Corner(ix1,iy2,Pi*0.5);
+   end;
+  begin
+   st:=element.GetStyleValue('box-shadow');
+   if (st='') or SameText(st,'none') then exit;
+   parts:=st.Split(' ');
+   n:=0;
+   for i:=0 to high(parts) do
+    if parts[i].Trim<>'' then begin
+     parts[n]:=parts[i].Trim; inc(n);
+    end;
+   col:=ParseStyleColor(ExpandToken(parts[0]));
+   if col shr 24=0 then exit;
+   scale:=element.globalScale;
+   dx:=0; dy:=0; blur:=0;
+   if n>=3 then begin
+    dx:=ParseStyleNumber(parts[1])*scale;
+    dy:=ParseStyleNumber(parts[2])*scale;
+   end;
+   if n>=4 then blur:=Max(ParseStyleNumber(parts[3])*scale,0);
+   half:=(col and $FFFFFF) or ((col shr 25) shl 24);
+   none:=col and $FFFFFF;
+   // the box in vertex coordinates (pixel edges), the core: the shifted box shrunk by blur/2
+   with element.globalRect do begin
+    mx1:=Left-0.5; my1:=Top-0.5;
+    mx2:=Right-0.5; my2:=Bottom-0.5;
+   end;
+   b2:=blur/2;
+   ix1:=mx1+dx+b2; ix2:=mx2+dx-b2;
+   iy1:=my1+dy+b2; iy2:=my2+dy-b2;
+   if ix2<ix1 then begin c:=(ix1+ix2)/2; ix1:=c; ix2:=c; end;
+   if iy2<iy1 then begin c:=(iy1+iy2)/2; iy1:=c; iy2:=c; end;
+   cnt:=0;
+   if b2>=0.5 then begin
+    Band(0,b2,col,half);
+    Band(b2,blur,half,none);
+   end;
+   // the core minus the box (inset by the radius)
+   radius:=radius*scale;
+   mx1:=mx1+radius; my1:=my1+radius;
+   mx2:=mx2-radius; my2:=my2-radius;
+   if (mx2<=ix1) or (mx1>=ix2) or (my2<=iy1) or (my1>=iy2) then
+    Fill(ix1,iy1,ix2,iy2)
+   else begin
+    Fill(ix1,iy1,ix2,my1); // above
+    Fill(ix1,my2,ix2,iy2); // below
+    Fill(ix1,Max(iy1,my1),mx1,Min(iy2,my2)); // left
+    Fill(mx2,Max(iy1,my1),ix2,Min(iy2,my2)); // right
+   end;
+   if cnt>0 then draw.TrgList(@vrt[0],cnt div 3,nil);
+  end;
+
  // Common box path: fill / background-image, border, radius, inner block.
  // All box keys are state-blended (hover/pressed/disabled) through the context tweenings.
  // Sets context.skinned when a background-image was drawn.
@@ -1081,6 +1185,7 @@ implementation
    borderColor:=element.GetBaseStyleColor('border-color');
    radius:=element.GetBaseStyleNumber('radius');
    bWidth:=element.GetBaseStyleNumber('border-width');
+   DrawBoxShadow(element,radius); // under the box
 
    // Background image: base layer + state layers (cross-fade)
    layerCount:=0;
@@ -1341,7 +1446,8 @@ function TContext.GetImage(const src:String8):TTexture;
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
- TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; color:&text');
+ TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
+   'color:&text; box-shadow:&shadow 2 3 4');
  TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
    ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');

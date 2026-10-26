@@ -3,6 +3,16 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Styles: `box-shadow`, compound values with tokens (2026-10-26)
+
+- New box key `box-shadow: <color> [dx dy [blur]]` or `none` (logical units), drawn by the
+  common box path under the element. The popup menu uses `box-shadow:&shadow 2 3 4`.
+- New palette token `shadow` in both built-in themes.
+- A value that starts with a token and has more parts (`&shadow 2 3`) used to be taken as
+  one unknown token name and resolved to ''. Now it passes as is and the drawer expands the
+  parts: `ExpandToken` is exported from `Apus.Engine.Style`; `text-shadow` accepts a token
+  as its color too.
+
 ## Keyboard: a focused element stops only the keys it consumes (2026-10-26)
 
 - `TUIScene.DispatchKey`: a key press or release the focused element does not consume goes on
