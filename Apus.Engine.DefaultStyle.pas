@@ -33,7 +33,8 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
 implementation
  uses Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UIRender,
+    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UITable,
+    Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings;
 
@@ -909,6 +910,107 @@ implementation
     end;
   end;
 
+ // Table: the box is drawn by the common path. The header in 'header-fill' with captions in
+ // 'header-color', the column under the mouse in 'header-hover-fill', a triangle for the sort
+ // column and 'line-color' lines; rows striped with 'row-alt-fill', the hovered one in
+ // 'row-hover-fill', the selected one in 'selection-fill' with 'selection-color' text
+ procedure DrawUITable(table:TUITable);
+  var
+   r,cell:TRect;
+   font:TFontHandle;
+   scale,rowH,pos:single;
+   textColor,selColor,lineColor,c:cardinal;
+   headerBottom,rowsRight,first,place,row,col,y,base,pad,tri,x,cx1,cx2:integer;
+
+  // the columns are clipped by the rows' width (the scrollbar keeps its place)
+  function ColumnRect(col:integer;y1,y2:integer):TRect;
+   begin
+    result.Left:=r.Left+round(table.ColumnLeft(col)*scale);
+    result.Right:=Min(rowsRight,r.Left+round((table.ColumnLeft(col)+table.ColumnWidth(col))*scale));
+    result.Top:=y1;
+    result.Bottom:=y2;
+   end;
+
+  procedure WriteCell(const area:TRect;align:TTextAlignment;color:cardinal;const text:String8;
+    rightGap:integer);
+   begin
+    if (text='') or (area.Right-area.Left<=2*pad) then exit;
+    gfx.clip.Rect(Rect(area.Left+pad,area.Top,area.Right-pad-rightGap,area.Bottom));
+    case align of
+     taRight:x:=area.Right-pad-rightGap-1;
+     taCenter:x:=(area.Left+area.Right-rightGap) div 2;
+     else x:=area.Left+pad;
+    end;
+    base:=round((area.Top+area.Bottom-1)*0.5+txt.Height(font)*0.45);
+    txt.Write(font,x,base,color,text,align);
+    gfx.clip.Restore;
+   end;
+
+  begin
+   font:=table.StyleFont;
+   scale:=table.globalScale;
+   r:=table.GetClientPosOnScreen;
+   textColor:=table.GetStyleColor('color',$FFE0E0E0);
+   selColor:=table.GetStyleColor('selection-color',textColor);
+   lineColor:=table.GetStyleColor('line-color',$40808080);
+   pad:=round(5*scale);
+   headerBottom:=r.Top+round(table.headerHeight*scale);
+   rowsRight:=r.Left+round(table.RowsWidth*scale);
+   gfx.clip.Rect(r);
+   // rows
+   rowH:=table.rowHeight*scale;
+   pos:=table.ScrollPos*scale;
+   gfx.clip.Rect(Rect(r.Left,headerBottom,r.Right,r.Bottom));
+   if rowH>0 then first:=trunc(pos/rowH) else first:=table.RowCount;
+   for place:=first to table.RowCount-1 do begin
+    y:=headerBottom+round(place*rowH-pos);
+    if y>=r.Bottom then break;
+    row:=table.RowAt(place);
+    c:=0;
+    if row=table.selected then c:=table.GetStyleColor('selection-fill',$90406070)
+    else
+    if row=table.hoverRow then c:=table.GetStyleColor('row-hover-fill',0)
+    else
+    if odd(place) then c:=table.GetStyleColor('row-alt-fill',0);
+    cell:=Rect(r.Left,y,rowsRight,headerBottom+round((place+1)*rowH-pos));
+    if c<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,c);
+    if row=table.selected then c:=selColor else c:=textColor;
+    for col:=0 to high(table.columns) do
+     WriteCell(ColumnRect(col,cell.Top,cell.Bottom),table.columns[col].align,c,
+       table.CellText(row,col),0);
+   end;
+   gfx.clip.Restore;
+   // header
+   if headerBottom>r.Top then begin
+    c:=table.GetStyleColor('header-fill',0);
+    if c<>0 then draw.FillRect(r.Left,r.Top,r.Right-1,headerBottom-1,c);
+    c:=table.GetStyleColor('header-color',textColor);
+    tri:=round(table.headerHeight*scale*0.18);
+    for col:=0 to high(table.columns) do begin
+     cell:=ColumnRect(col,r.Top,headerBottom);
+     if cell.Right<=cell.Left then continue;
+     if col=table.hoverColumn then
+      draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-2,table.GetStyleColor('header-hover-fill',0));
+     if col=table.sortColumn then begin
+      // a triangle at the right edge: up - ascending, down - descending
+      cx2:=cell.Right-pad;
+      cx1:=cx2-2*tri;
+      y:=(cell.Top+cell.Bottom) div 2;
+      if table.sortDescending then
+       draw.FillTriangle(cx1,y-tri*0.5,cx2,y-tri*0.5,(cx1+cx2)*0.5,y+tri*0.5,c,c,c)
+      else
+       draw.FillTriangle(cx1,y+tri*0.5,cx2,y+tri*0.5,(cx1+cx2)*0.5,y-tri*0.5,c,c,c);
+      WriteCell(cell,table.columns[col].align,c,table.columns[col].caption,2*tri+pad);
+     end else
+      WriteCell(cell,table.columns[col].align,c,table.columns[col].caption,0);
+     if col<high(table.columns) then
+      draw.Line(cell.Right-0.5,cell.Top+3*scale,cell.Right-0.5,cell.Bottom-3*scale,lineColor);
+    end;
+    draw.Line(r.Left,headerBottom-0.5,r.Right,headerBottom-0.5,lineColor);
+   end;
+   gfx.clip.Restore;
+  end;
+
  procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox;context:TContext);
   var
    st:string8;
@@ -1314,6 +1416,9 @@ implementation
    if element is TUIListBox then
     DrawUIListBox(element as TUIListBox,x1,y1,x2,y2)
    else
+   if element is TUITable then
+    DrawUITable(element as TUITable)
+   else
    // Combo box
    if element is TUIComboBox then
     DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context)
@@ -1452,5 +1557,8 @@ initialization
  TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
    ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
+ TUITable.SetDefault('styleInfo','fill:&surface; border-color:&border-dark; border-width:1; '+
+   'color:&text; header-fill:&surface-alt; header-hover-fill:&overlay; line-color:&border-dark; '+
+   'row-alt-fill:$0C808080; row-hover-fill:$20808080; selection-fill:&accent; selection-color:&accent-text');
 end.
 

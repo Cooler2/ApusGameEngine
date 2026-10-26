@@ -267,6 +267,7 @@ Two tiers, not a version ladder:
   7. **TUITreeView** — hierarchical list with expand/collapse
   8. **TUIColorPicker** — composite color control (own module)
   9. **TUIFileDialog** — modal open/save (own module, custom UI not OS-native)
+  10. **TUITable** — columns, sorting, single selection (own module `UITable`, done on `feature/r-14-file-dialog`; the file dialog lists folders with it)
 - Label/button enhancements: icon support (texture region beside text), Ctrl+C text copy from focused static labels.
 - Module split: `UIWidgets` (primitives) + `UIComposite` (composites that own child widgets) + `UIColorPicker` + `UIFileDialog`.
 - Out of scope: animation on Section; TreeView drag-drop; alpha in ColorPicker MVP; OS-native file dialog.

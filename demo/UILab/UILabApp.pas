@@ -23,8 +23,8 @@ interface
   application:TUILabApp;
 
 implementation
- uses SysUtils, Apus.Core, Apus.EventMan, Apus.Colors, Apus.Strings,
-   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.SceneEffects;
+ uses SysUtils, Apus.Core, Apus.EventMan, Apus.Colors, Apus.Strings, Apus.Files,
+   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UITable, Apus.Engine.SceneEffects;
 
  type
   TUILabScene=class(TUIScene)
@@ -51,6 +51,10 @@ implementation
   sideBarBgTop:cardinal;    // dedicated sidebar gradient top color
   sideBarBgBottom:cardinal; // dedicated sidebar gradient bottom color
   sideBarBorder:cardinal;   // separator line between sidebar and content
+  folderTable:TUITable;     // Table page: the listing of folderPath
+  folderInfo:TUILabel;      // Table page: the folder and the selected or activated row
+  folderPath:String8;       // Table page: the folder shown, '' - the drive roots
+  folderItems:TFolderItems; // Table page: the items of folderPath, a row tag is an index here
 
 // --- Theme -------------------------------------------------------------------
 
@@ -403,6 +407,111 @@ implementation
    TUILabel.Create(260,36,col).Setup('Appears at the cursor, fades out.');
   end;
 
+// --- Page: Table -------------------------------------------------------------
+
+ type
+  // Table events are methods
+  TTablePage=class
+   procedure RowSelected(table:TUITable;row:integer);
+   procedure RowActivated(table:TUITable;row:integer);
+  end;
+
+ var
+  tablePage:TTablePage;
+
+ function SizeText(size:int64):String8;
+  begin
+   if size<1024 then result:=IntToStr(size)+' B'
+    else if size<1024*1024 then result:=IntToStr((size+1023) div 1024)+' KB'
+    else result:=IntToStr((size+512*1024) div (1024*1024))+' MB';
+  end;
+
+ // Folders first (group 0), then files (group 1); '..' above all (group -1, tag -1)
+ procedure FillFolderTable;
+  var
+   roots:Strings8;
+   i,row:integer;
+  begin
+   folderTable.ClearRows;
+   if folderPath='' then begin
+    roots:=Folder.Roots;
+    SetLength(folderItems,length(roots));
+    for i:=0 to high(roots) do begin
+     folderItems[i].name:=roots[i];
+     folderItems[i].info.isDirectory:=true;
+     row:=folderTable.AddRow(i,0);
+     folderTable.SetCell(row,0,roots[i]);
+    end;
+   end else begin
+    folderTable.SetCell(folderTable.AddRow(-1,-1),0,'..');
+    folderItems:=Folder.ListItems(folderPath);
+    for i:=0 to high(folderItems) do
+     with folderItems[i] do begin
+      if info.isDirectory then row:=folderTable.AddRow(i,0)
+       else row:=folderTable.AddRow(i,1);
+      folderTable.SetCell(row,0,name);
+      if not info.isDirectory then folderTable.SetCell(row,1,SizeText(info.size),info.size);
+      folderTable.SetCell(row,2,FormatDateTime('yyyy-mm-dd hh:nn',info.timestamp),info.timestamp);
+     end;
+   end;
+   folderTable.selected:=folderTable.RowAt(0);
+   if folderPath='' then folderInfo.Setup('Drives')
+    else folderInfo.Setup(folderPath);
+  end;
+
+ procedure TTablePage.RowSelected(table:TUITable;row:integer);
+  begin
+   if row>=0 then folderInfo.Setup(folderPath+'  >  '+table.CellText(row,0));
+  end;
+
+ procedure TTablePage.RowActivated(table:TUITable;row:integer);
+  var
+   tag:NativeInt;
+  begin
+   tag:=table.RowTag(row);
+   if tag<0 then begin // '..': the parent folder, the drive roots above a root
+    if ExtractFileDir(ExcludeTrailingPathDelimiter(folderPath))=ExcludeTrailingPathDelimiter(folderPath) then
+     folderPath:=''
+    else
+     folderPath:=ExtractFileDir(ExcludeTrailingPathDelimiter(folderPath));
+    FillFolderTable;
+   end else
+   if folderItems[tag].info.isDirectory then begin
+    if folderPath='' then folderPath:=IncludeTrailingPathDelimiter(folderItems[tag].name)
+     else folderPath:=IncludeTrailingPathDelimiter(folderPath)+folderItems[tag].name;
+    FillFolderTable;
+   end else
+    folderInfo.Setup('Activated: '+folderItems[tag].name);
+  end;
+
+ procedure PageTable;
+  var
+   scope:TUIElement;
+   edit:TUIEditBox;
+  begin
+   AddTitle('Click a header to sort, again to reverse. Double click or Enter opens a folder.',8);
+   AddTitle('The arrows, PgUp/PgDn, Home/End and Enter work from the edit box too (keyScope).',30);
+   if tablePage=nil then tablePage:=TTablePage.Create;
+   if folderPath='' then folderPath:=GetCurrentDir;
+   // the edit box and the table in one key scope
+   scope:=AddRow(56,content.clientHeight-64);
+   scope.SetAnchors(anchorAll);
+   edit:=TUIEditBox.Create(320,26,scope,'Lab\TableEdit');
+   edit.defaultText:=Str32('Focus here, then press Down');
+   folderInfo:=TUILabel.Create(scope.clientWidth-340,18,scope);
+   folderInfo.SetPos(340,4).SetAnchors(anchorTop);
+   folderTable:=TUITable.Create(scope.clientWidth,scope.clientHeight-36,scope,'Lab\Table');
+   folderTable.SetPos(0,36).SetAnchors(anchorAll);
+   folderTable.AddColumn('Name',0);
+   folderTable.AddColumn('Size',90,taRight,tsKey);
+   folderTable.AddColumn('Modified',150,taLeft,tsKey);
+   folderTable.SortBy(0);
+   folderTable.keyScope:=scope;
+   folderTable.onSelect:=tablePage.RowSelected;
+   folderTable.onActivate:=tablePage.RowActivated;
+   FillFolderTable;
+  end;
+
 // --- Navigation --------------------------------------------------------------
 
  procedure ShowPage(index:integer);
@@ -413,6 +522,8 @@ implementation
    dynCountLabel:=nil;
    freeSlider:=nil;
    sliderValLabel:=nil;
+   folderTable:=nil;
+   folderInfo:=nil;
    case index of
     0: PageLayouts;
     1: PageStates;
@@ -420,6 +531,7 @@ implementation
     3: PageScroll;
     4: PageOutOfOrder;
     5: PageHints;
+    6: PageTable;
    end;
   end;
 
@@ -429,6 +541,7 @@ implementation
  procedure TabScroll;   begin ShowPage(3); end;
  procedure TabOutOfOrder; begin ShowPage(4); end;
  procedure TabHints;    begin ShowPage(5); end;
+ procedure TabTable;    begin ShowPage(6); end;
 
 // --- Application -------------------------------------------------------------
 
@@ -470,6 +583,7 @@ procedure TUILabScene.InitGfx;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Scroll').onClick:=@TabScroll;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Hints').onClick:=@TabHints;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Table').onClick:=@TabTable;
 
   // Theme toggle pinned to the bottom of the sidebar.
   themeBtn:=TUIButton.Create(sideBarWidth-12,30,UI,'Lab\Theme').Setup('Theme: Dark');

@@ -3,6 +3,25 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: `TUITable` (2026-10-26)
+
+- New module `Apus.Engine.UITable`: `TUITable`, rows of text cells under a header of columns
+  (caption, width, alignment, sort mode; width 0 shares the room the fixed columns leave).
+  A header click sorts by the column, the second click reverses. `tsText` compares texts
+  case-insensitively with digit runs as numbers (`NaturalCompare`), `tsKey` - by the cell key
+  (sizes, times). Rows keep their group first in either direction (folders above files),
+  equal rows keep the order of adding, the selection follows the row.
+- Single selection, the mouse wheel and the built-in vertical scrollbar; double click or
+  Enter activates a row. Keys Up, Down, PgUp, PgDn, Home, End, Enter work with the focus on
+  the table and, with `keyScope` set, with the focus anywhere inside that element (an edit box
+  of the same dialog).
+- Events `onSelect`, `onActivate` (methods) and signals `UI\<name>\Selected`,
+  `UI\<name>\Activated` with the row tag.
+- Drawn by the default style (`DrawUITable`): style keys `header-fill`, `header-hover-fill`,
+  `header-color`, `line-color`, `row-alt-fill`, `row-hover-fill`, `selection-fill`,
+  `selection-color`, defaults from the palette tokens. Page "Table" in `demo/UILab`: the
+  current folder through `Folder.ListItems`.
+
 ## UI: `TUIToolButton`, button focus by class attribute (2026-10-26)
 
 - New `TUIToolButton` (`Apus.Engine.UIWidgets`, alias in `Apus.Engine.UI`): a `TUIButton`

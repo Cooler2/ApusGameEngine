@@ -89,7 +89,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 
 **Core**: GameApp, Game, API, Types
 **Scenes**: Scene, SceneEffects, UIScene, ConsoleScene, TweakScene, MessageScene, Notifications
-**UI**: UITypes, UIWidgets, UIMenu, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle, TextFXStyle
+**UI**: UITypes, UIWidgets, UIMenu, UITable, UI, UILayout, UIRender, UIScript, UIShapes, Style, DefaultStyle, CustomStyle, TextFXStyle
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller, Clipboard
