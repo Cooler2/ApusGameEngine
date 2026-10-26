@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.EventMan, Apus.Colors,
-   Apus.Engine.UI;
+   Apus.Engine.UI, Apus.Engine.UIMenu;
 
  type
   // This will be our single scene
@@ -29,9 +29,20 @@ implementation
    procedure Render; override;
   end;
 
+  // Commands of the popup menu on the Widgets page: menu handlers are methods
+  TMenuCommands=class
+   procedure CmdNew;
+   procedure CmdOpen;
+   procedure CmdSave;
+   procedure CmdClose;
+  end;
+
  var
   sceneMain:TMainScene;
   root:TUIElement;
+  menuCommands:TMenuCommands;
+  demoMenu:TUIPopupMenu;
+  menuResult:TUILabel;
 
 procedure TMainApp.SetupApplication;
  begin
@@ -82,6 +93,49 @@ procedure TestButtons;
   InitTestLayer;
  end;
 
+{ TMenuCommands }
+
+procedure TMenuCommands.CmdNew;
+ begin
+  menuResult.caption:='Menu: New';
+ end;
+
+procedure TMenuCommands.CmdOpen;
+ begin
+  menuResult.caption:='Menu: Open';
+ end;
+
+procedure TMenuCommands.CmdSave;
+ begin
+  menuResult.caption:='Menu: Save';
+ end;
+
+procedure TMenuCommands.CmdClose;
+ begin
+  root.Hide;
+ end;
+
+// The Menu button owns the menu: the menu opens below it, the next press closes it
+procedure ShowDemoMenu;
+ begin
+  demoMenu.OpenBelow(UIButton('MenuBtn'));
+ end;
+
+// Popup menu: lines with shortcut texts (display only), separators, disabled lines
+procedure CreateDemoMenu;
+ begin
+  if menuCommands=nil then menuCommands:=TMenuCommands.Create;
+  demoMenu:=TUIPopupMenu.Create(root,'DemoMenu');
+  demoMenu.Add('New',menuCommands.CmdNew,'Ctrl+N');
+  demoMenu.Add('Open...',menuCommands.CmdOpen,'Ctrl+O');
+  demoMenu.Add('Save',menuCommands.CmdSave,'Ctrl+S');
+  demoMenu.AddSeparator;
+  demoMenu.Add('Undo',nil,'Ctrl+Z').Disable;
+  demoMenu.Add('Redo',nil,'Ctrl+Y').Disable;
+  demoMenu.AddSeparator;
+  demoMenu.Add('Close page',menuCommands.CmdClose);
+ end;
+
 procedure TestWidgets;
  var
   cont,hCont:TUIElement;
@@ -108,6 +162,9 @@ procedure TestWidgets;
   cont.style.SetAttr('color','$FF202020');
   TUIButton.Create(140,30,cont,'Button1').Setup('Button 1');
   TUIButton.Create(140,30,cont,'Disabled').Disable;
+  TUIButton.Create(140,30,cont,'MenuBtn').Setup('Menu').onClick:=@ShowDemoMenu;
+  menuResult:=TUILabel.Create(-1,20,cont,'MenuResult');
+  CreateDemoMenu;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   TUIToggleButton.Create(140,30,cont,'Switch1').Setup('Toggle Button');
   hCont:=TUIGroupBox.Create(-1,30,cont);

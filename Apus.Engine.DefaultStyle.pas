@@ -33,7 +33,7 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
 implementation
  uses Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
+    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings;
 
@@ -548,6 +548,37 @@ implementation
        gfx.clip.Restore;
       end;
     end;
+  end;
+
+ // Menu line: the box (hover = the current line) is drawn by the common path. Caption on the
+ // left, shortcut on the right in 'shortcut-color' - the text color while highlighted or disabled
+ procedure DrawUIMenuItem(item:TUIMenuItem;context:TContext);
+  var
+   r:TRect;
+   ts:TTextStyle;
+   y:integer;
+  begin
+   ts:=ResolveTextStyle(item,context,clBlack,taLeft);
+   r:=item.GetClientPosOnScreen;
+   y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
+   gfx.clip.Rect(item.GetPosOnScreen);
+   WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
+   if item.shortcut<>'' then begin
+    ts.align:=taRight;
+    ts.color:=Color.Mix(item.GetStyleColor('shortcut-color',ts.color),ts.color,
+      Max(context.hover.Value,context.disabled.Value));
+    WriteStyled(ts,r.Right-1,y,item.shortcut);
+   end;
+   gfx.clip.Restore;
+  end;
+
+ procedure DrawUIMenuSeparator(sep:TUIMenuSeparator;x1,y1,x2,y2:integer);
+  var
+   d,y:integer;
+  begin
+   d:=round(4*sep.globalScale);
+   y:=(y1+y2) div 2;
+   draw.Line(x1+d,y,x2-d,y,sep.GetStyleColor('line-color',$60000000));
   end;
 
  procedure DrawUIFrame(control:TUIFrame;x1,y1,x2,y2:integer);
@@ -1177,7 +1208,14 @@ implementation
    else
    // Combo box
    if element is TUIComboBox then
-    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context);
+    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox,context)
+   else
+   // Popup menu: the panel is drawn by the common box path
+   if element is TUIMenuItem then
+    DrawUIMenuItem(element as TUIMenuItem,context)
+   else
+   if element is TUIMenuSeparator then
+    DrawUIMenuSeparator(element as TUIMenuSeparator,x1,y1,x2,y2);
    {else
     DrawUIElement(element,x1,y1,x2,y2);}
   end;
@@ -1301,5 +1339,9 @@ function TContext.GetImage(const src:String8):TTexture;
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
+ TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; color:&text');
+ TUIMenuItem.SetDefault('styleInfo','radius:2; hover.fill:&accent; hover.color:&accent-text; '+
+   'disabled.color:&text-muted; shortcut-color:&text-muted; hover-time:0');
+ TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
 end.
 
