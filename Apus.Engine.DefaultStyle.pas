@@ -1340,8 +1340,8 @@ initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; color:&text');
- TUIMenuItem.SetDefault('styleInfo','radius:2; hover.fill:&accent; hover.color:&accent-text; '+
-   'disabled.color:&text-muted; shortcut-color:&text-muted; hover-time:0');
+ TUIMenuItem.SetDefault('styleInfo','radius:2; shortcut-color:&text-muted; hover-time:0; '+
+   ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
 end.
 

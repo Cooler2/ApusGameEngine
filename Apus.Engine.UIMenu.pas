@@ -115,22 +115,26 @@ implementation
     result:=txt.Width(e.StyleFont,text)/e.globalScale;
   end;
 
- function DefaultItemName(const menuName,caption:String8):String8;
+ // The name must be a valid identifier (elements are published by name): spaces and other
+ // ASCII signs become '_', non-ASCII letters are dropped, an empty result becomes 'ItemN'
+ function DefaultItemName(menu:TUIPopupMenu;const caption:String8):String8;
   var
-   i,n:integer;
+   i,n,last:integer;
   begin
-   if menuName='' then exit('');
-   SetLength(result,length(caption));
+   if menu.name='' then exit('');
+   last:=length(caption);
+   if (last>=3) and (copy(caption,last-2,3)='...') then dec(last,3);
+   SetLength(result,last);
    n:=0;
-   for i:=1 to length(caption) do
-    if caption[i]<>'&' then begin
+   for i:=1 to last do
+    if (caption[i]<>'&') and (caption[i]<#128) then begin
      inc(n);
-     result[n]:=caption[i];
+     if caption[i] in ['A'..'Z','a'..'z','0'..'9','_'] then result[n]:=caption[i]
+      else result[n]:='_';
     end;
    SetLength(result,n);
-   if (length(result)>=3) and (copy(result,length(result)-2,3)='...') then
-    SetLength(result,length(result)-3);
-   result:=menuName+'\'+result;
+   if result='' then result:='Item'+Conv.ToStr(length(menu.children)+1);
+   result:=menu.name+'\'+result;
   end;
 
 { TUIMenuItem }
@@ -222,7 +226,7 @@ implementation
    n:String8;
   begin
    n:=name;
-   if n='' then n:=DefaultItemName(self.name,caption);
+   if n='' then n:=DefaultItemName(self,caption);
    result:=TUIMenuItem.Create(self,caption,shortcut,n);
    result.handler:=handler;
   end;

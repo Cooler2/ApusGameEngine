@@ -502,8 +502,8 @@ procedure TestPopupMenu;
   itemUndo.Disable;
   testMenu.AddSeparator;
   itemSave:=testMenu.Add('Save...',probe.DoSave,'Ctrl+S');
-  itemQuit:=testMenu.Add('&Quit',probe.DoQuit);
-  Check((itemSave.name='TestMenu\Save') and (itemQuit.name='TestMenu\Quit'),'default line names: '+itemSave.name);
+  itemQuit:=testMenu.Add('&Quit now',probe.DoQuit);
+  Check((itemSave.name='TestMenu\Save') and (itemQuit.name='TestMenu\Quit_now'),'default line names: '+itemSave.name+', '+itemQuit.name);
   // the anchor opens the menu below itself; its next press closes the menu for good
   Sleep(60); // TUIButton drops clicks in the first 50 ms of the program (its double-click guard)
   PhysicalClickAt(CenterOf(menuBtn));
