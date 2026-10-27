@@ -822,11 +822,18 @@ procedure OpenFor(wnd:TWindow);
 procedure OpenHandler(event:TEventStr;tag:TTag);
  var
   wnd:TWindow;
+  w,h,sw,sh:integer;
+  scale:single;
  begin
   wnd:=TWindow(tag);
   try
    if inspWindow=nil then begin
-    inspWindow:=game.AddWindow('UI Inspector',560,720,'Inspector');
+    // the size is given in real pixels: scale it by DPI, the content is scaled too
+    scale:=systemPlatform.GetScreenDPI/96;
+    systemPlatform.GetRealScreenSize(sw,sh);
+    w:=Min(round(640*scale),round(sw*0.9));
+    h:=Min(round(800*scale),round(sh*0.85));
+    inspWindow:=game.AddWindow('UI Inspector',w,h,'Inspector');
     inspScene:=TInspectorScene.Create(inspWindow);
     inspScene.SetStatus(TSceneStatus.ssActive);
     inspWindow.QueueCall(WatchCall);
