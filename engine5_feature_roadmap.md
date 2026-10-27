@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-10-22
+Last updated: 2026-10-27
 
 Language policy: this roadmap is maintained in English.
 
@@ -51,7 +51,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | done | 100% | Port blocker B-28. In-place reload done (2026-10-17): `ReloadFileImages` (single render window, between frames, image creation/destruction suspended), `Files.SelectFile`/`SelectNewest`, `tests/TestImageReload`. Overlay roots: the port switches themes through its own ZIP/folder provider on the public `IFileProvider` chain, so no engine work is needed for it; a stock overlay/PAK provider goes with B-03. Android context restore is R-24's integration |
 | R-36 | UI Actions: Commands with Scoped Hotkeys | design | ~5% | Current sequence (`Work/R-14_popup_menu.md` §6): popup menu first, then a small `TUIAction` over the existing `RegisterHotKey`/`SetHotKey`; scoped bindings and the input-pipeline redesign (v3 doc `Work/R-36_actions_menus_design.md`) come later. No action code yet |
 | R-37 | Store Entitlements: Store-Neutral API + Mobile Stores | planned | ~5% | Split from R-34 (2026-10-22). Design only: ownership query by a game product id + "entitlements changed" signal; StoreKit (R-30) and Play Billing (R-24) backends, Steam as one more backend. Waits for mobile work |
-| R-38 | UI Inspector (F12-like) | design | ~5% | Second engine window on live UI objects: element tree, published fields (view/edit), click-to-pick with highlight, then a style panel that records resolver lookups. UIScript field bugs fixed on engine5 with `tests/TestUIScript`; plan `Work/ui_inspector.md` section 7. No inspector code yet |
+| R-38 | UI Inspector (F12-like) | paused | ~40% | Paused 2026-10-27 after steps 1-2, resume point in `Work/ui_inspector.md` section 0. Steps 1-2 merged into engine5 (2026-10-27): `Apus.Engine.UIInspector`, a second engine window (Ctrl+Shift+I in debug builds, console `inspector`) with the element tree and live fields (view/edit) from the UIScript field table, `tests/TestUIInspector`. Left: click-to-pick with highlight, style panel from resolver lookups, conveniences; plan `Work/ui_inspector.md` section 7 |
 
 ## GL Version Policy (locked 2026-07-03)
 
@@ -583,7 +583,7 @@ Two tiers, not a version ladder:
 - Out of scope: purchase/checkout UI, server-side receipt validation, leaderboards/workshop.
 
 ### [R-38] UI Inspector (F12-like)
-- Status: design (~5%) - design agreed 2026-10-26, plan in `Work/ui_inspector.md` section 7; step 0 (UIScript field fixes, `tests/TestUIScript`) done on engine5 | Priority: P2 | Area: UI / Tooling
+- Status: paused (~40%) since 2026-10-27, author's decision; resume point (state, branch, what changed in the engine for step 3) in `Work/ui_inspector.md` section 0. Steps 0-2 done and merged into engine5 2026-10-27: UIScript field fixes and field table, `Apus.Engine.UIInspector` window (tree + live fields, Ctrl+Shift+I / console `inspector`, linked by GameApp in debug builds), `tests/TestUIScript`, `tests/TestUIInspector`; next: step 3 (pick + highlight); plan in `Work/ui_inspector.md` section 7 | Priority: P2 | Area: UI / Tooling
 - Value: debugging UI layout and styles without query-answer console sessions: see the element tree, pick an element by clicking it in the game, see its frames, view and edit its fields and style live.
 - Shape: in-process, a separate engine window (`TGame.AddWindow`) working on live elements under the inspected window's lock - no browser, server or tree snapshots. Fields come from the console publication (`Apus.Engine.UIScript`), edits go through the same `SetValue` as console commands. The inspector UI uses engine widgets with its own literal style (no tokens), so the inspected app's theme edits cannot break it.
 - Threads: one-way lock rule - the inspector, under its own window lock, takes the inspected window's lock, never the reverse; the pick click reaches the inspector via `QueueCall`, the highlight is drawn by the inspected window from the inspector core's selection.
