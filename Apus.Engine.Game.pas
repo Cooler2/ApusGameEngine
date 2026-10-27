@@ -1815,6 +1815,7 @@ procedure TGame.FrameLoop;
  begin
   t:=CoreTime.Ticks;
   Thread.Ping;
+  gfx.ResetPaintState; // a failed frame must not break the next ones
   window.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
   // the mouse buttons and the keys come with the events, published by OnFrame
   window.UpdateShiftState; // the OS keys, or the virtual ones
@@ -2143,6 +2144,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    // frame loop
    repeat
    Thread.Ping;
+    gfx.ResetPaintState; // a failed frame must not break the next ones
     wnd.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
     presented:=false;
     if wnd.timings.frameTimerReady then

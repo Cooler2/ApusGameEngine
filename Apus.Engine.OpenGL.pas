@@ -70,6 +70,7 @@ type
 
   procedure BeginPaint(target:TTexture);
   procedure EndPaint;
+  procedure ResetPaintState;
   procedure SetCullMode(mode:TCullMode);
   procedure Restore;
   procedure DrawDebugOverlay(idx:integer);
@@ -84,6 +85,7 @@ type
   wnd:TWindow; // window the backend was initialized for (main); per-frame work uses `window`
   class threadvar
    canPaint:integer;
+   paintStateWarned:boolean; // an unbalanced paint state was reported in this thread
   // Explicit owners for interfaced singletons created in Init.
   // They are released in Done via :=nil to trigger deterministic destruction.
   ownRenderTarget:IRenderTarget;
@@ -562,6 +564,22 @@ procedure TOpenGL.EndPaint;
   end;
   clippingAPI.Restore;
   PopDebugGroup;
+ end;
+
+procedure TOpenGL.ResetPaintState;
+ var
+  i:integer;
+  left:boolean;
+ begin
+  left:=canPaint<>0;
+  canPaint:=0;
+  if renderTargetAPI.Unwind then left:=true;
+  if clippingAPI.Unwind then left:=true;
+  for i:=1 to debugGroupDepth do PopDebugGroup;
+  if left and not paintStateWarned then begin
+   paintStateWarned:=true;
+   Log.Warn('The previous frame left the paint state unbalanced: dropped (not reported again)');
+  end;
  end;
 
 procedure TOpenGL.Breakpoint;
