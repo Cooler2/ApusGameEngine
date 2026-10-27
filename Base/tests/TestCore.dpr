@@ -3,7 +3,7 @@
 {$Q+}  // Overflow checking
 program TestCore;
 uses
-  SysUtils,
+  SysUtils,{$IFDEF MSWINDOWS}Windows,{$ENDIF}
   Apus.Core,
   Apus.Conv;
 
@@ -1181,6 +1181,40 @@ begin
   EndTest;
 end;
 
+// Env: the process data in UTF-8. On Windows a variable set through the UTF-16 API must
+// come back with the characters the ANSI code page can't encode, and the storage dirs
+// built from it must keep them.
+procedure TestEnv;
+{$IFDEF MSWINDOWS}
+var
+  value,saved:String8;
+{$ENDIF}
+begin
+  StartTest('Env');
+  Check(Env.ParamStr(0)=Env.ExeName,'ParamStr(0) is the executable');
+  Check(Pos('TestCore',ExtractFileName(Env.ExeName))=1,'ExeName names this program');
+  Check(Env.ParamStr(-1)='','ParamStr below range is empty');
+  Check(Env.ParamStr(Env.ParamCount+1)='','ParamStr above range is empty');
+  Check(Env.GetVar('APUS_TEST_NOT_SET_VARIABLE')='','an unset variable is empty');
+  {$IFDEF MSWINDOWS}
+  value:='C:\Профиль Ω 日本';
+  SetEnvironmentVariableW('APUS_TEST_ENV',PWideChar(UnicodeString(value)));
+  Check(Env.GetVar('APUS_TEST_ENV')=value,'non-ANSI characters survive');
+  saved:=Env.GetVar('APPDATA');
+  try
+    SetEnvironmentVariableW('APPDATA',PWideChar(UnicodeString(value)));
+    SetupStorageDirs('Test');
+    Check(Pos(value+'\Test\',AppDataDir)=1,'AppDataDir keeps non-ANSI characters');
+  finally
+    SetEnvironmentVariableW('APPDATA',PWideChar(UnicodeString(saved)));
+    SetupStorageDirs('');
+  end;
+  {$ELSE}
+  Check(Env.GetVar('PATH')<>'','PATH is set');
+  {$ENDIF}
+  EndTest;
+end;
+
 // TRandom: PCG32 reference output, reproducibility, ranges and distribution moments.
 // Statistical checks use a fixed seed, so they are deterministic.
 procedure TestRandom;
@@ -1328,6 +1362,7 @@ begin
     TestTimeOverride;
     TestTicksResolution;
     TestStorageDirs;
+    TestEnv;
     TestRandom;
     TestSystemPrimitives;
 
