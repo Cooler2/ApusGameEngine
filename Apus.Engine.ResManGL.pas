@@ -709,8 +709,9 @@ end;
 
 procedure TGLTextureArray.LockLayer(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
 begin
- inc(locked);
  layers[index].Lock(mipLevel,mode,r);
+ if locked=0 then lockOwner:=GetCurrentThreadID;
+ inc(locked);
  data:=layers[index].data;
  pitch:=layers[index].pitch;
  lockedLayer:=index;
@@ -725,8 +726,9 @@ end;
 
 procedure TGLTextureArray.Unlock;
 begin
- layers[lockedLayer].Unlock;
  dec(locked);
+ if locked=0 then lockOwner:=0;
+ layers[lockedLayer].Unlock;
 end;
 
 procedure TGLTextureArray.UploadInternalData;
@@ -1151,7 +1153,7 @@ end;
 
 procedure TGLTexture.MakeImmutable;
 begin
- if IsLocked then
+ if locked>0 then
   raise EWarning.Create('Can''t make immutable while texture is locked: '+name);
  cs.Enter;
  try
@@ -1204,6 +1206,7 @@ begin
    pitch:=levelPitch;
    if r=nil then data:=@realData[mipLevel,0]
     else data:=@realData[mipLevel,lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
+   if locked=0 then lockOwner:=GetCurrentThreadID;
    inc(locked);
    if mode=lmReadWrite then begin
     online:=false;
@@ -1219,8 +1222,9 @@ end;
 
 procedure TGLTexture.Unlock;
 begin
- ASSERT(locked>0,'Texture not locked: '+name);
+ ASSERT((locked>0) and (lockOwner=GetCurrentThreadID),'Texture not locked by this thread: '+name);
  dec(locked);
+ if locked=0 then lockOwner:=0;
  cs.Leave;
  if locked=0 then EndWrite; // outer unlock: release exclusive sync
 end;
