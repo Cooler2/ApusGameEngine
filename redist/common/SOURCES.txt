@@ -1,0 +1,21 @@
+# redist/common provenance - third-party data compiled into the engine itself.
+#
+# These components are not separate files at runtime: they are embedded in the
+# source tree and end up inside every binary built with the matching define, on
+# every platform. This directory holds their paperwork only; licenses/ holds the
+# upstream license texts.
+
+[Open Sans]
+version          = 3.000 (name table: "Version 3.000", "3.000;GOOG;OpenSans-Regular")
+upstream_url     = https://github.com/googlefonts/opensans
+license          = SIL Open Font License 1.1 (licenses/OpenSans-OFL.txt), no Reserved Font Name
+copyright        = Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)
+normalization    = TTF bytes stored as an int64 array in a Pascal include file
+installed_to     = defaultFont.inc (OpenSans_Regular, OpenSans_Regular_Size = 130836)
+committed_sha256 = abe9a73c251ad253776da6098f425db4e50bf094dc9edbadee1a6e15622c9b26
+                   (of the 130836 TTF bytes decoded from the array, not of the .inc)
+notes            = linked only with FREETYPE, as the default vector font
+                   (Apus.Engine.Game). The exact upstream artifact is not
+                   identified: the regular static TTF on the upstream main branch
+                   (2026-10-28) is 147528 bytes, so it is a different build.
+                   "Open Sans" is a trademark of Google (name ID 7).

@@ -1,3 +1,5 @@
+// Open Sans Regular 3.000 - Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)
+// Licensed under the SIL Open Font License 1.1: redist/common/licenses/OpenSans-OFL.txt (see THIRD-PARTY.md)
  OpenSans_Regular_Size:integer=130836;
  // raw TTF bytes; FPC parses hex literals above $7FFF... as signed int64, so uint64
  // elements raised a range warning per literal there
