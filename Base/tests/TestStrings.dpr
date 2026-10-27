@@ -170,6 +170,58 @@ begin
   EndTest;
 end;
 
+// String8 from exact bytes (a literal with #nn would be converted as text)
+function Bytes8(const b:array of byte):String8;
+begin
+  SetLength(result,length(b));
+  if length(b)>0 then Move(b[0],result[1],length(b));
+end;
+
+procedure TestString8CaseUnicode;
+var s,e:String8;
+begin
+  StartTest('String8.Case Unicode');
+  s:='Привет, Ёлка!'; e:='привет, ёлка!';
+  Check(s.ToLower=e,'Cyrillic ToLower');
+  e:='ПРИВЕТ, ЁЛКА!';
+  Check(s.ToUpper=e,'Cyrillic ToUpper');
+  s:='Ωμέγα ΣΟΦΊΑ'; e:='ωμέγα σοφία';
+  Check(s.ToLower=e,'Greek ToLower');
+  e:='ΩΜΈΓΑ ΣΟΦΊΑ';
+  Check(s.ToUpper=e,'Greek ToUpper');
+  s:='Élan Žluťoučký Ångström'; e:='élan žluťoučký ångström';
+  Check(s.ToLower=e,'Latin diacritics ToLower');
+  e:='ÉLAN ŽLUŤOUČKÝ ÅNGSTRÖM';
+  Check(s.ToUpper=e,'Latin diacritics ToUpper');
+  // 1:1 only: no full mappings, the character stays
+  s:='Straße'; e:='STRAßE';
+  Check(s.ToUpper=e,'sharp s stays');
+  // the byte length may change: 2-byte U+0130 -> 1-byte i, 2-byte U+0250 -> 3-byte U+2C6F
+  s:='İx'; e:='ix';
+  Check(s.ToLower=e,'U+0130 to i shrinks');
+  s:='ɐx'; e:='ⱯX';
+  Check(s.ToUpper=e,'U+0250 to U+2C6F grows');
+  // 4-byte: Deseret U+10400 <-> U+10428
+  s:=Bytes8([$F0,$90,$90,$80]);
+  Check(s.ToLower=Bytes8([$F0,$90,$90,$A8]),'Deseret ToLower');
+  // invalid UTF-8 is kept, ASCII around it converts
+  s:=Bytes8([ord('A'),$C3,ord('B'),$FF,ord('C')]);
+  Check(s.ToLower=Bytes8([ord('a'),$C3,ord('b'),$FF,ord('c')]),'invalid bytes kept');
+  // overlong 'A' (C1 81) is not a letter
+  s:=Bytes8([$C1,$81]);
+  Check(s.ToLower=Bytes8([$C1,$81]),'overlong kept');
+  // truncated sequence at the end
+  s:=Bytes8([$D0,$AF,$D0]);
+  Check(s.ToLower=Bytes8([$D1,$8F,$D0]),'truncated tail kept');
+  // nothing to change - the same string, no copy (built at runtime: Delphi copies literals)
+  s:='уже строчные'; s:=s+' 123';
+  Check(pointer(s.ToLower)=pointer(s),'unchanged shares the string');
+  // the result assigned to the source itself
+  s:='Ёж ЁЖ'; s:=s.ToLower; e:='ёж ёж';
+  Check(s=e,'s:=s.ToLower');
+  EndTest;
+end;
+
 procedure TestString8Trim;
 var s:String8;
 begin
@@ -711,6 +763,9 @@ begin
   s:=UTF8.Decode('Hello World');
   Check(UTF8.Encode(s.ToUpper)='HELLO WORLD','ToUpper');
   Check(UTF8.Encode(s.ToLower)='hello world','ToLower');
+  s:=UTF8.Decode('Ёж Σοφία');
+  Check(UTF8.Encode(s.ToUpper)='ЁЖ ΣΟΦΊΑ','Unicode ToUpper');
+  Check(UTF8.Encode(s.ToLower)='ёж σοφία','Unicode ToLower');
   EndTest;
 end;
 
@@ -1124,6 +1179,7 @@ begin
     TestString8EndsWith;
     TestString8Compare;
     TestString8Case;
+    TestString8CaseUnicode;
     TestString8Trim;
     TestString8Pad;
     TestString8Modify;

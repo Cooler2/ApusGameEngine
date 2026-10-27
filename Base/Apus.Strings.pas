@@ -53,7 +53,7 @@ type
     function Same(const other:String8):boolean; // case-insensitive equals
 
     // === Case conversion ===
-    function ToUpper:String8;
+    function ToUpper:String8; // Unicode, see UTF8.ToUpper
     function ToLower:String8;
 
     // === Trimming ===
@@ -166,7 +166,7 @@ type
     function Same(const other:String32):boolean; // case-insensitive
 
     // === Case conversion ===
-    function ToUpper:String32;
+    function ToUpper:String32; // simple (1:1) Unicode case mapping, as UTF8.ToUpper
     function ToLower:String32;
 
     // === Trimming ===
@@ -250,7 +250,9 @@ type
     // Convert UTF-8 <-> WideString (UTF-16)
     class function ToWide(const s:String8):WideString; static;
     class function FromWide(const s:WideString):String8; static; inline;
-    // Upper/Lower case for UTF-8 (Unicode-aware)
+    // Upper/Lower case for UTF-8: simple (1:1) Unicode case mapping, no locale rules.
+    // Characters without a 1:1 pair stay as they are (ß, ligatures); invalid UTF-8 is kept.
+    // Returns the same string, without a copy, when nothing changes
     class function ToUpper(const s:String8):String8; static;
     class function ToLower(const s:String8):String8; static;
     // Format string: %d %u %x %X %f %g %s %p %% with flags - 0 + and width.precision
@@ -307,6 +309,152 @@ function StrHash(const st:string):cardinal; overload;
 
 implementation
 uses SysUtils, Apus.Conv;
+
+{$I caseTables.inc}
+
+// Simple Unicode case mapping of a code point: index - caseLowerIndex or caseUpperIndex
+function MapCase(cp:cardinal;const index:TCaseIndex):cardinal; inline;
+var delta:cardinal;
+begin
+  result:=cp;
+  if cp>CASE_MAX_CP then exit;
+  delta:=caseDeltas[cardinal(index[cp shr CASE_BLOCK_BITS]) shl CASE_BLOCK_BITS+(cp and CASE_BLOCK_MASK)];
+  result:=(cp and $FFFF0000) or ((cp+delta) and $FFFF); // no branch: delta 0 gives cp
+end;
+
+// Decodes the UTF-8 sequence at p (len bytes available, len>0, p^>=$80): returns its size,
+// cp=$FFFFFFFF for an invalid or overlong sequence (size 1 then)
+function DecodeMultiByte(p:PByte;len:integer;out cp:cardinal):integer;
+var b:cardinal;
+begin
+  cp:=$FFFFFFFF;
+  result:=1;
+  b:=p^;
+  if (b>=$C2) and (b<=$DF) then begin
+    if (len<2) or (p[1] and $C0<>$80) then exit;
+    cp:=(b and $1F) shl 6 or (p[1] and $3F);
+    result:=2;
+  end else
+  if (b>=$E0) and (b<=$EF) then begin
+    if (len<3) or (p[1] and $C0<>$80) or (p[2] and $C0<>$80) then exit;
+    cp:=(b and $0F) shl 12 or (p[1] and $3F) shl 6 or (p[2] and $3F);
+    if cp<$800 then cp:=$FFFFFFFF
+      else result:=3;
+  end else
+  if (b>=$F0) and (b<=$F4) then begin
+    if (len<4) or (p[1] and $C0<>$80) or (p[2] and $C0<>$80) or (p[3] and $C0<>$80) then exit;
+    cp:=(b and $07) shl 18 or (p[1] and $3F) shl 12 or (p[2] and $3F) shl 6 or (p[3] and $3F);
+    if (cp<$10000) or (cp>$10FFFF) then cp:=$FFFFFFFF
+      else result:=4;
+  end;
+end;
+
+// Writes cp as UTF-8 at p, returns the number of bytes
+function EncodeCodePoint(cp:cardinal;p:PByte):integer;
+begin
+  if cp<$80 then begin
+    p^:=cp; result:=1;
+  end else
+  if cp<$800 then begin
+    p[0]:=$C0 or (cp shr 6);
+    p[1]:=$80 or (cp and $3F);
+    result:=2;
+  end else
+  if cp<$10000 then begin
+    p[0]:=$E0 or (cp shr 12);
+    p[1]:=$80 or ((cp shr 6) and $3F);
+    p[2]:=$80 or (cp and $3F);
+    result:=3;
+  end else begin
+    p[0]:=$F0 or (cp shr 18);
+    p[1]:=$80 or ((cp shr 12) and $3F);
+    p[2]:=$80 or ((cp shr 6) and $3F);
+    p[3]:=$80 or (cp and $3F);
+    result:=4;
+  end;
+end;
+
+// Room for a mapped character that takes more bytes than its source: grows res when
+// the rest of the source would not fit after it, returns dst in the new buffer
+// (dst is not a var parameter: that would keep it out of registers in the caller)
+function GrowCaseBuffer(var res:String8;dst:PByte;need:integer):PByte;
+var used:integer;
+begin
+  result:=dst;
+  used:=dst-PByte(PAnsiChar(res));
+  if used+need<=System.Length(res) then exit;
+  SetLength(res,used+need+16);
+  result:=PByte(PAnsiChar(res))+used;
+end;
+
+// Case conversion of UTF-8 text into res. ASCII goes inline: asciiFirst..asciiLast flip the
+// case bit; 2-byte sequences (Latin, Greek, Cyrillic) are decoded in place.
+// Invalid sequences are copied as they are. res is s itself when nothing changes.
+procedure ConvertCaseUTF8(const s:String8;var res:String8;const index:TCaseIndex;asciiFirst,asciiLast:byte);
+var
+  src,dst,srcEnd:PByte;
+  size:integer;
+  b,cp,mapped,decoded:cardinal; // decoded - for DecodeMultiByte only: its address is taken
+begin
+  src:=PByte(PAnsiChar(s));
+  srcEnd:=src+System.Length(s);
+  // find the first character that changes
+  while src<srcEnd do begin
+    b:=src^;
+    if b<$80 then begin
+      if (b>=asciiFirst) and (b<=asciiLast) then break;
+      inc(src);
+    end else begin
+      size:=DecodeMultiByte(src,srcEnd-src,decoded);
+      if MapCase(decoded,index)<>decoded then break;
+      inc(src,size);
+    end;
+  end;
+  if src=srcEnd then begin
+    res:=s;
+    exit;
+  end;
+  // mapped characters mostly keep their size: start with the source size
+  size:=src-PByte(PAnsiChar(s));
+  SetLength(res,System.Length(s));
+  dst:=PByte(PAnsiChar(res));
+  if size>0 then Move(PAnsiChar(s)^,dst^,size);
+  inc(dst,size);
+  while src<srcEnd do begin
+    b:=src^;
+    if b<$80 then begin
+      if (b>=asciiFirst) and (b<=asciiLast) then dst^:=b xor $20
+        else dst^:=b;
+      inc(src); inc(dst);
+      continue;
+    end;
+    if (b>=$C2) and (b<=$DF) and (srcEnd-src>=2) and (src[1] and $C0=$80) then begin
+      size:=2;
+      cp:=(b and $1F) shl 6 or (src[1] and $3F);
+      mapped:=MapCase(cp,index);
+      if (mapped>=$80) and (mapped<$800) then begin
+        dst[0]:=$C0 or (mapped shr 6);
+        dst[1]:=$80 or (mapped and $3F);
+        inc(dst,2); inc(src,2);
+        continue;
+      end;
+    end else begin
+      size:=DecodeMultiByte(src,srcEnd-src,decoded);
+      cp:=decoded;
+      mapped:=MapCase(cp,index);
+    end;
+    if mapped=cp then begin
+      Move(src^,dst^,size);
+      inc(dst,size);
+    end else begin
+      dst:=GrowCaseBuffer(res,dst,4+(srcEnd-src-size));
+      inc(dst,EncodeCodePoint(mapped,dst));
+    end;
+    inc(src,size);
+  end;
+  size:=dst-PByte(PAnsiChar(res));
+  if size<>System.Length(res) then SetLength(res,size);
+end;
 
 function UpAscii(ch:AnsiChar):AnsiChar; inline;
 begin
@@ -1163,10 +1311,7 @@ var i:integer;
 begin
   SetLength(result,System.Length(self));
   for i:=0 to high(self) do
-    if (self[i]>=ord('a')) and (self[i]<=ord('z')) then
-      result[i]:=self[i]-32
-    else
-      result[i]:=self[i];
+    result[i]:=MapCase(self[i],caseUpperIndex);
 end;
 
 function String32Helper.ToLower:String32;
@@ -1174,10 +1319,7 @@ var i:integer;
 begin
   SetLength(result,System.Length(self));
   for i:=0 to high(self) do
-    if (self[i]>=ord('A')) and (self[i]<=ord('Z')) then
-      result[i]:=self[i]+32
-    else
-      result[i]:=self[i];
+    result[i]:=MapCase(self[i],caseLowerIndex);
 end;
 
 function String32Helper.Trim:String32;
@@ -1827,23 +1969,13 @@ begin
 end;
 
 class function UTF8.ToUpper(const s:String8):String8;
-var i:integer; ch:AnsiChar;
 begin
-  result:=s;
-  for i:=1 to System.Length(result) do begin
-    ch:=result[i];
-    if (ch>='a') and (ch<='z') then dec(result[i],ord('a')-ord('A'));
-  end;
+  ConvertCaseUTF8(s,result,caseUpperIndex,ord('a'),ord('z'));
 end;
 
 class function UTF8.ToLower(const s:String8):String8;
-var i:integer; ch:AnsiChar;
 begin
-  result:=s;
-  for i:=1 to System.Length(result) do begin
-    ch:=result[i];
-    if (ch>='A') and (ch<='Z') then inc(result[i],ord('a')-ord('A'));
-  end;
+  ConvertCaseUTF8(s,result,caseLowerIndex,ord('A'),ord('Z'));
 end;
 
 {$R-} // hash functions rely on unsigned overflow
