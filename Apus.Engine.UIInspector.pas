@@ -74,7 +74,13 @@ uses SysUtils, Types, Apus.EventMan, Apus.Strings, Apus.Log, Apus.Threads, Apus.
 
 const
  OPEN_EVENT='Engine\Inspector\Open';
+ INSPECTOR_NAME='Inspector'; // window name
  TREE_REFRESH_MS=500; // the tree is rebuilt this often (the fields - every frame)
+ // own sizes in the root's units (the root has the scale of the window's DPI): the
+ // inspected app's theme and UI scale must not change the inspector
+ FONT_SIZE='7.5'; // style value: a fraction gives 1 pixel steps at the scale 2
+ ROW_HEIGHT=18;
+ HEADER_HEIGHT=18;
  // own literal colors: the inspected app's theme must not change the inspector
  COLOR_BACK=$FF1E2228;
  COLOR_PANEL=$FF262B33;
@@ -127,6 +133,7 @@ type
   lastError:String8;
   nextTreeTime:int64;
   constructor Create(wnd:TWindow);
+  function OwnScale:single;
   function Process:boolean; override;
   procedure Render; override;
   procedure Refresh;
@@ -142,10 +149,9 @@ var
  selLock:TLock;
  selected:TUIElement;     // held by Acquire
  expandedList:array of pointer;
- inspWindow:TWindow;      // created once, hidden when closed
- inspScene:TInspectorScene;
+ inspWindow:TWindow;      // nil once it starts closing (ENGINE\WINDOW\CLOSED)
+ inspScene:TInspectorScene; // freed with the window
  target:TWindow;          // the inspected window (held by Acquire); inspector's thread only
- visible:boolean;         // the inspector window is shown; inspector's thread only
 
 { Core }
 
@@ -368,34 +374,23 @@ procedure SetTarget(wnd:TWindow);
   end;
  end;
 
-procedure HideInspector;
- begin
-  if not visible then exit;
-  visible:=false;
-  SetTarget(nil);
-  inspWindow.Show(false);
- end;
-
 // Inspector's thread at every frame start (it queues itself again): lets go of the
-// inspected window once it or the inspector starts closing. An accepted call runs at the
-// latest while the window closes, so the app exit is covered too - otherwise the held
-// main window would make its close wait
+// inspected window once it starts closing - otherwise the held window would make its
+// close wait. `window` is the inspector's one: inspWindow is nil while it closes
 procedure WatchCall(param:pointer);
  begin
-  if (target<>nil) and (target.closing or inspWindow.closing) then SetTarget(nil);
-  if not inspWindow.closing then inspWindow.QueueCall(WatchCall);
+  if (target<>nil) and (target.closing or window.closing) then SetTarget(nil);
+  if not window.closing then window.QueueCall(WatchCall);
  end;
 
-// Inspector's thread (TWindow.QueueCall): show for the window passed in param (held)
+// Inspector's thread (TWindow.QueueCall): inspect the window passed in param (held)
 procedure ShowCall(param:pointer);
  begin
-  if inspWindow.closing then begin
+  if window.closing then begin
    TWindow(param).Release;
    exit;
   end;
   SetTarget(TWindow(param));
-  visible:=true;
-  inspWindow.Show(true);
  end;
 
 { TInspectorTree }
@@ -444,7 +439,7 @@ procedure DrawTree(elem:TUIElement);
 
 constructor TInspectorTree.Create(width,height:single;parent:TUIElement);
  begin
-  inherited Create(width,height,parent,'_InspectorTree',20);
+  inherited Create(width,height,parent,'_InspectorTree',ROW_HEIGHT);
   drawer:=DrawTree;
  end;
 
@@ -517,9 +512,9 @@ procedure DrawTable(elem:TUIElement);
 
 constructor TInspectorTable.Create(width,height:single;parent:TUIElement);
  begin
-  inherited Create(width,height,parent,'_InspectorTable',20);
+  inherited Create(width,height,parent,'_InspectorTable',ROW_HEIGHT);
   drawer:=DrawTable;
-  nameWidth:=120;
+  nameWidth:=100;
  end;
 
 procedure TInspectorTable.onMouseButtons(button:byte;state:boolean);
@@ -567,9 +562,11 @@ constructor TInspectorScene.Create(wnd:TWindow);
   w,h,headerH:single;
  begin
   inherited Create('_Inspector',true,wnd);
+  UI.SetScale(OwnScale);
   UI.styleinfo:=UTF8.Format('%x',[COLOR_BACK]);
+  UI.style.Assign('font-size:'+FONT_SIZE+';');
   w:=UI.clientWidth; h:=UI.clientHeight; // children are placed in the root's own (scaled) units
-  headerH:=24;
+  headerH:=HEADER_HEIGHT;
   header:=TUILabel.Create(w-8,headerH,UI,'_InspectorHeader');
   header.SetPos(4,0).SetAnchors(0,0,1,0);
   header.style.Assign(UTF8.Format('color:$%x;',[COLOR_TEXT]));
@@ -584,17 +581,28 @@ constructor TInspectorScene.Create(wnd:TWindow);
   SetEventHandler('UI\_InspectorEditor\Enter',EditorEnter,emInstant);
   SetEventHandler('UI\_InspectorEditor\Escape',EditorEscape,emInstant);
 
-  enumList:=TInspectorEnumList.Create(100,100,UI,'_InspectorEnum',20);
+  enumList:=TInspectorEnumList.Create(100,100,UI,'_InspectorEnum',ROW_HEIGHT);
   enumList.bgColor:=COLOR_BACK;
   enumList.autoSelectMode:=false;
   enumList.order:=$10000; // stay on top
   enumList.flags.visible:=false;
  end;
 
+// UI scale of the inspector's own window. The app's UI scale follows the main window,
+// and the app applies it to this window too after a DPI change: Process puts it back
+function TInspectorScene.OwnScale:single;
+ begin
+  result:=TWindow(ownerWindow).canvasDPI/96;
+ end;
+
 function TInspectorScene.Process:boolean;
+ var
+  s:single;
  begin
   result:=inherited Process;
-  if visible then Refresh;
+  s:=OwnScale;
+  if abs(UI.scale-s)>0.001 then UI.SetScale(s);
+  Refresh;
  end;
 
 procedure TInspectorScene.Render;
@@ -818,25 +826,42 @@ procedure OpenFor(wnd:TWindow);
   if wnd.Acquire then Signal(OPEN_EVENT,TTag(wnd));
  end;
 
-// Control thread (queued): create the window once, then show it for the window in tag (held)
+// A window with this name exists (a closed inspector keeps the name for a moment)
+function WindowExists(const name:String8):boolean;
+ var
+  item:TWindow;
+ begin
+  for item in ListWindows do
+   if SameText(item.name,name) then exit(true);
+  result:=false;
+ end;
+
+// Control thread (queued): create the window if there is none, then inspect the window
+// in tag (held) there
 procedure OpenHandler(event:TEventStr;tag:TTag);
  var
-  wnd:TWindow;
+  wnd,insp:TWindow;
   w,h,sw,sh:integer;
   scale:single;
+  t:int64;
  begin
   wnd:=TWindow(tag);
+  insp:=inspWindow; // the inspector's thread clears it when the window closes
   try
-   if inspWindow=nil then begin
+   if insp=nil then begin
+    t:=CoreTime.Ticks+1000;
+    while WindowExists(INSPECTOR_NAME) and (CoreTime.Ticks<t) do
+     CoreTime.Sleep(10);
     // the size is given in real pixels: scale it by DPI, the content is scaled too
     scale:=systemPlatform.GetScreenDPI/96;
     systemPlatform.GetRealScreenSize(sw,sh);
     w:=Min(round(640*scale),round(sw*0.9));
     h:=Min(round(800*scale),round(sh*0.85));
-    inspWindow:=game.AddWindow('UI Inspector',w,h,'Inspector');
-    inspScene:=TInspectorScene.Create(inspWindow);
+    insp:=game.AddWindow('UI Inspector',w,h,INSPECTOR_NAME);
+    inspScene:=TInspectorScene.Create(insp);
     inspScene.SetStatus(TSceneStatus.ssActive);
-    inspWindow.QueueCall(WatchCall);
+    insp.QueueCall(WatchCall);
+    inspWindow:=insp;
    end;
   except
    on e:Exception do begin
@@ -845,24 +870,27 @@ procedure OpenHandler(event:TEventStr;tag:TTag);
     exit;
    end;
   end;
-  if not inspWindow.QueueCall(ShowCall,wnd) then wnd.Release;
+  if not insp.QueueCall(ShowCall,wnd) then wnd.Release; // it is closing: open again later
  end;
 
-// Window's thread: Ctrl+Shift+I opens the inspector for this window; in the inspector - hides it
+// Window's thread: Ctrl+Shift+I opens the inspector for this window; in the inspector - closes it
 procedure KbdHandler(event:TEventStr;tag:TTag);
  begin
   if (TKey(tag and $FF)<>TKey.I) or ((window.shiftState and sscBaseMask)<>sscCtrl+sscShift) then exit;
-  if window=inspWindow then HideInspector
+  if window=inspWindow then window.Terminate
    else OpenFor(window);
   game.SuppressKbdEvent;
  end;
 
-// Inspector window's thread: closing it only hides it
-procedure CloseRequestHandler(event:TEventStr;tag:TTag);
+// Inspector window's thread, it starts closing: let go of everything, the engine frees
+// the window and the scene a moment later
+procedure ClosedHandler(event:TEventStr;tag:TTag);
  begin
-  if (inspWindow=nil) or (window<>inspWindow) then exit;
-  window.ClosePending;
-  HideInspector;
+  if (inspWindow=nil) or (TWindow(tag)<>inspWindow) then exit;
+  SetTarget(nil);
+  inspScene:=nil;
+  inspWindow:=nil;
+  Log.Msg('UI inspector: closed');
  end;
 
 procedure InspectorCmd(cmd:string8);
@@ -874,7 +902,7 @@ procedure InitInspector;
  begin
   SetEventHandler('KBD\KeyDown',KbdHandler,emInstant);
   SetEventHandler(OPEN_EVENT,OpenHandler,emQueued);
-  SetEventHandler('ENGINE\WINDOW\CLOSEREQUEST',CloseRequestHandler,emInstant);
+  SetEventHandler('ENGINE\WINDOW\CLOSED',ClosedHandler,emInstant);
   SetCmdFunc('INSPECTOR',opFirst,InspectorCmd);
  end;
 
