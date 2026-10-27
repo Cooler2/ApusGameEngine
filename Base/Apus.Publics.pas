@@ -925,7 +925,7 @@ end;
 
 class function TVarTypeSingle.GetValue(variable:pointer):String8;
 begin
- result:=FloatToStr(PSingle(variable)^);
+ result:=FloatToStrF(PSingle(variable)^,ffGeneral,6,0); // 6 digits: the last bit of a single is noise
 end;
 
 class procedure TVarTypeSingle.SetValue(variable:pointer;v:String8);
