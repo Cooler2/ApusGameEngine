@@ -1873,7 +1873,7 @@ procedure TGame.RenderAndPresentFrame;
   startUs:int64;
   deltaUs:int64;
   sampleUs:integer;
-  presented:boolean;
+  presented,canDraw:boolean;
   phaseTimer:int64;
   onFrameUs,renderUs,presentUs,sleepUs:integer;
  begin
@@ -1943,8 +1943,10 @@ procedure TGame.RenderAndPresentFrame;
    end else
     window.timings.idleRedrawAccUs:=0;
 
-   if window.active or (params.mode<>dmSwitchResolution) then begin
-    // If the program is active, render the frame
+   // a minimized window is not drawn; an inactive one only in the resolution-switching mode
+   canDraw:=(window.active or (params.mode<>dmSwitchResolution)) and
+     (window.state<>TWindowState.Minimized);
+   if canDraw then begin
     if window.screenChanged then begin
      if window.timings.phaseMetrics then Timer.Start(phaseTimer);
      try
@@ -1970,16 +1972,17 @@ procedure TGame.RenderAndPresentFrame;
    CoreTime.Sleep(onFrameDelay);
    if window.timings.phaseMetrics then sleepUs:=round(Timer.Get(phaseTimer)*1000000);
    // Now the frame must be presented
-   if (window.active or (params.mode<>dmSwitchResolution)) and
-      window.screenChanged then begin
+   if canDraw and window.screenChanged then begin
     if window.timings.phaseMetrics then Timer.Start(phaseTimer);
     PresentFrame;
     presented:=true;
     if window.timings.phaseMetrics then presentUs:=round(Timer.Get(phaseTimer)*1000000);
     if window.capture.singleFrame then window.capture.Capture(window);
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
-   end else
+   end else begin
+    if not canDraw then PollRobotAPI; // not drawn for a while: the robot is answered anyway
     CoreTime.Sleep(5);
+   end;
 
   if presented then begin
     window.timings.PushSample(window.timings.presentSampleAccUs,
@@ -2190,7 +2193,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
 
     // render
     // drawn when not focused too, like the main window: a tool window shows live data
-    if wnd.screenChanged then begin
+    if wnd.screenChanged and (wnd.state<>TWindowState.Minimized) then begin
      gfx.BeginPaint(nil);
      try
       wnd.LockState;
