@@ -186,6 +186,7 @@ implementation
   Apus.Engine.Notifications,
   Apus.Files,
   Apus.Lib,
+  Apus.Utils,
   Apus.Strings
   {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
@@ -234,20 +235,6 @@ var
  {$I defaultFont12.inc}
 {$ENDIF}
 
-
-// TODO: move to Apus.Utils/CmdLine once modern replacement API is finalized.
-function HasParamLocal(const name:string):boolean;
-var
- i:integer;
- s,n:string;
-begin
- n:=LowerCase(name);
- for i:=1 to ParamCount do begin
-  s:=LowerCase(ParamStr(i));
-  if s=n then exit(true);
- end;
- result:=false;
-end;
 
 // TODO: move to Apus.Profiling when profiling API migration is complete.
 procedure StartMeasure(id:integer); inline;
@@ -642,7 +629,7 @@ end;
 
 procedure InitDefaultRT(wnd:TWindow);
 begin
- if HasParamLocal('-nodrt') then begin
+ if HasParam('-nodrt') then begin
   Log.Msg('Default RT disabled by -noDRT switch');
   exit;
  end;

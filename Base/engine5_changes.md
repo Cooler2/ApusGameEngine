@@ -3,6 +3,28 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Non-ANSI paths and command line under FPC on Windows (2026-10-28)
+
+Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `ExpandFileName`,
+`ChangeFileExt` and any `string(String8)` cast lose characters outside the ANSI code page
+(a folder named `Ω` or `日本` became `?`, and `FileAge(ParamStr(0))` crashed the logger).
+
+- New `Env` record (`Apus.Core`): `Env.ExeName`, `Env.ParamCount`, `Env.ParamStr(i)`,
+  `Env.GetVar(name)` - all `String8`, read through the wide Windows API (on Unix the RTL is
+  used as is). `ParamStr(0)` = `ExeName`; an index out of range gives `''`. Use them instead
+  of `ParamStr`/`ParamCount`/`GetEnvironmentVariable` wherever the value may be a path.
+- `Files`/`Folder` (`Apus.Files`) pass names to the OS losslessly; `ListFiles`/`Find` return
+  UTF-8 names, `Find` compares with Unicode case folding.
+- `Logger.UseLogFile(const name:String8; ...)` (was `name:string`). The header no longer fails
+  on such a path; if the date of the executable can't be read it says so instead.
+- `HasParam(const name:String8)`, `GetParam(const name:String8):String8` (`Apus.Utils`, were
+  `string`), read through `Env`.
+- `TAppSetup.logFile` (`appSetup.logFile` of `TGameApplication`) is `String8` (was `string`).
+- `TGameApplication.Prepare`: the previous log is renamed to `.old` even when an old `.old`
+  exists (on Windows the rename used to fail and the previous log was lost).
+- Game code: don't cast a `String8` path to `string` for an RTL file function under FPC; pass
+  it as is (the RawByteString overloads keep UTF-8) or use `Files`/`Folder`.
+
 ## UI: `TUIToolButton`, button focus by class attribute (2026-10-26)
 
 - New `TUIToolButton` (`Apus.Engine.UIWidgets`, alias in `Apus.Engine.UI`): a `TUIButton`

@@ -748,7 +748,7 @@ class function TTexture.SourceKey(const ref:String8):String8;
   if (root<>'') and result.StartsWith(root,true) then
    delete(result,1,length(root))
   else begin
-   root:=Files.FixName(String8(ParamStr(0)));
+   root:=Files.FixName(Env.ExeName);
    for i:=length(root) downto 1 do
     if root[i] in ['\','/'] then begin
      SetLength(root,i);

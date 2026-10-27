@@ -22,8 +22,8 @@ uses Apus.Core;
   function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for compatibility
   function ParseTime(st:String8;default:TDateTime=0):TDateTime;
   // command line helpers
-  function HasParam(const name:string):boolean;
-  function GetParam(const name:string):string;
+  function HasParam(const name:String8):boolean; // a parameter equal to name (case-insensitive)
+  function GetParam(const name:String8):String8; // the value of a "name=value" parameter
 
 type
   // Text encoding types
@@ -72,26 +72,26 @@ var
 implementation
 uses SysUtils, TypInfo, Apus.Conv, Apus.Strings, Apus.Log;
 
-function HasParam(const name:string):boolean;
+function HasParam(const name:String8):boolean;
  var
   i:integer;
  begin
   result:=false;
-  for i:=1 to ParamCount do
-   if SameText(name,ParamStr(i)) then exit(true);
+  for i:=1 to Env.ParamCount do
+   if Env.ParamStr(i).Same(name) then exit(true);
  end;
 
-function GetParam(const name:string):string;
+function GetParam(const name:String8):String8;
  var
   i,p:integer;
-  st:string;
+  st:String8;
  begin
   result:='';
-  for i:=1 to ParamCount do begin
-   st:=ParamStr(i);
-   p:=pos('=',st);
+  for i:=1 to Env.ParamCount do begin
+   st:=Env.ParamStr(i);
+   p:=st.IndexOf('=');
    if p=0 then continue;
-   if SameText(name,copy(st,1,p-1)) then exit(copy(st,p+1,length(st)));
+   if Copy(st,1,p-1).Same(name) then exit(Copy(st,p+1,length(st)));
   end;
  end;
 
