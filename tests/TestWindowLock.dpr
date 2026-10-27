@@ -1,8 +1,8 @@
 // TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
 // Acquire/Release, the close protocol (BeginClose, WaitReleased), the context of
 // onClickAsync threads, deferred removal of UI elements (TUIElement.Remove), keyboard
-// focus as window state, the window thread's mouse state of removed elements and
-// a scene effect replaced from its own DrawScene.
+// focus as window state, the window thread's mouse state of removed elements,
+// a scene effect replaced from its own DrawScene and the scenes destroyed with their window.
 // No native window: only the platform-independent part of TWindow.
 {$APPTYPE CONSOLE}
 program TestWindowLock;
@@ -14,6 +14,7 @@ uses
   Apus.Engine.API,
   Apus.Engine.Window,
   Apus.Engine.Scene,
+  Apus.Engine.UIScene,
   Apus.Engine.UITypes,
   Apus.Engine.UIWidgets;
 
@@ -606,6 +607,31 @@ procedure TestClose;
   EndTest;
  end;
 
+procedure TestDestroyScenes;
+ var
+  w:TWindow;
+  sc:TUIScene;
+  e:TProbe;
+ begin
+  StartTest('Scenes destroyed with their window');
+  w:=NewWindow('DestroyScenes');
+  window:=w;
+  sc:=TUIScene.Create('DestroyScenesScene',false,w);
+  Check((length(w.scenes)=1) and (w.scenes[0]=sc),'UI scene added to the window');
+  freedCount:=0;
+  e:=TProbe.Create(10,10,sc.UI,'DestroyScenesChild');
+  e.SetFocus;
+  Check(w.focus.element=e,'an element of the scene is focused');
+  w.BeginClose;
+  w.DestroyScenes;
+  Check(length(w.scenes)=0,'no scenes left');
+  Check(freedCount=1,'UI of the scene is freed');
+  Check(w.focus.element=nil,'the focus is dropped');
+  window:=nil;
+  w.Free;
+  EndTest;
+ end;
+
 procedure Worker;
  begin
   window:=nil;
@@ -662,6 +688,7 @@ begin
   TestLockContext;
   TestQueueCall;
   TestClose;
+  TestDestroyScenes;
   TestWorkerThread;
   TestAsyncClick;
   TestRemove;

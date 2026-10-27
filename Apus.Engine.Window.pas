@@ -17,6 +17,10 @@ uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene, Apus.Threads,
 
 const
  FRAME_TIME_RING_SIZE=512;
+ // An extra window starts closing (`closing`, ENGINE\WINDOW\CLOSED), and its thread destroys
+ // its scenes and the window object this much later. A thread that saw the window not
+ // closing may use it for a moment (a millisecond, not a frame) without Acquire
+ WINDOW_CLOSE_GRACE_MS=100;
 
 type
  TWindow=class;
@@ -427,7 +431,7 @@ public
   property ownerThreadID:TThreadIdent read ownerThread;
   function IsOwnerThread:boolean;
   // Set once the window starts closing; never cleared. From then on Acquire, Lock and
-  // QueueCall fail.
+  // QueueCall fail. An extra window object lives WINDOW_CLOSE_GRACE_MS longer, not more
   property closing:boolean read GetClosing;
   // Keep a reference to the window across time or threads: false once it is closing.
   // A raw window pointer kept by another thread without Acquire is unsafe.
@@ -451,6 +455,9 @@ public
   procedure ResetSceneData;
   procedure AddScene(scene:TGameScene);
   function RemoveScene(scene:TGameScene):boolean;
+  // Window's thread, closing: freeze and free all scenes of the window and their UI, while
+  // the GL context is still there (scenes free their resources)
+  procedure DestroyScenes;
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
   // Called once per frame (after ProcessMessages) to update mouse position,
   // emit MOUSE\MOVE signal and notify scenes. Buttons are handled immediately.
@@ -491,7 +498,9 @@ public
   // stays open. The app then closes it with Terminate or keeps it. Valid for one request only
   procedure ClosePending;
   // Close without asking: the main window stops the app (as Engine\Cmd\Exit), an extra window
-  // stops its loop
+  // stops its loop. An extra window is then destroyed by its own thread: it sends
+  // ENGINE\WINDOW\CLOSED (emInstant in its thread, tag - the window; drop the pointers to the
+  // window and its scenes there) and frees its scenes and itself WINDOW_CLOSE_GRACE_MS later
   procedure Terminate; virtual; abstract;
   // Pointer position from the platform (window's thread). SetPointer maps client pixels
   // to the canvas: outside the display rect the pointer is outside the canvas - the
@@ -1466,6 +1475,30 @@ function TWindow.RemoveScene(scene:TGameScene):boolean;
   finally
    UnlockState;
   end;
+ end;
+
+procedure TWindow.DestroyScenes;
+ var
+  list:TSceneArray;
+  i:integer;
+ begin
+  ASSERT(IsOwnerThread and closing);
+  LockState;
+  try
+   list:=copy(scenes);
+   scenes:=nil;
+   topmostScene:=nil;
+  finally
+   UnlockState;
+  end;
+  for i:=0 to high(list) do
+   try
+    list[i].SetStatus(TSceneStatus.ssFrozen);
+    list[i].Free; // ownerWindow is kept: a UI scene hands its UI to this window for deletion
+   except
+    on e:Exception do Log.Error('Window %s: scene destroy error: %s',[name,ExceptionMsg(e)]);
+   end;
+  DestroyQueuedElements(self);
  end;
 
 function TWindow.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;

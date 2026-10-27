@@ -1672,25 +1672,30 @@ procedure TGame.StopExtraWindows;
 var
  i,j:integer;
  list:TWindowArray;
+ threads:array of IThread;
+ names:Strings8;
 begin
+ // the threads free their windows: only the thread objects are touched after the stop request
  list:=ListWindows;
-
  for i:=0 to high(list) do
   if (list[i]<>nil) and (list[i]<>mainWindow) and (list[i].renderThread<>nil) then begin
-   list[i].BeginClose;
-   list[i].renderThread.Terminate;
+   j:=length(threads);
+   SetLength(threads,j+1);
+   threads[j]:=list[i].renderThread;
+   names.Add(list[i].name);
+   list[i].Terminate;
+   threads[j].Terminate;
   end;
 
- for i:=0 to high(list) do
-  if (list[i]<>nil) and (list[i]<>mainWindow) and (list[i].renderThread<>nil) then begin
-   j:=0;
-   while list[i].renderThread.IsRunning and (j<4000) do begin
-    CoreTime.Sleep(1);
-    inc(j);
-   end;
-   if list[i].renderThread.IsRunning then
-    Log.Msg('Warning: extra window thread did not stop in time: %s',[list[i].name]);
+ for i:=0 to high(threads) do begin
+  j:=0;
+  while threads[i].IsRunning and (j<4000) do begin
+   CoreTime.Sleep(1);
+   inc(j);
   end;
+  if threads[i].IsRunning then
+   Log.Msg('Warning: extra window thread did not stop in time: %s',[names[i]]);
+ end;
 end;
 
 function TGame.GetCursorForID(cursorID:integer):THandle;
@@ -2065,6 +2070,7 @@ procedure TGame.MainThreadLoop;
 
 function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
  var
+  closeStart:int64;
   ewCtx:PExtraWindowContext;
   settings:TGameSettings;
   callerReleasedMainContext:boolean;
@@ -2212,12 +2218,23 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     end;
   until CurrentThread.Terminating;
 
-   // cleanup
+   // cleanup: the window's thread destroys it, the others got WINDOW_CLOSE_GRACE_MS to let go
    Log.Msg('Extra window closing: %s',[wnd.name]);
+   closeStart:=CoreTime.Ticks;
    wnd.BeginClose; // also when the user closed it: no new calls, run the accepted ones
+   wnd.Show(false);
+   Signal('ENGINE\WINDOW\CLOSED',TTag(wnd));
    wnd.RunQueuedCalls;
+   while CoreTime.Ticks<closeStart+WINDOW_CLOSE_GRACE_MS do
+    CoreTime.Sleep(5);
+   wnd.DestroyScenes;
    wnd.DoneGraph;
    wnd.Close;
+   if wnd.WaitReleased(2000) then begin
+    window:=nil;
+    FreeAndNil(wnd);
+   end else
+    Log.Error('Window %s is still acquired by another thread: not freed',[wnd.name]);
   except
    on e:Exception do
     CriticalError(Format('Extra window error: %s',[ExceptionMsg(e)]));
@@ -2288,22 +2305,21 @@ function TGame.AddWindow(settings:TGameSettings;const name:String8=''):TWindow;
 
 // Close protocol: refuse new Acquire/Lock/QueueCall -> stop the window's thread (it runs
 // the accepted calls on its way out) -> wait for Acquire references -> free
+// The window's thread destroys the window: here it is only told to stop. The wait is on
+// the thread object, the window may be freed meanwhile
 procedure TGame.RemoveWindow(wnd:TWindow);
+ var
+  th:IThread;
  begin
   if wnd=nil then exit;
-  wnd.BeginClose;
-  if wnd.renderThread<>nil then begin
-   wnd.renderThread.Terminate;
-   while wnd.renderThread.IsRunning do
-    CoreTime.Sleep(1);
-   wnd.renderThread:=nil;
-  end;
-  wnd.RunQueuedCalls; // if the thread died before draining them
-  if not wnd.WaitReleased(2000) then begin
-   Log.Error('Window %s is still acquired by another thread: not freed',[wnd.name]);
-   exit;
-  end;
-  FreeAndNil(wnd);
+  ASSERT(wnd<>mainWindow,'RemoveWindow is for extra windows');
+  th:=wnd.renderThread;
+  wnd.Terminate;
+  if th=nil then exit;
+  th.Terminate;
+  if th.IsCurrent then exit; // called in the window itself: it closes after this frame
+  while th.IsRunning do
+   CoreTime.Sleep(1);
  end;
 
 { TVarTypeGameClass }
