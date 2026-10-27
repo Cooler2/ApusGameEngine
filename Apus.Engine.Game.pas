@@ -2072,6 +2072,10 @@ procedure TGame.MainThreadLoop;
 
 // --- Extra window render thread ---
 
+const
+ FRAME_ERROR_LIMIT=5; // an extra window whose frames fail so many times in a row shows the error state
+ FRAME_ERROR_RETRY_MS=2000; // in the error state a normal frame is tried again this often
+
 function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
  var
   closeStart:int64;
@@ -2085,6 +2089,17 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   sampleUs:integer;
   presented:boolean;
   w,h:integer;
+  frameErrors:integer; // frames failed in a row
+  errorState:boolean; // this frame draws the error state only
+  retryTime:int64;
+  lastError:string; // the last logged frame error: its repeats are only counted
+  repeats:integer;
+ procedure LogRepeats;
+  begin
+   if repeats>0 then
+    Log.Error('Extra window %s: the frame error repeated %d times',[wnd.name,repeats]);
+   repeats:=0;
+  end;
  begin
   result:=0;
   ewCtx:=PExtraWindowContext(ctx.Parameter);
@@ -2141,98 +2156,150 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    end;
    ewCtx:=nil; // startup context belongs to AddWindow stack and must not be used below
 
-   // frame loop
+   // frame loop: an error fails the frame, not the window; when the frames keep failing,
+   // the window shows the error state and tries a normal frame from time to time
+   frameErrors:=0;
+   retryTime:=0;
+   lastError:='';
+   repeats:=0;
    repeat
-   Thread.Ping;
-    gfx.ResetPaintState; // a failed frame must not break the next ones
-    wnd.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
-    presented:=false;
-    if wnd.timings.frameTimerReady then
-     deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000)
-    else
-     deltaUs:=20000;
-    sampleUs:=integer(Clamp(deltaUs,0,high(integer)));
-    if wnd.timings.presentSampleAccUs<=high(integer)-sampleUs then
-     inc(wnd.timings.presentSampleAccUs,sampleUs)
-    else
-     wnd.timings.presentSampleAccUs:=high(integer);
-    if wnd.frameNum>0 then
-     startUs:=wnd.frameStartUs+deltaUs
-    else
-     startUs:=0;
-    wnd.SetFrameTiming(startUs,deltaUs);
-    Timer.Start(wnd.timings.frameTimer);
-    wnd.timings.frameTimerReady:=true;
-
-    Thread.SuspendWatchdog; // the OS modal move/resize loop runs inside, see TGame.FrameLoop
-    try
-     wnd.ProcessMessages;
-    finally
-     Thread.ResumeWatchdog;
+    errorState:=frameErrors>=FRAME_ERROR_LIMIT;
+    if errorState and (CoreTime.Ticks>=retryTime) then begin
+     errorState:=false;
+     wnd.screenChanged:=true;
     end;
-    if wnd.IsTerminated then break;
-    wnd.LockState; // surface-change handlers and scene processing touch window state
     try
-     wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
-     // the pointer is sampled once per frame, as in the main window: hover follows it
-     wnd.UpdateShiftState;
-     wnd.FrameInput(true);
-     if wnd.OnFrame then
-      wnd.screenChanged:=true;
-    finally
-     wnd.UnlockState;
-    end;
+     Thread.Ping;
+     gfx.ResetPaintState; // a failed frame must not break the next ones
+     wnd.RunQueuedCalls; // TWindow.QueueCall from other threads: before input and Process
+     presented:=false;
+     if wnd.timings.frameTimerReady then
+      deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000)
+     else
+      deltaUs:=20000;
+     sampleUs:=integer(Clamp(deltaUs,0,high(integer)));
+     if wnd.timings.presentSampleAccUs<=high(integer)-sampleUs then
+      inc(wnd.timings.presentSampleAccUs,sampleUs)
+     else
+      wnd.timings.presentSampleAccUs:=high(integer);
+     if wnd.frameNum>0 then
+      startUs:=wnd.frameStartUs+deltaUs
+     else
+      startUs:=0;
+     wnd.SetFrameTiming(startUs,deltaUs);
+     Timer.Start(wnd.timings.frameTimer);
+     wnd.timings.frameTimerReady:=true;
 
-    if not wnd.screenChanged then begin
-     if minRedrawIntervalMs>0 then begin
-      inc(wnd.timings.idleRedrawAccUs,integer(Clamp(deltaUs,0,high(integer))));
-      if wnd.timings.idleRedrawAccUs>=minRedrawIntervalMs*1000 then
+     Thread.SuspendWatchdog; // the OS modal move/resize loop runs inside, see TGame.FrameLoop
+     try
+      wnd.ProcessMessages;
+     finally
+      Thread.ResumeWatchdog;
+     end;
+     if wnd.IsTerminated then break;
+     wnd.LockState; // surface-change handlers and scene processing touch window state
+     try
+      wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
+      // the pointer is sampled once per frame, as in the main window: hover follows it
+      wnd.UpdateShiftState;
+      wnd.FrameInput(true);
+      if not errorState and wnd.OnFrame then
        wnd.screenChanged:=true;
+     finally
+      wnd.UnlockState;
+     end;
+
+     if not wnd.screenChanged then begin
+      if minRedrawIntervalMs>0 then begin
+       inc(wnd.timings.idleRedrawAccUs,integer(Clamp(deltaUs,0,high(integer))));
+       if wnd.timings.idleRedrawAccUs>=minRedrawIntervalMs*1000 then
+        wnd.screenChanged:=true;
+      end else
+       wnd.timings.idleRedrawAccUs:=0;
      end else
       wnd.timings.idleRedrawAccUs:=0;
-    end else
-     wnd.timings.idleRedrawAccUs:=0;
 
-    // render
-    // drawn when not focused too, like the main window: a tool window shows live data
-    if wnd.screenChanged and (wnd.state<>TWindowState.Minimized) then begin
-     gfx.BeginPaint(nil);
-     try
-      wnd.LockState;
+     // render
+     // drawn when not focused too, like the main window: a tool window shows live data
+     if wnd.screenChanged and (wnd.state<>TWindowState.Minimized) then begin
+      gfx.BeginPaint(nil);
       try
-       gameEx.RenderScenesForWindow(wnd);
+       if errorState then
+        wnd.RenderErrorState
+       else begin
+        wnd.LockState;
+        try
+         gameEx.RenderScenesForWindow(wnd);
+        finally
+         wnd.UnlockState;
+        end;
+       end;
       finally
-       wnd.UnlockState;
+       gfx.EndPaint;
       end;
-     finally
-      gfx.EndPaint;
-     end;
-     wnd.PresentFrame;
-     inc(wnd.frameNum);
-     wnd.presentedGeneration:=wnd.surface.generation; // see TWindow.PresentRenderedFrame
-     wnd.screenChanged:=false;
-     wnd.timings.idleRedrawAccUs:=0;
-     presented:=true;
-    end else
-     CoreTime.Sleep(5);
+      wnd.PresentFrame;
+      inc(wnd.frameNum);
+      wnd.presentedGeneration:=wnd.surface.generation; // see TWindow.PresentRenderedFrame
+      wnd.screenChanged:=false;
+      wnd.timings.idleRedrawAccUs:=0;
+      presented:=true;
+     end else
+      CoreTime.Sleep(5);
 
-    if presented then begin
-     wnd.timings.PushSample(wnd.timings.presentSampleAccUs,0,0,0,0,0);
-     wnd.timings.presentSampleAccUs:=0;
-     wnd.timings.UpdateFps;
+     if presented then begin
+      wnd.timings.PushSample(wnd.timings.presentSampleAccUs,0,0,0,0,0);
+      wnd.timings.presentSampleAccUs:=0;
+      wnd.timings.UpdateFps;
+     end;
+     if not errorState and (frameErrors>0) then begin
+      if frameErrors>=FRAME_ERROR_LIMIT then begin
+       LogRepeats;
+       Log.Msg('Extra window %s: frames work again',[wnd.name]);
+      end;
+      frameErrors:=0;
+     end;
+    except
+     on e:Exception do begin
+      inc(frameErrors);
+      if ExceptionMsg(e)<>lastError then begin
+       LogRepeats;
+       lastError:=ExceptionMsg(e);
+       CriticalError(Format('Extra window %s frame error: %s',[wnd.name,lastError]));
+      end else
+       inc(repeats);
+      if frameErrors=FRAME_ERROR_LIMIT then
+       Log.Error('Extra window %s: frames keep failing, showing the error state',[wnd.name]);
+      if frameErrors>=FRAME_ERROR_LIMIT then begin
+       retryTime:=CoreTime.Ticks+FRAME_ERROR_RETRY_MS;
+       wnd.screenChanged:=true; // draw the error state
+      end;
+     end;
     end;
-  until CurrentThread.Terminating;
+   until CurrentThread.Terminating;
+   LogRepeats;
 
    // cleanup: the window's thread destroys it, the others got WINDOW_CLOSE_GRACE_MS to let go
    Log.Msg('Extra window closing: %s',[wnd.name]);
    closeStart:=CoreTime.Ticks;
    wnd.BeginClose; // also when the user closed it: no new calls, run the accepted ones
    wnd.Show(false);
-   Signal('ENGINE\WINDOW\CLOSED',TTag(wnd));
-   wnd.RunQueuedCalls;
+   // the handlers and the scene destructors are not engine code: their errors must not
+   // leave the window and its graphics alive
+   try
+    Signal('ENGINE\WINDOW\CLOSED',TTag(wnd));
+    wnd.RunQueuedCalls;
+   except
+    on e:Exception do
+     CriticalError(Format('Extra window %s closing error: %s',[wnd.name,ExceptionMsg(e)]));
+   end;
    while CoreTime.Ticks<closeStart+WINDOW_CLOSE_GRACE_MS do
     CoreTime.Sleep(5);
-   wnd.DestroyScenes;
+   try
+    wnd.DestroyScenes;
+   except
+    on e:Exception do
+     CriticalError(Format('Extra window %s: scenes destroy error: %s',[wnd.name,ExceptionMsg(e)]));
+   end;
    wnd.DoneGraph;
    wnd.Close;
    if wnd.WaitReleased(2000) then begin
@@ -2242,7 +2309,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     Log.Error('Window %s is still acquired by another thread: not freed',[wnd.name]);
   except
    on e:Exception do
-    CriticalError(Format('Extra window error: %s',[ExceptionMsg(e)]));
+    CriticalError(Format('Extra window closing error: %s',[ExceptionMsg(e)]));
   end;
   if registered and (extraWindowCount>0) then Atomic.Dec(extraWindowCount);
   multiWindowMode:=(extraWindowCount>0);

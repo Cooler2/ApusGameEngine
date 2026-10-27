@@ -579,6 +579,9 @@ public
   procedure RenderFrame(const params:TGameSettings;
     drawCursor,drawOverlays:TRenderProc);
   procedure RenderScenes(drawOverlays:TRenderProc);
+  // Instead of the scenes when the frames keep failing: red background and "ERROR",
+  // as little as possible, so it does not fail the same way
+  procedure RenderErrorState;
 
   // Coordinate transforms between client area and canvas (draw/input) space
   function ClientToCanvas(const p:TPoint):TPoint;
@@ -2333,6 +2336,25 @@ begin
     CriticalError('Window scene render error: '+ExceptionMsg(e));
   end;
   if Assigned(drawOverlays) then drawOverlays;
+ finally
+  window:=oldWindow;
+ end;
+end;
+
+procedure TWindow.RenderErrorState;
+var
+ oldWindow:TWindow;
+begin
+ oldWindow:=window;
+ window:=self;
+ try
+  try
+   SetupViewport;
+   gfx.target.Clear($FF900000);
+  except end;
+  try
+   txt.Write(0,canvasWidth/2,canvasHeight/2,$FFFFFFFF,'ERROR',taCenter);
+  except end;
  finally
   window:=oldWindow;
  end;
