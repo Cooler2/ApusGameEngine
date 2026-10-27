@@ -125,6 +125,7 @@ type
   class threadvar
    curTextures:array[0..TEX_UNIT_SCRATCH-1] of TTexture; // user stages, then engine units (see ResManGL)
    curTexChanged:cardinal; // bitmask of changed textures
+   texEpoch:integer; // textureEpoch the bound part of curTextures is valid for
 
    curTexMode:TTexMode; // encoded shader mode requested by the client code
    actualTexMode:TTexMode; // actual shader mode
@@ -1163,7 +1164,16 @@ procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
  end;
 
 procedure TGLShadersAPI.UseUnit(tex:TTexture;texUnit:integer);
+ var
+  i:integer;
  begin
+  if texEpoch<>textureEpoch then begin
+   // a texture went away, maybe in another thread (ForgetTexture covers only this one):
+   // the bound ones may be freed, the requested ones are held by the caller
+   texEpoch:=textureEpoch;
+   for i:=0 to high(curTextures) do
+    if not Bits.Get(curTexChanged,i) then curTextures[i]:=nil;
+  end;
   if curTextures[texUnit]=tex then begin
    // This texture already used, but maybe it needs update?
    if (tex<>nil) and tex.HasFlag(tfDirty) then

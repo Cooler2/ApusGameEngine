@@ -225,6 +225,10 @@ type
  var
   // May be changed at run time (tests check both paths in one process)
   glFeatures:TGLFeatures;
+  // Grows when the GL storage of a texture is deleted or replaced, in any thread. Texture
+  // caches are per thread (per GL context) and compare objects: a cache made at another
+  // value may hold a freed object or a stale name, so it is dropped
+  textureEpoch:integer;
 
  // baseline=true turns all features off (TGLContextRequest.baseline, -GLBASELINE)
  procedure DetectGLFeatures(baseline:boolean);
@@ -267,10 +271,15 @@ var
  errorTr:integer;
 
  maxAnisotropy:single=-1; // GPU limit for GL_TEXTURE_MAX_ANISOTROPY: 0 - not supported, -1 - not queried yet
+
+threadvar
+ // Mirror of the texture state of the calling thread's GL context: each window thread
+ // has its own context, a shared cache made one thread skip binds the other one did
  activeTex:integer; // currently active texture unit
  boundTex2D:array[0..TEX_UNIT_SCRATCH] of TTexture; // current texture bound
  boundTex3D:array[0..TEX_UNIT_SCRATCH] of TTexture;
  boundTex2D_Arr:array[0..TEX_UNIT_SCRATCH] of TTexture;
+ boundEpoch:integer; // textureEpoch the bound textures above are valid for
 
 {$REGION UTILS}
 function InMainThread:boolean; inline;
@@ -335,16 +344,10 @@ procedure ActiveTextureUnit(u:integer);
   activeTex:=u;
  end;
 
-procedure UnbindTex(tex:TTexture);
- var
-  i:integer;
+// The storage of a texture is deleted or replaced: the texture caches of all threads drop it
+procedure InvalidateTextureCaches;
  begin
-  for i:=0 to high(boundTex2D) do
-   if boundTex2D[i]=tex then boundTex2D[i]:=nil;
-  for i:=0 to high(boundTex3D) do
-   if boundTex3D[i]=tex then boundTex3D[i]:=nil;
-  for i:=0 to high(boundTex2D_Arr) do
-   if boundTex2D_Arr[i]=tex then boundTex2D_Arr[i]:=nil;
+  Atomic.Inc(textureEpoch);
  end;
 
 procedure DetectGLFeatures(baseline:boolean);
@@ -941,7 +944,6 @@ begin
  d:=TGLTexture(donor);
  w:=width; h:=height;
  ForgetBindings;
- UnbindTex(d);
  if shadersAPI<>nil then shadersAPI.ForgetTexture(d);
  SwapCard(texname,d.texname);
  SwapInt(width,d.width); SwapInt(height,d.height);
@@ -974,12 +976,10 @@ procedure TGLTexture.ForgetBindings;
 var
  i:integer;
 begin
- UnbindTex(self);
+ InvalidateTextureCaches;
  if shadersAPI<>nil then shadersAPI.ForgetTexture(self);
- for i:=0 to high(views) do begin
-  UnbindTex(views[i]);
+ for i:=0 to high(views) do
   if shadersAPI<>nil then shadersAPI.ForgetTexture(views[i]);
- end;
 end;
 
 constructor TGLTexture.Create;
@@ -1520,6 +1520,12 @@ function TGLTexture.IsBound(stage:integer):boolean;
  var
   target:integer;
  begin
+  if boundEpoch<>textureEpoch then begin // a texture went away: forget all
+   boundEpoch:=textureEpoch;
+   Mem.Clear(boundTex2D,sizeof(boundTex2D));
+   Mem.Clear(boundTex3D,sizeof(boundTex3D));
+   Mem.Clear(boundTex2D_Arr,sizeof(boundTex2D_Arr));
+  end;
   target:=GetTextureTarget;
   result:=false;
   case target of
@@ -2046,7 +2052,7 @@ begin
   tex.rbo:=0;
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
   tex.texname:=0;
-  UnbindTex(tex);
+  InvalidateTextureCaches;
   if shadersAPI<>nil then shadersAPI.ForgetTexture(tex); // a later shader switch rebinds the current textures
   tex.Free;
   image:=nil;
