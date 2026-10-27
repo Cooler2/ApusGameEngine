@@ -5,6 +5,7 @@ uses
   Apus.Core,
   Apus.Types,
   Apus.Threads,
+  Apus.Log,
   Apus.Strings,
   Apus.Files,
   Apus.ControlFiles,
@@ -363,6 +364,57 @@ begin
   Check(Folder.Find('targetdir',TestDir+'/find',true)<>'','find dir');
   Check(Folder.Find('targetdir',TestDir+'/find',false)='','file search skips dir');
 
+  EndTest;
+end;
+
+// Names with characters outside the ANSI code page (Ω, ů, 日本) next to Cyrillic: under FPC
+// on Windows a name passed or returned through the ANSI string API loses them. String8
+// comparisons below are byte-exact: both sides are UTF-8.
+// Non-ASCII literals are only assigned to String8 variables or passed as String8 arguments:
+// FPC converts those at compile time, while a literal inside an expression is converted at
+// run time by the widestring manager - without cwstring (Linux) it gives '?'.
+procedure TestUnicodeNames;
+var
+  folderName,dir,name,renamed,bakName,upName,copyDir,logName,logMsg,path,fixed,expected:String8;
+  list:Strings8;
+  info:TFileInfo;
+begin
+  StartTest('Non-ANSI file names');
+  folderName:='Юникод Ω 日本';
+  name:='файл Ω 日本.txt';
+  renamed:='другое ů 日本.txt';
+  bakName:='другое ů 日本.bak';
+  upName:='ДРУГОЕ Ů 日本.TXT';
+  copyDir:=' копия';
+  logName:='журнал Ω.log';
+  logMsg:='запись Ω';
+  dir:=TestDir+'/'+folderName;
+  copyDir:=dir+copyDir;
+  path:=dir+'/'+name;
+  Files.Save(path,'unicode',false);
+  Check(Files.Exists(path),'Save + Exists');
+  Check(Files.LoadAsString(path)='unicode','LoadAsString');
+  Check(Files.GetFileInfo(path,info) and (info.size=7),'GetFileInfo');
+  Files.Rename(path,dir+'/'+renamed);
+  Check(Files.Exists(dir+'/'+renamed) and not Files.Exists(path),'Rename');
+  list:=Folder.ListFiles(dir,'*.txt');
+  Check((length(list)=1) and (list[0]=dir+PathDelim+renamed),'ListFiles returns the name in UTF-8');
+  list:=Folder.ListFiles(TestDir,'*.txt',true); // the recursion joins with PathDelim
+  Check(list.IndexOf(TestDir+PathDelim+folderName+PathDelim+renamed)>=0,'recursive ListFiles enters the folder');
+  Check(Folder.Find(upName,dir)=dir+PathDelim+renamed,'Find ignores Unicode case');
+  Files.MakeBakFile(dir+'/'+renamed);
+  Check(Files.LoadAsString(dir+'/'+bakName)='unicode','MakeBakFile');
+  Check(Folder.Copy(dir,copyDir),'Folder.Copy');
+  Check(Files.LoadAsString(copyDir+'/'+bakName)='unicode','copied file');
+  Check(Folder.Delete(copyDir) and not Folder.Exists(copyDir),'Folder.Delete');
+  fixed:='Ω/日本.txt';
+  {$IFDEF MSWINDOWS}expected:='Ω\日本.txt';{$ELSE}expected:='Ω/日本.txt';{$ENDIF}
+  Check(Files.FixName(fixed)=expected,'FixName keeps the characters');
+  Logger.UseLogFile(dir+'/'+logName);
+  Log.Force(logMsg);
+  Logger.Flush;
+  Check(Files.LoadAsString(dir+'/'+logName).IndexOf('exe: '+Env.ExeName)>0,'log header');
+  Check(Files.LoadAsString(dir+'/'+logName).IndexOf(logMsg)>0,'log message');
   EndTest;
 end;
 
@@ -912,6 +964,7 @@ begin
     TestWriteCreatesFolder;
     TestListFiles;
     TestFind;
+    TestUnicodeNames;
     TestPathUtils;
     TestProviderChain;
     TestControlFileErrors;

@@ -56,7 +56,7 @@ type
 
   // Basic logger API
   Logger = record
-    class procedure UseLogFile(name:string; useThread:boolean=false; keepOpened:boolean=false); static;
+    class procedure UseLogFile(const name:String8; useThread:boolean=false; keepOpened:boolean=false); static;
     class procedure SetVerbosity(minSeverity:TSeverity=TSeverity.Info); static;
     class procedure SetDebugMirror(minSeverity:TSeverity=TSeverity.Error; enable:boolean=true); static;
     class procedure LogCacheMode(enableCache:boolean; bypassSeverity:TSeverity = TSeverity.Forced); static;
@@ -102,7 +102,7 @@ end;
 
 
 var
-  logFileName:string = '';
+  logFileName:String8 = ''; // full path; String8 - a string would lose non-ANSI characters under FPC
   minLogLevel:TSeverity = TSeverity.Info;
   logAlwaysOpened:boolean;
   logFile:file;
@@ -134,23 +134,33 @@ begin
     result:=CoreTime.Stamp+'  '+msg;
 end;
 
-function QuoteCmdArg(const st:string):string;
+function QuoteCmdArg(const st:String8):String8;
 begin
-  if (st='') or (Pos(' ',st)>0) or (Pos(#9,st)>0) or (Pos('"',st)>0) then
-    result:='"'+StringReplace(st,'"','""',[rfReplaceAll])+'"'
+  if (st='') or (st.IndexOf(' ')>0) or (st.IndexOf(#9)>0) or (st.IndexOf('"')>0) then
+    result:='"'+st.ReplaceAll('"','""')+'"'
   else
     result:=st;
 end;
 
-function BuildCmdParams:string;
+function BuildCmdParams:String8;
 var
   i:integer;
 begin
   result:='';
-  for i:=1 to ParamCount do begin
+  for i:=1 to Env.ParamCount do begin
     if result<>'' then result:=result+' ';
-    result:=result+QuoteCmdArg(ParamStr(i));
+    result:=result+QuoteCmdArg(Env.ParamStr(i));
   end;
+end;
+
+// Full path of a file name, without a trip through the ANSI code page under FPC on Windows
+function ExpandName(const name:String8):String8;
+begin
+  {$IF defined(FPC) and defined(MSWINDOWS)}
+  result:=UTF8Encode(ExpandFileName(UnicodeString(name)));
+  {$ELSE}
+  result:=String8(ExpandFileName(string(name)));
+  {$IFEND}
 end;
 
 procedure AppendLogFile(var data; size:integer);
@@ -160,7 +170,7 @@ begin
   if logAlwaysOpened then begin
     BlockWrite(logFile, data, size);
   end else begin
-    AssignFile(f, logFileName);
+    AssignFile(f,{$IFDEF FPC}logFileName{$ELSE}string(logFileName){$ENDIF});
     Reset(f, 1);
     Seek(f, FileSize(f));
     try
@@ -331,32 +341,31 @@ end;
 
 { Logger }
 
-class procedure Logger.UseLogFile(name:string; useThread:boolean; keepOpened:boolean);
+class procedure Logger.UseLogFile(const name:String8; useThread:boolean; keepOpened:boolean);
 var
-  f:TextFile;
+  f:file;
   dt:TDateTime;
-  age:integer;
-  exePath,cmdParams:string;
+  header,dateStr:String8;
 begin
   Logger.Flush;
   logLock.Enter;
   try
-    logFileName:=ExpandFileName(name);
-    exePath:=ExpandFileName(ParamStr(0));
-    cmdParams:=BuildCmdParams;
-    {$WARN SYMBOL_DEPRECATED OFF}
-    age:=FileAge(ParamStr(0));
-    {$WARN SYMBOL_DEPRECATED ON}
-    dt:=FileDateToDateTime(age);
+    logFileName:=ExpandName(name);
+    // the date of the executable; unknown if it can't be read (no exception: the logger
+    // starts before anything could report it)
+    if FileAge({$IFDEF FPC}Env.ExeName{$ELSE}string(Env.ExeName){$ENDIF},dt) then
+      dateStr:=String8(FormatDateTime('ddddd t',dt))
+    else
+      dateStr:='exe date unknown';
+    header:=dateStr+LineBreak+'exe: '+Env.ExeName+LineBreak+'params: '+BuildCmdParams+LineBreak;
     try
-      assign(f,name);
-      rewrite(f);
-      writeln(f,FormatDateTime('ddddd t',dt));
-      writeln(f,'exe: '+exePath);
-      writeln(f,'params: '+cmdParams);
-      close(f);
+      // untyped file: the header is UTF-8 bytes, a text file would convert them under FPC
+      AssignFile(f,{$IFDEF FPC}logFileName{$ELSE}string(logFileName){$ENDIF});
+      Rewrite(f,1);
+      BlockWrite(f,header[1],length(header));
+      CloseFile(f);
       if keepOpened then begin
-        AssignFile(logFile,name);
+        AssignFile(logFile,{$IFDEF FPC}logFileName{$ELSE}string(logFileName){$ENDIF});
         Reset(logFile,1);
         Seek(logFile,FileSize(logFile));
         logAlwaysOpened:=true;

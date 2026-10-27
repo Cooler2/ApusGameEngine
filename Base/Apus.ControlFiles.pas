@@ -553,9 +553,16 @@ end;
 
 // A bare include name refers to the including file's directory
 function IncludeName(const ctlName,incl:String8):String8;
+ var
+  i:integer;
  begin
-  if (pos('\',incl)=0) and (pos('/',incl)=0) then result:=String8(ExtractFilePath(string(ctlName)))+incl
-   else result:=incl;
+  if (pos('\',incl)=0) and (pos('/',incl)=0) then begin
+   // not ExtractFilePath(string(...)): under FPC that goes through the ANSI code page
+   i:=length(ctlName);
+   while (i>0) and not (ctlName[i] in ['/','\',':']) do dec(i);
+   result:=Copy(ctlName,1,i)+incl;
+  end else
+   result:=incl;
  end;
 
 function UseControlFile;

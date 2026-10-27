@@ -247,16 +247,58 @@ end;
 
 { TOSFileProvider }
 
+// --- File names for the OS functions of SysUtils ---
+// FPC takes String8 as is: it converts to the file system code page by itself, while
+// string(...) would go through the ANSI code page under Windows and lose the characters
+// it can't encode (Ω, 日本). Delphi takes UTF-16 string. FPC's path helpers that return
+// a name (ExpandFileName, ChangeFileExt) give it in the ANSI code page too - not used here.
+{$IFDEF FPC}
+type
+  TSysName=RawByteString;
+{$ELSE}
+type
+  TSysName=string;
+{$ENDIF}
+// FindFirst of FPC on Windows returns the names in the ANSI code page: search in UTF-16 there
+{$IF defined(FPC) and defined(MSWINDOWS)}
+  TSysSearchRec=TUnicodeSearchRec;
+{$ELSE}
+  TSysSearchRec=TSearchRec;
+{$IFEND}
+
+function SysName(const name:String8):TSysName; inline;
+begin
+  result:=TSysName(name);
+end;
+
+function SysFindFirst(const pattern:String8; attr:integer; out sr:TSysSearchRec):boolean;
+begin
+  {$IF defined(FPC) and defined(MSWINDOWS)}
+  result:=SysUtils.FindFirst(UnicodeString(pattern),attr,sr)=0;
+  {$ELSE}
+  result:=SysUtils.FindFirst(SysName(pattern),attr,sr)=0;
+  {$IFEND}
+end;
+
+function FoundName(const sr:TSysSearchRec):String8; inline;
+begin
+  {$IF defined(FPC) and defined(MSWINDOWS)}
+  result:=UTF8Encode(sr.Name);
+  {$ELSE}
+  result:=String8(sr.Name);
+  {$IFEND}
+end;
+
 function TOSFileProvider.FileExists(const fname:String8):boolean;
 begin
-  result:=SysUtils.FileExists(string(fname));
+  result:=SysUtils.FileExists(SysName(fname));
 end;
 
 function TOSFileProvider.GetFileInfo(const fname:String8; out info:TFileInfo):boolean;
 var
-  sr:TSearchRec;
+  sr:TSysSearchRec;
 begin
-  result:=SysUtils.FindFirst(string(fname),faAnyFile,sr)=0;
+  result:=SysFindFirst(fname,faAnyFile,sr);
   if result then begin
     info.size:=sr.Size;
     info.timestamp:=sr.TimeStamp;
@@ -267,30 +309,30 @@ end;
 
 procedure TOSFileProvider.Delete(const fname:String8);
 begin
-  SysUtils.DeleteFile(string(fname));
+  SysUtils.DeleteFile(SysName(fname));
 end;
 
 procedure TOSFileProvider.Rename(const curName,newName:String8);
 begin
-  SysUtils.RenameFile(string(curName),string(newName));
+  SysUtils.RenameFile(SysName(curName),SysName(newName));
 end;
 
 function TOSFileProvider.ListFiles(const path:String8; const mask:String8):Strings8;
 var
-  sr:TSearchRec;
+  sr:TSysSearchRec;
   cnt:integer;
-  dir:string;
+  dir:String8;
 begin
   result:=nil; cnt:=0;
-  dir:=string(path);
+  dir:=path;
   if (dir<>'') and (dir[length(dir)]=PathDelim) then
     System.Delete(dir,length(dir),1);
-  if SysUtils.FindFirst(dir+PathDelim+string(mask),faAnyFile,sr)=0 then begin
+  if SysFindFirst(dir+PathDelim+mask,faAnyFile,sr) then begin
     repeat
       if (sr.Attr and faDirectory=0) and (sr.Name<>'.') and (sr.Name<>'..') then begin
         if cnt>=length(result) then
           SetLength(result,(cnt+16)*2);
-        result[cnt]:=String8(dir+PathDelim+sr.Name);
+        result[cnt]:=dir+PathDelim+FoundName(sr);
         inc(cnt);
       end;
     until SysUtils.FindNext(sr)<>0;
@@ -321,7 +363,7 @@ end;
 
 function TOSFileProvider.OpenRead(const fname:String8):TFileHandle;
 begin
-  result:=CheckHandle(SysUtils.FileOpen(string(fname),fmOpenRead or fmShareDenyNone),fname);
+  result:=CheckHandle(SysUtils.FileOpen(SysName(fname),fmOpenRead or fmShareDenyNone),fname);
 end;
 
 // A missing parent directory is the usual reason a file cannot be created, and the
@@ -331,26 +373,26 @@ end;
 // which is not where the write goes.
 function CreateFileWithFolder(const fname:String8):THandle;
 var
-  dir:string;
+  dir:String8;
   i:integer;
 begin
-  result:=SysUtils.FileCreate(string(fname));
+  result:=SysUtils.FileCreate(SysName(fname));
   if result<>THandle(-1) then exit;
   // not ExtractFilePath: under Delphi on Windows it does not take '/' for a separator
   i:=length(fname);
   while (i>0) and not (fname[i] in ['/','\']) do dec(i);
-  dir:=string(Copy(fname,1,i));
-  if (dir='') or SysUtils.DirectoryExists(dir) then exit; // the failure is something else
-  if Folder.Create(String8(dir)) then
-    result:=SysUtils.FileCreate(string(fname));
+  dir:=Copy(fname,1,i);
+  if (dir='') or SysUtils.DirectoryExists(SysName(dir)) then exit; // the failure is something else
+  if Folder.Create(dir) then
+    result:=SysUtils.FileCreate(SysName(fname));
 end;
 
 function TOSFileProvider.Open(const fname:String8):TFileHandle;
 var
   h:THandle;
 begin
-  if SysUtils.FileExists(string(fname)) then
-    h:=SysUtils.FileOpen(string(fname),fmOpenReadWrite or fmShareDenyWrite)
+  if SysUtils.FileExists(SysName(fname)) then
+    h:=SysUtils.FileOpen(SysName(fname),fmOpenReadWrite or fmShareDenyWrite)
   else
     h:=CreateFileWithFolder(fname);
   result:=CheckHandle(h,fname);
@@ -648,40 +690,51 @@ end;
 
 class procedure Files.MakeBakFile(const fname:String8);
 var
-  bakName:string;
+  bakName:String8;
+  i:integer;
 begin
-  bakName:=SysUtils.ChangeFileExt(string(fname),'.bak');
-  if SysUtils.FileExists(bakName) then
-    SysUtils.DeleteFile(bakName);
-  if SysUtils.FileExists(string(fname)) then
-    SysUtils.RenameFile(string(fname),bakName);
+  // the extension replaced by hand: ChangeFileExt of FPC returns an ANSI name
+  i:=length(fname);
+  while (i>0) and not (fname[i] in ['.','/','\']) do dec(i);
+  if (i>0) and (fname[i]='.') then bakName:=Copy(fname,1,i-1)+'.bak'
+    else bakName:=fname+'.bak';
+  if SysUtils.FileExists(SysName(bakName)) then
+    SysUtils.DeleteFile(SysName(bakName));
+  if SysUtils.FileExists(SysName(fname)) then
+    SysUtils.RenameFile(SysName(fname),SysName(bakName));
 end;
 
 { Folder record }
 
 class function Folder.Exists(const path:String8):boolean;
 begin
-  result:=SysUtils.DirectoryExists(string(path));
+  result:=SysUtils.DirectoryExists(SysName(path));
 end;
 
 class function Folder.Create(const path:String8):boolean;
 begin
+  {$IFDEF FPC}
+  result:=SysUtils.ForceDirectories(SysName(path)); // ExpandFileName of FPC returns an ANSI name
+  {$ELSE}
   // Delphi's ForceDirectories rejects a bare relative name (empty parent), so expand first
   result:=SysUtils.ForceDirectories(SysUtils.ExpandFileName(string(path)));
+  {$ENDIF}
 end;
 
 class function Folder.Writable(const path:String8):boolean;
 var
-  probe:string;
+  probe:String8;
   f:file;
 begin
   result:=false;
-  if not SysUtils.DirectoryExists(string(path)) then exit;
+  if not SysUtils.DirectoryExists(SysName(path)) then exit;
   // Probe by creating and deleting a throwaway file: the read-only case we care
   // about (a signed macOS .app's Contents/Resources) can't be told from perms
   // alone, so ask the filesystem directly.
-  probe:=SysUtils.IncludeTrailingPathDelimiter(string(path))+'.apus_write_test.tmp';
-  AssignFile(f,probe);
+  probe:=path;
+  if (probe<>'') and not (probe[length(probe)] in ['/','\']) then probe:=probe+PathDelim;
+  probe:=probe+'.apus_write_test.tmp';
+  AssignFile(f,SysName(probe));
   {$UNDEF APUS_FILES_IOCHECK_ON}
   {$IFOPT I+}{$DEFINE APUS_FILES_IOCHECK_ON}{$ENDIF}
   {$I-}
@@ -690,19 +743,19 @@ begin
   if result then CloseFile(f);
   {$IFDEF APUS_FILES_IOCHECK_ON}{$I+}{$ENDIF}
   {$UNDEF APUS_FILES_IOCHECK_ON}
-  if result then SysUtils.DeleteFile(probe);
+  if result then SysUtils.DeleteFile(SysName(probe));
 end;
 
 class function Folder.ListFiles(const path:String8; const mask:String8; recursive:boolean):Strings8;
 var
   masks:array of String8;
   mCnt,cnt,i,j,start:integer;
-  sr:TSearchRec;
-  dir:string;
+  sr:TSysSearchRec;
+  dir:String8;
   sub:Strings8;
 begin
   result:=nil; cnt:=0;
-  dir:=string(path);
+  dir:=path;
   if (length(dir)>0) and (dir[length(dir)]=PathDelim) then
     SetLength(dir,length(dir)-1);
 
@@ -727,7 +780,7 @@ begin
 
   // list files for each mask via provider
   for i:=0 to mCnt-1 do begin
-    sub:=fileSystem.ListFiles(String8(dir),masks[i]);
+    sub:=fileSystem.ListFiles(dir,masks[i]);
     for j:=0 to length(sub)-1 do begin
       if cnt>=length(result) then
         SetLength(result,(cnt+16)*2);
@@ -738,10 +791,10 @@ begin
 
   // recurse into subdirectories (OS-level enumeration)
   if recursive then begin
-    if SysUtils.FindFirst(dir+PathDelim+'*',faAnyFile,sr)=0 then begin
+    if SysFindFirst(dir+PathDelim+'*',faAnyFile,sr) then begin
       repeat
         if (sr.Attr and faDirectory<>0) and (sr.Name<>'.') and (sr.Name<>'..') then begin
-          sub:=ListFiles(String8(dir+PathDelim+sr.Name),mask,true);
+          sub:=ListFiles(dir+PathDelim+FoundName(sr),mask,true);
           for j:=0 to length(sub)-1 do begin
             if cnt>=length(result) then
               SetLength(result,(cnt+16)*2);
@@ -759,30 +812,31 @@ end;
 
 class function Folder.Find(const name,path:String8; findDir:boolean):String8;
 var
-  sr:TSearchRec;
-  dir:string;
+  sr:TSysSearchRec;
+  lowName,found:String8;
   isDir:boolean;
 begin
   result:='';
-  dir:=string(path);
-  if SysUtils.FindFirst(dir+PathDelim+'*',faAnyFile,sr)=0 then begin
+  lowName:=name.ToLower; // Unicode case folding: SameText folds ASCII only
+  if SysFindFirst(path+PathDelim+'*',faAnyFile,sr) then begin
     repeat
       if (sr.Name='.') or (sr.Name='..') then continue;
       isDir:=sr.Attr and faDirectory<>0;
+      found:=FoundName(sr);
       if isDir then begin
-        if findDir and SysUtils.SameText(sr.Name,string(name)) then begin
-          result:=String8(dir+PathDelim+sr.Name);
+        if findDir and (found.ToLower=lowName) then begin
+          result:=path+PathDelim+found;
           SysUtils.FindClose(sr);
           exit;
         end;
-        result:=Find(name,String8(dir+PathDelim+sr.Name),findDir); // recurse
+        result:=Find(name,path+PathDelim+found,findDir); // recurse
         if result<>'' then begin
           SysUtils.FindClose(sr);
           exit;
         end;
       end else begin
-        if not findDir and SysUtils.SameText(sr.Name,string(name)) then begin
-          result:=String8(dir+PathDelim+sr.Name);
+        if not findDir and (found.ToLower=lowName) then begin
+          result:=path+PathDelim+found;
           SysUtils.FindClose(sr);
           exit;
         end;
@@ -794,20 +848,19 @@ end;
 
 class function Folder.Copy(const sour,dest:String8):boolean;
 var
-  sr:TSearchRec;
-  sSour,sDest:string;
+  sr:TSysSearchRec;
+  found:String8;
 begin
   result:=true;
-  sSour:=string(sour);
-  sDest:=string(dest);
   Folder.Create(dest); // not ForceDirectories directly: it needs an expanded path under Delphi
-  if SysUtils.FindFirst(sSour+PathDelim+'*',faAnyFile,sr)=0 then begin
+  if SysFindFirst(sour+PathDelim+'*',faAnyFile,sr) then begin
     repeat
       if (sr.Name='.') or (sr.Name='..') then continue;
+      found:=FoundName(sr);
       if sr.Attr and faDirectory<>0 then
-        result:=Copy(String8(sSour+PathDelim+sr.Name),String8(sDest+PathDelim+sr.Name)) and result
+        result:=Copy(sour+PathDelim+found,dest+PathDelim+found) and result
       else
-        result:=Files.CopyFile(String8(sSour+PathDelim+sr.Name),String8(sDest+PathDelim+sr.Name)) and result;
+        result:=Files.CopyFile(sour+PathDelim+found,dest+PathDelim+found) and result;
     until SysUtils.FindNext(sr)<>0;
     SysUtils.FindClose(sr);
   end;
@@ -822,22 +875,22 @@ end;
 
 class function Folder.Delete(const path:String8):boolean;
 var
-  sr:TSearchRec;
-  dir:string;
+  sr:TSysSearchRec;
+  found:String8;
 begin
   result:=true;
-  dir:=string(path);
-  if SysUtils.FindFirst(dir+PathDelim+'*',faAnyFile,sr)=0 then begin
+  if SysFindFirst(path+PathDelim+'*',faAnyFile,sr) then begin
     repeat
       if (sr.Name='.') or (sr.Name='..') then continue;
+      found:=FoundName(sr);
       if sr.Attr and faDirectory<>0 then
-        result:=Delete(String8(dir+PathDelim+sr.Name)) and result
+        result:=Delete(path+PathDelim+found) and result
       else
-        result:=SysUtils.DeleteFile(dir+PathDelim+sr.Name) and result;
+        result:=SysUtils.DeleteFile(SysName(path+PathDelim+found)) and result;
     until SysUtils.FindNext(sr)<>0;
     SysUtils.FindClose(sr);
   end;
-  result:=SysUtils.RemoveDir(dir) and result;
+  result:=SysUtils.RemoveDir(SysName(path)) and result;
 end;
 
 { Files record — path utilities }
@@ -846,7 +899,7 @@ class function Files.SafeName(const fname:String8):String8;
 var
   i:integer;
 begin
-  result:=String8(StringReplace(string(fname),'..','.',[rfReplaceAll]));
+  result:=fname.ReplaceAll('..','.');
   for i:=1 to length(result) do
     if not (result[i] in ['A'..'Z','a'..'z','0'..'9','-','_','.']) then
       result[i]:='_';
@@ -854,18 +907,21 @@ end;
 
 class function Files.FixName(const fname:String8):String8;
 var
-  i:integer;
-  s:string;
+  i,p:integer;
 begin
-  s:=string(fname);
-  for i:=0 to length(fileNameRules)-1 do
-    s:=StringReplace(s,string(fileNameRules[i]),string(fileNameRules[i]),[rfIgnoreCase]);
-  {$IFDEF MSWINDOWS}
-  s:=StringReplace(s,'/','\',[rfReplaceAll]);
-  {$ELSE}
-  s:=StringReplace(s,'\','/',[rfReplaceAll]);
-  {$ENDIF}
-  result:=String8(s);
+  // String8 throughout: a round trip through string loses non-ANSI characters under FPC
+  result:=fname;
+  for i:=0 to length(fileNameRules)-1 do begin
+    p:=result.IndexOf(fileNameRules[i],1,true);
+    if p>0 then
+      result:=Copy(result,1,p-1)+fileNameRules[i]+Copy(result,p+length(fileNameRules[i]),length(result));
+  end;
+  for i:=1 to length(result) do
+    {$IFDEF MSWINDOWS}
+    if result[i]='/' then result[i]:='\';
+    {$ELSE}
+    if result[i]='\' then result[i]:='/';
+    {$ENDIF}
 end;
 
 class procedure Files.AddFixNameRule(const rule:String8);
@@ -877,7 +933,7 @@ class function Files.IsPathRelative(const fname:String8):boolean;
 begin
   result:=true;
   if (length(fname)>0) and (fname[1]='/') then exit(false);
-  if Pos(':',string(fname))>0 then exit(false);
+  if fname.IndexOf(':')>0 then exit(false);
 end;
 
 class function Files.WaitFor(const fname:String8; delayLimit:integer; exists:boolean):boolean;
