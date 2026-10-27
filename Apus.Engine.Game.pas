@@ -1362,11 +1362,17 @@ begin
    Timing;
  end else
  if event.Same('REDRAW') then begin
+  // the platform signals in the thread of the window: an extra window draws in its own
+  // loop, the main frame path is not for it
+  if window<>mainWindow then begin
+   if window<>nil then window.screenChanged:=true;
+  end else
   if game.running then
    RenderAndPresentFrame;
   end else
  if event.Same('SETACTIVE') then begin
-  Activate(tag<>0);
+  if window=mainWindow then Activate(tag<>0)
+   else window.active:=tag<>0; // an extra window: its own flag only
  end;
 end;
 
@@ -2157,9 +2163,9 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd.LockState; // surface-change handlers and scene processing touch window state
     try
      wnd.ApplyPendingSurface; // rebuild the surface in this window's own thread
-     // no per-frame pointer sampling here (buttons sample it), only the virtual input
+     // the pointer is sampled once per frame, as in the main window: hover follows it
      wnd.UpdateShiftState;
-     wnd.FrameInput(false);
+     wnd.FrameInput(true);
      if wnd.OnFrame then
       wnd.screenChanged:=true;
     finally
@@ -2177,7 +2183,8 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
      wnd.timings.idleRedrawAccUs:=0;
 
     // render
-    if wnd.active and wnd.screenChanged then begin
+    // drawn when not focused too, like the main window: a tool window shows live data
+    if wnd.screenChanged then begin
      gfx.BeginPaint(nil);
      try
       wnd.LockState;
