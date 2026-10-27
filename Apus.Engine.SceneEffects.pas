@@ -119,7 +119,10 @@ begin
  ASSERT(result<>nil,'Scene '+scene.name+' has no owner window');
 end;
 
-// Keep buf at the window render size divided by divider; reallocated when the surface changes
+// Keep buf at the window render size divided by divider; reallocated when the surface changes.
+// Every effect instance owns its buffers and effects may overlap (a transition starts while
+// another one plays, or in another window), so the name gets the '_' prefix: not unique,
+// stays out of the global name registry
 procedure EnsureSceneBuffer(var buf:TTexture;wnd:TWindow;flags:cardinal;const name:String8;divider:integer=1);
 var
  w,h:integer;
@@ -128,7 +131,7 @@ begin
  h:=Max(1,wnd.surface.renderSize.cy div divider);
  if (buf<>nil) and (buf.width=w) and (buf.height=h) then exit;
  if buf<>nil then FreeImage(buf);
- buf:=AllocImage(w,h,pfRenderTarget,flags,name);
+ buf:=AllocImage(w,h,pfRenderTarget,flags,'_'+name);
 end;
 
 // Start drawing into buf with the canvas of wnd stretched over it
