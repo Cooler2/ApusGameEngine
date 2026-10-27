@@ -757,15 +757,21 @@ begin
 end;
 
 procedure TestString32Case;
-var s:String32;
+var
+  s:String32;
+  upper,lower:String8;
 begin
   StartTest('String32.Case');
   s:=UTF8.Decode('Hello World');
   Check(UTF8.Encode(s.ToUpper)='HELLO WORLD','ToUpper');
   Check(UTF8.Encode(s.ToLower)='hello world','ToLower');
   s:=UTF8.Decode('Ёж Σοφία');
-  Check(UTF8.Encode(s.ToUpper)='ЁЖ ΣΟΦΊΑ','Unicode ToUpper');
-  Check(UTF8.Encode(s.ToLower)='ёж σοφία','Unicode ToLower');
+  // expected values in variables: a non-ASCII literal compared directly is converted at
+  // run time, which gives '?' without cwstring (Linux)
+  upper:='ЁЖ ΣΟΦΊΑ';
+  lower:='ёж σοφία';
+  Check(UTF8.Encode(s.ToUpper)=upper,'Unicode ToUpper');
+  Check(UTF8.Encode(s.ToLower)=lower,'Unicode ToLower');
   EndTest;
 end;
 
