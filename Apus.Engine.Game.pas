@@ -113,7 +113,8 @@ type
   defaultFontsDPI:single; // canvas DPI the built-in font handles were built for
 
   // Debug utilities
-  debug:TDebugState;
+  debug:TDebugState; // one debug layer for all windows
+  debugWindow:TWindow; // the debug layer is drawn here: the last activated window (nil - the main one)
 
   procedure ApplyNewSettings; virtual; // apply newParams to params - must be called from main thread!
   procedure SetVSync(divider:integer);
@@ -1371,6 +1372,7 @@ begin
    RenderAndPresentFrame;
   end else
  if event.Same('SETACTIVE') then begin
+  if tag<>0 then debugWindow:=window; // when no window is active, the layer stays in the last one
   if window=mainWindow then Activate(tag<>0)
    else window.active:=tag<>0; // an extra window: its own flag only
  end;
@@ -1565,12 +1567,14 @@ end;
 procedure TGame.DrawOverlays;
 var
  i:integer;
+ debugLayer:boolean;
 begin
  FLog('RDebug');
- DrawDebugOverlays(debug);
+ debugLayer:=(window=debugWindow) or ((debugWindow=nil) and (window=mainWindow));
+ if debugLayer then DrawDebugOverlays(debug);
  DrawNotifications; // product-facing toasts, share the same draw-last overlay slot
  // Navigation points (needs protected field)
- if dfShowNavigationPoints in debug.features then begin
+ if debugLayer and (dfShowNavigationPoints in debug.features) then begin
   for i:=0 to high(activeCustomPoints) do
    with activeCustomPoints[i] do
     draw.FillRect(x-10,y-10,x+10,y+10,$70E00000);
@@ -2283,6 +2287,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    closeStart:=CoreTime.Ticks;
    wnd.BeginClose; // also when the user closed it: no new calls, run the accepted ones
    wnd.Show(false);
+   if gameEx.debugWindow=wnd then gameEx.debugWindow:=nil; // the debug layer goes to the main window
    // the handlers and the scene destructors are not engine code: their errors must not
    // leave the window and its graphics alive
    try
