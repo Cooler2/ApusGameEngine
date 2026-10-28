@@ -28,6 +28,9 @@ Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `E
   leading dot is not one), `ChangeExt`. Use them instead of `ExtractFilePath`/`ExtractFileDir`/
   `ExtractFileName`/`ExtractFileExt`/`ChangeFileExt`: separators are `/` and `\` everywhere
   (plus `:` on Windows) under both compilers, and no ANSI conversion happens.
+- `Files.GetFullName` (2026-10-29): the absolute name in UTF-8 instead of `ExpandFileName`
+  (under FPC on Windows it loses non-ANSI characters, the current folder's ones included).
+  '.' and '..' are resolved as text, the file may not exist.
 - `Logger.UseLogFile(const name:String8; ...)` (was `name:string`). The header no longer fails
   on such a path; if the date of the executable can't be read it says so instead.
 - `HasParam(const name:String8)`, `GetParam(const name:String8):String8` (`Apus.Utils`, were

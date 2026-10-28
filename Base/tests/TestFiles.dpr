@@ -9,7 +9,9 @@ uses
   Apus.Strings,
   Apus.Files,
   Apus.ControlFiles,
-  Apus.Translation;
+  Apus.Translation
+  {$IFDEF MSWINDOWS},Windows{$ENDIF}
+  {$IF defined(FPC) and defined(UNIX)},BaseUnix{$IFEND};
 
 {$INCLUDE Test.inc}
 
@@ -481,6 +483,49 @@ begin
   Check(Files.GetPath(udir+uname)=udir,'GetPath keeps UTF-8');
   uname:='.данные';
   Check(Files.GetExt(udir+'x'+uname)=uname,'GetExt keeps UTF-8');
+  EndTest;
+end;
+
+// The current folder through the OS: SetCurrentDir of FPC loses non-ANSI names on Windows
+function ChangeDir(const dir:String8):boolean;
+begin
+  {$IFDEF MSWINDOWS}
+  result:=SetCurrentDirectoryW(PWideChar(UnicodeString(dir)));
+  {$ELSE}
+  result:=fpchdir(PAnsiChar(dir))=0;
+  {$ENDIF}
+end;
+
+procedure TestFullName;
+var
+  orig,work,base,uname,sub:String8;
+begin
+  StartTest('Full name');
+  Check(Files.GetFullName('')='','empty name');
+  orig:=Files.GetFullName('.');
+  Check(not Files.IsPathRelative(orig),'current folder is absolute');
+  // literals in variables: see TestUnicodeNames
+  work:='Workspace Ω 日本';
+  uname:='Ω.png';
+  sub:='日本';
+  Folder.Create(TestDir+'/'+work);
+  base:=orig+PathDelim+TestDir+PathDelim+work;
+  Check(ChangeDir(TestDir+'/'+work),'enter a non-ANSI folder');
+  try
+    Check(Files.GetFullName(uname)=base+PathDelim+uname,'relative name in a non-ANSI current folder');
+    Check(Files.GetFullName('sub\..\'+uname)=base+PathDelim+uname,'".." resolved');
+    Check(Files.GetFullName('./sub/./'+sub+'/')=base+PathDelim+'sub'+PathDelim+sub+PathDelim,'trailing delimiter kept');
+    Check(Files.GetFullName(base+PathDelim+uname)=base+PathDelim+uname,'absolute name unchanged');
+  finally
+    ChangeDir(orig);
+  end;
+  Check(Files.GetFullName('.')=orig,'current folder restored');
+  {$IFDEF MSWINDOWS}
+  Check(Files.GetFullName('C:\a\..\..\b')='C:\b','never above the root');
+  {$ELSE}
+  Check(Files.GetFullName('/a/../../b')='/b','never above the root');
+  Check(Files.GetFullName('/a/..')='/','root');
+  {$ENDIF}
   EndTest;
 end;
 
@@ -1068,6 +1113,7 @@ begin
     TestLogTail;
     TestPathUtils;
     TestNameParts;
+    TestFullName;
     TestProviderChain;
     TestControlFileErrors;
     TestControlFileTypes;
