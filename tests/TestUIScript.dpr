@@ -69,17 +69,23 @@ function Near(a,b:single):boolean;
  end;
 
 procedure TestStrings;
+ var
+  hint,text:String8;
  begin
   StartTest('String fields');
+  // expected values in variables: a non-ASCII literal compared directly is converted at
+  // run time, which gives '?' without cwstring (Linux)
+  hint:='Привет';
+  text:='Текст';
   ExecCmd('TBtn.caption="Hello"');
   Check(btn.caption='Hello','caption: '+btn.caption);
   ExecCmd('TBtn.hint="Привет"');
-  Check(btn.hint='Привет','hint keeps UTF-8: '+btn.hint);
+  Check(btn.hint=hint,'hint keeps UTF-8: '+btn.hint);
   ExecCmd('TImg.src="res/pic"');
   Check(img.src='res/pic','image src: '+img.src);
   ExecCmd('TEdit.text="Текст"');
-  Check(UTF8.Encode(edit.realText)='Текст','edit box text'); // String32 is an array: = compares pointers
-  Check(Ask('TEdit.text')='Текст','edit box text reads back: '+Ask('TEdit.text'));
+  Check(UTF8.Encode(edit.realText)=text,'edit box text'); // String32 is an array: = compares pointers
+  Check(Ask('TEdit.text')=text,'edit box text reads back: '+Ask('TEdit.text'));
   EndTest;
  end;
 
