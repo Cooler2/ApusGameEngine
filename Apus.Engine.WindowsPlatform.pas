@@ -48,6 +48,7 @@ type
   graphInfo:TOpenGLContextDesc;
   wasMaximized:boolean; // maximize on the next switch to the window mode (start or return from fullscreen)
   configured:boolean;   // Configure was called: the startup state is applied
+  normalRect:TRect;     // the normal (restored) window rect left for fullscreen, empty if none: the window returns there
   function CustomFrameActive:boolean;
   function FrameHitTestAt(const p:TPoint;const client:TRect):integer;
   procedure ApplySizeLimits(var info:TMinMaxInfo);
@@ -1431,13 +1432,14 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
   r,work:TRect;
   style:cardinal;
   w,h:integer;
-  windowed,zoomed:boolean;
+  windowed,zoomed,wasWindowed:boolean;
  begin
    Log.Msg('Configure window %s: %s, frame %d',[name,params.mode.ToString,ord(params.frame)]);
    // The window modes keep the standard style whatever the frame is: maximizing to the work
    // area, Win+arrows, snap and the system menu depend on it. An app-drawn frame only removes
    // the non-client area (WM_NCCALCSIZE)
    windowed:=params.mode in [dmWindow,dmFixedWindow];
+   wasWindowed:=configured and (GetWindowLong(window,GWL_STYLE) and WS_CAPTION<>0);
    if not configured then begin // startup state: only the resizable window is maximized
     configured:=true;
     wasMaximized:=params.maximized and (dmWindow in [params.mode,params.altMode]);
@@ -1456,6 +1458,7 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
     windows.ShowWindow(window,SW_RESTORE);
     zoomed:=false;
    end;
+   if wasWindowed and not windowed then GetWindowRect(window,normalRect); // restored above if it was maximized
    SetWindowLong(window,GWL_STYLE,longint(style));
 
    w:=params.width;
@@ -1463,6 +1466,15 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    if windowed and zoomed then // a maximized window keeps its place, only the frame is updated
     SetWindowPos(window,0,0,0,0,0,SWP_APPLY or SWP_NOMOVE or SWP_NOSIZE)
    else
+   if windowed and not normalRect.IsEmpty then begin // back from fullscreen: the rect it had
+    r:=normalRect;
+    normalRect:=Rect(0,0,0,0);
+    work:=MonitorWorkArea(r); // the monitor may be gone or changed: keep the window inside the work area
+    r.Right:=r.Left+Min(r.Width,work.Width);
+    r.Bottom:=r.Top+Min(r.Height,work.Height);
+    r.Offset(Clamp(r.Left,work.Left,work.Right-r.Width)-r.Left,Clamp(r.Top,work.Top,work.Bottom-r.Height)-r.Top);
+    SetWindowPos(window,0,r.left,r.top,r.Width,r.Height,SWP_APPLY);
+   end else
    if windowed then begin
     GetWindowRect(window,r);
     work:=MonitorWorkArea(r);

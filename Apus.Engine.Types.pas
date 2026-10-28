@@ -171,6 +171,7 @@ type
   refresh:integer;   // display refresh rate (0 - default)
   vSync:integer;     // 0 - max FPS, N - FPS = refresh/N
   mode,altMode:TDisplayMode; // primary and alternate display mode (Alt+Enter)
+  altEnter:boolean; // [Alt]+[Enter] switches to altMode (TGame.SwitchToAltSettings does it anyway)
   frame:TWindowFrame; // frame of the window modes
   maximized:boolean; // create the window maximized (dmWindow only); width/height is then the normal size.
                      // Applied once at creation: a fullscreen start goes to the maximized window on [Alt]+[Enter]

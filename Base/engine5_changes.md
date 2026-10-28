@@ -3,6 +3,16 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Window: Alt+Enter switch, return from fullscreen, window.state (2026-10-29)
+
+- `windowSetup.altEnter` (`TWindowSetup`, default `true`) → `TGameSettings.altEnter`: `false`
+  turns off the built-in [Alt]+[Enter], the app assigns its own keys and calls
+  `game.SwitchToAltSettings`. Internal hotkeys that fired don't reach the scenes any more.
+- Leaving fullscreen returns the window to the rect it had before (was: centered with the
+  settings size), maximized as before; on SDL the window keeps the geometry SDL restores.
+- Robot API: `window.state [STATE=normal|maximized|minimized|fullscreen|windowed]`, and the
+  `state` field in `windows` (`robot_api_protocol.md`).
+
 ## Cursor handles are pointer-sized (2026-10-29)
 
 - New `TCursorHandle=NativeUInt` (`Apus.Engine.API`): native cursor handles in

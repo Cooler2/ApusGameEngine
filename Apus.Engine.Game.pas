@@ -318,7 +318,7 @@ begin
   result:=false;
   if pressed then begin
    // Alt+Enter - switch display settings
-   if (TKey(keyCode and $FF)=TKey.Enter) and (window.shiftstate and sscAlt>0) then
+   if (TKey(keyCode and $FF)=TKey.Enter) and (window.shiftstate and sscAlt>0) and params.altEnter then
       if (params.mode<>params.altMode) and
          (params.altMode<>dmNone) then begin
        SwitchToAltSettings;
@@ -737,6 +737,22 @@ function ValidateMainWindowParam(const req:TRobotRequest; out error:String8):boo
   result:=false;
  end;
 
+function IsFullscreenMode(mode:TDisplayMode):boolean;
+ begin
+  result:=mode in [dmFullScreen,dmSwitchResolution];
+ end;
+
+// fullscreen, or the state of the window mode: normal, maximized, minimized
+function WindowStateName:String8;
+ begin
+  if IsFullscreenMode(TGame(game).params.mode) then exit('fullscreen');
+  case window.state of
+   TWindowState.Maximized:result:='maximized';
+   TWindowState.Minimized:result:='minimized';
+   else result:='normal';
+  end;
+ end;
+
 function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
@@ -749,7 +765,8 @@ begin
     '  screenDPI: '+Conv.ToStr(window.surface.dpi)+LineBreak+
     '  screenScale: '+Conv.ToStr(game.screenScale,2)+LineBreak+
     '  displayRect: '+Conv.ToStr(window.displayRect.Left)+','+Conv.ToStr(window.displayRect.Top)+','+
-      Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+LineBreak;
+      Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+LineBreak+
+    '  state: '+WindowStateName+LineBreak;
   result:=true;
 end;
 
@@ -834,6 +851,86 @@ function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean
   p:=Types.Point(0,0);
   window.ClientToScreen(p);
   body:=WindowGeometryReport(p);
+  result:=true;
+ end;
+
+var
+  windowStateReqId:String8=''; // window.state request waiting for the state
+  windowStateStart:int64=0;    // when it was applied, ms
+
+const
+  WINDOW_STATE_TIMEOUT=5000; // ms to wait for the requested window state
+
+// Switch the main window to the state, false with the error if it can't be done from the current one
+function ApplyWindowState(g:TGame;const target:String8;out error:String8):boolean;
+ var
+  fullscreen:boolean;
+ begin
+  result:=false;
+  fullscreen:=IsFullscreenMode(g.params.mode);
+  if target='fullscreen' then begin
+   if fullscreen then exit(true);
+   if not IsFullscreenMode(g.params.altMode) then begin
+    error:='no fullscreen mode to switch to (altMode)'; exit;
+   end;
+   g.SwitchToAltSettings;
+  end else
+  if target='windowed' then begin // leave fullscreen for the window state it had
+   if not fullscreen then exit(true);
+   if not (g.params.altMode in [dmWindow,dmFixedWindow]) then begin
+    error:='no window mode to switch to (altMode)'; exit;
+   end;
+   g.SwitchToAltSettings;
+  end else
+  if (target='normal') or (target='maximized') or (target='minimized') then begin
+   if fullscreen then begin
+    error:='the window is fullscreen: STATE=windowed first'; exit;
+   end;
+   if (target='maximized') and (g.params.mode<>dmWindow) then begin
+    error:='only a resizable window can be maximized'; exit;
+   end;
+   if target='normal' then window.Restore
+    else if target='maximized' then window.Maximize
+     else window.Minimize;
+  end else begin
+   error:='unknown STATE: '+target+' (normal, maximized, minimized, fullscreen, windowed)'; exit;
+  end;
+  result:=true;
+ end;
+
+function RobotCmdWindowState(const req:TRobotRequest; out body:String8):boolean;
+ var
+  g:TGame;
+  target:String8;
+  reached:boolean;
+  p:TPoint;
+ begin
+  g:=game as TGame;
+  if g=nil then begin body:='game not initialized'; exit(false) end;
+  if not ValidateMainWindowParam(req,body) then exit(false);
+  target:=req.Param('STATE').ToLower;
+  if windowStateReqId<>req.id then begin // a new request
+   if (target<>'') and not ApplyWindowState(g,target,body) then exit(false);
+   windowStateReqId:=req.id;
+   windowStateStart:=CoreTime.Ticks;
+  end;
+  // the state changes asynchronously: answer when the platform reports it
+  window.ProcessMessages;
+  if target='windowed' then reached:=not IsFullscreenMode(g.params.mode)
+   else reached:=(target='') or (WindowStateName=target);
+  if not reached and (CoreTime.Ticks-windowStateStart<WINDOW_STATE_TIMEOUT) then begin
+   body:=PENDING_TOKEN;
+   exit(true);
+  end;
+  windowStateReqId:='';
+  if not reached then begin
+   body:='state not reached in '+Conv.ToStr(WINDOW_STATE_TIMEOUT)+' ms: '+WindowStateName;
+   exit(false);
+  end;
+  window.ApplyPendingSurface;
+  p:=Types.Point(0,0);
+  window.ClientToScreen(p);
+  body:='state: '+WindowStateName+LineBreak+WindowGeometryReport(p);
   result:=true;
  end;
 
@@ -1084,6 +1181,7 @@ begin
   RegisterRobotCommand('windows',@RobotCmdWindows);
   RegisterRobotCommand('window.move',@RobotCmdWindowMove);
   RegisterRobotCommand('window.resize',@RobotCmdWindowResize);
+  RegisterRobotCommand('window.state',@RobotCmdWindowState);
   RegisterRobotCommand('fps',@RobotCmdFps);
   RegisterRobotCommand('scenes',@RobotCmdScenes);
   RegisterRobotCommand('screenshot',@RobotCmdScreenshot);

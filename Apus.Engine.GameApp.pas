@@ -42,6 +42,7 @@ interface
   TWindowSetup=record
    size:TSize;           // client area size
    fullscreen:boolean;   // start fullscreen ([Alt]+[Enter] switches to the window mode)
+   altEnter:boolean;     // [Alt]+[Enter] switches fullscreen <-> window; false - the app assigns its own keys (game.SwitchToAltSettings)
    maximized:boolean;    // start maximized (resizable window only); size is the normal (restored) size
    frame:TWindowFrame;   // window frame in the window mode: OS or drawn by the app (TWindow.frameHitTest)
    resizable:boolean;    // user can resize the window
@@ -417,6 +418,7 @@ procedure TWindowSetup.Init;
  begin
   size:=MakeSize(1024,768);
   fullscreen:=false;
+  altEnter:=true;
   maximized:=false;
   frame:=TWindowFrame.System;
   resizable:=false;
@@ -1090,6 +1092,7 @@ begin
     else mode:=winDispMode;
    if windowSetup.fullscreen then altMode:=winDispMode
     else altMode:=dmFullScreen;
+   altEnter:=windowSetup.altEnter;
    frame:=windowSetup.frame;
    maximized:=windowSetup.maximized;
    if maximized and not windowSetup.resizable then
