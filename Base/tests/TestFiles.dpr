@@ -418,6 +418,38 @@ begin
   EndTest;
 end;
 
+// Logger.GetTail: the end of the active log file, messages still in the cache included
+procedure TestLogTail;
+var
+  name,keptName,tail,full:String8;
+begin
+  StartTest('Log tail');
+  name:=TestDir+'/tail.log';
+  keptName:=TestDir+'/kept.log';
+  Logger.UseLogFile(name);
+  Logger.LogCacheMode(true);
+  Log.Force('tail first');
+  Log.Msg('tail cached'); // below the bypass severity: stays in the cache
+  tail:=Logger.GetTail(100000);
+  Check(tail.StartsWith(Files.LoadAsString(name,20)),'a short log is returned whole');
+  Check(tail.EndsWith('tail cached'+LineBreak),'cached message is included');
+  full:=Files.LoadAsString(name);
+  Check(full=tail,'the cache is written to the file');
+  Check(Logger.GetTail(10)=Copy(full,length(full)-9,10),'last bytes');
+  Check(Logger.GetTail(0)='','zero size');
+  // a log kept opened is read through its handle, writing goes on at the end
+  Logger.UseLogFile(keptName,false,true);
+  Log.Force('kept first');
+  Check(Logger.GetTail(100).EndsWith('kept first'+LineBreak),'kept opened log');
+  Log.Force('kept second');
+  Logger.UseLogFile(name); // closes the kept file
+  full:=Files.LoadAsString(keptName);
+  Check(full.EndsWith('kept second'+LineBreak) and (full.IndexOf('kept first')>0),'writing goes on at the end');
+  Check(Logger.GetTail(100000)=Files.LoadAsString(name),'switched to another file');
+  Logger.LogCacheMode(false);
+  EndTest;
+end;
+
 procedure TestNameParts;
 var
   uname,udir:String8;
@@ -1033,6 +1065,7 @@ begin
     TestListFiles;
     TestFind;
     TestUnicodeNames;
+    TestLogTail;
     TestPathUtils;
     TestNameParts;
     TestProviderChain;

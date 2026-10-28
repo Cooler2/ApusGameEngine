@@ -1130,6 +1130,7 @@ Logging functions extracted from `Apus.Common` into new unified API.
 | `StopLogThread` | `Logger.StopLogThread` | same name |
 | — | `Logger.SetCustomHandler(handler,disable)` | **NEW**: interceptor support for Apus.Logging refactor |
 | — | `Logger.GetErrorCount` | **NEW**: returns error/fatal counter |
+| — | `Logger.GetTail(maxSize)` | **NEW**: last bytes of the active log file, cached messages included; the caller needs no path (2026-10-28) |
 
 ### Severity levels (TSeverity enum)
 
