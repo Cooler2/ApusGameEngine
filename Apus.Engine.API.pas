@@ -795,6 +795,9 @@ type
   procedure BeginPaint(target:TTexture=nil);
   // Finish drawing block
   procedure EndPaint;
+  // Start of a frame: drop the paint state a failed frame could leave (nested BeginPaint,
+  // saved render targets, masks and clipping rects) in the calling thread
+  procedure ResetPaintState;
   // Set cull mode
   procedure SetCullMode(mode:TCullMode);
 

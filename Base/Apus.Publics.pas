@@ -33,6 +33,8 @@ interface
    class function GetField(variable:pointer;fieldName:String8;out varClass:TVarClass):pointer; virtual;
    // Return the list of all fields (comma-separated)
    class function ListFields:String8; virtual;
+   // Fields of this particular variable, when they depend on its value (default: ListFields)
+   class function ListFieldsOf(variable:pointer):String8; virtual;
   end;
 
   // List type, syntax: name[index] where index is string (may be integer)
@@ -76,6 +78,17 @@ interface
   end;
 
   TVarTypeWideString=class(TVarType)
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
+  end;
+
+  TVarTypeString32=class(TVarType)
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
+  end;
+
+  // NativeInt variable (pointer-sized)
+  TVarTypeNativeInt=class(TVarTypeInteger)
    class procedure SetValue(variable:pointer;v:String8); override;
    class function GetValue(variable:pointer):String8; override;
   end;
@@ -755,6 +768,30 @@ class procedure TVarTypeWideString.SetValue(variable:pointer;v:String8);
   PWideString(variable)^:=UTF8.ToWide(v);
  end;
 
+{ TVarTypeString32 }
+
+class function TVarTypeString32.GetValue(variable:pointer):String8;
+ begin
+  result:=UTF8.Encode(PString32(variable)^);
+ end;
+
+class procedure TVarTypeString32.SetValue(variable:pointer;v:String8);
+ begin
+  PString32(variable)^:=UTF8.Decode(v);
+ end;
+
+{ TVarTypeNativeInt }
+
+class function TVarTypeNativeInt.GetValue(variable:pointer):String8;
+ begin
+  result:=Conv.ToStr(int64(NativeInt(variable^)));
+ end;
+
+class procedure TVarTypeNativeInt.SetValue(variable:pointer;v:String8);
+ begin
+  NativeInt(variable^):=Conv.ToInt(v);
+ end;
+
 
 { TVarType }
 
@@ -772,7 +809,7 @@ class function TVarTypeStruct.GetValue(variable:pointer):String8;
   f:pointer;
   vc:TVarClass;
  begin
-  sa:=ListFields.Split(',');
+  sa:=ListFieldsOf(variable).Split(',');
   for i:=0 to length(sa)-1 do begin
    f:=GetField(variable,sa[i],vc);
    if f<>nil then
@@ -792,6 +829,11 @@ class function TVarType.GetValue(variable:pointer):String8;
 class function TVarTypeStruct.ListFields:String8;
  begin
   result:='';
+ end;
+
+class function TVarTypeStruct.ListFieldsOf(variable:pointer):String8;
+ begin
+  result:=ListFields;
  end;
 
 { TVarTypeArray }
@@ -839,7 +881,7 @@ end;
 class function TVarTypeRect2s.GetField(variable:pointer;fieldName:String8;
   out varClass:TVarClass):pointer;
 begin
- varClass:=TVarTypeInteger;
+ varClass:=TVarTypeSingle;
  with PRect2(variable)^ do
   if fieldname='x1' then result:=@(x1) else
   if fieldname='y1' then result:=@(y1) else
@@ -890,7 +932,7 @@ end;
 
 class function TVarTypeSingle.GetValue(variable:pointer):String8;
 begin
- result:=FloatToStr(PSingle(variable)^);
+ result:=FloatToStrF(PSingle(variable)^,ffGeneral,6,0); // 6 digits: the last bit of a single is noise
 end;
 
 class procedure TVarTypeSingle.SetValue(variable:pointer;v:String8);

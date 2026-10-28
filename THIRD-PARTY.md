@@ -7,11 +7,12 @@ the tree. It exists so that a project shipping a build of this engine can see, i
 one place, what it is redistributing and what each piece asks for.
 
 Every prebuilt library below is under a permissive licence — zlib, MIT, or the
-FreeType License. Redistribution asks only that the notice travels with the
-binary: there is no obligation to publish sources, and nothing here restricts
-commercial use. Two things need more care and are flagged where they appear: the
-BASS headers (the library itself is commercial and is *not* shipped) and a few
-interface translations inherited in `Base/extra/`.
+FreeType License; the embedded default font is under the SIL Open Font License.
+Redistribution asks only that the notice travels with the binary: there is no
+obligation to publish sources, and nothing here restricts commercial use. Two
+things need more care and are flagged where they appear: the BASS headers (the
+library itself is commercial and is *not* shipped) and a few interface
+translations inherited in `Base/extra/`.
 
 ## Runtime libraries (prebuilt binaries in the repository)
 
@@ -46,6 +47,21 @@ Linux builds link the distribution's own SDL2/SDL2_mixer packages; the
 WebP decoder is vendored under redist/linux/. Files sitting in `bin/`/`bin64/` from local builds
 but *not* tracked by git (assimp, steam_api, ImxEx, D3DX8 and other leftovers)
 are not part of the repository and are not covered here.
+
+## Embedded data (compiled into the executable)
+
+Third-party data the engine carries inside its own source, so it ends up in the
+executable itself rather than in a separate file. Provenance is recorded in
+`redist/common/SOURCES.txt`, the licence texts are in `redist/common/licenses/`.
+
+| Component | Version | Location | Linked when | Licence | Notice |
+|---|---|---|---|---|---|
+| Open Sans Regular | 3.000 | `defaultFont.inc` (TTF bytes) | `FREETYPE` - the default vector font | SIL OFL 1.1 | `redist/common/licenses/OpenSans-OFL.txt` |
+
+The OFL allows bundling the font with any software, commercial included, as long
+as every copy carries its copyright notice and the licence (OFL §2). The font
+cannot be sold on its own, and a modified version may not be called "Open Sans"
+(a Google trademark).
 
 ## Vendored source code
 
@@ -103,9 +119,11 @@ ship, `IMixEx.pas` belongs to the Win32-only audio backend that R-28 retires, an
 ## What a product built on the engine redistributes
 
 If a game ships the Windows build output, it ships SDL2, SDL2_mixer, libxmp,
-FreeType, LodePNG, and libwebpdecoder. Practically that means: keep the licence texts from
-`redist/windows/licenses/` with the distribution (a `licenses/` folder or an
-in-game credits screen), and credit FreeType. Nothing else is required.
+FreeType, LodePNG, and libwebpdecoder; a build with `FREETYPE` also carries the
+Open Sans font inside the executable. Practically that means: keep the licence
+texts from `redist/windows/licenses/` and `redist/common/licenses/` with the
+distribution (a `licenses/` folder or an in-game credits screen), and credit
+FreeType. Nothing else is required.
 
 ## Adding a component
 

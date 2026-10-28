@@ -66,7 +66,10 @@ implementation
   newWindowSignalPath:String8='Demo\Cmd\NewWindow';
   reselectSignalPath:String8='Demo\Cmd\ReselectFonts';
   largeFontsSignalPath:String8='Demo\Cmd\LargeFonts';
-  probes:array of TProbeScene; // every scene that draws the probe
+  probes:array of record // every scene that draws the probe
+   scene:TProbeScene;
+   wnd:TWindow; // its window: compared only, the scene is freed with the window
+  end;
   largeFonts:boolean=false;
   fontScale:single=1.0; // what we last asked txt.SetScale for
 
@@ -74,6 +77,7 @@ implementation
  procedure OnNewWindowCmd(event:TEventStr;tag:TTag); forward;
  procedure OnReselectCmd(event:TEventStr;tag:TTag); forward;
  procedure OnLargeFontsCmd(event:TEventStr;tag:TTag); forward;
+ procedure OnWindowClosed(event:TEventStr;tag:TTag); forward;
  procedure AddProbe(scene:TProbeScene); forward;
 
 { TMultiWindowApp }
@@ -112,6 +116,7 @@ begin
  SetEventHandler(newWindowSignalPath,OnNewWindowCmd,emQueued);
  SetEventHandler(reselectSignalPath,OnReselectCmd,emQueued);
  SetEventHandler(largeFontsSignalPath,OnLargeFontsCmd,emQueued);
+ SetEventHandler('ENGINE\WINDOW\CLOSED',OnWindowClosed,emQueued);
  mainScene:=TMainScene.Create;
  mainScene.CreateUI;
  AddProbe(mainScene);
@@ -228,7 +233,18 @@ procedure AddProbe(scene:TProbeScene);
 begin
  scene.ResolveCtorFont;
  SetLength(probes,length(probes)+1);
- probes[high(probes)]:=scene;
+ probes[high(probes)].scene:=scene;
+ probes[high(probes)].wnd:=TWindow(scene.ownerWindow);
+end;
+
+// A tool window is closing: its scene goes with it. Queued to the control thread - the
+// one that walks the probes (the window object lives on for WINDOW_CLOSE_GRACE_MS)
+procedure OnWindowClosed(event:TEventStr;tag:TTag);
+var
+ i:integer;
+begin
+ for i:=high(probes) downto 0 do
+  if probes[i].wnd=TWindow(tag) then Delete(probes,i,1);
 end;
 
 // The program-wide font size knob: one value for the whole application, not a
@@ -249,7 +265,7 @@ procedure OnReselectCmd(event:TEventStr;tag:TTag);
 var
  i:integer;
 begin
- for i:=0 to high(probes) do probes[i].ResolveCtorFont;
+ for i:=0 to high(probes) do probes[i].scene.ResolveCtorFont;
  UILabel('Main\Status').caption:='Sample A re-resolved';
 end;
 

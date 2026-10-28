@@ -19,7 +19,9 @@ redist/
 ```
 
 Currently populated: `linux/` (WebP), `macos/`, `ios/` and `ios-simulator/` (SDL2), plus
-`windows/` — which is paperwork only. The Windows DLLs stay in `bin/`, `bin64/`
+`windows/` — which is paperwork only. `common/` is paperwork only as well: it covers
+data compiled into the engine on every platform (the default Open Sans font in
+`defaultFont.inc`). The Windows DLLs stay in `bin/`, `bin64/`
 and `Base/bin/`, where the build output needs them; re-vendoring them here would
 double their weight, and moving them would not reclaim any repository size
 either, since git history keeps them regardless. `redist/windows/` therefore

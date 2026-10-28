@@ -161,6 +161,8 @@ type
   // attached again (see `deleted`). Direct Free is for the window's own thread outside
   // handlers.
   procedure Remove;
+  // Remove the root UI element of a scene that is being destroyed (TUIScene.Destroy)
+  procedure RemoveSceneRoot;
   // Keep the element alive across threads: a held element may be removed, but it is not
   // freed until released. False if it is already removed.
   function Acquire:boolean;
@@ -294,6 +296,7 @@ type
   function InSubtree(e:TUIElement):boolean; // e is self or a descendant
   function SubtreeHeld:boolean;
   procedure ForgetSubtree(wnd:TWindow); // drop references to the subtree from window/thread state
+  procedure RemoveIn(wnd:TWindow); // Remove for an element of this window (nil - of none)
   procedure FreeChildren;
   function GetClientWidth:single;
   function GetClientHeight:single;
@@ -1758,13 +1761,26 @@ procedure TUIElement.MarkDeleted;
   end;
 
  procedure TUIElement.Remove;
+  begin
+   ASSERT(ownerScene=nil,'A scene root UI element is freed with its scene');
+   RemoveIn(GetWindow); // before Detach: a detached element has no window
+  end;
+
+ procedure TUIElement.RemoveSceneRoot;
   var
    wnd:TWindow;
+  begin
+   ASSERT((ownerScene<>nil) and (parent=nil));
+   wnd:=GetWindow; // through the scene
+   ownerScene:=nil;
+   RemoveIn(wnd);
+  end;
+
+ procedure TUIElement.RemoveIn(wnd:TWindow);
+  var
    n:integer;
    freeNow:boolean;
   begin
-   ASSERT(ownerScene=nil,'A scene root UI element is freed with its scene');
-   wnd:=GetWindow; // before Detach: a detached element has no window
    freeNow:=false;
    if wnd<>nil then wnd.LockState;
    try

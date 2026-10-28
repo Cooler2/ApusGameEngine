@@ -174,7 +174,8 @@ var
 
   procedure DrawHelp;
    const
-    lines:array[1..12] of String8=(
+    // the UI inspector is linked by GameApp in debug builds only
+    lines:array[1..{$IFDEF DEBUG}13{$ELSE}12{$ENDIF}] of String8=(
      '[Alt+F1] - show/hide debug overlays',
      '  [Alt+1] this help page (hold modifier)',
      '  [Alt+2] glyphs cache',
@@ -183,6 +184,7 @@ var
      '',
      '[Shift+Alt+F1] - dump debug logs',
      '[Alt+F3] - toggle magnifier',
+     {$IFDEF DEBUG}'[Ctrl+Shift+I] - UI inspector',{$ENDIF}
      '[Win+~] - show console',
      '[Alt+F11] - toggle VSync',
      '[F12] - take a screenshot (JPEG)',

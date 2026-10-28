@@ -80,8 +80,11 @@ compile_only tests/TestTextureNPOT.dpr # needs a GL window: run locally
 compile_only tests/TestBlendModes.dpr # needs a GL window: run locally
 compile_only tests/TestPixelGrid.dpr # needs a GL window: run locally
 compile_only tests/TestCulling.dpr # needs a GL window: run locally
+compile_only tests/TestSceneEffectBuffers.dpr # needs a GL window: run locally
 run_test tests/TestStyle.dpr
 run_test tests/TestUIHint.dpr
+run_test tests/TestUIScript.dpr
+run_test tests/TestUIInspector.dpr
 run_test tests/TestWindowLock.dpr
 run_test tests/TestVirtualMouse.dpr
 run_test tests/TestSurface.dpr

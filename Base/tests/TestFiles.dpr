@@ -5,6 +5,7 @@ uses
   Apus.Core,
   Apus.Types,
   Apus.Threads,
+  Apus.Log,
   Apus.Strings,
   Apus.Files,
   Apus.ControlFiles,
@@ -416,6 +417,91 @@ begin
   Check(Folder.Find('targetdir',TestDir+'/find',true)<>'','find dir');
   Check(Folder.Find('targetdir',TestDir+'/find',false)='','file search skips dir');
 
+  EndTest;
+end;
+
+// Names with characters outside the ANSI code page (Ω, ů, 日本) next to Cyrillic: under FPC
+// on Windows a name passed or returned through the ANSI string API loses them. String8
+// comparisons below are byte-exact: both sides are UTF-8.
+// Non-ASCII literals are only assigned to String8 variables or passed as String8 arguments:
+// FPC converts those at compile time, while a literal inside an expression is converted at
+// run time by the widestring manager - without cwstring (Linux) it gives '?'.
+procedure TestUnicodeNames;
+var
+  folderName,dir,name,renamed,bakName,upName,copyDir,logName,logMsg,path,fixed,expected:String8;
+  list:Strings8;
+  info:TFileInfo;
+begin
+  StartTest('Non-ANSI file names');
+  folderName:='Юникод Ω 日本';
+  name:='файл Ω 日本.txt';
+  renamed:='другое ů 日本.txt';
+  bakName:='другое ů 日本.bak';
+  upName:='ДРУГОЕ Ů 日本.TXT';
+  copyDir:=' копия';
+  logName:='журнал Ω.log';
+  logMsg:='запись Ω';
+  dir:=TestDir+'/'+folderName;
+  copyDir:=dir+copyDir;
+  path:=dir+'/'+name;
+  Files.Save(path,'unicode',false);
+  Check(Files.Exists(path),'Save + Exists');
+  Check(Files.LoadAsString(path)='unicode','LoadAsString');
+  Check(Files.GetFileInfo(path,info) and (info.size=7),'GetFileInfo');
+  Files.Rename(path,dir+'/'+renamed);
+  Check(Files.Exists(dir+'/'+renamed) and not Files.Exists(path),'Rename');
+  list:=Folder.ListFiles(dir,'*.txt');
+  Check((length(list)=1) and (list[0]=dir+PathDelim+renamed),'ListFiles returns the name in UTF-8');
+  list:=Folder.ListFiles(TestDir,'*.txt',true); // the recursion joins with PathDelim
+  Check(list.IndexOf(TestDir+PathDelim+folderName+PathDelim+renamed)>=0,'recursive ListFiles enters the folder');
+  Check(Folder.Find(upName,dir)=dir+PathDelim+renamed,'Find ignores Unicode case');
+  Files.MakeBakFile(dir+'/'+renamed);
+  Check(Files.LoadAsString(dir+'/'+bakName)='unicode','MakeBakFile');
+  Check(Folder.Copy(dir,copyDir),'Folder.Copy');
+  Check(Files.LoadAsString(copyDir+'/'+bakName)='unicode','copied file');
+  Check(Folder.Delete(copyDir) and not Folder.Exists(copyDir),'Folder.Delete');
+  fixed:='Ω/日本.txt';
+  {$IFDEF MSWINDOWS}expected:='Ω\日本.txt';{$ELSE}expected:='Ω/日本.txt';{$ENDIF}
+  Check(Files.FixName(fixed)=expected,'FixName keeps the characters');
+  Logger.UseLogFile(dir+'/'+logName);
+  Log.Force(logMsg);
+  Logger.Flush;
+  Check(Files.LoadAsString(dir+'/'+logName).IndexOf('exe: '+Env.ExeName)>0,'log header');
+  Check(Files.LoadAsString(dir+'/'+logName).IndexOf(logMsg)>0,'log message');
+  EndTest;
+end;
+
+procedure TestNameParts;
+var
+  uname,udir:String8;
+begin
+  StartTest('Name parts');
+  Check(Files.GetPath('dir/sub/file.txt')='dir/sub/','GetPath');
+  Check(Files.GetPath('a\b/file.txt')='a\b/','GetPath takes both delimiters');
+  Check(Files.GetPath('file.txt')='','GetPath without a folder');
+  Check(Files.GetDir('dir/sub/file.txt')='dir/sub','GetDir');
+  Check(Files.GetDir('/file.txt')='/','GetDir keeps the root');
+  Check(Files.GetDir('file.txt')='','GetDir without a folder');
+  Check(Files.GetName('dir/sub/file.txt')='file.txt','GetName');
+  Check(Files.GetName('dir/sub/')='','GetName of a folder');
+  Check(Files.GetExt('dir/file.tar.gz')='.gz','GetExt takes the last dot');
+  Check(Files.GetExt('dir.v2/file')='','GetExt ignores a dot in the folder');
+  Check(Files.GetExt('dir/.gitignore')='','GetExt: a leading dot is not an extension');
+  Check(Files.ChangeExt('dir/file.txt','.bak')='dir/file.bak','ChangeExt');
+  Check(Files.ChangeExt('dir.v2/file','.bak')='dir.v2/file.bak','ChangeExt adds an extension');
+  Check(Files.ChangeExt('dir/file.txt','')='dir/file','ChangeExt removes an extension');
+  Check(Files.ChangeExt('dir/.gitignore','.bak')='dir/.gitignore.bak','ChangeExt keeps a leading dot');
+  {$IFDEF MSWINDOWS}
+  Check(Files.GetName('C:file.txt')='file.txt','GetName after a drive');
+  Check(Files.GetDir('C:\file.txt')='C:\','GetDir keeps a drive root');
+  {$ENDIF}
+  // literals in variables: see TestUnicodeNames
+  uname:='日本 Ω.данные';
+  udir:='Юникод Ω/';
+  Check(Files.GetName(udir+uname)=uname,'GetName keeps UTF-8');
+  Check(Files.GetPath(udir+uname)=udir,'GetPath keeps UTF-8');
+  uname:='.данные';
+  Check(Files.GetExt(udir+'x'+uname)=uname,'GetExt keeps UTF-8');
   EndTest;
 end;
 
@@ -843,6 +929,40 @@ begin
   EndTest;
 end;
 
+// Keys with non-ASCII letters: stored and looked up keys are cased the same way, and the
+// lookup ignores the case of such letters too. Literals in variables: see TestUnicodeNames
+procedure TestControlFileUnicodeKeys;
+var
+  prev:IFileProvider;
+  h:integer;
+  root,width,widthUp,section,title,titleLow,value,height,heightLow,text:String8;
+begin
+  StartTest('Control file non-ASCII keys');
+  width:='Ширина'; widthUp:='ШИРИНА';
+  section:='Окно';
+  title:='Заголовок'; titleLow:='окно\заголовок';
+  value:='Ω 日本';
+  height:='Высота'; heightLow:='высота';
+  text:=width+' 640'#13#10'$Section '+section+#13#10'  '+title+' "'+value+'"'#13#10'$EndOfSection'#13#10;
+  prev:=Files.GetProvider;
+  Files.SetProvider(TMemFileProvider.Create(prev));
+  try
+    root:='ключи.ctl';
+    Files.Save('vfs/'+root,text,false);
+    h:=UseControlFile('vfs/'+root);
+    root:=root+':\';
+    Check(ctlGetInt(root+width,-1)=640,'ctl: key as written');
+    Check(ctlGetInt(root+widthUp,-1)=640,'ctl: key in another case');
+    Check(ctlGetStr(root+titleLow,'')=value,'ctl: key in a section');
+    ctlSetInt(root+height,480);
+    Check(ctlGetInt(root+heightLow,-1)=480,'ctl: created key');
+    FreeControlFile(h);
+  finally
+    Files.SetProvider(prev);
+  end;
+  EndTest;
+end;
+
 // Fixes of the stage 1 of the config redesign: each block failed on the previous code
 procedure TestControlFileFixes;
 const
@@ -966,11 +1086,14 @@ begin
     TestListFiles;
     TestListItems;
     TestFind;
+    TestUnicodeNames;
     TestPathUtils;
+    TestNameParts;
     TestProviderChain;
     TestControlFileErrors;
     TestControlFileTypes;
     TestControlFileFixes;
+    TestControlFileUnicodeKeys;
 
     Cleanup;
 

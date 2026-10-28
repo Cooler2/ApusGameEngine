@@ -389,6 +389,20 @@ var
   // side effects (the writer creates the dir). Safe to call more than once.
   procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
 
+// =============================================================================
+// Env scope - the running process: executable, command line, environment
+// =============================================================================
+// UTF-8 on every platform and compiler. Use instead of ParamStr/ParamCount and
+// SysUtils.GetEnvironmentVariable: under FPC on Windows those go through the ANSI
+// code page and lose the characters it can't encode (a path with Ω or 日本).
+type
+  Env=record
+    class function ExeName:String8; static;                  // full path of the executable
+    class function ParamCount:integer; static;                // arguments, without the executable
+    class function ParamStr(index:integer):String8; static;   // 1..ParamCount, '' outside; 0 - ExeName, as in RTL
+    class function GetVar(const name:String8):String8; static; // environment variable, '' if not set
+  end;
+
 
 // =============================================================================
 // Mem scope - memory operations
@@ -2567,6 +2581,89 @@ begin
 end;
 {$ENDIF}
 
+// --- Env -----------------------------------------------------------------------
+
+var
+  envExeName:String8;
+  envParams:array of String8; // command-line arguments, [0] - the first one after the executable
+
+{$IFDEF MSWINDOWS}
+function CommandLineToArgvW(cmdLine:PWideChar;out numArgs:integer):PPWideChar; stdcall; external 'shell32.dll';
+
+// Read once at startup in UTF-16: the ANSI ParamStr of FPC loses what the code page can't encode
+procedure InitEnv;
+ var
+  buf:UnicodeString;
+  len,i,n:integer;
+  argv:PPWideChar;
+ begin
+  len:=MAX_PATH;
+  repeat
+   SetLength(buf,len);
+   n:=GetModuleFileNameW(0,PWideChar(buf),len);
+   if n<len then break; // a truncated name fills the buffer: grow it
+   len:=len*2;
+  until len>65536;
+  SetLength(buf,n);
+  if buf<>'' then envExeName:=UTF8Encode(buf)
+   else envExeName:=String8(System.ParamStr(0));
+  argv:=CommandLineToArgvW(GetCommandLineW,n);
+  if argv=nil then exit;
+  if n>1 then SetLength(envParams,n-1);
+  for i:=1 to n-1 do
+   envParams[i-1]:=UTF8Encode(UnicodeString(PPWideChar(PByte(argv)+i*SizeOf(PWideChar))^));
+  LocalFree(HLOCAL(argv));
+ end;
+{$ELSE}
+procedure InitEnv;
+ var
+  i:integer;
+ begin
+  envExeName:=String8(System.ParamStr(0));
+  SetLength(envParams,System.ParamCount);
+  for i:=1 to System.ParamCount do
+   envParams[i-1]:=String8(System.ParamStr(i));
+ end;
+{$ENDIF}
+
+class function Env.ExeName:String8;
+ begin
+  result:=envExeName;
+ end;
+
+class function Env.ParamCount:integer;
+ begin
+  result:=length(envParams);
+ end;
+
+class function Env.ParamStr(index:integer):String8;
+ begin
+  if index=0 then exit(envExeName);
+  if (index<1) or (index>length(envParams)) then exit('');
+  result:=envParams[index-1];
+ end;
+
+class function Env.GetVar(const name:String8):String8;
+ {$IFDEF MSWINDOWS}
+ var
+  wName,buf:UnicodeString;
+  n:cardinal;
+ begin
+  result:='';
+  wName:=UnicodeString(name);
+  n:=GetEnvironmentVariableW(PWideChar(wName),nil,0); // size with #0, 0 - not set
+  if n=0 then exit;
+  SetLength(buf,n);
+  n:=GetEnvironmentVariableW(PWideChar(wName),PWideChar(buf),n);
+  SetLength(buf,n);
+  result:=UTF8Encode(buf);
+ end;
+ {$ELSE}
+ begin
+  result:=String8(SysUtils.GetEnvironmentVariable(string(name)));
+ end;
+ {$ENDIF}
+
 // --- Standard storage directories --------------------------------------------
 
 function AppendDelim(const s:String8):String8;
@@ -2579,36 +2676,54 @@ function AppendDelim(const s:String8):String8;
 function GetSystemTempDir:String8;
  {$IFDEF MSWINDOWS}
  var
-  buf:array[0..MAX_PATH] of char;
+  buf:array[0..MAX_PATH] of WideChar;
   len:cardinal;
  begin
-  len:=Windows.GetTempPath(Length(buf),@buf[0]);
-  if (len>0) and (len<Length(buf)) then
-   result:=String8(PChar(@buf[0]))
+  len:=GetTempPathW(Length(buf),@buf[0]); // UTF-16: the ANSI version loses non-ANSI user names
+  if (len>0) and (len<cardinal(Length(buf))) then
+   result:=UTF8Encode(UnicodeString(PWideChar(@buf[0])))
   else begin
-   result:=String8(SysUtils.GetEnvironmentVariable('TEMP'));
-   if result='' then result:=String8(SysUtils.GetEnvironmentVariable('TMP'));
+   result:=Env.GetVar('TEMP');
+   if result='' then result:=Env.GetVar('TMP');
   end;
   if result='' then result:='.';
   result:=AppendDelim(result);
  end;
  {$ELSE}
  begin
-  result:=String8(SysUtils.GetEnvironmentVariable('TMPDIR'));
+  result:=Env.GetVar('TMPDIR');
   if result='' then result:='/tmp';
   result:=AppendDelim(result);
  end;
  {$ENDIF}
 
+// The folder of the executable (with the delimiter) and its name without the extension.
+// Scanned as UTF-8 bytes: the RTL path functions take string - ANSI under FPC on Windows
+procedure SplitExeName(out dir,name:String8);
+ var
+  exe:String8;
+  i,dot:integer;
+ begin
+  exe:=Env.ExeName;
+  i:=length(exe);
+  while (i>0) and not (exe[i] in ['\','/']) do dec(i);
+  dir:=Copy(exe,1,i);
+  name:=Copy(exe,i+1,length(exe)-i);
+  dot:=length(name);
+  while (dot>0) and (name[dot]<>'.') do dec(dot);
+  if dot>1 then SetLength(name,dot-1);
+ end;
+
 procedure InitBaseDir;
  var
-  exeDir:String8;
+  exeDir,exeName:String8;
   {$IFDEF DARWIN}
   suffix:String8;
   {$ENDIF}
  begin
   bundleMode:=false;
-  exeDir:=AppendDelim(String8(ExtractFilePath(ParamStr(0))));
+  SplitExeName(exeDir,exeName);
+  exeDir:=AppendDelim(exeDir);
   {$IFDEF DARWIN}
   // Inside a macOS/iOS .app the executable sits in Contents/MacOS/; resources
   // live in the sibling Contents/Resources/. Detect that layout and redirect.
@@ -2639,13 +2754,13 @@ function SanitizeDirName(const name:String8):String8;
 
 procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
  var
-  name,home:String8;
+  name,home,exeDir:String8;
  begin
   name:=SanitizeDirName(appName);
-  if name='' then name:=String8(ChangeFileExt(ExtractFileName(ParamStr(0)),''));
+  if name='' then SplitExeName(exeDir,name);
   {$IF defined(DARWIN)}
   // ~/Library — resolved via $HOME so a sandboxed (App Store) container works too.
-  home:=String8(GetEnvironmentVariable('HOME'));
+  home:=Env.GetVar('HOME');
   if bundleId<>'' then AppDataDir:=home+'/Library/Application Support/'+bundleId+'/'
    else AppDataDir:=home+'/Library/Application Support/'+name+'/';
   LogDir:=home+'/Library/Logs/'+name+'/';
@@ -2657,21 +2772,21 @@ procedure SetupStorageDirs(const appName:String8; const bundleId:String8='');
   LogDir:=AppDataDir;
   TempDir:=GetSystemTempDir+name+'/';
   {$ELSEIF defined(MSWINDOWS)}
-  home:=String8(SysUtils.GetEnvironmentVariable('APPDATA'));
-  if home='' then home:=String8(SysUtils.GetEnvironmentVariable('USERPROFILE'))+'\AppData\Roaming';
+  home:=Env.GetVar('APPDATA');
+  if home='' then home:=Env.GetVar('USERPROFILE')+'\AppData\Roaming';
   AppDataDir:=AppendDelim(home)+name+'\';
-  home:=String8(SysUtils.GetEnvironmentVariable('LOCALAPPDATA'));
+  home:=Env.GetVar('LOCALAPPDATA');
   if home='' then home:=AppDataDir
    else home:=AppendDelim(home)+name+'\';
   LogDir:=home+'Logs\';
   TempDir:=GetSystemTempDir+name+'\';
   {$ELSE}
   // Linux / generic Unix — XDG Base Directory spec with $HOME fallbacks.
-  home:=String8(GetEnvironmentVariable('HOME'));
-  AppDataDir:=String8(GetEnvironmentVariable('XDG_DATA_HOME'));
+  home:=Env.GetVar('HOME');
+  AppDataDir:=Env.GetVar('XDG_DATA_HOME');
   if AppDataDir='' then AppDataDir:=home+'/.local/share';
   AppDataDir:=AppendDelim(AppDataDir)+name+'/';
-  LogDir:=String8(GetEnvironmentVariable('XDG_STATE_HOME'));
+  LogDir:=Env.GetVar('XDG_STATE_HOME');
   if LogDir='' then LogDir:=home+'/.local/state';
   LogDir:=AppendDelim(LogDir)+name+'/';
   TempDir:=GetSystemTempDir+name+'/';
@@ -2682,6 +2797,7 @@ initialization
   CheckCPU;
   InitTimer;
   DetectConsole;
+  InitEnv;
   InitBaseDir;
   SetupStorageDirs('');
   {$IFDEF MSWINDOWS}

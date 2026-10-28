@@ -659,7 +659,7 @@ end;
 function IncludeName(const fromFile,incl:String8):String8;
 begin
   if (Pos('\',incl)=0) and (Pos('/',incl)=0) then
-    result:=String8(ExtractFilePath(string(fromFile)))+incl
+    result:=Files.GetPath(fromFile)+incl
   else
     result:=incl;
 end;
@@ -950,7 +950,7 @@ begin
   end;
   src.endsWithBreak:=(text<>'') and (text[length(text)]=#10);
   // Dialect
-  if SameText(ExtractFileExt(string(name)),'.json') then src.dialect:=dlJSON
+  if Files.GetExt(name).Same('.json') then src.dialect:=dlJSON
   else begin
     src.dialect:=dlCTL3;
     for i:=0 to high(src.lines) do begin

@@ -9,5 +9,7 @@ Current tools:
 
 - `upgrade5` - engine4 -> engine5 source upgrader (rules in `engine5.upgrade`,
   notes in `upgrade5.txt`). Build: `./build.sh tools/upgrade5.dpr` / `build.cmd tools\upgrade5.dpr`.
+- `gen_case_tables.py` - generates `Base/caseTables.inc`, the Unicode case tables of
+  `Apus.Strings` (`ToUpper`/`ToLower`), from `UnicodeData.txt`. Rerun on a new Unicode version.
 
 Older tools that do not compile yet are in [`legacy/`](legacy/README.md).

@@ -266,6 +266,7 @@ constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
      raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
    ASSERT(inputLocks=0,'Scene is freed with its input locked (by an effect?): '+name);
    scenesToLoad.Remove(self);
+   inherited; // the name leaves the scene name hash
   end;
 
  procedure TGameScene.InitGfx;

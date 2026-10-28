@@ -3,6 +3,33 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Non-ANSI paths and command line under FPC on Windows (2026-10-28)
+
+Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `ExpandFileName`,
+`ChangeFileExt` and any `string(String8)` cast lose characters outside the ANSI code page
+(a folder named `Ω` or `日本` became `?`, and `FileAge(ParamStr(0))` crashed the logger).
+
+- New `Env` record (`Apus.Core`): `Env.ExeName`, `Env.ParamCount`, `Env.ParamStr(i)`,
+  `Env.GetVar(name)` - all `String8`, read through the wide Windows API (on Unix the RTL is
+  used as is). `ParamStr(0)` = `ExeName`; an index out of range gives `''`. Use them instead
+  of `ParamStr`/`ParamCount`/`GetEnvironmentVariable` wherever the value may be a path.
+- `Files`/`Folder` (`Apus.Files`) pass names to the OS losslessly; `ListFiles`/`Find` return
+  UTF-8 names, `Find` compares with Unicode case folding.
+- New name parts in `Files` (`Apus.Files`), byte operations on `String8`: `GetPath` (with the
+  trailing delimiter), `GetDir` (without it, a root keeps it), `GetName`, `GetExt` (`.ext`; a
+  leading dot is not one), `ChangeExt`. Use them instead of `ExtractFilePath`/`ExtractFileDir`/
+  `ExtractFileName`/`ExtractFileExt`/`ChangeFileExt`: separators are `/` and `\` everywhere
+  (plus `:` on Windows) under both compilers, and no ANSI conversion happens.
+- `Logger.UseLogFile(const name:String8; ...)` (was `name:string`). The header no longer fails
+  on such a path; if the date of the executable can't be read it says so instead.
+- `HasParam(const name:String8)`, `GetParam(const name:String8):String8` (`Apus.Utils`, were
+  `string`), read through `Env`.
+- `TAppSetup.logFile` (`appSetup.logFile` of `TGameApplication`) is `String8` (was `string`).
+- `TGameApplication.Prepare`: the previous log is renamed to `.old` even when an old `.old`
+  exists (on Windows the rename used to fail and the previous log was lost).
+- Game code: don't cast a `String8` path to `string` for an RTL file function under FPC; pass
+  it as is (the RawByteString overloads keep UTF-8) or use `Files`/`Folder`.
+
 ## UI: `TUITable` (2026-10-26)
 
 - New module `Apus.Engine.UITable`: `TUITable`, rows of text cells under a header of columns
@@ -1811,3 +1838,27 @@ for it (e.g. `DrawCW` for 3D into an RT) has to go back to the normal mode.
   same way; `Terminate`/`Engine\Cmd\Exit` close without asking.
 - `ENGINE\WINDOW\CLOSE` (SDL only, sent when the window was already closing) is
   removed: use `ENGINE\WINDOW\CLOSEREQUEST`.
+
+## 2026-10-26 — Console publication of UI elements: the full field list
+
+- `Apus.Publics`: `TVarTypeStruct.ListFieldsOf(variable)` returns the fields of this
+  particular variable (by default `ListFields`); `TVarTypeStruct.GetValue` lists them.
+- `Apus.Engine.UIScript`: the published fields of an element are one table.
+  `ListFieldsOf` gives every field the element has, its widget's fields included;
+  `ListFields` gives the fields any element has. `?name` in the console prints all of
+  them (it was 8 fields).
+- `parent` and `children[i]` are element references: their value is `TClass('name')`
+  (`nil` without a parent), their fields work as before (`btn.parent.width=120`),
+  assigning to the reference itself is an error.
+- Enumerated fields list their values (`TVarTypeEnum.ListValues`): `align`,
+  `transpmode`, `signals`, `pivot`.
+
+## 2026-10-26 — UI inspector (debug builds)
+
+- New `Apus.Engine.UIInspector`: a separate window with the UI tree of another window
+  and the published fields of the selected element, read and edited live. GameApp links
+  it only with `DEBUG` defined (`-dDEBUG` for FPC); open it with Ctrl+Shift+I in the
+  window to inspect, or with the console command `inspector`. Closing the inspector
+  window hides it.
+- `Apus.Engine.UIScript`: `TVarTypeUIElement`, `TVarTypeElementRef` and
+  `TVarTypeElements` are in the interface section.

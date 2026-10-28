@@ -844,7 +844,7 @@ function TWindowsPlatform.LoadCursor(filename:string):THandle;
   offset,size:cardinal;
  begin
   // Read through the provider chain, including additional data roots and packs.
-  data:=Files.LoadAsBytes(Files.FixName(ChangeFileExt(filename,'.cur')));
+  data:=Files.LoadAsBytes(Files.FixName(Files.ChangeExt(String8(filename),'.cur')));
   if length(data)<22 then raise EWarning.Create('Invalid cursor: '+filename);
   if (PWord(@data[0])^<>0) or (PWord(@data[2])^<>2) or
      (PWord(@data[4])^=0) then raise EWarning.Create('Invalid cursor: '+filename);

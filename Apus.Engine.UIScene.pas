@@ -22,6 +22,7 @@ type
   UI:TUIElement; // root UI element: size = render area size
   frameTime:int64; // time elapsed from the last frame
   constructor Create(scenename:string='';fullScreen:boolean=true;wnd:TWindow=nil);
+  destructor Destroy; override; // the UI goes too
   procedure SetStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
@@ -707,6 +708,16 @@ function UIScene(name:String8):TUIScene;
    SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
    SetEventHandler('UI\ItemDestroyed',onItemDestroyed,emInstant);
    initialized:=true;
+  end;
+
+ destructor TUIScene.Destroy;
+  var
+   root:TUIElement;
+  begin
+   root:=UI;
+   UI:=nil;
+   if root<>nil then root.RemoveSceneRoot;
+   inherited;
   end;
 
  procedure TUIScene.SetStatus(st:TSceneStatus);

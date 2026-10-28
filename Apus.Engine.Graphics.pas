@@ -147,6 +147,8 @@ type
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
   procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
+  // Unwind the saved clipping rects (left by a failed frame); true if there were any
+  function Unwind:boolean;
   procedure Reject(rejectPrimitives:boolean);
   function  Get:TRect; //< return current clipping rect
   procedure Prepare; overload; //<
@@ -185,6 +187,8 @@ type
   function CurrentBlendMode:TBlendingMode; // engine-internal: mode set by the last BlendMode call
   procedure Mask(rgb:boolean;alpha:boolean); virtual;
   procedure UnMask; virtual;
+  // Unwind the saved targets and masks (left by a failed frame); true if there were any
+  function Unwind:boolean;
 
   function width:integer; // width of the current render target in virtual pixels
   function height:integer; // height of the current render target in virtual pixels
@@ -768,6 +772,20 @@ procedure TRenderTargetAPI.UnMask;
   end;
  end;
 
+function TRenderTargetAPI.Unwind:boolean;
+ begin
+  EnsureThreadState;
+  result:=(stackCnt>0) or (maskStackPos>0);
+  stackCnt:=0; // the target itself is set by the next BeginPaint
+  if maskStackPos>0 then begin
+   maskStackPos:=0;
+   if curMask<>maskStack[0] then begin
+    curMask:=maskStack[0];
+    ApplyMask;
+   end;
+  end;
+ end;
+
 procedure TRenderTargetAPI.Backbuffer;
  begin
   EnsureThreadState;
@@ -892,6 +910,16 @@ procedure TClippingAPI.Restore;
   ASSERT(stackPos>0);
   clipRect:=stack[stackPos];
   dec(stackPos);
+ end;
+
+function TClippingAPI.Unwind:boolean;
+ begin
+  EnsureThreadState;
+  result:=stackPos>0;
+  if result then begin
+   clipRect:=stack[1];
+   stackPos:=0;
+  end;
  end;
 
 end.

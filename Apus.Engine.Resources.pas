@@ -105,6 +105,8 @@ interface
    procedure LockLayer(layer:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // lock layer of 3D texture or texture array
    function GetLayer(layer:integer):TTexture; virtual; abstract; // return 2D texture object of a texture array element or 3D texture layer
    function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
+   // Locked by the calling thread. Another thread's lock is not seen: Lock waits for it,
+   // so "lock if not locked yet" is right in any thread
    function IsLocked:boolean;
    procedure MakeImmutable; virtual; // mark texture immutable after initial upload
    procedure Unlock; virtual; abstract;
@@ -156,6 +158,7 @@ interface
   protected
    fSrc:string8; // storage for property src
    locked:integer; // lock counter
+   lockOwner:TThreadIdent; // the thread that holds the lock, while locked>0
    fLoadRequest:TImageLoadRequest;
    fileIndex:integer; // position in the file image list +1, 0 - not listed
    views:TTextures; // live clones of this (root) texture
@@ -442,7 +445,7 @@ end;
 
 function TTexture.IsLocked:boolean;
 begin
- result:=locked>0;
+ result:=(locked>0) and (lockOwner=GetCurrentThreadID);
 end;
 
 procedure TTexture.Fill(func:TPixelFillFunc);
@@ -487,24 +490,15 @@ end;
 
 procedure TTexture.MakeImmutable;
 begin
- if IsLocked then
+ if locked>0 then
   raise EWarning.Create('Can''t make immutable while texture is locked: '+name);
  Bits.SetFlag(caps,tfImmutable);
 end;
 
-// Image key of a file key: the extension (last '.' after the last separator) stripped
+// Image key of a file key: the extension stripped
 function ImageKey(const fileKey:String8):String8;
- var
-  i:integer;
  begin
-  result:=fileKey;
-  for i:=length(result) downto 1 do begin
-   if result[i] in ['\','/'] then break;
-   if result[i]='.' then begin
-    SetLength(result,i-1);
-    break;
-   end;
-  end;
+  result:=Files.ChangeExt(fileKey,'');
  end;
 
 // Remove this object from the source index: the file entry and the image entry, each
@@ -628,7 +622,7 @@ procedure TTexture.PrepareContentExchange(donor:TTexture);
   view:TTexture;
  begin
   if (donor=nil) or (donor=self) or (parent<>nil) or (donor.parent<>nil) or
-     (donor.refCounter<>0) or (length(donor.views)>0) or IsLocked or donor.IsLocked or
+     (donor.refCounter<>0) or (length(donor.views)>0) or (locked>0) or (donor.locked>0) or
      multiWindowMode or HasFlag(tfRenderTarget or tfThreadLocal) or
      donor.HasFlag(tfRenderTarget or tfThreadLocal) then
    raise EWarning.Create('Content exchange requires idle standalone textures: '+name);
@@ -736,7 +730,6 @@ function TTexture.ClonePart(part:TRect): TTexture;
 
 class function TTexture.SourceKey(const ref:String8):String8;
  var
-  i:integer;
   root:String8;
  begin
   result:=Files.FixName(ref);
@@ -745,12 +738,7 @@ class function TTexture.SourceKey(const ref:String8):String8;
   if (root<>'') and result.StartsWith(root,true) then
    delete(result,1,length(root))
   else begin
-   root:=Files.FixName(String8(ParamStr(0)));
-   for i:=length(root) downto 1 do
-    if root[i] in ['\','/'] then begin
-     SetLength(root,i);
-     break;
-    end;
+   root:=Files.GetPath(Files.FixName(Env.ExeName));
    if (root<>'') and result.StartsWith(root,true) then
     delete(result,1,length(root));
   end;

@@ -7,6 +7,29 @@ unit Apus.Engine.UIScript;
 interface
 uses Apus.Core, Apus.Publics;
 
+type
+ // UI element published by name: its fields are listed in one table (see InitFields)
+ TVarTypeUIElement=class(TVarTypeStruct)
+  class function GetValue(variable:pointer):string8; override;
+  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+  class function ListFields:string8; override;
+  class function ListFieldsOf(variable:pointer):string8; override;
+ end;
+
+ // reference to an element (parent, children[i]): the variable is ^TUIElement, its value is the short name
+ TVarTypeElementRef=class(TVarTypeStruct)
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
+  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+  class function ListFieldsOf(variable:pointer):string8; override;
+ end;
+
+ // children of an element (read-only)
+ TVarTypeElements=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
+ end;
+
  function GetVarTypeFor(typeName:string8):TVarClass;
 
 implementation
@@ -28,15 +51,10 @@ type
  end;
 // TVarType=(vtNone,vtInt,vtByte,vtStr,vtBool,vtSendSignals,vtAlignment,vtBtnStyle,vtTranspMode);
 
- TVarTypeAlignment=class(TVarType)
+ TVarTypeAlignment=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
- end;
-
- TVarTypeUIElement=class(TVarTypeStruct)
-  class function GetValue(variable:pointer):string8; override;
-  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
-  class function ListFields:string8; override;
+  class function ListValues:string8; override;
  end;
 
  TVarTypeStyleInfo=class(TVarType)
@@ -44,12 +62,13 @@ type
   class function GetValue(variable:pointer):string8; override;
  end;
 
- TVarTypeClientWidth=class(TVarType)
+ // boolean flag published with the opposite meaning (clipchildren -> dontClipChildren)
+ TVarTypeNotBool=class(TVarTypeBool)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
  end;
 
- TVarTypeElements=class(TVarType) // array of TUIElement
+ TVarTypeClientWidth=class(TVarType)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
  end;
@@ -82,21 +101,39 @@ type
  TVarTypeTranspMode=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
+  class function ListValues:string8; override;
  end;
 
  TVarTypeSendSignals=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
+  class function ListValues:string8; override;
  end;
 
  TVarTypePivot=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
+  class function ListValues:string8; override;
  end;
 
+{$SCOPEDENUMS ON}
+ // How a published field is reached from the element
+ TFieldKind=(Member,    // a member of the element: element address + offset
+             Element,   // the element itself: the var class reads/writes through its methods
+             Children); // children, or children[i] with an index
+{$SCOPEDENUMS OFF}
+
+ TUIField=record
+  name:string8;
+  owner:TClass;       // the field exists in this class and its descendants
+  varClass:TVarClass;
+  kind:TFieldKind;
+  offset:UIntPtr;     // Member: offset in the instance
+ end;
 
 var
  defaults:TDefaults; // default values used when new element is created
+ fields:array of TUIField; // published fields of UI elements, in display order
  curobjname:string8; // current element name in upper case
 
 procedure onItemCreated(event:TEventStr;tag:TTag);
@@ -286,11 +323,111 @@ procedure SetHotKeyCmd(cmd:string8);
 
 { TVarTypeUIControl }
 
+// Field table: one place for the published field names, used by GetField and ListFieldsOf
+
+procedure AddField(const name:string8;owner:TClass;varClass:TVarClass;kind:TFieldKind;offset:UIntPtr=0);
+ var
+  n:integer;
+ begin
+  n:=length(fields);
+  SetLength(fields,n+1);
+  fields[n].name:=name;
+  fields[n].owner:=owner;
+  fields[n].varClass:=varClass;
+  fields[n].kind:=kind;
+  fields[n].offset:=offset;
+ end;
+
+// fieldAddr - address of the member in a nil instance, that is, its offset
+procedure AddMember(const name:string8;owner:TClass;varClass:TVarClass;fieldAddr:pointer);
+ begin
+  AddField(name,owner,varClass,TFieldKind.Member,UIntPtr(fieldAddr));
+ end;
+
+procedure AddProperty(const name:string8;owner:TClass;varClass:TVarClass);
+ begin
+  AddField(name,owner,varClass,TFieldKind.Element);
+ end;
+
+procedure InitFields;
+ var
+  e:TUIElement;
+  lbl:TUILabel;
+  btn:TUIButton;
+  edit:TUIEditBox;
+  img:TUIImage;
+  list:TUIListBox;
+  bar:TUIScrollBar;
+ begin
+  e:=nil; lbl:=nil; btn:=nil; edit:=nil; img:=nil; list:=nil; bar:=nil;
+  // identity and geometry
+  AddProperty('name',TUIElement,TVarTypeElementName);
+  AddMember('x',TUIElement,TVarTypeSingle,@e.position.x);
+  AddMember('y',TUIElement,TVarTypeSingle,@e.position.y);
+  AddMember('width',TUIElement,TVarTypeSingle,@e.size.x);
+  AddMember('height',TUIElement,TVarTypeSingle,@e.size.y);
+  AddMember('scale',TUIElement,TVarTypeSingle,@e.scale);
+  AddMember('pivot',TUIElement,TVarTypePivot,@e.pivot);
+  AddMember('anchors',TUIElement,TVarTypeRect2s,@e.anchors);
+  AddMember('paddingleft',TUIElement,TVarTypeSingle,@e.padding.left);
+  AddMember('paddingright',TUIElement,TVarTypeSingle,@e.padding.right);
+  AddMember('paddingtop',TUIElement,TVarTypeSingle,@e.padding.top);
+  AddMember('paddingbottom',TUIElement,TVarTypeSingle,@e.padding.bottom);
+  AddProperty('clientwidth',TUIElement,TVarTypeClientWidth);
+  AddProperty('clientheight',TUIElement,TVarTypeClientHeight);
+  AddMember('globalrect',TUIElement,TVarTypeRect,@e.globalRect);
+  AddProperty('globalscale',TUIElement,TVarTypeElementScale);
+  // state and behavior
+  AddMember('visible',TUIElement,TVarTypeBool,@e.flags.visible);
+  AddMember('enabled',TUIElement,TVarTypeBool,@e.flags.enabled);
+  AddMember('canhavefocus',TUIElement,TVarTypeBool,@e.flags.canHaveFocus);
+  AddMember('clipchildren',TUIElement,TVarTypeNotBool,@e.flags.dontClipChildren);
+  AddMember('parentclip',TUIElement,TVarTypeNotBool,@e.flags.noParentClip);
+  AddMember('customdraw',TUIElement,TVarTypeBool,@e.flags.manualDraw);
+  AddMember('order',TUIElement,TVarTypeInteger,@e.order);
+  AddMember('transpmode',TUIElement,TVarTypeTranspMode,@e.shape);
+  AddMember('signals',TUIElement,TVarTypeSendSignals,@e.sendSignals);
+  AddMember('cursor',TUIElement,TVarTypeNativeInt,@e.cursor);
+  // content and look
+  AddMember('caption',TUIElement,TVarTypeString8,@e.caption);
+  AddMember('hint',TUIElement,TVarTypeString8,@e.hint);
+  AddProperty('color',TUIElement,TVarTypeElementColor);
+  AddProperty('font',TUIElement,TVarTypeElementFont);
+  AddProperty('styleinfo',TUIElement,TVarTypeStyleinfo);
+  // tree
+  AddMember('parent',TUIElement,TVarTypeElementRef,@e.parent);
+  AddField('children',TUIElement,TVarTypeElements,TFieldKind.Children);
+  // widgets
+  AddMember('align',TUILabel,TVarTypeAlignment,@lbl.align);
+  AddMember('topofs',TUILabel,TVarTypeInteger,@lbl.verticalOffset);
+  AddMember('default',TUIButton,TVarTypeBool,@btn.default);
+  AddMember('pressed',TUIButton,TVarTypeBool,@btn.pressed);
+  AddMember('pending',TUIButton,TVarTypeBool,@btn.pending);
+  AddMember('autopendingtime',TUIButton,TVarTypeInteger,@btn.autoPendingTime);
+  AddMember('text',TUIEditBox,TVarTypeString32,@edit.realText);
+  AddMember('maxlength',TUIEditBox,TVarTypeInteger,@edit.maxLength);
+  AddMember('password',TUIEditBox,TVarTypeBool,@edit.password);
+  AddMember('src',TUIImage,TVarTypeString8,@img.src);
+  AddMember('lineheight',TUIListBox,TVarTypeSingle,@list.lineHeight);
+  AddMember('min',TUIScrollBar,TVarTypeSingle,@bar.min);
+  AddMember('max',TUIScrollBar,TVarTypeSingle,@bar.max);
+  AddMember('pagesize',TUIScrollBar,TVarTypeSingle,@bar.pagesize);
+ end;
+
+function FindField(obj:TUIElement;const name:string8):integer;
+ var
+  i:integer;
+ begin
+  for i:=0 to high(fields) do
+   if (fields[i].name=name) and obj.InheritsFrom(fields[i].owner) then exit(i);
+  result:=-1;
+ end;
+
 class function TVarTypeUIElement.GetField(variable: pointer; fieldName: string8;
   out varClass: TVarClass): pointer;
 var
  obj:TUIElement;
- p,index:integer;
+ p,index,i:integer;
 begin
  obj:=variable;
  ASSERT(fieldName<>'');
@@ -305,168 +442,27 @@ begin
   end;
  end;
 
- case fieldname[1] of
-  'a':if (fieldname='align') and (obj is TUILabel) then begin
-       result:=@TUILabel(obj).align; varClass:=TVarTypeAlignment;
-      end else
-      if (fieldname='anchors') then begin
-       result:=@obj.anchors; varClass:=TVarTypeRect2s;
-      end else
-      if (fieldname='autopendingtime') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).autopendingtime; varClass:=TVarTypeInteger;
-      end;
-  'c':if fieldname='canhavefocus' then begin
-       result:=@obj.flags.canHaveFocus;
-       varClass:=TVarTypeBool;
-      end else
-      if fieldname='color' then begin
-       result:=obj;
-       varClass:=TVarTypeElementColor;
-      end else
-      if fieldname='caption' then begin
-       result:=@obj.caption;
-       varClass:=TVarTypeString;
-      end else
-      if fieldname='cursor' then begin
-       result:=@obj.cursor; varClass:=TVarTypeInteger;
-      end else
-      if fieldname='clipchildren' then begin
-       result:=@obj.flags.dontClipChildren; varClass:=TVarTypeBool;
-      end else
-      if fieldname='customdraw' then begin
-       result:=@obj.flags.manualDraw; varClass:=TVarTypeBool;
-      end else
-      if fieldname='clientwidth' then begin
-       result:=obj;
-       varClass:=TVarTypeClientWidth;
-      end else
-      if fieldname='clientheight' then begin
-       result:=obj;
-       varClass:=TVarTypeClientHeight;
-      end else
-      if fieldname='children' then begin
-       if index>=0 then begin
-        if index>high(obj.children) then
-         raise EWarning.Create(Format('Index %d out of range %d',[index,high(obj.children)]));
-        result:=obj.children[index];
-        varClass:=TVarTypeUIElement;
-       end else begin
-        result:=@obj.children;
-        varClass:=TVarTypeElements;
-       end;
-      end;
-  'd':if (fieldname='default') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).default; varClass:=TVarTypeBool;
-      end;
-  'e':if fieldname='enabled' then begin
-       result:=@obj.flags.enabled; varClass:=TVarTypeBool;
-      end;
-  'f':if fieldname='font' then begin
-       result:=obj;
-       varClass:=TVarTypeElementFont;
-      end;
-  'g':if false then begin end else // group field removed (radio behavior via parent TUIGroupBox)
-      if fieldname='globalrect' then begin
-       result:=@obj.globalRect; varClass:=TVarTypeRect;
-      end else
-      if fieldname='globalscale' then begin
-       result:=obj; varClass:=TVarTypeElementScale;
-      end;
-  'h':if fieldname='height' then begin
-       result:=@obj.size.y; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='hint' then begin
-       result:=@obj.hint; varClass:=TVarTypeString;
-      end else
-      if false then begin end; // hintifdisabled/hintdelay/hintduration moved to element.attributes
-  'l':if (fieldname='lineheight') and (obj is TUIListBox) then begin
-       varClass:=TVarTypeInteger; result:=@TUIListBox(obj).lineHeight;
-      end;
-  'm':if (fieldname='maxlength') and (obj is TUIEditBox) then begin
-       varClass:=TVarTypeInteger; result:=@TUIEditBox(obj).maxlength;
-      end else
-      if (fieldname='min') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).min;
-      end else
-      if (fieldname='max') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
-      end;
-  'n':if fieldname='name' then begin
-       result:=obj; varClass:=TVarTypeElementName;
-      end else
-      if false then begin end; // noborder removed from TUIEditBox
-  'o':if fieldname='order' then begin
-       result:=@obj.order; varClass:=TVarTypeInteger;
-      end;
-  'p':if fieldname='parentclip' then begin
-       result:=@obj.flags.noParentClip; varClass:=TVarTypeBool;
-      end else
-      if fieldname='parent' then begin
-       result:=obj.parent; varClass:=TVarTypeUIElement;
-      end else
-      if fieldname='pivot' then begin
-       result:=@obj.pivot; varClass:=TVarTypePivot;
-      end else
-      if (fieldname='pressed') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).pressed; varClass:=TVarTypeBool;
-      end else
-      if (fieldname='pending') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).pending; varClass:=TVarTypeBool;
-      end else
-      if (fieldname='password') and (obj is TUIEditBox) then begin
-       result:=@TUIEditBox(obj).password; varClass:=TVarTypeBool;
-      end else
-      if fieldname='paddingleft' then begin
-       result:=@obj.padding.Left; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='paddingright' then begin
-       result:=@obj.padding.right; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='paddingtop' then begin
-       result:=@obj.padding.top; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='paddingbottom' then begin
-       result:=@obj.padding.bottom; varClass:=TVarTypeSingle;
-      end else
-      if (fieldname='pagesize') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;
-      end;
-  's':if fieldname='styleinfo' then begin
-       result:=obj; varClass:=TVarTypeStyleinfo;
-      end else
-      if fieldname='scale' then begin
-       result:=@obj.scale; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='signals' then begin
-       result:=@obj.sendsignals; varClass:=TVarTypeSendSignals;
-      end else
-      if (fieldname='src') and (obj is TUIImage) then begin
-       result:=@TUIImage(obj).src; varClass:=TVarTypeString;
-      end;
-  't':if fieldname='transpmode' then begin
-       result:=@obj.shape; varClass:=TVarTypeTranspMode;
-      end else
-      if (fieldname='text') and (obj is TUIEditBox) then begin
-       varClass:=TVarTypeWideString; result:=@TUIEditBox(obj).realtext;
-      end else
-      if (fieldname='topofs') and (obj is TUILabel) then begin
-       varClass:=TVarTypeInteger; result:=@TUILabel(obj).verticalOffset;
-      end;
-  'v':if fieldname='visible' then begin
-       result:=@obj.flags.visible; varClass:=TVarTypeBool;
-{      end else
-      if (fieldname='value') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).value;}
-      end;
-  'w':if fieldname='width' then begin
-       result:=@obj.size.x; varClass:=TVarTypeSingle;
-      end;
-  'x':if fieldname='x' then begin
-       result:=@obj.position.x; varClass:=TVarTypeSingle;
-      end;
-  'y':if fieldname='y' then begin
-       result:=@obj.position.y; varClass:=TVarTypeSingle;
-      end;
+ i:=FindField(obj,fieldName);
+ if i<0 then exit;
+ case fields[i].kind of
+  TFieldKind.Member:begin
+   result:=pointer(UIntPtr(obj)+fields[i].offset);
+   varClass:=fields[i].varClass;
+  end;
+  TFieldKind.Element:begin
+   result:=obj;
+   varClass:=fields[i].varClass;
+  end;
+  TFieldKind.Children:
+   if index>=0 then begin
+    if index>high(obj.children) then
+     raise EWarning.Create(Format('Index %d out of range %d',[index,high(obj.children)]));
+    result:=@obj.children[index];
+    varClass:=TVarTypeElementRef;
+   end else begin
+    result:=@obj.children;
+    varClass:=TVarTypeElements;
+   end;
  end;
 end;
 
@@ -476,9 +472,67 @@ begin
 end;
 
 class function TVarTypeUIElement.ListFields: string8;
+var
+ i:integer;
 begin
- result:='name,x,y,width,height,scale,visible,enabled';
+ result:='';
+ for i:=0 to high(fields) do
+  if fields[i].owner=TUIElement then begin
+   if result<>'' then result:=result+',';
+   result:=result+fields[i].name;
+  end;
 end;
+
+class function TVarTypeUIElement.ListFieldsOf(variable:pointer):string8;
+var
+ obj:TUIElement;
+ i:integer;
+begin
+ obj:=variable;
+ result:='';
+ for i:=0 to high(fields) do
+  if obj.InheritsFrom(fields[i].owner) then begin
+   if result<>'' then result:=result+',';
+   result:=result+fields[i].name;
+  end;
+end;
+
+{ TVarTypeElementRef }
+
+class procedure TVarTypeElementRef.SetValue(variable:pointer;v:string8);
+ begin
+  raise EWarning.Create('Element reference is read-only');
+ end;
+
+class function TVarTypeElementRef.GetValue(variable:pointer):string8;
+ var
+  e:TUIElement;
+ begin
+  e:=TUIElement(variable^);
+  if e=nil then result:='nil'
+   else result:=Format('%s(''%s'')',[e.ClassName,e.name]);
+ end;
+
+class function TVarTypeElementRef.GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer;
+ var
+  e:TUIElement;
+ begin
+  e:=TUIElement(variable^);
+  if e=nil then begin
+   varClass:=nil;
+   exit(nil);
+  end;
+  result:=TVarTypeUIElement.GetField(e,fieldName,varClass);
+ end;
+
+class function TVarTypeElementRef.ListFieldsOf(variable:pointer):string8;
+ var
+  e:TUIElement;
+ begin
+  e:=TUIElement(variable^);
+  if e=nil then exit('');
+  result:=TVarTypeUIElement.ListFieldsOf(e);
+ end;
 
 class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string8);
  begin
@@ -494,6 +548,11 @@ class function TVarTypeTranspMode.GetValue(variable:pointer):string8;
   if sh=shapeEmpty then result:='transparent' else
   if sh=shapeFull then result:='opaque' else
   result:='custom';
+ end;
+
+class function TVarTypeTranspMode.ListValues:string8;
+ begin
+  result:='transparent,opaque';
  end;
 
 class procedure TVarTypeSendSignals.SetValue(variable:pointer;v:string8);
@@ -513,7 +572,17 @@ class function TVarTypeSendSignals.GetValue(variable:pointer):string8;
   end;
  end;
 
+class function TVarTypeSendSignals.ListValues:string8;
+ begin
+  result:='none,major,all';
+ end;
+
 { TVarTypePivot }
+
+class function TVarTypePivot.ListValues:string8;
+ begin
+  result:='Center,TopLeft,TopRight,BottomLeft,BottomRight';
+ end;
 
 class function TVarTypePivot.GetValue(variable: pointer): string8;
  var
@@ -531,6 +600,24 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string8);
   if SameText(v,'BottomLeft') then TVec2(variable^):=pivotBottomLeft else
   if SameText(v,'BottomRight') then TVec2(variable^):=pivotBottomRight else
   raise EWarning.Create('Invalid pivot value: '+v);
+ end;
+
+{ TVarTypeNotBool }
+
+class function TVarTypeNotBool.GetValue(variable:pointer):string8;
+ var
+  b:boolean;
+ begin
+  b:=not PBoolean(variable)^;
+  result:=inherited GetValue(@b);
+ end;
+
+class procedure TVarTypeNotBool.SetValue(variable:pointer;v:string8);
+ var
+  b:boolean;
+ begin
+  inherited SetValue(@b,v);
+  PBoolean(variable)^:=not b;
  end;
 
 { TVarTypeStyleinfo }
@@ -554,7 +641,7 @@ class function TVarTypeElementFont.GetValue(variable:pointer):string8;
 
 class procedure TVarTypeElementFont.SetValue(variable:pointer; v:string8);
  begin
-  // font is now style-based; set via element.style.SetAttr('font','name') + 'font-size'
+  TUIElement(variable).style.SetAttr('font',v); // the font is a style attribute
  end;
 
 { TVarTypeAlignment }
@@ -570,6 +657,11 @@ class function TVarTypeAlignment.GetValue(variable:pointer):string8;
    taCenter:result:='Center';
    taJustify:result:='Justify';
   end;
+ end;
+
+class function TVarTypeAlignment.ListValues:string8;
+ begin
+  result:='Left,Right,Center,Justify';
  end;
 
 class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string8);
@@ -609,7 +701,9 @@ class function TVarTypeElementColor.GetValue(variable:pointer):string8;
 
 class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string8);
  begin
-  TUIElement(variable).style.SetAttr('color','$'+v);
+  // bare hex digits get '$'; '$AARRGGBB', '#RGB' and tokens ('&name') are stored as is
+  if (v<>'') and (v[1] in ['0'..'9','A'..'F','a'..'f']) then v:='$'+v;
+  TUIElement(variable).style.SetAttr('color',v);
  end;
 
 { TVarTypeElementScale }
@@ -640,7 +734,7 @@ class procedure TVarTypeClientWidth.SetValue(variable: pointer; v: string8);
 
 class function TVarTypeClientHeight.GetValue(variable: pointer):string8;
  begin
-  result:=FloatToStr(TUIElement(variable).clientWidth);
+  result:=FloatToStr(TUIElement(variable).clientHeight);
  end;
 
 class procedure TVarTypeClientHeight.SetValue(variable: pointer; v: string8);
@@ -655,6 +749,7 @@ class function TVarTypeElements.GetValue(variable: pointer):string8;
   list:^TUIElements;
   i:integer;
  begin
+  result:='';
   list:=variable;
   for i:=0 to high(list^) do begin
    if result<>'' then result:=result+', ';
@@ -669,6 +764,7 @@ class procedure TVarTypeElements.SetValue(variable: pointer; v: string8);
  end;
 
 initialization
+ InitFields;
  SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);
  SetEventHandler('UI\ItemRenamed',onItemRenamed,emInstant);
  SetCmdFunc('USEPARENT ',opFirst,UseParentCmd);

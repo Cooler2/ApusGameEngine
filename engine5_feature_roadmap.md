@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-10-21
+Last updated: 2026-10-27
 
 Language policy: this roadmap is maintained in English.
 
@@ -47,9 +47,11 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-31 | Working Surface, Size & Orientation Model | in-progress | ~75% | **Schedule blocker (P1)**. Stages A (types+resolver+`tests/TestSurface`) and B (engine cutover, renames, registry) done, logical canvas (`canvasDPI` + `SetupLogicalCanvas`). Left: C (`FitPreviewWindow`, preview/CLI knobs), D (mobile safe area/orientation), runtime resize/fullscreen/DPI and device/preview acceptance; E (present shader, integer scale) on demand only |
 | R-32 | Image Decoders: WebP / AVIF + PNG Decoder Choice | done | 100% | Done for WebP decoding and the PNG decoder decision: opt-in `-dWEBP`, bundled decoders for Win64/Linux x64/Android arm64, FPC reader Mono8/A8 fix; PNG choice stays compile-time (LodePNG faster). Outside: AVIF (on demand), Win32 binary, macOS/iOS, Android on-device run |
 | R-33 | Text with Effects (`Apus.Engine.TextEffects`) | done | 100% | Port blocker B-17: `DrawTextFX` with color/offset/spread/gaussian-blur layers, GPU bake via `txt.Write` + LRU sprite cache, TextFXStyle integration; TextDemo screen 9, GL test vs CPU reference checked locally (CI only compiles GL tests) |
-| R-34 | Steam Integration, then Platform Store Entitlements | in-progress (stage 2 deferred) | ~50% | Port blocker B-24. Stage 1 done and adopted by the port (`Spectro.Steam`): `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded, DLC ownership, achievements, callbacks on `Engine\Frame\Begin`. Stage 2 (store-neutral entitlements + mobile-store backends) deferred until mobile work |
-| R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | in-progress | ~40% | Port blocker B-28. Layer 2 done (2026-10-17): `ReloadFileImages` (single render window, between frames, image creation/destruction suspended), `Files.SelectFile`/`SelectNewest`, `tests/TestImageReload`. Left: layer 1 (overlay data roots / PAK provider in `Files`, with B-03); Android context restore needs its own integration; themes stay game policy |
+| R-34 | Steam Integration | done | 100% | Port blocker B-24, adopted by the port (`Spectro.Steam`): `Apus.Engine.SteamAPI` on Steamworks SDK 1.65, runtime-loaded `steam_api`, DLC ownership, achievements, callbacks pumped on `Engine\Frame\Begin`. The store-neutral entitlements API moved to R-37 |
+| R-35 | Resource Sets: Overlay Data Roots + In-Place Texture Reload | done | 100% | Port blocker B-28. In-place reload done (2026-10-17): `ReloadFileImages` (single render window, between frames, image creation/destruction suspended), `Files.SelectFile`/`SelectNewest`, `tests/TestImageReload`. Overlay roots: the port switches themes through its own ZIP/folder provider on the public `IFileProvider` chain, so no engine work is needed for it; a stock overlay/PAK provider goes with B-03. Android context restore is R-24's integration |
 | R-36 | UI Actions: Commands with Scoped Hotkeys | design | ~5% | Current sequence (`Work/R-14_popup_menu.md` §6): popup menu first, then a small `TUIAction` over the existing `RegisterHotKey`/`SetHotKey`; scoped bindings and the input-pipeline redesign (v3 doc `Work/R-36_actions_menus_design.md`) come later. No action code yet |
+| R-37 | Store Entitlements: Store-Neutral API + Mobile Stores | planned | ~5% | Split from R-34 (2026-10-22). Design only: ownership query by a game product id + "entitlements changed" signal; StoreKit (R-30) and Play Billing (R-24) backends, Steam as one more backend. Waits for mobile work |
+| R-38 | UI Inspector (F12-like) | paused | ~40% | Paused 2026-10-27 after steps 1-2, resume point in `Work/ui_inspector.md` section 0. Steps 1-2 merged into engine5 (2026-10-27): `Apus.Engine.UIInspector`, a second engine window (Ctrl+Shift+I in debug builds, console `inspector`) with the element tree and live fields (view/edit) from the UIScript field table, `tests/TestUIInspector`. Left: click-to-pick with highlight, style panel from resolver lookups, conveniences; plan `Work/ui_inspector.md` section 7 |
 
 ## GL Version Policy (locked 2026-07-03)
 
@@ -539,9 +541,9 @@ Two tiers, not a version ladder:
 - Left out: uncached mode for volatile text, cache atlas, `TTextObject`/`DrawTextWithGlow` migration, SDF fonts (engine6), manual section (chapter 24 "Text and Fonts" is not written yet).
 - Design (RU): `Work/R-33_text_effects_design.md`.
 
-### [R-34] Steam Integration, then Platform Store Entitlements
-- Status: in-progress - stage 1 done 2026-10-04 (verified against the Steam client: user, language, ownership of the three Spectromancer DLCs) | Priority: P2 (stage 1 before the port release) | Area: Platform | Origin: Spectromancer port blocker B-24
-- Value: the game asks "does the player own product X" (Spectromancer: three expansions, Steam DLC 22510/22520/22521) and gets the store's answer; on mobile the same question is an in-app purchase with restore.
+### [R-34] Steam Integration
+- Status: done 2026-10-04 (verified against the Steam client: user, language, ownership of the three Spectromancer DLCs; adopted by the port as `Spectro.Steam`) | Area: Platform | Origin: Spectromancer port blocker B-24
+- Value: the game asks Steam "does the player own product X" (Spectromancer: three expansions, Steam DLC 22510/22520/22521), sets achievements, reads the account language.
 - Stage 1 - Steam: migrate `legacy/Apus.Engine.SteamAPI` (the newest copy of the Astral Heroes / Engine 3 binding: init, SteamID, game language, persona name, auth ticket, achievements, microtransaction callback):
   - off `Apus.Common` onto the foundation modules;
   - target the current Steamworks SDK and its redistributable `steam_api`; the binding was written against a ~10 year old DLL - no compatibility with it is kept (interface versions, flat function names and init are taken from the current SDK);
@@ -549,11 +551,11 @@ Two tiers, not a version ladder:
   - callbacks: replace the fake C++ object passed to `SteamAPI_RegisterCallback` (a one-parameter `stdcall` in a hand-made VMT slot works only on Win32: on Win64 the handler receives `this` instead of the payload, on Linux the slot order differs too) with manual callback dispatch, pumped by the engine every frame (today the game had to call `SteamAPI_RunCallbacks` itself);
   - client achievements: `SetAchievement`/`ClearAchievement` + `StoreStats`, and `GetAchievement` to restore the account state (no `RequestCurrentStats` since SDK 1.61: the client syncs stats before the game starts; Astral Heroes set them server-side through the Web API);
   - GameApp's `{$IFDEF STEAM}` path (language on first launch) moves with it.
-- Stage 2 - store-neutral API, together with the first mobile store (StoreKit for R-30, Play Billing for R-24): an ownership query by a game product id (the product -> store id map belongs to the game) and an "entitlements changed" signal, because mobile stores answer asynchronously; a build without a store reports "no store" and the game decides what that means. Steam becomes one backend of it.
+- Stage 2 (store-neutral entitlements, mobile stores) moved to R-37 on 2026-10-22.
 - Out of scope: purchase/checkout UI, server-side receipt validation (Astral Heroes did microtransactions through its own server), leaderboards/workshop.
 
 ### [R-35] Resource Sets: Overlay Data Roots + In-Place Texture Reload
-- Status: in-progress (~40%) - layer 2 done 2026-10-17 (`31552ec6` `ReloadFileImages`, `803280d4` `Files.SelectFile`; report `Work/B-28_image_reload_report.md`), layer 1 goes with B-03 | Area: Assets / Resources | Origin: Spectromancer port blocker B-28 (deferred by the port)
+- Status: done 2026-10-22 - layer 2 done 2026-10-17 (`31552ec6` `ReloadFileImages`, `803280d4` `Files.SelectFile`; report `Work/B-28_image_reload_report.md`); layer 1 is covered by the port's own providers (`Spectro.ZipProvider`, `Spectro.Files`) on the public `IFileProvider` chain, a stock engine provider goes with B-03 | Area: Assets / Resources | Origin: Spectromancer port blocker B-28
 - Wanted by the port: switch the graphics theme at runtime (`Mods/<theme>/` first, base data second; ~30 themes, most replace only `Cards.pak`/`Faces.pak` and a loading background, one re-skins the whole UI), already loaded images update while every holder keeps its reference, switching back restores the originals. Engine 2 did it by reloading every texture with its saved load options and swapping object instances in memory.
 - Scope split (agreed 2026-10-03):
   1. **Overlay data roots in `Files`** ("look in `Mods/X/` first, then the base data"), added and removed at runtime - engine, cheap, the same provider-chain mechanism as the B-03 PAK provider (the port's themes are mostly PAKs); also serves mods, DLC content, localized images, HD packs. Built together with B-03.
@@ -574,3 +576,17 @@ Two tiers, not a version ladder:
   - extra modifiers match (a `Z` binding fires on `Ctrl+Z`); buffered keys use the modifiers of pump time.
 - Design questions: binding storage (on the scope owner - no global registry - vs a per-window registry), dispatch order (focus -> scoped bindings -> scene -> window -> app -> gameplay), modal dialog as a dispatch boundary, conflict ranking, key-held tools (Space-pan, Alt-picker: begin/end, release to the original owner, cancel on focus loss), shortcut display, Robot API exposure.
 - Design note: `Work/R-36_ui_actions.md` (use cases, framework survey, Codex review 2026-10-04).
+
+### [R-37] Store Entitlements: Store-Neutral API + Mobile Stores
+- Status: planned (~5%, design only) - split from R-34 on 2026-10-22 | Area: Platform | Origin: R-34 stage 2
+- Value: the game asks "does the player own product X" without knowing the store; on mobile the same question is an in-app purchase with restore, on Steam it is DLC ownership (R-34).
+- Scope: an ownership query by a game product id (the product -> store id map belongs to the game) and an "entitlements changed" signal, because mobile stores answer asynchronously; a build without a store reports "no store" and the game decides what that means. Backends: StoreKit (R-30), Play Billing (R-24), Steam (wraps R-34).
+- Out of scope: purchase/checkout UI, server-side receipt validation, leaderboards/workshop.
+
+### [R-38] UI Inspector (F12-like)
+- Status: paused (~40%) since 2026-10-27, author's decision; resume point (state, branch, what changed in the engine for step 3) in `Work/ui_inspector.md` section 0. Steps 0-2 done and merged into engine5 2026-10-27: UIScript field fixes and field table, `Apus.Engine.UIInspector` window (tree + live fields, Ctrl+Shift+I / console `inspector`, linked by GameApp in debug builds), `tests/TestUIScript`, `tests/TestUIInspector`; next: step 3 (pick + highlight); plan in `Work/ui_inspector.md` section 7 | Priority: P2 | Area: UI / Tooling
+- Value: debugging UI layout and styles without query-answer console sessions: see the element tree, pick an element by clicking it in the game, see its frames, view and edit its fields and style live.
+- Shape: in-process, a separate engine window (`TGame.AddWindow`) working on live elements under the inspected window's lock - no browser, server or tree snapshots. Fields come from the console publication (`Apus.Engine.UIScript`), edits go through the same `SetValue` as console commands. The inspector UI uses engine widgets with its own literal style (no tokens), so the inspected app's theme edits cannot break it.
+- Threads: one-way lock rule - the inspector, under its own window lock, takes the inspected window's lock, never the reverse; the pick click reaches the inspector via `QueueCall`, the highlight is drawn by the inspected window from the inspector core's selection.
+- Steps: 1 - field table in UIScript (one list of names for `GetField`, `ListFields` and console autocompletion); 2 - inspector window: tree and fields; 3 - pick (the existing Ctrl+middle-click debug pick also selects in the inspector) and highlight; 4 - style panel built from a trace of resolver lookups while the selected element draws (value, source: own style / `:state` / `@ref` / parent / token / drawer default); 5 - conveniences: copy edits as code, forced states, token edits.
+- Out of scope: mobile (no second window; an overlay on the same core if ever needed), remote inspection, layout editing by dragging.

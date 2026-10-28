@@ -27,7 +27,7 @@ interface
    // Config file to load (may contain a path). Prepare opens it as appConfig and replaces the
    // name with the file actually used: a copy in AppDataDir when the shipped one must stay intact
    configFile:String8;
-   logFile:string;     // log file name, the folder is chosen by Prepare
+   logFile:String8;    // log file name, the folder is chosen by Prepare
    procedure Init;
   end;
 
@@ -197,7 +197,8 @@ implementation
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
-  {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF},
+  {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF}
+  {$IFDEF DEBUG},Apus.Engine.UIInspector{$ENDIF},
   Apus.Conv,
   Apus.Files,
   Apus.Log,
@@ -700,7 +701,7 @@ procedure TGameApplication.Prepare;
  var
   i:integer;
   st:string;
-  logPath:String8;
+  logPath,logName,oldName,configDir,configName:String8;
   usedPlatform:TSystemPlatform;
  begin
   if prepared then raise EError.Create('TGameApplication.Prepare can be called only once');
@@ -725,18 +726,20 @@ procedure TGameApplication.Prepare;
    // writing inside it, but that breaks the seal).
    logPath:='';
    if not bundleMode then begin
-    logPath:=String8(ExtractFilePath(ParamStr(0)))+'Logs'+PathDelim;
+    logPath:=BaseDir+'Logs'+PathDelim; // outside a bundle BaseDir is the folder of the executable
     if not (Folder.Create(logPath) and Folder.Writable(logPath)) then logPath:='';
    end;
    if logPath='' then begin
     Folder.Create(LogDir);
     logPath:=LogDir;
    end;
-   st:=logPath+appSetup.logFile;
-   st:=Files.FixName(st);
-   if fileExists(st) then
-     RenameFile(st,ChangeFileExt(st,'.old'));
-   Logger.UseLogFile(st,true);
+   logName:=Files.FixName(logPath+appSetup.logFile);
+   if Files.Exists(logName) then begin
+    oldName:=Files.ChangeExt(logName,'.old');
+    if Files.Exists(oldName) then Files.Delete(oldName); // a rename doesn't replace it on Windows
+    Files.Rename(logName,oldName);
+   end;
+   Logger.UseLogFile(logName,true);
    Logger.LogCacheMode(true);
    Logger.SetVerbosity(TSeverity.Debug);
 
@@ -749,18 +752,19 @@ procedure TGameApplication.Prepare;
     // directory is genuinely read-only, or we run from a macOS .app bundle whose
     // Contents/Resources is writable on disk but must stay immutable, since a
     // write there breaks the code-signing seal.
-    st:=ExtractFilePath(ExpandFileName(appSetup.configFile));
-    if bundleMode or not Folder.Writable(String8(st)) then begin
+    configDir:=Files.GetPath(appSetup.configFile);
+    if configDir='' then configDir:='.';
+    if bundleMode or not Folder.Writable(configDir) then begin
      Folder.Create(AppDataDir);
-     st:=string(AppDataDir)+ExtractFileName(string(appSetup.configFile));
-     if not Files.Exists(String8(st)) and Files.Exists(appSetup.configFile) then
-      Files.CopyFile(String8(appSetup.configFile),String8(st)); // seed from shipped defaults
-     appSetup.configFile:=st;
+     configName:=AppDataDir+Files.GetName(appSetup.configFile);
+     if not Files.Exists(configName) and Files.Exists(appSetup.configFile) then
+      Files.CopyFile(appSetup.configFile,configName); // seed from shipped defaults
+     appSetup.configFile:=configName;
     end;
     // Config problems are not fatal. A missing file: the defaults are used, the first save
     // creates it. A broken file: the defaults, a toast, and the file is not overwritten
-    if not Files.Exists(String8(appSetup.configFile)) then
-     ReportConfigProblem('Config file not found: '+String8(appSetup.configFile)+'; defaults are used');
+    if not Files.Exists(appSetup.configFile) then
+     ReportConfigProblem('Config file not found: '+appSetup.configFile+'; defaults are used');
     appConfig:=TConfig.Create(appSetup.configFile,true);
     LoadOptions;
     SaveOptions; // Save modified settings (if default values were added)
@@ -775,7 +779,7 @@ procedure TGameApplication.Prepare;
     requestBackend.platform:=spWindows;
     Log.Force('Windows platform requested by a command line parameter');
    end;
-   st:=UpperCase(GetParam('-PLATFORM'));
+   st:=string(GetParam('-PLATFORM').ToUpper);
    if st='SDL' then begin
     requestBackend.platform:=spSDL;
     Log.Force('SDL platform requested by -PLATFORM=SDL');
@@ -1000,6 +1004,7 @@ procedure TGameApplication.ControlLoop;
   if startupScenes.message then InitMessageScene;
   InitNotifications;
   if startupScenes.console then AddConsoleScene;
+  {$IFDEF DEBUG}InitInspector;{$ENDIF} // UI inspector: Ctrl+Shift+I
   if startupScenes.tweaker then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
   // Create scenes
   try

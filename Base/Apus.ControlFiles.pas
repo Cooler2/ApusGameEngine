@@ -113,6 +113,13 @@ implementation
  uses SysUtils, StrUtils, Classes, Apus.Containers, Apus.HashMaps, Apus.Crypto, Apus.Threads,
   Apus.Strings, Apus.Conv, Apus.Files;
 
+// Hash key of an item name or path. Every key goes through here, so stored and looked up
+// keys agree: String8.ToUpper is Unicode, SysUtils.UpperCase changes only ASCII
+function KeyOf(const name:String8):string;
+ begin
+  result:=string(name.ToUpper);
+ end;
+
 type
  // comment
  TCommentLine=class
@@ -372,7 +379,7 @@ end;
 
 procedure TNamedValue.MarkFileAsChanged;
 var
- fname,iName:String8;
+ fname,iName:string;
  i,p:integer;
  item:TNamedValue;
 begin
@@ -381,7 +388,7 @@ begin
   fname:=copy(fullname,1,p-1);
   for i:=0 to items.GetChildrenCount-1 do begin
    item:=items.GetChild(i).data;
-   iName:=Uppercase(item.name);
+   iName:=KeyOf(item.name);
    if (item is TCtlFile) and (iName=fname) then begin
     TCtlFile(item).modified:=true;
     exit;
@@ -554,8 +561,10 @@ end;
 // A bare include name refers to the including file's directory
 function IncludeName(const ctlName,incl:String8):String8;
  begin
-  if (pos('\',incl)=0) and (pos('/',incl)=0) then result:=String8(ExtractFilePath(string(ctlName)))+incl
-   else result:=incl;
+  if (pos('\',incl)=0) and (pos('/',incl)=0) then
+   result:=Files.GetPath(ctlName)+incl
+  else
+   result:=incl;
  end;
 
 function UseControlFile;
@@ -623,7 +632,7 @@ function UseControlFile;
         if arg='' then
          raise EWarning.Create('CTL2: unnamed section in '+filename+' line: '+Conv.ToStr(ln));
         i:=item.AddChild(sect);
-         sect.fullname:=string((path+'\'+arg).ToUpper);
+         sect.fullname:=KeyOf(path+'\'+arg);
         hash.Put(sect.fullname,item.GetChild(i));
         LoadSection(item.GetChild(i),sect.fullname);
         continue;
@@ -690,7 +699,7 @@ function UseControlFile;
 
       // Add the element to the structures
       value.name:=st;
-      value.fullname:=string((path+'\'+st).ToUpper);
+      value.fullname:=KeyOf(path+'\'+st);
       i:=item.AddChild(value);
       hash.Put(value.fullname,item.GetChild(i));
      end;
@@ -705,7 +714,7 @@ function UseControlFile;
     // a line break at the end doesn't start one more line
     if (length(lines)>0) and (lines[high(lines)]='') then SetLength(lines,high(lines));
     ln:=0;
-    LoadSection(item,String8(UpperCase(string(ExtractFileName(filename))))+':');
+    LoadSection(item,Files.GetName(filename).ToUpper+':');
    end;
 
   procedure LoadBinary(filename:String8;item:TGenericTree;code:cardinal);
@@ -759,7 +768,7 @@ function UseControlFile;
          o:=TSection.Create;
          (o as TSection).name:=ReadString;
          n:=item.AddChild(o);
-         ReadSection(item.GetChild(n),path+'\'+UpperCase((o as TSection).name));
+         ReadSection(item.GetChild(n),path+'\'+(o as TSection).name.ToUpper);
        end;
        itBool:begin
         o:=TBoolValue.Create;
@@ -802,7 +811,7 @@ function UseControlFile;
       end;
       // set item's full name and add to hash
       if (o<>nil) and (o is TNamedValue) then with o as TNamedValue do begin
-        fullname:=path+'\'+UpperCase(name);
+        fullname:=KeyOf(path+'\'+name);
         hash.Put(fullname,item.GetChild(i-1));
       end;
      end;
@@ -827,7 +836,7 @@ function UseControlFile;
     if size>0 then move(data[sizeof(h)],ms.memory^,size);
     Decrypt32A(ms.memory^,size,mat);
 
-    ReadSection(item,UpperCase(ExtractFileName(filename))+':');
+    ReadSection(item,Files.GetName(filename).ToUpper+':');
     ms.Destroy;
    end;
 
@@ -844,8 +853,8 @@ function UseControlFile;
    // Create the object and add it to the structures
    ctl:=TCtlFile.Create(filename,mode);
    ctl.fname:=filename;
-   ctl.name:=ExtractFileName(filename);
-   ctl.fullname:=UpperCase(ctl.name)+':';
+   ctl.name:=Files.GetName(filename);
+   ctl.fullname:=KeyOf(ctl.name+':');
    i:=items.AddChild(ctl);
    hash.Put(ctl.fullname,items.GetChild(i));
    ctl.curmode:=mode;
@@ -878,7 +887,7 @@ begin
      exit;
     end;
     // keys are addressed by the bare file name, so it must be unique
-    if UpperCase(ctl.name)=UpperCase(ExtractFileName(filename)) then
+    if KeyOf(ctl.name)=KeyOf(Files.GetName(filename)) then
      raise EError.Create('a file with this name is already loaded: '+ctl.fname);
    end;
    if password<>'' then
@@ -1184,7 +1193,7 @@ end;
 
 function IsKeyExists(key:String8):Boolean;
  begin
-  result:=(hash.Get(UpperCase(key))<>nil);
+  result:=(hash.Get(KeyOf(key))<>nil);
  end;
 
 function FindItem(key:String8):TObject;
@@ -1192,7 +1201,7 @@ function FindItem(key:String8):TObject;
   item:TGenericTree;
  begin
   result:=nil;
-  item:=hash.Get(UpperCase(key));
+  item:=hash.Get(KeyOf(key));
   if item=nil then exit;
   result:=item.data;
  end;
@@ -1372,7 +1381,7 @@ function ctlGetKeys(key:String8):String8;
  begin
   critSect.Enter;
   try
-  item:=hash.get(UpperCase(key));
+  item:=hash.Get(KeyOf(key));
   if item=nil then
    raise EWarning.Create(MessageKeyIncorrect+key);
   o:=item.data;
@@ -1413,7 +1422,7 @@ procedure ctlCreateSection(key:String8);
   item:=nil;
   for i:=0 to items.GetChildrenCount-1 do begin
    f:=items.GetChild(i).data;
-   if UpperCase(f.name)=UpperCase(fname) then item:=items.GetChild(i);
+   if KeyOf(f.name)=KeyOf(fname) then item:=items.GetChild(i);
   end;
   if item=nil then
    raise EWarning.Create('CTL2: Cannot create section - file '+fname+' was not loaded.');
@@ -1425,7 +1434,7 @@ procedure ctlCreateSection(key:String8);
    for i:=0 to item.GetChildrenCount-1 do begin
     o:=item.GetChild(i).data;
     if (o is TSection) and
-       (UpperCase((o as TSection).name)=UpperCase(sname)) then begin
+       (KeyOf((o as TSection).name)=KeyOf(sname)) then begin
      item:=item.GetChild(i);
      fl:=true;
      break;
@@ -1435,10 +1444,7 @@ procedure ctlCreateSection(key:String8);
     curS:=item.data;
     s:=TSection.Create;
     s.name:=sname;
-    if curs is TCtlFile then
-     s.fullname:=curS.fullname+'\'+uppercase(sname)
-    else
-     s.fullname:=curS.fullname+'\'+uppercase(sname);
+    s.fullname:=curS.fullname+'\'+KeyOf(sname);
     i:=item.AddChild(s);
     item:=item.GetChild(i);
     hash.Put(s.fullname,item);
@@ -1462,12 +1468,12 @@ function CreateKey(key:String8;KeyType:TNamedValueClass):TObject;
    if key[i]='\' then begin
     s:=copy(key,1,i-1);
     ctlCreateSection(s);
-    item:=hash.Get(UpperCase(s));
+    item:=hash.Get(KeyOf(s));
     o:=item.data;
     if o is TCtlFile then TCtlFile(o).modified:=true;
     o:=KeyType.Create;
     o.name:=Copy(key,i+1,length(key)-i);
-    o.fullname:=UpperCase(key);
+    o.fullname:=KeyOf(key);
     n:=item.AddChild(o);
     hash.Put(o.fullname,item.GetChild(n));
     result:=o;
@@ -1600,7 +1606,7 @@ procedure ctlDeleteKey(key:String8);
  begin
   critSect.Enter;
   try
-  item:=hash.Get(uppercase(key));
+  item:=hash.Get(KeyOf(key));
   if item=nil then
    raise EWarning.Create(MessageKeyIncorrect+key);
   if item.GetParent=nil then
@@ -1620,7 +1626,7 @@ constructor TControlFile.Create(fname:String8;password:String8='');
 begin
  handle:=-1;
  handle:=UseControlFile(fname,password);
- path:=ExtractFileName(Files.FixName(fname))+':'; // FixName: Delphi doesn't take '/' as a separator
+ path:=Files.GetName(fname)+':';
 end;
 
 procedure TControlFile.CreateSection(key: String8);
