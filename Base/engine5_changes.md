@@ -3,6 +3,14 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Cursor handles are pointer-sized (2026-10-29)
+
+- New `TCursorHandle=NativeUInt` (`Apus.Engine.API`): native cursor handles in
+  `ISystemPlatform.GetSystemCursor/LoadCursor/SetCursor/FreeCursor` and
+  `TGameBase.RegisterCursor/GetCursorForID` (were `THandle`). An SDL cursor is a pointer, and
+  `THandle` on Unix is a 32-bit file descriptor, so the cursors broke on Linux x64.
+- Game code: keep cursor handles in `TCursorHandle` variables, not `THandle`/`cardinal`.
+
 ## Non-ANSI paths and command line under FPC on Windows (2026-10-28)
 
 Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `ExpandFileName`,

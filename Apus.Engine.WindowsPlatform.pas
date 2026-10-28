@@ -67,10 +67,10 @@ type
   // System functions
   function GetMousePos:TPoint;
   procedure SetMousePos(scrX,scrY:integer);
-  function GetSystemCursor(cursorId:integer):THandle;
-  function LoadCursor(filename:string):THandle;
-  procedure SetCursor(cur:THandle);
-  procedure FreeCursor(cur:THandle);
+  function GetSystemCursor(cursorId:integer):TCursorHandle;
+  function LoadCursor(filename:string):TCursorHandle;
+  procedure SetCursor(cur:TCursorHandle);
+  procedure FreeCursor(cur:TCursorHandle);
   function GetShiftKeysState:cardinal;
   // Window factory
  function CreateWindow(const name:String8;title:string):TWindow;
@@ -111,7 +111,7 @@ var
  // Last cursor handle applied via TWindowsPlatform.SetCursor. The window class has
  // no cursor (hCursor=0), so we re-assert this one on WM_SETCURSOR/HTCLIENT to undo
  // the sizing cursor that DefWindowProc sets while hovering a resize border.
- currentCursor:THandle=0;
+ currentCursor:TCursorHandle=0;
  // WGL entry-point cache obtained on primary context and reused by secondary
  // windows when creating shared modern contexts in other threads.
  cachedWglCreateContextAttribs:TwglCreateContextAttribsFn=nil;
@@ -818,7 +818,7 @@ function TWindowsPlatform.GetShiftKeysState: cardinal;
   if GetAsyncKeyState(VK_RWIN)<0 then result:=result or sscRWin;
  end;
 
-function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;
+function TWindowsPlatform.GetSystemCursor(cursorId: integer): TCursorHandle;
  var
   name:PChar;
  begin
@@ -838,7 +838,7 @@ function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;
   result:=Windows.LoadCursor(0,name);
  end;
 
-function TWindowsPlatform.LoadCursor(filename:string):THandle;
+function TWindowsPlatform.LoadCursor(filename:string):TCursorHandle;
  var
   data,bits:ByteArray;
   offset,size:cardinal;
@@ -864,13 +864,13 @@ function TWindowsPlatform.LoadCursor(filename:string):THandle;
   if result=0 then raise EWarning.Create('Failed to create cursor: '+filename);
  end;
 
-procedure TWindowsPlatform.SetCursor(cur:THandle);
+procedure TWindowsPlatform.SetCursor(cur:TCursorHandle);
  begin
   currentCursor:=cur; // remembered so WM_SETCURSOR can re-assert the engine's choice
   windows.SetCursor(cur);
  end;
 
-procedure TWindowsPlatform.FreeCursor(cur:THandle);
+procedure TWindowsPlatform.FreeCursor(cur:TCursorHandle);
  begin
   Windows.DestroyCursor(cur);
  end;

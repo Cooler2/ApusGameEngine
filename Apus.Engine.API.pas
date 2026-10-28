@@ -175,6 +175,9 @@ type
  TARGBColor = Apus.Engine.Types.TARGBColor;
  PARGBColor = Apus.Engine.Types.PARGBColor;
 
+ // SDL cursors are pointers; Unix THandle is only a 32-bit file descriptor.
+ TCursorHandle = NativeUInt;
+
  TKey = Apus.Engine.Keys.TKey;
  TKeyMod = Apus.Engine.Keys.TKeyMod;
  Scan = Apus.Engine.Keys.Scan;
@@ -283,10 +286,10 @@ type
   function GetScreenDPI:integer;
 
   // System functions
-  function GetSystemCursor(cursorId:integer):THandle;
-  function LoadCursor(filename:string):THandle;
-  procedure SetCursor(cur:THandle);
-  procedure FreeCursor(cur:THandle);
+  function GetSystemCursor(cursorId:integer):TCursorHandle;
+  function LoadCursor(filename:string):TCursorHandle;
+  procedure SetCursor(cur:TCursorHandle);
+  procedure FreeCursor(cur:TCursorHandle);
   function GetMousePos:TPoint; // mouse position on screen
   procedure SetMousePos(scrX,scrY:integer); // move mouse cursor (screen coordinates)
   function GetShiftKeysState:cardinal;
@@ -906,9 +909,9 @@ type
   // Cursors
   // -------
   // Assign a cursor handle (system or cursom) to a cursor ID
-  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); virtual; abstract;
+  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:TCursorHandle); virtual; abstract;
   // Get cursor handle assigned for given ID
-  function GetCursorForID(cursorID:integer):THandle; virtual; abstract;
+  function GetCursorForID(cursorID:integer):TCursorHandle; virtual; abstract;
   // Toggle cursor on or off
   procedure ToggleCursor(CursorID:integer;state:boolean=true); virtual; abstract;
   // Toggle all cursors off
