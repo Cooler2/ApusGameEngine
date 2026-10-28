@@ -735,11 +735,7 @@ procedure TGameApplication.Prepare;
    end;
    logName:=Files.FixName(logPath+appSetup.logFile);
    if Files.Exists(logName) then begin
-    // the extension replaced by hand: ChangeFileExt of FPC returns an ANSI name
-    i:=length(logName);
-    while (i>0) and not (logName[i] in ['.','/','\']) do dec(i);
-    if (i>0) and (logName[i]='.') then oldName:=Copy(logName,1,i-1)+'.old'
-     else oldName:=logName+'.old';
+    oldName:=Files.ChangeExt(logName,'.old');
     if Files.Exists(oldName) then Files.Delete(oldName); // a rename doesn't replace it on Windows
     Files.Rename(logName,oldName);
    end;
@@ -756,14 +752,11 @@ procedure TGameApplication.Prepare;
     // directory is genuinely read-only, or we run from a macOS .app bundle whose
     // Contents/Resources is writable on disk but must stay immutable, since a
     // write there breaks the code-signing seal.
-    // split by hand: the RTL path functions lose non-ANSI characters under FPC on Windows
-    i:=length(appSetup.configFile);
-    while (i>0) and not (appSetup.configFile[i] in ['/','\']) do dec(i);
-    configDir:=Copy(appSetup.configFile,1,i);
+    configDir:=Files.GetPath(appSetup.configFile);
     if configDir='' then configDir:='.';
     if bundleMode or not Folder.Writable(configDir) then begin
      Folder.Create(AppDataDir);
-     configName:=AppDataDir+Copy(appSetup.configFile,i+1,length(appSetup.configFile)-i);
+     configName:=AppDataDir+Files.GetName(appSetup.configFile);
      if not Files.Exists(configName) and Files.Exists(appSetup.configFile) then
       Files.CopyFile(appSetup.configFile,configName); // seed from shipped defaults
      appSetup.configFile:=configName;

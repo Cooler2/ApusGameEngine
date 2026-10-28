@@ -657,15 +657,10 @@ end;
 
 // A bare include name refers to the directory of the including file
 function IncludeName(const fromFile,incl:String8):String8;
-var
-  i:integer;
 begin
-  if (Pos('\',incl)=0) and (Pos('/',incl)=0) then begin
-    // not ExtractFilePath(string(...)): under FPC that goes through the ANSI code page
-    i:=length(fromFile);
-    while (i>0) and not (fromFile[i] in ['/','\',':']) do dec(i);
-    result:=Copy(fromFile,1,i)+incl;
-  end else
+  if (Pos('\',incl)=0) and (Pos('/',incl)=0) then
+    result:=Files.GetPath(fromFile)+incl
+  else
     result:=incl;
 end;
 
@@ -955,7 +950,7 @@ begin
   end;
   src.endsWithBreak:=(text<>'') and (text[length(text)]=#10);
   // Dialect
-  if SameText(ExtractFileExt(string(name)),'.json') then src.dialect:=dlJSON
+  if Files.GetExt(name).Same('.json') then src.dialect:=dlJSON
   else begin
     src.dialect:=dlCTL3;
     for i:=0 to high(src.lines) do begin

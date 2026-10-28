@@ -206,7 +206,7 @@ implementation
     Log.Force('Run file script: '+Files.FixName(fname));
     st:=Files.LoadAsString(Files.FixName(fname));
     sa:=st.SplitLines;
-    curFile:=ExtractFileName(fname);
+    curFile:=Files.GetName(fname);
     curLine:=1;
     for st in sa do begin
      if echo then CmdOutput(st,TConsoleKind.Echo);

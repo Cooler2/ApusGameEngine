@@ -553,15 +553,10 @@ end;
 
 // A bare include name refers to the including file's directory
 function IncludeName(const ctlName,incl:String8):String8;
- var
-  i:integer;
  begin
-  if (pos('\',incl)=0) and (pos('/',incl)=0) then begin
-   // not ExtractFilePath(string(...)): under FPC that goes through the ANSI code page
-   i:=length(ctlName);
-   while (i>0) and not (ctlName[i] in ['/','\',':']) do dec(i);
-   result:=Copy(ctlName,1,i)+incl;
-  end else
+  if (pos('\',incl)=0) and (pos('/',incl)=0) then
+   result:=Files.GetPath(ctlName)+incl
+  else
    result:=incl;
  end;
 
@@ -712,7 +707,7 @@ function UseControlFile;
     // a line break at the end doesn't start one more line
     if (length(lines)>0) and (lines[high(lines)]='') then SetLength(lines,high(lines));
     ln:=0;
-    LoadSection(item,String8(UpperCase(string(ExtractFileName(filename))))+':');
+    LoadSection(item,String8(UpperCase(string(Files.GetName(filename))))+':');
    end;
 
   procedure LoadBinary(filename:String8;item:TGenericTree;code:cardinal);
@@ -834,7 +829,7 @@ function UseControlFile;
     if size>0 then move(data[sizeof(h)],ms.memory^,size);
     Decrypt32A(ms.memory^,size,mat);
 
-    ReadSection(item,UpperCase(ExtractFileName(filename))+':');
+    ReadSection(item,UpperCase(Files.GetName(filename))+':');
     ms.Destroy;
    end;
 
@@ -851,7 +846,7 @@ function UseControlFile;
    // Create the object and add it to the structures
    ctl:=TCtlFile.Create(filename,mode);
    ctl.fname:=filename;
-   ctl.name:=ExtractFileName(filename);
+   ctl.name:=Files.GetName(filename);
    ctl.fullname:=UpperCase(ctl.name)+':';
    i:=items.AddChild(ctl);
    hash.Put(ctl.fullname,items.GetChild(i));
@@ -885,7 +880,7 @@ begin
      exit;
     end;
     // keys are addressed by the bare file name, so it must be unique
-    if UpperCase(ctl.name)=UpperCase(ExtractFileName(filename)) then
+    if UpperCase(ctl.name)=UpperCase(Files.GetName(filename)) then
      raise EError.Create('a file with this name is already loaded: '+ctl.fname);
    end;
    if password<>'' then
@@ -1627,7 +1622,7 @@ constructor TControlFile.Create(fname:String8;password:String8='');
 begin
  handle:=-1;
  handle:=UseControlFile(fname,password);
- path:=ExtractFileName(Files.FixName(fname))+':'; // FixName: Delphi doesn't take '/' as a separator
+ path:=Files.GetName(fname)+':';
 end;
 
 procedure TControlFile.CreateSection(key: String8);

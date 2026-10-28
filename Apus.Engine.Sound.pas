@@ -578,7 +578,7 @@ procedure LoadConfig;
  procedure AddMusicEntry(node:TCfgNode);
   var
    item:TMusicEntry;
-   fname,fExt:string;
+   fname,fExt:String8;
    loop:boolean;
    looppos:integer;
   begin
@@ -588,7 +588,7 @@ procedure LoadConfig;
    fname:=node.Str('file');
    item.loop:=node.Bool('loop',false);
    loop:=item.loop;
-   fExt:=UpperCase(ExtractFileExt(fname));
+   fExt:=Files.GetExt(fname).ToUpper;
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAV') then begin
     {$IF DEFINED(ANDROID) AND DEFINED(ANDROID_LEGACY_AUDIO)}
     // Copy file to data folder

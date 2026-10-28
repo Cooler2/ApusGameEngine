@@ -495,19 +495,10 @@ begin
  Bits.SetFlag(caps,tfImmutable);
 end;
 
-// Image key of a file key: the extension (last '.' after the last separator) stripped
+// Image key of a file key: the extension stripped
 function ImageKey(const fileKey:String8):String8;
- var
-  i:integer;
  begin
-  result:=fileKey;
-  for i:=length(result) downto 1 do begin
-   if result[i] in ['\','/'] then break;
-   if result[i]='.' then begin
-    SetLength(result,i-1);
-    break;
-   end;
-  end;
+  result:=Files.ChangeExt(fileKey,'');
  end;
 
 // Remove this object from the source index: the file entry and the image entry, each
@@ -739,7 +730,6 @@ function TTexture.ClonePart(part:TRect): TTexture;
 
 class function TTexture.SourceKey(const ref:String8):String8;
  var
-  i:integer;
   root:String8;
  begin
   result:=Files.FixName(ref);
@@ -748,12 +738,7 @@ class function TTexture.SourceKey(const ref:String8):String8;
   if (root<>'') and result.StartsWith(root,true) then
    delete(result,1,length(root))
   else begin
-   root:=Files.FixName(Env.ExeName);
-   for i:=length(root) downto 1 do
-    if root[i] in ['\','/'] then begin
-     SetLength(root,i);
-     break;
-    end;
+   root:=Files.GetPath(Files.FixName(Env.ExeName));
    if (root<>'') and result.StartsWith(root,true) then
     delete(result,1,length(root));
   end;

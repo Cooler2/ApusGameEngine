@@ -907,9 +907,9 @@ function TGLShadersAPI.Load(filename,extra:String8):TShader;
    fName:=fileName+'.shader';
   if not Files.Exists(fName) then begin
    // load separate shader files
-   fname:=ChangeFileExt(filename,'.vsh');
+   fname:=Files.ChangeExt(filename,'.vsh');
    vSrc:=Files.LoadAsString(fName);
-   fname:=ChangeFileExt(filename,'.fsh');
+   fname:=Files.ChangeExt(filename,'.fsh');
    fSrc:=Files.LoadAsString(fName);
   end else begin
    // Load combined shader file
