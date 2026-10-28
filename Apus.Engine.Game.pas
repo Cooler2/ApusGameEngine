@@ -104,6 +104,7 @@ type
   curPrior:integer; // priority of the currently displayed cursor
   wndCursor:THandle; // current system cursor
   suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
+  hotkeyDown:array[0..Scan.Count-1] of boolean; // keys taken by an internal hotkey: their repeats and release are dropped too
 
   avgTime,avgTime2:double;
   timerFrame:cardinal;
@@ -164,8 +165,9 @@ type
   procedure CreateDebugLogs; virtual;
   // Draw magnified part of the screen under mouse
   procedure DrawMagnifier; virtual;
-  // Internal hotkeys such as PrintScreen, Alt+F1 etc
-  procedure HandleInternalHotkeys(keyCode:integer;pressed:boolean); virtual;
+  // Internal hotkeys such as PrintScreen, Alt+F1 etc. True if a hotkey fired: the key
+  // then doesn't reach the scenes
+  function HandleInternalHotkeys(keyCode:integer;pressed:boolean):boolean; virtual;
 
   procedure HandleGamepadNavigation;
   procedure PrepareRun;
@@ -302,7 +304,7 @@ begin
  end;
 end;
 
-procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
+function TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean):boolean;
  procedure ToggleDebugOverlay(n:integer);
   begin
    if debug.overlay=n then debug.overlay:=0
@@ -313,23 +315,29 @@ procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
    result:=(debugHotkey<>0) and Bits.HasAll(window.shiftState,debugHotkey);
   end;
 begin
+  result:=false;
   if pressed then begin
    // Alt+Enter - switch display settings
    if (TKey(keyCode and $FF)=TKey.Enter) and (window.shiftstate and sscAlt>0) then
       if (params.mode<>params.altMode) and
-         (params.altMode<>dmNone) then
+         (params.altMode<>dmNone) then begin
        SwitchToAltSettings;
+       result:=true;
+      end;
 
    // Alt+F11
    if (TKey(keyCode and $FF)=TKey.F11) and Bits.HasAll(window.shiftState,sscAlt) then begin
      SetVSync(params.VSync xor 1); // toggle vsync
      if params.VSync>0 then ShowToast('VSync: ON',TToastKind.Success)
       else ShowToast('VSync: OFF',TToastKind.Warning);
+     result:=true;
    end;
 
    // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
-   if (TKey(keyCode and $FF)=TKey.PrintScreen) or (TKey(keyCode and $FF)=TKey.F12) then
+   if (TKey(keyCode and $FF)=TKey.PrintScreen) or (TKey(keyCode and $FF)=TKey.F12) then begin
      RequestScreenshot(not Bits.HasAll(window.shiftState,sscAlt));
+     result:=true;
+   end;
 
    if DebugOverlayHotkeyActive then begin
      if TKey(keyCode and $FF)=TKey.F1 then begin
@@ -340,20 +348,27 @@ begin
         debug.overlay:=0;
         debug.features:=[];
        end;
+       result:=true;
      end else
-     if TKey(keyCode and $FF)=TKey.F3 then
+     if TKey(keyCode and $FF)=TKey.F3 then begin
        ToggleDebugFeature(dfShowMagnifier);
+       result:=true;
+     end;
    end;
 
    // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
    if (debug.overlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(window.shiftState,sscAlt) then begin
     debug.overlay:=1+keyCode-byte(TKey.D1);
+    result:=true;
    end;
 
    // Shift+Alt+F1 - Create debug logs
    if (TKey(keyCode and $FF)=TKey.F1) and
       (window.shiftState and sscAlt>0) and
-      (window.shiftState and sscShift>0) then CreateDebugLogs;
+      (window.shiftState and sscShift>0) then begin
+     CreateDebugLogs;
+     result:=true;
+   end;
   end;
 end;
 
@@ -453,12 +468,21 @@ begin
   ASSERT((scanCode>=0) and (scanCode<Scan.Count));
   // a release of a key that is not down is dropped
   if not window.KeyTransition(scanCode,TKey(keyCode and $FF),pressed) then exit;
+  // A key taken by an internal hotkey doesn't reach the scenes: neither the press
+  // nor its auto-repeats (they don't fire the hotkey again) nor the release
+  if (scanCode>0) and hotkeyDown[scanCode] then begin
+   if not pressed then hotkeyDown[scanCode]:=false;
+   exit;
+  end;
+  if HandleInternalHotkeys(keyCode,pressed) then begin
+   if scanCode>0 then hotkeyDown[scanCode]:=true;
+   exit;
+  end;
   // Buffer the key event (down or up) into the kbd-topmost scene.
   // The engine drains it before Process via TGameScene.PumpInput → DispatchKey.
   scene:=TopmostSceneForKbd;
   if scene<>nil then
    scene.WriteKey(cardinal(keyCode and $FF) or (cardinal(scanCode and $FFFF) shl 8) or (cardinal(ord(pressed)) shl 24));
-  HandleInternalHotkeys(keyCode,pressed);
 end;
 
 procedure TGame.Activate(activeState:boolean);
