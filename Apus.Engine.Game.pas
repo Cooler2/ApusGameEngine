@@ -49,8 +49,8 @@ type
   procedure HideWindowScene(name:string); override;
 
   // Cursors
-  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); override;
-  function GetCursorForID(cursorID:integer):THandle; override;
+  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:TCursorHandle); override;
+  function GetCursorForID(cursorID:integer):TCursorHandle; override;
   procedure ToggleCursor(CursorID:integer;state:boolean=true); override;
   procedure HideAllCursors; override;
 
@@ -102,7 +102,7 @@ type
   crSect:TLock;
 
   curPrior:integer; // priority of the currently displayed cursor
-  wndCursor:THandle; // current system cursor
+  wndCursor:TCursorHandle; // current system cursor
   suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
 
   avgTime,avgTime2:double;
@@ -195,7 +195,7 @@ type
  TGameCursor=class
   ID:integer;
   priority:integer;
-  handle:THandle;
+  handle:TCursorHandle;
   visible:boolean;
  end;
 
@@ -1521,7 +1521,7 @@ end;
 procedure TGame.DrawCursor;
 var
  n,i,j:integer;
- c:cardinal;
+ c:TCursorHandle;
 begin
  Lock;
  try
@@ -1689,7 +1689,7 @@ begin
  end;
 end;
 
-function TGame.GetCursorForID(cursorID:integer):THandle;
+function TGame.GetCursorForID(cursorID:integer):TCursorHandle;
 var
  i:integer;
 begin
@@ -1707,7 +1707,7 @@ begin
 end;
 
 procedure TGame.RegisterCursor(CursorID, priority: integer;
-  cursorHandle: THandle);
+  cursorHandle: TCursorHandle);
 var
  i,n:integer;
  cursor:TGameCursor;

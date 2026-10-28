@@ -78,10 +78,10 @@ type
 
   function GetMousePos:TPoint; // Get mouse position on screen
   procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
-  function GetSystemCursor(cursorId:integer):THandle;
-  function LoadCursor(fname:string):THandle;
-  procedure SetCursor(cur:THandle);
-  procedure FreeCursor(cur:THandle);
+  function GetSystemCursor(cursorId:integer):TCursorHandle;
+  function LoadCursor(fname:string):TCursorHandle;
+  procedure SetCursor(cur:TCursorHandle);
+  procedure FreeCursor(cur:TCursorHandle);
 
   function GetShiftKeysState:cardinal;
   function CreateWindow(const name:String8;title:string):TWindow;
@@ -319,7 +319,7 @@ function TSDLPlatform.GetShiftKeysState: cardinal;
   if keys and KMOD_RGUI>0 then result:=result or sscRWin;
  end;
 
-function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
+function TSDLPlatform.GetSystemCursor(cursorId: integer): TCursorHandle;
  var
   cur:integer;  // not WORD because of Delphi calling convention issue
  begin
@@ -336,12 +336,12 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
    Apus.Engine.API.CursorID.ResizeNESW:cur:=SDL_SYSTEM_CURSOR_SIZENESW;
    Apus.Engine.API.CursorID.Cross:cur:=SDL_SYSTEM_CURSOR_CROSSHAIR;
   end;
-  result:=THandle(SDL_CreateSystemCursor(cur));
+  result:=TCursorHandle(SDL_CreateSystemCursor(cur));
   if result=0 then
    Log.Msg('Error - SDL_CSC failed: '+SDL_GetError);
  end;
 
-function TSDLPlatform.LoadCursor(fname:string):THandle;
+function TSDLPlatform.LoadCursor(fname:string):TCursorHandle;
  var
   surface:PSDL_Surface;
   data:ByteArray;
@@ -360,19 +360,19 @@ function TSDLPlatform.LoadCursor(fname:string):THandle;
    cursor:=SDL_CreateColorCursor(surface,hotX,hotY);
    SDL_FreeSurface(surface);
    image.Unlock;
-   result:=THandle(cursor);
+   result:=TCursorHandle(cursor);
   except
    on e:Exception do
     raise EWarning.Create('Failed to load cursor from %s: %s',[fname,ExceptionMsg(e)]);
   end;
  end;
 
-procedure TSDLPlatform.SetCursor(cur:THandle);
+procedure TSDLPlatform.SetCursor(cur:TCursorHandle);
  begin
   SDL_SetCursor(pointer(cur));
  end;
 
-procedure TSDLPlatform.FreeCursor(cur:THandle);
+procedure TSDLPlatform.FreeCursor(cur:TCursorHandle);
  begin
   SDL_FreeCursor(pointer(cur));
  end;
