@@ -876,6 +876,40 @@ begin
   EndTest;
 end;
 
+// Keys with non-ASCII letters: stored and looked up keys are cased the same way, and the
+// lookup ignores the case of such letters too. Literals in variables: see TestUnicodeNames
+procedure TestControlFileUnicodeKeys;
+var
+  prev:IFileProvider;
+  h:integer;
+  root,width,widthUp,section,title,titleLow,value,height,heightLow,text:String8;
+begin
+  StartTest('Control file non-ASCII keys');
+  width:='Ширина'; widthUp:='ШИРИНА';
+  section:='Окно';
+  title:='Заголовок'; titleLow:='окно\заголовок';
+  value:='Ω 日本';
+  height:='Высота'; heightLow:='высота';
+  text:=width+' 640'#13#10'$Section '+section+#13#10'  '+title+' "'+value+'"'#13#10'$EndOfSection'#13#10;
+  prev:=Files.GetProvider;
+  Files.SetProvider(TMemFileProvider.Create(prev));
+  try
+    root:='ключи.ctl';
+    Files.Save('vfs/'+root,text,false);
+    h:=UseControlFile('vfs/'+root);
+    root:=root+':\';
+    Check(ctlGetInt(root+width,-1)=640,'ctl: key as written');
+    Check(ctlGetInt(root+widthUp,-1)=640,'ctl: key in another case');
+    Check(ctlGetStr(root+titleLow,'')=value,'ctl: key in a section');
+    ctlSetInt(root+height,480);
+    Check(ctlGetInt(root+heightLow,-1)=480,'ctl: created key');
+    FreeControlFile(h);
+  finally
+    Files.SetProvider(prev);
+  end;
+  EndTest;
+end;
+
 // Fixes of the stage 1 of the config redesign: each block failed on the previous code
 procedure TestControlFileFixes;
 const
@@ -1005,6 +1039,7 @@ begin
     TestControlFileErrors;
     TestControlFileTypes;
     TestControlFileFixes;
+    TestControlFileUnicodeKeys;
 
     Cleanup;
 
