@@ -94,6 +94,14 @@ type
     class function FixName(const fname:String8):String8; static;         // fix separators + apply case rules
     class procedure AddFixNameRule(const rule:String8); static;
     class function IsPathRelative(const fname:String8):boolean; static;
+    // Parts of a name. Separators are '/' and '\' on every platform, plus ':' (drive) on
+    // Windows. Byte operations on UTF-8: unlike ExtractFilePath & co. of the RTL, nothing
+    // goes through the ANSI code page under FPC, and Delphi takes '/' too
+    class function GetPath(const fname:String8):String8; static; // folder with the trailing delimiter, '' if none
+    class function GetDir(const fname:String8):String8; static;  // folder without the trailing delimiter (a root keeps it)
+    class function GetName(const fname:String8):String8; static; // name with the extension
+    class function GetExt(const fname:String8):String8; static;  // '.ext', '' if none; a leading dot ('.gitignore') is not one
+    class function ChangeExt(const fname,ext:String8):String8; static; // ext with the dot, '' removes the extension
     // Poll until file appears (exists=true) or disappears (exists=false), return false on timeout
     class function WaitFor(const fname:String8; delayLimit:integer; exists:boolean=true):boolean; static;
 
@@ -374,14 +382,10 @@ end;
 function CreateFileWithFolder(const fname:String8):THandle;
 var
   dir:String8;
-  i:integer;
 begin
   result:=SysUtils.FileCreate(SysName(fname));
   if result<>THandle(-1) then exit;
-  // not ExtractFilePath: under Delphi on Windows it does not take '/' for a separator
-  i:=length(fname);
-  while (i>0) and not (fname[i] in ['/','\']) do dec(i);
-  dir:=Copy(fname,1,i);
+  dir:=Files.GetPath(fname);
   if (dir='') or SysUtils.DirectoryExists(SysName(dir)) then exit; // the failure is something else
   if Folder.Create(dir) then
     result:=SysUtils.FileCreate(SysName(fname));
@@ -691,13 +695,8 @@ end;
 class procedure Files.MakeBakFile(const fname:String8);
 var
   bakName:String8;
-  i:integer;
 begin
-  // the extension replaced by hand: ChangeFileExt of FPC returns an ANSI name
-  i:=length(fname);
-  while (i>0) and not (fname[i] in ['.','/','\']) do dec(i);
-  if (i>0) and (fname[i]='.') then bakName:=Copy(fname,1,i-1)+'.bak'
-    else bakName:=fname+'.bak';
+  bakName:=Files.ChangeExt(fname,'.bak');
   if SysUtils.FileExists(SysName(bakName)) then
     SysUtils.DeleteFile(SysName(bakName));
   if SysUtils.FileExists(SysName(fname)) then
@@ -934,6 +933,70 @@ begin
   result:=true;
   if (length(fname)>0) and (fname[1]='/') then exit(false);
   if fname.IndexOf(':')>0 then exit(false);
+end;
+
+const
+  NAME_DELIMS=['/','\'{$IFDEF MSWINDOWS},':'{$ENDIF}];
+
+// Index of the first character of the name part (after the last delimiter)
+function NameStart(const fname:String8):integer;
+begin
+  result:=length(fname);
+  while (result>0) and not (fname[result] in NAME_DELIMS) do dec(result);
+  inc(result);
+end;
+
+// Index of the dot that starts the extension, 0 if there is none
+function ExtStart(const fname:String8):integer;
+var
+  first:integer;
+begin
+  first:=NameStart(fname);
+  result:=length(fname);
+  while (result>first) and (fname[result]<>'.') do dec(result);
+  if result<=first then result:=0; // no dot, or a leading one
+end;
+
+class function Files.GetPath(const fname:String8):String8;
+begin
+  result:=Copy(fname,1,NameStart(fname)-1);
+end;
+
+class function Files.GetDir(const fname:String8):String8;
+var
+  len:integer;
+begin
+  result:=GetPath(fname);
+  len:=length(result);
+  // drop trailing delimiters, but keep the one of a root: '/', 'C:\'
+  while (len>1) and (result[len] in ['/','\']) and (result[len-1]<>':') do dec(len);
+  SetLength(result,len);
+end;
+
+class function Files.GetName(const fname:String8):String8;
+var
+  first:integer;
+begin
+  first:=NameStart(fname);
+  result:=Copy(fname,first,length(fname)-first+1);
+end;
+
+class function Files.GetExt(const fname:String8):String8;
+var
+  dot:integer;
+begin
+  dot:=ExtStart(fname);
+  if dot>0 then result:=Copy(fname,dot,length(fname)-dot+1)
+    else result:='';
+end;
+
+class function Files.ChangeExt(const fname,ext:String8):String8;
+var
+  dot:integer;
+begin
+  dot:=ExtStart(fname);
+  if dot>0 then result:=Copy(fname,1,dot-1)+ext
+    else result:=fname+ext;
 end;
 
 class function Files.WaitFor(const fname:String8; delayLimit:integer; exists:boolean):boolean;

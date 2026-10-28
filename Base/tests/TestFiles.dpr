@@ -418,6 +418,40 @@ begin
   EndTest;
 end;
 
+procedure TestNameParts;
+var
+  uname,udir:String8;
+begin
+  StartTest('Name parts');
+  Check(Files.GetPath('dir/sub/file.txt')='dir/sub/','GetPath');
+  Check(Files.GetPath('a\b/file.txt')='a\b/','GetPath takes both delimiters');
+  Check(Files.GetPath('file.txt')='','GetPath without a folder');
+  Check(Files.GetDir('dir/sub/file.txt')='dir/sub','GetDir');
+  Check(Files.GetDir('/file.txt')='/','GetDir keeps the root');
+  Check(Files.GetDir('file.txt')='','GetDir without a folder');
+  Check(Files.GetName('dir/sub/file.txt')='file.txt','GetName');
+  Check(Files.GetName('dir/sub/')='','GetName of a folder');
+  Check(Files.GetExt('dir/file.tar.gz')='.gz','GetExt takes the last dot');
+  Check(Files.GetExt('dir.v2/file')='','GetExt ignores a dot in the folder');
+  Check(Files.GetExt('dir/.gitignore')='','GetExt: a leading dot is not an extension');
+  Check(Files.ChangeExt('dir/file.txt','.bak')='dir/file.bak','ChangeExt');
+  Check(Files.ChangeExt('dir.v2/file','.bak')='dir.v2/file.bak','ChangeExt adds an extension');
+  Check(Files.ChangeExt('dir/file.txt','')='dir/file','ChangeExt removes an extension');
+  Check(Files.ChangeExt('dir/.gitignore','.bak')='dir/.gitignore.bak','ChangeExt keeps a leading dot');
+  {$IFDEF MSWINDOWS}
+  Check(Files.GetName('C:file.txt')='file.txt','GetName after a drive');
+  Check(Files.GetDir('C:\file.txt')='C:\','GetDir keeps a drive root');
+  {$ENDIF}
+  // literals in variables: see TestUnicodeNames
+  uname:='日本 Ω.данные';
+  udir:='Юникод Ω/';
+  Check(Files.GetName(udir+uname)=uname,'GetName keeps UTF-8');
+  Check(Files.GetPath(udir+uname)=udir,'GetPath keeps UTF-8');
+  uname:='.данные';
+  Check(Files.GetExt(udir+'x'+uname)=uname,'GetExt keeps UTF-8');
+  EndTest;
+end;
+
 procedure TestPathUtils;
 begin
   StartTest('Path utilities');
@@ -966,6 +1000,7 @@ begin
     TestFind;
     TestUnicodeNames;
     TestPathUtils;
+    TestNameParts;
     TestProviderChain;
     TestControlFileErrors;
     TestControlFileTypes;

@@ -15,6 +15,11 @@ Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `E
   of `ParamStr`/`ParamCount`/`GetEnvironmentVariable` wherever the value may be a path.
 - `Files`/`Folder` (`Apus.Files`) pass names to the OS losslessly; `ListFiles`/`Find` return
   UTF-8 names, `Find` compares with Unicode case folding.
+- New name parts in `Files` (`Apus.Files`), byte operations on `String8`: `GetPath` (with the
+  trailing delimiter), `GetDir` (without it, a root keeps it), `GetName`, `GetExt` (`.ext`; a
+  leading dot is not one), `ChangeExt`. Use them instead of `ExtractFilePath`/`ExtractFileDir`/
+  `ExtractFileName`/`ExtractFileExt`/`ChangeFileExt`: separators are `/` and `\` everywhere
+  (plus `:` on Windows) under both compilers, and no ANSI conversion happens.
 - `Logger.UseLogFile(const name:String8; ...)` (was `name:string`). The header no longer fails
   on such a path; if the date of the executable can't be read it says so instead.
 - `HasParam(const name:String8)`, `GetParam(const name:String8):String8` (`Apus.Utils`, were
