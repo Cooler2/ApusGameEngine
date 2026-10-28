@@ -533,10 +533,18 @@ var
 begin
   StartTest('Thread.DumpRegistered on self');
 
-  dumpReturned:=false;
-  th:=Thread.Start('SelfDumpTest',TThreadFunc(@DumpWorker));
-  th.Wait(3000); // bounded: if the dump hangs, fail instead of blocking the run
-  Check(dumpReturned,'DumpRegistered must return after reaching its own thread');
+  // Keep another registered thread alive: a self-only dump does not exercise
+  // the native cross-thread diagnostic (pthread_t must never be used as a PID).
+  Thread.Register('DumpMain');
+  try
+    dumpReturned:=false;
+    th:=Thread.Start('SelfDumpTest',TThreadFunc(@DumpWorker));
+    th.Wait(3000); // bounded: if the dump hangs, fail instead of blocking the run
+    Check(dumpReturned,'DumpRegistered must return after reaching its own thread');
+    Check(th.Status=TThreadStatus.Finished,'Cross-thread dump must finish without an exception');
+  finally
+    Thread.Unregister;
+  end;
 
   EndTest;
 end;
