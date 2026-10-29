@@ -799,33 +799,6 @@ implementation
   draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,table.GetStyleColor('line-color',$FF808080));
  end;
 
- // Temporary private helper until Files supplies a UTF-8 absolute-path API (PaintRaw E-26).
- function FullPath(const path:String8):String8;
- {$IFDEF MSWINDOWS}
- var
-  source,buffer:UnicodeString;
-  part:PWideChar;
-  count,written:cardinal;
- {$ENDIF}
- begin
-  {$IFDEF MSWINDOWS}
-  source:=UnicodeString(path);
-  count:=GetFullPathNameW(PWideChar(source),0,nil,part);
-  if count=0 then RaiseLastOSError;
-  repeat
-   SetLength(buffer,count);
-   written:=GetFullPathNameW(PWideChar(source),count,PWideChar(buffer),part);
-   if written=0 then RaiseLastOSError;
-   if written<count then break;
-   count:=written+1;
-  until false;
-  SetLength(buffer,written);
-  result:=String8(buffer);
-  {$ELSE}
-  result:=String8(ExpandFileName(string(path)));
-  {$ENDIF}
- end;
-
  function JoinPath(const folder,name:String8):String8;
  begin
   result:=folder;
@@ -875,7 +848,7 @@ implementation
 
  function ParentFolder(const path:String8):String8;
  begin
-  result:=FullPath(JoinPath(path,'..'));
+  result:=Files.GetFullName(JoinPath(path,'..'));
  end;
 
  // One decimal below 100 of a unit, whole numbers above: '5.0 KB', '16.5 KB', '150 KB'
@@ -1567,14 +1540,14 @@ implementation
  begin
   result:=false;
   if path='' then exit;
-  full:=FullPath(path);
+  full:=Files.GetFullName(path);
   result:=Apus.Files.Folder.Exists(full);
  end;
  begin
   if Usable(folder,result) or Usable(fFolder,result) then exit;
   for path in recentFolders do
    if Usable(path,result) then exit;
-  result:=FullPath('.');
+  result:=Files.GetFullName('.');
  end;
 
  procedure TUIFileDialog.ShowError(const message:String8);
@@ -1603,7 +1576,7 @@ implementation
    next:=path;
    if next<>'' then begin
     if Files.IsPathRelative(next) and (fFolder<>'') then next:=JoinPath(fFolder,next);
-    next:=FullPath(JoinPath(next,'.'));
+    next:=Files.GetFullName(JoinPath(next,'.'));
     if not Apus.Files.Folder.Exists(next) then begin
      ShowError(Template(texts.folderNotFound,next));
      exit;
@@ -1975,7 +1948,7 @@ implementation
   parent:String8;
  begin
   if fFolder='' then exit;
-  parent:=FullPath(JoinPath(fFolder,'..'));
+  parent:=Files.GetFullName(JoinPath(fFolder,'..'));
   if SamePath(parent,fFolder) then exit;
   SetFolder(parent);
  end;
@@ -2081,7 +2054,7 @@ implementation
      if fFolder='' then begin ShowError(texts.chooseFolder); exit; end;
      path:=JoinPath(fFolder,path);
     end;
-    path:=FullPath(path);
+    path:=Files.GetFullName(path);
     if Apus.Files.Folder.Exists(path) then begin
      SetFolder(path);
      nameEdit.text:='';
