@@ -1279,8 +1279,8 @@ implementation
    av:=context.active.Value;
    dv:=context.disabled.Value;
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
-   isButton:=(element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
-     ((element is TUIToggleButton) and not (element is TUICheckbox));
+   isButton:=(element is TUIButton) and not (element is TUICheckbox) and
+     not (element is TUIComboBox) and not (element is TUIMenuItem);
 
    // Outer block: base values
    if isButton then fillColor:=element.GetBaseStyleColor('fill',defaultBtnColor)
@@ -1355,8 +1355,8 @@ implementation
   begin
    context:=PrepareContext(element);
    context.Update(element);
-   if (element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) or
-     ((element is TUIToggleButton) and not (element is TUICheckBox)) then begin
+   if (element is TUIButton) and not (element is TUICheckbox) and
+     not (element is TUIComboBox) and not (element is TUIMenuItem) then begin
     // Buttons use scroll to move all children as a group. Assign absolutely.
     element.scroll.X:=0;
     element.scroll.Y:=-context.active.Value*element.GetStyleNumber('content-press-offset',1);
@@ -1377,7 +1377,8 @@ implementation
     DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
    else
    // Button
-   if (element.ClassType=TUIButton) or (element.ClassType=TUIToolButton) then
+   if (element is TUIButton) and not (element is TUIToggleButton) and
+     not (element is TUIComboBox) and not (element is TUIMenuItem) then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    if element is TUICheckbox then
@@ -1409,7 +1410,7 @@ implementation
     DrawUIScrollbar(element as TUIScrollBar,x1,y1,x2,y2)
    else
    // EditBox
-   if element.ClassType=TUIEditBox then
+   if element is TUIEditBox then
     DrawUIEditBox(element as TUIEditBox,x1,y1,x2,y2)
    else
    // ListBox

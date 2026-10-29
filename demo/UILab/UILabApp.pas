@@ -24,12 +24,13 @@ interface
 
 implementation
  uses SysUtils, Apus.Core, Apus.EventMan, Apus.Colors, Apus.Strings, Apus.Files,
-   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UITable, Apus.Engine.SceneEffects;
+   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UITable, Apus.Engine.UIFileDialog, Apus.Engine.SceneEffects;
 
  type
   TUILabScene=class(TUIScene)
    procedure InitGfx; override;
    procedure Render; override;
+   procedure FileDone(dialog:TUIFileDialog;const value:TFileDialogResult);
   end;
 
  const
@@ -55,6 +56,8 @@ implementation
   folderInfo:TUILabel;      // Table page: the folder and the selected or activated row
   folderPath:String8;       // Table page: the folder shown, '' - the drive roots
   folderItems:TFolderItems; // Table page: the items of folderPath, a row tag is an index here
+  fileScene:TFileDialogScene;
+  fileInfo:TUILabel;
 
 // --- Theme -------------------------------------------------------------------
 
@@ -512,6 +515,39 @@ implementation
    FillFolderTable;
   end;
 
+// --- Page: Files -------------------------------------------------------------
+
+ procedure OpenFileDialog;
+ begin
+  fileScene.dialog.Setup(fdOpen,'.','');
+  fileScene.Open;
+ end;
+
+ procedure SaveFileDialog;
+ begin
+  fileScene.dialog.Setup(fdSave,'.','example');
+  fileScene.Open;
+ end;
+
+ procedure TUILabScene.FileDone(dialog:TUIFileDialog;const value:TFileDialogResult);
+ begin
+  if fileInfo=nil then exit;
+  if value.accepted then fileInfo.Setup('Selected (no file is written): '+value.path)
+   else fileInfo.Setup('Cancelled');
+ end;
+
+ procedure PageFiles;
+ begin
+  AddTitle('Modal file selection: path, folders, file name, filter and overwrite confirmation.',6);
+  AddTitle('Save returns a path only; this demo does not write the file.',30);
+  TUIButton.Create(160,30,content,'Lab\FileOpen').Setup('Open...').SetPos(12,70);
+  UIButton('Lab\FileOpen',true).onClick:=@OpenFileDialog;
+  TUIButton.Create(160,30,content,'Lab\FileSave').Setup('Save As...').SetPos(184,70);
+  UIButton('Lab\FileSave',true).onClick:=@SaveFileDialog;
+  fileInfo:=TUILabel.Create(content.clientWidth-24,48,content,'Lab\FileResult');
+  fileInfo.SetPos(12,116).SetAnchors(anchorTop);
+ end;
+
 // --- Navigation --------------------------------------------------------------
 
  procedure ShowPage(index:integer);
@@ -524,6 +560,7 @@ implementation
    sliderValLabel:=nil;
    folderTable:=nil;
    folderInfo:=nil;
+   fileInfo:=nil;
    case index of
     0: PageLayouts;
     1: PageStates;
@@ -532,6 +569,7 @@ implementation
     4: PageOutOfOrder;
     5: PageHints;
     6: PageTable;
+    7: PageFiles;
    end;
   end;
 
@@ -542,6 +580,7 @@ implementation
  procedure TabOutOfOrder; begin ShowPage(4); end;
  procedure TabHints;    begin ShowPage(5); end;
  procedure TabTable;    begin ShowPage(6); end;
+ procedure TabFiles;    begin ShowPage(7); end;
 
 // --- Application -------------------------------------------------------------
 
@@ -563,6 +602,14 @@ procedure TUILabApp.CreateScenes;
  begin
   inherited;
   scene:=TUILabScene.Create('UILab');
+  fileScene:=TFileDialogScene.Create('LabFile');
+  SetLength(fileScene.dialog.types,2);
+  fileScene.dialog.types[0].title:='PNG image';
+  fileScene.dialog.types[0].masks:='*.png';
+  fileScene.dialog.types[0].ext:='.png';
+  fileScene.dialog.types[1].title:='All files';
+  fileScene.dialog.types[1].masks:='*';
+  fileScene.dialog.onDone:=scene.FileDone;
   game.SwitchToScene('UILab');
  end;
 
@@ -584,6 +631,7 @@ procedure TUILabScene.InitGfx;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Hints').onClick:=@TabHints;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Table').onClick:=@TabTable;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'Lab\FilesTab').Setup('Files').onClick:=@TabFiles;
 
   // Theme toggle pinned to the bottom of the sidebar.
   themeBtn:=TUIButton.Create(sideBarWidth-12,30,UI,'Lab\Theme').Setup('Theme: Dark');

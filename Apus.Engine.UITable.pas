@@ -83,6 +83,7 @@ interface
    fSortColumn:integer;
    fSortDescending:boolean;
    fSelected:integer;
+   rowsRevision:cardinal; // a callback may replace the listing during selection/activation
    fKeyScope:TUIElement;
    fHoverRow,fHoverColumn:integer;
    lastClickRow:integer;
@@ -182,6 +183,7 @@ implementation
 
  procedure TUITable.ClearRows;
   begin
+   inc(rowsRevision);
    SetLength(rows,0);
    SetLength(order,0);
    needSort:=false;
@@ -433,18 +435,21 @@ implementation
    if row>=0 then ScrollToRow(row);
    if row=fSelected then exit;
    fSelected:=row;
+   if row>=0 then tag:=rows[row].tag else tag:=-1;
    if Assigned(onSelect) then onSelect(self,row);
    if (sendSignals<>ssNone) and (name<>'') then begin
-    if row>=0 then tag:=rows[row].tag else tag:=-1;
     Signal('UI\'+name+'\Selected',tag);
    end;
   end;
 
  procedure TUITable.Activate(row:integer);
+  var
+   tag:NativeInt;
   begin
    if (row<0) or (row>=length(rows)) then exit;
+   tag:=rows[row].tag;
    if Assigned(onActivate) then onActivate(self,row);
-   if (sendSignals<>ssNone) and (name<>'') then Signal('UI\'+name+'\Activated',rows[row].tag);
+   if (sendSignals<>ssNone) and (name<>'') then Signal('UI\'+name+'\Activated',tag);
   end;
 
  procedure TUITable.SetKeyScope(scope:TUIElement);
@@ -520,6 +525,7 @@ implementation
    p:TVec2;
    col,row:integer;
    isDouble:boolean;
+   revision:cardinal;
   begin
    inherited;
    if (button<>1) or not state then exit;
@@ -533,7 +539,9 @@ implementation
    row:=RowAtPoint(p.x,p.y);
    if row<0 then exit;
    isDouble:=(row=lastClickRow) and (CoreTime.Ticks<lastClickTime+DOUBLE_CLICK_TIME);
+   revision:=rowsRevision;
    SetSelected(row);
+   if revision<>rowsRevision then exit; // the click belonged to the old listing
    if isDouble then begin
     lastClickRow:=-1;
     Activate(row);
