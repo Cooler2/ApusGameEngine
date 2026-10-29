@@ -15,6 +15,12 @@ interface
    path:String8;
    typeIndex:integer;
   end;
+  // Semantic colors only; layout and hit areas do not depend on the palette.
+  TFileDialogPalette=record
+   background,surface,header,border,text,muted,disabled:cardinal;
+   hover,selection,selectionText,accent:cardinal;
+   badgeFill,badgeBorder,badgeInk,favoriteInk,removeInk:cardinal;
+  end;
   TUIFileDialog=class;
   TFileDialogScene=class;
   TFileDialogPathEvent=procedure(dialog:TUIFileDialog;const path:String8) of object;
@@ -29,6 +35,7 @@ interface
    showHidden:boolean;
    recentFolders,favoriteFolders:Strings8;
    onLocationsChanged:TObjProcedure; // the app may persist the two lists
+   palette:TFileDialogPalette;
    table:TUITable;
    placesPanel,previewPanel,optionsPanel:TUIElement;
    onSelect:TFileDialogPathEvent;
@@ -41,10 +48,11 @@ interface
    procedure Confirm;
    procedure Cancel;
    procedure ShowError(const message:String8);
+   procedure ApplyPalette; // also applied to controls created by Setup
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure Resize(newWidth,newHeight:single); override;
   protected
-   pathEdit,nameEdit:TUIEditBox;
+   pathEdit,nameEdit,filterEdit:TUIEditBox;
    typeBar:TUIElement;
    allTypeButton:TUIToggleButton;
    typeButtons:array of TUIToggleButton;
@@ -53,6 +61,7 @@ interface
    navigationPanel,driveBar:TUIElement;
    directoryOutline,locationsList:TUITable;
    pinButton:TUIButton;
+   filterClearButton:TUIButton;
    procedure CreateControls; virtual;
    procedure LayoutControls; virtual;
   private
@@ -63,7 +72,9 @@ interface
    activeTypes:array of boolean;
    selectedType:integer;
    host:TFileDialogScene;
-   procedure Refresh;
+   procedure Refresh(reload:boolean=true);
+   procedure FilterChanged;
+   procedure ClearFilter;
    procedure BuildDrives;
    procedure BuildTypes;
    procedure TypeClicked(index:integer;active:boolean);
@@ -110,6 +121,7 @@ implementation
   TDialogEdit=class(TUIEditBox)
    dialog:TUIFileDialog;
    isPath:boolean;
+   isFilter:boolean;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onUniChar(ch:Char32;scancode:byte); override;
   end;
@@ -142,7 +154,26 @@ implementation
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
 
  type
-  TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse);
+  TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse,bkClear);
+
+ function DefaultPalette:TFileDialogPalette;
+ begin
+  result.background:=$FFE4E6E9; result.surface:=$FFF1F3F5; result.header:=$FFDCE1E6;
+  result.border:=$FFABB3BD; result.text:=$FF303B48; result.muted:=$FF667584;
+  result.disabled:=$FF939CA5; result.hover:=$FFD2DFEB; result.selection:=$FF356FA3;
+  result.selectionText:=$FFFFFFFF; result.accent:=$FF527DA5;
+  result.badgeFill:=$FFE2E7ED; result.badgeBorder:=$FFA0ADBA; result.badgeInk:=$FF61758A;
+  result.favoriteInk:=$FF977836; result.removeInk:=$FFA96069;
+ end;
+
+ function PaletteOf(element:TUIElement):TFileDialogPalette;
+ begin
+  while element<>nil do begin
+   if element is TUIFileDialog then exit(TUIFileDialog(element).palette);
+   element:=element.parent;
+  end;
+  result:=DefaultPalette;
+ end;
 
  procedure ThickLine(x1,y1,x2,y2,width:single;color:cardinal);
  var
@@ -155,26 +186,23 @@ implementation
   draw.FillTriangle(x1-dx,y1-dy,x2-dx,y2-dy,x2+dx,y2+dy,color,color,color);
  end;
 
- procedure DrawBadge(const r:TRect;scale:single;kind:TBadgeKind;enabled:boolean=true);
+ procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TBadgeKind;enabled:boolean=true);
  var
   x,y,radius,a,d:single;
   points:array[0..9] of TVec2;
   i,j:integer;
   fill,ink:cardinal;
+  p:TFileDialogPalette;
  begin
   x:=(r.Left+r.Right)*0.5; y:=(r.Top+r.Bottom)*0.5;
   radius:=Math.Min(10*scale,(r.Bottom-r.Top-2*scale)*0.5);
+  p:=PaletteOf(element);
+  fill:=p.badgeFill; ink:=p.badgeInk;
+  if kind=bkFavorite then ink:=p.favoriteInk else if kind=bkRemove then ink:=p.removeInk;
+  if not enabled then ink:=p.disabled;
+  draw.RoundRect(x-radius,y-radius,x+radius,y+radius,radius,scale,p.badgeBorder,fill);
   case kind of
-   bkFavorite:fill:=$FFA56B15;
-   bkRemove:fill:=$FFB83D42;
-   bkExpand,bkCollapse:fill:=$FF435D78;
-   else fill:=$FF355F8A;
-  end;
-  ink:=$FFFFFFFF;
-  if not enabled then begin fill:=$FF85858B; ink:=$FFD9D9DD; end;
-  draw.RoundRect(x-radius,y-radius,x+radius,y+radius,radius,scale,$FFF0F2F6,fill);
-  case kind of
-   bkRemove:begin
+   bkRemove,bkClear:begin
     ThickLine(x-3.4*scale,y-3.4*scale,x+3.4*scale,y+3.4*scale,1.5*scale,ink);
     ThickLine(x-3.4*scale,y+3.4*scale,x+3.4*scale,y-3.4*scale,1.5*scale,ink);
    end;
@@ -205,7 +233,50 @@ implementation
  begin
   dialog:=TUIFileDialog(element.parent);
   if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then kind:=bkFavorite else kind:=bkAddFavorite;
-  DrawBadge(element.globalRect,element.globalScale,kind,element.IsEnabled);
+  DrawBadge(element,element.globalRect,element.globalScale,kind,element.IsEnabled);
+ end;
+
+ procedure DrawClearFilter(element:TUIElement);
+ begin
+  DrawBadge(element,element.globalRect,element.globalScale,bkClear,element.IsEnabled);
+ end;
+
+ procedure DrawDialogButton(element:TUIElement);
+ var
+  b:TUIButton;
+  p:TFileDialogPalette;
+  r:TRect;
+  fill,ink,border:cardinal;
+  font:TFontHandle;
+  toggled:boolean;
+ begin
+  b:=TUIButton(element); p:=PaletteOf(element); r:=element.globalRect;
+  toggled:=(b is TUIToggleButton) and TUIToggleButton(b).toggled;
+  fill:=p.header; ink:=p.text; border:=p.border;
+  if toggled or b.pressed then fill:=p.selection else if b.IsHovered then fill:=p.hover;
+  if toggled then ink:=p.selectionText;
+  if b.default or (FocusedElement=b) then border:=p.accent;
+  if not b.IsEnabled then ink:=p.disabled;
+  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*element.globalScale,element.globalScale,border,fill);
+  font:=element.StyleFont;
+  txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+r.Bottom-1)*0.5+txt.Height(font)*0.45),ink,b.caption,taCenter);
+ end;
+
+ procedure DrawDialogFrame(element:TUIElement);
+ var
+  frame:TUIWindow;
+  p:TFileDialogPalette;
+  r,client:TRect;
+  font:TFontHandle;
+ begin
+  frame:=TUIWindow(element);
+  p:=TFileDialogScene(frame.GetScene).dialog.palette;
+  r:=frame.globalRect; client:=frame.GetClientPosOnScreen;
+  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,p.background);
+  draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,p.header);
+  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,p.border);
+  font:=frame.StyleFont;
+  txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+client.Top-1)*0.5+txt.Height(font)*0.45),p.text,frame.caption,taCenter);
  end;
 
  procedure DrawDriveBar(element:TUIElement);
@@ -276,6 +347,46 @@ implementation
   TDriveBar(parent).UpdateHover;
  end;
 
+ // Preserve the root and as much of the tail as fits; only separator boundaries
+ // are cut first. The fallback removes whole Unicode characters from a long leaf.
+ function PathCaption(font:TFontHandle;const path:String8;width:single):String8;
+ var
+  root,tail,prefix,candidate:String8;
+  chars:String32;
+  i,j,rootLen,lo,hi,mid:integer;
+ begin
+  if width<=0 then exit('');
+  if txt.Width(font,path)<=width then exit(path);
+  rootLen:=0;
+  if (length(path)>=3) and (path[2]=':') then rootLen:=3
+  else if (length(path)>=2) and (path[1] in ['/','\']) and (path[2]=path[1]) then begin
+   i:=3;
+   for j:=1 to 2 do begin
+    while (i<=length(path)) and not (path[i] in ['/','\']) do inc(i);
+    rootLen:=Math.Min(i,length(path));
+    inc(i);
+   end;
+  end else if (path<>'') and (path[1] in ['/','\']) then rootLen:=1;
+  root:=copy(path,1,rootLen);
+  prefix:=root+'...'+PathDelim;
+  for i:=rootLen+1 to length(path) do if path[i] in ['/','\'] then begin
+   candidate:=prefix+copy(path,i+1,length(path));
+   if txt.Width(font,candidate)<=width then exit(candidate);
+  end;
+  if txt.Width(font,prefix)>width then begin
+   if txt.Width(font,'...')<=width then exit('...') else exit('');
+  end;
+  tail:=Files.GetName(path);
+  chars:=UTF8.Decode(tail);
+  lo:=0; hi:=length(chars);
+  while lo<hi do begin
+   mid:=(lo+hi) div 2;
+   candidate:=prefix+UTF8.Encode(copy(chars,mid,length(chars)-mid));
+   if txt.Width(font,candidate)<=width then hi:=mid else lo:=mid+1;
+  end;
+  result:=prefix+UTF8.Encode(copy(chars,lo,length(chars)-lo));
+ end;
+
  procedure DrawLocations(element:TUIElement);
  var
   list:TLocationsList;
@@ -314,16 +425,16 @@ implementation
     labelText:=list.CellText(row,0);
     color:=list.GetStyleColor('color',$FF303030);
    end else begin
-    labelText:=path;
+    labelText:=PathCaption(font,path,cell.Right-cell.Left-(LOCATION_ACTION_WIDTH+10)*s);
     pinned:=PathIndex(list.dialog.favoriteFolders,path)>=0;
     if tag<$10000 then color:=list.GetStyleColor('favorite-color',$FF244C78)
      else color:=list.GetStyleColor('recent-color',$FF585860);
     icon:=cell;
     icon.Left:=icon.Right-round(LOCATION_ACTION_WIDTH*s);
     if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
-    if remove then DrawBadge(icon,s,bkRemove)
-    else if pinned then DrawBadge(icon,s,bkFavorite)
-     else DrawBadge(icon,s,bkAddFavorite);
+    if remove then DrawBadge(list,icon,s,bkRemove)
+    else if pinned then DrawBadge(list,icon,s,bkFavorite)
+     else DrawBadge(list,icon,s,bkAddFavorite);
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
@@ -366,7 +477,7 @@ implementation
    nodes:array of TDirectoryNode;
    expanded:Strings8;
    current:String8;
-   building:boolean;
+   building,selecting:boolean;
    constructor Create(parent:TUIElement;dialog:TUIFileDialog;const name:String8);
    procedure Build(const folder:String8);
    procedure DirectorySelected(sender:TUITable;row:integer);
@@ -391,10 +502,6 @@ implementation
   font:=table.StyleFont;
   headerBottom:=r.Top+round(table.headerHeight*s);
   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,table.GetStyleColor('fill',$FFD0D0D8));
-  draw.FillRect(r.Left,r.Top,r.Right-1,headerBottom-1,table.GetStyleColor('header-fill',$FFC4C8D1));
-  color:=table.GetStyleColor('header-color',$FF303030);
-  baseline:=round((r.Top+headerBottom-1)*0.5+txt.Height(font)*0.45);
-  txt.Write(font,r.Left+round(5*s),baseline,color,table.columns[0].caption);
   gfx.clip.Rect(Types.Rect(r.Left,headerBottom,r.Right,r.Bottom));
   rowH:=table.rowHeight*s;
   pos:=table.ScrollPos*s;
@@ -418,7 +525,7 @@ implementation
    badge.Left:=cell.Left+round((4+table.nodes[index].depth*14)*s);
    badge.Right:=badge.Left+round(20*s);
    if PathIndex(table.expanded,table.nodes[index].path)>=0 then kind:=bkCollapse else kind:=bkExpand;
-   DrawBadge(badge,s,kind);
+   DrawBadge(table,badge,s,kind);
    textLeft:=badge.Right+round(5*s);
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    if textLeft<cell.Right-round(5*s) then begin
@@ -522,15 +629,18 @@ implementation
  begin
   inherited Create(100,100,parent,name);
   self.dialog:=dialog;
-  AddColumn('Directory Outline',0,taLeft,tsNone);
+  AddColumn('',0,taLeft,tsNone);
+  headerHeight:=0;
   onSelect:=DirectorySelected;
   drawer:=DrawDirectoryOutline;
  end;
 
  procedure TDirectoryOutline.Build(const folder:String8);
  var
-  root,p,parentPath:String8;
-  selectedRow:integer;
+  root,p,parentPath,anchor:String8;
+  selectedRow,topRow,index,i:integer;
+  oldPos,offset:single;
+  keepView:boolean;
  procedure AddNode(const path:String8;depth:integer);
  var
   listing:TFolderItems;
@@ -571,6 +681,15 @@ implementation
   for n in names do AddNode(JoinPath(path,n),depth+1);
  end;
  begin
+  keepView:=selecting or SamePath(current,folder);
+  oldPos:=ScrollPos;
+  offset:=Frac(oldPos/rowHeight)*rowHeight;
+  anchor:='';
+  topRow:=RowAt(trunc(oldPos/rowHeight));
+  if topRow>=0 then begin
+   index:=RowTag(topRow);
+   if (index>=0) and (index<length(nodes)) then anchor:=nodes[index].path;
+  end;
   building:=true;
   try
    selectedRow:=-1;
@@ -590,6 +709,13 @@ implementation
    current:=folder;
    AddNode(root,0);
    selected:=selectedRow;
+   if keepView then begin
+    for i:=0 to high(nodes) do if SamePath(nodes[i].path,anchor) then begin
+     oldPos:=PlaceOf(i)*rowHeight+offset;
+     break;
+    end;
+    scrollerV.SetValue(oldPos);
+   end;
   finally
    building:=false;
   end;
@@ -601,7 +727,13 @@ implementation
  begin
   if building or (row<0) then exit;
   index:=RowTag(row);
-  if (index>=0) and (index<length(nodes)) then dialog.SetFolder(nodes[index].path);
+  if (index<0) or (index>=length(nodes)) then exit;
+  selecting:=true;
+  try
+   dialog.SetFolder(nodes[index].path);
+  finally
+   selecting:=false;
+  end;
  end;
 
  procedure TDirectoryOutline.ToggleNode(index:integer);
@@ -656,18 +788,27 @@ implementation
   old:String8;
  begin
   if pressed and (TKey(keycode)=TKey.Enter) and (shiftstate=0) then begin
-   if isPath then dialog.PathEntered else dialog.Confirm;
+   if isPath then dialog.PathEntered
+   else if isFilter then begin
+    dialog.table.SetFocus;
+    dialog.table.selected:=dialog.table.RowAt(0);
+   end else dialog.Confirm;
    exit(false);
   end;
   old:=text;
   result:=inherited onKey(keycode,pressed,shiftstate);
-  if text<>old then dialog.Edited;
+  if text<>old then
+   if isFilter then dialog.FilterChanged else dialog.Edited;
  end;
 
  procedure TDialogEdit.onUniChar(ch:Char32;scancode:byte);
+ var
+  old:String8;
  begin
+  old:=text;
   inherited;
-  dialog.Edited;
+  if text<>old then
+   if isFilter then dialog.FilterChanged else dialog.Edited;
  end;
 
  procedure TTypeChip.DoClick;
@@ -679,9 +820,11 @@ implementation
  constructor TUIFileDialog.Create(width,height:single;parent:TUIElement;name:String8);
  begin
   inherited;
+  palette:=DefaultPalette;
   shape:=shapeFull;
   finished:=true;
   CreateControls;
+  ApplyPalette;
   LayoutControls;
  end;
 
@@ -693,6 +836,7 @@ implementation
   b:=TDialogButton.Create(88,28,self,name+'\'+suffix);
   b.Setup(caption);
   b.handler:=handler;
+  b.drawer:=DrawDialogButton;
   result:=b;
  end;
  function Edit(const suffix:String8;isPath:boolean):TUIEditBox;
@@ -723,6 +867,13 @@ implementation
   table.onActivate:=RowActivated;
   nameLabel:=TUILabel.Create(60,28,self).Setup('Name:');
   nameEdit:=Edit('Name',false);
+  filterEdit:=Edit('NameFilter',false);
+  TDialogEdit(filterEdit).isFilter:=true;
+  filterEdit.defaultText:=Str32('Filter by name...');
+  filterEdit.hint:='Show file names containing this text, ignoring case';
+  filterClearButton:=Button('ClearFilter','',ClearFilter);
+  filterClearButton.drawer:=DrawClearFilter;
+  filterClearButton.hint:='Clear name filter';
   typeBar:=TUIElement.Create(100,28,self,name+'\Types');
   messageLabel:=TUILabel.Create(100,24,self,name+'\Message');
   acceptButton:=Button('Accept','Open',Confirm);
@@ -753,9 +904,48 @@ implementation
   pinButton.hint:='Add current folder to favorites';
  end;
 
+ procedure TUIFileDialog.ApplyPalette;
+ procedure C(e:TUIElement;const key:String8;value:cardinal);
+ begin
+  if e<>nil then e.style.SetAttr(key,'$'+String8(IntToHex(value,8)));
+ end;
+ procedure TableStyle(t:TUITable);
+ var
+  bar:TUIElement;
+ begin
+  C(t,'fill',palette.surface); C(t,'color',palette.text);
+  C(t,'border-color',palette.border); C(t,'line-color',palette.border);
+  C(t,'header-fill',palette.header); C(t,'header-color',palette.text);
+  C(t,'header-hover-fill',palette.hover); C(t,'row-hover-fill',palette.hover);
+  C(t,'selection-fill',palette.selection); C(t,'selection-color',palette.selectionText);
+  C(t,'favorite-color',palette.favoriteInk); C(t,'recent-color',palette.muted);
+  t.style.SetAttr('row-alt-fill','0');
+  bar:=t.scrollerV.GetElement;
+  bar.style.SetAttr('variant','flat');
+  C(bar,'color',palette.muted); C(bar,'track-color',palette.surface); C(bar,'active-color',palette.accent);
+ end;
+ procedure EditStyle(e:TUIEditBox);
+ begin
+  C(e,'fill',palette.surface); C(e,'color',palette.text); C(e,'border-color',palette.border);
+  e.style.SetAttr('border-width','1'); e.style.SetAttr('radius','3');
+ end;
+ begin
+  C(self,'fill',palette.background); C(self,'color',palette.text);
+  if table=nil then exit;
+  TableStyle(table); TableStyle(directoryOutline); TableStyle(locationsList);
+  EditStyle(pathEdit); EditStyle(nameEdit); EditStyle(filterEdit);
+  C(driveBar,'fill',palette.background); C(driveBar,'color',palette.muted);
+  C(messageLabel,'color',palette.removeInk);
+  if host<>nil then begin
+   C(host.frame,'color',palette.text);
+   host.frame.style.SetAttr('font-size',GetStyleValue('font-size','9'));
+  end;
+ end;
+
  procedure TUIFileDialog.LayoutControls;
  var
-  w,h,left,right,bottom,navH,navW,locationsH,chipWidth:single;
+  w,h,left,right,bottom,navH,navW,locationsH,chipWidth,tableTop,footer,statusH,nameY,filterW:single;
+  inspector:TUIElement;
   i:integer;
  procedure Place(e:TUIElement;x,y,w,h:single);
  begin
@@ -773,34 +963,50 @@ implementation
   locationsH:=Math.Min(160.0,navH*0.30);
   Place(directoryOutline,0,36,navW,navH-locationsH-44);
   Place(locationsList,0,navH-locationsH,navW,locationsH);
-  left:=navW+24; right:=w-8; bottom:=h-104;
+  left:=navW+24; right:=w-8;
+  inspector:=nil;
+  previewPanel.flags.visible:=(mode=fdOpen) and (length(previewPanel.children)>0);
+  optionsPanel.flags.visible:=(mode=fdSave) and (length(optionsPanel.children)>0);
+  if previewPanel.flags.visible then inspector:=previewPanel;
+  if optionsPanel.flags.visible then inspector:=optionsPanel;
+  footer:=104;
+  if inspector<>nil then footer:=140;
+  statusH:=0;
+  messageLabel.flags.visible:=messageLabel.caption<>'';
+  if messageLabel.flags.visible then statusH:=24;
+  bottom:=h-footer-statusH;
   Place(pathEdit,left,8,right-left-112,28);
   Place(upButton,right-104,8,68,28);
   Place(pinButton,right-28,8,28,28);
-  Place(typeBar,left,44,right-left,28);
+  tableTop:=80;
+  filterW:=Math.Max(180.0,(right-left)*0.32);
+  if right-left>=600 then begin
+   Place(typeBar,left,44,right-left-filterW-8,28);
+   Place(filterEdit,right-filterW,44,filterW-32,28);
+   Place(filterClearButton,right-28,44,28,28);
+  end else begin
+   Place(typeBar,left,44,right-left,28);
+   Place(filterEdit,left,80,right-left-32,28);
+   Place(filterClearButton,right-28,80,28,28);
+   tableTop:=116;
+  end;
   if allTypeButton<>nil then begin
-   chipWidth:=(right-left)/(length(typeButtons)+1);
+   chipWidth:=typeBar.clientWidth/(length(typeButtons)+1);
    Place(allTypeButton,0,0,chipWidth-4,28);
    for i:=0 to high(typeButtons) do Place(typeButtons[i],(i+1)*chipWidth,0,chipWidth-4,28);
   end;
-  // An unused slot occupies no space. Apps choose slot widths/heights when filling them.
+  // Empty slots occupy no space. Preview and options share the compact bottom area.
   if length(placesPanel.children)>0 then begin
-   Place(placesPanel,left,80,placesPanel.size.x,bottom-80);
+   Place(placesPanel,left,tableTop,placesPanel.size.x,bottom-tableTop);
    left:=left+placesPanel.size.x+8;
   end;
-  if length(previewPanel.children)>0 then begin
-   right:=right-previewPanel.size.x-8;
-   Place(previewPanel,right+8,80,previewPanel.size.x,bottom-80);
-  end;
-  if length(optionsPanel.children)>0 then begin
-   Place(optionsPanel,left,bottom-optionsPanel.size.y,right-left,optionsPanel.size.y);
-   bottom:=bottom-optionsPanel.size.y-8;
-  end;
-  Place(table,left,80,right-left,bottom-80);
-  Place(nameLabel,left,h-96,60,28);
-  Place(nameEdit,left+60,h-96,right-left-60,28);
-  Place(messageLabel,left,h-62,right-left,24);
-  Place(acceptButton,w-192,h-36,88,28);
+  Place(table,left,tableTop,right-left,bottom-tableTop);
+  nameY:=h-footer+8;
+  Place(nameLabel,left,nameY,60,28);
+  Place(nameEdit,left+60,nameY,right-left-164,28);
+  Place(messageLabel,left,bottom+8,right-left,24);
+  if inspector<>nil then Place(inspector,left,nameY+36,right-left-104,h-nameY-44);
+  Place(acceptButton,w-96,h-72,88,28);
   Place(cancelButton,w-96,h-36,88,28);
  end;
 
@@ -826,7 +1032,10 @@ implementation
   BuildTypes;
   if mode=fdOpen then acceptButton.caption:='Open' else acceptButton.caption:='Save';
   nameEdit.text:=fileName;
+  filterEdit.text:='';
+  filterClearButton.flags.enabled:=false;
   BuildDrives;
+  ApplyPalette;
   if folder='' then SetFolder('') else SetFolder(FullPath(folder));
   LayoutControls;
  end;
@@ -834,6 +1043,7 @@ implementation
  procedure TUIFileDialog.ShowError(const message:String8);
  begin
   messageLabel.caption:=message;
+  LayoutControls;
  end;
 
  procedure TUIFileDialog.Edited;
@@ -875,9 +1085,9 @@ implementation
   end;
  end;
 
- procedure TUIFileDialog.Refresh;
+ procedure TUIFileDialog.Refresh(reload:boolean);
  var
-  mask:String8;
+  mask,query:String8;
   i,row:integer;
  begin
   table.ClearRows;
@@ -895,17 +1105,32 @@ implementation
     ShowError('No file types selected');
     exit;
    end;
-   items:=Apus.Files.Folder.ListItems(fFolder,mask);
+   if reload then items:=Apus.Files.Folder.ListItems(fFolder,mask);
+   query:=UTF8.ToLower(filterEdit.text);
    for i:=0 to high(items) do with items[i] do begin
     if info.isDirectory then continue;
     if hidden and not showHidden then continue;
+    if (query<>'') and (Pos(query,UTF8.ToLower(name))=0) then continue;
     row:=table.AddRow(i);
     table.SetCell(row,0,name);
     table.SetCell(row,1,FileSizeText(info.size),info.size);
     table.SetCell(row,2,String8(FormatDateTime('yyyy-mm-dd hh:nn',info.timestamp)),info.timestamp);
    end;
-   ShowError('Files: '+Conv.ToStr(table.RowCount));
   end;
+ end;
+
+ procedure TUIFileDialog.FilterChanged;
+ begin
+  filterClearButton.flags.enabled:=filterEdit.text<>'';
+  Edited;
+  Refresh(false);
+ end;
+
+ procedure TUIFileDialog.ClearFilter;
+ begin
+  filterEdit.text:='';
+  FilterChanged;
+  filterEdit.SetFocus;
  end;
 
  procedure TUIFileDialog.BuildTypes;
@@ -917,6 +1142,7 @@ implementation
   typeBar.DeleteChildren;
   typeButtons:=nil;
   b:=TTypeChip.Create(48,28,typeBar,name+'\TypeAll');
+  b.drawer:=DrawDialogButton;
   b.Setup('All',allTypes);
   b.dialog:=self; b.index:=-1;
   b.flags.canHaveFocus:=false;
@@ -927,6 +1153,7 @@ implementation
    caption:=types[i].ext;
    if caption<>'' then caption:=UTF8.ToUpper(copy(caption,2,length(caption))) else caption:=types[i].title;
    b:=TTypeChip.Create(48,28,typeBar,name+'\Type'+Conv.ToStr(i));
+   b.drawer:=DrawDialogButton;
    b.Setup(caption,activeTypes[i]);
    b.dialog:=self; b.index:=i;
    b.flags.canHaveFocus:=false;
@@ -971,6 +1198,7 @@ implementation
   roots:=Apus.Files.Folder.Roots;
   for i:=0 to high(roots) do begin
    b:=TDriveButton.Create(32,24,driveBar,name+'\Drive'+Conv.ToStr(i));
+   b.drawer:=DrawDialogButton;
    b.caption:=roots[i];
    b.attributes.Item['path']:=JoinPath(roots[i],'');
    b.handler:=DriveClicked;
@@ -1003,11 +1231,13 @@ implementation
   locationsList.ClearRows;
   currentRow:=-1;
   for i:=0 to high(favoriteFolders) do begin
+   if PathIndex(favoriteFolders,favoriteFolders[i])<>i then continue;
    row:=locationsList.AddRow(i);
    locationsList.SetCell(row,0,favoriteFolders[i]);
    if SamePath(favoriteFolders[i],fFolder) then currentRow:=row;
   end;
   for i:=0 to high(recentFolders) do begin
+   if (PathIndex(favoriteFolders,recentFolders[i])>=0) or (PathIndex(recentFolders,recentFolders[i])<>i) then continue;
    row:=locationsList.AddRow($10000+i);
    locationsList.SetCell(row,0,recentFolders[i]);
    if (currentRow<0) and SamePath(recentFolders[i],fFolder) then currentRow:=row;
@@ -1037,7 +1267,11 @@ implementation
   if path='' then exit;
   if remove then begin
    if tag>=$10000 then RemovePath(recentFolders,tag-$10000)
-    else RemovePath(favoriteFolders,tag);
+   else begin
+    RemovePath(favoriteFolders,tag);
+    index:=PathIndex(recentFolders,path);
+    if index>=0 then RemovePath(recentFolders,index);
+   end;
   end else begin
    index:=PathIndex(favoriteFolders,path);
    if index<0 then favoriteFolders:=favoriteFolders+[path]
@@ -1212,6 +1446,7 @@ implementation
   dialog:=TUIFileDialog.Create(frame.clientWidth,frame.clientHeight,frame,sceneName);
   dialog.SetAnchors(anchorAll);
   dialog.host:=self;
+  frame.drawer:=DrawDialogFrame;
   onCreate;
  end;
 
