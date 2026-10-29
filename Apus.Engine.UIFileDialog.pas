@@ -146,8 +146,11 @@ implementation
   end;
   TLocationsList=class(TUITable)
    dialog:TUIFileDialog;
+   pressedPath:String8;
+   pressedRemove:boolean;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
+   procedure onLostFocus; override;
   end;
 
  const
@@ -155,6 +158,7 @@ implementation
   LOCATION_ACTION_WIDTH=26;
 
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
+ function SamePath(const a,b:String8):boolean; forward;
 
  type
   TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse,bkClear,bkUp);
@@ -201,9 +205,13 @@ implementation
   p:=PaletteOf(element);
   fill:=p.badgeFill; ink:=p.badgeInk;
   if kind=bkFavorite then ink:=p.favoriteInk else if kind=bkRemove then ink:=p.removeInk;
+  if not (element is TUIButton) and (kind<>bkRemove) then ink:=p.badgeInk;
   if not enabled then ink:=p.disabled;
-  if (element is TUIButton) and TUIButton(element).IsHovered then fill:=p.hover;
-  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*scale,scale,p.badgeBorder,fill);
+  // List glyphs carry no button chrome; toolbar actions keep the button shape.
+  if element is TUIButton then begin
+   if TUIButton(element).IsHovered then fill:=p.hover;
+   draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*scale,scale,p.badgeBorder,fill);
+  end;
   case kind of
    bkUp:begin
     ThickLine(x,y+4*scale,x,y-4*scale,1.5*scale,ink);
@@ -446,9 +454,9 @@ implementation
     icon:=cell;
     icon.Left:=icon.Right-round(LOCATION_ACTION_WIDTH*s);
     if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
-    if remove then DrawBadge(list,icon,s,bkRemove)
-    else if pinned then DrawBadge(list,icon,s,bkFavorite)
-     else DrawBadge(list,icon,s,bkAddFavorite);
+    if remove then DrawBadge(list,icon,s*0.85,bkRemove)
+    else if pinned then DrawBadge(list,icon,s*0.85,bkFavorite)
+     else DrawBadge(list,icon,s*0.85,bkAddFavorite);
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
@@ -462,12 +470,25 @@ implementation
  var
   p:TVec2;
   row:integer;
+  path:String8;
  begin
-  if (button=1) and state then begin
+  if button=1 then begin
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
    row:=RowAtPoint(p.x,p.y);
-   if (row>=0) and (p.x>=RowsWidth-LOCATION_ACTION_WIDTH) and (RowTag(row)>=0) then begin
-    dialog.LocationAction(RowTag(row),(GetWindow.shiftState and sscCtrl)<>0);
+   if not state and (pressedPath<>'') then begin
+    path:=pressedPath;
+    pressedPath:='';
+    if hooked=self then hooked:=nil;
+    if (row>=0) and (p.x>=RowsWidth-LOCATION_ACTION_WIDTH) and
+       SamePath(path,dialog.LocationPath(RowTag(row))) then
+     dialog.LocationAction(RowTag(row),pressedRemove);
+    exit;
+   end;
+   if state and (row>=0) and (p.x>=RowsWidth-LOCATION_ACTION_WIDTH) then begin
+    pressedPath:=dialog.LocationPath(RowTag(row));
+    pressedRemove:=(GetWindow.shiftState and sscCtrl)<>0;
+    SetFocus;
+    hooked:=self;
     exit;
    end;
   end;
@@ -475,9 +496,28 @@ implementation
  end;
 
  procedure TLocationsList.onMouseMove;
+ var
+  p:TVec2;
+  tag:NativeInt;
  begin
   inherited;
-  if hoverRow>=0 then hint:=dialog.LocationPath(RowTag(hoverRow)) else hint:='';
+  hint:='';
+  if hoverRow<0 then exit;
+  tag:=RowTag(hoverRow);
+  hint:=dialog.LocationPath(tag);
+  p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
+  if p.x>=RowsWidth-LOCATION_ACTION_WIDTH then begin
+   if (GetWindow.shiftState and sscCtrl)<>0 then hint:='Remove entry'
+   else if tag<$10000 then hint:='Unpin folder (keep in Recent)'
+    else hint:='Add folder to favorites';
+  end;
+ end;
+
+ procedure TLocationsList.onLostFocus;
+ begin
+  pressedPath:='';
+  if hooked=self then hooked:=nil;
+  inherited;
  end;
  type
   TDirectoryNode=record
@@ -539,7 +579,7 @@ implementation
    badge.Left:=cell.Left+round((4+table.nodes[index].depth*14)*s);
    badge.Right:=badge.Left+round(20*s);
    if PathIndex(table.expanded,table.nodes[index].path)>=0 then kind:=bkCollapse else kind:=bkExpand;
-   DrawBadge(table,badge,s,kind);
+   DrawBadge(table,badge,s*0.85,kind);
    textLeft:=badge.Right+round(5*s);
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    if textLeft<cell.Right-round(5*s) then begin
@@ -939,6 +979,9 @@ implementation
   bar:=t.scrollerV.GetElement;
   bar.style.SetAttr('variant','flat');
   C(bar,'color',palette.muted); C(bar,'track-color',palette.surface); C(bar,'active-color',palette.accent);
+  bar:=t.scrollerH.GetElement;
+  bar.style.SetAttr('variant','flat');
+  C(bar,'color',palette.muted); C(bar,'track-color',palette.surface); C(bar,'active-color',palette.accent);
  end;
  procedure EditStyle(e:TUIEditBox);
  begin
@@ -1295,7 +1338,9 @@ implementation
  var
   path:String8;
   index:integer;
+  oldScroll:single;
  begin
+  oldScroll:=locationsList.ScrollPos;
   path:=LocationPath(tag);
   if path='' then exit;
   if remove then begin
@@ -1311,6 +1356,7 @@ implementation
     else RemovePath(favoriteFolders,index);
   end;
   BuildLocations;
+  locationsList.scrollerV.SetValue(oldScroll);
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
@@ -1474,7 +1520,7 @@ implementation
   inherited Create(string(sceneName)+'Scene',false,wnd);
   zOrder:=100;
   UI.order:=zOrder;
-  frame:=TUIWindow.Create(1100,580,true,UI,sceneName+'\Frame','Open');
+  frame:=TUIWindow.Create(1004,580,true,UI,sceneName+'\Frame','Open');
   frame.minW:=680; frame.minH:=420;
   dialog:=TUIFileDialog.Create(frame.clientWidth,frame.clientHeight,frame,sceneName);
   dialog.SetAnchors(anchorAll);
@@ -1493,7 +1539,7 @@ implementation
  begin
   inherited;
   if frame=nil then exit;
-  frame.Resize(Math.Min(1116.0,UI.clientWidth-16),Math.Min(610.0,UI.clientHeight-16));
+  frame.Resize(Math.Min(1020.0,UI.clientWidth-16),Math.Min(610.0,UI.clientHeight-16));
   // TUIWindow's edge dragging uses a top-left pivot. Centering with pivotCenter
   // makes both edges move when only the width changes.
   frame.SetPos((UI.clientWidth-frame.size.x)/2,(UI.clientHeight-frame.size.y)/2,pivotTopLeft);
