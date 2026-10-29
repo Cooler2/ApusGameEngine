@@ -17,14 +17,14 @@ var
   g:TGlyphInfoRec;
 begin
   StartTest('GlyphCache.AllocFind');
-  c:=TDynamicGlyphCache.Create(256,128);
+  c:=TDynamicGlyphCache.Create(256,256);
   try
-    // width 200 is > 127: validates byte storage for w/h (would truncate with shortint)
-    p:=c.Alloc(200,40,-100,120,$410041);
+    // height 200 is > 127: validates byte storage for h (would truncate with shortint)
+    p:=c.Alloc(GLYPH_MAX_CELL_WIDTH,200,-100,120,$410041);
     Check((p.x>=0) and (p.y>=0),'alloc returns valid position');
     g:=c.Find($410041);
     Check((g.x=p.x) and (g.y=p.y),'find returns alloc position');
-    Check((g.width=200) and (g.height=40),'find returns w/h (byte range)');
+    Check((g.width=GLYPH_MAX_CELL_WIDTH) and (g.height=200),'find returns w/h (byte range)');
     Check((g.dx=-100) and (g.dy=120),'find returns dx/dy (shortint range)');
     g:=c.Find($999999);
     Check(g.x=-1,'missing glyph returns x=-1');
@@ -148,6 +148,19 @@ begin
     end;
     Check(Pos('GlyphCache atlas exhausted',msg)>0,
       'atlas exhaustion has a descriptive error: '+msg);
+  finally
+    c.Free;
+  end;
+  // a cell wider than the limit is rejected even if the atlas has room for it
+  c:=TDynamicGlyphCache.Create(256,64);
+  try
+    msg:='';
+    try
+      c.Alloc(GLYPH_MAX_CELL_WIDTH+1,10,0,0,$2004);
+    except
+      on e:Exception do msg:=e.Message;
+    end;
+    Check(Pos('exceeds the limit',msg)>0,'too wide item rejected: '+msg);
   finally
     c.Free;
   end;

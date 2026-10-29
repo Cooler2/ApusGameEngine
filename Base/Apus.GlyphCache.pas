@@ -15,6 +15,8 @@ const
  // glyph a TGlyphRec can describe - its top up to 127 px above the cursor point, plus the
  // descent and padding. Fonts are expected to be limited accordingly (see TextDraw.GetFont).
  GLYPH_KEEP_MIN_ROWS = 168;
+ // Widest item (glyph cell incl. padding) Alloc accepts: users unpack a cell row into a buffer of this size
+ GLYPH_MAX_CELL_WIDTH = 127;
 
 type
  TGlyphInfoRec=record
@@ -26,7 +28,7 @@ type
  // Compact (8-byte) cache record: one entry per glyph in the index
  TGlyphRec=record
   x,y:smallint;   // position in the atlas (local, relX/relY added on Find)
-  w,h:byte;       // glyph size (Alloc permits up to 255)
+  w,h:byte;       // glyph size (Alloc permits width up to GLYPH_MAX_CELL_WIDTH, height up to 255)
   dx,dy:shortint; // offset relative to the cursor point (-128..127)
  end;
 
@@ -56,7 +58,7 @@ type
  // works as a separate cache. Key property: items are only appended to the end of a band; if there is not enough room
  // a new band is allocated, and deletion happens only by whole bands.
  // That is why Keep() ensures a sizable part of the cache stays free, so that bands with needed items are not deleted.
- // Packed metadata permits items up to 255x255; an item must also fit the
+ // Items are limited to GLYPH_MAX_CELL_WIDTH x 255 (packed metadata); an item must also fit the
  // dimensions of this cache region. Atlas exhaustion means that no contiguous
  // horizontal band remains for the requested item height.
  // KNOWN ISSUE: Keep() frees old bands eagerly by FIFO, so a glyph still needed this frame can be evicted while
@@ -104,7 +106,9 @@ var
  rec:TGlyphRec;
 begin
  try
- if (width<0) or (width>255) or (height<0) or (height>255) then
+ if (width<0) or (width>GLYPH_MAX_CELL_WIDTH) then
+   raise EWarning.Create('GlyphCache item width %d exceeds the limit %d',[width,GLYPH_MAX_CELL_WIDTH]);
+ if (height<0) or (height>255) then
    raise EWarning.Create('GlyphCache metadata overflow: %dx%d is out of packed range',[width,height]);
   if (width>aWidth) or (height>aHeight) then
    raise EWarning.Create('GlyphCache item %dx%d does not fit the %dx%d atlas region',

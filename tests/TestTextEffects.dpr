@@ -312,6 +312,50 @@ begin
   EndTest;
 end;
 
+// Number of pixels where two masks differ
+function MaskDiff(const a,b:TPlane):integer;
+var
+  i:integer;
+begin
+  result:=0;
+  for i:=0 to high(a) do
+    if abs(a[i]-b[i])>0.5/255 then inc(result);
+end;
+
+// Faux bold widens the glyph cell by a column: it must be cleared, uploaded and drawn
+// with the same width whether the glyph is just rendered, cached or put into a reused atlas area
+procedure TestBoldGlyphs;
+var
+  oldFont:TFontHandle;
+  fresh,mask:TPlane;
+  size:integer;
+begin
+  StartTest('Bold glyphs: cache miss, cache hit, reused atlas');
+  oldFont:=font;
+  try
+    font:=txt.GetFont('Default',66,fsIgnoreScale+fsBold);
+    mask:=ReadMask('PAUSE',taLeft); // cache miss
+    fresh:=ReadMask('PAUSE',taLeft); // cache hit
+    Check(MaskDiff(mask,fresh)=0,Format('cache miss vs hit: %d pixels differ',[MaskDiff(mask,fresh)]));
+    // many glyphs of many sizes: the atlas evicts bands and reuses their area
+    gfx.BeginPaint(rt);
+    try
+      for size:=10 to 110 do
+        txt.Write(txt.GetFont('Default',size,fsIgnoreScale+fsBold),0,H-10,$FFFFFFFF,
+          '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
+    finally
+      gfx.EndPaint;
+    end;
+    mask:=ReadMask('PAUSE',taLeft);
+    Check(MaskDiff(mask,fresh)=0,Format('reused atlas, miss: %d pixels differ',[MaskDiff(mask,fresh)]));
+    mask:=ReadMask('PAUSE',taLeft);
+    Check(MaskDiff(mask,fresh)=0,Format('reused atlas, hit: %d pixels differ',[MaskDiff(mask,fresh)]));
+  finally
+    font:=oldFont;
+  end;
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -349,6 +393,7 @@ begin
       TestSemantics;
       TestCache;
       TestLayerSprites;
+      TestBoldGlyphs;
     finally
       FreeAndNil(img);
       FreeImage(rt);
