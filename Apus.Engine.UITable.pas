@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------
 // Table: rows of cells under a header with columns, sorting and single selection
 //
-// Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 // ------------------------------------------------------
 
 unit Apus.Engine.UITable;
@@ -47,6 +47,7 @@ interface
   TUITable=class(TUIScrollable)
    columns:array of TTableColumn;
    rowHeight,headerHeight:single;
+   resizeColumns:boolean; // drag an interior header separator; adjacent widths keep their sum
    onSelect:TTableEvent;   // the selected row changed, row -1 - none
    onActivate:TTableEvent; // double click or Enter on a row
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
@@ -73,6 +74,7 @@ interface
 
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
+   procedure onLostFocus; override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure SetupScrollers; override; // the range from the row count, not children
@@ -88,6 +90,11 @@ interface
    fHoverRow,fHoverColumn:integer;
    lastClickRow:integer;
    lastClickTime:int64;
+   resizeColumn,resizeFill:integer;
+   resizeStartX:single;
+   resizeWidths:array of single;
+   function SeparatorAt(x,y:single):integer;
+   procedure StopResize;
    procedure Arrange;
    procedure UpdateScroller;
    procedure SetSelected(row:integer);
@@ -158,6 +165,8 @@ implementation
    SetPadding(1); // inside the border
    rowHeight:=20;
    headerHeight:=22;
+   resizeColumns:=true;
+   resizeColumn:=-1;
    fSortColumn:=-1;
    fSelected:=-1;
    fHoverRow:=-1;
@@ -507,29 +516,98 @@ implementation
    result:=HandleKey(keycode);
   end;
 
+ function TUITable.SeparatorAt(x,y:single):integer;
+ var
+  i:integer;
+  edge:single;
+ begin
+  result:=-1;
+  if not resizeColumns or (y<0) or (y>=headerHeight) then exit;
+  edge:=0;
+  for i:=0 to high(columns)-1 do begin
+   edge:=edge+ColumnWidth(i);
+   if (edge>0) and (edge<RowsWidth) and (Abs(x-edge)<=4) then exit(i);
+  end;
+ end;
+
+ procedure TUITable.StopResize;
+ begin
+  resizeColumn:=-1;
+  resizeWidths:=nil;
+  if hooked=self then hooked:=nil;
+  cursor:=0;
+ end;
+
+ procedure TUITable.onLostFocus;
+ begin
+  StopResize;
+  inherited;
+ end;
+
  procedure TUITable.onMouseMove;
   var
    p:TVec2;
+   delta,minWidth:single;
+   i:integer;
   begin
    inherited;
    fHoverRow:=-1;
    fHoverColumn:=-1;
+   if resizeColumn>=0 then begin
+    cursor:=CursorID.ResizeW;
+    if (hooked<>self) or (length(resizeWidths)<>length(columns)) then begin
+     StopResize;
+     exit;
+    end;
+    minWidth:=Max(20,Min(40,Min(resizeWidths[resizeColumn],resizeWidths[resizeColumn+1])));
+    delta:=Clamp((curMouseX-resizeStartX)/globalScale,
+      minWidth-resizeWidths[resizeColumn],resizeWidths[resizeColumn+1]-minWidth);
+    for i:=0 to high(columns) do columns[i].width:=resizeWidths[i];
+    columns[resizeColumn].width:=resizeWidths[resizeColumn]+delta;
+    columns[resizeColumn+1].width:=resizeWidths[resizeColumn+1]-delta;
+    if resizeFill>=0 then columns[resizeFill].width:=0;
+    exit;
+   end;
+   cursor:=0;
    if underMouse<>self then exit;
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
-   if (p.y>=0) and (p.y<headerHeight) then fHoverColumn:=ColumnAt(p.x)
+   if SeparatorAt(p.x,p.y)>=0 then cursor:=CursorID.ResizeW
+   else if (p.y>=0) and (p.y<headerHeight) then fHoverColumn:=ColumnAt(p.x)
     else fHoverRow:=RowAtPoint(p.x,p.y);
   end;
 
  procedure TUITable.onMouseButtons(button:byte;state:boolean);
   var
    p:TVec2;
-   col,row:integer;
+   col,row,i:integer;
    isDouble:boolean;
    revision:cardinal;
   begin
    inherited;
+   if (button=1) and (resizeColumn>=0) then begin
+    if not state then StopResize;
+    exit;
+   end;
    if (button<>1) or not state then exit;
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
+   col:=SeparatorAt(p.x,p.y);
+   if col>=0 then begin
+    resizeColumn:=col;
+    resizeStartX:=curMouseX;
+    resizeFill:=-1;
+    SetLength(resizeWidths,length(columns));
+    for i:=0 to high(columns) do begin
+     resizeWidths[i]:=ColumnWidth(i);
+     if columns[i].width<=0 then resizeFill:=i;
+    end;
+    // Preserve one flexible column, preferring a member of the resized pair.
+    if columns[col].width<=0 then resizeFill:=col;
+    if columns[col+1].width<=0 then resizeFill:=col+1;
+    hooked:=self;
+    cursor:=CursorID.ResizeW;
+    lastClickRow:=-1;
+    exit;
+   end;
    if p.y<headerHeight then begin
     col:=ColumnAt(p.x);
     if (col<0) or (columns[col].sort=tsNone) then exit;
