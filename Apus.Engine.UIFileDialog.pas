@@ -141,32 +141,71 @@ implementation
 
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
 
- procedure DrawPin(const r:TRect;scale:single;remove:boolean;color:cardinal);
+ type
+  TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse);
+
+ procedure ThickLine(x1,y1,x2,y2,width:single;color:cardinal);
  var
-  x,y:single;
+  dx,dy,len:single;
+ begin
+  len:=sqrt(sqr(x2-x1)+sqr(y2-y1));
+  if len=0 then exit;
+  dx:=-(y2-y1)*width/(2*len); dy:=(x2-x1)*width/(2*len);
+  draw.FillTriangle(x1+dx,y1+dy,x1-dx,y1-dy,x2+dx,y2+dy,color,color,color);
+  draw.FillTriangle(x1-dx,y1-dy,x2-dx,y2-dy,x2+dx,y2+dy,color,color,color);
+ end;
+
+ procedure DrawBadge(const r:TRect;scale:single;kind:TBadgeKind;enabled:boolean=true);
+ var
+  x,y,radius,a,d:single;
+  points:array[0..9] of TVec2;
+  i,j:integer;
+  fill,ink:cardinal;
  begin
   x:=(r.Left+r.Right)*0.5; y:=(r.Top+r.Bottom)*0.5;
-  if remove then begin
-   draw.Line(x-4*scale,y-4*scale,x+4*scale,y+4*scale,color);
-   draw.Line(x-4*scale,y+4*scale,x+4*scale,y-4*scale,color);
-  end else begin
-   draw.FillRect(round(x-3*scale),round(y-7*scale),round(x+3*scale),round(y-5*scale),color);
-   draw.FillRect(round(x-scale),round(y-5*scale),round(x+scale),round(y),color);
-   draw.FillTriangle(x-5*scale,y+scale,x+5*scale,y+scale,x,y-3*scale,color,color,color);
-   draw.Line(x,y+scale,x,y+7*scale,color);
+  radius:=Math.Min(10*scale,(r.Bottom-r.Top-2*scale)*0.5);
+  case kind of
+   bkFavorite:fill:=$FFA56B15;
+   bkRemove:fill:=$FFB83D42;
+   bkExpand,bkCollapse:fill:=$FF435D78;
+   else fill:=$FF355F8A;
+  end;
+  ink:=$FFFFFFFF;
+  if not enabled then begin fill:=$FF85858B; ink:=$FFD9D9DD; end;
+  draw.RoundRect(x-radius,y-radius,x+radius,y+radius,radius,scale,$FFF0F2F6,fill);
+  case kind of
+   bkRemove:begin
+    ThickLine(x-3.4*scale,y-3.4*scale,x+3.4*scale,y+3.4*scale,1.5*scale,ink);
+    ThickLine(x-3.4*scale,y+3.4*scale,x+3.4*scale,y-3.4*scale,1.5*scale,ink);
+   end;
+   bkExpand,bkCollapse:begin
+    ThickLine(x-4*scale,y,x+4*scale,y,1.5*scale,ink);
+    if kind=bkExpand then ThickLine(x,y-4*scale,x,y+4*scale,1.5*scale,ink);
+   end;
+   else begin
+    for i:=0 to 9 do begin
+     a:=-Pi/2+i*Pi/5;
+     if odd(i) then d:=2.5*scale else d:=5.8*scale;
+     points[i]:=Vec2(x+cos(a)*d,y+sin(a)*d);
+    end;
+    for i:=0 to 9 do begin
+     j:=(i+1) mod 10;
+     if kind=bkFavorite then
+      draw.FillTriangle(x,y,points[i].x,points[i].y,points[j].x,points[j].y,ink,ink,ink)
+     else ThickLine(points[i].x,points[i].y,points[j].x,points[j].y,1.1*scale,ink);
+    end;
+   end;
   end;
  end;
 
  procedure DrawPinButton(element:TUIElement);
  var
   dialog:TUIFileDialog;
-  color:cardinal;
+  kind:TBadgeKind;
  begin
-  DrawDefaultUI(element,false);
   dialog:=TUIFileDialog(element.parent);
-  if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then color:=$FF244C78
-   else color:=element.GetStyleColor('color',$FF303030);
-  DrawPin(element.globalRect,element.globalScale,false,color);
+  if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then kind:=bkFavorite else kind:=bkAddFavorite;
+  DrawBadge(element.globalRect,element.globalScale,kind,element.IsEnabled);
  end;
 
  procedure DrawDriveBar(element:TUIElement);
@@ -267,24 +306,24 @@ implementation
    tag:=list.RowTag(row);
    cell:=Types.Rect(r.Left,y,r.Left+round(list.RowsWidth*s),y+round(rowH));
    fill:=0;
-   if row=list.selected then fill:=list.GetStyleColor('selection-fill',$FF707090)
-   else if row=list.hoverRow then fill:=list.GetStyleColor('row-hover-fill',$20808080);
+   if row=list.selected then fill:=list.GetStyleColor('selection-fill',$FF356FA3)
+   else if row=list.hoverRow then fill:=list.GetStyleColor('row-hover-fill',$FF99B5CF);
    if fill<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,fill);
    path:=list.dialog.LocationPath(tag);
    if path='' then begin
     labelText:=list.CellText(row,0);
     color:=list.GetStyleColor('color',$FF303030);
    end else begin
-    labelText:=Files.GetName(path);
-    if labelText='' then labelText:=path else labelText:=labelText+'  '+Files.GetDir(path);
+    labelText:=path;
     pinned:=PathIndex(list.dialog.favoriteFolders,path)>=0;
     if tag<$10000 then color:=list.GetStyleColor('favorite-color',$FF244C78)
      else color:=list.GetStyleColor('recent-color',$FF585860);
     icon:=cell;
     icon.Left:=icon.Right-round(LOCATION_ACTION_WIDTH*s);
     if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
-    if pinned or remove then DrawPin(icon,s,remove,color)
-     else DrawPin(icon,s,false,list.GetStyleColor('recent-pin-color',$FF929298));
+    if remove then DrawBadge(icon,s,bkRemove)
+    else if pinned then DrawBadge(icon,s,bkFavorite)
+     else DrawBadge(icon,s,bkAddFavorite);
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
@@ -332,8 +371,65 @@ implementation
    procedure Build(const folder:String8);
    procedure DirectorySelected(sender:TUITable;row:integer);
    procedure onMouseButtons(button:byte;state:boolean); override;
+   procedure onMouseMove; override;
    procedure ToggleNode(index:integer);
   end;
+
+ procedure DrawDirectoryOutline(element:TUIElement);
+ var
+  table:TDirectoryOutline;
+  r,cell,badge:TRect;
+  font:TFontHandle;
+  s,rowH,pos:single;
+  first,place,row,index,y,headerBottom,baseline,textLeft:integer;
+  color,fill:cardinal;
+  kind:TBadgeKind;
+ begin
+  table:=TDirectoryOutline(element);
+  r:=table.GetClientPosOnScreen;
+  s:=table.globalScale;
+  font:=table.StyleFont;
+  headerBottom:=r.Top+round(table.headerHeight*s);
+  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,table.GetStyleColor('fill',$FFD0D0D8));
+  draw.FillRect(r.Left,r.Top,r.Right-1,headerBottom-1,table.GetStyleColor('header-fill',$FFC4C8D1));
+  color:=table.GetStyleColor('header-color',$FF303030);
+  baseline:=round((r.Top+headerBottom-1)*0.5+txt.Height(font)*0.45);
+  txt.Write(font,r.Left+round(5*s),baseline,color,table.columns[0].caption);
+  gfx.clip.Rect(Types.Rect(r.Left,headerBottom,r.Right,r.Bottom));
+  rowH:=table.rowHeight*s;
+  pos:=table.ScrollPos*s;
+  first:=trunc(pos/rowH);
+  for place:=first to table.RowCount-1 do begin
+   y:=headerBottom+round(place*rowH-pos);
+   if y>=r.Bottom then break;
+   row:=table.RowAt(place);
+   index:=table.RowTag(row);
+   if (index<0) or (index>=length(table.nodes)) then continue;
+   cell:=Types.Rect(r.Left,y,r.Left+round(table.RowsWidth*s),y+round(rowH));
+   fill:=0;
+   color:=table.GetStyleColor('color',$FF303030);
+   if row=table.selected then begin
+    fill:=table.GetStyleColor('selection-fill',$FF356FA3);
+    color:=table.GetStyleColor('selection-color',$FFFFFFFF);
+   end else if row=table.hoverRow then fill:=table.GetStyleColor('row-hover-fill',$FF99B5CF)
+   else if odd(place) then fill:=table.GetStyleColor('row-alt-fill',0);
+   if fill<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,fill);
+   badge:=cell;
+   badge.Left:=cell.Left+round((4+table.nodes[index].depth*14)*s);
+   badge.Right:=badge.Left+round(20*s);
+   if PathIndex(table.expanded,table.nodes[index].path)>=0 then kind:=bkCollapse else kind:=bkExpand;
+   DrawBadge(badge,s,kind);
+   textLeft:=badge.Right+round(5*s);
+   baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
+   if textLeft<cell.Right-round(5*s) then begin
+    gfx.clip.Rect(Types.Rect(textLeft,cell.Top,cell.Right-round(5*s),cell.Bottom));
+    txt.Write(font,textLeft,baseline,color,table.CellText(row,0));
+    gfx.clip.Restore;
+   end;
+  end;
+  gfx.clip.Restore;
+  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,table.GetStyleColor('line-color',$FF808080));
+ end;
 
  // Temporary private helper until Files supplies a UTF-8 absolute-path API (PaintRaw E-26).
  function FullPath(const path:String8):String8;
@@ -428,6 +524,7 @@ implementation
   self.dialog:=dialog;
   AddColumn('Directory Outline',0,taLeft,tsNone);
   onSelect:=DirectorySelected;
+  drawer:=DrawDirectoryOutline;
  end;
 
  procedure TDirectoryOutline.Build(const folder:String8);
@@ -450,8 +547,6 @@ implementation
   opened:=PathIndex(expanded,path)>=0;
   labelText:=Files.GetName(path);
   if labelText='' then labelText:=path;
-  if opened then labelText:='- '+labelText else labelText:='+ '+labelText;
-  labelText:=String8(StringOfChar(' ',depth*2))+labelText;
   row:=AddRow(index);
   SetCell(row,0,labelText);
   if SamePath(path,folder) then selectedRow:=row;
@@ -529,13 +624,25 @@ implementation
    row:=RowAtPoint(p.x,p.y);
    if row>=0 then begin
     index:=RowTag(row);
-    if (index>=0) and (index<length(nodes)) and (p.x<20+nodes[index].depth*8) then begin
+    if (index>=0) and (index<length(nodes)) and
+       (p.x>=4+nodes[index].depth*14) and (p.x<24+nodes[index].depth*14) then begin
      ToggleNode(index);
      exit;
     end;
    end;
   end;
   inherited;
+ end;
+
+ procedure TDirectoryOutline.onMouseMove;
+ var
+  index:NativeInt;
+ begin
+  inherited;
+  hint:='';
+  if hoverRow<0 then exit;
+  index:=RowTag(hoverRow);
+  if (index>=0) and (index<length(nodes)) then hint:=nodes[index].path;
  end;
 
  procedure TDialogButton.DoClick;
@@ -598,6 +705,12 @@ implementation
   e.maxlength:=32767;
   result:=e;
  end;
+ procedure StyleTable(t:TUITable);
+ begin
+  t.style.SetAttr('selection-fill','$FF356FA3');
+  t.style.SetAttr('selection-color','$FFFFFFFF');
+  t.style.SetAttr('row-hover-fill','$FF99B5CF');
+ end;
  begin
   pathEdit:=Edit('Path',true);
   upButton:=Button('Up','Up',GoUp);
@@ -632,9 +745,12 @@ implementation
   locationsList.AddColumn('',0,taLeft,tsNone);
   locationsList.headerHeight:=0;
   locationsList.onSelect:=LocationSelected;
+  StyleTable(table);
+  StyleTable(directoryOutline);
+  StyleTable(locationsList);
   pinButton:=Button('PinFolder','',PinFolder);
   pinButton.drawer:=DrawPinButton;
-  pinButton.hint:='Pin current folder';
+  pinButton.hint:='Add current folder to favorites';
  end;
 
  procedure TUIFileDialog.LayoutControls;
@@ -746,6 +862,8 @@ implementation
     end;
    end;
    fFolder:=next;
+   if fFolder='' then upButton.flags.enabled:=false
+    else upButton.flags.enabled:=not SamePath(ParentFolder(fFolder),fFolder);
    pathEdit.text:=fFolder;
    Edited;
    Refresh;
@@ -880,18 +998,24 @@ implementation
 
  procedure TUIFileDialog.BuildLocations;
  var
-  i:integer;
+  i,row,currentRow:integer;
  begin
   locationsList.ClearRows;
-  locationsList.SetCell(locationsList.AddRow(-1),0,'Favorites');
-  for i:=0 to high(favoriteFolders) do
-   locationsList.SetCell(locationsList.AddRow(i),0,favoriteFolders[i]);
-  locationsList.SetCell(locationsList.AddRow(-1),0,'Recent');
-  for i:=0 to high(recentFolders) do
-   locationsList.SetCell(locationsList.AddRow($10000+i),0,recentFolders[i]);
+  currentRow:=-1;
+  for i:=0 to high(favoriteFolders) do begin
+   row:=locationsList.AddRow(i);
+   locationsList.SetCell(row,0,favoriteFolders[i]);
+   if SamePath(favoriteFolders[i],fFolder) then currentRow:=row;
+  end;
+  for i:=0 to high(recentFolders) do begin
+   row:=locationsList.AddRow($10000+i);
+   locationsList.SetCell(row,0,recentFolders[i]);
+   if (currentRow<0) and SamePath(recentFolders[i],fFolder) then currentRow:=row;
+  end;
+  locationsList.selected:=currentRow;
   pinButton.flags.enabled:=fFolder<>'';
-  if PathIndex(favoriteFolders,fFolder)>=0 then pinButton.hint:='Unpin current folder'
-   else pinButton.hint:='Pin current folder';
+  if PathIndex(favoriteFolders,fFolder)>=0 then pinButton.hint:='Remove current folder from favorites'
+   else pinButton.hint:='Add current folder to favorites';
  end;
 
  function TUIFileDialog.LocationPath(tag:NativeInt):String8;
@@ -939,7 +1063,7 @@ implementation
    if index>=length(favoriteFolders) then exit;
    path:=favoriteFolders[index];
   end;
-  SetFolder(path);
+  if not SamePath(path,fFolder) then SetFolder(path);
  end;
 
  procedure TUIFileDialog.PinFolder;
@@ -960,7 +1084,7 @@ implementation
  begin
   if fFolder='' then exit;
   parent:=FullPath(JoinPath(fFolder,'..'));
-  if parent=fFolder then parent:='';
+  if SamePath(parent,fFolder) then exit;
   SetFolder(parent);
  end;
 
