@@ -45,9 +45,11 @@ interface
    procedure Resize(newWidth,newHeight:single); override;
   protected
    pathEdit,nameEdit:TUIEditBox;
-   typeCombo:TUIComboBox;
+   typeBar:TUIElement;
+   allTypeButton:TUIToggleButton;
+   typeButtons:array of TUIToggleButton;
    upButton,acceptButton,cancelButton:TUIButton;
-   nameLabel,typeLabel,messageLabel:TUILabel;
+   nameLabel,messageLabel:TUILabel;
    navigationPanel,driveBar:TUIElement;
    directoryOutline,locationsList:TUITable;
    pinButton:TUIButton;
@@ -56,18 +58,25 @@ interface
   private
    fFolder,overwritePath:String8;
    items:TFolderItems;
-   finished,settingUp:boolean;
+   finished:boolean;
+   allTypes:boolean;
+   activeTypes:array of boolean;
+   selectedType:integer;
    host:TFileDialogScene;
    procedure Refresh;
    procedure BuildDrives;
+   procedure BuildTypes;
+   procedure TypeClicked(index:integer;active:boolean);
+   procedure UpdateTypes;
    procedure DriveClicked;
    procedure BuildLocations;
    procedure LocationSelected(sender:TUITable;row:integer);
+   procedure LocationAction(tag:NativeInt;remove:boolean);
+   function LocationPath(tag:NativeInt):String8;
    procedure PinFolder;
    procedure RememberFolder;
    procedure GoUp;
    procedure PathEntered;
-   procedure TypeChanged;
    procedure Edited;
    function ItemPath(index:integer):String8;
    procedure RowSelected(sender:TUITable;row:integer);
@@ -89,7 +98,8 @@ interface
   end;
 
 implementation
- uses SysUtils, Math, Apus.Conv, Apus.Strings, Apus.Geom2D, Apus.EventMan, Apus.Engine.Keys,
+ uses SysUtils, Math, Types, Apus.Conv, Apus.Strings, Apus.Geom2D, Apus.EventMan, Apus.Engine.Keys,
+  Apus.Engine.API, Apus.Engine.DefaultStyle,
   Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.SceneEffects{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
  type
@@ -103,10 +113,209 @@ implementation
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onUniChar(ch:Char32;scancode:byte); override;
   end;
-  TDialogCombo=class(TUIComboBox)
+  TTypeChip=class(TUIToggleButton)
    dialog:TUIFileDialog;
-   procedure SetCurItem(item:integer); override;
+   index:integer; // -1 is All
+   procedure DoClick; override;
   end;
+  TDriveBar=class(TUIElement)
+   availableWidth:single;
+   expanded:boolean;
+   procedure Arrange(width:single);
+   procedure UpdateHover;
+   procedure onMouseMove; override;
+   procedure onTimer; override;
+  end;
+  TDriveButton=class(TDialogButton)
+   procedure onMouseMove; override;
+  end;
+  TLocationsList=class(TUITable)
+   dialog:TUIFileDialog;
+   procedure onMouseButtons(button:byte;state:boolean); override;
+   procedure onMouseMove; override;
+  end;
+
+ const
+  DRIVE_MIN_WIDTH=32;
+  LOCATION_ACTION_WIDTH=26;
+
+ function PathIndex(const paths:Strings8;const path:String8):integer; forward;
+
+ procedure DrawPin(const r:TRect;scale:single;remove:boolean;color:cardinal);
+ var
+  x,y:single;
+ begin
+  x:=(r.Left+r.Right)*0.5; y:=(r.Top+r.Bottom)*0.5;
+  if remove then begin
+   draw.Line(x-4*scale,y-4*scale,x+4*scale,y+4*scale,color);
+   draw.Line(x-4*scale,y+4*scale,x+4*scale,y-4*scale,color);
+  end else begin
+   draw.FillRect(round(x-3*scale),round(y-7*scale),round(x+3*scale),round(y-5*scale),color);
+   draw.FillRect(round(x-scale),round(y-5*scale),round(x+scale),round(y),color);
+   draw.FillTriangle(x-5*scale,y+scale,x+5*scale,y+scale,x,y-3*scale,color,color,color);
+   draw.Line(x,y+scale,x,y+7*scale,color);
+  end;
+ end;
+
+ procedure DrawPinButton(element:TUIElement);
+ var
+  dialog:TUIFileDialog;
+  color:cardinal;
+ begin
+  DrawDefaultUI(element,false);
+  dialog:=TUIFileDialog(element.parent);
+  if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then color:=$FF244C78
+   else color:=element.GetStyleColor('color',$FF303030);
+  DrawPin(element.globalRect,element.globalScale,false,color);
+ end;
+
+ procedure DrawDriveBar(element:TUIElement);
+ var
+  bar:TDriveBar;
+  r:TRect;
+  x,y,s:single;
+  color:cardinal;
+ begin
+  bar:=TDriveBar(element);
+  r:=element.globalRect;
+  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,element.GetStyleColor('fill',$FFBCB8B0));
+  if not bar.expanded and (length(bar.children)*DRIVE_MIN_WIDTH>bar.availableWidth) then begin
+   s:=element.globalScale;
+   x:=r.Right-7*s; y:=(r.Top+r.Bottom)*0.5;
+   color:=element.GetStyleColor('color',$FF303030);
+   draw.FillTriangle(x-2*s,y-4*s,x-2*s,y+4*s,x+2*s,y,color,color,color);
+  end;
+ end;
+
+ procedure TDriveBar.Arrange(width:single);
+ var
+  i,n:integer;
+  full,buttonWidth:single;
+  clipped:boolean;
+ begin
+  availableWidth:=width;
+  n:=length(children);
+  clipped:=n*DRIVE_MIN_WIDTH>width;
+  full:=width;
+  if clipped and expanded then full:=n*DRIVE_MIN_WIDTH;
+  if clipped and not expanded then SetPaddings(0,0,12,0) else SetPadding(0);
+  Resize(full,28);
+  if n=0 then exit;
+  if clipped then buttonWidth:=DRIVE_MIN_WIDTH else buttonWidth:=width/n;
+  for i:=0 to n-1 do begin
+   children[i].SetPos(i*buttonWidth,0);
+   children[i].Resize(buttonWidth-2,26);
+  end;
+ end;
+
+ procedure TDriveBar.UpdateHover;
+ var
+  over:boolean;
+ begin
+  over:=(underMouse=self) or ((underMouse<>nil) and underMouse.HasParent(self));
+  if expanded<>over then begin
+   expanded:=over;
+   Arrange(availableWidth);
+  end;
+  if expanded then timer:=30 else timer:=0;
+ end;
+
+ procedure TDriveBar.onMouseMove;
+ begin
+  inherited;
+  UpdateHover;
+ end;
+
+ procedure TDriveBar.onTimer;
+ begin
+  UpdateHover;
+ end;
+
+ procedure TDriveButton.onMouseMove;
+ begin
+  inherited;
+  TDriveBar(parent).UpdateHover;
+ end;
+
+ procedure DrawLocations(element:TUIElement);
+ var
+  list:TLocationsList;
+  r,cell,icon:TRect;
+  font:TFontHandle;
+  s,rowH,pos:single;
+  first,place,row,y,baseline:integer;
+  tag:NativeInt;
+  color,fill:cardinal;
+  path,labelText:String8;
+  remove,pinned:boolean;
+ begin
+  list:=TLocationsList(element);
+  s:=list.globalScale;
+  r:=list.GetClientPosOnScreen;
+  font:=list.StyleFont;
+  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,list.GetStyleColor('fill',$FFD0D0D8));
+  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,list.GetStyleColor('line-color',$FF808080));
+  rowH:=list.rowHeight*s;
+  pos:=list.ScrollPos*s;
+  first:=trunc(pos/rowH);
+  remove:=(list.GetWindow.shiftState and sscCtrl)<>0;
+  gfx.clip.Rect(r);
+  for place:=first to list.RowCount-1 do begin
+   y:=r.Top+round(place*rowH-pos);
+   if y>=r.Bottom then break;
+   row:=list.RowAt(place);
+   tag:=list.RowTag(row);
+   cell:=Types.Rect(r.Left,y,r.Left+round(list.RowsWidth*s),y+round(rowH));
+   fill:=0;
+   if row=list.selected then fill:=list.GetStyleColor('selection-fill',$FF707090)
+   else if row=list.hoverRow then fill:=list.GetStyleColor('row-hover-fill',$20808080);
+   if fill<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,fill);
+   path:=list.dialog.LocationPath(tag);
+   if path='' then begin
+    labelText:=list.CellText(row,0);
+    color:=list.GetStyleColor('color',$FF303030);
+   end else begin
+    labelText:=Files.GetName(path);
+    if labelText='' then labelText:=path else labelText:=labelText+'  '+Files.GetDir(path);
+    pinned:=PathIndex(list.dialog.favoriteFolders,path)>=0;
+    if tag<$10000 then color:=list.GetStyleColor('favorite-color',$FF244C78)
+     else color:=list.GetStyleColor('recent-color',$FF585860);
+    icon:=cell;
+    icon.Left:=icon.Right-round(LOCATION_ACTION_WIDTH*s);
+    if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
+    if pinned or remove then DrawPin(icon,s,remove,color)
+     else DrawPin(icon,s,false,list.GetStyleColor('recent-pin-color',$FF929298));
+   end;
+   baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
+   gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
+   txt.Write(font,cell.Left+round(5*s),baseline,color,labelText);
+   gfx.clip.Restore;
+  end;
+  gfx.clip.Restore;
+ end;
+
+ procedure TLocationsList.onMouseButtons(button:byte;state:boolean);
+ var
+  p:TVec2;
+  row:integer;
+ begin
+  if (button=1) and state then begin
+   p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
+   row:=RowAtPoint(p.x,p.y);
+   if (row>=0) and (p.x>=RowsWidth-LOCATION_ACTION_WIDTH) and (RowTag(row)>=0) then begin
+    dialog.LocationAction(RowTag(row),(GetWindow.shiftState and sscCtrl)<>0);
+    exit;
+   end;
+  end;
+  inherited;
+ end;
+
+ procedure TLocationsList.onMouseMove;
+ begin
+  inherited;
+  if hoverRow>=0 then hint:=dialog.LocationPath(RowTag(hoverRow)) else hint:='';
+ end;
+ type
   TDirectoryNode=record
    path:String8;
    depth:integer;
@@ -354,13 +563,10 @@ implementation
   dialog.Edited;
  end;
 
- procedure TDialogCombo.SetCurItem(item:integer);
- var
-  old:integer;
+ procedure TTypeChip.DoClick;
  begin
-  old:=curItem;
   inherited;
-  if (dialog<>nil) and (old<>curItem) then dialog.TypeChanged;
+  if dialog<>nil then dialog.TypeClicked(index,toggled);
  end;
 
  constructor TUIFileDialog.Create(width,height:single;parent:TUIElement;name:String8);
@@ -403,10 +609,8 @@ implementation
   table.onSelect:=RowSelected;
   table.onActivate:=RowActivated;
   nameLabel:=TUILabel.Create(60,28,self).Setup('Name:');
-  typeLabel:=TUILabel.Create(60,28,self).Setup('Type:');
   nameEdit:=Edit('Name',false);
-  typeCombo:=TDialogCombo.Create(100,28,self,name+'\Type');
-  TDialogCombo(typeCombo).dialog:=self;
+  typeBar:=TUIElement.Create(100,28,self,name+'\Types');
   messageLabel:=TUILabel.Create(100,24,self,name+'\Message');
   acceptButton:=Button('Accept','Open',Confirm);
   acceptButton.default:=true;
@@ -414,21 +618,29 @@ implementation
   placesPanel:=TUIElement.Create(0,0,self,name+'\Places');
   previewPanel:=TUIElement.Create(0,0,self,name+'\Preview');
   optionsPanel:=TUIElement.Create(0,0,self,name+'\Options');
-  navigationPanel:=TUIElement.Create(220,100,self,name+'\Navigation');
-  driveBar:=TUIElement.Create(220,28,navigationPanel,name+'\Drives');
+  navigationPanel:=TUIElement.Create(340,100,self,name+'\Navigation');
+  navigationPanel.order:=10;
+  driveBar:=TDriveBar.Create(340,28,navigationPanel,name+'\Drives');
+  driveBar.shape:=shapeFull;
+  driveBar.flags.noParentClip:=true;
+  driveBar.order:=$10000;
+  driveBar.drawer:=DrawDriveBar;
   directoryOutline:=TDirectoryOutline.Create(navigationPanel,self,name+'\Directories');
-  locationsList:=TUITable.Create(220,120,navigationPanel,name+'\Locations');
+  locationsList:=TLocationsList.Create(340,120,navigationPanel,name+'\Locations');
+  TLocationsList(locationsList).dialog:=self;
+  locationsList.drawer:=DrawLocations;
   locationsList.AddColumn('',0,taLeft,tsNone);
   locationsList.headerHeight:=0;
   locationsList.onSelect:=LocationSelected;
-  pinButton:=Button('PinFolder','Pin current folder',PinFolder);
-  pinButton.AttachTo(navigationPanel);
+  pinButton:=Button('PinFolder','',PinFolder);
+  pinButton.drawer:=DrawPinButton;
+  pinButton.hint:='Pin current folder';
  end;
 
  procedure TUIFileDialog.LayoutControls;
  var
-  w,h,left,right,bottom,navH,driveH,locationsH,pinY:single;
-  columns,i:integer;
+  w,h,left,right,bottom,navH,navW,locationsH,chipWidth:single;
+  i:integer;
  procedure Place(e:TUIElement;x,y,w,h:single);
  begin
   e.SetPos(x,y);
@@ -437,41 +649,41 @@ implementation
  begin
   if table=nil then exit;
   w:=clientWidth; h:=clientHeight;
-  Place(pathEdit,8,8,w-112,28);
-  Place(upButton,w-96,8,88,28);
-  left:=8; right:=w-8; bottom:=h-140;
-  navH:=Math.Max(0.0,bottom-44);
-  Place(navigationPanel,left,44,220,navH);
-  columns:=6;
-  driveH:=((length(driveBar.children)+columns-1) div columns)*28;
-  Place(driveBar,0,0,220,driveH);
-  for i:=0 to high(driveBar.children) do
-   Place(driveBar.children[i],(i mod columns)*36,(i div columns)*28,32,24);
-  locationsH:=Math.Min(140.0,navH*0.4);
-  pinY:=navH-locationsH-30;
-  Place(directoryOutline,0,driveH+6,220,pinY-driveH-12);
-  Place(pinButton,0,pinY,220,26);
-  Place(locationsList,0,navH-locationsH,220,locationsH);
-  left:=left+228;
+  navW:=Math.Min(340.0,w*0.42);
+  navH:=Math.Max(0.0,h-16);
+  Place(navigationPanel,8,8,navW,navH);
+  driveBar.SetPos(0,0);
+  TDriveBar(driveBar).Arrange(navW);
+  locationsH:=Math.Min(160.0,navH*0.30);
+  Place(directoryOutline,0,36,navW,navH-locationsH-44);
+  Place(locationsList,0,navH-locationsH,navW,locationsH);
+  left:=navW+24; right:=w-8; bottom:=h-104;
+  Place(pathEdit,left,8,right-left-112,28);
+  Place(upButton,right-104,8,68,28);
+  Place(pinButton,right-28,8,28,28);
+  Place(typeBar,left,44,right-left,28);
+  if allTypeButton<>nil then begin
+   chipWidth:=(right-left)/(length(typeButtons)+1);
+   Place(allTypeButton,0,0,chipWidth-4,28);
+   for i:=0 to high(typeButtons) do Place(typeButtons[i],(i+1)*chipWidth,0,chipWidth-4,28);
+  end;
   // An unused slot occupies no space. Apps choose slot widths/heights when filling them.
   if length(placesPanel.children)>0 then begin
-   Place(placesPanel,left,44,placesPanel.size.x,bottom-44);
+   Place(placesPanel,left,80,placesPanel.size.x,bottom-80);
    left:=left+placesPanel.size.x+8;
   end;
   if length(previewPanel.children)>0 then begin
    right:=right-previewPanel.size.x-8;
-   Place(previewPanel,right+8,44,previewPanel.size.x,bottom-44);
+   Place(previewPanel,right+8,80,previewPanel.size.x,bottom-80);
   end;
   if length(optionsPanel.children)>0 then begin
    Place(optionsPanel,left,bottom-optionsPanel.size.y,right-left,optionsPanel.size.y);
    bottom:=bottom-optionsPanel.size.y-8;
   end;
-  Place(table,left,44,right-left,bottom-44);
-  Place(nameLabel,8,h-132,60,28);
-  Place(nameEdit,68,h-132,w-76,28);
-  Place(typeLabel,8,h-96,60,28);
-  Place(typeCombo,68,h-96,w-76,28);
-  Place(messageLabel,8,h-62,w-16,24);
+  Place(table,left,80,right-left,bottom-80);
+  Place(nameLabel,left,h-96,60,28);
+  Place(nameEdit,left+60,h-96,right-left-60,28);
+  Place(messageLabel,left,h-62,right-left,24);
   Place(acceptButton,w-192,h-36,88,28);
   Place(cancelButton,w-96,h-36,88,28);
  end;
@@ -483,29 +695,23 @@ implementation
  end;
 
  procedure TUIFileDialog.Setup(mode:TFileDialogMode;const folder,fileName:String8;typeIndex:integer);
- var
-  t:TFileType;
  begin
   self.mode:=mode;
   // Scenes may be constructed by the application thread. UI hotkeys belong to the
   // window thread, where Setup and input run, rather than to that constructor's thread.
   SetHotKey(ord(TKey.Escape));
   table.keyScope:=self;
-  settingUp:=true;
-  try
-   finished:=false;
-   Edited;
-   typeCombo.ClearItems;
-   for t in types do typeCombo.AddItem(t.title);
-   if length(types)>0 then typeCombo.curItem:=Clamp(typeIndex,0,length(types)-1)
-    else typeCombo.curItem:=-1;
-   if mode=fdOpen then acceptButton.caption:='Open' else acceptButton.caption:='Save';
-   nameEdit.text:=fileName;
-   BuildDrives;
-   if folder='' then SetFolder('') else SetFolder(FullPath(folder));
-  finally
-   settingUp:=false;
-  end;
+  finished:=false;
+  Edited;
+  if length(types)>0 then selectedType:=Clamp(typeIndex,0,length(types)-1) else selectedType:=-1;
+  allTypes:=true;
+  activeTypes:=nil;
+  SetLength(activeTypes,length(types));
+  BuildTypes;
+  if mode=fdOpen then acceptButton.caption:='Open' else acceptButton.caption:='Save';
+  nameEdit.text:=fileName;
+  BuildDrives;
+  if folder='' then SetFolder('') else SetFolder(FullPath(folder));
   LayoutControls;
  end;
 
@@ -560,9 +766,17 @@ implementation
   if fFolder='' then begin
    items:=nil;
   end else begin
-   mask:='*';
-   i:=typeCombo.curItem;
-   if (i>=0) and (i<length(types)) and (types[i].masks<>'') then mask:=types[i].masks;
+   mask:='';
+   if allTypes then mask:='*'
+   else for i:=0 to high(activeTypes) do if activeTypes[i] then begin
+    if mask<>'' then mask:=mask+';';
+    mask:=mask+types[i].masks;
+   end;
+   if mask='' then begin
+    items:=nil;
+    ShowError('No file types selected');
+    exit;
+   end;
    items:=Apus.Files.Folder.ListItems(fFolder,mask);
    for i:=0 to high(items) do with items[i] do begin
     if info.isDirectory then continue;
@@ -572,19 +786,73 @@ implementation
     table.SetCell(row,1,FileSizeText(info.size),info.size);
     table.SetCell(row,2,String8(FormatDateTime('yyyy-mm-dd hh:nn',info.timestamp)),info.timestamp);
    end;
+   ShowError('Files: '+Conv.ToStr(table.RowCount));
   end;
+ end;
+
+ procedure TUIFileDialog.BuildTypes;
+ var
+  b:TTypeChip;
+  i:integer;
+  caption:String8;
+ begin
+  typeBar.DeleteChildren;
+  typeButtons:=nil;
+  b:=TTypeChip.Create(48,28,typeBar,name+'\TypeAll');
+  b.Setup('All',allTypes);
+  b.dialog:=self; b.index:=-1;
+  b.flags.canHaveFocus:=false;
+  b.hint:='All files. Ctrl+click changes only this filter.';
+  allTypeButton:=b;
+  SetLength(typeButtons,length(types));
+  for i:=0 to high(types) do begin
+   caption:=types[i].ext;
+   if caption<>'' then caption:=UTF8.ToUpper(copy(caption,2,length(caption))) else caption:=types[i].title;
+   b:=TTypeChip.Create(48,28,typeBar,name+'\Type'+Conv.ToStr(i));
+   b.Setup(caption,activeTypes[i]);
+   b.dialog:=self; b.index:=i;
+   b.flags.canHaveFocus:=false;
+   b.hint:=types[i].title+' ('+types[i].masks+'). Ctrl+click changes only this filter.';
+   typeButtons[i]:=b;
+  end;
+ end;
+
+ procedure TUIFileDialog.UpdateTypes;
+ var
+  i:integer;
+ begin
+  allTypeButton.toggled:=allTypes;
+  for i:=0 to high(typeButtons) do typeButtons[i].toggled:=activeTypes[i];
+ end;
+
+ procedure TUIFileDialog.TypeClicked(index:integer;active:boolean);
+ var
+  i:integer;
+ begin
+  if (GetWindow.shiftState and sscCtrl)=0 then begin
+   allTypes:=false;
+   for i:=0 to high(activeTypes) do activeTypes[i]:=false;
+  end;
+  if index<0 then allTypes:=active else begin
+   activeTypes[index]:=active;
+   if active then selectedType:=index;
+  end;
+  UpdateTypes;
+  Edited;
+  Refresh;
  end;
 
  procedure TUIFileDialog.BuildDrives;
  var
   roots:Strings8;
   i:integer;
-  b:TDialogButton;
+  b:TDriveButton;
  begin
   driveBar.DeleteChildren;
+  TDriveBar(driveBar).expanded:=false;
   roots:=Apus.Files.Folder.Roots;
   for i:=0 to high(roots) do begin
-   b:=TDialogButton.Create(32,24,driveBar,name+'\Drive'+Conv.ToStr(i));
+   b:=TDriveButton.Create(32,24,driveBar,name+'\Drive'+Conv.ToStr(i));
    b.caption:=roots[i];
    b.attributes.Item['path']:=JoinPath(roots[i],'');
    b.handler:=DriveClicked;
@@ -622,8 +890,37 @@ implementation
   for i:=0 to high(recentFolders) do
    locationsList.SetCell(locationsList.AddRow($10000+i),0,recentFolders[i]);
   pinButton.flags.enabled:=fFolder<>'';
-  if PathIndex(favoriteFolders,fFolder)>=0 then pinButton.caption:='Unpin current folder'
-   else pinButton.caption:='Pin current folder';
+  if PathIndex(favoriteFolders,fFolder)>=0 then pinButton.hint:='Unpin current folder'
+   else pinButton.hint:='Pin current folder';
+ end;
+
+ function TUIFileDialog.LocationPath(tag:NativeInt):String8;
+ begin
+  result:='';
+  if tag<0 then exit;
+  if tag>=$10000 then begin
+   tag:=tag-$10000;
+   if tag<length(recentFolders) then result:=recentFolders[tag];
+  end else if tag<length(favoriteFolders) then result:=favoriteFolders[tag];
+ end;
+
+ procedure TUIFileDialog.LocationAction(tag:NativeInt;remove:boolean);
+ var
+  path:String8;
+  index:integer;
+ begin
+  path:=LocationPath(tag);
+  if path='' then exit;
+  if remove then begin
+   if tag>=$10000 then RemovePath(recentFolders,tag-$10000)
+    else RemovePath(favoriteFolders,tag);
+  end else begin
+   index:=PathIndex(favoriteFolders,path);
+   if index<0 then favoriteFolders:=favoriteFolders+[path]
+    else RemovePath(favoriteFolders,index);
+  end;
+  BuildLocations;
+  if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
  procedure TUIFileDialog.LocationSelected(sender:TUITable;row:integer);
@@ -670,13 +967,6 @@ implementation
  procedure TUIFileDialog.PathEntered;
  begin
   SetFolder(pathEdit.text);
- end;
-
- procedure TUIFileDialog.TypeChanged;
- begin
-  if settingUp then exit;
-  Edited;
-  Refresh;
  end;
 
  function TUIFileDialog.ItemPath(index:integer):String8;
@@ -736,7 +1026,7 @@ implementation
     nameEdit.text:='';
     exit;
    end;
-   value.typeIndex:=typeCombo.curItem;
+   value.typeIndex:=selectedType;
    if (mode=fdSave) and (Files.GetExt(path)='') and
       (value.typeIndex>=0) and (value.typeIndex<length(types)) then begin
     ext:=types[value.typeIndex].ext;
@@ -769,7 +1059,7 @@ implementation
  begin
   value.accepted:=false;
   value.path:='';
-  value.typeIndex:=typeCombo.curItem;
+  value.typeIndex:=selectedType;
   Finish(value);
  end;
 
@@ -777,7 +1067,6 @@ implementation
  begin
   if finished then exit;
   finished:=true;
-  typeCombo.ClosePopup(false);
   if host<>nil then host.Close;
   Signal('UI\'+name+'\Done',ord(value.accepted));
   if Assigned(onDone) then onDone(self,value);
@@ -794,7 +1083,7 @@ implementation
   inherited Create(string(sceneName)+'Scene',false,wnd);
   zOrder:=100;
   UI.order:=zOrder;
-  frame:=TUIWindow.Create(940,540,true,UI,sceneName+'\Frame','Open');
+  frame:=TUIWindow.Create(1100,580,true,UI,sceneName+'\Frame','Open');
   frame.minW:=680; frame.minH:=420;
   dialog:=TUIFileDialog.Create(frame.clientWidth,frame.clientHeight,frame,sceneName);
   dialog.SetAnchors(anchorAll);
@@ -812,7 +1101,7 @@ implementation
  begin
   inherited;
   if frame=nil then exit;
-  frame.Resize(Math.Min(956.0,UI.clientWidth-16),Math.Min(570.0,UI.clientHeight-16));
+  frame.Resize(Math.Min(1116.0,UI.clientWidth-16),Math.Min(610.0,UI.clientHeight-16));
   frame.Center;
   dialog.LayoutControls;
  end;
