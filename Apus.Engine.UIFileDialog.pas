@@ -1,5 +1,7 @@
 // Modal file selection on the real filesystem. Layout is deliberately kept in one method.
+// Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 (see license.txt).
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.UIFileDialog;
 interface
  uses Apus.Core, Apus.Files, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
@@ -139,6 +141,7 @@ implementation
    procedure onTimer; override;
   end;
   TDriveButton=class(TDialogButton)
+   active:boolean;
    procedure onMouseMove; override;
   end;
   TLocationsList=class(TUITable)
@@ -154,7 +157,7 @@ implementation
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
 
  type
-  TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse,bkClear);
+  TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse,bkClear,bkUp);
 
  function DefaultPalette:TFileDialogPalette;
  begin
@@ -188,20 +191,25 @@ implementation
 
  procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TBadgeKind;enabled:boolean=true);
  var
-  x,y,radius,a,d:single;
+  x,y,a,d:single;
   points:array[0..9] of TVec2;
   i,j:integer;
   fill,ink:cardinal;
   p:TFileDialogPalette;
  begin
   x:=(r.Left+r.Right)*0.5; y:=(r.Top+r.Bottom)*0.5;
-  radius:=Math.Min(10*scale,(r.Bottom-r.Top-2*scale)*0.5);
   p:=PaletteOf(element);
   fill:=p.badgeFill; ink:=p.badgeInk;
   if kind=bkFavorite then ink:=p.favoriteInk else if kind=bkRemove then ink:=p.removeInk;
   if not enabled then ink:=p.disabled;
-  draw.RoundRect(x-radius,y-radius,x+radius,y+radius,radius,scale,p.badgeBorder,fill);
+  if (element is TUIButton) and TUIButton(element).IsHovered then fill:=p.hover;
+  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*scale,scale,p.badgeBorder,fill);
   case kind of
+   bkUp:begin
+    ThickLine(x,y+4*scale,x,y-4*scale,1.5*scale,ink);
+    ThickLine(x-3.5*scale,y-0.5*scale,x,y-4*scale,1.5*scale,ink);
+    ThickLine(x+3.5*scale,y-0.5*scale,x,y-4*scale,1.5*scale,ink);
+   end;
    bkRemove,bkClear:begin
     ThickLine(x-3.4*scale,y-3.4*scale,x+3.4*scale,y+3.4*scale,1.5*scale,ink);
     ThickLine(x-3.4*scale,y+3.4*scale,x+3.4*scale,y-3.4*scale,1.5*scale,ink);
@@ -241,6 +249,11 @@ implementation
   DrawBadge(element,element.globalRect,element.globalScale,bkClear,element.IsEnabled);
  end;
 
+ procedure DrawUpButton(element:TUIElement);
+ begin
+  DrawBadge(element,element.globalRect,element.globalScale,bkUp,element.IsEnabled);
+ end;
+
  procedure DrawDialogButton(element:TUIElement);
  var
   b:TUIButton;
@@ -252,6 +265,7 @@ implementation
  begin
   b:=TUIButton(element); p:=PaletteOf(element); r:=element.globalRect;
   toggled:=(b is TUIToggleButton) and TUIToggleButton(b).toggled;
+  if b is TDriveButton then toggled:=TDriveButton(b).active;
   fill:=p.header; ink:=p.text; border:=p.border;
   if toggled or b.pressed then fill:=p.selection else if b.IsHovered then fill:=p.hover;
   if toggled then ink:=p.selectionText;
@@ -857,7 +871,9 @@ implementation
  end;
  begin
   pathEdit:=Edit('Path',true);
-  upButton:=Button('Up','Up',GoUp);
+  upButton:=Button('Up','',GoUp);
+  upButton.drawer:=DrawUpButton;
+  upButton.hint:='Parent folder';
   table:=TUITable.Create(100,100,self,name+'\Table');
   table.AddColumn('Name',0);
   table.AddColumn('Size',90,taRight,tsKey);
@@ -975,8 +991,8 @@ implementation
   messageLabel.flags.visible:=messageLabel.caption<>'';
   if messageLabel.flags.visible then statusH:=24;
   bottom:=h-footer-statusH;
-  Place(pathEdit,left,8,right-left-112,28);
-  Place(upButton,right-104,8,68,28);
+  Place(pathEdit,left,8,right-left-72,28);
+  Place(upButton,right-64,8,28,28);
   Place(pinButton,right-28,8,28,28);
   tableTop:=80;
   filterW:=Math.Max(180.0,(right-left)*0.32);
@@ -1059,7 +1075,8 @@ implementation
 
  procedure TUIFileDialog.SetFolder(const path:String8);
  var
-  next:String8;
+  next,root:String8;
+  child:TUIElement;
  begin
   try
    next:=path;
@@ -1072,6 +1089,11 @@ implementation
     end;
    end;
    fFolder:=next;
+   for child in driveBar.children do if child is TDriveButton then begin
+    root:=child.attributes.Item['path'];
+    TDriveButton(child).active:=(fFolder<>'') and
+      (Pos(UTF8.ToLower(root),UTF8.ToLower(JoinPath(fFolder,'')))=1);
+   end;
    if fFolder='' then upButton.flags.enabled:=false
     else upButton.flags.enabled:=not SamePath(ParentFolder(fFolder),fFolder);
    pathEdit.text:=fFolder;
@@ -1091,6 +1113,7 @@ implementation
   i,row:integer;
  begin
   table.ClearRows;
+  if Assigned(onSelect) then onSelect(self,'');
   if fFolder='' then begin
    items:=nil;
   end else begin
@@ -1213,8 +1236,18 @@ implementation
  procedure TUIFileDialog.RememberFolder;
  var
   index,i:integer;
+  changed:boolean;
  begin
+  // Also discard bare roots restored from older preference files.
+  changed:=false;
+  for i:=high(recentFolders) downto 0 do
+   if SamePath(ParentFolder(recentFolders[i]),recentFolders[i]) then begin
+    RemovePath(recentFolders,i);
+    changed:=true;
+   end;
+  if changed and Assigned(onLocationsChanged) then onLocationsChanged;
   if fFolder='' then exit;
+  if SamePath(ParentFolder(fFolder),fFolder) then exit;
   index:=PathIndex(recentFolders,fFolder);
   if index=0 then exit;
   if index>=0 then RemovePath(recentFolders,index);
@@ -1461,7 +1494,10 @@ implementation
   inherited;
   if frame=nil then exit;
   frame.Resize(Math.Min(1116.0,UI.clientWidth-16),Math.Min(610.0,UI.clientHeight-16));
-  frame.Center;
+  // TUIWindow's edge dragging uses a top-left pivot. Centering with pivotCenter
+  // makes both edges move when only the width changes.
+  frame.SetPos((UI.clientWidth-frame.size.x)/2,(UI.clientHeight-frame.size.y)/2,pivotTopLeft);
+  frame.SetAnchors(0.5,0.5,0.5,0.5);
   dialog.LayoutControls;
  end;
 
