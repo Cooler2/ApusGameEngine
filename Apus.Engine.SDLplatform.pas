@@ -55,6 +55,8 @@ type
   customFrame:boolean;         // the window is borderless: the app draws the frame
   configured:boolean;          // Configure was called: the startup state is applied
   maximizePending:boolean;     // startup maximized state: applied on the first switch to dmWindow
+  wasWindowed:boolean;         // the window mode has been configured: fullscreen leaves a geometry to return to
+  restoreWindowed:boolean;     // fullscreen left the window mode: SDL returns the window to its rect and state
   limitMin,limitMax:TSize;     // size limits passed to SDL, window coordinates, 0 - not set
   procedure UpdateFrame;       // border on/off for the frame policy and the window state
   procedure UpdateSizeLimits;  // pass TWindow.sizeLimits to SDL when they change
@@ -78,10 +80,10 @@ type
 
   function GetMousePos:TPoint; // Get mouse position on screen
   procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
-  function GetSystemCursor(cursorId:integer):THandle;
-  function LoadCursor(fname:string):THandle;
-  procedure SetCursor(cur:THandle);
-  procedure FreeCursor(cur:THandle);
+  function GetSystemCursor(cursorId:integer):TCursorHandle;
+  function LoadCursor(fname:string):TCursorHandle;
+  procedure SetCursor(cur:TCursorHandle);
+  procedure FreeCursor(cur:TCursorHandle);
 
   function GetShiftKeysState:cardinal;
   function CreateWindow(const name:String8;title:string):TWindow;
@@ -319,7 +321,7 @@ function TSDLPlatform.GetShiftKeysState: cardinal;
   if keys and KMOD_RGUI>0 then result:=result or sscRWin;
  end;
 
-function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
+function TSDLPlatform.GetSystemCursor(cursorId: integer): TCursorHandle;
  var
   cur:integer;  // not WORD because of Delphi calling convention issue
  begin
@@ -336,12 +338,12 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
    Apus.Engine.API.CursorID.ResizeNESW:cur:=SDL_SYSTEM_CURSOR_SIZENESW;
    Apus.Engine.API.CursorID.Cross:cur:=SDL_SYSTEM_CURSOR_CROSSHAIR;
   end;
-  result:=THandle(SDL_CreateSystemCursor(cur));
+  result:=TCursorHandle(SDL_CreateSystemCursor(cur));
   if result=0 then
    Log.Msg('Error - SDL_CSC failed: '+SDL_GetError);
  end;
 
-function TSDLPlatform.LoadCursor(fname:string):THandle;
+function TSDLPlatform.LoadCursor(fname:string):TCursorHandle;
  var
   surface:PSDL_Surface;
   data:ByteArray;
@@ -360,19 +362,19 @@ function TSDLPlatform.LoadCursor(fname:string):THandle;
    cursor:=SDL_CreateColorCursor(surface,hotX,hotY);
    SDL_FreeSurface(surface);
    image.Unlock;
-   result:=THandle(cursor);
+   result:=TCursorHandle(cursor);
   except
    on e:Exception do
     raise EWarning.Create('Failed to load cursor from %s: %s',[fname,ExceptionMsg(e)]);
   end;
  end;
 
-procedure TSDLPlatform.SetCursor(cur:THandle);
+procedure TSDLPlatform.SetCursor(cur:TCursorHandle);
  begin
   SDL_SetCursor(pointer(cur));
  end;
 
-procedure TSDLPlatform.FreeCursor(cur:THandle);
+procedure TSDLPlatform.FreeCursor(cur:TCursorHandle);
  begin
   SDL_FreeCursor(pointer(cur));
  end;
@@ -1192,9 +1194,13 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
         SDL_SetWindowResizable(wnd,SDL_FALSE);
       UpdateFrame;
 
-      SDL_SetWindowSize(wnd,w,h);
-      SDL_GetWindowSize(wnd,@w,@h);
-      MoveTo((screenWidth-w) div 2,(screenHeight-h) div 2,-1,-1);
+      if not restoreWindowed then begin
+        SDL_SetWindowSize(wnd,w,h);
+        SDL_GetWindowSize(wnd,@w,@h);
+        MoveTo((screenWidth-w) div 2,(screenHeight-h) div 2,-1,-1);
+      end;
+      restoreWindowed:=false;
+      wasWindowed:=true;
       // the normal size is set above, so Restore returns to it
       if maximizePending and (params.mode=Apus.Engine.Types.dmWindow) then begin
         maximizePending:=false;
@@ -1202,9 +1208,11 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
       end;
     end;
     dmFullScreen:begin
+      restoreWindowed:=wasWindowed;
       SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN_DESKTOP);
     end;
     dmSwitchResolution:begin
+      restoreWindowed:=wasWindowed;
       SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN);
     end;
    end;

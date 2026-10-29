@@ -9,7 +9,7 @@
 // crash dumps (→ Apus.StackTrace).
 //
 // Contains: Log scope (Msg/Debug/Info/Force/Warn/Error/Fatal methods), Logger configuration
-// (UseLogFile, SetVerbosity, LogCacheMode, Flush), custom handlers, threaded background writing.
+// (UseLogFile, SetVerbosity, LogCacheMode, Flush, GetTail), custom handlers, threaded background writing.
 //
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -64,6 +64,9 @@ type
     class procedure SetCustomHandler(handler:TLogProc; disableDefaultHandler:boolean = false); static;
     class procedure StopLogThread; static; // optional, auto-called in finalization
     class function GetErrorCount:integer; static; // number of Error and Fatal messages
+    // Last maxSize bytes of the active log file, cached messages included ('' if there is
+    // no log file). Raw bytes: the text may start in the middle of a line or a UTF-8 sequence
+    class function GetTail(maxSize:integer):String8; static;
   end;
 
 implementation
@@ -350,6 +353,13 @@ begin
   Logger.Flush;
   logLock.Enter;
   try
+    if logAlwaysOpened then begin
+      logAlwaysOpened:=false;
+      try
+        CloseFile(logFile);
+      except
+      end;
+    end;
     logFileName:=ExpandName(name);
     // the date of the executable; unknown if it can't be read (no exception: the logger
     // starts before anything could report it)
@@ -443,6 +453,53 @@ end;
 class function Logger.GetErrorCount:integer;
 begin
   result := logErrorCount;
+end;
+
+// Last maxSize bytes of an opened file; the position is left at the end
+function ReadTail(var f:file; maxSize:integer):String8;
+var
+  size,start:int64;
+begin
+  size:=FileSize(f);
+  start:=size-maxSize;
+  if start<0 then start:=0;
+  try
+    SetLength(result,size-start);
+    Seek(f,start);
+    if result<>'' then BlockRead(f,result[1],length(result));
+  finally
+    Seek(f,size);
+  end;
+end;
+
+class function Logger.GetTail(maxSize:integer):String8;
+var
+  f:file;
+begin
+  result:='';
+  if maxSize<=0 then exit;
+  logLock.Enter;
+  try
+    if logFileName='' then exit;
+    try
+      if cacheLen>0 then IntFlushLog;
+      if logAlwaysOpened then
+        result:=ReadTail(logFile,maxSize)
+      else begin
+        AssignFile(f,{$IFDEF FPC}logFileName{$ELSE}string(logFileName){$ENDIF});
+        Reset(f,1);
+        try
+          result:=ReadTail(f,maxSize);
+        finally
+          CloseFile(f);
+        end;
+      end;
+    except
+      result:='';
+    end;
+  finally
+    logLock.Leave;
+  end;
 end;
 
 initialization

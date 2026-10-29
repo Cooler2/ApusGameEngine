@@ -61,21 +61,34 @@ click, and the answers come in the request order.
 ### `windows` — window/render dimensions, DPI, screenScale, displayRect.
 - Returns for the main window (`WINDOW: 0`): `name` (accepted by the `WINDOW` parameter
   of `input.*`, `mouse.*`, `key.*`), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`,
-  `screenDPI`, `screenScale`, `displayRect`.
+  `screenDPI`, `screenScale`, `displayRect`, `state` (`normal`, `maximized`, `minimized`
+  or `fullscreen`).
 
 ### `window.move` - move main window, optionally with resize in one call.
 - Scope: main window only (RobotAPI is polled in the main-loop thread, so thread-local `window` points to `mainWindow`).
 - Optional `WINDOW`: only `0`/`main` supported (other values return `STATUS: ERROR`).
 - Required: `X`, `Y`.
 - Optional: `W`, `H` (must be provided together).
-- Returns: `x`, `y`, `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`.
+- Returns: `x`, `y` (client origin on the screen), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`.
 
 ### `window.resize` - resize main window.
 - Scope: main window only (RobotAPI is polled in the main-loop thread, so thread-local `window` points to `mainWindow`).
 - Optional `WINDOW`: only `0`/`main` supported (other values return `STATUS: ERROR`).
 - Required: `W`, `H` (>0).
 - Optional: `X`, `Y` (must be provided together; if omitted, current window position is used).
-- Returns: `x`, `y`, `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`.
+- Returns: `x`, `y` (client origin on the screen), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`.
+
+### `window.state` - query or change the state of the main window.
+- Optional `WINDOW`: only `0`/`main` supported.
+- Optional `STATE`:
+  - `normal`, `maximized`, `minimized` - in the window mode (an error while fullscreen;
+    `maximized` needs a resizable window);
+  - `fullscreen` - switch to the fullscreen mode (`altMode`, as [Alt]+[Enter] does);
+  - `windowed` - leave fullscreen: the window returns to the state and rect it had.
+
+  Without `STATE` the current state is returned.
+- The answer comes when the platform reports the state (up to 5 s, then `STATUS: ERROR`).
+- Returns: `state` (as in `windows`), then the fields of `window.move`.
 
 ### `fps` — fps, smoothFPS, frameNum, frame-time history in milliseconds.
 - Optional param: `N` (integer, `1..512`) — return last `N` frame times from ring buffer.

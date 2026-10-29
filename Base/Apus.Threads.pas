@@ -443,29 +443,14 @@ begin
     CloseHandle(handle);
   end;
 end;
-{$ELSEIF Defined(UNIX) AND Defined(CPUAMD64)}
-const
-PTRACE_GETREGS = 12;
-PTRACE_ATTACH = 16;
-PTRACE_DETACH = 17;
-function ptrace(__request:integer; PID:longint; Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
-
-function GetThreadStateInfo(id:TThreadIdent):string;
-var
-  r1,r2,r3:longint;
-  regs:array[0..199] of UInt64;
-begin
-  if id=GetCurrentThreadID then exit('(calling thread)'); // a thread cannot trace itself
-  r1:=ptrace(PTRACE_ATTACH,id,nil,0);
-  if r1=-1 then Log.Msg(Conv.ToStr(fpGetErrno));
-  r2:=ptrace(PTRACE_GETREGS,id,nil,UIntPtr(@regs));
-  if r2=-1 then Log.Msg(Conv.ToStr(fpGetErrno));
-  r3:=ptrace(PTRACE_DETACH,id,nil,0);
-  Log.Msg('REGS: %d %x %x %x',[id,r1,r2,r3]);
-end;
 {$ELSE}
 function GetThreadStateInfo(id:TThreadIdent):string;
 begin
+  if id=GetCurrentThreadID then exit('(calling thread)');
+  // A pthread_t is not a process/kernel thread ID. Narrowing it for ptrace
+  // raises on 64-bit POSIX, and Linux forbids attaching within a thread group
+  // anyway. Do not issue attach/getregs/detach against an unrelated truncated ID.
+  result:='(cross-thread register capture unavailable)';
 end;
 {$ENDIF}
 

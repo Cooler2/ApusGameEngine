@@ -3,6 +3,24 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Window: Alt+Enter switch, return from fullscreen, window.state (2026-10-29)
+
+- `windowSetup.altEnter` (`TWindowSetup`, default `true`) → `TGameSettings.altEnter`: `false`
+  turns off the built-in [Alt]+[Enter], the app assigns its own keys and calls
+  `game.SwitchToAltSettings`. Internal hotkeys that fired don't reach the scenes any more.
+- Leaving fullscreen returns the window to the rect it had before (was: centered with the
+  settings size), maximized as before; on SDL the window keeps the geometry SDL restores.
+- Robot API: `window.state [STATE=normal|maximized|minimized|fullscreen|windowed]`, and the
+  `state` field in `windows` (`robot_api_protocol.md`).
+
+## Cursor handles are pointer-sized (2026-10-29)
+
+- New `TCursorHandle=NativeUInt` (`Apus.Engine.API`): native cursor handles in
+  `ISystemPlatform.GetSystemCursor/LoadCursor/SetCursor/FreeCursor` and
+  `TGameBase.RegisterCursor/GetCursorForID` (were `THandle`). An SDL cursor is a pointer, and
+  `THandle` on Unix is a 32-bit file descriptor, so the cursors broke on Linux x64.
+- Game code: keep cursor handles in `TCursorHandle` variables, not `THandle`/`cardinal`.
+
 ## Non-ANSI paths and command line under FPC on Windows (2026-10-28)
 
 Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `ExpandFileName`,
@@ -20,6 +38,9 @@ Under FPC on Windows the RTL `string` is ANSI: `ParamStr`, `FindFirst` names, `E
   leading dot is not one), `ChangeExt`. Use them instead of `ExtractFilePath`/`ExtractFileDir`/
   `ExtractFileName`/`ExtractFileExt`/`ChangeFileExt`: separators are `/` and `\` everywhere
   (plus `:` on Windows) under both compilers, and no ANSI conversion happens.
+- `Files.GetFullName` (2026-10-29): the absolute name in UTF-8 instead of `ExpandFileName`
+  (under FPC on Windows it loses non-ANSI characters, the current folder's ones included).
+  '.' and '..' are resolved as text, the file may not exist.
 - `Logger.UseLogFile(const name:String8; ...)` (was `name:string`). The header no longer fails
   on such a path; if the date of the executable can't be read it says so instead.
 - `HasParam(const name:String8)`, `GetParam(const name:String8):String8` (`Apus.Utils`, were
@@ -1159,6 +1180,7 @@ Logging functions extracted from `Apus.Common` into new unified API.
 | `StopLogThread` | `Logger.StopLogThread` | same name |
 | — | `Logger.SetCustomHandler(handler,disable)` | **NEW**: interceptor support for Apus.Logging refactor |
 | — | `Logger.GetErrorCount` | **NEW**: returns error/fatal counter |
+| — | `Logger.GetTail(maxSize)` | **NEW**: last bytes of the active log file, cached messages included; the caller needs no path (2026-10-28) |
 
 ### Severity levels (TSeverity enum)
 

@@ -110,6 +110,10 @@ type
     class function GetName(const fname:String8):String8; static; // name with the extension
     class function GetExt(const fname:String8):String8; static;  // '.ext', '' if none; a leading dot ('.gitignore') is not one
     class function ChangeExt(const fname,ext:String8):String8; static; // ext with the dot, '' removes the extension
+    // Absolute name in UTF-8, like ExpandFileName: relative to the current folder, '.' and '..'
+    // resolved as text (the file may not exist, symlinks are not followed). Delimiters of the
+    // OS in the result; '' gives ''
+    class function GetFullName(const fname:String8):String8; static;
     // Poll until file appears (exists=true) or disappears (exists=false), return false on timeout
     class function WaitFor(const fname:String8; delayLimit:integer; exists:boolean=true):boolean; static;
 
@@ -183,7 +187,8 @@ type
 
 implementation
 uses SysUtils, Apus.Strings
-  {$IFDEF MSWINDOWS},Windows{$ENDIF};
+  {$IFDEF MSWINDOWS},Windows{$ENDIF}
+  {$IF defined(FPC) and defined(UNIX)},BaseUnix{$IFEND};
 
 var
   fileSystem:IFileProvider;
@@ -1082,6 +1087,72 @@ begin
   if dot>0 then result:=Copy(fname,1,dot-1)+ext
     else result:=fname+ext;
 end;
+
+{$IFDEF MSWINDOWS}
+// The wide API: FPC's ExpandFileName works in the ANSI code page, the current folder included
+class function Files.GetFullName(const fname:String8):String8;
+var
+  wName,buf:UnicodeString;
+  filePart:PWideChar;
+  n:cardinal;
+begin
+  if fname='' then exit('');
+  wName:=UnicodeString(fname);
+  SetLength(buf,MAX_PATH);
+  repeat
+    n:=GetFullPathNameW(PWideChar(wName),length(buf),PWideChar(buf),filePart);
+    if n=0 then raise EError.Create('GetFullName failed: '+string(fname));
+    if n<cardinal(length(buf)) then break;
+    SetLength(buf,n); // n - the size needed, with #0
+  until false;
+  SetLength(buf,n);
+  result:=UTF8Encode(buf);
+end;
+{$ELSE}
+function CurrentDir:String8;
+{$IFDEF FPC}
+var
+  buf:array[0..4095] of AnsiChar;
+begin
+  if fpgetcwd(@buf[0],length(buf))=nil then raise EError.Create('Cannot get the current folder');
+  result:=String8(PAnsiChar(@buf[0])); // the bytes as they are: no code page conversion
+end;
+{$ELSE}
+begin
+  result:=String8(SysUtils.GetCurrentDir); // UTF-16 in Delphi: lossless
+end;
+{$ENDIF}
+
+class function Files.GetFullName(const fname:String8):String8;
+var
+  path:String8;
+  parts:array of String8;
+  i,start,count:integer;
+begin
+  if fname='' then exit('');
+  if fname[1] in ['/','\'] then path:=fname
+    else path:=CurrentDir+'/'+fname;
+  // split by delimiters, dropping empty parts and '.', a '..' takes the previous part away
+  SetLength(parts,length(path));
+  count:=0;
+  start:=1;
+  for i:=1 to length(path)+1 do
+    if (i>length(path)) or (path[i] in ['/','\']) then begin
+      if i>start then begin
+        parts[count]:=Copy(path,start,i-start);
+        if parts[count]='..' then begin
+          if count>0 then dec(count); // never above the root
+        end else
+        if parts[count]<>'.' then inc(count);
+      end;
+      start:=i+1;
+    end;
+  result:='';
+  for i:=0 to count-1 do
+    result:=result+'/'+parts[i];
+  if (result='') or (fname[length(fname)] in ['/','\']) then result:=result+'/';
+end;
+{$ENDIF}
 
 class function Files.WaitFor(const fname:String8; delayLimit:integer; exists:boolean):boolean;
 var

@@ -794,7 +794,8 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst:String32;
-   i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
+   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,targetX,midX,txtLen:integer;
+   capH,caretW,caretTop,caretBottom:integer;
    font:TFontHandle;
    col:cardinal;
   begin
@@ -846,32 +847,35 @@ implementation
      txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),
        copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);
     end;
-    if (selcount>0) and (FocusedElement=control) then begin // part of the text is selected
-     j:=xStart+offset;
-     if txtLen=0 then begin
-      prefixWidth:=0;
-      selEndWidth:=0;
-     end else begin
-      prefixWidth:=txt.MeasuredRect(selstart).Left;
-      selEndWidth:=txt.MeasuredRect(selstart+selcount).Left;
-     end;
-     selX1:=j+prefixWidth;
-     selX2:=j+selEndWidth;
-
-     // Draw in three parts, but with x-positions taken from full-string metrics.
-     txt.WriteW(font,j,mY,col,copy(wst,0,selstart),taLeft,toDontTranslate);
-     d:=selX2-selX1;
-     if d>0 then begin
-      draw.FillRect(selX1,y1+1,selX2-1,y2-1,$FF4488CC); // selection highlight
-      txt.WriteW(font,selX1,mY,$FFFFFFFF,copy(wst,selstart,selcount),taLeft,toDontTranslate);
-     end;
-     txt.WriteW(font,selX2,mY,col,
-       copy(wst,selstart+selcount,length(wst)-selstart-selcount),taLeft,toDontTranslate);
+    j:=xStart+offset;
+    selX1:=0; selX2:=0;
+    if (selcount>0) and (txtLen>0) and (FocusedElement=control) then begin // part of the text is selected
+     selX1:=j+txt.MeasuredRect(selstart).Left;
+     selX2:=j+txt.MeasuredRect(selstart+selcount).Left;
+    end;
+    if selX2>selX1 then begin
+     // The whole string is drawn each time with the same layout, only clipped differently:
+     // separately drawn parts would start at rounded positions and shift the glyphs
+     draw.FillRect(selX1,y1+1,selX2-1,y2-1,$FF4488CC); // selection highlight
+     gfx.clip.Rect(Rect(x1,y1,selX1,y2));
+     txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
+     gfx.clip.Restore;
+     gfx.clip.Rect(Rect(selX1,y1,selX2,y2));
+     txt.WriteW(font,j,mY,$FFFFFFFF,wst,taLeft,toDontTranslate);
+     gfx.clip.Restore;
+     gfx.clip.Rect(Rect(selX2,y1,x2,y2));
+     txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
+     gfx.clip.Restore;
     end else
-     txt.WriteW(font,xStart+offset,mY,col,wst,taLeft,toDontTranslate);
+     txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
     if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // cursor
-     curX:=xStart+offset+i-1; // slight visual alignment tweak: 1px to the left
-     draw.Line(curX,y1+2,curX,y2-2,Color.Add(col,$404040));
+     // the caret spans the font's line (not the box) and gets thicker with the font size
+     capH:=txt.Height(font);
+     caretW:=Max(1,round(capH/12));
+     caretTop:=Max(y1+2,mY-round(capH*1.3));
+     caretBottom:=Min(y2-2,mY+round(capH*0.3));
+     curX:=j+i-(caretW+1) div 2; // centered on the glyph boundary
+     draw.FillRect(curX,caretTop,curX+caretW-1,caretBottom,col);
     end;
     gfx.clip.Restore;
    end;
