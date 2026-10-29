@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------
-// Table: rows of cells under a header with columns, sorting and single selection
+// Table: rows of cells under a header with columns, sorting and selection of one or several rows
 //
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -21,6 +21,7 @@ interface
    width:single;         // UI units; 0 - a share of the room the fixed columns leave
    align:TTextAlignment;
    sort:TTableSort;
+   flexible:boolean;     // added with width 0: keeps taking the table's width changes after a resize
   end;
 
   TTableCell=record
@@ -44,11 +45,17 @@ interface
   // when the rows are sorted again.
   // Keys (Up, Down, PgUp, PgDn, Home, End, Enter) work while the table has the focus, and
   // while the focus is anywhere inside keyScope - an edit box above the table, for instance.
+  // With multiSelect the selected row is the focused one, the cursor of the keyboard; the set
+  // of selected rows is separate: Ctrl+click toggles a row, Shift+click and Shift+arrows select
+  // the range from the anchor, Ctrl+A (with the focus on the table) selects all rows.
+  // A plain click, a plain key or setting 'selected' leaves the one row selected.
   TUITable=class(TUIScrollable)
    columns:array of TTableColumn;
    rowHeight,headerHeight:single;
    resizeColumns:boolean; // drag a header separator; columns to its right move without changing width
-   onSelect:TTableEvent;   // the selected row changed, row -1 - none
+   multiSelect:boolean;
+   onSelect:TTableEvent;   // the selected (focused) row changed, row -1 - none
+   onSelectionChanged:TTableEvent; // the set of selected rows changed, row - the focused one
    onActivate:TTableEvent; // double click or Enter on a row
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
    function AddColumn(const caption:String8;width:single;align:TTextAlignment=taLeft;
@@ -58,6 +65,16 @@ interface
    function AddRow(tag:NativeInt=0;group:integer=0):integer;
    procedure SetCell(row,col:integer;const text:String8;key:double=0);
    procedure SortBy(col:integer;descending:boolean=false); // col -1 - the order the rows were added
+   // A fixed width in UI units; a flexible column with width 0 takes the free room again
+   procedure SetColumnWidth(col:integer;width:single);
+   // Selection of several rows; without multiSelect the selected row is the set
+   function IsSelected(row:integer):boolean;
+   function SelectedCount:integer;
+   function SelectedRows:IntArray;          // in the shown order
+   procedure SetRowSelected(row:integer;value:boolean); // the focus stays where it is
+   procedure SelectAll;
+   procedure ClearSelection;
+   procedure FocusRow(row:integer);          // move the focus, keeping the set; scrolls it into view
    function RowCount:integer;
    function RowTag(row:integer):NativeInt;
    function CellText(row,col:integer):String8;
@@ -81,12 +98,17 @@ interface
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure SetupScrollers; override; // the range from the row count, not children
   private
-   rows:array of TTableRow;
+   rows:array of TTableRow; // the first fRowCount are used, the rest is spare capacity
+   fRowCount:integer;
    order:IntArray;      // places -> rows
+   fitWidth:single;     // RowsWidth when the flexible columns got fixed widths, 0 - they share the room
    needSort:boolean;    // order is outdated
    fSortColumn:integer;
    fSortDescending:boolean;
    fSelected:integer;
+   marks:array of boolean; // multiSelect: the selected rows, as long as rows
+   markCount:integer;
+   anchor:integer;         // the row a Shift range starts from, -1 - the focused one
    rowsRevision:cardinal; // a callback may replace the listing during selection/activation
    fKeyScope:TUIElement;
    fHoverRow,fHoverColumn:integer;
@@ -100,8 +122,11 @@ interface
    procedure Arrange;
    procedure UpdateScroller;
    procedure SetSelected(row:integer);
+   procedure MoveFocus(row:integer);
+   procedure SelectRange(fromRow,toRow:integer;add:boolean);
+   procedure SelectionChanged;
    procedure SetKeyScope(scope:TUIElement);
-   function HandleKey(keycode:byte):boolean;
+   function HandleKey(keycode,shiftstate:byte):boolean;
    procedure Activate(row:integer);
   public
    property sortColumn:integer read fSortColumn;
@@ -171,6 +196,7 @@ implementation
    resizeColumn:=-1;
    fSortColumn:=-1;
    fSelected:=-1;
+   anchor:=-1;
    fHoverRow:=-1;
    fHoverColumn:=-1;
    lastClickRow:=-1;
@@ -193,6 +219,7 @@ implementation
    columns[result].width:=width;
    columns[result].align:=align;
    columns[result].sort:=sort;
+   columns[result].flexible:=width<=0;
   end;
 
  procedure TUITable.ClearRows;
@@ -200,6 +227,10 @@ implementation
    inc(rowsRevision);
    SetLength(rows,0);
    SetLength(order,0);
+   marks:=nil;
+   markCount:=0;
+   anchor:=-1;
+   fRowCount:=0;
    needSort:=false;
    fSelected:=-1;
    fHoverRow:=-1;
@@ -210,11 +241,17 @@ implementation
 
  function TUITable.AddRow(tag:NativeInt;group:integer):integer;
   begin
-   result:=length(rows);
-   SetLength(rows,result+1);
+   result:=fRowCount;
+   if result>=length(rows) then begin
+    SetLength(rows,Max(16,result*2));
+    SetLength(order,length(rows));
+    SetLength(marks,length(rows));
+   end;
+   inc(fRowCount);
+   marks[result]:=false;
+   rows[result].cells:=nil;
    rows[result].tag:=tag;
    rows[result].group:=group;
-   SetLength(order,result+1);
    order[result]:=result;
    needSort:=true;
    UpdateScroller;
@@ -222,7 +259,7 @@ implementation
 
  procedure TUITable.SetCell(row,col:integer;const text:String8;key:double);
   begin
-   ASSERT((row>=0) and (row<length(rows)) and (col>=0));
+   ASSERT((row>=0) and (row<fRowCount) and (col>=0));
    with rows[row] do begin
     if col>=length(cells) then SetLength(cells,col+1);
     cells[col].text:=text;
@@ -238,6 +275,22 @@ implementation
    fSortDescending:=descending and (col>=0);
    needSort:=true;
    if fSelected>=0 then ScrollToRow(fSelected);
+  end;
+
+ procedure TUITable.SetColumnWidth(col:integer;width:single);
+  var
+   i:integer;
+   shared:boolean;
+  begin
+   if (col<0) or (col>=length(columns)) then exit;
+   if columns[col].flexible and (width<=0) then columns[col].width:=0
+    else columns[col].width:=Max(MIN_FILL_WIDTH,width);
+   // the room is shared again when no flexible column keeps a width of its own
+   shared:=true;
+   for i:=0 to high(columns) do
+    if columns[i].flexible and (columns[i].width>0) then shared:=false;
+   if shared then fitWidth:=0;
+   UpdateScroller;
   end;
 
  // Sort the places: group, then the sort column, then the order of adding
@@ -301,7 +354,7 @@ implementation
 
   begin
    needSort:=false;
-   n:=length(rows);
+   n:=fRowCount;
    if fSortColumn>=0 then sort:=columns[fSortColumn].sort
     else sort:=tsNone;
    if sort=tsText then begin
@@ -311,7 +364,6 @@ implementation
      if c<>nil then keys[i]:=UTF8.ToLower(c.text);
     end;
    end;
-   SetLength(order,n);
    for i:=0 to n-1 do order[i]:=i;
    SetLength(temp,n);
    MergeSort(0,n);
@@ -319,26 +371,26 @@ implementation
 
  function TUITable.RowCount:integer;
   begin
-   result:=length(rows);
+   result:=fRowCount;
   end;
 
  function TUITable.RowTag(row:integer):NativeInt;
   begin
-   if (row>=0) and (row<length(rows)) then result:=rows[row].tag
+   if (row>=0) and (row<fRowCount) then result:=rows[row].tag
     else result:=-1;
   end;
 
  function TUITable.CellText(row,col:integer):String8;
   begin
    result:='';
-   if (row<0) or (row>=length(rows)) or (col<0) then exit;
+   if (row<0) or (row>=fRowCount) or (col<0) then exit;
    if col<length(rows[row].cells) then result:=rows[row].cells[col].text;
   end;
 
  function TUITable.RowAt(place:integer):integer;
   begin
    if needSort then Arrange;
-   if (place>=0) and (place<length(order)) then result:=order[place]
+   if (place>=0) and (place<fRowCount) then result:=order[place]
     else result:=-1;
   end;
 
@@ -347,7 +399,7 @@ implementation
    i:integer;
   begin
    if needSort then Arrange;
-   for i:=0 to high(order) do
+   for i:=0 to fRowCount-1 do
     if order[i]=row then exit(i);
    result:=-1;
   end;
@@ -391,7 +443,13 @@ implementation
    fixed:single;
   begin
    if (col<0) or (col>=length(columns)) then exit(0);
-   if columns[col].width>0 then exit(columns[col].width);
+   if columns[col].width>0 then begin
+    result:=columns[col].width;
+    // a flexible column follows the table width from the size it was given
+    if columns[col].flexible and (fitWidth>0) then
+     result:=Max(MIN_FILL_WIDTH,result+RowsWidth-fitWidth);
+    exit;
+   end;
    fixed:=0; fills:=0;
    for i:=0 to high(columns) do
     if columns[i].width>0 then fixed:=fixed+columns[i].width
@@ -443,7 +501,7 @@ implementation
   begin
    if (scrollerV=nil) or (scrollerH=nil) then exit;
    bar:=scrollerV.GetElement; hbar:=scrollerH.GetElement;
-   total:=length(rows)*rowHeight;
+   total:=fRowCount*rowHeight;
    bar.flags.visible:=false; hbar.flags.visible:=false;
    // Either bar may make the other necessary. Starting without bars converges
    // in at most three passes; flexible columns use the resulting viewport width.
@@ -471,11 +529,11 @@ implementation
    if scrollerV<>nil then UpdateScroller; // nil during the construction
   end;
 
- procedure TUITable.SetSelected(row:integer);
+ procedure TUITable.MoveFocus(row:integer);
   var
    tag:NativeInt;
   begin
-   if (row<0) or (row>=length(rows)) then row:=-1;
+   if (row<0) or (row>=fRowCount) then row:=-1;
    if row>=0 then ScrollToRow(row);
    if row=fSelected then exit;
    fSelected:=row;
@@ -486,11 +544,130 @@ implementation
    end;
   end;
 
+ procedure TUITable.SelectionChanged;
+  begin
+   if Assigned(onSelectionChanged) then onSelectionChanged(self,fSelected);
+  end;
+
+ // The one row selected and focused
+ procedure TUITable.SetSelected(row:integer);
+  var
+   i:integer;
+   changed:boolean;
+   revision:cardinal;
+  begin
+   if (row<0) or (row>=fRowCount) then row:=-1;
+   changed:=row<>fSelected;
+   if multiSelect then begin
+    for i:=0 to fRowCount-1 do
+     if marks[i]<>(i=row) then begin
+      marks[i]:=i=row;
+      changed:=true;
+     end;
+    markCount:=ord(row>=0);
+    anchor:=row;
+   end;
+   revision:=rowsRevision;
+   MoveFocus(row);
+   if changed and (revision=rowsRevision) then SelectionChanged;
+  end;
+
+ procedure TUITable.FocusRow(row:integer);
+  begin
+   if multiSelect then MoveFocus(row) else SetSelected(row);
+  end;
+
+ function TUITable.IsSelected(row:integer):boolean;
+  begin
+   if (row<0) or (row>=fRowCount) then exit(false);
+   if multiSelect then result:=marks[row] else result:=row=fSelected;
+  end;
+
+ function TUITable.SelectedCount:integer;
+  begin
+   if multiSelect then result:=markCount else result:=ord(fSelected>=0);
+  end;
+
+ function TUITable.SelectedRows:IntArray;
+  var
+   place,row,n:integer;
+  begin
+   result:=nil;
+   SetLength(result,SelectedCount);
+   n:=0;
+   for place:=0 to fRowCount-1 do begin
+    if n>=length(result) then break;
+    row:=RowAt(place);
+    if IsSelected(row) then begin
+     result[n]:=row;
+     inc(n);
+    end;
+   end;
+   SetLength(result,n);
+  end;
+
+ procedure TUITable.SetRowSelected(row:integer;value:boolean);
+  begin
+   if (row<0) or (row>=fRowCount) then exit;
+   if not multiSelect then begin
+    if value then SetSelected(row)
+     else if row=fSelected then SetSelected(-1);
+    exit;
+   end;
+   if marks[row]=value then exit;
+   marks[row]:=value;
+   if value then inc(markCount) else dec(markCount);
+   SelectionChanged;
+  end;
+
+ procedure TUITable.SelectAll;
+  var
+   i:integer;
+  begin
+   if not multiSelect or (markCount=fRowCount) then exit;
+   for i:=0 to fRowCount-1 do marks[i]:=true;
+   markCount:=fRowCount;
+   SelectionChanged;
+  end;
+
+ procedure TUITable.ClearSelection;
+  var
+   i:integer;
+  begin
+   if not multiSelect then begin
+    SetSelected(-1);
+    exit;
+   end;
+   if markCount=0 then exit;
+   for i:=0 to fRowCount-1 do marks[i]:=false;
+   markCount:=0;
+   SelectionChanged;
+  end;
+
+ // The rows shown from one to the other, both included; the event is the caller's
+ procedure TUITable.SelectRange(fromRow,toRow:integer;add:boolean);
+  var
+   i,a,b:integer;
+  begin
+   a:=PlaceOf(fromRow); b:=PlaceOf(toRow);
+   if a<0 then a:=b;
+   if b<0 then exit;
+   if a>b then begin
+    i:=a; a:=b; b:=i;
+   end;
+   if not add then
+    for i:=0 to fRowCount-1 do marks[i]:=false;
+   for i:=a to b do marks[order[i]]:=true;
+   markCount:=0;
+   for i:=0 to fRowCount-1 do
+    if marks[i] then inc(markCount);
+  end;
+
  procedure TUITable.Activate(row:integer);
   var
    tag:NativeInt;
   begin
-   if (row<0) or (row>=length(rows)) then exit;
+   if (row<0) or (row>=fRowCount) then exit;
    tag:=rows[row].tag;
    if Assigned(onActivate) then onActivate(self,row);
    if (sendSignals<>ssNone) and (name<>'') then Signal('UI\'+name+'\Activated',tag);
@@ -499,6 +676,8 @@ implementation
  procedure TUITable.SetKeyScope(scope:TUIElement);
   const
    KEYS:array[0..6] of TKey=(TKey.Up,TKey.Down,TKey.PageUp,TKey.PageDown,TKey.Home,TKey.EndKey,TKey.Enter);
+   // Shift+Home and the rest select text in an edit box of the scope
+   SHIFT_KEYS:array[0..1] of TKey=(TKey.Up,TKey.Down);
   var
    k:TKey;
   begin
@@ -506,15 +685,22 @@ implementation
    for k in KEYS do
     if scope=nil then RemoveHotKey(ord(k))
      else if fKeyScope=nil then SetHotKey(ord(k));
+   for k in SHIFT_KEYS do
+    if scope=nil then RemoveHotKey(ord(k),sscShift)
+     else if fKeyScope=nil then SetHotKey(ord(k),sscShift);
    fKeyScope:=scope;
   end;
 
- function TUITable.HandleKey(keycode:byte):boolean;
+ function TUITable.HandleKey(keycode,shiftstate:byte):boolean;
   var
-   n,place,page:integer;
+   n,place,page,row:integer;
+   range:boolean;
+   revision:cardinal;
   begin
    result:=true;
-   n:=length(rows);
+   range:=multiSelect and (shiftstate=sscShift);
+   if (shiftstate<>0) and not range then exit(false);
+   n:=fRowCount;
    place:=PlaceOf(fSelected);
    page:=Max(1,trunc(RowsHeight/rowHeight)-1);
    case TKey(keycode) of
@@ -525,18 +711,32 @@ implementation
     TKey.Home:place:=0;
     TKey.EndKey:place:=n-1;
     TKey.Enter:begin
-     if fSelected<0 then exit(false); // nothing to activate: the key goes on
+     if range or (fSelected<0) then exit(false); // nothing to activate: the key goes on
      Activate(fSelected);
      exit;
     end;
     else exit(false);
    end;
-   if n>0 then SetSelected(RowAt(Clamp(place,0,n-1)));
+   if n=0 then exit;
+   row:=RowAt(Clamp(place,0,n-1));
+   if not range then begin
+    SetSelected(row);
+    exit;
+   end;
+   if anchor<0 then anchor:=fSelected;
+   SelectRange(anchor,row,false);
+   revision:=rowsRevision;
+   MoveFocus(row);
+   if revision=rowsRevision then SelectionChanged;
   end;
 
  function TUITable.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   begin
-   if pressed and (shiftstate=0) and HandleKey(keycode) then exit(false);
+   if pressed and multiSelect and (shiftstate=sscCtrl) and (TKey(keycode)=TKey.A) then begin
+    SelectAll;
+    exit(false);
+   end;
+   if pressed and HandleKey(keycode,shiftstate) then exit(false);
    result:=inherited onKey(keycode,pressed,shiftstate);
   end;
 
@@ -548,7 +748,7 @@ implementation
    f:=FocusedElement;
    if (fKeyScope=nil) or (f=nil) or (f=self) then exit(false);
    if (f<>fKeyScope) and not f.HasParent(fKeyScope) then exit(false);
-   result:=HandleKey(keycode);
+   result:=HandleKey(keycode,shiftstate);
   end;
 
  function TUITable.SeparatorAt(x,y:single):integer;
@@ -612,6 +812,7 @@ implementation
   var
    p:TVec2;
    col,row,i:integer;
+   shift:byte;
    isDouble:boolean;
    revision:cardinal;
   begin
@@ -628,6 +829,7 @@ implementation
     resizeStartX:=curMouseX;
     SetLength(resizeWidths,length(columns));
     for i:=0 to high(columns) do resizeWidths[i]:=ColumnWidth(i);
+    fitWidth:=RowsWidth;
     hooked:=self;
     cursor:=CursorID.ResizeW;
     lastClickRow:=-1;
@@ -641,6 +843,23 @@ implementation
    end;
    row:=RowAtPoint(p.x,p.y);
    if row<0 then exit;
+   shift:=GetWindow.shiftState and (sscCtrl or sscShift);
+   if multiSelect and (shift<>0) then begin
+    // Shift - the range from the anchor (Ctrl+Shift adds it), Ctrl - one row in or out
+    if shift and sscShift<>0 then begin
+     if anchor<0 then anchor:=fSelected;
+     SelectRange(anchor,row,shift and sscCtrl<>0);
+    end else begin
+     marks[row]:=not marks[row];
+     if marks[row] then inc(markCount) else dec(markCount);
+     anchor:=row;
+    end;
+    lastClickRow:=-1;
+    revision:=rowsRevision;
+    MoveFocus(row);
+    if revision=rowsRevision then SelectionChanged;
+    exit;
+   end;
    isDouble:=(row=lastClickRow) and (CoreTime.Ticks<lastClickTime+DOUBLE_CLICK_TIME);
    revision:=rowsRevision;
    SetSelected(row);

@@ -913,7 +913,8 @@ implementation
  // Table: the box is drawn by the common path. The header in 'header-fill' with captions in
  // 'header-color', the column under the mouse in 'header-hover-fill', a triangle for the sort
  // column and 'line-color' lines; rows striped with 'row-alt-fill', the hovered one in
- // 'row-hover-fill', the selected one in 'selection-fill' with 'selection-color' text
+ // 'row-hover-fill', the selected ones in 'selection-fill' with 'selection-color' text; of several
+ // selected rows the focused one has a 'focus-color' outline
  procedure DrawUITable(table:TUITable);
   var
    r,cell:TRect;
@@ -968,14 +969,17 @@ implementation
     if y>=r.Bottom then break;
     row:=table.RowAt(place);
     c:=0;
-    if row=table.selected then c:=table.GetStyleColor('selection-fill',$90406070)
+    if table.IsSelected(row) then c:=table.GetStyleColor('selection-fill',$90406070)
     else
     if row=table.hoverRow then c:=table.GetStyleColor('row-hover-fill',0)
     else
     if odd(place) then c:=table.GetStyleColor('row-alt-fill',0);
     cell:=Rect(r.Left,y,rowsRight,headerBottom+round((place+1)*rowH-pos));
     if c<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,c);
-    if row=table.selected then c:=selColor else c:=textColor;
+    // several rows selected: the focused one is outlined
+    if table.multiSelect and (row=table.selected) and (table.SelectedCount>1) then
+     draw.Rect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,table.GetStyleColor('focus-color',textColor));
+    if table.IsSelected(row) then c:=selColor else c:=textColor;
     for col:=0 to high(table.columns) do
      WriteCell(ColumnRect(col,cell.Top,cell.Bottom),table.columns[col].align,c,
        table.CellText(row,col),0);
