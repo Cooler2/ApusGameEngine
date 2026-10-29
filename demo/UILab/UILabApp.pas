@@ -517,28 +517,46 @@ implementation
 
 // --- Page: Files -------------------------------------------------------------
 
- procedure OpenFileDialog;
+ function LabRequest(mode:TFileDialogMode):TFileDialogRequest;
  begin
-  fileScene.dialog.Setup(fdOpen,'.','');
+  result:=TFileDialogRequest.Init(mode);
+  result.folder:='.';
+  result.AddType('PNG image','*.png','.png');
+  result.AddType('TGA image','*.tga','.tga');
+ end;
+
+ procedure OpenFileDialog;
+ var
+  request:TFileDialogRequest;
+ begin
+  request:=LabRequest(fdOpen);
+  request.options:=[fdoMultiSelect,fdoAllFiles];
+  fileScene.dialog.Setup(request);
   fileScene.Open;
  end;
 
  procedure SaveFileDialog;
+ var
+  request:TFileDialogRequest;
  begin
-  fileScene.dialog.Setup(fdSave,'.','example');
+  request:=LabRequest(fdSave);
+  request.fileName:='example';
+  fileScene.dialog.Setup(request);
   fileScene.Open;
  end;
 
  procedure TUILabScene.FileDone(dialog:TUIFileDialog;const value:TFileDialogResult);
  begin
   if fileInfo=nil then exit;
-  if value.accepted then fileInfo.Setup('Selected (no file is written): '+value.path)
-   else fileInfo.Setup('Cancelled');
+  if not value.accepted then fileInfo.Setup('Cancelled')
+  else if length(value.paths)>1 then
+   fileInfo.Setup('Selected '+IntToStr(length(value.paths))+' files, the first: '+value.path)
+  else fileInfo.Setup('Selected (no file is written): '+value.path);
  end;
 
  procedure PageFiles;
  begin
-  AddTitle('Modal file selection: path, folders, file name, filter and overwrite confirmation.',6);
+  AddTitle('Modal file selection: path, folders, several files, file name, format and overwrite confirmation.',6);
   AddTitle('Save returns a path only; this demo does not write the file.',30);
   TUIButton.Create(160,30,content,'Lab\FileOpen').Setup('Open...').SetPos(12,70);
   UIButton('Lab\FileOpen',true).onClick:=@OpenFileDialog;
@@ -603,13 +621,6 @@ procedure TUILabApp.CreateScenes;
   inherited;
   scene:=TUILabScene.Create('UILab');
   fileScene:=TFileDialogScene.Create('LabFile');
-  SetLength(fileScene.dialog.types,2);
-  fileScene.dialog.types[0].title:='PNG image';
-  fileScene.dialog.types[0].masks:='*.png';
-  fileScene.dialog.types[0].ext:='.png';
-  fileScene.dialog.types[1].title:='TGA image';
-  fileScene.dialog.types[1].masks:='*.tga';
-  fileScene.dialog.types[1].ext:='.tga';
   fileScene.dialog.onDone:=scene.FileDone;
   game.SwitchToScene('UILab');
  end;

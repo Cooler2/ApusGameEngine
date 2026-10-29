@@ -5,60 +5,117 @@
 unit Apus.Engine.UIFileDialog;
 interface
  uses Apus.Core, Apus.Files, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
-  Apus.Engine.UITable, Apus.Engine.UIScene, Apus.Engine.Window;
+  Apus.Engine.UITable, Apus.Engine.UIMenu, Apus.Engine.UIScene, Apus.Engine.Window;
+
+ const
+  FD_FILTER_SUPPORTED=-1; // the All chip: any type of the request
+  FD_FILTER_ALL_FILES=-2; // any file: the chip of fdoAllFiles
 
  type
   TFileDialogMode=(fdOpen,fdSave);
   TFileType=record
-   title,masks,ext:String8;
+   title:String8; // 'PNG image'
+   masks:String8; // ';'-separated, case-insensitive: '*.jpg;*.jpeg'
+   ext:String8;   // Save adds it to a name of no type of the list: '.jpg'; '' - the masks only filter
   end;
+  TFileDialogOption=(
+    fdoMultiSelect,        // Open: several files of one folder, the result lists them all
+    fdoAllFiles,           // a chip for any file besides All, which is any type of the request
+    fdoNoOverwritePrompt); // Save: an existing file is accepted without asking again
+  TFileDialogOptions=set of TFileDialogOption;
+
+  // One request: the dialog copies it in Setup, later changes of the record do not reach it
+  TFileDialogRequest=record
+   mode:TFileDialogMode;
+   title:String8;         // the frame caption, '' - texts.openTitle / texts.saveTitle
+   acceptCaption:String8; // '' - texts.open / texts.save
+   folder:String8;        // '' or missing - the folder of the previous request, then the recent ones
+   fileName:String8;      // Save: the name to start with
+   types:array of TFileType; // none - any file, no type chips
+   filter:integer;        // the chip shown first: a type index, FD_FILTER_SUPPORTED or FD_FILTER_ALL_FILES
+   saveType:integer;      // Save: the format, an index in types
+   options:TFileDialogOptions;
+   class function Init(dialogMode:TFileDialogMode):TFileDialogRequest; static;
+   procedure AddType(const title,masks:String8;const ext:String8='');
+  end;
+
   TFileDialogResult=record
    accepted:boolean;
-   path:String8;
-   typeIndex:integer;
+   path:String8;      // the first of paths, '' - cancelled
+   paths:Strings8;    // the chosen files in the table order; one in Save
+   typeIndex:integer; // Save: the format of the file, Open: -1
   end;
-  // Semantic colors only; layout and hit areas do not depend on the palette.
-  TFileDialogPalette=record
-   background,surface,header,border,text,muted,disabled:cardinal;
-   hover,selection,selectionText,accent:cardinal;
-   badgeFill,badgeBorder,badgeInk,favoriteInk,removeInk:cardinal;
+
+  // Every text the dialog shows. '%s' in a template is the value: a path or a caption.
+  // Change them before Setup: the request applies them.
+  TFileDialogTexts=record
+   openTitle,saveTitle,open,save,cancel,nameLabel:String8;
+   filterPlaceholder,filterHint,clearFilterHint,parentHint,formatHint:String8;
+   pinHint,unpinHint:String8;
+   allTypes,allTypesHint,allFiles,allFilesHint,typeHint:String8; // typeHint: '%s' - the type with masks
+   nameColumn,modifiedColumn,sizeColumn:String8;
+   addFavoriteHint,removeFavoriteHint,unpinRecentHint,removeEntryHint:String8;
+   enterName,chooseFolder,nameIsFolder,fileNotFound,folderNotFound,destinationNotFound:String8;
+   confirmOverwrite:String8; // '%s' - the accept caption
   end;
+
+  // Size of the frame, column widths and sort order: the application may keep it between runs
+  TFileDialogLayout=record
+   width,height:single;    // the frame, UI units; 0 - the default size
+   columns:array of single; // widths of the file table columns, 0 - a flexible column takes the room
+   sortColumn:integer;     // -1 - by name
+   sortDescending:boolean;
+  end;
+
+  // Glyphs of the buttons, the tree and the places list
+  TFileDialogGlyph=(fgAddFavorite,fgFavorite,fgRemove,fgExpand,fgCollapse,fgClear,fgUp,fgRecent,fgClose);
+  // Draw a glyph centered in r (screen pixels) in an ARGB color; scale - screen pixels per
+  // UI unit. False - draw the built-in vector glyph. Clipping is already set by the caller.
+  TFileDialogGlyphDrawer=function(glyph:TFileDialogGlyph;const r:TRect;color:cardinal;scale:single):boolean of object;
   TUIFileDialog=class;
   TFileDialogScene=class;
   TFileDialogPathEvent=procedure(dialog:TUIFileDialog;const path:String8) of object;
+  TFileDialogTypeEvent=procedure(dialog:TUIFileDialog;typeIndex:integer) of object;
   TFileDialogValidate=function(dialog:TUIFileDialog;const value:TFileDialogResult):boolean of object;
   TFileDialogDone=procedure(dialog:TUIFileDialog;const value:TFileDialogResult) of object;
 
-  // Setup runs in the owning window thread and starts a new request. A standalone widget calls onDone directly; the scene host
-  // closes and restores focus before delivering it. Callbacks must not free the widget inline.
+  // Setup runs in the owning window thread and starts a new request, also on an active dialog.
+  // A standalone widget calls onDone directly; the scene host closes and restores focus before
+  // delivering it. Callbacks must not free the widget inline.
+  // The client's controls go to the slots: placesPanel at the left of the file table,
+  // previewPanel and optionsPanel under the name, slotHeight high. A slot with no visible
+  // child takes no room, so the client shows its controls for the requests it wants them in.
   TUIFileDialog=class(TUIElement)
-   mode:TFileDialogMode;
-   types:array of TFileType;
+   texts:TFileDialogTexts;
    showHidden:boolean;
    recentFolders,favoriteFolders:Strings8;
    onLocationsChanged:TObjProcedure; // the app may persist the two lists
-   palette:TFileDialogPalette;
+   glyphDrawer:TFileDialogGlyphDrawer; // nil - the built-in glyphs
    table:TUITable;
    placesPanel,previewPanel,optionsPanel:TUIElement;
-   onSelect:TFileDialogPathEvent;
+   slotHeight:single; // of previewPanel and optionsPanel, UI units
+   onSelect:TFileDialogPathEvent; // the focused file, '' - none: for a preview
+   onSaveTypeChanged:TFileDialogTypeEvent;
    onValidate:TFileDialogValidate;
    onDone:TFileDialogDone;
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
-   procedure Setup(mode:TFileDialogMode;const folder,fileName:String8;typeIndex:integer=0);
+   procedure Setup(const request:TFileDialogRequest);
    procedure SetFolder(const path:String8); // '' clears the listing; drive buttons select a root
    function Folder:String8;
+   procedure SetSaveType(index:integer); // the extension of the name follows the format
    procedure Confirm;
    procedure Cancel;
+   procedure Reload; // read the folder and the tree again, F5
    procedure ShowError(const message:String8);
-   procedure ApplyPalette; // also applied to controls created by Setup
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure Resize(newWidth,newHeight:single); override;
   protected
    pathEdit,nameEdit,filterEdit:TUIEditBox;
    typeBar:TUIElement;
-   allTypeButton:TUIToggleButton;
+   allTypeButton,allFilesButton:TUIToggleButton;
    typeButtons:array of TUIToggleButton;
-   upButton,acceptButton,cancelButton:TUIButton;
+   upButton,acceptButton,cancelButton,formatButton:TUIButton;
+   formatMenu:TUIPopupMenu;
    nameLabel,messageLabel:TUILabel;
    navigationPanel,driveBar:TUIElement;
    directoryOutline,locationsList:TUITable;
@@ -67,52 +124,81 @@ interface
    procedure CreateControls; virtual;
    procedure LayoutControls; virtual;
   private
+   fRequest:TFileDialogRequest;
    fFolder,overwritePath:String8;
+   pickedName:String8; // the name (or the quoted names) the table put into nameEdit
+   listedFolder:String8; // the folder items were read from
+   restoring:boolean;    // Refresh puts the selection back
    items:TFolderItems;
    finished:boolean;
-   allTypes:boolean;
+   allTypes:boolean;  // the All chip: any type of the request
+   allFiles:boolean;  // the chip of any file
    activeTypes:array of boolean;
-   selectedType:integer;
+   fSaveType:integer;
    host:TFileDialogScene;
+   function StartFolder(const folder:String8):String8;
+   function Mode:TFileDialogMode;
+   function Template(const pattern,value:String8):String8;
+   procedure ApplyTexts;
    procedure Refresh(reload:boolean=true);
    procedure FilterChanged;
    procedure ClearFilter;
    procedure BuildDrives;
    procedure BuildTypes;
+   procedure BuildFormats;
+   procedure ShowFormats;
    procedure TypeClicked(index:integer;active:boolean);
    procedure UpdateTypes;
    procedure DriveClicked;
-   procedure BuildLocations;
+   procedure BuildLocations(reset:boolean=false);
+   procedure UpdatePinButton;
    procedure LocationSelected(sender:TUITable;row:integer);
    procedure LocationAction(tag:NativeInt;remove:boolean);
    function LocationPath(tag:NativeInt):String8;
    procedure PinFolder;
-   procedure RememberFolder;
+   procedure RememberFolder(const path:String8);
    procedure GoUp;
    procedure PathEntered;
    procedure Edited;
    function ItemPath(index:integer):String8;
+   function RowItem(row:integer):integer; // -1 - not a file row
+   function TypeOfName(const fileName:String8):integer;
    procedure RowSelected(sender:TUITable;row:integer);
+   procedure SelectionChanged(sender:TUITable;row:integer);
    procedure RowActivated(sender:TUITable;row:integer);
    procedure Finish(const value:TFileDialogResult);
+  public
+   property request:TFileDialogRequest read fRequest;
+   property saveType:integer read fSaveType;
   end;
 
   // A reusable scene owned by the application, one per caller/window if needed.
+  // Open shows the request of the last dialog.Setup. onLayoutChanged comes when the dialog
+  // closes with another layout than it opened with.
   TFileDialogScene=class(TUIScene)
    dialog:TUIFileDialog;
    frame:TUIWindow;
+   onLayoutChanged:TObjProcedure;
    constructor Create(const sceneName:String8='FileDialog';wnd:TWindow=nil);
    destructor Destroy; override;
    procedure Open(modal:boolean=true);
    procedure onResize; override;
+   function Layout:TFileDialogLayout;
+   procedure SetLayout(const value:TFileDialogLayout);
   private
    prevFocus:TUIElement;
+   closeButton:TUIButton;
+   preferredW,preferredH:single; // the frame size to restore on the next request
+   openedLayout:TFileDialogLayout;
    procedure Close;
   end;
 
+ // The texts of a new dialog
+ function DefaultFileDialogTexts:TFileDialogTexts;
+
 implementation
  uses SysUtils, Math, Types, Apus.Conv, Apus.Strings, Apus.Geom2D, Apus.EventMan, Apus.Engine.Keys,
-  Apus.Engine.API, Apus.Engine.DefaultStyle,
+  Apus.Engine.API, Apus.Engine.DefaultStyle, Apus.Engine.Style,
   Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.SceneEffects{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
  type
@@ -129,7 +215,13 @@ implementation
   end;
   TTypeChip=class(TUIToggleButton)
    dialog:TUIFileDialog;
-   index:integer; // -1 is All
+   index:integer; // a type, FD_FILTER_SUPPORTED or FD_FILTER_ALL_FILES
+   procedure DoClick; override;
+  end;
+  TFormatItem=class(TUIMenuItem)
+   dialog:TUIFileDialog;
+   index:integer;
+  protected
    procedure DoClick; override;
   end;
   TDriveBar=class(TUIElement)
@@ -146,8 +238,9 @@ implementation
   end;
   TLocationsList=class(TUITable)
    dialog:TUIFileDialog;
+   paths:Strings8; // stable visible order for this request, independent of persisted list indexes
    pressedPath:String8;
-   pressedRemove:boolean;
+   pressedRemove,pressedAction:boolean;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
    procedure onLostFocus; override;
@@ -159,27 +252,44 @@ implementation
 
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
  function SamePath(const a,b:String8):boolean; forward;
+ function SameLayout(const a,b:TFileDialogLayout):boolean; forward;
 
- type
-  TBadgeKind=(bkAddFavorite,bkFavorite,bkRemove,bkExpand,bkCollapse,bkClear,bkUp);
+ // Colors of the window come from style tokens. The engine defines each 'file-dialog-*'
+ // token as an alias of a theme token; an application sets them to its own colors.
+ const
+  DIALOG_STYLE='fill:&file-dialog-fill; color:&file-dialog-text; font-size:&file-dialog-font-size';
+  FRAME_STYLE='fill:&file-dialog-fill; header-fill:&file-dialog-header; border-color:&file-dialog-border; '+
+   'color:&file-dialog-text; font-size:&file-dialog-font-size';
+  TABLE_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
+   'border-width:1; line-color:&file-dialog-border; header-fill:&file-dialog-header; '+
+   'header-color:&file-dialog-text; header-hover-fill:&file-dialog-hover; row-hover-fill:&file-dialog-hover; '+
+   'row-alt-fill:0; selection-fill:&file-dialog-selection; selection-color:&file-dialog-selection-text; '+
+   'focus-color:&file-dialog-accent; favorite-color:&file-dialog-favorite; recent-color:&file-dialog-muted; '+
+   'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error';
+  SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:&file-dialog-panel; '+
+   'active-color:&file-dialog-accent';
+  EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
+   'border-width:1; radius:3';
+  BUTTON_STYLE='fill:&file-dialog-header; hover-fill:&file-dialog-hover; pressed-fill:&file-dialog-selection; '+
+   'pressed-color:&file-dialog-selection-text; border-color:&file-dialog-border; '+
+   'focus-border-color:&file-dialog-accent; color:&file-dialog-text; disabled-color:&file-dialog-disabled; '+
+   'glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite';
+  CLOSE_STYLE='hover-fill:&file-dialog-hover; glyph-color:&file-dialog-muted; hover-color:&file-dialog-text';
+  DRIVEBAR_STYLE='fill:&file-dialog-fill; color:&file-dialog-muted';
+  MESSAGE_STYLE='fill:&file-dialog-header; color:&file-dialog-error';
 
- function DefaultPalette:TFileDialogPalette;
+ // The dialog an element belongs to: its parent chain, or the dialog of its scene (the frame)
+ function DialogOf(element:TUIElement):TUIFileDialog;
+ var
+  e:TUIElement;
  begin
-  result.background:=$FFE4E6E9; result.surface:=$FFF1F3F5; result.header:=$FFDCE1E6;
-  result.border:=$FFABB3BD; result.text:=$FF303B48; result.muted:=$FF667584;
-  result.disabled:=$FF939CA5; result.hover:=$FFD2DFEB; result.selection:=$FF356FA3;
-  result.selectionText:=$FFFFFFFF; result.accent:=$FF527DA5;
-  result.badgeFill:=$FFE2E7ED; result.badgeBorder:=$FFA0ADBA; result.badgeInk:=$FF61758A;
-  result.favoriteInk:=$FF977836; result.removeInk:=$FFA96069;
- end;
-
- function PaletteOf(element:TUIElement):TFileDialogPalette;
- begin
-  while element<>nil do begin
-   if element is TUIFileDialog then exit(TUIFileDialog(element).palette);
-   element:=element.parent;
+  e:=element;
+  while e<>nil do begin
+   if e is TUIFileDialog then exit(TUIFileDialog(e));
+   e:=e.parent;
   end;
-  result:=DefaultPalette;
+  result:=nil;
+  if element.GetScene is TFileDialogScene then result:=TFileDialogScene(element.GetScene).dialog;
  end;
 
  procedure ThickLine(x1,y1,x2,y2,width:single;color:cardinal);
@@ -193,38 +303,42 @@ implementation
   draw.FillTriangle(x1-dx,y1-dy,x2-dx,y2-dy,x2+dx,y2+dy,color,color,color);
  end;
 
- procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TBadgeKind;enabled:boolean=true);
+ // The glyph alone, centered in r: the application's drawer or the built-in one
+ procedure DrawBadgeGlyph(element:TUIElement;const r:TRect;scale:single;kind:TFileDialogGlyph;ink:cardinal);
  var
   x,y,a,d:single;
   points:array[0..9] of TVec2;
   i,j:integer;
-  fill,ink:cardinal;
-  p:TFileDialogPalette;
+  dialog:TUIFileDialog;
  begin
+  // Triangle glyphs are custom geometry: commit the current clip after the
+  // preceding row's text. A row background must not be needed to make them visible.
+  if not gfx.clip.Prepare(r) then exit;
+  dialog:=DialogOf(element);
+  if (dialog<>nil) and Assigned(dialog.glyphDrawer) and dialog.glyphDrawer(kind,r,ink,scale) then exit;
   x:=(r.Left+r.Right)*0.5; y:=(r.Top+r.Bottom)*0.5;
-  p:=PaletteOf(element);
-  fill:=p.badgeFill; ink:=p.badgeInk;
-  if kind=bkFavorite then ink:=p.favoriteInk else if kind=bkRemove then ink:=p.removeInk;
-  if not (element is TUIButton) and (kind<>bkRemove) then ink:=p.badgeInk;
-  if not enabled then ink:=p.disabled;
-  // List glyphs carry no button chrome; toolbar actions keep the button shape.
-  if element is TUIButton then begin
-   if TUIButton(element).IsHovered then fill:=p.hover;
-   draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*scale,scale,p.badgeBorder,fill);
-  end;
   case kind of
-   bkUp:begin
+   fgRecent:begin
+    for i:=0 to 15 do begin
+     a:=i*Pi/8; d:=(i+1)*Pi/8;
+     ThickLine(x+4.8*scale*cos(a),y+4.8*scale*sin(a),
+       x+4.8*scale*cos(d),y+4.8*scale*sin(d),1.1*scale,ink);
+    end;
+    ThickLine(x,y-2.8*scale,x,y,1.1*scale,ink);
+    ThickLine(x,y,x+2.3*scale,y+1.2*scale,1.1*scale,ink);
+   end;
+   fgUp:begin
     ThickLine(x,y+4*scale,x,y-4*scale,1.5*scale,ink);
     ThickLine(x-3.5*scale,y-0.5*scale,x,y-4*scale,1.5*scale,ink);
     ThickLine(x+3.5*scale,y-0.5*scale,x,y-4*scale,1.5*scale,ink);
    end;
-   bkRemove,bkClear:begin
+   fgRemove,fgClear,fgClose:begin
     ThickLine(x-3.4*scale,y-3.4*scale,x+3.4*scale,y+3.4*scale,1.5*scale,ink);
     ThickLine(x-3.4*scale,y+3.4*scale,x+3.4*scale,y-3.4*scale,1.5*scale,ink);
    end;
-   bkExpand,bkCollapse:begin
+   fgExpand,fgCollapse:begin
     ThickLine(x-4*scale,y,x+4*scale,y,1.5*scale,ink);
-    if kind=bkExpand then ThickLine(x,y-4*scale,x,y+4*scale,1.5*scale,ink);
+    if kind=fgExpand then ThickLine(x,y-4*scale,x,y+4*scale,1.5*scale,ink);
    end;
    else begin
     for i:=0 to 9 do begin
@@ -234,7 +348,7 @@ implementation
     end;
     for i:=0 to 9 do begin
      j:=(i+1) mod 10;
-     if kind=bkFavorite then
+     if kind=fgFavorite then
       draw.FillTriangle(x,y,points[i].x,points[i].y,points[j].x,points[j].y,ink,ink,ink)
      else ThickLine(points[i].x,points[i].y,points[j].x,points[j].y,1.1*scale,ink);
     end;
@@ -242,63 +356,118 @@ implementation
   end;
  end;
 
+ // A toolbar button keeps its shape, a list glyph has no chrome. Only the favorite star
+ // of a button and the remove cross carry their own colors, the rest is muted.
+ procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TFileDialogGlyph;enabled:boolean=true);
+ var
+  fill,ink:cardinal;
+  isButton:boolean;
+ begin
+  isButton:=element is TUIButton;
+  ink:=element.GetStyleColor('glyph-color',$FF707070);
+  if kind=fgRemove then ink:=element.GetStyleColor('remove-color',ink)
+   else if (kind=fgFavorite) and isButton then ink:=element.GetStyleColor('favorite-color',ink);
+  if not enabled then ink:=element.GetStyleColor('disabled-color',ink);
+  if isButton then begin
+   fill:=element.GetStyleColor('fill');
+   if TUIButton(element).IsHovered then fill:=element.GetStyleColor('hover-fill',fill);
+   draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*scale,scale,element.GetStyleColor('border-color'),fill);
+  end;
+  DrawBadgeGlyph(element,r,scale,kind,ink);
+ end;
+
  procedure DrawPinButton(element:TUIElement);
  var
   dialog:TUIFileDialog;
-  kind:TBadgeKind;
+  kind:TFileDialogGlyph;
  begin
   dialog:=TUIFileDialog(element.parent);
-  if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then kind:=bkFavorite else kind:=bkAddFavorite;
+  if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then kind:=fgFavorite else kind:=fgAddFavorite;
   DrawBadge(element,element.globalRect,element.globalScale,kind,element.IsEnabled);
  end;
 
  procedure DrawClearFilter(element:TUIElement);
  begin
-  DrawBadge(element,element.globalRect,element.globalScale,bkClear,element.IsEnabled);
+  DrawBadge(element,element.globalRect,element.globalScale,fgClear,element.IsEnabled);
  end;
 
  procedure DrawUpButton(element:TUIElement);
  begin
-  DrawBadge(element,element.globalRect,element.globalScale,bkUp,element.IsEnabled);
+  DrawBadge(element,element.globalRect,element.globalScale,fgUp,element.IsEnabled);
  end;
 
  procedure DrawDialogButton(element:TUIElement);
  var
   b:TUIButton;
-  p:TFileDialogPalette;
   r:TRect;
   fill,ink,border:cardinal;
   font:TFontHandle;
   toggled:boolean;
  begin
-  b:=TUIButton(element); p:=PaletteOf(element); r:=element.globalRect;
+  b:=TUIButton(element); r:=element.globalRect;
   toggled:=(b is TUIToggleButton) and TUIToggleButton(b).toggled;
   if b is TDriveButton then toggled:=TDriveButton(b).active;
-  fill:=p.header; ink:=p.text; border:=p.border;
-  if toggled or b.pressed then fill:=p.selection else if b.IsHovered then fill:=p.hover;
-  if toggled then ink:=p.selectionText;
-  if b.default or (FocusedElement=b) then border:=p.accent;
-  if not b.IsEnabled then ink:=p.disabled;
+  fill:=b.GetStyleColor('fill'); ink:=b.GetStyleColor('color'); border:=b.GetStyleColor('border-color');
+  if toggled or b.pressed then fill:=b.GetStyleColor('pressed-fill',fill)
+   else if b.IsHovered then fill:=b.GetStyleColor('hover-fill',fill);
+  if toggled then ink:=b.GetStyleColor('pressed-color',ink);
+  if b.default or (FocusedElement=b) then border:=b.GetStyleColor('focus-border-color',border);
+  if not b.IsEnabled then ink:=b.GetStyleColor('disabled-color',ink);
   draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*element.globalScale,element.globalScale,border,fill);
   font:=element.StyleFont;
   txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+r.Bottom-1)*0.5+txt.Height(font)*0.45),ink,b.caption,taCenter);
  end;
 
+ // A dialog button with a caret at the right: it opens a list
+ procedure DrawFormatButton(element:TUIElement);
+ var
+  b:TUIButton;
+  r:TRect;
+  fill,ink,border:cardinal;
+  font:TFontHandle;
+  s,x,y:single;
+ begin
+  b:=TUIButton(element); r:=element.globalRect; s:=element.globalScale;
+  fill:=b.GetStyleColor('fill'); ink:=b.GetStyleColor('color'); border:=b.GetStyleColor('border-color');
+  if b.pressed then fill:=b.GetStyleColor('pressed-fill',fill)
+   else if b.IsHovered then fill:=b.GetStyleColor('hover-fill',fill);
+  if FocusedElement=b then border:=b.GetStyleColor('focus-border-color',border);
+  if not b.IsEnabled then ink:=b.GetStyleColor('disabled-color',ink);
+  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*s,s,border,fill);
+  font:=element.StyleFont;
+  x:=r.Right-10*s; y:=(r.Top+r.Bottom)*0.5;
+  draw.FillTriangle(x-3.5*s,y-1.8*s,x+3.5*s,y-1.8*s,x,y+2.2*s,ink,ink,ink);
+  txt.Write(font,(r.Left+r.Right)*0.5-7*s,round((r.Top+r.Bottom-1)*0.5+txt.Height(font)*0.45),ink,b.caption,taCenter);
+ end;
+
  procedure DrawDialogFrame(element:TUIElement);
  var
   frame:TUIWindow;
-  p:TFileDialogPalette;
   r,client:TRect;
   font:TFontHandle;
  begin
   frame:=TUIWindow(element);
-  p:=TFileDialogScene(frame.GetScene).dialog.palette;
   r:=frame.globalRect; client:=frame.GetClientPosOnScreen;
-  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,p.background);
-  draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,p.header);
-  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,p.border);
+  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,frame.GetStyleColor('fill'));
+  draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,frame.GetStyleColor('header-fill'));
+  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,frame.GetStyleColor('border-color'));
   font:=frame.StyleFont;
-  txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+client.Top-1)*0.5+txt.Height(font)*0.45),p.text,frame.caption,taCenter);
+  txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+client.Top-1)*0.5+txt.Height(font)*0.45),
+    frame.GetStyleColor('color'),frame.caption,taCenter);
+ end;
+
+ procedure DrawCloseButton(element:TUIElement);
+ var
+  r:TRect;
+  ink:cardinal;
+ begin
+  r:=element.globalRect;
+  ink:=element.GetStyleColor('glyph-color');
+  if TUIButton(element).IsHovered then begin
+   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,element.GetStyleColor('hover-fill'));
+   ink:=element.GetStyleColor('hover-color',ink);
+  end;
+  DrawBadgeGlyph(element,r,element.globalScale*0.9,fgClose,ink);
  end;
 
  procedure DrawDriveBar(element:TUIElement);
@@ -449,14 +618,16 @@ implementation
    end else begin
     labelText:=PathCaption(font,path,cell.Right-cell.Left-(LOCATION_ACTION_WIDTH+10)*s);
     pinned:=PathIndex(list.dialog.favoriteFolders,path)>=0;
-    if tag<$10000 then color:=list.GetStyleColor('favorite-color',$FF244C78)
+    if pinned then color:=list.GetStyleColor('favorite-color',$FF244C78)
      else color:=list.GetStyleColor('recent-color',$FF585860);
     icon:=cell;
     icon.Left:=icon.Right-round(LOCATION_ACTION_WIDTH*s);
     if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
-    if remove then DrawBadge(list,icon,s*0.85,bkRemove)
-    else if pinned then DrawBadge(list,icon,s*0.85,bkFavorite)
-     else DrawBadge(list,icon,s*0.85,bkAddFavorite);
+    if remove then DrawBadge(list,icon,s*0.85,fgRemove)
+    else if pinned then DrawBadge(list,icon,s*0.85,fgFavorite)
+    else if (row=list.hoverRow) and (curMouseX>=icon.Left) then
+     DrawBadge(list,icon,s*0.85,fgAddFavorite)
+    else DrawBadge(list,icon,s*0.85,fgRecent);
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
@@ -479,14 +650,20 @@ implementation
     path:=pressedPath;
     pressedPath:='';
     if hooked=self then hooked:=nil;
-    if (row>=0) and (p.x>=RowsWidth-LOCATION_ACTION_WIDTH) and
-       SamePath(path,dialog.LocationPath(RowTag(row))) then
-     dialog.LocationAction(RowTag(row),pressedRemove);
+    if (row>=0) and SamePath(path,dialog.LocationPath(RowTag(row))) and
+       (pressedAction=(p.x>=RowsWidth-LOCATION_ACTION_WIDTH)) then begin
+     if pressedAction then dialog.LocationAction(RowTag(row),pressedRemove)
+     else begin
+      selected:=row;
+      dialog.LocationSelected(self,row);
+     end;
+    end;
     exit;
    end;
-   if state and (row>=0) and (p.x>=RowsWidth-LOCATION_ACTION_WIDTH) then begin
+   if state and (row>=0) then begin
     pressedPath:=dialog.LocationPath(RowTag(row));
     pressedRemove:=(GetWindow.shiftState and sscCtrl)<>0;
+    pressedAction:=p.x>=RowsWidth-LOCATION_ACTION_WIDTH;
     SetFocus;
     hooked:=self;
     exit;
@@ -507,9 +684,11 @@ implementation
   hint:=dialog.LocationPath(tag);
   p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
   if p.x>=RowsWidth-LOCATION_ACTION_WIDTH then begin
-   if (GetWindow.shiftState and sscCtrl)<>0 then hint:='Remove entry'
-   else if tag<$10000 then hint:='Unpin folder (keep in Recent)'
-    else hint:='Add folder to favorites';
+   if (GetWindow.shiftState and sscCtrl)<>0 then hint:=dialog.texts.removeEntryHint
+   else if PathIndex(dialog.favoriteFolders,hint)>=0 then begin
+    if PathIndex(dialog.recentFolders,hint)>=0 then hint:=dialog.texts.unpinRecentHint
+     else hint:=dialog.texts.removeFavoriteHint;
+   end else hint:=dialog.texts.addFavoriteHint;
   end;
  end;
 
@@ -519,24 +698,50 @@ implementation
   if hooked=self then hooked:=nil;
   inherited;
  end;
+ const
+  OUTLINE_INDENT=14;      // per tree level
+  OUTLINE_TOGGLE_LEFT=4;  // the disclosure button at the left of its level
+  OUTLINE_TOGGLE_WIDTH=20;
+  OUTLINE_NAVIGATE_DELAY=350; // ms the keyboard cursor rests before the folder opens
+
  type
   TDirectoryNode=record
    path:String8;
    depth:integer;
+   opened:boolean; // its subfolders are the rows below it
+   leaf:boolean;   // known to have no subfolders: no disclosure button
   end;
-  // Local tree adapter: one row per visible directory. The disclosure area expands
-  // independently of selection; the file table never contains directory rows.
+  TDirectoryListing=record
+   path:String8;
+   names:Strings8; // subfolders in the natural order
+   hidden:array of boolean;
+  end;
+  // Local tree adapter: one row per visible directory, the row index is the node index.
+  // The disclosure area expands independently of selection; the file table never contains
+  // directory rows. Listings are cached until Reload, so rebuilding the rows reads only
+  // folders not read before. A click opens the folder at once, the keyboard cursor after
+  // a pause or Enter; Left and Right collapse and expand.
   TDirectoryOutline=class(TUITable)
    dialog:TUIFileDialog;
    nodes:array of TDirectoryNode;
-   expanded:Strings8;
+   expanded:Strings8;   // open folders
+   userOpened:Strings8; // opened by the user: navigation from outside keeps them open
+   listings:array of TDirectoryListing;
    current:String8;
-   building,selecting:boolean;
+   building,selecting,clicking:boolean;
    constructor Create(parent:TUIElement;dialog:TUIFileDialog;const name:String8);
    procedure Build(const folder:String8);
+   procedure Reload;
+   function ListingOf(const path:String8):integer;
+   function ToggleLeft(index:integer):single;
    procedure DirectorySelected(sender:TUITable;row:integer);
+   procedure DirectoryActivated(sender:TUITable;row:integer);
+   procedure Navigate(row:integer);
+   procedure SelectQuietly(row:integer);
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
+   procedure onTimer; override;
+   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure ToggleNode(index:integer);
   end;
 
@@ -548,7 +753,7 @@ implementation
   s,rowH,pos:single;
   first,place,row,index,y,headerBottom,baseline,textLeft:integer;
   color,fill:cardinal;
-  kind:TBadgeKind;
+  kind:TFileDialogGlyph;
  begin
   table:=TDirectoryOutline(element);
   r:=table.GetClientPosOnScreen;
@@ -576,10 +781,12 @@ implementation
    else if odd(place) then fill:=table.GetStyleColor('row-alt-fill',0);
    if fill<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,fill);
    badge:=cell;
-   badge.Left:=cell.Left+round((4+table.nodes[index].depth*14)*s);
-   badge.Right:=badge.Left+round(20*s);
-   if PathIndex(table.expanded,table.nodes[index].path)>=0 then kind:=bkCollapse else kind:=bkExpand;
-   DrawBadge(table,badge,s*0.85,kind);
+   badge.Left:=cell.Left+round(table.ToggleLeft(index)*s);
+   badge.Right:=badge.Left+round(OUTLINE_TOGGLE_WIDTH*s);
+   if not table.nodes[index].leaf then begin
+    if table.nodes[index].opened then kind:=fgCollapse else kind:=fgExpand;
+    DrawBadge(table,badge,s*0.85,kind);
+   end;
    textLeft:=badge.Right+round(5*s);
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    if textLeft<cell.Right-round(5*s) then begin
@@ -671,12 +878,58 @@ implementation
   result:=FullPath(JoinPath(path,'..'));
  end;
 
+ // One decimal below 100 of a unit, whole numbers above: '5.0 KB', '16.5 KB', '150 KB'
  function FileSizeText(bytes:int64):String8;
+ const
+  UNITS:array[0..3] of String8=('B','KB','MB','GB');
+ var
+  v:double;
+  u:integer;
+  tenths:int64;
  begin
-  if bytes<1024 then result:=Conv.ToStr(bytes)+' B'
-  else if bytes<1024*1024 then result:=Conv.ToStr(bytes/1024,1)+' KB'
-  else if bytes<int64(1024)*1024*1024 then result:=Conv.ToStr(bytes/(1024*1024),1)+' MB'
-  else result:=Conv.ToStr(bytes/(int64(1024)*1024*1024),1)+' GB';
+  if bytes<1024 then exit(Conv.ToStr(bytes)+' B');
+  v:=bytes; u:=0;
+  while (v>=1024) and (u<high(UNITS)) do begin
+   v:=v/1024;
+   inc(u);
+  end;
+  if v<100 then begin
+   tenths:=round(v*10);
+   result:=Conv.ToStr(tenths div 10)+'.'+Conv.ToStr(tenths mod 10);
+  end else result:=Conv.ToStr(round(v));
+  result:=result+' '+UNITS[u];
+ end;
+
+ // '*' and '?' wildcards; the name and the ';'-separated masks are lowercased by the caller.
+ // Temporary until Files matches masks itself (PaintRaw E-29)
+ function MatchesMask(const name,mask:String8):boolean;
+ var
+  n,m,starN,starM:integer;
+ begin
+  n:=1; m:=1; starN:=0; starM:=0;
+  while n<=length(name) do
+   if (m<=length(mask)) and ((mask[m]='?') or (mask[m]=name[n])) then begin
+    inc(n); inc(m);
+   end else if (m<=length(mask)) and (mask[m]='*') then begin
+    starM:=m; starN:=n; inc(m);
+   end else if starM>0 then begin
+    m:=starM+1; inc(starN); n:=starN;
+   end else exit(false);
+  while (m<=length(mask)) and (mask[m]='*') do inc(m);
+  result:=m>length(mask);
+ end;
+
+ function MatchesMasks(const name,masks:String8):boolean;
+ var
+  i,start:integer;
+ begin
+  start:=1;
+  for i:=1 to length(masks)+1 do
+   if (i>length(masks)) or (masks[i] in [';',',']) then begin
+    if (i>start) and MatchesMask(name,copy(masks,start,i-start)) then exit(true);
+    start:=i+1;
+   end;
+  result:=false;
  end;
 
  constructor TDirectoryOutline.Create(parent:TUIElement;dialog:TUIFileDialog;const name:String8);
@@ -686,75 +939,128 @@ implementation
   AddColumn('',0,taLeft,tsNone);
   headerHeight:=0;
   onSelect:=DirectorySelected;
+  onActivate:=DirectoryActivated;
   drawer:=DrawDirectoryOutline;
+ end;
+
+ function TDirectoryOutline.ToggleLeft(index:integer):single;
+ begin
+  result:=OUTLINE_TOGGLE_LEFT+nodes[index].depth*OUTLINE_INDENT;
+ end;
+
+ procedure TDirectoryOutline.Reload;
+ begin
+  listings:=nil;
+ end;
+
+ // The cached listing of a folder; reads the folder if it is not cached yet
+ function TDirectoryOutline.ListingOf(const path:String8):integer;
+ var
+  items:TFolderItems;
+  keys:Strings8;
+  item:TFolderItem;
+  n,k:String8;
+  h:boolean;
+  i,j,count:integer;
+ begin
+  for i:=0 to high(listings) do
+   if SamePath(listings[i].path,path) then exit(i);
+  result:=length(listings);
+  SetLength(listings,result+1);
+  listings[result].path:=path;
+  items:=Apus.Files.Folder.ListItems(path);
+  count:=0;
+  with listings[result] do begin
+   SetLength(names,length(items));
+   SetLength(hidden,length(items));
+   SetLength(keys,length(items));
+   for item in items do
+    if item.info.isDirectory then begin
+     names[count]:=item.name;
+     hidden[count]:=item.hidden;
+     keys[count]:=UTF8.ToLower(item.name);
+     inc(count);
+    end;
+   SetLength(names,count);
+   SetLength(hidden,count);
+   for i:=1 to count-1 do begin
+    n:=names[i]; h:=hidden[i]; k:=keys[i]; j:=i-1;
+    while (j>=0) and (NaturalCompare(keys[j],k)>0) do begin
+     names[j+1]:=names[j]; hidden[j+1]:=hidden[j]; keys[j+1]:=keys[j];
+     dec(j);
+    end;
+    names[j+1]:=n; hidden[j+1]:=h; keys[j+1]:=k;
+   end;
+  end;
  end;
 
  procedure TDirectoryOutline.Build(const folder:String8);
  var
   root,p,parentPath,anchor:String8;
-  selectedRow,topRow,index,i:integer;
+  selectedRow,topRow,i:integer;
   oldPos,offset:single;
-  keepView:boolean;
+  keepView,moved:boolean;
+ function OnRoute(const path:String8):boolean;
+ begin
+  result:=SamePath(path,folder) or SamePath(path,copy(folder,1,length(path))) and
+    (copy(folder,length(path)+1,1)=PathDelim);
+ end;
+ // A hidden folder on the route to the current one is shown: the route must not break
+ function Visible(listing,i:integer):boolean;
+ begin
+  with listings[listing] do
+   result:=dialog.showHidden or not hidden[i] or OnRoute(JoinPath(path,names[i]));
+ end;
  procedure AddNode(const path:String8;depth:integer);
  var
-  listing:TFolderItems;
-  names:Strings8;
-  labelText,n:String8;
-  item:TFolderItem;
-  i,j,index,row:integer;
-  opened:boolean;
+  labelText:String8;
+  i,listing,index,row,cached:integer;
  begin
   index:=length(nodes);
   SetLength(nodes,index+1);
   nodes[index].path:=path;
   nodes[index].depth:=depth;
-  opened:=PathIndex(expanded,path)>=0;
+  nodes[index].opened:=PathIndex(expanded,path)>=0;
   labelText:=Files.GetName(path);
   if labelText='' then labelText:=path;
   row:=AddRow(index);
   SetCell(row,0,labelText);
   if SamePath(path,folder) then selectedRow:=row;
-  if not opened then exit;
-  listing:=Apus.Files.Folder.ListItems(path);
-  names:=nil;
-  for item in listing do
-   if item.info.isDirectory and (dialog.showHidden or not item.hidden) then begin
-    i:=length(names);
-    SetLength(names,i+1);
-    names[i]:=item.name;
+  cached:=-1;
+  for i:=0 to high(listings) do
+   if SamePath(listings[i].path,path) then cached:=i;
+  if not nodes[index].opened and (cached<0) then exit;
+  listing:=ListingOf(path);
+  nodes[index].leaf:=true;
+  for i:=0 to high(listings[listing].names) do
+   if Visible(listing,i) then begin
+    nodes[index].leaf:=false;
+    if not nodes[index].opened then break;
+    AddNode(JoinPath(path,listings[listing].names[i]),depth+1);
    end;
-  for i:=1 to high(names) do begin
-   n:=names[i]; j:=i-1;
-   while j>=0 do begin
-    if NaturalCompare(UTF8.ToLower(names[j]),UTF8.ToLower(n))<=0 then break;
-    names[j+1]:=names[j];
-    dec(j);
-   end;
-   names[j+1]:=n;
-  end;
-  for n in names do AddNode(JoinPath(path,n),depth+1);
  end;
  begin
-  keepView:=selecting or SamePath(current,folder);
+  moved:=not SamePath(current,folder);
+  keepView:=selecting or not moved;
   oldPos:=ScrollPos;
   offset:=Frac(oldPos/rowHeight)*rowHeight;
   anchor:='';
   topRow:=RowAt(trunc(oldPos/rowHeight));
-  if topRow>=0 then begin
-   index:=RowTag(topRow);
-   if (index>=0) and (index<length(nodes)) then anchor:=nodes[index].path;
-  end;
+  if (topRow>=0) and (topRow<length(nodes)) then anchor:=nodes[topRow].path;
   building:=true;
   try
    selectedRow:=-1;
    ClearRows;
    nodes:=nil;
    if folder='' then exit;
+   // Navigation from outside the tree closes the route it opened before, the folders
+   // the user opened stay open
+   if moved and not selecting then expanded:=Copy(userOpened);
+   // Reveal the route on navigation, but permit collapsing the selected node later
    root:=folder;
-   // Reveal the route on navigation, but permit collapsing the selected node later.
    p:=folder;
    repeat
-    if not SamePath(current,folder) and (PathIndex(expanded,p)<0) then expanded:=expanded+[p];
+    if moved and (PathIndex(expanded,p)<0) then expanded:=expanded+[p];
     root:=p;
     parentPath:=ParentFolder(p);
     if SamePath(parentPath,p) then break;
@@ -765,70 +1071,139 @@ implementation
    selected:=selectedRow;
    if keepView then begin
     for i:=0 to high(nodes) do if SamePath(nodes[i].path,anchor) then begin
-     oldPos:=PlaceOf(i)*rowHeight+offset;
+     oldPos:=i*rowHeight+offset;
      break;
     end;
     scrollerV.SetValue(oldPos);
-   end;
+   end else if selectedRow>=0 then
+    // The tree follows navigation from outside it: the current folder in the upper third
+    scrollerV.SetValue(selectedRow*rowHeight-RowsHeight/3);
   finally
    building:=false;
   end;
  end;
 
- procedure TDirectoryOutline.DirectorySelected(sender:TUITable;row:integer);
- var
-  index:NativeInt;
+ procedure TDirectoryOutline.Navigate(row:integer);
  begin
-  if building or (row<0) then exit;
-  index:=RowTag(row);
-  if (index<0) or (index>=length(nodes)) then exit;
+  timer:=0;
+  if (row<0) or (row>=length(nodes)) or SamePath(nodes[row].path,dialog.Folder) then exit;
   selecting:=true;
   try
-   dialog.SetFolder(nodes[index].path);
+   dialog.SetFolder(nodes[row].path);
   finally
    selecting:=false;
+  end;
+ end;
+
+ procedure TDirectoryOutline.DirectorySelected(sender:TUITable;row:integer);
+ begin
+  if building or (row<0) then exit;
+  if clicking then Navigate(row)
+   else timer:=OUTLINE_NAVIGATE_DELAY;
+ end;
+
+ procedure TDirectoryOutline.DirectoryActivated(sender:TUITable;row:integer);
+ begin
+  Navigate(row);
+ end;
+
+ procedure TDirectoryOutline.onTimer;
+ begin
+  Navigate(selected);
+ end;
+
+ // Move the cursor without opening the folder
+ procedure TDirectoryOutline.SelectQuietly(row:integer);
+ begin
+  building:=true;
+  try
+   selected:=row;
+  finally
+   building:=false;
   end;
  end;
 
  procedure TDirectoryOutline.ToggleNode(index:integer);
  var
   i:integer;
+  path,cursor:String8;
  begin
   if (index<0) or (index>=length(nodes)) then exit;
-  i:=PathIndex(expanded,nodes[index].path);
-  if i<0 then expanded:=expanded+[nodes[index].path] else RemovePath(expanded,i);
+  path:=nodes[index].path;
+  cursor:='';
+  if selected>=0 then cursor:=nodes[selected].path;
+  i:=PathIndex(expanded,path);
+  if i<0 then begin
+   expanded:=expanded+[path];
+   if PathIndex(userOpened,path)<0 then userOpened:=userOpened+[path];
+  end else begin
+   RemovePath(expanded,i);
+   i:=PathIndex(userOpened,path);
+   if i>=0 then RemovePath(userOpened,i);
+  end;
   Build(dialog.Folder);
+  // the keyboard cursor stays on its folder when it is still in the tree
+  for i:=0 to high(nodes) do
+   if (cursor<>'') and SamePath(nodes[i].path,cursor) then SelectQuietly(i);
+ end;
+
+ function TDirectoryOutline.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+ var
+  index,i:integer;
+ begin
+  if pressed and (shiftstate=0) and (selected>=0) and
+     ((TKey(keycode)=TKey.Left) or (TKey(keycode)=TKey.Right)) then begin
+   index:=selected;
+   if TKey(keycode)=TKey.Right then begin
+    if not nodes[index].opened then begin
+     if not nodes[index].leaf then ToggleNode(index);
+    end else if (index<high(nodes)) and (nodes[index+1].depth>nodes[index].depth) then
+     SelectQuietly(index+1);
+   end else begin
+    if nodes[index].opened and not nodes[index].leaf then ToggleNode(index)
+    else
+     for i:=index-1 downto 0 do
+      if nodes[i].depth<nodes[index].depth then begin
+       SelectQuietly(i);
+       break;
+      end;
+   end;
+   timer:=OUTLINE_NAVIGATE_DELAY;
+   exit(false);
+  end;
+  result:=inherited onKey(keycode,pressed,shiftstate);
  end;
 
  procedure TDirectoryOutline.onMouseButtons(button:byte;state:boolean);
  var
   p:TVec2;
-  row,index:integer;
+  row:integer;
+  left:single;
  begin
   if (button=1) and state then begin
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
    row:=RowAtPoint(p.x,p.y);
-   if row>=0 then begin
-    index:=RowTag(row);
-    if (index>=0) and (index<length(nodes)) and
-       (p.x>=4+nodes[index].depth*14) and (p.x<24+nodes[index].depth*14) then begin
-     ToggleNode(index);
+   if (row>=0) and (row<length(nodes)) and not nodes[row].leaf then begin
+    left:=ToggleLeft(row);
+    if (p.x>=left) and (p.x<left+OUTLINE_TOGGLE_WIDTH) then begin
+     ToggleNode(row);
      exit;
     end;
    end;
   end;
-  inherited;
+  clicking:=true;
+  try
+   inherited;
+  finally
+   clicking:=false;
+  end;
  end;
 
  procedure TDirectoryOutline.onMouseMove;
- var
-  index:NativeInt;
  begin
   inherited;
   hint:='';
-  if hoverRow<0 then exit;
-  index:=RowTag(hoverRow);
-  if (index>=0) and (index<length(nodes)) then hint:=nodes[index].path;
+  if (hoverRow>=0) and (hoverRow<length(nodes)) then hint:=nodes[hoverRow].path;
  end;
 
  procedure TDialogButton.DoClick;
@@ -871,15 +1246,105 @@ implementation
   if dialog<>nil then dialog.TypeClicked(index,toggled);
  end;
 
+ procedure TFormatItem.DoClick;
+ begin
+  inherited;
+  dialog.SetSaveType(index);
+ end;
+
+ class function TFileDialogRequest.Init(dialogMode:TFileDialogMode):TFileDialogRequest;
+ begin
+  result:=Default(TFileDialogRequest);
+  result.mode:=dialogMode;
+  result.filter:=FD_FILTER_SUPPORTED;
+ end;
+
+ procedure TFileDialogRequest.AddType(const title,masks,ext:String8);
+ var
+  n:integer;
+ begin
+  n:=length(types);
+  SetLength(types,n+1);
+  types[n].title:=title;
+  types[n].masks:=masks;
+  types[n].ext:=ext;
+ end;
+
+ function DefaultFileDialogTexts:TFileDialogTexts;
+ begin
+  with result do begin
+   openTitle:='Open'; saveTitle:='Save As';
+   open:='Open'; save:='Save'; cancel:='Cancel'; nameLabel:='Name:';
+   filterPlaceholder:='Filter by name...';
+   filterHint:='Show file names containing this text, ignoring case';
+   clearFilterHint:='Clear name filter';
+   parentHint:='Parent folder';
+   formatHint:='File format';
+   pinHint:='Add current folder to favorites';
+   unpinHint:='Remove current folder from favorites';
+   allTypes:='All'; allTypesHint:='All supported files';
+   allFiles:='*.*'; allFilesHint:='All files';
+   typeHint:='%s. Ctrl+click changes only this filter.';
+   nameColumn:='Name'; modifiedColumn:='Modified'; sizeColumn:='Size';
+   addFavoriteHint:='Add folder to favorites';
+   removeFavoriteHint:='Remove folder from favorites';
+   unpinRecentHint:='Unpin folder (keep in Recent)';
+   removeEntryHint:='Remove entry';
+   enterName:='Enter a file name';
+   chooseFolder:='Choose a folder first';
+   nameIsFolder:='The name belongs to a folder';
+   fileNotFound:='File not found: %s';
+   folderNotFound:='Folder not found: %s';
+   destinationNotFound:='Destination folder not found';
+   confirmOverwrite:='File exists. Press %s again to replace it.';
+  end;
+ end;
+
  constructor TUIFileDialog.Create(width,height:single;parent:TUIElement;name:String8);
  begin
   inherited;
-  palette:=DefaultPalette;
+  styleInfo:=DIALOG_STYLE;
   shape:=shapeFull;
   finished:=true;
+  texts:=DefaultFileDialogTexts;
+  slotHeight:=88;
+  fRequest:=TFileDialogRequest.Init(fdOpen);
   CreateControls;
-  ApplyPalette;
+  ApplyTexts;
   LayoutControls;
+ end;
+
+ function TUIFileDialog.Mode:TFileDialogMode;
+ begin
+  result:=fRequest.mode;
+ end;
+
+ // The template with '%s' replaced by the value
+ function TUIFileDialog.Template(const pattern,value:String8):String8;
+ var
+  p:integer;
+ begin
+  result:=pattern;
+  p:=Pos(String8('%s'),result);
+  if p>0 then result:=copy(result,1,p-1)+value+copy(result,p+2,length(result));
+ end;
+
+ procedure TUIFileDialog.ApplyTexts;
+ begin
+  upButton.hint:=texts.parentHint;
+  table.columns[0].caption:=texts.nameColumn;
+  table.columns[1].caption:=texts.modifiedColumn;
+  table.columns[2].caption:=texts.sizeColumn;
+  nameLabel.caption:=texts.nameLabel;
+  filterEdit.defaultText:=UTF8.Decode(texts.filterPlaceholder);
+  filterEdit.hint:=texts.filterHint;
+  filterClearButton.hint:=texts.clearFilterHint;
+  formatButton.hint:=texts.formatHint;
+  cancelButton.caption:=texts.cancel;
+  if fRequest.acceptCaption<>'' then acceptButton.caption:=fRequest.acceptCaption
+   else if Mode=fdOpen then acceptButton.caption:=texts.open
+   else acceptButton.caption:=texts.save;
+  UpdatePinButton;
  end;
 
  procedure TUIFileDialog.CreateControls;
@@ -888,6 +1353,7 @@ implementation
   b:TDialogButton;
  begin
   b:=TDialogButton.Create(88,28,self,name+'\'+suffix);
+  b.styleInfo:=BUTTON_STYLE;
   b.Setup(caption);
   b.handler:=handler;
   b.drawer:=DrawDialogButton;
@@ -898,6 +1364,7 @@ implementation
   e:TDialogEdit;
  begin
   e:=TDialogEdit.Create(100,28,self,name+'\'+suffix);
+  e.styleInfo:=EDIT_STYLE;
   e.dialog:=self;
   e.isPath:=isPath;
   e.maxlength:=32767;
@@ -905,33 +1372,35 @@ implementation
  end;
  procedure StyleTable(t:TUITable);
  begin
-  t.style.SetAttr('selection-fill','$FF356FA3');
-  t.style.SetAttr('selection-color','$FFFFFFFF');
-  t.style.SetAttr('row-hover-fill','$FF99B5CF');
+  t.styleInfo:=TABLE_STYLE;
+  t.scrollerV.GetElement.styleInfo:=SCROLLBAR_STYLE;
+  t.scrollerH.GetElement.styleInfo:=SCROLLBAR_STYLE;
  end;
  begin
   pathEdit:=Edit('Path',true);
   upButton:=Button('Up','',GoUp);
   upButton.drawer:=DrawUpButton;
-  upButton.hint:='Parent folder';
   table:=TUITable.Create(100,100,self,name+'\Table');
-  table.AddColumn('Name',0);
-  table.AddColumn('Size',90,taRight,tsKey);
-  table.AddColumn('Modified',150,taLeft,tsKey);
+  table.AddColumn('',0);
+  table.AddColumn('',140,taLeft,tsKey);
+  table.AddColumn('',80,taRight,tsKey);
   table.SortBy(0);
   table.onSelect:=RowSelected;
+  table.onSelectionChanged:=SelectionChanged;
   table.onActivate:=RowActivated;
-  nameLabel:=TUILabel.Create(60,28,self).Setup('Name:');
+  nameLabel:=TUILabel.Create(60,28,self);
   nameEdit:=Edit('Name',false);
+  formatButton:=Button('Format','',ShowFormats);
+  formatButton.drawer:=DrawFormatButton;
+  formatMenu:=TUIPopupMenu.Create(self,name+'\Formats');
   filterEdit:=Edit('NameFilter',false);
   TDialogEdit(filterEdit).isFilter:=true;
-  filterEdit.defaultText:=Str32('Filter by name...');
-  filterEdit.hint:='Show file names containing this text, ignoring case';
   filterClearButton:=Button('ClearFilter','',ClearFilter);
   filterClearButton.drawer:=DrawClearFilter;
-  filterClearButton.hint:='Clear name filter';
   typeBar:=TUIElement.Create(100,28,self,name+'\Types');
   messageLabel:=TUILabel.Create(100,24,self,name+'\Message');
+  messageLabel.SetPaddings(6,0,6,0);
+  messageLabel.styleInfo:=MESSAGE_STYLE;
   acceptButton:=Button('Accept','Open',Confirm);
   acceptButton.default:=true;
   cancelButton:=Button('Cancel','Cancel',Cancel);
@@ -945,71 +1414,39 @@ implementation
   driveBar.flags.noParentClip:=true;
   driveBar.order:=$10000;
   driveBar.drawer:=DrawDriveBar;
+  driveBar.styleInfo:=DRIVEBAR_STYLE;
   directoryOutline:=TDirectoryOutline.Create(navigationPanel,self,name+'\Directories');
   locationsList:=TLocationsList.Create(340,120,navigationPanel,name+'\Locations');
   TLocationsList(locationsList).dialog:=self;
   locationsList.drawer:=DrawLocations;
   locationsList.AddColumn('',0,taLeft,tsNone);
   locationsList.headerHeight:=0;
-  locationsList.onSelect:=LocationSelected;
+  // Selection alone never navigates: rebuilding or moving the keyboard cursor
+  // must not rebuild the outline. A completed click or Enter activates the path.
+  locationsList.onActivate:=LocationSelected;
   StyleTable(table);
   StyleTable(directoryOutline);
   StyleTable(locationsList);
   pinButton:=Button('PinFolder','',PinFolder);
   pinButton.drawer:=DrawPinButton;
-  pinButton.hint:='Add current folder to favorites';
- end;
-
- procedure TUIFileDialog.ApplyPalette;
- procedure C(e:TUIElement;const key:String8;value:cardinal);
- begin
-  if e<>nil then e.style.SetAttr(key,'$'+String8(IntToHex(value,8)));
- end;
- procedure TableStyle(t:TUITable);
- var
-  bar:TUIElement;
- begin
-  C(t,'fill',palette.surface); C(t,'color',palette.text);
-  C(t,'border-color',palette.border); C(t,'line-color',palette.border);
-  C(t,'header-fill',palette.header); C(t,'header-color',palette.text);
-  C(t,'header-hover-fill',palette.hover); C(t,'row-hover-fill',palette.hover);
-  C(t,'selection-fill',palette.selection); C(t,'selection-color',palette.selectionText);
-  C(t,'favorite-color',palette.favoriteInk); C(t,'recent-color',palette.muted);
-  t.style.SetAttr('row-alt-fill','0');
-  bar:=t.scrollerV.GetElement;
-  bar.style.SetAttr('variant','flat');
-  C(bar,'color',palette.muted); C(bar,'track-color',palette.surface); C(bar,'active-color',palette.accent);
-  bar:=t.scrollerH.GetElement;
-  bar.style.SetAttr('variant','flat');
-  C(bar,'color',palette.muted); C(bar,'track-color',palette.surface); C(bar,'active-color',palette.accent);
- end;
- procedure EditStyle(e:TUIEditBox);
- begin
-  C(e,'fill',palette.surface); C(e,'color',palette.text); C(e,'border-color',palette.border);
-  e.style.SetAttr('border-width','1'); e.style.SetAttr('radius','3');
- end;
- begin
-  C(self,'fill',palette.background); C(self,'color',palette.text);
-  if table=nil then exit;
-  TableStyle(table); TableStyle(directoryOutline); TableStyle(locationsList);
-  EditStyle(pathEdit); EditStyle(nameEdit); EditStyle(filterEdit);
-  C(driveBar,'fill',palette.background); C(driveBar,'color',palette.muted);
-  C(messageLabel,'color',palette.removeInk);
-  if host<>nil then begin
-   C(host.frame,'color',palette.text);
-   host.frame.style.SetAttr('font-size',GetStyleValue('font-size','9'));
-  end;
  end;
 
  procedure TUIFileDialog.LayoutControls;
  var
-  w,h,left,right,bottom,navH,navW,locationsH,chipWidth,tableTop,footer,statusH,nameY,filterW:single;
-  inspector:TUIElement;
+  w,h,left,right,bottom,navH,navW,locationsH,chipWidth,tableTop,footer,nameY,filterW,slotW:single;
   i:integer;
  procedure Place(e:TUIElement;x,y,w,h:single);
  begin
   e.SetPos(x,y);
   e.Resize(Math.Max(0.0,w),Math.Max(0.0,h));
+ end;
+ function HasVisibleChild(e:TUIElement):boolean;
+ var
+  c:TUIElement;
+ begin
+  for c in e.children do
+   if c.flags.visible then exit(true);
+  result:=false;
  end;
  begin
   if table=nil then exit;
@@ -1023,17 +1460,12 @@ implementation
   Place(directoryOutline,0,36,navW,navH-locationsH-44);
   Place(locationsList,0,navH-locationsH,navW,locationsH);
   left:=navW+24; right:=w-8;
-  inspector:=nil;
-  previewPanel.flags.visible:=(mode=fdOpen) and (length(previewPanel.children)>0);
-  optionsPanel.flags.visible:=(mode=fdSave) and (length(optionsPanel.children)>0);
-  if previewPanel.flags.visible then inspector:=previewPanel;
-  if optionsPanel.flags.visible then inspector:=optionsPanel;
+  previewPanel.flags.visible:=HasVisibleChild(previewPanel);
+  optionsPanel.flags.visible:=HasVisibleChild(optionsPanel);
   footer:=104;
-  if inspector<>nil then footer:=140;
-  statusH:=0;
+  if previewPanel.flags.visible or optionsPanel.flags.visible then footer:=52+slotHeight;
   messageLabel.flags.visible:=messageLabel.caption<>'';
-  if messageLabel.flags.visible then statusH:=24;
-  bottom:=h-footer-statusH;
+  bottom:=h-footer;
   Place(pathEdit,left,8,right-left-72,28);
   Place(upButton,right-64,8,28,28);
   Place(pinButton,right-28,8,28,28);
@@ -1049,22 +1481,33 @@ implementation
    Place(filterClearButton,right-28,80,28,28);
    tableTop:=116;
   end;
-  if allTypeButton<>nil then begin
-   chipWidth:=typeBar.clientWidth/(length(typeButtons)+1);
-   Place(allTypeButton,0,0,chipWidth-4,28);
-   for i:=0 to high(typeButtons) do Place(typeButtons[i],(i+1)*chipWidth,0,chipWidth-4,28);
+  if length(typeBar.children)>0 then begin
+   // equal chips from the left, never wider than a short caption needs
+   chipWidth:=Math.Min(68.0,typeBar.clientWidth/length(typeBar.children));
+   for i:=0 to high(typeBar.children) do Place(typeBar.children[i],i*chipWidth,0,chipWidth-4,28);
   end;
   // Empty slots occupy no space. Preview and options share the compact bottom area.
-  if length(placesPanel.children)>0 then begin
+  if HasVisibleChild(placesPanel) then begin
+   placesPanel.flags.visible:=true;
    Place(placesPanel,left,tableTop,placesPanel.size.x,bottom-tableTop);
    left:=left+placesPanel.size.x+8;
-  end;
+  end else placesPanel.flags.visible:=false;
   Place(table,left,tableTop,right-left,bottom-tableTop);
   nameY:=h-footer+8;
   Place(nameLabel,left,nameY,60,28);
-  Place(nameEdit,left+60,nameY,right-left-164,28);
-  Place(messageLabel,left,bottom+8,right-left,24);
-  if inspector<>nil then Place(inspector,left,nameY+36,right-left-104,h-nameY-44);
+  formatButton.flags.visible:=(Mode=fdSave) and (length(fRequest.types)>0);
+  if formatButton.flags.visible then begin
+   Place(nameEdit,left+60,nameY,right-left-164-104,28);
+   Place(formatButton,right-200,nameY,96,28);
+  end else Place(nameEdit,left+60,nameY,right-left-164,28);
+  // The message covers the bottom rows of the table instead of moving the layout
+  Place(messageLabel,left+1,bottom-25,right-left-2,24);
+  slotW:=right-left-104;
+  if previewPanel.flags.visible and optionsPanel.flags.visible then begin
+   Place(previewPanel,left,nameY+36,slotW/2-4,slotHeight);
+   Place(optionsPanel,left+slotW/2+4,nameY+36,slotW/2-4,slotHeight);
+  end else if previewPanel.flags.visible then Place(previewPanel,left,nameY+36,slotW,slotHeight)
+  else if optionsPanel.flags.visible then Place(optionsPanel,left,nameY+36,slotW,slotHeight);
   Place(acceptButton,w-96,h-72,88,28);
   Place(cancelButton,w-96,h-36,88,28);
  end;
@@ -1075,28 +1518,63 @@ implementation
   LayoutControls;
  end;
 
- procedure TUIFileDialog.Setup(mode:TFileDialogMode;const folder,fileName:String8;typeIndex:integer);
+ procedure TUIFileDialog.Setup(const request:TFileDialogRequest);
+ var
+  filter:integer;
  begin
-  self.mode:=mode;
+  fRequest:=request;
+  fRequest.types:=Copy(request.types);
   // Scenes may be constructed by the application thread. UI hotkeys belong to the
   // window thread, where Setup and input run, rather than to that constructor's thread.
   SetHotKey(ord(TKey.Escape));
+  SetHotKey(ord(TKey.F5));
   table.keyScope:=self;
+  table.multiSelect:=(Mode=fdOpen) and (fdoMultiSelect in fRequest.options);
   finished:=false;
   Edited;
-  if length(types)>0 then selectedType:=Clamp(typeIndex,0,length(types)-1) else selectedType:=-1;
-  allTypes:=true;
+  if (Mode=fdSave) and (length(fRequest.types)>0) then
+   fSaveType:=Clamp(fRequest.saveType,0,length(fRequest.types)-1)
+  else fSaveType:=-1;
   activeTypes:=nil;
-  SetLength(activeTypes,length(types));
+  SetLength(activeTypes,length(fRequest.types));
+  filter:=fRequest.filter;
+  if (filter=FD_FILTER_ALL_FILES) and not (fdoAllFiles in fRequest.options) then filter:=FD_FILTER_SUPPORTED;
+  if filter>high(activeTypes) then filter:=FD_FILTER_SUPPORTED;
+  allFiles:=filter=FD_FILTER_ALL_FILES;
+  allTypes:=filter=FD_FILTER_SUPPORTED;
+  if filter>=0 then activeTypes[filter]:=true;
   BuildTypes;
-  if mode=fdOpen then acceptButton.caption:='Open' else acceptButton.caption:='Save';
-  nameEdit.text:=fileName;
+  BuildFormats;
+  ApplyTexts;
+  nameEdit.text:=fRequest.fileName;
+  pickedName:='';
   filterEdit.text:='';
   filterClearButton.flags.enabled:=false;
   BuildDrives;
-  ApplyPalette;
-  if folder='' then SetFolder('') else SetFolder(FullPath(folder));
+  TDirectoryOutline(directoryOutline).Reload;
+  listedFolder:=''; // a new request reads the folder again and selects nothing
+  SetFolder(StartFolder(fRequest.folder));
+  BuildLocations(true);
   LayoutControls;
+ end;
+
+ // The first existing one of: the requested folder, the folder of the previous request,
+ // the recent folders, the current folder
+ function TUIFileDialog.StartFolder(const folder:String8):String8;
+ var
+  path:String8;
+ function Usable(const path:String8;out full:String8):boolean;
+ begin
+  result:=false;
+  if path='' then exit;
+  full:=FullPath(path);
+  result:=Apus.Files.Folder.Exists(full);
+ end;
+ begin
+  if Usable(folder,result) or Usable(fFolder,result) then exit;
+  for path in recentFolders do
+   if Usable(path,result) then exit;
+  result:=FullPath('.');
  end;
 
  procedure TUIFileDialog.ShowError(const message:String8);
@@ -1127,11 +1605,14 @@ implementation
     if Files.IsPathRelative(next) and (fFolder<>'') then next:=JoinPath(fFolder,next);
     next:=FullPath(JoinPath(next,'.'));
     if not Apus.Files.Folder.Exists(next) then begin
-     ShowError('Folder not found: '+next);
+     ShowError(Template(texts.folderNotFound,next));
      exit;
     end;
    end;
    fFolder:=next;
+   // A name picked from the old listing means nothing in Open; a typed or Save name stays
+   if (Mode=fdOpen) and (pickedName<>'') and (nameEdit.text=pickedName) then nameEdit.text:='';
+   pickedName:='';
    for child in driveBar.children do if child is TDriveButton then begin
     root:=child.attributes.Item['path'];
     TDriveButton(child).active:=(fFolder<>'') and
@@ -1140,49 +1621,77 @@ implementation
    if fFolder='' then upButton.flags.enabled:=false
     else upButton.flags.enabled:=not SamePath(ParentFolder(fFolder),fFolder);
    pathEdit.text:=fFolder;
+   pathEdit.cursorPos:=length(pathEdit.realText); // a long path shows its tail
    Edited;
    Refresh;
    TDirectoryOutline(directoryOutline).Build(fFolder);
-   RememberFolder;
-   BuildLocations;
+   if (locationsList.selected>=0) and
+      not SamePath(LocationPath(locationsList.RowTag(locationsList.selected)),fFolder) then
+    locationsList.selected:=-1;
+   UpdatePinButton;
   except
    on e:Exception do ShowError(String8(e.Message));
   end;
  end;
 
+ // The folder is read once: type chips and the name filter only filter that listing.
+ // The selected file stays selected while it passes the filters of the same folder.
  procedure TUIFileDialog.Refresh(reload:boolean);
  var
-  mask,query:String8;
-  i,row:integer;
+  masks,query,lowName,focusName:String8;
+  keep:Strings8;
+  keepRows:IntArray;
+  i,row,focusRow:integer;
  begin
-  table.ClearRows;
-  if Assigned(onSelect) then onSelect(self,'');
-  if fFolder='' then begin
-   items:=nil;
-  end else begin
-   mask:='';
-   if allTypes then mask:='*'
-   else for i:=0 to high(activeTypes) do if activeTypes[i] then begin
-    if mask<>'' then mask:=mask+';';
-    mask:=mask+types[i].masks;
-   end;
-   if mask='' then begin
-    items:=nil;
-    ShowError('No file types selected');
-    exit;
-   end;
-   if reload then items:=Apus.Files.Folder.ListItems(fFolder,mask);
-   query:=UTF8.ToLower(filterEdit.text);
-   for i:=0 to high(items) do with items[i] do begin
-    if info.isDirectory then continue;
-    if hidden and not showHidden then continue;
-    if (query<>'') and (Pos(query,UTF8.ToLower(name))=0) then continue;
-    row:=table.AddRow(i);
-    table.SetCell(row,0,name);
-    table.SetCell(row,1,FileSizeText(info.size),info.size);
-    table.SetCell(row,2,String8(FormatDateTime('yyyy-mm-dd hh:nn',info.timestamp)),info.timestamp);
-   end;
+  keep:=nil;
+  focusName:='';
+  if SamePath(listedFolder,fFolder) then begin
+   for row in table.SelectedRows do
+    keep:=keep+[items[table.RowTag(row)].name];
+   if table.selected>=0 then focusName:=items[table.RowTag(table.selected)].name;
   end;
+  table.ClearRows;
+  if reload or not SamePath(listedFolder,fFolder) then begin
+   if fFolder='' then items:=nil else items:=Apus.Files.Folder.ListItems(fFolder);
+   listedFolder:=fFolder;
+  end;
+  masks:='';
+  if not allFiles then
+   for i:=0 to high(activeTypes) do
+    if allTypes or activeTypes[i] then masks:=masks+';'+UTF8.ToLower(fRequest.types[i].masks);
+  query:=UTF8.ToLower(filterEdit.text);
+  keepRows:=nil;
+  focusRow:=-1;
+  for i:=0 to high(items) do with items[i] do begin
+   if info.isDirectory then continue;
+   if hidden and not showHidden then continue;
+   lowName:=UTF8.ToLower(name);
+   if (masks<>'') and not MatchesMasks(lowName,masks) then continue;
+   if (query<>'') and (Pos(query,lowName)=0) then continue;
+   row:=table.AddRow(i);
+   table.SetCell(row,0,name);
+   table.SetCell(row,1,String8(FormatDateTime('yyyy-mm-dd hh:nn',info.timestamp)),info.timestamp);
+   table.SetCell(row,2,FileSizeText(info.size),info.size);
+   if PathIndex(keep,name)>=0 then keepRows:=keepRows+[row];
+   if (focusName<>'') and (name=focusName) then focusRow:=row;
+  end;
+  // the name field and the preview already show the files that pass the filters
+  restoring:=true;
+  try
+   for row in keepRows do table.SetRowSelected(row,true);
+   if focusRow>=0 then table.FocusRow(focusRow);
+  finally
+   restoring:=false;
+  end;
+  if length(keepRows)<length(keep) then SelectionChanged(table,table.selected);
+  if (focusRow<0) and Assigned(onSelect) then onSelect(self,'');
+ end;
+
+ procedure TUIFileDialog.Reload;
+ begin
+  TDirectoryOutline(directoryOutline).Reload;
+  Refresh(true);
+  TDirectoryOutline(directoryOutline).Build(fFolder);
  end;
 
  procedure TUIFileDialog.FilterChanged;
@@ -1199,58 +1708,129 @@ implementation
   filterEdit.SetFocus;
  end;
 
+ // The short caption of a type: its extension in capitals, or the title
+ function TypeCaption(const fileType:TFileType):String8;
+ begin
+  result:=fileType.ext;
+  if result<>'' then result:=UTF8.ToUpper(copy(result,2,length(result))) else result:=fileType.title;
+ end;
+
+ // No chips for a request without types: it lists any file
  procedure TUIFileDialog.BuildTypes;
  var
-  b:TTypeChip;
   i:integer;
-  caption:String8;
+ function Chip(const suffix,caption,hint:String8;index:integer;toggled:boolean):TUIToggleButton;
+ var
+  b:TTypeChip;
+ begin
+  b:=TTypeChip.Create(48,28,typeBar,name+'\Type'+suffix);
+  b.drawer:=DrawDialogButton;
+  b.styleInfo:=BUTTON_STYLE;
+  b.Setup(caption,toggled);
+  b.dialog:=self; b.index:=index;
+  b.flags.canHaveFocus:=false;
+  b.hint:=hint;
+  result:=b;
+ end;
  begin
   typeBar.DeleteChildren;
   typeButtons:=nil;
-  b:=TTypeChip.Create(48,28,typeBar,name+'\TypeAll');
-  b.drawer:=DrawDialogButton;
-  b.Setup('All',allTypes);
-  b.dialog:=self; b.index:=-1;
-  b.flags.canHaveFocus:=false;
-  b.hint:='All files. Ctrl+click changes only this filter.';
-  allTypeButton:=b;
-  SetLength(typeButtons,length(types));
-  for i:=0 to high(types) do begin
-   caption:=types[i].ext;
-   if caption<>'' then caption:=UTF8.ToUpper(copy(caption,2,length(caption))) else caption:=types[i].title;
-   b:=TTypeChip.Create(48,28,typeBar,name+'\Type'+Conv.ToStr(i));
-   b.drawer:=DrawDialogButton;
-   b.Setup(caption,activeTypes[i]);
-   b.dialog:=self; b.index:=i;
-   b.flags.canHaveFocus:=false;
-   b.hint:=types[i].title+' ('+types[i].masks+'). Ctrl+click changes only this filter.';
-   typeButtons[i]:=b;
-  end;
+  allTypeButton:=nil;
+  allFilesButton:=nil;
+  if length(fRequest.types)=0 then exit;
+  allTypeButton:=Chip('All',texts.allTypes,texts.allTypesHint,FD_FILTER_SUPPORTED,allTypes);
+  SetLength(typeButtons,length(fRequest.types));
+  for i:=0 to high(fRequest.types) do
+   with fRequest.types[i] do
+    typeButtons[i]:=Chip(Conv.ToStr(i),TypeCaption(fRequest.types[i]),Template(texts.typeHint,title+' ('+masks+')'),
+      i,activeTypes[i]);
+  if fdoAllFiles in fRequest.options then
+   allFilesButton:=Chip('AllFiles',texts.allFiles,texts.allFilesHint,FD_FILTER_ALL_FILES,allFiles);
  end;
 
  procedure TUIFileDialog.UpdateTypes;
  var
   i:integer;
  begin
-  allTypeButton.toggled:=allTypes;
+  if allTypeButton<>nil then allTypeButton.toggled:=allTypes;
+  if allFilesButton<>nil then allFilesButton.toggled:=allFiles;
   for i:=0 to high(typeButtons) do typeButtons[i].toggled:=activeTypes[i];
  end;
 
+ // A plain click selects only this chip, Ctrl+click adds or removes a type. All and the chip
+ // of any file exclude the types, and a choice left empty falls back to All: the filter is
+ // never empty. The chips only filter the listing: the format of Save is chosen separately.
  procedure TUIFileDialog.TypeClicked(index:integer;active:boolean);
  var
   i:integer;
+  ctrl,any:boolean;
  begin
-  if (GetWindow.shiftState and sscCtrl)=0 then begin
-   allTypes:=false;
+  ctrl:=(GetWindow.shiftState and sscCtrl)<>0;
+  if (index<0) or not ctrl then
    for i:=0 to high(activeTypes) do activeTypes[i]:=false;
-  end;
-  if index<0 then allTypes:=active else begin
-   activeTypes[index]:=active;
-   if active then selectedType:=index;
-  end;
+  if index>=0 then activeTypes[index]:=active or not ctrl;
+  any:=false;
+  for i:=0 to high(activeTypes) do any:=any or activeTypes[i];
+  allFiles:=not any and (index=FD_FILTER_ALL_FILES);
+  allTypes:=not any and not allFiles;
   UpdateTypes;
   Edited;
-  Refresh;
+  Refresh(false);
+ end;
+
+ procedure TUIFileDialog.BuildFormats;
+ var
+  i:integer;
+  item:TFormatItem;
+ begin
+  formatMenu.Clear;
+  if Mode<>fdSave then exit;
+  for i:=0 to high(fRequest.types) do begin
+   item:=TFormatItem.Create(formatMenu,fRequest.types[i].title,'',formatMenu.name+'\'+Conv.ToStr(i));
+   item.dialog:=self;
+   item.index:=i;
+  end;
+  if fSaveType>=0 then formatButton.caption:=TypeCaption(fRequest.types[fSaveType]);
+ end;
+
+ procedure TUIFileDialog.ShowFormats;
+ begin
+  if formatMenu.IsOpen then exit;
+  formatMenu.OpenBelow(formatButton);
+  // the keyboard starts from the format in use
+  if fSaveType>=0 then formatMenu.current:=TUIMenuItem(formatMenu.children[fSaveType]);
+ end;
+
+ // The index of the first type whose masks match the name, the save format first; -1 - none
+ function TUIFileDialog.TypeOfName(const fileName:String8):integer;
+ var
+  lowName:String8;
+  i:integer;
+ begin
+  lowName:=UTF8.ToLower(Files.GetName(fileName));
+  if (fSaveType>=0) and MatchesMasks(lowName,UTF8.ToLower(fRequest.types[fSaveType].masks)) then
+   exit(fSaveType);
+  for i:=0 to high(fRequest.types) do
+   if MatchesMasks(lowName,UTF8.ToLower(fRequest.types[i].masks)) then exit(i);
+  result:=-1;
+ end;
+
+ // A name of the old format gets the extension of the new one; a name of no listed type
+ // gets it on Confirm
+ procedure TUIFileDialog.SetSaveType(index:integer);
+ var
+  fileName,ext:String8;
+ begin
+  if (Mode<>fdSave) or (index<0) or (index>high(fRequest.types)) or (index=fSaveType) then exit;
+  fileName:=nameEdit.text;
+  ext:=fRequest.types[index].ext;
+  if (ext<>'') and (ext[1]<>'.') then ext:='.'+ext;
+  if (ext<>'') and (Files.GetExt(fileName)<>'') and (TypeOfName(fileName)=fSaveType) then
+   nameEdit.text:=Files.ChangeExt(fileName,ext);
+  fSaveType:=index;
+  formatButton.caption:=TypeCaption(fRequest.types[index]);
+  Edited;
+  if Assigned(onSaveTypeChanged) then onSaveTypeChanged(self,index);
  end;
 
  procedure TUIFileDialog.BuildDrives;
@@ -1265,6 +1845,7 @@ implementation
   for i:=0 to high(roots) do begin
    b:=TDriveButton.Create(32,24,driveBar,name+'\Drive'+Conv.ToStr(i));
    b.drawer:=DrawDialogButton;
+   b.styleInfo:=BUTTON_STYLE;
    b.caption:=roots[i];
    b.attributes.Item['path']:=JoinPath(roots[i],'');
    b.handler:=DriveClicked;
@@ -1276,62 +1857,72 @@ implementation
   SetFolder(TUIButton.Sender.attributes.Item['path']);
  end;
 
- procedure TUIFileDialog.RememberFolder;
+ procedure TUIFileDialog.RememberFolder(const path:String8);
  var
   index,i:integer;
-  changed:boolean;
  begin
-  // Also discard bare roots restored from older preference files.
-  changed:=false;
-  for i:=high(recentFolders) downto 0 do
-   if SamePath(ParentFolder(recentFolders[i]),recentFolders[i]) then begin
-    RemovePath(recentFolders,i);
-    changed:=true;
-   end;
-  if changed and Assigned(onLocationsChanged) then onLocationsChanged;
-  if fFolder='' then exit;
-  if SamePath(ParentFolder(fFolder),fFolder) then exit;
-  index:=PathIndex(recentFolders,fFolder);
+  // Only a successful file operation records a directory. Walking the tree, clicking
+  // a drive or entering a path leaves both lists untouched; drive roots stay on the drive buttons.
+  if (path='') or SamePath(ParentFolder(path),path) then exit;
+  index:=PathIndex(recentFolders,path);
   if index=0 then exit;
-  if index>=0 then RemovePath(recentFolders,index);
+  if index>0 then RemovePath(recentFolders,index);
   SetLength(recentFolders,Math.Min(12,length(recentFolders)+1));
   for i:=high(recentFolders) downto 1 do recentFolders[i]:=recentFolders[i-1];
-  recentFolders[0]:=fFolder;
+  recentFolders[0]:=path;
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
- procedure TUIFileDialog.BuildLocations;
+ procedure TUIFileDialog.BuildLocations(reset:boolean);
  var
-  i,row,currentRow:integer;
+  list:TLocationsList;
+  i,row,selectedRow:integer;
+  oldScroll:single;
+  selectedPath:String8;
  begin
-  locationsList.ClearRows;
-  currentRow:=-1;
-  for i:=0 to high(favoriteFolders) do begin
-   if PathIndex(favoriteFolders,favoriteFolders[i])<>i then continue;
-   row:=locationsList.AddRow(i);
-   locationsList.SetCell(row,0,favoriteFolders[i]);
-   if SamePath(favoriteFolders[i],fFolder) then currentRow:=row;
+  list:=TLocationsList(locationsList);
+  selectedPath:=LocationPath(list.RowTag(list.selected));
+  oldScroll:=list.ScrollPos;
+  if reset then begin
+   list.paths:=nil;
+   selectedPath:='';
+   oldScroll:=0;
   end;
-  for i:=0 to high(recentFolders) do begin
-   if (PathIndex(favoriteFolders,recentFolders[i])>=0) or (PathIndex(recentFolders,recentFolders[i])<>i) then continue;
-   row:=locationsList.AddRow($10000+i);
-   locationsList.SetCell(row,0,recentFolders[i]);
-   if (currentRow<0) and SamePath(recentFolders[i],fFolder) then currentRow:=row;
+  // Explicit edits may remove or append a row, but changing a star never moves
+  // existing paths. Favorites-first ordering is applied only for a new request.
+  for i:=high(list.paths) downto 0 do
+   if (PathIndex(favoriteFolders,list.paths[i])<0) and (PathIndex(recentFolders,list.paths[i])<0) then
+    RemovePath(list.paths,i);
+  for i:=0 to high(favoriteFolders) do
+   if PathIndex(list.paths,favoriteFolders[i])<0 then list.paths:=list.paths+[favoriteFolders[i]];
+  for i:=0 to high(recentFolders) do
+   if PathIndex(list.paths,recentFolders[i])<0 then list.paths:=list.paths+[recentFolders[i]];
+  list.ClearRows;
+  selectedRow:=-1;
+  for i:=0 to high(list.paths) do begin
+   row:=list.AddRow(i);
+   list.SetCell(row,0,list.paths[i]);
+   if SamePath(list.paths[i],selectedPath) then selectedRow:=row;
   end;
-  locationsList.selected:=currentRow;
+  list.selected:=selectedRow;
+  list.scrollerV.SetValue(oldScroll);
+  UpdatePinButton;
+ end;
+
+ procedure TUIFileDialog.UpdatePinButton;
+ begin
   pinButton.flags.enabled:=fFolder<>'';
-  if PathIndex(favoriteFolders,fFolder)>=0 then pinButton.hint:='Remove current folder from favorites'
-   else pinButton.hint:='Add current folder to favorites';
+  if PathIndex(favoriteFolders,fFolder)>=0 then pinButton.hint:=texts.unpinHint
+   else pinButton.hint:=texts.pinHint;
  end;
 
  function TUIFileDialog.LocationPath(tag:NativeInt):String8;
+ var
+  list:TLocationsList;
  begin
   result:='';
-  if tag<0 then exit;
-  if tag>=$10000 then begin
-   tag:=tag-$10000;
-   if tag<length(recentFolders) then result:=recentFolders[tag];
-  end else if tag<length(favoriteFolders) then result:=favoriteFolders[tag];
+  list:=TLocationsList(locationsList);
+  if (tag>=0) and (tag<length(list.paths)) then result:=list.paths[tag];
  end;
 
  procedure TUIFileDialog.LocationAction(tag:NativeInt;remove:boolean);
@@ -1344,12 +1935,10 @@ implementation
   path:=LocationPath(tag);
   if path='' then exit;
   if remove then begin
-   if tag>=$10000 then RemovePath(recentFolders,tag-$10000)
-   else begin
-    RemovePath(favoriteFolders,tag);
-    index:=PathIndex(recentFolders,path);
-    if index>=0 then RemovePath(recentFolders,index);
-   end;
+   index:=PathIndex(favoriteFolders,path);
+   if index>=0 then RemovePath(favoriteFolders,index);
+   index:=PathIndex(recentFolders,path);
+   if index>=0 then RemovePath(recentFolders,index);
   end else begin
    index:=PathIndex(favoriteFolders,path);
    if index<0 then favoriteFolders:=favoriteFolders+[path]
@@ -1362,21 +1951,11 @@ implementation
 
  procedure TUIFileDialog.LocationSelected(sender:TUITable;row:integer);
  var
-  index:NativeInt;
   path:String8;
  begin
   if row<0 then exit;
-  index:=sender.RowTag(row);
-  if index<0 then exit;
-  if index>=$10000 then begin
-   index:=index-$10000;
-   if index>=length(recentFolders) then exit;
-   path:=recentFolders[index];
-  end else begin
-   if index>=length(favoriteFolders) then exit;
-   path:=favoriteFolders[index];
-  end;
-  if not SamePath(path,fFolder) then SetFolder(path);
+  path:=LocationPath(sender.RowTag(row));
+  if (path<>'') and not SamePath(path,fFolder) then SetFolder(path);
  end;
 
  procedure TUIFileDialog.PinFolder;
@@ -1411,79 +1990,132 @@ implementation
   if fFolder='' then result:=items[index].name else result:=JoinPath(fFolder,items[index].name);
  end;
 
+ function TUIFileDialog.RowItem(row:integer):integer;
+ begin
+  result:=table.RowTag(row);
+  if (result<0) or (result>=length(items)) or items[result].info.isDirectory then result:=-1;
+ end;
+
+ // The focused file goes to the preview; the name field follows the set of selected files
  procedure TUIFileDialog.RowSelected(sender:TUITable;row:integer);
  var
-  index:NativeInt;
+  index:integer;
   path:String8;
  begin
-  Edited;
+  if restoring then exit;
   path:='';
-  if row>=0 then begin
-   index:=table.RowTag(row);
-   if (index>=0) and (index<length(items)) and not items[index].info.isDirectory then begin
-    nameEdit.text:=items[index].name;
-    path:=ItemPath(index);
+  index:=RowItem(row);
+  if index>=0 then path:=ItemPath(index);
+  if Assigned(onSelect) then onSelect(self,path);
+ end;
+
+ // One file - its name, several - their names in quotes. Nothing selected keeps the name.
+ procedure TUIFileDialog.SelectionChanged(sender:TUITable;row:integer);
+ var
+  rows:IntArray;
+  index,r:integer;
+  names:String8;
+ begin
+  if restoring then exit;
+  rows:=table.SelectedRows;
+  if length(rows)=0 then exit;
+  Edited;
+  if length(rows)=1 then begin
+   index:=RowItem(rows[0]);
+   if index<0 then exit;
+   names:=items[index].name;
+  end else begin
+   names:='';
+   for r in rows do begin
+    index:=RowItem(r);
+    if index<0 then continue;
+    if names<>'' then names:=names+' ';
+    names:=names+'"'+items[index].name+'"';
    end;
   end;
-  if Assigned(onSelect) then onSelect(self,path);
+  nameEdit.text:=names;
+  pickedName:=names;
  end;
 
  procedure TUIFileDialog.RowActivated(sender:TUITable;row:integer);
  var
-  index:NativeInt;
+  index:integer;
  begin
-  index:=table.RowTag(row);
-  if index<0 then GoUp
-  else if index<length(items) then begin
-   if items[index].info.isDirectory then SetFolder(ItemPath(index))
-   else begin
-    nameEdit.text:=items[index].name;
-    Confirm;
-   end;
+  index:=RowItem(row);
+  if index<0 then exit;
+  // Enter on one of several selected files opens them all; a double click has selected
+  // its row alone with the first click
+  if not table.IsSelected(row) or (table.SelectedCount<=1) then begin
+   table.selected:=row;
+   nameEdit.text:=items[index].name;
+   pickedName:=nameEdit.text;
   end;
+  Confirm;
  end;
 
  procedure TUIFileDialog.Confirm;
  var
   value:TFileDialogResult;
   path,ext:String8;
+  row,index:integer;
   exists:boolean;
  begin
   if finished then exit;
   try
-   path:=nameEdit.text;
-   if path='' then begin ShowError('Enter a file name'); exit; end;
-   if Files.IsPathRelative(path) then begin
-    if fFolder='' then begin ShowError('Choose a folder first'); exit; end;
-    path:=JoinPath(fFolder,path);
-   end;
-   path:=FullPath(path);
-   if Apus.Files.Folder.Exists(path) then begin
-    SetFolder(path);
-    nameEdit.text:='';
-    exit;
-   end;
-   value.typeIndex:=selectedType;
-   if (mode=fdSave) and (Files.GetExt(path)='') and
-      (value.typeIndex>=0) and (value.typeIndex<length(types)) then begin
-    ext:=types[value.typeIndex].ext;
-    if (ext<>'') and (ext[1]<>'.') then ext:='.'+ext;
-    path:=path+ext;
-   end;
-   if Apus.Files.Folder.Exists(path) then begin ShowError('The name belongs to a folder'); exit; end;
-   exists:=NativeFileExists(path);
-   if (mode=fdOpen) and not exists then begin ShowError('File not found: '+path); exit; end;
-   if not Apus.Files.Folder.Exists(Files.GetDir(path)) then begin
-    ShowError('Destination folder not found'); exit;
-   end;
-   if (mode=fdSave) and exists and (overwritePath<>path) then begin
-    overwritePath:=path;
-    ShowError('File exists. Press Save again to replace it.');
-    exit;
+   value:=Default(TFileDialogResult);
+   value.typeIndex:=-1;
+   // Several files: the selection itself, the quoted names only show it
+   if (table.SelectedCount>1) and (nameEdit.text=pickedName) then begin
+    for row in table.SelectedRows do begin
+     index:=RowItem(row);
+     if index<0 then continue;
+     path:=ItemPath(index);
+     if not NativeFileExists(path) then begin ShowError(Template(texts.fileNotFound,path)); exit; end;
+     value.paths:=value.paths+[path];
+    end;
+    if length(value.paths)=0 then exit;
+   end else begin
+    path:=nameEdit.text;
+    if path='' then begin ShowError(texts.enterName); exit; end;
+    if Files.IsPathRelative(path) then begin
+     if fFolder='' then begin ShowError(texts.chooseFolder); exit; end;
+     path:=JoinPath(fFolder,path);
+    end;
+    path:=FullPath(path);
+    if Apus.Files.Folder.Exists(path) then begin
+     SetFolder(path);
+     nameEdit.text:='';
+     exit;
+    end;
+    if (Mode=fdSave) and (fSaveType>=0) then begin
+     // a name of another listed type switches the format, a name of none gets the extension
+     index:=TypeOfName(path);
+     if index>=0 then SetSaveType(index)
+     else begin
+      ext:=fRequest.types[fSaveType].ext;
+      if (ext<>'') and (ext[1]<>'.') then ext:='.'+ext;
+      path:=path+ext;
+     end;
+     value.typeIndex:=fSaveType;
+    end;
+    if Apus.Files.Folder.Exists(path) then begin ShowError(texts.nameIsFolder); exit; end;
+    exists:=NativeFileExists(path);
+    if (Mode=fdOpen) and not exists then begin ShowError(Template(texts.fileNotFound,path)); exit; end;
+    if not Apus.Files.Folder.Exists(Files.GetDir(path)) then begin
+     ShowError(texts.destinationNotFound); exit;
+    end;
+    if (Mode=fdSave) and exists and (overwritePath<>path) and
+       not (fdoNoOverwritePrompt in fRequest.options) then begin
+     overwritePath:=path;
+     ShowError(Template(texts.confirmOverwrite,acceptButton.caption));
+     exit;
+    end;
+    value.paths:=[path];
    end;
    value.accepted:=true;
-   value.path:=path;
+   value.path:=value.paths[0];
    if Assigned(onValidate) and not onValidate(self,value) then exit;
+   RememberFolder(Files.GetDir(value.path));
    Finish(value);
   except
    on e:Exception do ShowError(String8(e.Message));
@@ -1494,9 +2126,9 @@ implementation
  var
   value:TFileDialogResult;
  begin
-  value.accepted:=false;
-  value.path:='';
-  value.typeIndex:=selectedType;
+  value:=Default(TFileDialogResult);
+  value.typeIndex:=-1;
+  if Mode=fdSave then value.typeIndex:=fSaveType;
   Finish(value);
  end;
 
@@ -1511,8 +2143,13 @@ implementation
 
  function TUIFileDialog.onHotKey(keycode:byte;shiftstate:byte):boolean;
  begin
-  result:=(TKey(keycode)=TKey.Escape) and (shiftstate=0);
-  if result then Cancel;
+  result:=shiftstate=0;
+  if not result then exit;
+  case TKey(keycode) of
+   TKey.Escape:Cancel;
+   TKey.F5:Reload;
+   else result:=false;
+  end;
  end;
 
  constructor TFileDialogScene.Create(const sceneName:String8;wnd:TWindow);
@@ -1526,6 +2163,15 @@ implementation
   dialog.SetAnchors(anchorAll);
   dialog.host:=self;
   frame.drawer:=DrawDialogFrame;
+  frame.styleInfo:=FRAME_STYLE;
+  closeButton:=TDialogButton.Create(30,22,frame,sceneName+'\Close');
+  TDialogButton(closeButton).handler:=dialog.Cancel;
+  closeButton.drawer:=DrawCloseButton;
+  closeButton.styleInfo:=CLOSE_STYLE;
+  closeButton.flags.noParentClip:=true;
+  closeButton.flags.canHaveFocus:=false;
+  closeButton.hint:='Cancel';
+  preferredW:=1020; preferredH:=610;
   onCreate;
  end;
 
@@ -1539,11 +2185,13 @@ implementation
  begin
   inherited;
   if frame=nil then exit;
-  frame.Resize(Math.Min(1020.0,UI.clientWidth-16),Math.Min(610.0,UI.clientHeight-16));
+  frame.Resize(Math.Min(preferredW,UI.clientWidth-16),Math.Min(preferredH,UI.clientHeight-16));
   // TUIWindow's edge dragging uses a top-left pivot. Centering with pivotCenter
   // makes both edges move when only the width changes.
   frame.SetPos((UI.clientWidth-frame.size.x)/2,(UI.clientHeight-frame.size.y)/2,pivotTopLeft);
   frame.SetAnchors(0.5,0.5,0.5,0.5);
+  closeButton.SetPos(frame.clientWidth+frame.padding.Right-2,-frame.padding.Top+(frame.padding.Top-22)/2,pivotTopRight);
+  closeButton.SetAnchors(1,0,1,0);
   dialog.LayoutControls;
  end;
 
@@ -1553,7 +2201,11 @@ implementation
  begin
   if IsActive then exit;
   onResize;
-  if dialog.mode=fdOpen then frame.caption:='Open' else frame.caption:='Save As';
+  if dialog.request.title<>'' then frame.caption:=dialog.request.title
+   else if dialog.request.mode=fdOpen then frame.caption:=dialog.texts.openTitle
+   else frame.caption:=dialog.texts.saveTitle;
+  closeButton.hint:=dialog.texts.cancel;
+  openedLayout:=Layout;
   f:=FocusedElement;
   if (f<>nil) and f.Acquire then prevFocus:=f;
   // Immediate show/hide keeps completion deterministic and permits opening another dialog
@@ -1569,6 +2221,8 @@ implementation
  var
   f:TUIElement;
  begin
+  // the size the user gave the frame is kept for the next request
+  preferredW:=frame.size.x; preferredH:=frame.size.y;
   TShowWindowEffect.Create(self,0,sweHide,0);
   FreeAndNil(effect);
   f:=prevFocus;
@@ -1577,6 +2231,78 @@ implementation
    if not f.deleted and f.IsVisible and f.IsEnabled then f.SetFocus;
    f.Release;
   end;
+  if Assigned(onLayoutChanged) and not SameLayout(Layout,openedLayout) then onLayoutChanged;
  end;
 
+ function SameLayout(const a,b:TFileDialogLayout):boolean;
+ var
+  i:integer;
+ begin
+  result:=(round(a.width)=round(b.width)) and (round(a.height)=round(b.height)) and
+    (a.sortColumn=b.sortColumn) and (a.sortDescending=b.sortDescending) and
+    (length(a.columns)=length(b.columns));
+  if result then
+   for i:=0 to high(a.columns) do
+    if round(a.columns[i])<>round(b.columns[i]) then exit(false);
+ end;
+
+ // A flexible column is saved as 0: it takes the room the others leave
+ function TFileDialogScene.Layout:TFileDialogLayout;
+ var
+  table:TUITable;
+  i:integer;
+ begin
+  table:=dialog.table;
+  result.width:=preferredW;
+  result.height:=preferredH;
+  if IsActive then begin
+   result.width:=frame.size.x;
+   result.height:=frame.size.y;
+  end;
+  SetLength(result.columns,length(table.columns));
+  for i:=0 to high(table.columns) do
+   if table.columns[i].flexible then result.columns[i]:=0
+    else result.columns[i]:=table.ColumnWidth(i);
+  result.sortColumn:=table.sortColumn;
+  result.sortDescending:=table.sortDescending;
+ end;
+
+ procedure TFileDialogScene.SetLayout(const value:TFileDialogLayout);
+ var
+  table:TUITable;
+  i:integer;
+ begin
+  table:=dialog.table;
+  if value.width>0 then preferredW:=Math.Max(value.width,frame.minW);
+  if value.height>0 then preferredH:=Math.Max(value.height,frame.minH);
+  for i:=0 to Math.Min(high(value.columns),high(table.columns)) do
+   if table.columns[i].flexible then table.SetColumnWidth(i,0)
+    else if value.columns[i]>0 then table.SetColumnWidth(i,value.columns[i]);
+  if (value.sortColumn>=0) and (value.sortColumn<=high(table.columns)) and
+     (table.columns[value.sortColumn].sort<>tsNone) then
+   table.SortBy(value.sortColumn,value.sortDescending)
+  else table.SortBy(0);
+  if IsActive then onResize;
+ end;
+
+ procedure DefineToken(const name,value:String8);
+ begin
+  if not HasToken(name) then SetToken(name,value);
+ end;
+
+initialization
+ DefineToken('file-dialog-fill','&surface');
+ DefineToken('file-dialog-panel','&surface-alt');
+ DefineToken('file-dialog-header','&overlay');
+ DefineToken('file-dialog-hover','&control');
+ DefineToken('file-dialog-border','&border-dark');
+ DefineToken('file-dialog-text','&text');
+ DefineToken('file-dialog-muted','&text-muted');
+ DefineToken('file-dialog-disabled','&text-muted');
+ DefineToken('file-dialog-selection','&accent');
+ DefineToken('file-dialog-selection-text','&accent-text');
+ DefineToken('file-dialog-accent','&accent');
+ DefineToken('file-dialog-favorite','&warning');
+ DefineToken('file-dialog-error','&danger');
+ DefineToken('file-dialog-font-size','9');
 end.
