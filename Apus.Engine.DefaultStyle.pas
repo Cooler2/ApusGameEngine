@@ -925,8 +925,8 @@ implementation
   // the columns are clipped by the rows' width (the scrollbar keeps its place)
   function ColumnRect(col:integer;y1,y2:integer):TRect;
    begin
-    result.Left:=r.Left+round(table.ColumnLeft(col)*scale);
-    result.Right:=Min(rowsRight,r.Left+round((table.ColumnLeft(col)+table.ColumnWidth(col))*scale));
+    result.Left:=r.Left+round((table.ColumnLeft(col)-table.ScrollX)*scale);
+    result.Right:=Min(rowsRight,r.Left+round((table.ColumnLeft(col)+table.ColumnWidth(col)-table.ScrollX)*scale));
     result.Top:=y1;
     result.Bottom:=y2;
    end;
@@ -950,13 +950,14 @@ implementation
    font:=table.StyleFont;
    scale:=table.globalScale;
    r:=table.GetClientPosOnScreen;
+   r.Bottom:=r.Top+round((table.headerHeight+table.RowsHeight)*table.globalScale);
    textColor:=table.GetStyleColor('color',$FFE0E0E0);
    selColor:=table.GetStyleColor('selection-color',textColor);
    lineColor:=table.GetStyleColor('line-color',$40808080);
    pad:=round(5*scale);
    headerBottom:=r.Top+round(table.headerHeight*scale);
    rowsRight:=r.Left+round(table.RowsWidth*scale);
-   gfx.clip.Rect(r);
+   gfx.clip.Rect(Rect(r.Left,r.Top,rowsRight,r.Bottom));
    // rows
    rowH:=table.rowHeight*scale;
    pos:=table.ScrollPos*scale;

@@ -47,7 +47,7 @@ interface
   TUITable=class(TUIScrollable)
    columns:array of TTableColumn;
    rowHeight,headerHeight:single;
-   resizeColumns:boolean; // drag an interior header separator; adjacent widths keep their sum
+   resizeColumns:boolean; // drag a header separator; columns to its right move without changing width
    onSelect:TTableEvent;   // the selected row changed, row -1 - none
    onActivate:TTableEvent; // double click or Enter on a row
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
@@ -68,6 +68,8 @@ interface
    function ColumnLeft(col:integer):single;
    function ColumnWidth(col:integer):single;
    function RowsWidth:single;              // the client width without the scrollbar
+   function RowsHeight:single;             // visible rows below the header, above the horizontal bar
+   function ScrollX:single;
    function ScrollPos:single;              // how far the rows are scrolled up
    function ColumnAt(x:single):integer;    // -1 - no column there
    function RowAtPoint(x,y:single):integer; // -1 - the header or below the last row
@@ -90,7 +92,7 @@ interface
    fHoverRow,fHoverColumn:integer;
    lastClickRow:integer;
    lastClickTime:int64;
-   resizeColumn,resizeFill:integer;
+   resizeColumn:integer;
    resizeStartX:single;
    resizeWidths:array of single;
    function SeparatorAt(x,y:single):integer;
@@ -176,6 +178,9 @@ implementation
    bar.SetPos(clientWidth,headerHeight,pivotTopRight).SetAnchors(1,0,1,1);
    bar.flags.noParentClip:=true;
    scrollerV:=bar.GetScroller;
+   bar:=TUIScrollBar.CreateH(clientWidth,SCROLLBAR_WIDTH,self,name+'_scrollH');
+   bar.flags.noParentClip:=true;
+   scrollerH:=bar.GetScroller;
    UpdateScroller;
   end;
 
@@ -355,7 +360,7 @@ implementation
    place:=PlaceOf(row);
    if place<0 then exit;
    top:=place*rowHeight;
-   view:=clientHeight-headerHeight;
+   view:=RowsHeight;
    pos:=ScrollPos;
    if top<pos then scrollerV.SetValue(top)
     else if top+rowHeight>pos+view then scrollerV.SetValue(top+rowHeight-view);
@@ -365,6 +370,19 @@ implementation
   begin
    result:=clientWidth;
    if scrollerV.GetElement.flags.visible then result:=result-scrollerV.GetElement.width;
+  end;
+
+ function TUITable.RowsHeight:single;
+  begin
+   result:=Max(0,clientHeight-headerHeight);
+   if (scrollerH<>nil) and scrollerH.GetElement.flags.visible then
+    result:=Max(0,result-SCROLLBAR_WIDTH);
+  end;
+
+ function TUITable.ScrollX:single;
+  begin
+   result:=0;
+   if scrollerH<>nil then result:=scrollerH.GetValue;
   end;
 
  function TUITable.ColumnWidth(col:integer):single;
@@ -400,6 +418,8 @@ implementation
    left,w:single;
   begin
    left:=0;
+   if (x<0) or (x>=RowsWidth) then exit(-1);
+   x:=x+ScrollX;
    if x>=0 then
     for i:=0 to high(columns) do begin
      w:=ColumnWidth(i);
@@ -411,24 +431,39 @@ implementation
 
  function TUITable.RowAtPoint(x,y:single):integer;
   begin
-   if (y<headerHeight) or (y>=clientHeight) or (x<0) or (x>=RowsWidth) then exit(-1);
+   if (y<headerHeight) or (y>=headerHeight+RowsHeight) or (x<0) or (x>=RowsWidth) then exit(-1);
    result:=RowAt(trunc((y-headerHeight+ScrollPos)/rowHeight));
   end;
 
  procedure TUITable.UpdateScroller;
   var
-   bar:TUIElement;
-   view,total:single;
+   bar,hbar:TUIElement;
+   view,total,totalWidth:single;
+   i,pass:integer;
   begin
-   view:=Max(0,clientHeight-headerHeight);
+   if (scrollerV=nil) or (scrollerH=nil) then exit;
+   bar:=scrollerV.GetElement; hbar:=scrollerH.GetElement;
    total:=length(rows)*rowHeight;
+   bar.flags.visible:=false; hbar.flags.visible:=false;
+   // Either bar may make the other necessary. Starting without bars converges
+   // in at most three passes; flexible columns use the resulting viewport width.
+   for pass:=0 to 2 do begin
+    totalWidth:=0;
+    for i:=0 to high(columns) do totalWidth:=totalWidth+ColumnWidth(i);
+    hbar.flags.visible:=totalWidth>RowsWidth+0.01;
+    bar.flags.visible:=total>RowsHeight;
+   end;
+   view:=RowsHeight;
    scrollerV.SetRange(0,total);
    scrollerV.SetPageSize(view);
    scrollerV.SetStep(rowHeight*Max(1,round(view/rowHeight) div 2));
-   bar:=scrollerV.GetElement;
    bar.SetPos(clientWidth,headerHeight,pivotTopRight);
    bar.size.y:=view;
-   bar.flags.visible:=total>view;
+   scrollerH.SetRange(0,totalWidth);
+   scrollerH.SetPageSize(RowsWidth);
+   scrollerH.SetStep(Max(20,RowsWidth/3));
+   hbar.SetPos(0,clientHeight,pivotBottomLeft);
+   hbar.size.x:=RowsWidth;
   end;
 
  procedure TUITable.SetupScrollers;
@@ -481,7 +516,7 @@ implementation
    result:=true;
    n:=length(rows);
    place:=PlaceOf(fSelected);
-   page:=Max(1,trunc((clientHeight-headerHeight)/rowHeight)-1);
+   page:=Max(1,trunc(RowsHeight/rowHeight)-1);
    case TKey(keycode) of
     TKey.Up:if place<0 then place:=n-1 else dec(place);
     TKey.Down:inc(place);
@@ -523,7 +558,7 @@ implementation
  begin
   result:=-1;
   if not resizeColumns or (y<0) or (y>=headerHeight) then exit;
-  edge:=0;
+  edge:=-ScrollX;
   for i:=0 to high(columns)-1 do begin
    edge:=edge+ColumnWidth(i);
    if (edge>0) and (edge<RowsWidth) and (Abs(x-edge)<=4) then exit(i);
@@ -547,7 +582,7 @@ implementation
  procedure TUITable.onMouseMove;
   var
    p:TVec2;
-   delta,minWidth:single;
+   delta:single;
    i:integer;
   begin
    inherited;
@@ -559,13 +594,10 @@ implementation
      StopResize;
      exit;
     end;
-    minWidth:=Max(20,Min(40,Min(resizeWidths[resizeColumn],resizeWidths[resizeColumn+1])));
-    delta:=Clamp((curMouseX-resizeStartX)/globalScale,
-      minWidth-resizeWidths[resizeColumn],resizeWidths[resizeColumn+1]-minWidth);
+    delta:=(curMouseX-resizeStartX)/globalScale;
     for i:=0 to high(columns) do columns[i].width:=resizeWidths[i];
-    columns[resizeColumn].width:=resizeWidths[resizeColumn]+delta;
-    columns[resizeColumn+1].width:=resizeWidths[resizeColumn+1]-delta;
-    if resizeFill>=0 then columns[resizeFill].width:=0;
+    columns[resizeColumn].width:=Max(40,resizeWidths[resizeColumn]+delta);
+    UpdateScroller;
     exit;
    end;
    cursor:=0;
@@ -594,15 +626,8 @@ implementation
    if col>=0 then begin
     resizeColumn:=col;
     resizeStartX:=curMouseX;
-    resizeFill:=-1;
     SetLength(resizeWidths,length(columns));
-    for i:=0 to high(columns) do begin
-     resizeWidths[i]:=ColumnWidth(i);
-     if columns[i].width<=0 then resizeFill:=i;
-    end;
-    // Preserve one flexible column, preferring a member of the resized pair.
-    if columns[col].width<=0 then resizeFill:=col;
-    if columns[col+1].width<=0 then resizeFill:=col+1;
+    for i:=0 to high(columns) do resizeWidths[i]:=ColumnWidth(i);
     hooked:=self;
     cursor:=CursorID.ResizeW;
     lastClickRow:=-1;
