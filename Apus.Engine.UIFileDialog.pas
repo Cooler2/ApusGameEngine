@@ -50,10 +50,11 @@ interface
   // Change them before Setup: the request applies them.
   TFileDialogTexts=record
    openTitle,saveTitle,open,save,cancel,nameLabel:String8;
-   filterPlaceholder,filterHint,clearFilterHint,parentHint,formatHint:String8;
+   nameHint,parentHint,formatHint:String8;
    pinHint,unpinHint:String8;
    allTypes,allTypesHint,allFiles,allFilesHint,typeHint:String8; // typeHint: '%s' - the type with masks
    nameColumn,modifiedColumn,sizeColumn:String8;
+   maskColumn:String8; // the name column under a mask: '%s' - the mask
    addFavoriteHint,removeFavoriteHint,unpinRecentHint,removeEntryHint:String8;
    enterName,chooseFolder,nameIsFolder,fileNotFound,folderNotFound,destinationNotFound:String8;
    confirmOverwrite:String8; // '%s' - the accept caption
@@ -68,7 +69,7 @@ interface
   end;
 
   // Glyphs of the buttons, the tree and the places list
-  TFileDialogGlyph=(fgAddFavorite,fgFavorite,fgRemove,fgExpand,fgCollapse,fgClear,fgUp,fgRecent,fgClose);
+  TFileDialogGlyph=(fgAddFavorite,fgFavorite,fgRemove,fgExpand,fgCollapse,fgUp,fgRecent,fgClose);
   // Draw a glyph centered in r (screen pixels) in an ARGB color; scale - screen pixels per
   // UI unit. False - draw the built-in vector glyph. Clipping is already set by the caller.
   TFileDialogGlyphDrawer=function(glyph:TFileDialogGlyph;const r:TRect;color:cardinal;scale:single):boolean of object;
@@ -110,7 +111,7 @@ interface
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure Resize(newWidth,newHeight:single); override;
   protected
-   pathEdit,nameEdit,filterEdit:TUIEditBox;
+   pathEdit,nameEdit:TUIEditBox;
    typeBar:TUIElement;
    allTypeButton,allFilesButton:TUIToggleButton;
    typeButtons:array of TUIToggleButton;
@@ -120,13 +121,13 @@ interface
    navigationPanel,driveBar:TUIElement;
    directoryOutline,locationsList:TUITable;
    pinButton:TUIButton;
-   filterClearButton:TUIButton;
    procedure CreateControls; virtual;
    procedure LayoutControls; virtual;
   private
    fRequest:TFileDialogRequest;
    fFolder,overwritePath:String8;
    pickedName:String8; // the name (or the quoted names) the table put into nameEdit
+   nameMask:String8;   // the masks typed into nameEdit, '' - none
    listedFolder:String8; // the folder items were read from
    restoring:boolean;    // Refresh puts the selection back
    items:TFolderItems;
@@ -141,8 +142,10 @@ interface
    function Template(const pattern,value:String8):String8;
    procedure ApplyTexts;
    procedure Refresh(reload:boolean=true);
-   procedure FilterChanged;
-   procedure ClearFilter;
+   procedure NameTyped;
+   procedure SetNameMask(const mask:String8);
+   procedure EnterNameMask;
+   procedure UpdateNameColumn;
    procedure BuildDrives;
    procedure BuildTypes;
    procedure BuildFormats;
@@ -209,7 +212,6 @@ implementation
   TDialogEdit=class(TUIEditBox)
    dialog:TUIFileDialog;
    isPath:boolean;
-   isFilter:boolean;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onUniChar(ch:Char32;scancode:byte); override;
   end;
@@ -332,7 +334,7 @@ implementation
     ThickLine(x-3.5*scale,y-0.5*scale,x,y-4*scale,1.5*scale,ink);
     ThickLine(x+3.5*scale,y-0.5*scale,x,y-4*scale,1.5*scale,ink);
    end;
-   fgRemove,fgClear,fgClose:begin
+   fgRemove,fgClose:begin
     ThickLine(x-3.4*scale,y-3.4*scale,x+3.4*scale,y+3.4*scale,1.5*scale,ink);
     ThickLine(x-3.4*scale,y+3.4*scale,x+3.4*scale,y-3.4*scale,1.5*scale,ink);
    end;
@@ -384,11 +386,6 @@ implementation
   dialog:=TUIFileDialog(element.parent);
   if PathIndex(dialog.favoriteFolders,dialog.Folder)>=0 then kind:=fgFavorite else kind:=fgAddFavorite;
   DrawBadge(element,element.globalRect,element.globalScale,kind,element.IsEnabled);
- end;
-
- procedure DrawClearFilter(element:TUIElement);
- begin
-  DrawBadge(element,element.globalRect,element.globalScale,fgClear,element.IsEnabled);
  end;
 
  procedure DrawUpButton(element:TUIElement);
@@ -873,23 +870,56 @@ implementation
   result:=result+' '+UNITS[u];
  end;
 
- // '*' and '?' wildcards; the name and the ';'-separated masks are lowercased by the caller.
- // Temporary until Files matches masks itself (PaintRaw E-29)
+ // The index after the UTF-8 character at i
+ function NextChar(const s:String8;i:integer):integer;
+ begin
+  result:=i+1;
+  while (result<=length(s)) and ((byte(s[result]) and $C0)=$80) do inc(result);
+ end;
+
+ // '*' and '?' wildcards, '?' is one character; the name and the ';'-separated masks are
+ // lowercased by the caller. Temporary until Files matches masks itself (PaintRaw E-29)
  function MatchesMask(const name,mask:String8):boolean;
  var
   n,m,starN,starM:integer;
  begin
   n:=1; m:=1; starN:=0; starM:=0;
   while n<=length(name) do
-   if (m<=length(mask)) and ((mask[m]='?') or (mask[m]=name[n])) then begin
-    inc(n); inc(m);
-   end else if (m<=length(mask)) and (mask[m]='*') then begin
+   if (m<=length(mask)) and (mask[m]='*') then begin
     starM:=m; starN:=n; inc(m);
+   end else if (m<=length(mask)) and (mask[m]='?') then begin
+    n:=NextChar(name,n); inc(m);
+   end else if (m<=length(mask)) and (mask[m]=name[n]) then begin
+    inc(n); inc(m);
    end else if starM>0 then begin
-    m:=starM+1; inc(starN); n:=starN;
+    m:=starM+1; starN:=NextChar(name,starN); n:=starN;
    end else exit(false);
   while (m<=length(mask)) and (mask[m]='*') do inc(m);
   result:=m>length(mask);
+ end;
+
+ function HasWildcards(const s:String8):boolean;
+ begin
+  result:=(Pos(String8('*'),s)>0) or (Pos(String8('?'),s)>0);
+ end;
+
+ // Masks of the name field: a mask with no dot also matches the name without its
+ // extension, so '*_n' finds rock_n.png
+ function MatchesNameMasks(const name,masks:String8):boolean;
+ var
+  i,start:integer;
+  mask,stem:String8;
+ begin
+  stem:=Files.ChangeExt(name,'');
+  start:=1;
+  for i:=1 to length(masks)+1 do
+   if (i>length(masks)) or (masks[i] in [';',',']) then begin
+    mask:=copy(masks,start,i-start).Trim;
+    if (mask<>'') and (MatchesMask(name,mask) or ((Pos(String8('.'),mask)=0) and MatchesMask(stem,mask))) then
+     exit(true);
+    start:=i+1;
+   end;
+  result:=false;
  end;
 
  function MatchesMasks(const name,masks:String8):boolean;
@@ -1190,17 +1220,13 @@ implementation
   old:String8;
  begin
   if pressed and (TKey(keycode)=TKey.Enter) and (shiftstate=0) then begin
-   if isPath then dialog.PathEntered
-   else if isFilter then begin
-    dialog.table.SetFocus;
-    dialog.table.selected:=dialog.table.RowAt(0);
-   end else dialog.Confirm;
+   if isPath then dialog.PathEntered else dialog.Confirm;
    exit(false);
   end;
   old:=text;
   result:=inherited onKey(keycode,pressed,shiftstate);
   if text<>old then
-   if isFilter then dialog.FilterChanged else dialog.Edited;
+   if isPath then dialog.Edited else dialog.NameTyped;
  end;
 
  procedure TDialogEdit.onUniChar(ch:Char32;scancode:byte);
@@ -1210,7 +1236,7 @@ implementation
   old:=text;
   inherited;
   if text<>old then
-   if isFilter then dialog.FilterChanged else dialog.Edited;
+   if isPath then dialog.Edited else dialog.NameTyped;
  end;
 
  procedure TTypeChip.DoClick;
@@ -1248,9 +1274,7 @@ implementation
   with result do begin
    openTitle:='Open'; saveTitle:='Save As';
    open:='Open'; save:='Save'; cancel:='Cancel'; nameLabel:='Name:';
-   filterPlaceholder:='Filter by name...';
-   filterHint:='Show file names containing this text, ignoring case';
-   clearFilterHint:='Clear name filter';
+   nameHint:='A file name; * and ? make a mask that filters the list: *.png, *_n';
    parentHint:='Parent folder';
    formatHint:='File format';
    pinHint:='Add current folder to favorites';
@@ -1259,6 +1283,7 @@ implementation
    allFiles:='*.*'; allFilesHint:='All files';
    typeHint:='%s. Ctrl+click changes only this filter.';
    nameColumn:='Name'; modifiedColumn:='Modified'; sizeColumn:='Size';
+   maskColumn:='Name: %s';
    addFavoriteHint:='Add folder to favorites';
    removeFavoriteHint:='Remove folder from favorites';
    unpinRecentHint:='Unpin folder (keep in Recent)';
@@ -1305,13 +1330,11 @@ implementation
  procedure TUIFileDialog.ApplyTexts;
  begin
   upButton.hint:=texts.parentHint;
-  table.columns[0].caption:=texts.nameColumn;
+  UpdateNameColumn;
   table.columns[1].caption:=texts.modifiedColumn;
   table.columns[2].caption:=texts.sizeColumn;
   nameLabel.caption:=texts.nameLabel;
-  filterEdit.defaultText:=UTF8.Decode(texts.filterPlaceholder);
-  filterEdit.hint:=texts.filterHint;
-  filterClearButton.hint:=texts.clearFilterHint;
+  nameEdit.hint:=texts.nameHint;
   formatButton.hint:=texts.formatHint;
   cancelButton.caption:=texts.cancel;
   if fRequest.acceptCaption<>'' then acceptButton.caption:=fRequest.acceptCaption
@@ -1366,10 +1389,6 @@ implementation
   formatButton:=Button('Format','',ShowFormats);
   formatButton.drawer:=DrawFormatButton;
   formatMenu:=TUIPopupMenu.Create(self,name+'\Formats');
-  filterEdit:=Edit('NameFilter',false);
-  TDialogEdit(filterEdit).isFilter:=true;
-  filterClearButton:=Button('ClearFilter','',ClearFilter);
-  filterClearButton.drawer:=DrawClearFilter;
   typeBar:=TUIElement.Create(100,28,self,name+'\Types');
   messageLabel:=TUILabel.Create(100,24,self,name+'\Message');
   messageLabel.SetPaddings(6,0,6,0);
@@ -1406,7 +1425,7 @@ implementation
 
  procedure TUIFileDialog.LayoutControls;
  var
-  w,h,left,right,bottom,navH,navW,locationsH,chipWidth,tableTop,footer,nameY,filterW,slotW:single;
+  w,h,left,right,bottom,navH,navW,locationsH,chipWidth,tableTop,footer,nameY,slotW:single;
   i:integer;
  procedure Place(e:TUIElement;x,y,w,h:single);
  begin
@@ -1442,19 +1461,12 @@ implementation
   Place(pathEdit,left,8,right-left-72,28);
   Place(upButton,right-64,8,28,28);
   Place(pinButton,right-28,8,28,28);
-  tableTop:=80;
-  filterW:=Math.Max(180.0,(right-left)*0.32);
-  if right-left>=600 then begin
-   Place(typeBar,left,44,right-left-filterW-8,28);
-   Place(filterEdit,right-filterW,44,filterW-32,28);
-   Place(filterClearButton,right-28,44,28,28);
-  end else begin
+  // a request without types has no chips and no row for them
+  typeBar.flags.visible:=length(typeBar.children)>0;
+  tableTop:=44;
+  if typeBar.flags.visible then begin
    Place(typeBar,left,44,right-left,28);
-   Place(filterEdit,left,80,right-left-32,28);
-   Place(filterClearButton,right-28,80,28,28);
-   tableTop:=116;
-  end;
-  if length(typeBar.children)>0 then begin
+   tableTop:=80;
    // equal chips from the left, never wider than a short caption needs
    chipWidth:=Math.Min(68.0,typeBar.clientWidth/length(typeBar.children));
    for i:=0 to high(typeBar.children) do Place(typeBar.children[i],i*chipWidth,0,chipWidth-4,28);
@@ -1518,11 +1530,13 @@ implementation
   if filter>=0 then activeTypes[filter]:=true;
   BuildTypes;
   BuildFormats;
+  // a mask for a name starts the request filtered
+  nameMask:='';
+  if HasWildcards(fRequest.fileName) and (Files.GetName(fRequest.fileName)=fRequest.fileName) then
+   nameMask:=fRequest.fileName;
   ApplyTexts;
   nameEdit.text:=fRequest.fileName;
   pickedName:='';
-  filterEdit.text:='';
-  filterClearButton.flags.enabled:=false;
   BuildDrives;
   TDirectoryOutline(directoryOutline).Reload;
   listedFolder:=''; // a new request reads the folder again and selects nothing
@@ -1607,7 +1621,7 @@ implementation
   end;
  end;
 
- // The folder is read once: type chips and the name filter only filter that listing.
+ // The folder is read once: type chips and the name mask only filter that listing.
  // The selected file stays selected while it passes the filters of the same folder.
  procedure TUIFileDialog.Refresh(reload:boolean);
  var
@@ -1632,7 +1646,7 @@ implementation
   if not allFiles then
    for i:=0 to high(activeTypes) do
     if allTypes or activeTypes[i] then masks:=masks+';'+UTF8.ToLower(fRequest.types[i].masks);
-  query:=UTF8.ToLower(filterEdit.text);
+  query:=UTF8.ToLower(nameMask);
   keepRows:=nil;
   focusRow:=-1;
   for i:=0 to high(items) do with items[i] do begin
@@ -1640,7 +1654,7 @@ implementation
    if hidden and not showHidden then continue;
    lowName:=UTF8.ToLower(name);
    if (masks<>'') and not MatchesMasks(lowName,masks) then continue;
-   if (query<>'') and (Pos(query,lowName)=0) then continue;
+   if (query<>'') and not MatchesNameMasks(lowName,query) then continue;
    row:=table.AddRow(i);
    table.SetCell(row,0,name);
    table.SetCell(row,1,String8(FormatDateTime('yyyy-mm-dd hh:nn',info.timestamp)),info.timestamp);
@@ -1667,18 +1681,62 @@ implementation
   TDirectoryOutline(directoryOutline).Build(fFolder);
  end;
 
- procedure TUIFileDialog.FilterChanged;
+ // A typed mask filters the listing at once, a mask with a folder waits for Enter; any other
+ // typed text removes the mask. A name the table puts into the field keeps the mask.
+ procedure TUIFileDialog.NameTyped;
+ var
+  value:String8;
  begin
-  filterClearButton.flags.enabled:=filterEdit.text<>'';
   Edited;
+  value:=nameEdit.text;
+  if not HasWildcards(value) then SetNameMask('')
+   else if Files.GetName(value)=value then SetNameMask(value);
+ end;
+
+ procedure TUIFileDialog.SetNameMask(const mask:String8);
+ begin
+  if mask=nameMask then exit;
+  nameMask:=mask;
+  UpdateNameColumn;
+  // the typed text no longer names the selected files: Refresh must not put them back
+  restoring:=true;
+  try
+   table.selected:=-1;
+  finally
+   restoring:=false;
+  end;
   Refresh(false);
  end;
 
- procedure TUIFileDialog.ClearFilter;
+ // Enter on a mask opens its folder, if it has one, and goes to the first file it lists
+ procedure TUIFileDialog.EnterNameMask;
+ var
+  value,mask,dir:String8;
  begin
-  filterEdit.text:='';
-  FilterChanged;
-  filterEdit.SetFocus;
+  value:=nameEdit.text;
+  mask:=Files.GetName(value);
+  if mask<>value then begin
+   dir:=Files.GetDir(value);
+   if Files.IsPathRelative(dir) and (fFolder<>'') then dir:=JoinPath(fFolder,dir);
+   dir:=Files.GetFullName(JoinPath(dir,'.'));
+   if HasWildcards(dir) or not Apus.Files.Folder.Exists(dir) then begin
+    ShowError(Template(texts.folderNotFound,dir));
+    exit;
+   end;
+   SetFolder(dir);
+   nameEdit.text:=mask;
+  end;
+  SetNameMask(mask);
+  if table.RowCount=0 then exit;
+  table.SetFocus;
+  table.selected:=table.RowAt(0);
+ end;
+
+ // The caption of the name column shows the mask: the name field may hold a file name
+ procedure TUIFileDialog.UpdateNameColumn;
+ begin
+  if nameMask='' then table.columns[0].caption:=texts.nameColumn
+   else table.columns[0].caption:=Template(texts.maskColumn,nameMask);
  end;
 
  // The short caption of a type: its extension in capitals, or the title
@@ -1798,7 +1856,8 @@ implementation
   fileName:=nameEdit.text;
   ext:=fRequest.types[index].ext;
   if (ext<>'') and (ext[1]<>'.') then ext:='.'+ext;
-  if (ext<>'') and (Files.GetExt(fileName)<>'') and (TypeOfName(fileName)=fSaveType) then
+  if (ext<>'') and not HasWildcards(fileName) and (Files.GetExt(fileName)<>'') and
+     (TypeOfName(fileName)=fSaveType) then
    nameEdit.text:=Files.ChangeExt(fileName,ext);
   fSaveType:=index;
   formatButton.caption:=TypeCaption(fRequest.types[index]);
@@ -2035,6 +2094,11 @@ implementation
  begin
   if finished then exit;
   try
+   // A typed mask filters, it never names a file; a name the table put in is a name
+   if (nameEdit.text<>pickedName) and HasWildcards(nameEdit.text) then begin
+    EnterNameMask;
+    exit;
+   end;
    value:=Default(TFileDialogResult);
    value.typeIndex:=-1;
    // Several files: the selection itself, the quoted names only show it
