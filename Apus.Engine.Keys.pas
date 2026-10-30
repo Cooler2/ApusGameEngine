@@ -17,7 +17,7 @@
 // Legacy interop: ToLegacy/FromLegacy convert to/from the old
 // sscShift=1, sscCtrl=2, sscAlt=4, sscWin=8 bitmask format.
 //
-// Author: Ivan Polyacov, Apus Software (ivan@astralheroes.com)
+// Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 // -----------------------------------------------------

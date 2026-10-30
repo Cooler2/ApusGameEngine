@@ -1,8 +1,8 @@
 ﻿// -----------------------------------------------------
 // 2D geometry common high-precision functions
-// Author: Ivan Polyacov (C) 2002, Apus Software (ivan@astralheroes.com)
+// Author: Ivan Polyacov (C) 2002, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 // ------------------------------------------------------
 {$EXCESSPRECISION OFF}
 unit Apus.Geom2D;

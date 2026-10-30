@@ -10,9 +10,9 @@
 // Contains: THashMap<TValue> (String8 keys, case-insensitive), THashMapInt (integer values),
 // THashMapStr (String8 values). Open-addressing with linear probing, thread-safe via SpinLock.
 //
-// Copyright (C) Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}
 unit Apus.HashMaps;
 {$Q-} // overflow checks off: hash functions rely on unsigned wraparound

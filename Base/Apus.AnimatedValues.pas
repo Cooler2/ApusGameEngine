@@ -1,9 +1,9 @@
 ﻿// Object for a numeric value with smooth animation over time
 //
 // Copyright (C) 2018 Apus Software
-// Author: Ivan Polyacov (ivan@astralheroes.com)
+// Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.AnimatedValues;
 
 interface

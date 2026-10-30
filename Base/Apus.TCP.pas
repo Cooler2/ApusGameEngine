@@ -1,6 +1,6 @@
 ﻿// TCP client/server library: single-threaded, nonblocking.
 
-// Copyright (C) 2023 Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) 2023 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}

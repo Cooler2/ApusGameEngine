@@ -1,6 +1,6 @@
 // Minimal self-hosted HTTP/1.1 server over Apus.TCP.
 
-// Copyright (C) 2026 Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) 2026 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}

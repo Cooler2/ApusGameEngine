@@ -1,5 +1,5 @@
 ﻿// Game Framework launcher class
-// Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
+// Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 

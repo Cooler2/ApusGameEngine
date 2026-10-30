@@ -3,7 +3,7 @@
 // Complex text can be stored in different forms including HTML-style simplified markup language (SML)
 // This unit contains wide set of routines for manipulation with complex text strings
 //
-// Copyright (C) 2015 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
+// Copyright (C) 2015 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.ComplexText;

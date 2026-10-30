@@ -10,7 +10,7 @@
 //   Steam\DlcInstalled                     tag = AppID of the DLC (the user gained it and it is installed)
 //   Steam\MicroTxnAuthorization\<OrderID>  tag = 1 if the user authorized the transaction, 0 otherwise
 //
-// Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@astralheroes.com)
+// Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}

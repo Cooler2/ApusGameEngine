@@ -11,7 +11,7 @@
 // memory operations (Mem scope), bit manipulation (Bits scope), exceptions with stack traces,
 // stack inspection (Stack scope), high-precision time (Time scope), spinlocks.
 //
-// Copyright (C) Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 

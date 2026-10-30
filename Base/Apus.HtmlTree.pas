@@ -1,9 +1,9 @@
 ﻿// Simple HTML parser
 // Reference: https://www.w3.org/TR/2016/REC-html51-20161101/syntax.html
 
-// Copyright (C) 2023 Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) 2023 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.HtmlTree;
 interface
 uses Apus.Core, Apus.Types, Apus.HashMaps;

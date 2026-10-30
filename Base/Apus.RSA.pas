@@ -2,7 +2,7 @@
 // Uses Miller-Rabin primality test and Extended Euclidean algorithm
 //
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}
 unit Apus.RSA;
 interface

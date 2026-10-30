@@ -2,7 +2,7 @@
 // Reimplements the net.pas message protocol (login/auth, batched POST, comet long-poll)
 // on top of the cross-platform Apus.HttpServer, byte-compatible with the client.
 
-// Copyright (C) 2026 Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) 2026 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.HttpGameServer;

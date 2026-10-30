@@ -1,9 +1,9 @@
 ﻿// This unit contains some useful types (except simple types and classes) and helpers
 // The structures defined here are not thread-safe
 
-// Copyright (C) 2021 Ivan Polyacov, ivan@astralheroes.com
+// Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Types;
 interface
 uses Apus.Core;

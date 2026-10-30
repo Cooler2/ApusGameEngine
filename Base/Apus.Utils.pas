@@ -9,9 +9,9 @@
 // DON'T ADD: Core math/memory (→ Core), type conversion (→ Conv), string operations (→ Strings),
 // file I/O (→ Files), logging (→ Log), threading (→ Threads).
 //
-// Copyright (C) 2004-2026 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
+// Copyright (C) 2004-2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}
 unit Apus.Utils;
 interface
