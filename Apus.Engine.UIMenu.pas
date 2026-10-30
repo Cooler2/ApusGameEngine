@@ -3,7 +3,7 @@
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 // ------------------------------------------------------
 
 unit Apus.Engine.UIMenu;
@@ -17,12 +17,10 @@ interface
   // Menu line: a button that draws its caption on the left and the shortcut text on the right.
   // Not focusable: the menu keeps the focus and tracks the current line.
   // A disabled line stays visible but never becomes current.
-  // The command is any of the button handlers - onClick, onClickAsync, onClickEvent - or
-  // a method in 'handler' (onClick can't take a method under FPC); all run after the menu
-  // is closed: Add('Save','Ctrl+S').handler:=Save
+  // The command is any of the button handlers - onClick, onClickMethod, onClickAsync,
+  // onClickEvent; all run after the menu is closed: Add('Save','Ctrl+S').onClickMethod:=Save
   TUIMenuItem=class(TUIButton)
    shortcut:String8;      // display only (the key itself is registered elsewhere)
-   handler:TObjProcedure; // a method to call, after the inherited handlers
    constructor Create(menu:TUIPopupMenu;const caption,shortcut,name:String8);
    function Menu:TUIPopupMenu;
    function IsHovered:boolean; override; // highlighted = the current line of the menu
@@ -207,13 +205,10 @@ implementation
  procedure TUIMenuItem.DoClick;
   var
    m:TUIPopupMenu;
-   h:TObjProcedure;
   begin
    m:=Menu;
-   h:=handler;
    if m<>nil then m.Close; // first: a command that opens a dialog sets its focus after the restore
    inherited;
-   if Assigned(h) then h;
   end;
 
 { TUIMenuSeparator }

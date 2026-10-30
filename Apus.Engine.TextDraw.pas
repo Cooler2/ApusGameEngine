@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2011-2021 Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.TextDraw;
 interface
  uses Types, Apus.Core, Apus.Types, Apus.Engine.Types, Apus.Engine.API;
@@ -598,7 +598,8 @@ begin
    format:=ipfARGB;
    {$ENDIF}
   textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture or aiThreadLocal,'textCache');
-  if format=ipfARGB then textCache.Clear($808080);
+  // DEBUG: opaque magenta, so any atlas area a glyph shows without having written it is easy to spot
+  if format=ipfARGB then textCache.Clear({$IFDEF DEBUG}$FFFF00FF{$ELSE}$808080{$ENDIF});
   Log.Msg('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
 
   w:=textCacheWidth div 8+textCacheWidth div 16;
@@ -1019,10 +1020,11 @@ var
 
  // Fills specified area in textCache with glyph image
  // Don't forget about 1px padding BEFORE glyph (mode: true=4bpp, false - 8bpp)
+ // The whole allocated cell is written (padding, bold column), so no previous atlas content stays there
  procedure UnpackGlyph(x,y,width,height:integer;glyphData:PByte;mode:boolean);
   var
-   row:array[0..127] of byte;
-   tX,tY,bpp:integer;
+   row:array[0..GLYPH_MAX_CELL_WIDTH-1] of byte; // the glyph cache doesn't accept wider cells
+   tX,tY,bpp,cellWidth:integer;
    pLine:PByte;
    v:byte;
   procedure StoreRow;
@@ -1032,16 +1034,16 @@ var
    begin
     pData:=pLine;
     if bpp=4 then begin
-     for i:=0 to width do begin
+     for i:=0 to cellWidth-1 do begin
       PCardinal(pData)^:=row[i] shl 24+$808080; // ARGB with neutral color
       inc(pData,4);
      end;
     end else
     if bpp=1 then
-     move(row,pLine^,width+1)
+     move(row,pLine^,cellWidth)
     else
     if bpp=2 then begin
-     for i:=0 to width do begin
+     for i:=0 to cellWidth-1 do begin
       PWord(pData)^:=(row[i] and $F0) shl 8+$888; // 4-4-4-4 texture
       inc(pData,2);
      end;
@@ -1049,12 +1051,13 @@ var
     inc(pLine,textCache.pitch);
    end;
   begin
-   ASSERT(width<=126);
+   cellWidth:=width+2+byte(boldStyle); // as allocated in AllocGlyph
+   ASSERT(cellWidth<=length(row));
    pLine:=textCache.data;
    bpp:=PixelSize[textCache.pixelFormat] div 8; // 1,2 or 4 bytes per pixel in target texture
    inc(pLine,X*bpp+Y*textCache.pitch);
-   // Top padding
-   Mem.Fill(row,width+1,0);
+   // Top padding (glyph rows below overwrite only row[1..width])
+   Mem.Fill(row,cellWidth,0);
    StoreRow;
    // Glyph image
    for tY:=0 to Height-1 do begin
@@ -1076,7 +1079,7 @@ var
     StoreRow;
    end;
    // bottom padding
-   Mem.Fill(row,width+1,0);
+   Mem.Fill(row,cellWidth,0);
    StoreRow;
   end;
 
@@ -1137,7 +1140,7 @@ var
    UnpackGlyph(result.x,result.Y,imageWidth,imageHeight,data,glyphType=1);
    if boldStyle then MakeItBold(result.x,result.Y,imageWidth,imageHeight);
    fl:=true;
-   r:=types.Rect(result.X,result.y,result.x+imageWidth+1,result.y+imageHeight+1);
+   r:=types.Rect(result.X,result.y,result.x+imageWidth+1+byte(boldStyle),result.y+imageHeight+1); // inclusive
    for i:=1 to updCount do
     if updList[i].Top=result.y then begin
      UnionRect(updList[i],updList[i],r);
@@ -1261,7 +1264,7 @@ var
 
  procedure BuildVertexData;
   var
-   i,cnt,idx:integer;
+   i,cnt,idx,w:integer;
    {$IFDEF FREETYPE}
    dx,dy,imgW,imgH,pitch:integer;
    {$ENDIF}
@@ -1361,12 +1364,15 @@ var
        chardata:=cardinal(st[i] and $FFFF)+font shl 16;
        gl:=activeGlyphCache.Find(chardata);
        inc(gl.x); inc(gl.y); // padding
-       if gl.x=0 then
-        pnt:=AllocGlyph(charData,imageWidth,imageHeight,0,0,1,@unifont.glyphs[offset],0)
-       else
+       if gl.x=0 then begin
+        pnt:=AllocGlyph(charData,imageWidth,imageHeight,0,0,1,@unifont.glyphs[offset],0);
+        w:=imageWidth+byte(boldStyle); // faux bold makes the image 1 pixel wider
+       end else begin
         pnt:=Point(gl.x,gl.y);
+        w:=gl.width-2;
+       end;
        if pnt.x>=0 then
-        AddVertices(chardata,pnt,round(px),y,imageX,imageY,imageWidth,imageHeight,outVertex,cnt);
+        AddVertices(chardata,pnt,round(px),y,imageX,imageY,w,imageHeight,outVertex,cnt);
       end;
     end
     {$IFDEF FREETYPE}
@@ -1382,6 +1388,7 @@ var
       if pb<>nil then begin
        pnt:=AllocGlyph(charData,imgW,imgH,dx,dy,2,pb,pitch);
        fl:=pnt.x>=0;
+       inc(imgW,byte(boldStyle)); // same width as gl.width-2 on a cache hit
       end;
      end else begin
       // glyph is cached

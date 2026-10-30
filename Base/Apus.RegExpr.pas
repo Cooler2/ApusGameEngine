@@ -1,6 +1,6 @@
 ﻿
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 
 // Convenient interface for Regular Expressions (wrapper of RegExpr unit)
 // Written by Ivan Polyacov (ivan@apus-software.com), Copyright (C) 2019

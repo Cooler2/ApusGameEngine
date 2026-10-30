@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2022 Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 unit Apus.Engine.DefaultStyle;
 interface
@@ -811,9 +811,9 @@ implementation
     if (scroll.X>0) and (txt.WidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
     gfx.clip.Rect(Rect(x1+2,y1,x2-2,y2));
     my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
-    // Default text?
+    // Default text? (same left margin as the real text)
     if realtext.IsEmpty and (not defaultText.IsEmpty) and (FocusedElement<>control) then begin
-     txt.WriteW(font,x1+2+offset,mY,Color.Mix(col,$00808080,160),defaultText,taLeft,toDontTranslate);
+     txt.WriteW(font,x1+round((y2-y1)*0.15)+offset,mY,Color.Mix(col,$00808080,160),defaultText,taLeft,toDontTranslate);
      gfx.clip.Restore;
      exit;
     end;

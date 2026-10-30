@@ -1,7 +1,8 @@
 // Virtual mouse through the Robot API (mouse.* commands): the input goes through the
 // regular routing of the engine - hit-test, hover, pressed state, capture, modal dialogs,
 // clicks - and is checked by the state of real UI elements, not by handler calls.
-// Also the keyboard routing around the focus and the popup menu (mouse and keys).
+// Also the keyboard routing around the focus, the popup menu (mouse and keys), the event
+// methods of widgets and the queue of message dialogs.
 // No native window: TTestWindow plays the platform (OS pointer, OS button events), the
 // frames run the window-level steps of TGame.FrameLoop, the main window in this thread,
 // the second one in its own thread like an extra window.
@@ -27,6 +28,8 @@ uses
   Apus.Engine.UIShapes,
   Apus.Engine.UIScene,
   Apus.Engine.UIMenu,
+  Apus.Engine.TextDraw,
+  Apus.Engine.MessageScene,
   Apus.Engine.Game,
   Apus.Engine.RobotAPI;
 
@@ -101,6 +104,21 @@ type
     procedure DoNew;
     procedure DoSave;
     procedure DoQuit;
+  end;
+
+  // receives the event methods of widgets
+  TEventProbe=class
+    clicks,changes,enters:integer;
+    procedure DoClick;
+    procedure DoChange;
+    procedure DoEnter;
+  end;
+
+  // text sizes for the layouts that measure text: nothing is drawn here
+  TStubText=class(TTextDrawer,ITextDrawer)
+    constructor Create;
+    destructor Destroy; override;
+    function Width(font:TFontHandle;st:String8):integer;
   end;
 
   // opens the scene choice of TGame.KeyPressed/CharEntered
@@ -249,6 +267,39 @@ procedure TMenuProbe.DoSave;
 procedure TMenuProbe.DoQuit;
  begin
   inc(quits);
+ end;
+
+{ TStubText }
+
+// no inherited in both: the real drawer needs a graphics system
+constructor TStubText.Create;
+ begin
+ end;
+
+destructor TStubText.Destroy;
+ begin
+ end;
+
+function TStubText.Width(font:TFontHandle;st:String8):integer;
+ begin
+  result:=100;
+ end;
+
+{ TEventProbe }
+
+procedure TEventProbe.DoClick;
+ begin
+  inc(clicks);
+ end;
+
+procedure TEventProbe.DoChange;
+ begin
+  inc(changes);
+ end;
+
+procedure TEventProbe.DoEnter;
+ begin
+  inc(enters);
  end;
 
 // plain menu commands: inline and async (the async one runs in its own thread)
@@ -524,14 +575,14 @@ procedure TestPopupMenu;
   edit.SetPos(500,300,pivotTopLeft);
   testMenu:=TUIPopupMenu.Create(sceneA.UI,'TestMenu');
   itemNew:=testMenu.Add('New','Ctrl+N');
-  itemNew.handler:=probe.DoNew;
+  itemNew.onClickMethod:=probe.DoNew;
   itemUndo:=testMenu.Add('Undo','Ctrl+Z');
   itemUndo.Disable;
   testMenu.AddSeparator;
   itemSave:=testMenu.Add('Save...','Ctrl+S');
-  itemSave.handler:=probe.DoSave;
+  itemSave.onClickMethod:=probe.DoSave;
   itemQuit:=testMenu.Add('&Quit now');
-  itemQuit.handler:=probe.DoQuit;
+  itemQuit.onClickMethod:=probe.DoQuit;
   Check((itemSave.name='TestMenu\Save') and (itemQuit.name='TestMenu\Quit_now'),'default line names: '+itemSave.name+', '+itemQuit.name);
   // the anchor opens the menu below itself; its next press closes the menu for good
   Sleep(60); // TUIButton drops clicks in the first 50 ms of the program (its double-click guard)
@@ -1010,6 +1061,123 @@ procedure TestEditKeys;
   EndTest;
  end;
 
+// Methods as widget events: buttons, the edits of the user in an edit box, Enter
+procedure TestEventMethods;
+ var
+  form:TUIScene;
+  probe:TEventProbe;
+  b:TUIButton;
+  t:TUIToggleButton;
+  e:TUIEditBox;
+ begin
+  StartTest('Event methods');
+  probe:=TEventProbe.Create;
+  form:=TUIScene.Create('EventForm',false,wndA); // never active: no part in the mouse tests
+  b:=TUIButton.Create(100,20,form.UI,'EventBtn');
+  b.onClickMethod:=probe.DoClick;
+  b.pending:=true;
+  b.onHotKey(0,0);
+  Check(probe.clicks=0,'a pending button does not call the method');
+  b.pending:=false;
+  b.onHotKey(0,0);
+  Check(probe.clicks=1,'a click calls the method');
+  b.onHotKey(0,0);
+  Check(probe.clicks=1,'the double-click guard covers the method');
+  t:=TUIToggleButton.Create(100,20,form.UI,'EventToggle');
+  t.onClickMethod:=probe.DoClick;
+  t.onMouseButtons(1,true);
+  Check(probe.clicks=2,'a toggle button calls the method');
+
+  e:=TUIEditBox.Create(100,20,form.UI,'EventEdit');
+  e.onChange:=probe.DoChange;
+  e.onEnter:=probe.DoEnter;
+  e.text:='abc';
+  Check(probe.changes=0,'assigning the text is not an edit');
+  e.cursorPos:=3;
+  e.onUniChar(Char32('d'),0);
+  Check((e.text='abcd') and (probe.changes=1),'typing calls onChange');
+  e.SelectAll;
+  e.onUniChar(Char32('x'),0);
+  Check((e.text='x') and (probe.changes=2),'typing over a selection calls onChange');
+  e.onKey(ord('Z'),true,sscCtrl);
+  Check((e.text='abcd') and (probe.changes=3),'undo returns the text before the selection was replaced');
+  e.onKey(ord(TKey.Left),true,0);
+  Check(probe.changes=3,'moving the caret is not an edit');
+
+  Check(not e.onKey(ord(TKey.Enter),true,0),'Enter is consumed by onEnter');
+  Check(probe.enters=1,'Enter calls onEnter');
+  Check(e.onKey(ord(TKey.Enter),true,sscCtrl),'Ctrl+Enter goes on');
+  Check(probe.enters=1,'Ctrl+Enter does not call onEnter');
+  e.onEnter:=nil;
+  Check(e.onKey(ord(TKey.Enter),true,0),'with no onEnter the key goes on');
+  e.onEnter:=probe.DoEnter;
+  e.completion:=UTF8.Decode('abcdef');
+  Check(not e.onKey(ord(TKey.Enter),true,0),'a completion takes Enter');
+  Check((e.text='abcdef') and (probe.enters=1),'and onEnter is not called');
+  Check(probe.changes=4,'the accepted completion is an edit');
+  probe.Free;
+  EndTest;
+ end;
+
+var
+  msgAnswers:String8; // the digits of the Test\Msg\N events, in order
+
+procedure MsgAnswer(event:TEventStr;tag:TTag);
+ begin
+  msgAnswers:=msgAnswers+String8(event)[length(event)];
+ end;
+
+// The end of a scene effect as in TWindow.RenderFrame, which needs a graphics system.
+// The effect does not play here (no render target format), its first Paint finishes it.
+procedure FinishEffect(scene:TGameScene);
+ begin
+  scene.effect.Paint;
+  Signal('ENGINE\EffectDone',UIntPtr(scene));
+  scene.effect.Free;
+  scene.effect:=nil;
+ end;
+
+// Messages go one by one: the next one waits for the closing effect of the previous one
+// however long it takes (a minimized window draws nothing, so the effect stands still)
+procedure TestMessageQueue;
+ var
+  scene:TGameScene;
+ begin
+  StartTest('Message queue');
+  txt:=TStubText.Create;
+  InitMessageScene;
+  scene:=TGameScene.FindByName('MessageScene') as TGameScene;
+  SetEventHandler('Test\Msg',MsgAnswer,emInstant);
+  ShowMessage('First','Test\Msg\1');
+  ShowMessage('Second','Test\Msg\2');
+  Check(scene.IsActive,'the first message is shown at once');
+  FinishEffect(scene);
+  RunFrame(wndA);
+  Signal('UI\Message\OK\OnClick');
+  RunFrame(wndA);
+  Check(msgAnswers='1','the first answer: '+msgAnswers);
+  Check(scene.effect<>nil,'the window closes with an effect');
+  Sleep(260); // longer than the effect: no frame is drawn, it does not end
+  RunFrame(wndA);
+  RunFrame(wndA);
+  Check(scene.IsActive and (scene.effect<>nil),'the closing effect waits for frames');
+  FinishEffect(scene);
+  RunFrame(wndA);
+  Check(scene.IsActive,'the next message comes after the closing effect');
+  if scene.effect<>nil then FinishEffect(scene);
+  RunFrame(wndA);
+  Signal('UI\Message\OK\OnClick');
+  RunFrame(wndA);
+  Check(msgAnswers='12','the second answer: '+msgAnswers);
+  if scene.effect<>nil then FinishEffect(scene);
+  RunFrame(wndA);
+  Check(not scene.IsActive,'the queue is empty: the window stays closed');
+  Check(wndA.modal.Root=nil,'and the modal stack is empty');
+  RemoveEventHandler(MsgAnswer);
+  txt:=nil;
+  EndTest;
+ end;
+
 procedure TestDrag;
  var
   a:String8;
@@ -1473,6 +1641,8 @@ begin
   TestRules;
   TestKeyboardTarget;
   TestEditKeys;
+  TestEventMethods;
+  TestMessageQueue;
   TestFocusKeys;
   TestDrag;
   TestReset;

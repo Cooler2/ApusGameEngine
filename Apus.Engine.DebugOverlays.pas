@@ -1,9 +1,9 @@
 ﻿// Debug overlay rendering: FPS, timing panel, scene list, magnifier
 //
-// Copyright (C) 2026 Apus Software (www.apus-software.com)
+// Copyright (C) 2026 Apus Software (https://github.com/Cooler2/ApusGameEngine)
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 {$R-}
 unit Apus.Engine.DebugOverlays;
