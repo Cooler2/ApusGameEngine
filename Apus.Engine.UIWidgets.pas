@@ -110,6 +110,7 @@ interface
 
   // Push button: fires onClick/onClickAsync once on click (not latching).
   // Use onClick for inline UI updates (runs on render thread).
+  // onClickMethod is the same for a method; it runs last, after the other handlers.
   // Use onClickAsync for slow work (runs in a new thread). That thread gets the button's
   // window as its `window` context and the button as `sender`; it does not hold the
   // window lock (take window.Lock around UI changes). The button is held (Acquire) until
@@ -122,6 +123,7 @@ interface
    pending:boolean;          // temporarily unavailable (ignores input)
    autoPendingTime:integer;  // ms to stay pending after click (0 = disabled)
    onClick:TProcedure;       // called inline on render thread (use for UI updates)
+   onClickMethod:TObjProcedure; // onClick for a method (a plain procedure can't be one)
    onClickAsync:TProcedure;  // called in a new thread (use for slow work), see above
    onClickEvent:String8;
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
@@ -253,6 +255,8 @@ interface
    msSelect:boolean;   // mouse selection mode is ON
    protection:byte;    // xor all characters with this value
    offset:integer;     // shift text right by this number of pixels
+   onChange:TObjProcedure; // the user changed the text (assigning realText/text doesn't call it)
+   onEnter:TObjProcedure;  // Enter with no modifiers: consumes the key (a completion takes Enter first)
 
    constructor Create(width,height:single;parent_:TUIElement;name:String8='');
    procedure onChar(ch:char;scancode:byte); override;
@@ -269,6 +273,7 @@ interface
    lastClickTime:int64;
    msSelStart:integer; // mouse selection anchor (0-based), -1 if not set
    procedure AdjustState;
+   procedure TextChanged(const oldText:String32);
    function GetText:String8;
    procedure SetText(s:String8);
   public
@@ -544,6 +549,7 @@ implementation
     StartAsyncClick(async);
     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     lastPressed:=CoreTime.Ticks;
+    if Assigned(onClickMethod) then onClickMethod;
    end;
   end;
 
@@ -677,6 +683,7 @@ implementation
     if Assigned(onClick) then onClick;
     StartAsyncClick(async);
     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
+    if Assigned(onClickMethod) then onClickMethod;
    end;
   end;
 
@@ -1042,6 +1049,14 @@ function TUILabel.Right(text:String8):TUILabel;
    if selstart+selcount>length(realtext) then selcount:=length(realtext)-selstart;
   end;
 
+ procedure TUIEditBox.TextChanged(const oldText:String32);
+  begin
+   if sendSignals<>ssAll then exit;
+   savedText:=oldText;
+   Signal('UI\'+name+'\changed',0);
+   if Assigned(onChange) then onChange;
+  end;
+
  constructor TUIEditBox.Create(width,height:single;parent_:TUIElement;name:String8='');
   begin
    inherited Create(width,height,parent_,name);
@@ -1092,16 +1107,12 @@ function TUIEditBox.GetText:String8;
     insert(ch,realtext,selstart);
     selcount:=0;
     cursorpos:=selstart+1;
-    exit;
-   end;
-   if (length(realtext)<maxlength) and (ch>=32) then begin
-    insert(ch,realtext,cursorpos);
-    inc(cursorpos);
-   end;
-   if (sendSignals=ssAll) and (oldText<>realText) then begin
-    savedText:=oldText;
-    Signal('UI\'+name+'\changed',0);
-   end;
+   end else
+    if (length(realtext)<maxlength) and (ch>=32) then begin
+     insert(ch,realtext,cursorpos);
+     inc(cursorpos);
+    end;
+   if oldText<>realText then TextChanged(oldText);
   end;
 
  function TUIEditBox.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
@@ -1233,6 +1244,10 @@ function TUIEditBox.GetText:String8;
      end else begin
       Signal('UI\'+name+'\Enter',0);
       Signal('UI\Editbox\Enter\'+name,0);
+      if Assigned(onEnter) and (shiftState=0) then begin
+       onEnter;
+       exit(false); // the text is the same; the key doesn't go on to the hotkeys
+      end;
      end;
     end;
     if (TKey(keycode)=TKey.Escape) and (sendSignals<>ssNone) then begin
@@ -1313,10 +1328,7 @@ function TUIEditBox.GetText:String8;
     // Enter (unless it took a completion), Esc, F-keys and shortcuts like Ctrl+S go on
     if IsOwnKey(TKey(keycode),shiftState) then result:=false;
    end;
-   if (sendSignals=ssAll) and (oldText<>realText) then begin
-    savedText:=oldText;
-    Signal('UI\'+name+'\changed');
-   end;
+   if oldText<>realText then TextChanged(oldText);
   end;
 
  procedure TUIEditBox.onMouseButtons(button:byte;state:boolean);

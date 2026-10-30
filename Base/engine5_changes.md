@@ -3,6 +3,18 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: event methods of the button and the edit box (2026-10-30)
+
+- `TUIButton.onClickMethod:TObjProcedure`, also in `TUIToggleButton`: `onClick` for a method,
+  under the same conditions (`pending`, the double-click guard, `sendSignals`), after the
+  other handlers.
+- `TUIMenuItem.handler` -> `onClickMethod` of `TUIButton`.
+- `TUIEditBox.onChange`: the user changed the text; assigning `text`/`realText` doesn't call
+  it. `TUIEditBox.onEnter`: Enter with no modifiers; a handler consumes the key, and the
+  Enter that accepts a completion doesn't call it.
+- `TUIEditBox`: typing over a selection now sends `UI\<name>\changed` and keeps the text
+  for undo.
+
 ## Window: Alt+Enter switch, return from fullscreen, window.state (2026-10-29)
 
 - `windowSetup.altEnter` (`TWindowSetup`, default `true`) → `TGameSettings.altEnter`: `false`
