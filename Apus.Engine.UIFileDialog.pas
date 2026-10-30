@@ -128,6 +128,8 @@ interface
    fFolder,overwritePath:String8;
    pickedName:String8; // the name (or the quoted names) the table put into nameEdit
    nameMask:String8;   // the masks typed into nameEdit, '' - none
+   completionFolder:String8;     // a folder typed into nameEdit, other than the listed one
+   completionItems:TFolderItems; // its items, read once
    listedFolder:String8; // the folder items were read from
    restoring:boolean;    // Refresh puts the selection back
    items:TFolderItems;
@@ -142,7 +144,11 @@ interface
    function Template(const pattern,value:String8):String8;
    procedure ApplyTexts;
    procedure Refresh(reload:boolean=true);
-   procedure NameTyped;
+   procedure NameTyped(typed:boolean);
+   function TypeMasks:String8;
+   procedure UpdateCompletion;
+   function HasCompletion:boolean;
+   function TakeCompletion(openFolder:boolean):boolean;
    procedure SetNameMask(const mask:String8);
    procedure EnterNameMask;
    procedure UpdateNameColumn;
@@ -1220,13 +1226,27 @@ implementation
   old:String8;
  begin
   if pressed and (TKey(keycode)=TKey.Enter) and (shiftstate=0) then begin
-   if isPath then dialog.PathEntered else dialog.Confirm;
+   if isPath then dialog.PathEntered
+   else begin
+    dialog.TakeCompletion(false);
+    dialog.Confirm;
+   end;
    exit(false);
   end;
+  // Tab and Right take the completion, Delete drops it; without one they keep their meaning
+  if pressed and not isPath and (shiftstate=0) and dialog.HasCompletion then
+   case TKey(keycode) of
+    TKey.Tab,TKey.Right:exit(not dialog.TakeCompletion(true));
+    TKey.Delete:begin
+     completion:=nil;
+     exit(false);
+    end;
+   end;
   old:=text;
   result:=inherited onKey(keycode,pressed,shiftstate);
+  // deleting, pasting or undoing is not typing: no completion for it
   if text<>old then
-   if isPath then dialog.Edited else dialog.NameTyped;
+   if isPath then dialog.Edited else dialog.NameTyped(false);
  end;
 
  procedure TDialogEdit.onUniChar(ch:Char32;scancode:byte);
@@ -1236,7 +1256,7 @@ implementation
   old:=text;
   inherited;
   if text<>old then
-   if isPath then dialog.Edited else dialog.NameTyped;
+   if isPath then dialog.Edited else dialog.NameTyped(true);
  end;
 
  procedure TTypeChip.DoClick;
@@ -1540,6 +1560,7 @@ implementation
   BuildDrives;
   TDirectoryOutline(directoryOutline).Reload;
   listedFolder:=''; // a new request reads the folder again and selects nothing
+  completionFolder:='';
   SetFolder(StartFolder(fRequest.folder));
   BuildLocations(true);
   LayoutControls;
@@ -1573,6 +1594,7 @@ implementation
  procedure TUIFileDialog.Edited;
  begin
   overwritePath:='';
+  nameEdit.completion:=nil; // the edit box would draw a stale one after any text
   ShowError('');
  end;
 
@@ -1597,6 +1619,7 @@ implementation
     end;
    end;
    fFolder:=next;
+   nameEdit.completion:=nil;
    // A name picked from the old listing means nothing in Open; a typed or Save name stays
    if (Mode=fdOpen) and (pickedName<>'') and (nameEdit.text=pickedName) then nameEdit.text:='';
    pickedName:='';
@@ -1642,10 +1665,7 @@ implementation
    if fFolder='' then items:=nil else items:=Apus.Files.Folder.ListItems(fFolder);
    listedFolder:=fFolder;
   end;
-  masks:='';
-  if not allFiles then
-   for i:=0 to high(activeTypes) do
-    if allTypes or activeTypes[i] then masks:=masks+';'+UTF8.ToLower(fRequest.types[i].masks);
+  masks:=TypeMasks;
   query:=UTF8.ToLower(nameMask);
   keepRows:=nil;
   focusRow:=-1;
@@ -1676,6 +1696,7 @@ implementation
 
  procedure TUIFileDialog.Reload;
  begin
+  completionFolder:='';
   TDirectoryOutline(directoryOutline).Reload;
   Refresh(true);
   TDirectoryOutline(directoryOutline).Build(fFolder);
@@ -1683,7 +1704,8 @@ implementation
 
  // A typed mask filters the listing at once, a mask with a folder waits for Enter; any other
  // typed text removes the mask. A name the table puts into the field keeps the mask.
- procedure TUIFileDialog.NameTyped;
+ // Typed characters get a completion, deleting does not: it would bring the ghost back.
+ procedure TUIFileDialog.NameTyped(typed:boolean);
  var
   value:String8;
  begin
@@ -1691,6 +1713,91 @@ implementation
   value:=nameEdit.text;
   if not HasWildcards(value) then SetNameMask('')
    else if Files.GetName(value)=value then SetNameMask(value);
+  if typed then UpdateCompletion;
+ end;
+
+ // Lowercased masks of the chips, '' - any file
+ function TUIFileDialog.TypeMasks:String8;
+ var
+  i:integer;
+ begin
+  result:='';
+  if allFiles then exit;
+  for i:=0 to high(activeTypes) do
+   if allTypes or activeTypes[i] then result:=result+';'+UTF8.ToLower(fRequest.types[i].masks);
+ end;
+
+ // The ghost text of the name field: the first name in the natural order that starts with the
+ // typed one, in the folder of the typed path or the listed one. Open completes folders and
+ // the files the chips show; Save only folders, since a completed name would replace a file.
+ // A folder gets a delimiter, so taking it opens the folder.
+ procedure TUIFileDialog.UpdateCompletion;
+ var
+  value,prefix,dir,lowPrefix,lowName,best,lowBest,masks:String8;
+  list:TFolderItems;
+  typed,name32:String32;
+  i:integer;
+ begin
+  nameEdit.completion:=nil;
+  value:=nameEdit.text;
+  if (value='') or HasWildcards(value) or (nameEdit.cursorPos<length(nameEdit.realText)) then exit;
+  prefix:=Files.GetName(value);
+  if prefix='' then exit;
+  dir:=copy(value,1,length(value)-length(prefix));
+  if dir='' then begin
+   if not SamePath(listedFolder,fFolder) then exit;
+   list:=items;
+  end else begin
+   if Files.IsPathRelative(dir) and (fFolder<>'') then dir:=JoinPath(fFolder,dir);
+   dir:=Files.GetFullName(JoinPath(dir,'.'));
+   if not SamePath(dir,completionFolder) then begin
+    completionFolder:=dir;
+    completionItems:=nil;
+    if Apus.Files.Folder.Exists(dir) then completionItems:=Apus.Files.Folder.ListItems(dir);
+   end;
+   list:=completionItems;
+  end;
+  lowPrefix:=UTF8.ToLower(prefix);
+  masks:=TypeMasks;
+  best:=''; lowBest:='';
+  for i:=0 to high(list) do with list[i] do begin
+   if hidden and not showHidden then continue;
+   lowName:=UTF8.ToLower(name);
+   if copy(lowName,1,length(lowPrefix))<>lowPrefix then continue;
+   if not info.isDirectory and
+      ((Mode=fdSave) or ((masks<>'') and not MatchesMasks(lowName,masks))) then continue;
+   if (best<>'') and (NaturalCompare(lowName,lowBest)>=0) then continue;
+   best:=name; lowBest:=lowName;
+   if info.isDirectory then best:=JoinPath(best,'');
+  end;
+  if UTF8.ToLower(best)=lowPrefix then exit; // nothing to add
+  // the typed part stays as typed, the rest comes from the name
+  typed:=UTF8.Decode(prefix);
+  name32:=UTF8.Decode(best);
+  if length(name32)<=length(typed) then exit;
+  nameEdit.completion:=nameEdit.realText+copy(name32,length(typed),length(name32)-length(typed));
+ end;
+
+ // A completion is shown while the caret is at the end of the text it continues
+ function TUIFileDialog.HasCompletion:boolean;
+ begin
+  result:=(length(nameEdit.completion)>length(nameEdit.realText)) and (nameEdit.selCount=0) and
+    (nameEdit.cursorPos=length(nameEdit.realText));
+ end;
+
+ // The completion becomes the name; openFolder - a completed folder opens at once.
+ // False - there was no completion.
+ function TUIFileDialog.TakeCompletion(openFolder:boolean):boolean;
+ var
+  value:String8;
+ begin
+  result:=HasCompletion;
+  if not result then exit;
+  value:=UTF8.Encode(nameEdit.completion);
+  nameEdit.text:=value;
+  nameEdit.cursorPos:=length(nameEdit.realText);
+  Edited;
+  if openFolder and (value[length(value)] in ['/','\']) then Confirm;
  end;
 
  procedure TUIFileDialog.SetNameMask(const mask:String8);
