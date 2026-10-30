@@ -6,10 +6,10 @@
 //            If you want to access private data (buffers, images) from other
 //            threads, use your own synchronization methods
 //
-// Copyright (C) 2003-2013 Apus Software (www.apus-software.com)
+// Copyright (C) 2003-2013 Apus Software (https://github.com/Cooler2/ApusGameEngine)
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 {$IFDEF IOS}{$S-}{$ENDIF}
 {$R-}

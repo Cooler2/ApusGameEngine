@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2011-2021 Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.TextDraw;
 interface
  uses Types, Apus.Core, Apus.Types, Apus.Engine.Types, Apus.Engine.API;
