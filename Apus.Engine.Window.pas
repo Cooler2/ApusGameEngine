@@ -24,8 +24,9 @@ const
 
 type
  TWindow=class;
- TSceneArray=array of TGameScene;
- TWindowArray=array of TWindow;
+ TSceneArray=array of TGameScene; // scenes of a window (TWindow.scenes)
+ TWindowArray=array of TWindow;   // see ListWindows
+ // A part of the frame drawn by the caller of RenderFrame/RenderScenes: cursor, overlays
  TRenderProc=procedure of object;
 
  // Deferred call run on a window's own thread (see TWindow.QueueCall)
@@ -46,6 +47,8 @@ type
  // Limits of the client size the user can resize the window to, canvas units: 0 - no limit
  TWindowSizeLimits=procedure(out minSize,maxSize:TSize) of object;
 
+ // Request to capture a presented frame (TWindow.capture): one at a time, a new request
+ // replaces the waiting one
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
   // 0 - keep in data, 2 - save as JPEG, 3 - save as PNG
@@ -79,6 +82,8 @@ type
   procedure Reset;
  end;
 
+ // Frame timing of a window (TWindow.timings): FPS, durations of the frame phases and
+ // their history of FRAME_TIME_RING_SIZE samples
  TFrameTiming=record
   // Robot diagnostics toggle.
   phaseMetrics:boolean;
@@ -200,6 +205,7 @@ type
  end;
 
  // --- Virtual input (see TVirtualInput) ---
+ // Kind of a queued operation
  TVirtualInputOpKind=(
   vioMode,   // switch the input mode (enable)
   vioReset,  // cancel the gesture: drop the capture, release the buttons without a click and the keys
@@ -209,6 +215,7 @@ type
   vioKey,    // press or release a key (key, scanCode, pressed)
   vioChar    // enter a character (ch)
  );
+ // A queued operation: the fields that matter depend on the kind
  TVirtualInputOp=record
   kind:TVirtualInputOpKind;
   enable:boolean;      // vioMode: true - virtual input, false - back to the physical one
@@ -223,7 +230,9 @@ type
   delayMs:integer;     // applied not earlier than delayMs after the previous operation
   ticket:int64;        // assigned by TVirtualInput.Queue
  end;
+ // State of a queued operation: not completed yet, applied, dropped unapplied
  TVirtualInputTicket=(vitPending,vitDone,vitDropped);
+ // Tickets lo..hi, both included
  TVirtualInputTicketRange=record
   lo,hi:int64;
  end;
