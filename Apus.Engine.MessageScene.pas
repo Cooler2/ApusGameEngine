@@ -121,11 +121,6 @@ var
   var
    close:boolean;
   begin
-   if event.Same('UI\Message\Next') then begin
-    CheckQueue;
-    exit;
-   end;
-
    // Enter/Escape are handled via button hotkeys (see TMessageScene.Create), which fire
    // these OnClick events — no separate keyboard signal needed.
    close:=false;
@@ -140,10 +135,15 @@ var
     close:=true;
    end;
 
-   if close then begin
-    TShowWindowEffect.Create(scene,150,sweHide,2);
-    DelayedSignal('UI\Message\Next',200);
-   end;
+   if close then TShowWindowEffect.Create(scene,150,sweHide,2);
+  end;
+
+ // The closing effect is over: the next message may go. It takes as long as the frames
+ // take, a window that is not drawn waits. The handler is queued: the signal comes from
+ // the effect processing, which must not meet a new effect of the same scene.
+ procedure EffectDoneHandler(event:TEventStr;tag:TTag);
+  begin
+   if tag=TTag(scene) then CheckQueue;
   end;
 
  procedure DPIChangedHandler(event:TEventStr;tag:TTag);
@@ -168,6 +168,7 @@ constructor TMessageScene.Create;
   frequency:=20;
   zOrder:=100;
   SetEventHandler('UI\Message',EventHandler,emQueued);
+  SetEventHandler('ENGINE\EffectDone',EffectDoneHandler,emQueued);
 
   wnd:=TUIElement.Create(400,200,ui,'Message\Wnd');
   wnd.SetPos(window.canvasWidth/2,window.canvasHeight/2,pivotCenter);

@@ -125,7 +125,6 @@
 | `UI\{name}\ONSELECT` | notification | `TUIComboBox` | `index` | Combo item selected by index. |
 | `UI\COMBOBOX\DROPDOWN` | command | `TUIComboBox` | `PtrUInt(self)` | Explicit command to open/toggle the drop-down. |
 | `UI\CLICK\{name}` | command | UI scene event endpoint (`onSimulateClick` in `TUIScene`) | `0` | Simulates a click on a UI element by name. Used as an external control channel (scripts/autotests/tools). |
-| `UI\MESSAGE\NEXT` (`DelayedSignal`) | command | Message subsystem (`TMessageScene`) | `0` | Deferred switch to the next message in the message box queue. |
 
 ## SOUND\*
 

@@ -1,8 +1,8 @@
 // Virtual mouse through the Robot API (mouse.* commands): the input goes through the
 // regular routing of the engine - hit-test, hover, pressed state, capture, modal dialogs,
 // clicks - and is checked by the state of real UI elements, not by handler calls.
-// Also the keyboard routing around the focus, the popup menu (mouse and keys) and the
-// event methods of widgets.
+// Also the keyboard routing around the focus, the popup menu (mouse and keys), the event
+// methods of widgets and the queue of message dialogs.
 // No native window: TTestWindow plays the platform (OS pointer, OS button events), the
 // frames run the window-level steps of TGame.FrameLoop, the main window in this thread,
 // the second one in its own thread like an extra window.
@@ -28,6 +28,8 @@ uses
   Apus.Engine.UIShapes,
   Apus.Engine.UIScene,
   Apus.Engine.UIMenu,
+  Apus.Engine.TextDraw,
+  Apus.Engine.MessageScene,
   Apus.Engine.Game,
   Apus.Engine.RobotAPI;
 
@@ -110,6 +112,13 @@ type
     procedure DoClick;
     procedure DoChange;
     procedure DoEnter;
+  end;
+
+  // text sizes for the layouts that measure text: nothing is drawn here
+  TStubText=class(TTextDrawer,ITextDrawer)
+    constructor Create;
+    destructor Destroy; override;
+    function Width(font:TFontHandle;st:String8):integer;
   end;
 
   // opens the scene choice of TGame.KeyPressed/CharEntered
@@ -258,6 +267,22 @@ procedure TMenuProbe.DoSave;
 procedure TMenuProbe.DoQuit;
  begin
   inc(quits);
+ end;
+
+{ TStubText }
+
+// no inherited in both: the real drawer needs a graphics system
+constructor TStubText.Create;
+ begin
+ end;
+
+destructor TStubText.Destroy;
+ begin
+ end;
+
+function TStubText.Width(font:TFontHandle;st:String8):integer;
+ begin
+  result:=100;
  end;
 
 { TEventProbe }
@@ -1094,6 +1119,65 @@ procedure TestEventMethods;
   EndTest;
  end;
 
+var
+  msgAnswers:String8; // the digits of the Test\Msg\N events, in order
+
+procedure MsgAnswer(event:TEventStr;tag:TTag);
+ begin
+  msgAnswers:=msgAnswers+String8(event)[length(event)];
+ end;
+
+// The end of a scene effect as in TWindow.RenderFrame, which needs a graphics system.
+// The effect does not play here (no render target format), its first Paint finishes it.
+procedure FinishEffect(scene:TGameScene);
+ begin
+  scene.effect.Paint;
+  Signal('ENGINE\EffectDone',UIntPtr(scene));
+  scene.effect.Free;
+  scene.effect:=nil;
+ end;
+
+// Messages go one by one: the next one waits for the closing effect of the previous one
+// however long it takes (a minimized window draws nothing, so the effect stands still)
+procedure TestMessageQueue;
+ var
+  scene:TGameScene;
+ begin
+  StartTest('Message queue');
+  txt:=TStubText.Create;
+  InitMessageScene;
+  scene:=TGameScene.FindByName('MessageScene') as TGameScene;
+  SetEventHandler('Test\Msg',MsgAnswer,emInstant);
+  ShowMessage('First','Test\Msg\1');
+  ShowMessage('Second','Test\Msg\2');
+  Check(scene.IsActive,'the first message is shown at once');
+  FinishEffect(scene);
+  RunFrame(wndA);
+  Signal('UI\Message\OK\OnClick');
+  RunFrame(wndA);
+  Check(msgAnswers='1','the first answer: '+msgAnswers);
+  Check(scene.effect<>nil,'the window closes with an effect');
+  Sleep(260); // longer than the effect: no frame is drawn, it does not end
+  RunFrame(wndA);
+  RunFrame(wndA);
+  Check(scene.IsActive and (scene.effect<>nil),'the closing effect waits for frames');
+  FinishEffect(scene);
+  RunFrame(wndA);
+  Check(scene.IsActive,'the next message comes after the closing effect');
+  if scene.effect<>nil then FinishEffect(scene);
+  RunFrame(wndA);
+  Signal('UI\Message\OK\OnClick');
+  RunFrame(wndA);
+  Check(msgAnswers='12','the second answer: '+msgAnswers);
+  if scene.effect<>nil then FinishEffect(scene);
+  RunFrame(wndA);
+  Check(not scene.IsActive,'the queue is empty: the window stays closed');
+  Check(wndA.modal.Root=nil,'and the modal stack is empty');
+  RemoveEventHandler(MsgAnswer);
+  txt:=nil;
+  EndTest;
+ end;
+
 procedure TestDrag;
  var
   a:String8;
@@ -1558,6 +1642,7 @@ begin
   TestKeyboardTarget;
   TestEditKeys;
   TestEventMethods;
+  TestMessageQueue;
   TestFocusKeys;
   TestDrag;
   TestReset;

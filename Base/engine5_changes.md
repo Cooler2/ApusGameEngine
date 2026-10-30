@@ -3,6 +3,13 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Message dialogs: the queue waits for the closing effect (2026-10-31)
+
+- `Apus.Engine.MessageScene`: the next queued message starts on `ENGINE\EffectDone` of the
+  closing window instead of a 200 ms timer. With slow frames or a minimized window the
+  effect took longer, and the message stayed in the queue until the next `ShowMessage`,
+  `Ask` or `Confirm`. The `UI\Message\Next` signal is gone.
+
 ## UI: event methods of the button and the edit box (2026-10-30)
 
 - `TUIButton.onClickMethod:TObjProcedure`, also in `TUIToggleButton`: `onClick` for a method,
