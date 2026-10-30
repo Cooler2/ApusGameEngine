@@ -1,9 +1,9 @@
 ﻿// System clipboard: text and images
 //
-// Copyright (C) 2011-2026 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (ivan@apus-software.com)
+// Copyright (C) 2011-2026 Apus Software (https://github.com/Cooler2/ApusGameEngine)
+// Author: Ivan Polyacov (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 // Windows: WinAPI for text and images (with any platform layer, native or SDL).
 // Other platforms: text via SDL; no images (HasImage=false, GetImage=nil).

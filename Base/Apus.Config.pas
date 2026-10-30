@@ -1,9 +1,9 @@
 ﻿// Configuration documents: the CTL3 syntax; CTL2 files and a JSON subset are read as well.
 // The reference for the behaviour is manual/config_files.md.
 //
-// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
 {$I defines.inc}
 unit Apus.Config;
 interface

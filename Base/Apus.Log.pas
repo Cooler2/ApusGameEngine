@@ -11,9 +11,9 @@
 // Contains: Log scope (Msg/Debug/Info/Force/Warn/Error/Fatal methods), Logger configuration
 // (UseLogFile, SetVerbosity, LogCacheMode, Flush, GetTail), custom handlers, threaded background writing.
 //
-// Copyright (C) Ivan Polyacov, ivan@apus-software.com
+// Copyright (C) Ivan Polyacov, ivan@astralheroes.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine)
 {$I defines.inc}
 unit Apus.Log;
 interface

@@ -2,9 +2,9 @@
 // Apus.Engine.HttpGameClient and shows a single combined chat/protocol feed,
 // Connect/Disconnect buttons and an input line.
 //
-// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 unit NetClientScene;
 interface

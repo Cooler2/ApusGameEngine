@@ -1,4 +1,8 @@
-﻿unit Apus.VertexLayout;
+﻿// Copyright (C) 2026 Apus Software (https://github.com/Cooler2/ApusGameEngine)
+// Author: Ivan Polyacov (ivan@astralheroes.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
+unit Apus.VertexLayout;
 interface
 uses Apus.Geom2D,Apus.Geom3D;
 

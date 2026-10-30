@@ -11,9 +11,9 @@
 // encoders yet), no skinning/instancing streams, no muDiscardCPUCopy reload handling.
 // Multi-stream, format compression and instance streams arrive in stage C.
 //
-// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.GpuMesh;
 interface
 uses Apus.Core, Apus.Classes, Apus.Geom2D, Apus.Geom3D,

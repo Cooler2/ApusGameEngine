@@ -1,8 +1,8 @@
 ﻿// Sprite (rect) packing algorithms
 
-// Copyright (C) Apus Software, 2019. Ivan Polyacov (ivan@apus-software.com)
+// Copyright (C) Apus Software, 2019. Ivan Polyacov (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 unit Apus.Engine.SpritePacker;
 interface

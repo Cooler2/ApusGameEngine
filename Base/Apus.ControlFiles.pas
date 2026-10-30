@@ -1,7 +1,7 @@
 ﻿// Author: Ivan Polyacov (ivan@games4win.com)
-// Copyright (C) Apus Software, 2002-2003, All rights reserved. www.apus-software.com
+// Copyright (C) Apus Software, 2002-2003, All rights reserved. https://github.com/Cooler2/ApusGameEngine
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
 {
  There are 2 interfaces there: procedural and class-based. First does not
  aware about multithreading issues. Use it only if you are sure that you

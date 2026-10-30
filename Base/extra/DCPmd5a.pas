@@ -22,7 +22,7 @@
 {* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        *}
 {* DEALINGS IN THE SOFTWARE.                                                  *}
 {******************************************************************************}
-// Modified by Ivan Polyacov (ivan@apus-software.com, cooler@tut.by), 2014
+// Modified by Ivan Polyacov (ivan@astralheroes.com, cooler@tut.by), 2014
 // - class declaration removed, simple procedural interface introduced
 unit DCPmd5a;
 

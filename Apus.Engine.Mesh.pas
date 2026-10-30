@@ -11,9 +11,9 @@
 // through the R-18 drawer batch. Indices are optional (empty => glDrawArrays,
 // non-empty => glDrawElements over GL_TRIANGLES).
 //
-// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.Mesh;
 interface
 uses Apus.Core, Apus.Classes, Apus.Geom2D, Apus.Geom3D;

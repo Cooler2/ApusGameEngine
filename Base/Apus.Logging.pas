@@ -8,9 +8,9 @@
 // ADD HERE: In-memory log queries, daily rotation, alarm dumps, persistence across restarts.
 // DON'T ADD: Basic file logging (→ Apus.Log), profiling (→ Apus.Profiling).
 //
-// Copyright (C) Ivan Polyacov, ivan@apus-software.com
+// Copyright (C) Ivan Polyacov, ivan@astralheroes.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
 {$I defines.inc}
 unit Apus.Logging;
 interface

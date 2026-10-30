@@ -1,9 +1,9 @@
 ﻿// Cross-platform support for HTTP GET and POST async requests
 //
 // Copyright (C) 2013 Apus Software
-// Author: Ivan Polyacov (ivan@apus-software.com)
+// Author: Ivan Polyacov (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+// This file is a part of the Apus Base Library (https://github.com/Cooler2/ApusGameEngine/tree/master/Base)
 
 {$IFDEF IOS}{$S-} {$modeswitch objectivec1}{$ENDIF}
 {$I defines.inc}

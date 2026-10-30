@@ -13,9 +13,9 @@
 // remapped to (-X,-Z,Y), face winding is reversed to compensate for that
 // handedness flip, and texture V is flipped (U, 1-V).
 //
-// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.OBJLoader;
 interface
 uses Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Engine.Mesh;

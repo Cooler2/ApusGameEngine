@@ -1,6 +1,6 @@
-﻿// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
+﻿// Copyright (C) Ivan Polyacov, Apus Software (ivan@astralheroes.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
 // SDL2_mixer sound backend: covers level 1 of the audio requirements
 // (play samples and stream music as-is + volume control). Its ceiling is known:
