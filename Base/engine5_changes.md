@@ -3,6 +3,15 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: the completion of the edit box follows the text (2026-10-31)
+
+- `TUIEditBox.completion`: any change of the text drops it (typing, deleting, undo, `text:=`
+  with another value), `onChange` runs after that and sets a new one. `realText:=` doesn't
+  drop it, but a completion that no longer fits is not drawn and not accepted.
+- New `TUIEditBox.HasCompletion`: the completion continues the text (letter case aside), the
+  caret is at the end, nothing is selected. Only then it is drawn and Enter takes it; in other
+  cases Enter works as with no completion.
+
 ## Robot API: `-ROBOT=VIRTUAL`, no modal boxes under the virtual input (2026-10-31)
 
 - New command line parameter `-ROBOT=VIRTUAL`: the Robot API is on, windows are in the
