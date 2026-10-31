@@ -706,6 +706,7 @@ implementation
   OUTLINE_TOGGLE_LEFT=4;  // the disclosure button at the left of its level
   OUTLINE_TOGGLE_WIDTH=20;
   OUTLINE_NAVIGATE_DELAY=350; // ms the keyboard cursor rests before the folder opens
+  OUTLINE_DOUBLE_CLICK_TIME=400; // ms between the clicks of a double click on the same folder
 
  type
   TDirectoryNode=record
@@ -720,10 +721,11 @@ implementation
    hidden:array of boolean;
   end;
   // Local tree adapter: one row per visible directory, the row index is the node index.
+  // The tree starts with the folders of the drive root, the root itself is the drive button.
   // The disclosure area expands independently of selection; the file table never contains
   // directory rows. Listings are cached until Reload, so rebuilding the rows reads only
-  // folders not read before. A click opens the folder at once, the keyboard cursor after
-  // a pause or Enter; Left and Right collapse and expand.
+  // folders not read before. A click opens the folder at once without expanding it, the
+  // keyboard cursor after a pause or Enter. A double click, Left and Right collapse and expand.
   TDirectoryOutline=class(TUITable)
    dialog:TUIFileDialog;
    nodes:array of TDirectoryNode;
@@ -732,6 +734,8 @@ implementation
    listings:array of TDirectoryListing;
    current:String8;
    building,selecting,clicking:boolean;
+   lastClickPath:String8; // a click opens the folder and rebuilds the rows, so a double click
+   lastClickTime:int64;   // is told by the folder, not by the row
    constructor Create(parent:TUIElement;dialog:TUIFileDialog;const name:String8);
    procedure Build(const folder:String8);
    procedure Reload;
@@ -1006,7 +1010,7 @@ implementation
  procedure TDirectoryOutline.Build(const folder:String8);
  var
   root,p,parentPath,anchor:String8;
-  selectedRow,topRow,i:integer;
+  selectedRow,topRow,i,listing:integer;
   oldPos,offset:single;
   keepView,moved:boolean;
  function OnRoute(const path:String8):boolean;
@@ -1065,18 +1069,23 @@ implementation
    // Navigation from outside the tree closes the route it opened before, the folders
    // the user opened stay open
    if moved and not selecting then expanded:=Copy(userOpened);
-   // Reveal the route on navigation, but permit collapsing the selected node later
+   // Reveal the route on navigation, but permit collapsing the selected node later.
+   // A folder opened in the tree itself stays collapsed: expanding is a separate action
    root:=folder;
    p:=folder;
    repeat
-    if moved and (PathIndex(expanded,p)<0) then expanded:=expanded+[p];
+    if moved and (PathIndex(expanded,p)<0) and not (selecting and SamePath(p,folder)) then
+     expanded:=expanded+[p];
     root:=p;
     parentPath:=ParentFolder(p);
     if SamePath(parentPath,p) then break;
     p:=parentPath;
    until false;
    current:=folder;
-   AddNode(root,0);
+   // the root has no row: the drive button above stands for it
+   listing:=ListingOf(root);
+   for i:=0 to high(listings[listing].names) do
+    if Visible(listing,i) then AddNode(JoinPath(root,listings[listing].names[i]),0);
    selected:=selectedRow;
    if keepView then begin
     for i:=0 to high(nodes) do if SamePath(nodes[i].path,anchor) then begin
@@ -1113,6 +1122,7 @@ implementation
 
  procedure TDirectoryOutline.DirectoryActivated(sender:TUITable;row:integer);
  begin
+  if clicking then exit; // a double click expands, it is handled in onMouseButtons
   Navigate(row);
  end;
 
@@ -1195,10 +1205,22 @@ implementation
    if (row>=0) and (row<length(nodes)) and not nodes[row].leaf then begin
     left:=ToggleLeft(row);
     if (p.x>=left) and (p.x<left+OUTLINE_TOGGLE_WIDTH) then begin
+     lastClickPath:='';
      ToggleNode(row);
      exit;
     end;
    end;
+   if (row>=0) and (row<length(nodes)) then begin
+    if (lastClickPath<>'') and SamePath(lastClickPath,nodes[row].path) and
+       (CoreTime.Ticks<lastClickTime+OUTLINE_DOUBLE_CLICK_TIME) then begin
+     lastClickPath:='';
+     if not nodes[row].leaf then ToggleNode(row);
+     exit;
+    end;
+    lastClickPath:=nodes[row].path;
+    lastClickTime:=CoreTime.Ticks;
+   end else
+    lastClickPath:='';
   end;
   clicking:=true;
   try
