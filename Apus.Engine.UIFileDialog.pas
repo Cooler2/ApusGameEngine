@@ -287,7 +287,7 @@ implementation
    'glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite';
   CLOSE_STYLE='hover-fill:&file-dialog-hover; glyph-color:&file-dialog-muted; hover-color:&file-dialog-text';
   DRIVEBAR_STYLE='fill:&file-dialog-fill; color:&file-dialog-muted';
-  MESSAGE_STYLE='fill:&file-dialog-header; color:&file-dialog-error';
+  MESSAGE_STYLE='fill:&file-dialog-message-fill; color:&file-dialog-message-text';
 
  // The dialog an element belongs to: its parent chain, or the dialog of its scene (the frame)
  function DialogOf(element:TUIElement):TUIFileDialog;
@@ -2504,5 +2504,7 @@ initialization
  DefineToken('file-dialog-accent','&accent');
  DefineToken('file-dialog-favorite','&warning');
  DefineToken('file-dialog-error','&danger');
+ DefineToken('file-dialog-message-fill','&danger'); // the error line under the table
+ DefineToken('file-dialog-message-text','&warning');
  DefineToken('file-dialog-font-size','9');
 end.
