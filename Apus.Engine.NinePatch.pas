@@ -13,13 +13,13 @@ type
  // * Transparent - fixed part
  // * Red - fixed part (overlapped)
  // * Black - resizeable part (stretched)
- // * Green - resizeable part (tiled)
+ // * Green - resizeable part (tiled): a range shorter than 16 px is scaled up to repeat with a step of 16 px
  TCustomNinePatch=class(TNinePatch)
   constructor Create(fromImage:TTexture); // create a 9-patch from a marked image
   // Create a 3x3 patch from a plain (unmarked) image by specifying the fixed
   // corner margins directly. Intended for procedurally generated content where
   // a 1px marker border would be pointless. The whole image is content; the
-  // middle band is stretched (tile=false) or tiled (tile=true).
+  // middle band is stretched (tile=false) or tiled (tile=true, the same limit of 16 px).
   constructor CreateMargins(content:TTexture;left,top,right,bottom:integer;tile:boolean=false);
   procedure Draw(x,y,width,height:single;scale:single=1.0); override;
  protected
@@ -177,31 +177,29 @@ procedure TCustomNinePatch.BuildRanges(tex:TTexture);
 
 // Check cells content and mark non-transparent cells to draw (so full transparent cells will be skipped)
 procedure TCustomNinePatch.CheckCells;
+ // Every pixel counts: a cell can be 1 pixel thick or hold a single dot
+ function HasContent(row,col:integer):boolean;
+  var
+   x,y:integer;
+  begin
+   result:=true;
+   for y:=vRanges[row].pFrom to vRanges[row].pTo do
+    for x:=hRanges[col].pFrom to hRanges[col].pTo do
+     if GetPixel(x,y) shr 24>4 then exit; // pixels with alpha up to 4 are considered transparent
+   result:=false;
+  end;
  var
-  i,j,x,y:integer;
+  i,j:integer;
  begin
    // Mark empty cells
    SetLength(usedCells,length(vRanges));
    numCells:=0;
-   for i:=0 to high(usedCells) do begin
-    for j:=0 to high(hRanges) do begin
-     // try to find non-transparent pixels (every 4-th pixel is checked)
-     y:=vRanges[i].pFrom;
-     while y<=vRanges[i].pTo do begin
-      x:=hRanges[j].pFrom+(y and 1);
-      while x<=hRanges[j].pTo do begin
-       if GetPixel(x,y) shr 24>4 then begin // pixels with alpha below 4 are considered transparent
-        Bits.SetBit(usedCells[i],j);
-        inc(numCells);
-        inc(y,10000);
-        break;
-       end;
-       inc(x,2);
-      end;
-      inc(y,2);
+   for i:=0 to high(usedCells) do
+    for j:=0 to high(hRanges) do
+     if HasContent(i,j) then begin
+      Bits.SetBit(usedCells[i],j);
+      inc(numCells);
      end;
-    end;
-   end;
  end;
 
 procedure TCustomNinePatch.CalcWeights;
@@ -431,6 +429,19 @@ procedure TCustomNinePatch.BuildOverlappedMesh(nH,nW:integer;du,dv:single);
     end;
  end;
 
+const
+ // Shorter tiles would give too many quads: their number grows with the square of 1/step
+ minTileSize=16;
+
+// Repeat step of a resizeable range in a tiled patch. UV span the texel centers, so a tile
+// of its own size repeats with a step 1 px less than that size.
+function TileStep(const range:TPatchRange):integer;
+ begin
+  result:=1+range.pTo-range.pFrom;
+  if result<minTileSize then result:=minTileSize
+   else dec(result);
+ end;
+
 function CalcGridSize(size,tileSize:single):integer;
  begin
   size:=size-1.01;
@@ -527,7 +538,7 @@ procedure TCustomNinePatch.BuildTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
      end else begin
        v1:=vRanges[i].pFrom*dv+dv/2;
        v2:=vRanges[i].pTo*dv+dv/2;
-       tileHeight:=vRanges[i].pTo-vRanges[i].pFrom;
+       tileHeight:=TileStep(vRanges[i]);
      end;
      for j:=0 to nW-1 do
       if Bits.Get(usedCells[i],j) then begin
@@ -539,7 +550,7 @@ procedure TCustomNinePatch.BuildTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
        end else begin
         u1:=hRanges[j].pFrom*du+du/2;
         u2:=hRanges[j].pTo*du+du/2;
-        tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
+        tileWidth:=TileStep(hRanges[j]);
        end;
        FillCellMesh(x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
      end;
@@ -623,7 +634,7 @@ begin
        x1[i]:=x1[i]-hRanges[i-1].overlap2;
       if i<nW-1 then
        x2[i]:=x2[i]+hRanges[i+1].overlap1;
-      gridW[i]:=CalcGridSize(x2[i]-x1[i],hRanges[i].pTo-hRanges[i].pFrom);
+      gridW[i]:=CalcGridSize(x2[i]-x1[i],TileStep(hRanges[i]));
     end else
      gridW[i]:=1;
   end;
@@ -637,7 +648,7 @@ begin
        y1[i]:=y1[i]-vRanges[i-1].overlap2;
       if i<nH-1 then
        y2[i]:=y2[i]+vRanges[i+1].overlap1;
-      gridH[i]:=CalcGridSize(y2[i]-y1[i],vRanges[i].pTo-vRanges[i].pFrom);
+      gridH[i]:=CalcGridSize(y2[i]-y1[i],TileStep(vRanges[i]));
     end
     else
      gridH[i]:=1;

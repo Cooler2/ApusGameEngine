@@ -12,6 +12,13 @@ Use it as the primary reference when updating old code.
   caret is at the end, nothing is selected. Only then it is drawn and Enter takes it; in other
   cases Enter works as with no completion.
 
+## 9-patch: cells with thin content are not lost (2026-10-31)
+
+- `TCustomNinePatch` looks for visible pixels in the whole cell, not in every 4th pixel: a 1 px
+  cell or a dot off that lattice made the cell "empty", and it was not drawn.
+- Tiled patches: a resizeable range shorter than 16 px is scaled up and repeats with a step of
+  16 px. A range of 1 px crashed with a division by zero, a short one gave a huge mesh.
+
 ## Robot API: `-ROBOT=VIRTUAL`, no modal boxes under the virtual input (2026-10-31)
 
 - New command line parameter `-ROBOT=VIRTUAL`: the Robot API is on, windows are in the
