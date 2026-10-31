@@ -253,6 +253,14 @@ begin
   EndTest;
 end;
 
+var
+  sysMessages:integer;
+
+procedure CountSystemMessage(const msg:String8);
+begin
+  inc(sysMessages);
+end;
+
 procedure TestSystemPrimitives;
 var
   tid:TThreadIdent;
@@ -262,6 +270,7 @@ var
   t:int64;
   dt:double;
   saved:TSystemMessageFlags;
+  savedHandler:procedure(const msg:String8);
 begin
   StartTest('System primitives');
 
@@ -302,6 +311,24 @@ begin
   systemMessageFlags:=[TSystemMessageFlag.smStdErr,TSystemMessageFlag.smDebugOutput];
   SystemMessage('SystemMessage test: this should appear on stderr');
   systemMessageFlags:=saved;
+
+  // SystemMessage: the unattended outputs are off while nobody is at the screen
+  Check(TSystemMessageFlag.smMessageBox in unattendedOff,'the message box is off when unattended');
+  Check(not (TSystemMessageFlag.smLog in unattendedOff),'the log stays');
+  Check(not (TSystemMessageFlag.smStdErr in unattendedOff),'the console stays');
+  savedHandler:=onSystemMessage;
+  onSystemMessage:=CountSystemMessage;
+  systemMessageFlags:=[TSystemMessageFlag.smLog];
+  unattendedOff:=[TSystemMessageFlag.smLog]; // a box can't be checked: it would wait for an answer
+  inc(unattendedCount);
+  SystemMessage('skipped');
+  Check(sysMessages=0,'an output in unattendedOff is skipped');
+  dec(unattendedCount);
+  SystemMessage('shown');
+  Check(sysMessages=1,'and comes back when someone is there');
+  unattendedOff:=[TSystemMessageFlag.smMessageBox];
+  systemMessageFlags:=saved;
+  onSystemMessage:=savedHandler;
 
   EndTest;
 end;

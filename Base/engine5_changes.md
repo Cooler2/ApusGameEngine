@@ -3,6 +3,17 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Robot API: `-ROBOT=VIRTUAL`, no modal boxes under the virtual input (2026-10-31)
+
+- New command line parameter `-ROBOT=VIRTUAL`: the Robot API is on, windows are in the
+  virtual input from their creation (`robotDriven` in `Apus.Engine.Window`) and on Windows
+  never take the activation: showing, maximizing, restoring, minimizing and mode changes keep
+  it. See "Run without a user" in `robot_api_protocol.md`.
+- `Apus.Core`: while `unattendedCount>0` `SystemMessage` skips the outputs in `unattendedOff`
+  (default: the message box), log and console stay. The engine counts the windows in the
+  virtual input, so a modal box no longer stops a robot run; `-ROBOT=VIRTUAL` adds one for
+  the whole process. `InitSound` shows no message then either.
+
 ## Message dialogs: the queue waits for the closing effect (2026-10-31)
 
 - `Apus.Engine.MessageScene`: the next queued message starts on `ENGINE\EffectDone` of the

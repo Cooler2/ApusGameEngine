@@ -222,6 +222,30 @@ mouse and the keyboard together:
 - `mouse.*` and `key.*` commands need the virtual mode (as requested so far - an
   `input.mode` earlier in the same batch counts); without it they return `STATUS: ERROR`
   and do nothing.
+- While the virtual mode of any window is on, nobody is expected to answer a modal box:
+  `SystemMessage` skips the outputs in `unattendedOff` (`Apus.Core`, the message box by
+  default, clear the set to keep it), log and console stay. The engine's "no sound" message
+  is not shown either.
+
+### Run without a user: `-ROBOT=VIRTUAL`
+
+The command line parameter `-ROBOT=VIRTUAL` turns the Robot API on, like `-ROBOT`, for a run
+that nobody watches (e2e scripts started next to a user at work):
+
+- Every window is in the virtual mode from its creation: no physical input reaches it
+  before the first request. `input.mode` with `MODE: virtual` changes nothing then,
+  `MODE: physical` works as usual.
+- A window never takes the activation, the user keeps working in another one. Showing,
+  `window.state` transitions and mode changes keep it. The window stays visible, it is not
+  hidden, and `-WindowStyle Hidden` of the launcher does not hide it. The main window stays
+  inactive: `Delay(5)` per frame, and nothing is drawn in `dmSwitchResolution`.
+  On Windows a maximize goes through the minimized state: `ENGINE\WINDOW\MINIMIZED` comes
+  right before `ENGINE\WINDOW\MAXIMIZED`.
+- The modal boxes are off from the start of the process, before the first window too.
+
+Under `-SDL` only the first show keeps the activation (`SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN`,
+Windows): SDL maximizes and restores with its own activating calls. On Linux and macOS the
+window manager decides.
 
 **Reset** (`input.reset`, also part of every mode switch) cancels the gesture without
 activating anything: the mouse capture is dropped the way it is when the captor gets

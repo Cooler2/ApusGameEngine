@@ -364,6 +364,11 @@ type
 var
   hasConsole:boolean; // true if program has an active console (runtime detected)
   systemMessageFlags:TSystemMessageFlags;
+  // A modal box stops the calling thread until someone answers it. While unattendedCount>0
+  // nobody will (in the engine: the virtual input of a window is on), SystemMessage skips
+  // the outputs in unattendedOff. Clear the set to keep the boxes.
+  unattendedCount:integer;
+  unattendedOff:TSystemMessageFlags=[TSystemMessageFlag.smMessageBox];
   // Optional callback for logging (set by Apus.Log or application)
   onSystemMessage:procedure(const msg:String8);
 
@@ -2548,19 +2553,23 @@ const
   smDebugOutput=TSystemMessageFlag.smDebugOutput;
   smMessageBox=TSystemMessageFlag.smMessageBox;
   smRaise=TSystemMessageFlag.smRaise;
+var
+  flags:TSystemMessageFlags;
 begin
-  if (smLog in SystemMessageFlags) and Assigned(OnSystemMessage) then
+  flags:=systemMessageFlags;
+  if unattendedCount>0 then flags:=flags-unattendedOff;
+  if (smLog in flags) and Assigned(OnSystemMessage) then
     OnSystemMessage(msg);
   {$IFDEF MSWINDOWS}
-  if smDebugOutput in SystemMessageFlags then
+  if smDebugOutput in flags then
     if IsDebuggerPresent then
       OutputDebugStringA(PAnsiChar(msg));
-  if smMessageBox in SystemMessageFlags then
+  if smMessageBox in flags then
     MessageBoxA(0,PAnsiChar(msg),'Error',MB_ICONERROR);
   {$ENDIF}
-  if smStdErr in SystemMessageFlags then
+  if smStdErr in flags then
     WriteLn({$IFDEF FPC}StdErr{$ELSE}ErrOutput{$ENDIF},msg);
-  if smRaise in SystemMessageFlags then
+  if smRaise in flags then
     raise EFatalError.Create(msg);
 end;
 

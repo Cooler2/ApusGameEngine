@@ -2,7 +2,7 @@
 // regular routing of the engine - hit-test, hover, pressed state, capture, modal dialogs,
 // clicks - and is checked by the state of real UI elements, not by handler calls.
 // Also the keyboard routing around the focus, the popup menu (mouse and keys), the event
-// methods of widgets and the queue of message dialogs.
+// methods of widgets, the queue of message dialogs and the -ROBOT=VIRTUAL start.
 // No native window: TTestWindow plays the platform (OS pointer, OS button events), the
 // frames run the window-level steps of TGame.FrameLoop, the main window in this thread,
 // the second one in its own thread like an extra window.
@@ -1546,6 +1546,39 @@ procedure TestPhysicalAgain;
   EndTest;
  end;
 
+// While a window is in the virtual mode nobody answers a modal box: the windows are counted
+// for SystemMessage. -ROBOT=VIRTUAL: a new window starts in this mode.
+procedure TestRobotDriven;
+ var
+  op:TVirtualInputOp;
+  wnd:TTestWindow;
+  base:integer;
+ begin
+  StartTest('Robot driven window');
+  base:=unattendedCount;
+  FillChar(op,sizeof(op),0);
+  op.kind:=vioMode;
+  op.enable:=true;
+  wndA.virtualInput.Queue(op);
+  RunFrame(wndA);
+  Check(unattendedCount=base+1,'the virtual mode is counted');
+  op.enable:=false;
+  wndA.virtualInput.Queue(op);
+  RunFrame(wndA);
+  Check(unattendedCount=base,'the physical mode is not');
+  robotDriven:=true;
+  wnd:=NewWindow('Driven',800,600);
+  robotDriven:=false;
+  Check(wnd.virtualInput.IsActive,'a new window is in the virtual mode');
+  Check(wnd.virtualInput.RequestedActive,'mouse commands are accepted at once');
+  Check(unattendedCount=base+1,'it is counted');
+  wnd.PlatformMouseButton(1,true);
+  Check(wnd.mouseButtons=0,'a physical button does not reach it');
+  FreeAndNil(wnd);
+  Check(unattendedCount=base,'a closed window is not counted');
+  EndTest;
+ end;
+
 procedure TestShutdown;
  var
   a:String8;
@@ -1652,6 +1685,7 @@ begin
   TestSecondWindow;
   TestCloseWithPending;
   TestPhysicalAgain;
+  TestRobotDriven;
   TestShutdown;
   if Files.Exists(ROBOT_IN) then Files.Delete(ROBOT_IN);
   if Files.Exists(ROBOT_OUT) then Files.Delete(ROBOT_OUT);

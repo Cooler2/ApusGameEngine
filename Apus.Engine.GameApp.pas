@@ -610,6 +610,12 @@ procedure TGameApplication.HandleParam(param: string);
     Apus.Engine.RobotAPI.robotAPIEnabled:=true;
     Log.Force('Robot API enabled by command line parameter');
   end;
+  if param='-ROBOT=VIRTUAL' then begin
+    Apus.Engine.RobotAPI.robotAPIEnabled:=true;
+    robotDriven:=true;
+    Atomic.Inc(unattendedCount); // errors before the first window get no box either
+    Log.Force('Robot API and virtual input enabled by command line parameter');
+  end;
  end;
 
 procedure TGameApplication.InitCursors;
@@ -853,7 +859,8 @@ begin
  except
   on e:Exception do begin
    Log.Force('Sound initialization failed. Continue without sound. '+e.message);
-   ShowMessage('No sound available. See log for details.'#13#10'Press OK to continue without sound.','Sound system error');
+   if unattendedCount=0 then // nobody to press OK
+    ShowMessage('No sound available. See log for details.'#13#10'Press OK to continue without sound.','Sound system error');
   end;
  end;
 end;
