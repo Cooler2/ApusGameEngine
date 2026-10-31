@@ -247,10 +247,13 @@ implementation
   TLocationsList=class(TUITable)
    dialog:TUIFileDialog;
    paths:Strings8; // stable visible order for this request, independent of persisted list indexes
+   missing:array of boolean; // by the index in paths: the folder was not found when the rows were built
    pressedPath:String8;
-   pressedRemove,pressedAction:boolean;
+   pressedAction:boolean;
+   function IsMissing(tag:NativeInt):boolean;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
+   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onLostFocus; override;
   end;
 
@@ -273,7 +276,7 @@ implementation
    'header-color:&file-dialog-text; header-hover-fill:&file-dialog-hover; row-hover-fill:&file-dialog-hover; '+
    'row-alt-fill:0; selection-fill:&file-dialog-selection; selection-color:&file-dialog-selection-text; '+
    'focus-color:&file-dialog-accent; favorite-color:&file-dialog-favorite; recent-color:&file-dialog-muted; '+
-   'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error';
+   'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error; disabled-color:&file-dialog-disabled';
   SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:&file-dialog-panel; '+
    'active-color:&file-dialog-accent';
   EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
@@ -591,7 +594,7 @@ implementation
   tag:NativeInt;
   color,fill:cardinal;
   path,labelText:String8;
-  remove,pinned:boolean;
+  ctrl,pinned,missing:boolean;
  begin
   list:=TLocationsList(element);
   s:=list.globalScale;
@@ -602,7 +605,7 @@ implementation
   rowH:=list.rowHeight*s;
   pos:=list.ScrollPos*s;
   first:=trunc(pos/rowH);
-  remove:=(list.GetWindow.shiftState and sscCtrl)<>0;
+  ctrl:=(list.GetWindow.shiftState and sscCtrl)<>0;
   gfx.clip.Rect(r);
   for place:=first to list.RowCount-1 do begin
    y:=r.Top+round(place*rowH-pos);
@@ -610,9 +613,10 @@ implementation
    row:=list.RowAt(place);
    tag:=list.RowTag(row);
    cell:=Types.Rect(r.Left,y,r.Left+round(list.RowsWidth*s),y+round(rowH));
+   missing:=list.IsMissing(tag);
    fill:=0;
    if row=list.selected then fill:=list.GetStyleColor('selection-fill',$FF356FA3)
-   else if row=list.hoverRow then fill:=list.GetStyleColor('row-hover-fill',$FF99B5CF);
+   else if (row=list.hoverRow) and not missing then fill:=list.GetStyleColor('row-hover-fill',$FF99B5CF);
    if fill<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,fill);
    path:=list.dialog.LocationPath(tag);
    if path='' then begin
@@ -623,13 +627,13 @@ implementation
     pinned:=PathIndex(list.dialog.favoriteFolders,path)>=0;
     if pinned then color:=list.GetStyleColor('favorite-color',$FF244C78)
      else color:=list.GetStyleColor('recent-color',$FF585860);
+    if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
+    if missing then color:=list.GetStyleColor('disabled-color',color);
     icon:=cell;
     icon.Left:=icon.Right-round(LOCATION_ACTION_WIDTH*s);
-    if row=list.selected then color:=list.GetStyleColor('selection-color',$FFFFFFFF);
-    if remove then DrawBadge(list,icon,s*0.85,fgRemove)
-    else if pinned then DrawBadge(list,icon,s*0.85,fgFavorite)
-    else if (row=list.hoverRow) and (curMouseX>=icon.Left) then
-     DrawBadge(list,icon,s*0.85,fgAddFavorite)
+    // the badge tells the kind of the entry; with Ctrl it shows what a click on it does
+    if pinned then DrawBadge(list,icon,s*0.85,fgFavorite,not missing)
+    else if ctrl then DrawBadge(list,icon,s*0.85,fgAddFavorite)
     else DrawBadge(list,icon,s*0.85,fgRecent);
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
@@ -640,23 +644,31 @@ implementation
   gfx.clip.Restore;
  end;
 
+ function TLocationsList.IsMissing(tag:NativeInt):boolean;
+ begin
+  result:=(tag>=0) and (tag<length(missing)) and missing[tag];
+ end;
+
+ // A click on a row opens its folder; a Ctrl+click on the badge adds the folder to favorites
+ // or removes it. Both happen on release over the same place.
  procedure TLocationsList.onMouseButtons(button:byte;state:boolean);
  var
   p:TVec2;
   row:integer;
   path:String8;
+  action:boolean;
  begin
   if button=1 then begin
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
    row:=RowAtPoint(p.x,p.y);
+   action:=(p.x>=RowsWidth-LOCATION_ACTION_WIDTH) and ((GetWindow.shiftState and sscCtrl)<>0);
    if not state and (pressedPath<>'') then begin
     path:=pressedPath;
     pressedPath:='';
     if hooked=self then hooked:=nil;
-    if (row>=0) and SamePath(path,dialog.LocationPath(RowTag(row))) and
-       (pressedAction=(p.x>=RowsWidth-LOCATION_ACTION_WIDTH)) then begin
-     if pressedAction then dialog.LocationAction(RowTag(row),pressedRemove)
-     else begin
+    if (row>=0) and SamePath(path,dialog.LocationPath(RowTag(row))) and (pressedAction=action) then begin
+     if pressedAction then dialog.LocationAction(RowTag(row),false)
+     else if not IsMissing(RowTag(row)) then begin
       selected:=row;
       dialog.LocationSelected(self,row);
      end;
@@ -665,8 +677,7 @@ implementation
    end;
    if state and (row>=0) then begin
     pressedPath:=dialog.LocationPath(RowTag(row));
-    pressedRemove:=(GetWindow.shiftState and sscCtrl)<>0;
-    pressedAction:=p.x>=RowsWidth-LOCATION_ACTION_WIDTH;
+    pressedAction:=action;
     SetFocus;
     hooked:=self;
     exit;
@@ -679,20 +690,37 @@ implementation
  var
   p:TVec2;
   tag:NativeInt;
+  path:String8;
  begin
   inherited;
   hint:='';
   if hoverRow<0 then exit;
   tag:=RowTag(hoverRow);
-  hint:=dialog.LocationPath(tag);
+  path:=dialog.LocationPath(tag);
+  if IsMissing(tag) then hint:=dialog.Template(dialog.texts.folderNotFound,path)
+   else hint:=path;
   p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
   if p.x>=RowsWidth-LOCATION_ACTION_WIDTH then begin
-   if (GetWindow.shiftState and sscCtrl)<>0 then hint:=dialog.texts.removeEntryHint
-   else if PathIndex(dialog.favoriteFolders,hint)>=0 then begin
-    if PathIndex(dialog.recentFolders,hint)>=0 then hint:=dialog.texts.unpinRecentHint
+   if PathIndex(dialog.favoriteFolders,path)>=0 then begin
+    if PathIndex(dialog.recentFolders,path)>=0 then hint:=dialog.texts.unpinRecentHint
      else hint:=dialog.texts.removeFavoriteHint;
    end else hint:=dialog.texts.addFavoriteHint;
+   hint:=hint+#10+dialog.texts.removeEntryHint;
   end;
+ end;
+
+ // Delete removes the entry from both lists, the cursor stays at its place
+ function TLocationsList.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+ var
+  place:integer;
+ begin
+  if pressed and (shiftstate=0) and (TKey(keycode)=TKey.Delete) and (selected>=0) then begin
+   place:=PlaceOf(selected);
+   dialog.LocationAction(RowTag(selected),true);
+   if RowCount>0 then selected:=RowAt(Math.Min(place,RowCount-1));
+   exit(false);
+  end;
+  result:=inherited onKey(keycode,pressed,shiftstate);
  end;
 
  procedure TLocationsList.onLostFocus;
@@ -1326,10 +1354,10 @@ implementation
    typeHint:='%s. Ctrl+click changes only this filter.';
    nameColumn:='Name'; modifiedColumn:='Modified'; sizeColumn:='Size';
    maskColumn:='Name: %s';
-   addFavoriteHint:='Add folder to favorites';
-   removeFavoriteHint:='Remove folder from favorites';
-   unpinRecentHint:='Unpin folder (keep in Recent)';
-   removeEntryHint:='Remove entry';
+   addFavoriteHint:='Ctrl+click: add to favorites';
+   removeFavoriteHint:='Ctrl+click: remove from favorites';
+   unpinRecentHint:='Ctrl+click: unpin, keep in Recent';
+   removeEntryHint:='Delete: remove from the list';
    enterName:='Enter a file name';
    chooseFolder:='Choose a folder first';
    nameIsFolder:='The name belongs to a folder';
@@ -2058,9 +2086,15 @@ implementation
    if PathIndex(list.paths,favoriteFolders[i])<0 then list.paths:=list.paths+[favoriteFolders[i]];
   for i:=0 to high(recentFolders) do
    if PathIndex(list.paths,recentFolders[i])<0 then list.paths:=list.paths+[recentFolders[i]];
+  // A folder that is gone (a removed drive, a deleted folder) stays in the lists: a favorite
+  // is shown dimmed, a recent one is hidden until the folder is back
+  SetLength(list.missing,length(list.paths));
+  for i:=0 to high(list.paths) do
+   list.missing[i]:=not Apus.Files.Folder.Exists(list.paths[i]);
   list.ClearRows;
   selectedRow:=-1;
   for i:=0 to high(list.paths) do begin
+   if list.missing[i] and (PathIndex(favoriteFolders,list.paths[i])<0) then continue;
    row:=list.AddRow(i);
    list.SetCell(row,0,list.paths[i]);
    if SamePath(list.paths[i],selectedPath) then selectedRow:=row;
@@ -2114,7 +2148,7 @@ implementation
  var
   path:String8;
  begin
-  if row<0 then exit;
+  if (row<0) or TLocationsList(locationsList).IsMissing(sender.RowTag(row)) then exit;
   path:=LocationPath(sender.RowTag(row));
   if (path<>'') and not SamePath(path,fFolder) then SetFolder(path);
  end;
