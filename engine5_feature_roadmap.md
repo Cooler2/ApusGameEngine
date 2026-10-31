@@ -1,5 +1,5 @@
 # Engine5 Feature Roadmap
-Last updated: 2026-10-27
+Last updated: 2026-11-01
 
 Language policy: this roadmap is maintained in English.
 
@@ -52,6 +52,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 | R-36 | UI Actions: Commands with Scoped Hotkeys | design | ~5% | Current sequence (`Work/R-14_popup_menu.md` §6): popup menu first, then a small `TUIAction` over the existing `RegisterHotKey`/`SetHotKey`; scoped bindings and the input-pipeline redesign (v3 doc `Work/R-36_actions_menus_design.md`) come later. No action code yet |
 | R-37 | Store Entitlements: Store-Neutral API + Mobile Stores | planned | ~5% | Split from R-34 (2026-10-22). Design only: ownership query by a game product id + "entitlements changed" signal; StoreKit (R-30) and Play Billing (R-24) backends, Steam as one more backend. Waits for mobile work |
 | R-38 | UI Inspector (F12-like) | paused | ~40% | Paused 2026-10-27 after steps 1-2, resume point in `Work/ui_inspector.md` section 0. Steps 1-2 merged into engine5 (2026-10-27): `Apus.Engine.UIInspector`, a second engine window (Ctrl+Shift+I in debug builds, console `inspector`) with the element tree and live fields (view/edit) from the UIScript field table, `tests/TestUIInspector`. Left: click-to-pick with highlight, style panel from resolver lookups, conveniences; plan `Work/ui_inspector.md` section 7 |
+| R-39 | Gradient Fills for UI Shapes | design | ~10% | Backend chosen by the bench (2026-11-01): dedicated SDF shape shader on a tight mesh (`TPaint` fill and border, edge gradient, per-corner radii). Next: interface sketch for review, then implementation replacing `RoundRect`, `WithGradient`, `TRoundRectExtParams`, `FillGradrect` |
 
 ## GL Version Policy (locked 2026-07-03)
 
@@ -215,6 +216,8 @@ Two tiers, not a version ladder:
 - Remaining:
   - [ ] NSight baseline on a representative real scene; bottleneck documented.
   - [ ] Track C `draw.Batching` implemented if real use case warrants it.
+  - [ ] One texture for fills and text: a white texel in the glyph-cache texture, so `FillRect`/shapes and text do not alternate textures (R-39 bench: ~6.5 us per fill+caption pair goes to the texture switch alone, more than the cost of the fill).
+  - [ ] `debugGL` is always `true` (`Apus.Engine.OpenGL.pas:99`): `glGetError` after GL calls in every build; R-39 bench: x1.8 on consecutive `FillRect`, x7.6 on consecutive `RoundRect`. Turn it off in release builds.
 - Journal: `Work/R-09_notes.md`
 
 ### [R-10] UI Widget System Refactor
@@ -589,3 +592,18 @@ Two tiers, not a version ladder:
 - Threads: one-way lock rule - the inspector, under its own window lock, takes the inspected window's lock, never the reverse; the pick click reaches the inspector via `QueueCall`, the highlight is drawn by the inspected window from the inspector core's selection.
 - Steps: 1 - field table in UIScript (one list of names for `GetField`, `ListFields` and console autocompletion); 2 - inspector window: tree and fields; 3 - pick (the existing Ctrl+middle-click debug pick also selects in the inspector) and highlight; 4 - style panel built from a trace of resolver lookups while the selected element draws (value, source: own style / `:state` / `@ref` / parent / token / drawer default); 5 - conveniences: copy edits as code, forced states, token edits.
 - Out of scope: mobile (no second window; an overlay on the same core if ever needed), remote inspection, layout editing by dragging.
+
+### [R-39] Gradient Fills for UI Shapes
+- Status: design (~10%) - backend chosen 2026-11-01 after the bench | Priority: P2 | Area: Render / UI
+- Value: buttons, window frames, panels, tabs and sliders drawn by primitives with good-looking fills (gradient body, bevel, gradient border) instead of flat colors or generated textures; the "primitive gradient tier" of `Work/R-05_button_patch_cache.md`.
+- Today there are three unrelated mechanisms, each limited: `WithGradient`/`TColorGradient` (threadvar state honoured only by `FillRect`, per-vertex clamping breaks narrow gradients, aspect-distorted angle, `CalcGradient` and `TMonoGradient.ValueAt` disagree on the coordinate range), `TRoundRectExtParams` (color deltas per axis, `RoundRect` only, solid border), `FillGradrect` (2 colors, horizontal/vertical, integer coords).
+- Must have: linear gradients with 2+ stops inside rounded rectangles (fill and border separately), antialiased edges; CSS-like angle (end colors land exactly in the corners at any aspect). Wanted: per-corner radii, edge gradient (color by distance from the shape edge - bevel, inner glow), gradients on other primitives (ellipse, pill, polygon), local (primitive bbox) vs absolute (shared across several primitives) coordinates.
+- Shape: one fill description (`TPaint`: solid / linear / edge, stops or a ramp texture, spread, units; local units 0..1 over the bbox) - explicit for shapes with fill and border, a `WithPaint` state for simple fill primitives; CPU evaluation (`ColorAt`) and `Lerp` for style transitions; R-05 style syntax `fill:linear(...)`.
+- Backend (leaning: shader): `RoundRect` is already an SDF shader (fill + border + AA in one quad) and DefaultStyle draws its boxes, sliders and checkboxes with it, so UI already pays the shader switch and per-draw uniforms. Plan: grow it into a general UI shape shader - gradient fill and border from `TPaint` (stops + gradient-space matrix as uniforms), per-corner radii, edge gradient, later ellipse/pill and shadows. Geometry stays only as the fallback for arbitrary primitives (`FillRect`, polygons): vertex colors from `TPaint.ColorAt`, exact for linear gradients without per-vertex clamping.
+- Coverage: the shape shader runs on a tight mesh, not on the whole bounding quad - a frame is a ring of quads along the edge (inset by max(radius, border) + AA), the interior quad is added only when the fill is visible; a large window frame otherwise shades millions of empty fragments.
+- Program choice (measure first, `drawCalls`/`shaderChanges` in the debug overlay): a dedicated program with all parameters packed into one `vec4` array (one `glUniform4fv`) vs the shape mode inside the standard 2D shader. The latter removes switches only if one program serves text, images and shapes (today texMode/layout variants already switch, e.g. 8-bit glyph text vs rects), and pays off mostly together with batching (R-09 Track C), where shape and paint parameters must move to vertex attributes. Keep the SDF/paint GLSL as a reusable piece so it can move into the standard shader later.
+- Current `RoundRect` limits to fix on the way: AA band is one virtual pixel (blurry at `pixelRatio`>1; use `fwidth`), `borderWidth` is clamped to `radius-1` (no border on sharp corners), `fillColor=0` means "border color, transparent", z is 0 instead of `zPlane`, string-keyed uniforms in `UseCustomized` (16 slots) - measure on a UI-heavy screen.
+- Migration: remove `WithGradient`/`NoGradient`, `TColorGradient`/`TMonoGradient`, `TRoundRectExtParams` (users: Draw2D demo only); `FillGradrect` becomes a thin wrapper; DefaultStyle buttons move to the new fills.
+- Out of scope (first version): radial/conic gradients (not needed), text gradients, blurred shadows, OKLab interpolation.
+- Bench (`tests/BenchUIShapes.dpr`, results in the design doc section 10): a full-quad shader wastes 4x (1080p) to 12x (4K) GPU on large frames vs a tight mesh; CPU per button with a caption: geometry/9-patch ~20-22 us, dedicated shader ~28 us (one program switch ~6 us), current `RoundRect` ~31 us - not a multiple, so quality and simplicity decide.
+- Decision: dedicated SDF shader on a tight mesh. Where many shapes alternate with text (lists, grids), draw all backgrounds first and then all captions to avoid switches. Geometry was dropped: its AA between rings (fringe, border, bevel) needs extra work, the shader gives edge gradients for free. Design (RU): `Work/R-39_ui_gradients.md`.
