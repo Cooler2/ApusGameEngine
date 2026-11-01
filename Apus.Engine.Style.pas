@@ -93,12 +93,20 @@ type
    attrs:TStyleAttrs;
   end;
 
-  // Parsed style block: refs + local attrs + state overrides + active states
+  TStyleBlock=class;
+  // A named part of an element ('header { ... }' in the style text): a style block of its own
+  TStylePart=record
+   name:String8;
+   block:TStyleBlock;
+  end;
+
+  // Parsed style block: refs + local attrs + state overrides + parts + active states
   TStyleBlock=class
   public
    refs:Strings8;                   // @ref names in declaration order
    attrs:TStyleAttrs;               // local key-value pairs
    stateAttrs:array of TStateBlock; // :state { ... } override blocks
+   parts:array of TStylePart;       // name { ... } blocks: refs, keys and states of a part
    activeStates:String8;            // comma-separated currently active state names
    dirty:boolean;                   // true when style data has changed
 
@@ -121,6 +129,9 @@ type
    procedure RemoveAttr(const key:String8);
    procedure AddRef(const refName:String8);
    procedure RemoveRef(const refName:String8);
+
+   // The block of a part ('header { ... }'), nil if not declared here (see ResolvePartAttr)
+   function Part(const name:String8):TStyleBlock;
 
    // State management
    function HasState(const name:String8):boolean;
@@ -152,6 +163,7 @@ type
    function GetLocalValue(const key:String8):String8;
    function GetActiveStateValue(const key:String8):String8;
    function FindOrAddStateBlock(const stateName:String8):integer;
+   procedure AddPart(const name,text:String8);
   end;
 
 // Global named style catalog
@@ -193,6 +205,12 @@ function ResolveBlockStateNumber(block:TStyleBlock; const stateName,key:String8;
 function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal:String8=''):String8;
 function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:cardinal=0):cardinal;
 
+// A value of a part ('header { ... }'): the part block of this block, then those of its @refs
+// (the later listed first). state='' - the base value, otherwise the value of that state block
+// of the part. Then the old prefixed keys of the block as aliases: '<part>-<key>',
+// '<part>-<state>-<key>'. Tokens are expanded; '' if not declared.
+function ResolvePartAttr(block:TStyleBlock; const part,state,key:String8):String8;
+
 // Parse color string: $AARRGGBB, $RRGGBB, #RRGGBB, #RGB, #ARGB formats
 // Returns 0 on failure
 function ParseStyleColor(const s:String8):cardinal;
@@ -221,19 +239,25 @@ function IsInheritedStyleKey(const key:String8):boolean;
 // A value of the form '&name' in any style attribute is replaced by the token's
 // value before color/number parsing. Tokens are the theme swap point.
 
-// SetToken is the SOLE mutation entry — writes the value and bumps stylesRevision.
+// Three layers, looked up in this order: the application (SetToken after a theme), the theme
+// (ApplyTheme), the defaults (SetDefaultToken). The first two share one table: ApplyTheme
+// clears it and fills it from the theme; the defaults survive a theme swap.
+// SetToken writes the value (the application/theme layer) and bumps stylesRevision.
 procedure SetToken(const name,value:String8);
+// A default of the engine or a widget (e.g. 'file-dialog-fill'='&surface'): used while no
+// theme or application value has the name; ApplyTheme and ClearTokens keep it
+procedure SetDefaultToken(const name,value:String8);
 // Convenience for the editor: stores color as '$AARRGGBB'.
 procedure SetTokenColor(const name:String8; color:cardinal);
-// Raw token value (NO &-expansion); defVal if not defined.
+// Raw token value (NO &-expansion) of the first layer that has it; defVal if not defined.
 function GetToken(const name:String8; const defVal:String8=''):String8;
 function HasToken(const name:String8):boolean;
 // '&name' -> the token's value (recursively), other values as is; '' for an unknown token.
 // Resolvers expand whole values; a compound value ('&shadow 2 3') passes as is, and the
 // drawer expands its parts.
 function ExpandToken(const value:String8; depth:integer=0):String8;
-procedure RemoveToken(const name:String8);
-procedure ClearTokens;
+procedure RemoveToken(const name:String8);   // from the application/theme layer
+procedure ClearTokens;                       // the application/theme layer, defaults stay
 
 // Themes are named, complete token sets. Each pair is a 'name=value' string.
 procedure DefineTheme(const name:String8; const pairs:array of String8);
@@ -278,8 +302,9 @@ type
  end;
 
 var
- tokens:array[0..MAX_TOKENS-1] of TToken;
+ tokens:array[0..MAX_TOKENS-1] of TToken; // the application/theme layer
  tokenCount:integer;
+ defaultTokens:array of TToken;
  themes:array[0..MAX_THEMES-1] of TTheme;
  themeCount:integer;
  activeThemeName:String8;
@@ -345,7 +370,11 @@ destructor TStyleBlock.Destroy;
  end;
 
 procedure TStyleBlock.Clear;
+ var
+  i:integer;
  begin
+  for i:=0 to high(parts) do parts[i].block.Free;
+  parts:=nil;
   refs:=nil;
   attrs:=nil;
   stateAttrs:=nil;
@@ -601,6 +630,8 @@ function TStyleBlock.GetText:String8;
     result:=result+stateAttrs[i].attrs[j].key+': '+stateAttrs[i].attrs[j].value+'; ';
    result:=result+'} ';
   end;
+  for i:=0 to high(parts) do
+   result:=result+parts[i].name+' { '+parts[i].block.GetText+' } ';
   result:=result.TrimRight;
  end;
 
@@ -737,12 +768,58 @@ procedure TStyleBlock.ParseText(const text:String8);
     continue;
    end;
 
-   // Regular key:value;
+   // Part block: name { ... }
    start:=i;
+   while (i<=n) and (text[i] in ['a'..'z','A'..'Z','0'..'9','_','-']) do inc(i);
+   braceStart:=i;
+   while (braceStart<=n) and (text[braceStart]<=' ') do inc(braceStart);
+   if (i>start) and (braceStart<=n) and (text[braceStart]='{') then begin
+    stateName:=Copy(text,start,i-start).ToLower;
+    i:=braceStart+1;
+    braceStart:=i;
+    depth:=1;
+    while (i<=n) and (depth>0) do begin
+     if text[i]='{' then inc(depth)
+      else if text[i]='}' then dec(depth);
+     inc(i);
+    end;
+    AddPart(stateName,Copy(text,braceStart,i-1-braceStart));
+    continue;
+   end;
+
+   // Regular key:value;
+   i:=start;
    while (i<=n) and (text[i]<>';') do inc(i);
    ParseKV(text,start,i-1,'');
    if i<=n then inc(i);
   end;
+ end;
+
+procedure TStyleBlock.AddPart(const name,text:String8);
+ var
+  i:integer;
+ begin
+  for i:=0 to high(parts) do
+   if parts[i].name=name then begin // a repeated part block replaces the earlier one
+    parts[i].block.ParseText(text);
+    exit;
+   end;
+  i:=length(parts);
+  SetLength(parts,i+1);
+  parts[i].name:=name;
+  parts[i].block:=TStyleBlock.Create;
+  parts[i].block.ParseText(text);
+ end;
+
+function TStyleBlock.Part(const name:String8):TStyleBlock;
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.ToLower;
+  for i:=0 to high(parts) do
+   if parts[i].name=n then exit(parts[i].block);
+  result:=nil;
  end;
 
 procedure TStyleBlock.PatchText(const patch:String8);
@@ -934,18 +1011,48 @@ procedure SetTokenColor(const name:String8; color:cardinal);
   SetToken(name,'$'+Conv.ToHex(color,8)); // store as $AARRGGBB
  end;
 
+function FindDefaultToken(const name:String8):integer;
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  for i:=0 to high(defaultTokens) do
+   if defaultTokens[i].name=n then exit(i);
+  result:=-1;
+ end;
+
+procedure SetDefaultToken(const name,value:String8);
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  if n='' then exit;
+  inc(stylesRevision);
+  i:=FindDefaultToken(n);
+  if i<0 then begin
+   i:=length(defaultTokens);
+   SetLength(defaultTokens,i+1);
+   defaultTokens[i].name:=n;
+  end;
+  defaultTokens[i].value:=value;
+ end;
+
 function GetToken(const name:String8; const defVal:String8):String8;
  var
   i:integer;
  begin
   i:=FindTokenIndex(name);
-  if i>=0 then result:=tokens[i].value
+  if i>=0 then exit(tokens[i].value);
+  i:=FindDefaultToken(name);
+  if i>=0 then result:=defaultTokens[i].value
    else result:=defVal;
  end;
 
 function HasToken(const name:String8):boolean;
  begin
-  result:=FindTokenIndex(name)>=0;
+  result:=(FindTokenIndex(name)>=0) or (FindDefaultToken(name)>=0);
  end;
 
 procedure RemoveToken(const name:String8);
@@ -1035,7 +1142,7 @@ procedure ApplyTheme(const name:String8);
    Log.Warn('Style: unknown theme "%s"',[name]);
    exit;
   end;
-  ClearTokens; // v1 themes are complete sets — start clean
+  ClearTokens; // themes are complete sets: start clean (the defaults stay)
   for i:=0 to themes[idx].pairs.Count-1 do
    SetToken(themes[idx].pairs.items[i].name,themes[idx].pairs.items[i].value);
   activeThemeName:=themes[idx].name;
@@ -1142,6 +1249,38 @@ function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal
  begin
   result:=ExpandToken(ResolveBlockAttrBaseRaw(block,key,defVal));
   if result='' then result:=defVal;
+ end;
+
+function ResolvePartAttrRaw(block:TStyleBlock; const part,state,key:String8):String8;
+ var
+  i:integer;
+  p,refBlock:TStyleBlock;
+ begin
+  p:=block.Part(part);
+  if p<>nil then begin
+   if state='' then result:=ResolveBlockAttrBaseRaw(p,key,'')
+    else result:=ResolveStatePhase(p,state,key);
+   if result<>'' then exit;
+  end;
+  for i:=high(block.refs) downto 0 do begin
+   refBlock:=FindStyleBlock(block.refs[i]);
+   if refBlock=nil then continue;
+   result:=ResolvePartAttrRaw(refBlock,part,state,key);
+   if result<>'' then exit;
+  end;
+  result:='';
+ end;
+
+function ResolvePartAttr(block:TStyleBlock; const part,state,key:String8):String8;
+ begin
+  result:='';
+  if block=nil then exit;
+  result:=ResolvePartAttrRaw(block,part.ToLower,state.ToLower,key.ToLower);
+  if result='' then begin // the old prefixed keys
+   if state='' then result:=ResolveBlockAttrBaseRaw(block,part+'-'+key,'')
+    else result:=ResolveBlockAttrBaseRaw(block,part+'-'+state+'-'+key,'');
+  end;
+  result:=ExpandToken(result);
  end;
 
 function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:cardinal):cardinal;

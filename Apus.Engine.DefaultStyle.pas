@@ -6,7 +6,7 @@
 
 unit Apus.Engine.DefaultStyle;
 interface
-uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UITypes;
  type
   TBoxShadow=record
    color:cardinal;           // 0 - none
@@ -47,7 +47,11 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
  // The box of an element: base values blended toward its states (call after UpdateVisualState,
  // which DrawUIElement does). The style only: the default drawer adds the look of a plain
  // button (a default fill, a shade, derived state colors), this does not
- procedure ResolveStyleBox(element:TUIElement; out box:TStyleBox);
+ procedure ResolveStyleBox(element:TUIElement; out box:TStyleBox); overload;
+ // The box of a part ('header { ... }') in rect, with the part states given by the drawer;
+ // keys come from the part block (no background images yet)
+ procedure ResolveStyleBox(element:TUIElement; const part:String8; const rect:TRect;
+   const weights:TElementStateWeights; out box:TStyleBox); overload;
  // Draw a resolved box: the shadow, the background (fill, shade, images), the border
  procedure DrawStyleBox(const box:TStyleBox;
    layers:TStyleBoxLayers=[TStyleBoxLayer.Shadow..TStyleBoxLayer.Border]);
@@ -81,7 +85,7 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
 implementation
  uses Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UITable,
+    Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UITable,
     Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings, Apus.Threads;
@@ -1159,14 +1163,12 @@ implementation
   end;
 
  // 'box-shadow: <color> [dx dy [blur [spread]]]' or 'none'; logical units -> box pixels
- procedure ResolveBoxShadow(element:TUIElement;scale:single;out shadow:TBoxShadow);
+ procedure ResolveBoxShadow(const st:String8;scale:single;out shadow:TBoxShadow);
   var
-   st:String8;
    parts:Strings8;
    i,n:integer;
   begin
    FillChar(shadow,sizeof(shadow),0);
-   st:=element.GetStyleValue('box-shadow');
    if (st='') or SameText(st,'none') then exit;
    parts:=st.Split(' ');
    n:=0;
@@ -1408,7 +1410,7 @@ implementation
    box.border.Init(ScaleFill(element.GetBaseStyleFill('border-color',TFill.None),scale));
    if not ParseRadii(ResolveBlockAttrBase(element.style,'radius'),box.radii) then box.radii:=TCornerRadii.All(0);
    box.borderWidth:=element.GetBaseStyleNumber('border-width');
-   ResolveBoxShadow(element,scale,box.shadow);
+   ResolveBoxShadow(element.GetStyleValue('box-shadow'),scale,box.shadow);
 
    // Background image: base layer + state layers (cross-fade)
    baseImage:=element.GetStyleValue('background-image');
@@ -1463,6 +1465,46 @@ implementation
  procedure ResolveStyleBox(element:TUIElement; out box:TStyleBox);
   begin
    ResolveBox(element,box,false);
+  end;
+
+ procedure ResolveStyleBox(element:TUIElement; const part:String8; const rect:TRect;
+   const weights:TElementStateWeights; out box:TStyleBox);
+  var
+   scale:single;
+   s:TElementState;
+   r:TCornerRadii;
+  begin
+   FillChar(box,sizeof(box),0);
+   box.rect:=rect;
+   scale:=element.globalScale;
+   box.scale:=scale;
+   box.moveBlend:=element.shape<>TUIShape.shapeEmpty;
+   box.fill:=element.GetBlendedPartFill(part,'fill',weights,TFill.None);
+   box.border:=element.GetBlendedPartFill(part,'border-color',weights,TFill.None);
+   box.shade:=element.GetBlendedPartFill(part,'fill-shade',weights,TFill.None);
+   box.fill.ScaleEdge(scale);
+   box.border.ScaleEdge(scale);
+   box.shade.ScaleEdge(scale);
+   box.borderWidth:=element.GetBlendedPartNumber(part,'border-width',weights,0);
+   box.reserve:=ParseStyleNumber(ResolvePartAttr(element.style,part,'','border-width'));
+   if not ParseRadii(ResolvePartAttr(element.style,part,'','radius'),box.radii) then
+    box.radii:=TCornerRadii.All(0);
+   for s:=low(TElementState) to high(TElementState) do begin
+    box.reserve:=Max(box.reserve,ParseStyleNumber(
+      ResolvePartAttr(element.style,part,ElementStateNames[s],'border-width')));
+    if (weights[s]>0) and ParseRadii(ResolvePartAttr(element.style,part,ElementStateNames[s],'radius'),r) then
+     box.radii:=LerpRadii(box.radii,r,weights[s]);
+   end;
+   // the shadow of the part (no state blending)
+   ResolveBoxShadow(ResolvePartAttr(element.style,part,'','box-shadow'),scale,box.shadow);
+   box.radii:=AdjustRadii(box.radii,scale,0);
+   box.borderWidth:=box.borderWidth*scale;
+   box.reserve:=box.reserve*scale;
+   if (box.borderWidth<=0) or (box.border.IsSingle and (box.border.fill.kind=fkSolid) and
+      (box.border.fill.stops[0].color shr 24=0)) then begin
+    box.border.Init(TFill.None);
+    box.borderWidth:=0;
+   end;
   end;
 
  // Fill, shade and border of a box rect x1..y2 (pixel-inclusive); outer - the border lies

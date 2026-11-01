@@ -379,6 +379,63 @@ begin
   EndTest;
 end;
 
+// Parts: 'name { ... }' blocks with their own keys, states and refs
+procedure TestParts;
+var
+  b,b2:TStyleBlock;
+begin
+  StartTest('Parts');
+  b:=TStyleBlock.Create;
+  b.ParseText('fill: #111111; header { fill: #222222; :hover { fill: #333333 } } row { color: #444444; } border-width: 2;');
+  Check(ResolveBlockAttr(b,'fill')='#111111','element key');
+  Check(ResolveBlockAttr(b,'border-width')='2','key after the parts');
+  Check((b.Part('header')<>nil) and (b.Part('ROW')<>nil) and (b.Part('body')=nil),'part blocks');
+  Check(ResolvePartAttr(b,'header','','fill')='#222222','part key');
+  Check(ResolvePartAttr(b,'header','hover','fill')='#333333','part state');
+  Check(ResolvePartAttr(b,'header','pressed','fill')='','undeclared part state');
+  Check(ResolvePartAttr(b,'row','','fill')='','part box keys do not come from the element');
+  // round trip
+  b2:=TStyleBlock.Create;
+  b2.ParseText(b.GetText);
+  Check(ResolvePartAttr(b2,'header','hover','fill')='#333333','round trip');
+  b2.Free;
+  // a ref carries parts; the element's part wins by keys
+  Styles['test-window']:='header { fill: #AAAAAA; line-color: #BBBBBB; }';
+  b.ParseText('@test-window; header { fill: #CCCCCC; }');
+  Check(ResolvePartAttr(b,'header','','fill')='#CCCCCC','own part over the ref part');
+  Check(ResolvePartAttr(b,'header','','line-color')='#BBBBBB','ref part key');
+  // the old prefixed keys are aliases
+  b.ParseText('header-fill: #DDDDDD; row-hover-fill: #EEEEEE;');
+  Check(ResolvePartAttr(b,'header','','fill')='#DDDDDD','alias');
+  Check(ResolvePartAttr(b,'row','hover','fill')='#EEEEEE','state alias');
+  // tokens
+  SetToken('test-part','#123456');
+  b.ParseText('header { fill: &test-part; }');
+  Check(ResolvePartAttr(b,'header','','fill')='#123456','token');
+  RemoveToken('test-part');
+  b.Free;
+  Styles.Remove('test-window');
+  EndTest;
+end;
+
+// Token layers: the defaults survive a theme swap, the theme and the application override them
+procedure TestTokenLayers;
+begin
+  StartTest('Token layers');
+  SetDefaultToken('test-layer','#010101');
+  Check(GetToken('test-layer')='#010101','default');
+  Check(HasToken('test-layer'),'HasToken sees the default');
+  SetToken('test-layer','#020202');
+  Check(GetToken('test-layer')='#020202','application over default');
+  ApplyTheme('dark');
+  Check(GetToken('test-layer')='#010101','theme swap keeps the default, drops the application value');
+  ClearTokens;
+  Check(GetToken('test-layer')='#010101','ClearTokens keeps the default');
+  Check(ExpandToken('&test-layer')='#010101','expansion');
+  ApplyTheme('light'); // restore
+  EndTest;
+end;
+
 // Tokens must be expanded in state values too, not only in plain ones
 procedure TestTokenInRefState;
 var
@@ -553,6 +610,8 @@ begin
   TestFillEdgeAndRamp;
   TestFillTokens;
   TestRadii;
+  TestParts;
+  TestTokenLayers;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

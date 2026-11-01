@@ -3,6 +3,22 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: parts of an element, default tokens, PixelWidth (2026-11-02)
+
+- Parts: a nested block in the style text, `header { fill: ...; :hover { ... } }`, is a style
+  block of its own (keys, `@refs`, state blocks) in `TStyleBlock.parts` (`Part(name)`).
+  `ResolvePartAttr(block,part,state,key)` looks in the part block, then in the parts of the
+  `@refs` (the element's part wins by keys); the old prefixed keys (`header-fill`,
+  `row-hover-fill`) are aliases. `TUIElement.GetPartStyleValue`, `GetBlendedPartColor/Number/Fill`
+  (the drawer gives the part its states by weights) and the DefaultStyle overload
+  `ResolveStyleBox(element,part,rect,weights,box)`. Box keys come from the part only; typography
+  falls back to the element.
+- Tokens have a default layer: `SetDefaultToken(name,value)` is used while neither the theme nor
+  the application has the name, and survives `ApplyTheme`/`ClearTokens`. The file dialog sets its
+  `file-dialog-*` tokens there: a theme swap no longer drops them (PaintRaw E-32).
+- `TUIElement.PixelWidth(w)`: a line width in logical units -> canvas pixels landing on whole
+  physical pixels (`gfx.target.pixelRatio`), at least one for `w>0`.
+
 ## UI: the style box of an element, blended values (2026-11-02)
 
 - `TBlendedFill` (Apus.Engine.Types, the former private `TFillSlot` of DefaultStyle): a fill

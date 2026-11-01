@@ -318,6 +318,19 @@ type
   function GetBlendedStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetBlendedStyleNumber(const key:String8; defVal:single=0):single;
   function GetBlendedStyleFill(const key:String8; const defVal:TFill):TBlendedFill;
+  // Parts: 'header { ... }' blocks of the style (and of its @refs), see ResolvePartAttr. The
+  // drawer gives a part its own states by weights (a hovered row). Box keys come from the part
+  // only; typography falls back to the element (its value as drawn now)
+  function GetPartStyleValue(const part,key:String8; const defVal:String8=''):String8;
+  function GetBlendedPartColor(const part,key:String8; const weights:TElementStateWeights;
+    defVal:cardinal=0):cardinal;
+  function GetBlendedPartNumber(const part,key:String8; const weights:TElementStateWeights;
+    defVal:single=0):single;
+  function GetBlendedPartFill(const part,key:String8; const weights:TElementStateWeights;
+    const defVal:TFill):TBlendedFill;
+  // A line width in logical units -> canvas pixels: whole physical pixels
+  // (gfx.target.pixelRatio), at least one for w>0
+  function PixelWidth(w:single):single;
   // Resolve style attribute value considering cascade (own block → parent chain)
   function GetStyleValue(const key:String8; const defVal:String8=''):String8;
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
@@ -1808,6 +1821,75 @@ function TUIElement.GetClientHeight:single;
    for i:=0 to high(st) do
     if ParseStyleFill(ResolveBlockStateAttr(style,st[i].name,key,''),f) then
      result.Blend(f,st[i].weight);
+  end;
+
+ function TUIElement.GetPartStyleValue(const part,key:String8; const defVal:String8):String8;
+  begin
+   result:=ResolvePartAttr(style,part,'',key);
+   if result<>'' then exit;
+   if IsInheritedStyleKey(key) then result:=GetStyleValue(key,defVal)
+    else result:=defVal;
+  end;
+
+ function TUIElement.GetBlendedPartColor(const part,key:String8; const weights:TElementStateWeights;
+    defVal:cardinal):cardinal;
+  var
+   s:TElementState;
+   v:String8;
+  begin
+   v:=ResolvePartAttr(style,part,'',key);
+   if v<>'' then result:=ParseColorDef(v,defVal)
+    else if IsInheritedStyleKey(key) then result:=GetBlendedStyleColor(key,defVal)
+    else result:=defVal;
+   for s:=low(TElementState) to high(TElementState) do
+    if weights[s]>0 then begin
+     v:=ResolvePartAttr(style,part,ElementStateNames[s],key);
+     if v<>'' then result:=Color.Mix(result,ParseColorDef(v,result),weights[s]);
+    end;
+  end;
+
+ function TUIElement.GetBlendedPartNumber(const part,key:String8; const weights:TElementStateWeights;
+    defVal:single):single;
+  var
+   s:TElementState;
+   v:String8;
+  begin
+   v:=ResolvePartAttr(style,part,'',key);
+   if v<>'' then result:=ParseStyleNumber(v)
+    else if IsInheritedStyleKey(key) then result:=GetBlendedStyleNumber(key,defVal)
+    else result:=defVal;
+   for s:=low(TElementState) to high(TElementState) do
+    if weights[s]>0 then begin
+     v:=ResolvePartAttr(style,part,ElementStateNames[s],key);
+     if v<>'' then result:=result+(ParseStyleNumber(v)-result)*weights[s];
+    end;
+  end;
+
+ function TUIElement.GetBlendedPartFill(const part,key:String8; const weights:TElementStateWeights;
+    const defVal:TFill):TBlendedFill;
+  var
+   s:TElementState;
+   v:String8;
+   f:TFill;
+  begin
+   v:=ResolvePartAttr(style,part,'',key);
+   if (v<>'') and ParseStyleFill(v,f) then result.Init(f)
+    else if (v='') and IsInheritedStyleKey(key) then result:=GetBlendedStyleFill(key,defVal)
+    else result.Init(defVal);
+   for s:=low(TElementState) to high(TElementState) do
+    if (weights[s]>0) and ParseStyleFill(ResolvePartAttr(style,part,ElementStateNames[s],key),f) then
+     result.Blend(f,weights[s]);
+  end;
+
+ function TUIElement.PixelWidth(w:single):single;
+  var
+   k:single;
+  begin
+   if w<=0 then exit(0);
+   k:=1;
+   if (gfx<>nil) and (gfx.target<>nil) then k:=gfx.target.pixelRatio;
+   if k<=0 then k:=1;
+   result:=Max(1,round(w*globalScale*k))/k;
   end;
 
 { TUIVisualState }

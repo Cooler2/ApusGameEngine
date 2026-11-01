@@ -2578,9 +2578,10 @@ implementation
   if IsActive then onResize;
  end;
 
+ // the defaults: a theme or the application overrides them, a theme swap keeps them
  procedure DefineToken(const name,value:String8);
  begin
-  if not HasToken(name) then SetToken(name,value);
+  SetDefaultToken(name,value);
  end;
 
 initialization

@@ -480,6 +480,45 @@ begin
   EndTest;
 end;
 
+// A part: box keys from its block blended by the weights the drawer gives, typography from the
+// element; its box drawn in a rect
+procedure TestPartBox;
+var
+  e:TUIElement;
+  w:TElementStateWeights;
+  f:TBlendedFill;
+  box:TStyleBox;
+  r:TRect;
+  c:cardinal;
+begin
+  StartTest('Part box');
+  e:=NewElement(220,143,60,14,'color: #FFFFFF; header { fill: #000000; border-width: 1; '+
+    ':hover { fill: #FFFFFF; border-width: 3; } }');
+  e.globalRect:=e.GetPosOnScreen;
+  e.UpdateVisualState(CoreTime.Ticks);
+  FillChar(w,sizeof(w),0);
+  f:=e.GetBlendedPartFill('header','fill',w,TFill.None);
+  Check(f.IsSingle and (f.fill.stops[0].color=$FF000000),'base part fill');
+  Check(e.GetBlendedPartColor('header','color',w)=$FFFFFFFF,'color from the element');
+  Check(e.GetPartStyleValue('header','fill')='#000000','plain part value');
+  w[TElementState.Hover]:=0.5;
+  f:=e.GetBlendedPartFill('header','fill',w,TFill.None);
+  c:=f.fill.stops[0].color;
+  Check(f.IsSingle and (Channel(c,16)>110) and (Channel(c,16)<145),'part fill halfway: '+IntToHex(c,8));
+  Check(abs(e.GetBlendedPartNumber('header','border-width',w)-2)<0.01,'part number halfway');
+  FillChar(w,sizeof(w),0);
+  r:=e.globalRect;
+  ResolveStyleBox(e,'header',r,w,box);
+  Check(abs(box.reserve-3)<0.01,'part reserve: the widest state border');
+  DrawStyleBox(box);
+  gfx.CopyFromBackbuffer(0,0,img);
+  CheckPixel(r.CenterPoint.X,r.CenterPoint.Y,$FF000000,'part fill drawn');
+  Check(e.PixelWidth(0)=0,'PixelWidth(0)');
+  Check(e.PixelWidth(0.2)>0,'PixelWidth of a thin line');
+  Check(abs(e.PixelWidth(2)-2)<0.01,'PixelWidth(2) at scale 1');
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -533,6 +572,7 @@ begin
       TestCheckedLook;
       TestBlendedValues;
       TestElementBox;
+      TestPartBox;
       gfx.CopyFromBackbuffer(0,0,img);
       outDir:=String8(ExtractFilePath(ParamStr(0)))+'TestStyleFill/';
       Files.Save(outDir+'style_fill.png',SavePNG(img));
