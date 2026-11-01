@@ -1427,7 +1427,8 @@ implementation
    if fillSlot.IsEmpty and borderSlot.IsEmpty and (radii.MaxRadius=0) and (bWidth=0) and
       (layerCount=0) and not shadeSlot.fill.IsVisible then exit; // nothing to draw
 
-   // State blend: hover -> pressed -> disabled (layered)
+   // State blend: focused (instant) -> hover -> pressed -> disabled (layered)
+   if FocusedElement=element then BlendState('focused',1,fillSlot.fill,false);
    BlendState('hover',hv,fillSlot.fill.Add($101010),isButton);
    BlendState('pressed',av,fillSlot.fill.Sub($282020),isButton);
    BlendState('disabled',dv,fillSlot.fill.MixWith($FFA0A0A0,0.5),isButton);
@@ -1645,8 +1646,7 @@ procedure TContext.Update(element:TUIElement);
   end;
   // sync disabled state
   element.SetState('disabled',v=1);
-  // Keyboard focus (no tweening: ':focused' blocks switch instantly)
-  element.SetState('focused',FocusedElement=element);
+  // the 'focused' state is synced by DrawUIElement for every drawer
  end;
 
 function TContext.GetImage(const src:String8):TTexture;

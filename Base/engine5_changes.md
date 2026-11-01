@@ -3,6 +3,20 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: Tab leaves elements with children, `:focused` boxes (2026-11-01)
+
+- `SetFocusToNext` stopped on the element itself when it climbed back from its children: a
+  focusable element with children (a `TUITable` with its scrollbars) kept the focus on every Tab.
+  Returning to a parent is no longer a step.
+- Tab and Shift+Tab skip elements whose ancestors are hidden or disabled (`IsVisible`,
+  `IsEnabled`), not only those hidden or disabled themselves. The UI of an inactive scene is
+  disabled, so Tab does not enter it.
+- The `focused` state is synced by `DrawUIElement` before any drawer, custom drawers included
+  (it was set only by the default drawer), so `GetStyleColor` sees `:focused` blocks everywhere.
+- The common box path applies `:focused { fill; border-color; border-width; radius; fill-shade }`
+  instantly, before hover, pressed and disabled. A focused edit box or table can now show a
+  frame from its style.
+
 ## UI: the completion of the edit box follows the text (2026-10-31)
 
 - `TUIEditBox.completion`: any change of the text drops it (typing, deleting, undo, `text:=`

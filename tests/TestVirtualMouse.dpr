@@ -1048,7 +1048,8 @@ procedure TestEditKeys;
   e1,e2,e3:TUIEditBox;
  begin
   StartTest('Edit box keys');
-  form:=TUIScene.Create('Form',false,wndA); // never active: no part in the mouse tests
+  form:=TUIScene.Create('Form',false,wndA); // active only here: no part in the mouse tests
+  form.SetStatus(ssActive); // an inactive scene has its UI disabled: Tab skips it
   panel:=TUIElement.Create(300,200,form.UI,'FormPanel');
   e1:=TUIEditBox.Create(100,20,panel,'Edit1');
   e2:=TUIEditBox.Create(100,20,panel,'Edit2');
@@ -1065,6 +1066,7 @@ procedure TestEditKeys;
   e1.onKey(ord(TKey.Tab),true,sscShift or sscRShift);
   Check(FocusedElement=e3,'Shift+Tab from the first wraps to the last');
   ClearFocus(wndA);
+  form.SetStatus(ssFrozen);
   EndTest;
  end;
 
@@ -1377,6 +1379,42 @@ procedure TestFocusKeys;
   form.log:='';
   form.DispatchKey(TKey.B,0,0,true);
   Check(form.log='D:B ','no focus: the scene gets the key: '+form.log);
+  form.SetStatus(ssFrozen);
+  EndTest;
+ end;
+
+procedure TestTabOrder;
+ var
+  form:TKeyForm;
+  first,last:TUIEditBox;
+  list,hidden,off:TUIElement;
+ begin
+  StartTest('Tab order');
+  form:=TKeyForm.Create('TabForm',false,wndA);
+  form.SetStatus(ssActive);
+  first:=TUIEditBox.Create(100,20,form.UI,'TabFirst');
+  list:=TUIElement.Create(100,100,form.UI,'TabList'); // focusable, with a child: like a table with its scrollbar
+  list.flags.canHaveFocus:=true;
+  TUIElement.Create(10,100,list,'TabListBar');
+  hidden:=TUIElement.Create(100,20,form.UI,'TabHidden');
+  TUIEditBox.Create(100,20,hidden,'TabHiddenEdit');
+  hidden.Hide;
+  off:=TUIElement.Create(100,20,form.UI,'TabOff');
+  TUIEditBox.Create(100,20,off,'TabOffEdit');
+  off.Disable;
+  last:=TUIEditBox.Create(100,20,form.UI,'TabLast');
+  first.SetFocus;
+  first.SetFocusToNext;
+  Check(FocusedElement=list,'Tab: the next element');
+  list.SetFocusToNext;
+  Check(FocusedElement=last,'Tab leaves an element with children, skips a hidden and a disabled parent');
+  last.SetFocusToNext;
+  Check(FocusedElement=first,'Tab wraps around');
+  first.SetFocusToPrev;
+  Check(FocusedElement=last,'Shift+Tab wraps around');
+  last.SetFocusToPrev;
+  Check(FocusedElement=list,'Shift+Tab skips a hidden and a disabled parent');
+  ClearFocus(wndA);
   form.SetStatus(ssFrozen);
   EndTest;
  end;
@@ -1757,6 +1795,7 @@ begin
   TestCompletion;
   TestMessageQueue;
   TestFocusKeys;
+  TestTabOrder;
   TestDrag;
   TestReset;
   TestPhysicalIgnored;
