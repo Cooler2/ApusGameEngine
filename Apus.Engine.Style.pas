@@ -55,6 +55,8 @@
 //  Scrollbar:
 //   color (slider), track-color, active-color, track-width, slider-width, min-size,
 //   radius, variant (flat)
+//   slider-align: center | end (a narrow slider and track at the far edge); track-width,
+//   slider-width and track-color follow ':hover' smoothly, dragging keeps the hover values
 //  Transitions (ms):
 //   hover-time, hover-time-in, hover-time-out, press-time, release-time,
 //   disable-time, enable-time;  hover-target: parent  (hover follows the parent)

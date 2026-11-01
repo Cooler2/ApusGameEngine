@@ -3,6 +3,16 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: scroll bars over the rows of a table, a slider that widens under the mouse (2026-11-01)
+
+- `TUITable.overlayScrollbars`: the scroll bars lie over the rows and take no room from them
+  (`RowsWidth`, `RowsHeight`); the horizontal bar stops before the vertical one.
+- The flat scroll bar: `track-width`, `slider-width` and `track-color` follow `:hover`
+  smoothly, dragging keeps the hover values, so a narrow slider can widen under the mouse
+  (`slider-width:0.4; :hover { slider-width:0.9 }`). The element keeps its size: only the
+  drawing changes. `slider-align:end` puts a narrow slider and track at the far edge, where
+  the widest slider ends.
+
 ## UI: Tab leaves elements with children, `:focused` boxes (2026-11-01)
 
 - `SetFocusToNext` stopped on the element itself when it climbed back from its children: a

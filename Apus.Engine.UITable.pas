@@ -54,6 +54,9 @@ interface
    rowHeight,headerHeight:single;
    resizeColumns:boolean; // drag a header separator; columns to its right move without changing width
    multiSelect:boolean;
+   // The scroll bars lie over the rows and take no room; a narrow slider that widens
+   // under the mouse comes from the scroll bar style (':hover { slider-width }')
+   overlayScrollbars:boolean;
    onSelect:TTableEvent;   // the selected (focused) row changed, row -1 - none
    onSelectionChanged:TTableEvent; // the set of selected rows changed, row - the focused one
    onActivate:TTableEvent; // double click or Enter on a row
@@ -84,8 +87,8 @@ interface
    // Geometry in the client space of the table
    function ColumnLeft(col:integer):single;
    function ColumnWidth(col:integer):single;
-   function RowsWidth:single;              // the client width without the scrollbar
-   function RowsHeight:single;             // visible rows below the header, above the horizontal bar
+   function RowsWidth:single;              // the client width without the scrollbar (unless it overlays the rows)
+   function RowsHeight:single;             // visible rows below the header, above the horizontal bar (ditto)
    function ScrollX:single;
    function ScrollPos:single;              // how far the rows are scrolled up
    function ColumnAt(x:single):integer;    // -1 - no column there
@@ -421,13 +424,14 @@ implementation
  function TUITable.RowsWidth:single;
   begin
    result:=clientWidth;
-   if scrollerV.GetElement.flags.visible then result:=result-scrollerV.GetElement.width;
+   if scrollerV.GetElement.flags.visible and not overlayScrollbars then
+    result:=result-scrollerV.GetElement.width;
   end;
 
  function TUITable.RowsHeight:single;
   begin
    result:=Max(0,clientHeight-headerHeight);
-   if (scrollerH<>nil) and scrollerH.GetElement.flags.visible then
+   if (scrollerH<>nil) and scrollerH.GetElement.flags.visible and not overlayScrollbars then
     result:=Max(0,result-SCROLLBAR_WIDTH);
   end;
 
@@ -522,6 +526,8 @@ implementation
    scrollerH.SetStep(Max(20,RowsWidth/3));
    hbar.SetPos(0,clientHeight,pivotBottomLeft);
    hbar.size.x:=RowsWidth;
+   // over the rows the bars must not cross: the horizontal one stops before the vertical one
+   if overlayScrollbars and bar.flags.visible then hbar.size.x:=Max(0,hbar.size.x-bar.width);
   end;
 
  procedure TUITable.SetupScrollers;

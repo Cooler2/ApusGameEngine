@@ -688,10 +688,10 @@ implementation
   var
    col,trackColor:cardinal;
    size,width:integer;
-   scale,trackWidth,sliderWidth,sliderRadius,f:single;
+   scale,trackWidth,sliderWidth,hoverWidth,sliderRadius,f,hv:single;
    sStyle:string8;
    context:TContext;
-   sliderVisible:boolean;
+   sliderVisible,alignEnd:boolean;
    r:TRect2;
   begin
    size:=x2-x1; width:=y2-y1;
@@ -707,37 +707,45 @@ implementation
    scale:=element.globalScale;
 
    if SameText(sStyle,'flat') then begin
-    // Flat style
-    trackWidth:=element.GetStyleNumber('track-width',1);
-    sliderWidth:=element.GetStyleNumber('slider-width',0.9);
+    // Flat style. The widths may grow under the mouse (':hover { slider-width }'), dragging keeps
+    // them grown; with 'slider-align:end' a narrow slider and track hug the far edge
+    hv:=context.hover.Value;
+    if hooked=element then hv:=1;
+    trackWidth:=element.GetBaseStyleNumber('track-width',1);
+    trackWidth:=Lerp(trackWidth,element.GetStateStyleNumber('hover','track-width',trackWidth),hv);
+    sliderWidth:=element.GetBaseStyleNumber('slider-width',0.9);
+    hoverWidth:=element.GetStateStyleNumber('hover','slider-width',sliderWidth);
+    sliderWidth:=Lerp(sliderWidth,hoverWidth,hv);
+    alignEnd:=SameText(element.GetStyleValue('slider-align','center'),'end');
     sliderRadius:=element.GetStyleNumber('radius',0)*width*sliderWidth;
     // Draw track
     trackColor:=element.GetBaseStyleColor('track-color',Color.Scale(col,0.5));
-    trackColor:=Color.Mix(trackColor,element.GetStateStyleColor('hover','track-color',trackColor),context.hover.Value);
+    trackColor:=Color.Mix(trackColor,element.GetStateStyleColor('hover','track-color',trackColor),hv);
     r.Init(x1,y1,x2,y2);
-    f:=(1-trackWidth)/2;
+    if alignEnd then f:=1-trackWidth else f:=(1-trackWidth)/2;
     if element.horizontal then begin
      r.y1:=Lerp(y1,y2,f);
-     r.y2:=Lerp(y1,y2,1-f);
+     r.y2:=Lerp(y1,y2,f+trackWidth);
     end else begin
      r.x1:=Lerp(x1,x2,f);
-     r.x2:=Lerp(x1,x2,1-f);
+     r.x2:=Lerp(x1,x2,f+trackWidth);
     end;
     draw.FillRect(r.x1,r.y1,r.x2,r.y2,trackColor);
 
     // Draw slider
     if sliderVisible then begin
-     // slider rect
-     f:=(1-sliderWidth)/2;
+     // slider rect: at the end it keeps the far side of the widest slider
+     if alignEnd then f:=(1+Max(sliderWidth,hoverWidth))/2-sliderWidth
+      else f:=(1-sliderWidth)/2;
      if element.horizontal then begin
       r.x1:=Lerp(x1,x2,element.sliderStart);
       r.y1:=Lerp(y1,y2,f);
       r.x2:=Lerp(x1,x2,element.sliderEnd);
-      r.y2:=Lerp(y1,y2,1-f);
+      r.y2:=Lerp(y1,y2,f+sliderWidth);
      end else begin
       r.x1:=Lerp(x1,x2,f);
       r.y1:=Lerp(y1,y2,element.sliderStart);
-      r.x2:=Lerp(x1,x2,1-f);
+      r.x2:=Lerp(x1,x2,f+sliderWidth);
       r.y2:=Lerp(y1,y2,element.sliderEnd);
      end;
      // col
