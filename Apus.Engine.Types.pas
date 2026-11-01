@@ -16,6 +16,8 @@ const
  mbRight  = 2;
  mbMiddle = 4;
 
+ MAX_FILL_STOPS = 4; // color stops in a TFill gradient
+
 type
  // 2D geometry
  TVec2d = Apus.Geom2D.TVec2d;
@@ -208,23 +210,72 @@ type
   function ToQuat:TQuat; inline;
  end;
 
- TMonoGradient=record
-  base,dx,dy:single;
-  procedure Init(v1,v2,angle,scale:single);
-  function ValueAt(x,y:single):single; inline;
- end;
- // Linear gradient
- TColorGradient=record
-  red,green,blue,alpha:TMonoGradient;
-  procedure Init(color1,color2:cardinal;angle,scale:single);
-  function ColorAt(x,y:single):cardinal;
+ TFillKind=(fkNone,    // nothing is drawn
+            fkSolid,   // one color: stops[0]
+            fkLinear,  // gradient along the line p0 (t=0) -> p1 (t=1)
+            fkEdge);   // gradient by the distance from the shape edge
+ TFillSpread=(fsPad,fsRepeat,fsReflect); // gradient outside 0..1: clamp, repeat, mirror
+ TFillUnits=(fuLocal,     // p0,p1 - 0..1 over the shape bbox
+             fuAbsolute,  // p0,p1 - drawing coordinates
+             fuAngle);    // p0.x - CSS angle in degrees, the line is derived from the shape bbox
+
+ TFillStop=packed record
+  pos:single; // 0..1 along the gradient
+  color:cardinal;
  end;
 
- PRoundRectExtParams=^TRoundRectExtParams;
- TRoundRectExtParams=record
-  origin:TVec2; // normalized local coords: (0,0)=center, (-1,-1)..(1,1)=corners
-  fillDx,fillDy:TColorVector; // signed color delta per normalized local axis
-  constructor Init(const fillDx,fillDy:TColorVector;const origin:TVec2);
+ // What color each point of a shape gets: a solid color or a gradient.
+ // A plain value (no managed fields): cheap to copy, pass as const.
+ // Gradient colors are interpolated premultiplied (a fade to transparent does not darken).
+ TFill=record
+  kind:TFillKind;
+  spread:TFillSpread;
+  units:TFillUnits;
+  stopCount:byte;
+  // fkLinear: the gradient line p0 (t=0) -> p1 (t=1), in units;
+  // fkEdge: p0.x = band width inward from the edge (t=0 at the edge, t=1 at the band end)
+  p0,p1:TVec2;
+  // optional TTexture: colors from this ramp image (left->right) instead of stops; not owned.
+  // Typed as TObject because textures are declared in a higher unit (Apus.Engine.Resources)
+  ramp:TObject;
+  stops:array[0..MAX_FILL_STOPS-1] of TFillStop;
+
+  class function None:TFill; static;
+  class function Solid(color:cardinal):TFill; static;
+  // CSS angle: 0 - to top, 90 - to right, 180 - to bottom; the end colors land exactly
+  // in the corners at any aspect ratio
+  class function Linear(angle:single;c1,c2:cardinal):TFill; overload; static;
+  class function Linear(const p0,p1:TVec2;c1,c2:cardinal;units:TFillUnits=fuLocal):TFill; overload; static;
+  // color by the distance from the shape edge: bevel, inner glow, cross-section of a frame
+  class function Edge(width:single;cEdge,cInner:cardinal):TFill; static;
+  function AddStop(pos:single;color:cardinal):TFill; // fluent: TFill.Linear(180,a,b).AddStop(0.5,c)
+  function WithRamp(tex:TObject):TFill; // tex: TTexture
+  function WithSpread(spread:TFillSpread):TFill;
+
+  function IsVisible:boolean; // not fkNone and some color has alpha>0 (or a ramp is set)
+  // CPU evaluation: solid and linear exactly; fkEdge gives its inner (last) color; the ramp is ignored
+  function ColorAt(x,y:single;const box:TRect2):cardinal;
+  // fkLinear: the gradient line in drawing coordinates for the shape bbox
+  procedure GetLine(const box:TRect2;out a,b:TVec2);
+  // fkLinear: gradient parameter at the point, before the spread is applied
+  function ParamAt(x,y:single;const box:TRect2):single;
+  // color at the gradient parameter (spread applied)
+  function ColorAtParam(t:single):cardinal;
+
+  // color operations for derived state colors, as Color.Add/Sub/Mix on every stop
+  function Add(color:cardinal):TFill;
+  function Sub(color:cardinal):TFill;
+  function MixWith(color:cardinal;t:single):TFill;
+  // style transitions: false if a and b can't be interpolated - the caller cross-fades two draws
+  class function Mix(const a,b:TFill;t:single;out r:TFill):boolean; static;
+ end;
+
+ // Corner radii, clockwise from the top-left
+ TCornerRadii=record
+  topLeft,topRight,bottomRight,bottomLeft:single;
+  class function All(r:single):TCornerRadii; static;
+  class function Init(tl,tr,br,bl:single):TCornerRadii; static;
+  function MaxRadius:single;
  end;
 
  TDisplayModeHelper = record helper for TDisplayMode
@@ -515,10 +566,8 @@ function FitToBudget(const client:TSize;maxW,maxH:integer):TSize;
  // TODO: trim this unit to engine-specific types only and move Base-type re-exports
  // to explicit imports or a dedicated facade, as documented in Work/engine_work_ahead.md.
 
-{ TGradient }
  const
   k255 = 1/255;
-  minGradientScale = 1E-6;
 
 function TDisplayModeHelper.ToString:string;
  begin
@@ -559,43 +608,283 @@ function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
    result:=TQuat.Init(red,green,blue,alpha);
   end;
 
-{ TRoundRectExtParams }
- constructor TRoundRectExtParams.Init(const fillDx,fillDy:TColorVector;const origin:TVec2);
+{ TFill }
+ // premultiplied interpolation of two straight ARGB colors: a fade to transparent keeps the hue
+ function MixPremul(c1,c2:cardinal;t:single):cardinal;
+  var
+   w1,w2,a:single;
   begin
-   self.origin:=origin;
-   self.fillDx:=fillDx;
-   self.fillDy:=fillDy;
+   if t<=0 then exit(c1);
+   if t>=1 then exit(c2);
+   w1:=(c1 shr 24)*(1-t);
+   w2:=(c2 shr 24)*t;
+   a:=w1+w2;
+   if a<=0 then exit(Color.Mix(c1,c2,t) and $FFFFFF);
+   result:=cardinal(round(a)) shl 24+
+     cardinal(round((byte(c1 shr 16)*w1+byte(c2 shr 16)*w2)/a)) shl 16+
+     cardinal(round((byte(c1 shr 8)*w1+byte(c2 shr 8)*w2)/a)) shl 8+
+     cardinal(round((byte(c1)*w1+byte(c2)*w2)/a));
   end;
 
- function TColorGradient.ColorAt(x,y:single):cardinal;
+ function FloorF(x:single):single; inline;
   begin
-   result:=Color.ARGBf(alpha.ValueAt(x,y),red.valueAt(x,y),green.ValueAt(x,y),blue.ValueAt(x,y));
+   result:=Int(x);
+   if result>x then result:=result-1;
   end;
 
- procedure TColorGradient.Init(color1,color2:cardinal;angle,scale:single);
+ class function TFill.None:TFill;
   begin
-   alpha.Init(PARGBColor(@color1).a*k255,PARGBColor(@color2).a*k255,angle,scale);
-   red.Init(PARGBColor(@color1).r*k255,PARGBColor(@color2).r*k255,angle,scale);
-   green.Init(PARGBColor(@color1).g*k255,PARGBColor(@color2).g*k255,angle,scale);
-   blue.Init(PARGBColor(@color1).b*k255,PARGBColor(@color2).b*k255,angle,scale);
+   result:=Default(TFill);
   end;
 
-{ TMonoGradient }
- procedure TMonoGradient.Init(v1,v2,angle,scale:single);
+ class function TFill.Solid(color:cardinal):TFill;
   begin
-   base:=(v1+v2)/2;
-   if abs(scale)<=minGradientScale then begin
-     dx:=0;
-     dy:=0;
-   end else begin
-     dx:=(v2-v1)*cos(angle)/scale;
-     dy:=(v2-v1)*sin(angle)/scale;
+   result:=Default(TFill);
+   result.kind:=fkSolid;
+   result.stopCount:=1;
+   result.stops[0].color:=color;
+  end;
+
+ class function TFill.Linear(angle:single;c1,c2:cardinal):TFill;
+  begin
+   result:=Linear(TVec2.Init(angle,0),TVec2.Init(0,0),c1,c2,fuAngle);
+  end;
+
+ class function TFill.Linear(const p0,p1:TVec2;c1,c2:cardinal;units:TFillUnits=fuLocal):TFill;
+  begin
+   result:=Default(TFill);
+   result.kind:=fkLinear;
+   result.units:=units;
+   result.p0:=p0;
+   result.p1:=p1;
+   result.stopCount:=2;
+   result.stops[0].color:=c1;
+   result.stops[1].pos:=1;
+   result.stops[1].color:=c2;
+  end;
+
+ class function TFill.Edge(width:single;cEdge,cInner:cardinal):TFill;
+  begin
+   result:=Linear(TVec2.Init(width,0),TVec2.Init(0,0),cEdge,cInner,fuAbsolute);
+   result.kind:=fkEdge;
+  end;
+
+ function TFill.AddStop(pos:single;color:cardinal):TFill;
+  var
+   i:integer;
+  begin
+   result:=self;
+   ASSERT(kind in [fkLinear,fkEdge],'TFill.AddStop: not a gradient');
+   ASSERT(stopCount<MAX_FILL_STOPS,'TFill.AddStop: too many stops');
+   if stopCount>=MAX_FILL_STOPS then exit;
+   // keep the stops sorted; an equal position goes after the existing one (hard edge)
+   i:=stopCount;
+   while (i>0) and (result.stops[i-1].pos>pos) do begin
+    result.stops[i]:=result.stops[i-1];
+    dec(i);
+   end;
+   result.stops[i].pos:=pos;
+   result.stops[i].color:=color;
+   inc(result.stopCount);
+  end;
+
+ function TFill.WithRamp(tex:TObject):TFill;
+  begin
+   result:=self;
+   result.ramp:=tex;
+  end;
+
+ function TFill.WithSpread(spread:TFillSpread):TFill;
+  begin
+   result:=self;
+   result.spread:=spread;
+  end;
+
+ function TFill.IsVisible:boolean;
+  var
+   i:integer;
+  begin
+   if kind=fkNone then exit(false);
+   if ramp<>nil then exit(true);
+   for i:=0 to stopCount-1 do
+    if stops[i].color shr 24<>0 then exit(true);
+   result:=false;
+  end;
+
+ procedure TFill.GetLine(const box:TRect2;out a,b:TVec2);
+  var
+   w,h,s,c,l,cx,cy:single;
+  begin
+   w:=box.x2-box.x1;
+   h:=box.y2-box.y1;
+   case units of
+    fuLocal:begin
+     a.x:=box.x1+p0.x*w; a.y:=box.y1+p0.y*h;
+     b.x:=box.x1+p1.x*w; b.y:=box.y1+p1.y*h;
+    end;
+    fuAbsolute:begin
+     a:=p0; b:=p1;
+    end;
+    fuAngle:begin
+     // CSS: the line goes through the center, its length makes the ends pass the corners
+     s:=sin(p0.x*(Pi/180));
+     c:=cos(p0.x*(Pi/180));
+     l:=(abs(w*s)+abs(h*c))*0.5;
+     cx:=(box.x1+box.x2)*0.5;
+     cy:=(box.y1+box.y2)*0.5;
+     a.x:=cx-s*l; a.y:=cy+c*l; // direction (sin,-cos): Y axis goes down
+     b.x:=cx+s*l; b.y:=cy-c*l;
+    end;
    end;
   end;
 
- function TMonoGradient.ValueAt(x,y:single):single;
+ function TFill.ParamAt(x,y:single;const box:TRect2):single;
+  var
+   a,b:TVec2;
+   dx,dy,len2:single;
   begin
-   result:=Clamp(base+(x*2-1)*dx+(y*2-1)*dy,0,1);
+   GetLine(box,a,b);
+   dx:=b.x-a.x; dy:=b.y-a.y;
+   len2:=dx*dx+dy*dy;
+   if len2<1E-12 then exit(0);
+   result:=((x-a.x)*dx+(y-a.y)*dy)/len2;
+  end;
+
+ function TFill.ColorAtParam(t:single):cardinal;
+  var
+   i:integer;
+  begin
+   if stopCount=0 then exit(0);
+   case spread of
+    fsRepeat:t:=t-FloorF(t);
+    fsReflect:t:=1-abs(t-2*FloorF(t*0.5)-1);
+   end;
+   if t<=stops[0].pos then exit(stops[0].color);
+   for i:=1 to stopCount-1 do
+    if t<stops[i].pos then
+     exit(MixPremul(stops[i-1].color,stops[i].color,(t-stops[i-1].pos)/(stops[i].pos-stops[i-1].pos)));
+   result:=stops[stopCount-1].color;
+  end;
+
+ function TFill.ColorAt(x,y:single;const box:TRect2):cardinal;
+  begin
+   case kind of
+    fkSolid:result:=stops[0].color;
+    fkLinear:result:=ColorAtParam(ParamAt(x,y,box));
+    fkEdge:if stopCount>0 then result:=stops[stopCount-1].color
+            else result:=0;
+    else result:=0;
+   end;
+  end;
+
+ function TFill.Add(color:cardinal):TFill;
+  var
+   i:integer;
+  begin
+   result:=self;
+   for i:=0 to stopCount-1 do
+    result.stops[i].color:=Apus.Colors.Color.Add(stops[i].color,color);
+  end;
+
+ function TFill.Sub(color:cardinal):TFill;
+  var
+   i:integer;
+  begin
+   result:=self;
+   for i:=0 to stopCount-1 do
+    result.stops[i].color:=Apus.Colors.Color.Sub(stops[i].color,color);
+  end;
+
+ function TFill.MixWith(color:cardinal;t:single):TFill;
+  var
+   i:integer;
+  begin
+   result:=self;
+   for i:=0 to stopCount-1 do
+    result.stops[i].color:=Apus.Colors.Color.Mix(stops[i].color,color,t);
+  end;
+
+ function IsPlainFill(const f:TFill):boolean; inline;
+  begin
+   result:=f.kind in [fkNone,fkSolid];
+  end;
+
+ function PlainFillColor(const f:TFill):cardinal; inline;
+  begin
+   if f.kind=fkSolid then result:=f.stops[0].color
+    else result:=0; // fkNone: transparent
+  end;
+
+ // a solid (or none) in the structure of the pattern: the same color in every stop
+ function PromoteFill(const f,pattern:TFill):TFill;
+  var
+   i:integer;
+  begin
+   result:=pattern;
+   result.ramp:=nil;
+   for i:=0 to result.stopCount-1 do
+    result.stops[i].color:=PlainFillColor(f);
+  end;
+
+ class function TFill.Mix(const a,b:TFill;t:single;out r:TFill):boolean;
+  var
+   x,y:TFill;
+   i:integer;
+  begin
+   result:=true;
+   if t<=0 then begin
+    r:=a; exit;
+   end;
+   if t>=1 then begin
+    r:=b; exit;
+   end;
+   if IsPlainFill(a) and IsPlainFill(b) then begin
+    if (a.kind=fkNone) and (b.kind=fkNone) then r:=None
+     else r:=Solid(MixPremul(PlainFillColor(a),PlainFillColor(b),t));
+    exit;
+   end;
+   x:=a; y:=b;
+   if IsPlainFill(x) then x:=PromoteFill(x,y)
+    else if IsPlainFill(y) then y:=PromoteFill(y,x);
+   if (x.kind<>y.kind) or (x.units<>y.units) or (x.spread<>y.spread) or
+      (x.stopCount<>y.stopCount) or (x.ramp<>y.ramp) then begin
+    r:=a;
+    exit(false);
+   end;
+   r:=x;
+   r.p0.x:=x.p0.x+(y.p0.x-x.p0.x)*t;
+   r.p0.y:=x.p0.y+(y.p0.y-x.p0.y)*t;
+   r.p1.x:=x.p1.x+(y.p1.x-x.p1.x)*t;
+   r.p1.y:=x.p1.y+(y.p1.y-x.p1.y)*t;
+   for i:=0 to x.stopCount-1 do begin
+    r.stops[i].pos:=x.stops[i].pos+(y.stops[i].pos-x.stops[i].pos)*t;
+    r.stops[i].color:=MixPremul(x.stops[i].color,y.stops[i].color,t);
+   end;
+  end;
+
+{ TCornerRadii }
+ class function TCornerRadii.All(r:single):TCornerRadii;
+  begin
+   result.topLeft:=r;
+   result.topRight:=r;
+   result.bottomRight:=r;
+   result.bottomLeft:=r;
+  end;
+
+ class function TCornerRadii.Init(tl,tr,br,bl:single):TCornerRadii;
+  begin
+   result.topLeft:=tl;
+   result.topRight:=tr;
+   result.bottomRight:=br;
+   result.bottomLeft:=bl;
+  end;
+
+ function TCornerRadii.MaxRadius:single;
+  begin
+   result:=topLeft;
+   if topRight>result then result:=topRight;
+   if bottomRight>result then result:=bottomRight;
+   if bottomLeft>result then result:=bottomLeft;
   end;
 
 end.

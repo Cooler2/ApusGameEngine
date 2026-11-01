@@ -24,9 +24,6 @@ TDrawer=class(TInterfacedObject,IDrawer)
   lineCount:integer; // number of lines in buffer
   lineBatching:boolean; // true between BeginLines/EndLines
 
-  useGradient:boolean; // use gradient to color primitives
-  gradient:TColorGradient;
-  stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
   // Particles
   partBuffer:TVertexBuffer; // buffer for particle data
   partVB:TVertexBuffer; // buffer for billboard particles vertices (2D path)
@@ -47,21 +44,24 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure Triangle(p1,p2,p3:TVec3;color:cardinal); overload; // filled triangle, uniform color
   procedure Triangle(p1,p2,p3:TVec3;c1,c2,c3:cardinal); overload; // filled triangle, per-vertex color
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
-  procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
+  procedure Polygon(points:PVec2;cnt:integer;color:cardinal); overload;
+  procedure Polygon(points:PVec2;cnt:integer;const fill:TFill); overload;
   procedure BeginLines;
   procedure EndLines;
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
-  procedure RoundRect(center:TVec2;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
-    ext:PRoundRectExtParams=nil); overload;
-  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
-    ext:PRoundRectExtParams=nil); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;const radii:TCornerRadii;borderWidth:single;
+    const border,fill:TFill); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;const border,fill:TFill); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:single;const fill:TFill); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
+  procedure FillRRect(x1,y1,x2,y2:single;const fill:TFill;r:single=2); overload;
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080); overload;
@@ -79,12 +79,6 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);  // x,y - �����
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
-
-  // Gradients
-  procedure WithGradient(const gradient:TColorGradient;stretch:boolean=false); overload;
-  procedure WithGradient(color1,color2:cardinal;angle,scale:single); overload;
-  procedure WithGradient(color1,color2:cardinal;angle:single); overload;
-  procedure NoGradient;
 
   // Billboards
   procedure Billboard(screenScale:boolean;pos:TVec3;scale:single;tex:TTexture;pivotX:single=0.5;
@@ -122,6 +116,8 @@ TDrawer=class(TInterfacedObject,IDrawer)
  protected
  neutral:TTexture; // neutral (gray) texture to keep color for non-textured primitives
  partShader3D:TShader;  // shader for 3D particles
+ shapeShader:TShader;   // SDF shapes with gradient fills (RoundRect, fills that vertex colors can't express)
+ shapeParamsLoc:integer; // location of its parameter array
  procedure EnsureThreadState;
  procedure EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
  procedure FlushLines;
@@ -132,7 +128,10 @@ TDrawer=class(TInterfacedObject,IDrawer)
  // A frame (Rect, RRect) is moved outwards instead, onto the outer pixels of its cells.
  function HairlineShift:single;
  function ArcSteps(r:single;steps:integer):integer; // segments per rounded corner
- procedure CalcGradient(width,height:single;out gx,gy:single); inline;
+ // Draws a triangle mesh with the shape shader: coverage by the geometry, color by the fill
+ // over the box (fkEdge gives its inner color). Sets u,v of the vertices to local coordinates.
+ procedure ShapeMesh(vrt:PVertex;primType:TPrimitiveType;primCount,vrtCount:integer;
+   const box:TRect2;const fill:TFill);
 end;
 
 const
@@ -217,6 +216,207 @@ uses Apus.Core, Apus.Lib,
    ' if (fragColor.a<0.01) discard;'#13#10+
    '}';
 
+ // UI shapes: a rounded box by its SDF (or any mesh) with a fill and a border, each a TFill.
+ // Parameters p[] (vec4):
+ //  0: half size xy, border width, mode (0 - rounded box SDF, 1 - coverage by the geometry)
+ //  1: corner radii: top-left, top-right, bottom-right, bottom-left
+ //  2..7: the fill, 8..13: the border (uploaded only with a border):
+ //   +0: linear: t=dot(local,xy)+z; edge: t=-(d+y)*x; w: kind (0 linear, 1 edge) + spread*4 + ramp*16
+ //   +1: stop positions, or the ramp u1,u2,v
+ //   +2..+5: stop colors, premultiplied
+  SHAPE_SHADER_VERT =
+   {$IFDEF GLES}
+   '#version 300 es // UI shapes'#13#10+
+   {$ELSE}
+   '#version 330 // UI shapes'#13#10+
+   {$ENDIF}
+   'uniform mat4 MVP;'#13#10+
+   'layout (location=0) in vec3 position;'#13#10+
+   'layout (location=2) in vec2 texCoord;'#13#10+
+   'out vec2 vLocal;'#13#10+
+   'void main(void) {'#13#10+
+   ' gl_Position = MVP*vec4(position,1.0);'#13#10+
+   ' vLocal = texCoord;'#13#10+
+   '}';
+
+  SHAPE_SHADER_FRAG =
+   {$IFDEF GLES}
+   '#version 300 es // UI shapes'#13#10+
+   'precision highp float;'#13#10+
+   {$ELSE}
+   '#version 330 // UI shapes'#13#10+
+   {$ENDIF}
+   'uniform vec4 p[14];'#13#10+
+   'uniform sampler2D tex0;'#13#10+ // fill ramp
+   'uniform sampler2D tex1;'#13#10+ // border ramp
+   'in vec2 vLocal;'#13#10+
+   'out vec4 fragColor;'#13#10+
+   'float Param(int i,float d) {'#13#10+
+   ' vec4 a=p[i];'#13#10+
+   ' int m=int(a.w+0.5);'#13#10+
+   ' float t=((m&3)==1) ? -(d+a.y)*a.x : dot(vLocal,a.xy)+a.z;'#13#10+
+   ' int s=(m>>2)&3;'#13#10+
+   ' if (s==1) t=fract(t);'#13#10+
+   ' else if (s==2) t=1.0-abs(mod(t,2.0)-1.0);'#13#10+
+   ' return clamp(t,0.0,1.0);'#13#10+
+   '}'#13#10+
+   'vec4 Stops(int i,float t) {'#13#10+
+   ' vec4 s=p[i+1];'#13#10+
+   ' vec4 c=p[i+2];'#13#10+
+   ' c=mix(c,p[i+3],clamp((t-s.x)/max(s.y-s.x,1e-5),0.0,1.0));'#13#10+
+   ' c=mix(c,p[i+4],clamp((t-s.y)/max(s.z-s.y,1e-5),0.0,1.0));'#13#10+
+   ' c=mix(c,p[i+5],clamp((t-s.z)/max(s.w-s.z,1e-5),0.0,1.0));'#13#10+
+   ' return c;'#13#10+
+   '}'#13#10+
+   'bool HasRamp(int i) { return (int(p[i].w+0.5)&16)!=0; }'#13#10+
+   'vec4 Premul(vec4 c) { return vec4(c.rgb*c.a,c.a); }'#13#10+
+   'void main(void) {'#13#10+
+   ' vec4 s0=p[0];'#13#10+
+   ' float d=-1e4;'#13#10+
+   ' if (s0.w<0.5) {'#13#10+
+   '  vec2 rr=(vLocal.x>0.0) ? p[1].yz : p[1].xw;'#13#10+ // (top,bottom) radii of this side
+   '  float r=(vLocal.y>0.0) ? rr.y : rr.x;'#13#10+
+   '  vec2 q=abs(vLocal)-s0.xy+r;'#13#10+
+   '  d=length(max(q,0.0))+min(max(q.x,q.y),0.0)-r;'#13#10+
+   ' }'#13#10+
+   ' float aa=max(fwidth(d),1e-4);'#13#10+
+   ' float t=Param(2,d);'#13#10+
+   ' vec4 c=HasRamp(2) ? Premul(texture(tex0,vec2(mix(p[3].x,p[3].y,t),p[3].z))) : Stops(2,t);'#13#10+
+   ' if (s0.z>0.0) {'#13#10+
+   '  t=Param(8,d);'#13#10+
+   '  vec4 b=HasRamp(8) ? Premul(texture(tex1,vec2(mix(p[9].x,p[9].y,t),p[9].z))) : Stops(8,t);'#13#10+
+   '  c=mix(b,c,clamp(0.5-(d+s0.z)/aa,0.0,1.0));'#13#10+
+   ' }'#13#10+
+   ' c*=clamp(0.5-d/aa,0.0,1.0);'#13#10+
+   ' if (c.a<0.002) discard;'#13#10+
+   ' fragColor=vec4(c.rgb/c.a,c.a);'#13#10+
+   '}';
+
+  SHAPE_PARAMS = 14; // vec4 count of the shape shader parameters
+  SHAPE_FILL   = 2;  // first vec4 of the fill
+  SHAPE_BORDER = 8;  // first vec4 of the border
+
+ type
+  TShapeParams=array[0..SHAPE_PARAMS*4-1] of single;
+
+ // straight ARGB -> premultiplied RGBA floats
+ procedure PutShapeColor(var prm:TShapeParams;idx:integer;color:cardinal);
+  var
+   a:single;
+  begin
+   a:=(color shr 24)/255;
+   prm[idx]:=byte(color shr 16)/255*a;
+   prm[idx+1]:=byte(color shr 8)/255*a;
+   prm[idx+2]:=byte(color)/255*a;
+   prm[idx+3]:=a;
+  end;
+
+ // The fill as 6 vec4 of the shape shader parameters from the vec4 index base.
+ // edgeOffset: SDF distance where the region starts (the fill starts inside the border);
+ // edgeWidth>0 overrides the band width of fkEdge (a border uses its thickness).
+ // A ramp is bound to the texture stage.
+ procedure PackShapeFill(const fill:TFill;const box:TRect2;edgeOffset,edgeWidth:single;
+   var prm:TShapeParams;base,stage:integer);
+  var
+   i,j,mode:integer;
+   a,b:TVec2;
+   dx,dy,len2,cx,cy:single;
+   tex:TTexture;
+   st:TFillStop;
+  begin
+   i:=base*4;
+   mode:=0;
+   prm[i]:=0; prm[i+1]:=0; prm[i+2]:=0;
+   case fill.kind of
+    fkLinear:begin
+     fill.GetLine(box,a,b);
+     dx:=b.x-a.x; dy:=b.y-a.y;
+     len2:=dx*dx+dy*dy;
+     if len2>1E-12 then begin
+      // t(p)=dot(p-a,b-a)/|b-a|^2, p=center+local
+      cx:=(box.x1+box.x2)*0.5;
+      cy:=(box.y1+box.y2)*0.5;
+      prm[i]:=dx/len2;
+      prm[i+1]:=dy/len2;
+      prm[i+2]:=((cx-a.x)*dx+(cy-a.y)*dy)/len2;
+     end;
+    end;
+    fkEdge:begin
+     mode:=1;
+     if edgeWidth<=0 then edgeWidth:=fill.p0.x;
+     if edgeWidth<0.001 then edgeWidth:=0.001;
+     prm[i]:=1/edgeWidth;
+     prm[i+1]:=edgeOffset;
+    end;
+   end;
+   inc(mode,ord(fill.spread)*4);
+   if (fill.ramp<>nil) and (fill.kind in [fkLinear,fkEdge]) then begin
+    tex:=TTexture(fill.ramp);
+    shader.UseTexture(tex,stage); // makes it online: u,v are valid after this
+    prm[i+4]:=tex.u1+tex.stepU;
+    prm[i+5]:=tex.u2-tex.stepU;
+    prm[i+6]:=(tex.v1+tex.v2)*0.5;
+    prm[i+7]:=0;
+    inc(mode,16);
+   end else
+    // unused stops repeat the last one
+    for j:=0 to MAX_FILL_STOPS-1 do begin
+     if j<fill.stopCount then st:=fill.stops[j]
+     else if fill.stopCount>0 then st:=fill.stops[fill.stopCount-1]
+     else begin
+      st.pos:=0; st.color:=0;
+     end;
+     if fill.kind=fkNone then st.color:=0;
+     prm[i+4+j]:=st.pos;
+     PutShapeColor(prm,i+8+j*4,st.color);
+    end;
+   prm[i+3]:=mode;
+  end;
+
+ // Colors the vertices when vertex colors express the fill exactly: a solid color, or a
+ // 2-stop linear gradient that doesn't clamp over them and interpolates the same way
+ // straight and premultiplied (equal alphas or equal RGB).
+ function VertexFill(const fill:TFill;const box:TRect2;vrt:PVertex;count:integer):boolean;
+  const
+   EPS=1E-3;
+  var
+   i:integer;
+   v:PVertex;
+   c1,c2:cardinal;
+   t:single;
+  begin
+   result:=false;
+   if fill.ramp<>nil then exit;
+   case fill.kind of
+    fkSolid:begin
+     v:=vrt;
+     for i:=0 to count-1 do begin
+      v.color:=fill.stops[0].color;
+      inc(v);
+     end;
+    end;
+    fkLinear:begin
+     if (fill.stopCount<>2) or (fill.spread<>fsPad) then exit;
+     c1:=fill.stops[0].color;
+     c2:=fill.stops[1].color;
+     if (c1 shr 24<>c2 shr 24) and (c1 and $FFFFFF<>c2 and $FFFFFF) then exit;
+     v:=vrt;
+     for i:=0 to count-1 do begin
+      t:=fill.ParamAt(v.x,v.y,box);
+      if (t<fill.stops[0].pos-EPS) or (t>fill.stops[1].pos+EPS) then exit;
+      inc(v);
+     end;
+     v:=vrt;
+     for i:=0 to count-1 do begin
+      v.color:=fill.ColorAtParam(fill.ParamAt(v.x,v.y,box));
+      inc(v);
+     end;
+    end;
+    else exit;
+   end;
+   result:=true;
+  end;
+
 
 { TBasicPainter }
 
@@ -270,6 +470,9 @@ begin
  shader.UseTexture(neutral);
  partShader3D:=shader.Build(PART_SHADER_3D_VERT,PART_SHADER_3D_FRAG);
  partShader3D.name:='partShader3D';
+ shapeShader:=shader.Build(SHAPE_SHADER_VERT,SHAPE_SHADER_FRAG);
+ shapeShader.name:='shapeShader';
+ shapeParamsLoc:=shapeShader.UniformLocation('p');
 end;
 
 destructor TDrawer.Destroy;
@@ -311,6 +514,10 @@ destructor TDrawer.Destroy;
    partShader3D.Free;
    partShader3D:=nil;
   end;
+  if shapeShader<>nil then begin
+   shapeShader.Free;
+   shapeShader:=nil;
+  end;
   if drawer=self then drawer:=nil;
   inherited;
  end;
@@ -334,15 +541,6 @@ begin
  saveclip[scnt]:=cliprect;
  ClipRect:=screenRect;
 end;   }
-
-procedure TDrawer.CalcGradient(width,height:single; out gx,gy:single);
- begin
-  if stretchGradient then begin
-   gx:=1; gy:=1;
-  end else begin
-   gx:=width/2; gy:=height/2;
-  end;
- end;
 
 procedure TDrawer.Centered(x, y, scale: single; tex: TTexture;
   color: cardinal);
@@ -905,6 +1103,42 @@ begin
  renderDevice.Draw(TRG_LIST,n,@vrt[0],TVertex.layoutTex);
 end;
 
+procedure TDrawer.Polygon(points:PVec2;cnt:integer;const fill:TFill);
+ type
+  // pointer view of the cnt vertices supplied by the caller
+  ta=array[0..MaxInt div SizeOf(TVec2)-1] of TVec2;
+ var
+  vrt:array of TVertex;
+  i,n:integer;
+  pnts:^ta;
+  box:TRect2;
+ begin
+  case fill.kind of
+   fkNone:exit;
+   fkSolid:begin
+    Polygon(points,cnt,fill.stops[0].color);
+    exit;
+   end;
+  end;
+  n:=cnt-2;
+  if n<1 then exit;
+  pnts:=pointer(points);
+  box.Init(pnts[0].x,pnts[0].y,pnts[0].x,pnts[0].y);
+  for i:=1 to cnt-1 do
+   box.Include(pnts[i].x,pnts[i].y);
+  if not clippingAPI.Prepare(box.x1,box.y1,box.x2,box.y2) then exit;
+  SetLength(vrt,n*3);
+  Triangulate(points,cnt);
+  for i:=0 to n*3-1 do
+   with pnts^[trgIndices[i]] do
+    vrt[i].Init(x,y,zPlane,0);
+  if VertexFill(fill,box,@vrt[0],n*3) then begin
+   shader.UseTexture(neutral);
+   renderDevice.Draw(TRG_LIST,n,@vrt[0],TVertex.layoutTex);
+  end else
+   ShapeMesh(@vrt[0],TRG_LIST,n,n*3,box,fill);
+ end;
+
 procedure TDrawer.RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;
   color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
 var
@@ -948,67 +1182,123 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.RoundRect(center:TVec2;width,height,radius,borderWidth:single;borderColor,fillColor:cardinal;
-  ext:PRoundRectExtParams);
-const
- rShader=
-   ' uniform vec4 bColor;'#13#10+
-   ' uniform vec2 halfSize;'#13#10+
-   ' uniform vec2 offset;'#13#10+
-   ' uniform vec4 tresh;'#13#10+
-   ' uniform vec2 gradOrigin;'#13#10+
-   ' uniform vec4 fillDx;'#13#10+
-   ' uniform vec4 fillDy;'#0+
-   ' vec2 rr = max(abs(vTexCoord)-offset,0.0);'#13#10+
-   ' float r = dot(rr,rr);'#13#10+
-   ' float alpha=1.0-smoothstep(tresh.x, tresh.y, r);'#13#10+
-   ' vec2 gradPos = vTexCoord/halfSize-gradOrigin;'#13#10+
-   ' vec4 fill = clamp(vColor.bgra+fillDx*gradPos.x+fillDy*gradPos.y,0.0,1.0);'#13#10+
-   ' vec4 color = mix(fill,bColor,smoothstep(tresh.z,tresh.w,r)); '#13#10+
-   ' fragColor = vec4(color.rgb, color.a*alpha); ';
+procedure TDrawer.RoundRect(x1,y1,x2,y2:single;const radii:TCornerRadii;borderWidth:single;
+  const border,fill:TFill);
+ const
+  EXT=1; // the antialiased edge may reach out of the box
  var
-  vrt:array[0..3] of TVertex;
-  sx1,sy1,sx2,sy2,w,h:single;
-  gradOrigin:TVec2;
-  fillDx,fillDy:TColorVector;
- begin
-  w:=(width+1)/2; h:=(height+1)/2;
-  sx1:=center.x-w; sx2:=center.x+w;
-  sy1:=center.y-h; sy2:=center.y+h;
-  if not clippingAPI.Prepare(sx1,sy1,sx2,sy2) then exit;
-  if radius<0 then radius:=0;
-  borderWidth:=Clamp(borderWidth,0,radius-1);
-  if fillColor=0 then fillColor:=borderColor and $FFFFFF;
-  shader.UseCustomized(rShader,0);
-  shader.SetUniform('bColor',TShader.VectorFromColor(borderColor));
-  shader.SetUniform('halfSize',TVec2.Init(w,h));
-  shader.SetUniform('offset',TVec2.Init(w-radius,h-radius));
-  shader.SetUniform('tresh',TQuat.Init(sqr(radius-1),sqr(radius),sqr(radius-borderWidth-1),sqr(radius-borderWidth)));
-  if ext<>nil then begin
-   gradOrigin:=ext^.origin;
-   fillDx:=ext^.fillDx;
-   fillDy:=ext^.fillDy;
-  end else begin
-   gradOrigin:=TVec2.Init(0,0);
-   fillDx:=TColorVector.Init(0,0,0,0);
-   fillDy:=TColorVector.Init(0,0,0,0);
-  end;
-  shader.SetUniform('gradOrigin',gradOrigin);
-  shader.SetUniform('fillDx',fillDx.ToQuat);
-  shader.SetUniform('fillDy',fillDy.ToQuat);
-  vrt[0].Init(sx1,sy1,0,-w,-h,fillColor);
-  vrt[1].Init(sx2,sy1,0,w,-h,fillColor);
-  vrt[2].Init(sx2,sy2,0,w,h,fillColor);
-  vrt[3].Init(sx1,sy2,0,-w,h,fillColor);
-  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
-  shader.Reset;
-end;
+  vrt:array[0..23] of TVertex;
+  prm:TShapeParams;
+  box:TRect2;
+  n,count:integer;
+  hw,hh,lim,ins,cx,cy:single;
+  fillVisible:boolean;
 
-procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
-  ext:PRoundRectExtParams);
-begin
- RoundRect(TVec2.Init((x1+x2)*0.5,(y1+y2)*0.5),abs(x2-x1+1),abs(y2-y1+1),radius,borderWidth,borderColor,fillColor,ext);
-end;
+ procedure Quad(qx1,qy1,qx2,qy2:single);
+  begin
+   vrt[n].Init(qx1,qy1,zPlane,qx1-cx,qy1-cy,$FFFFFFFF);
+   vrt[n+1].Init(qx2,qy1,zPlane,qx2-cx,qy1-cy,$FFFFFFFF);
+   vrt[n+2].Init(qx2,qy2,zPlane,qx2-cx,qy2-cy,$FFFFFFFF);
+   vrt[n+3]:=vrt[n];
+   vrt[n+4]:=vrt[n+2];
+   vrt[n+5].Init(qx1,qy2,zPlane,qx1-cx,qy2-cy,$FFFFFFFF);
+   inc(n,6);
+  end;
+
+ function ClampRadius(r:single):single;
+  begin
+   if r<0 then result:=0
+    else if r>lim then result:=lim
+    else result:=r;
+  end;
+
+ begin
+  if x2<x1 then Swap(x1,x2);
+  if y2<y1 then Swap(y1,y2);
+  box.Init(x1-0.5,y1-0.5,x2+0.5,y2+0.5); // pixels x1..x2 are included
+  hw:=(box.x2-box.x1)*0.5;
+  hh:=(box.y2-box.y1)*0.5;
+  if hw<hh then lim:=hw else lim:=hh;
+  borderWidth:=ClampRadius(borderWidth);
+  fillVisible:=fill.IsVisible;
+  if not fillVisible and ((borderWidth<=0) or not border.IsVisible) then exit;
+  if not clippingAPI.Prepare(box.x1-EXT,box.y1-EXT,box.x2+EXT,box.y2+EXT) then exit;
+  cx:=(box.x1+box.x2)*0.5;
+  cy:=(box.y1+box.y2)*0.5;
+  prm[0]:=hw; prm[1]:=hh; prm[2]:=borderWidth; prm[3]:=0;
+  prm[4]:=ClampRadius(radii.topLeft);
+  prm[5]:=ClampRadius(radii.topRight);
+  prm[6]:=ClampRadius(radii.bottomRight);
+  prm[7]:=ClampRadius(radii.bottomLeft);
+  shader.UseCustom(shapeShader);
+  PackShapeFill(fill,box,borderWidth,0,prm,SHAPE_FILL,0);
+  count:=SHAPE_BORDER;
+  if borderWidth>0 then begin
+   PackShapeFill(border,box,0,borderWidth,prm,SHAPE_BORDER,1);
+   count:=SHAPE_PARAMS;
+  end;
+  shapeShader.SetUniformVec4Array(shapeParamsLoc,@prm[0],count);
+  // tight mesh: a frame without a fill rasterizes only the band along the edge
+  n:=0;
+  ins:=radii.MaxRadius;
+  if borderWidth>ins then ins:=borderWidth;
+  ins:=ins+EXT;
+  if fillVisible or (ins*2>=lim*2) then
+   Quad(box.x1-EXT,box.y1-EXT,box.x2+EXT,box.y2+EXT)
+  else begin
+   Quad(box.x1-EXT,box.y1-EXT,box.x2+EXT,box.y1+ins);
+   Quad(box.x1-EXT,box.y2-ins,box.x2+EXT,box.y2+EXT);
+   Quad(box.x1-EXT,box.y1+ins,box.x1+ins,box.y2-ins);
+   Quad(box.x2-ins,box.y1+ins,box.x2+EXT,box.y2-ins);
+  end;
+  renderDevice.Draw(TRG_LIST,n div 3,@vrt,TVertex.layoutTex);
+  shader.Reset;
+ end;
+
+procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;const border,fill:TFill);
+ begin
+  RoundRect(x1,y1,x2,y2,TCornerRadii.All(radius),borderWidth,border,fill);
+ end;
+
+procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal);
+ var
+  fill:TFill;
+ begin
+  if fillColor=0 then fill:=TFill.None
+   else fill:=TFill.Solid(fillColor);
+  RoundRect(x1,y1,x2,y2,TCornerRadii.All(radius),borderWidth,TFill.Solid(borderColor),fill);
+ end;
+
+procedure TDrawer.ShapeMesh(vrt:PVertex;primType:TPrimitiveType;primCount,vrtCount:integer;
+  const box:TRect2;const fill:TFill);
+ var
+  prm:TShapeParams;
+  f:TFill;
+  v:PVertex;
+  i:integer;
+  cx,cy:single;
+ begin
+  f:=fill;
+  if f.kind=fkEdge then f:=TFill.Solid(f.ColorAt(0,0,box)); // no distance to the edge without the SDF
+  cx:=(box.x1+box.x2)*0.5;
+  cy:=(box.y1+box.y2)*0.5;
+  v:=vrt;
+  for i:=0 to vrtCount-1 do begin
+   v.u:=v.x-cx;
+   v.v:=v.y-cy;
+   inc(v);
+  end;
+  prm[0]:=(box.x2-box.x1)*0.5;
+  prm[1]:=(box.y2-box.y1)*0.5;
+  prm[2]:=0; // no border
+  prm[3]:=1; // coverage by the geometry
+  prm[4]:=0; prm[5]:=0; prm[6]:=0; prm[7]:=0;
+  shader.UseCustom(shapeShader);
+  PackShapeFill(f,box,0,0,prm,SHAPE_FILL,0);
+  shapeShader.SetUniformVec4Array(shapeParamsLoc,@prm[0],SHAPE_BORDER);
+  renderDevice.Draw(primType,primCount,vrt,TVertex.layoutTex);
+  shader.Reset;
+ end;
 
 procedure TDrawer.Scaled(x1, y1, x2, y2: single; image: TTexture;
   color: cardinal);
@@ -1074,36 +1364,6 @@ begin
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
  renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex3D.Layout);
-end;
-
-procedure TDrawer.WithGradient(const gradient:TColorGradient;stretch:boolean=false);
-begin
- EnsureThreadState;
- useGradient:=true;
- self.gradient:=gradient;
- stretchGradient:=stretch;
-end;
-
-procedure TDrawer.WithGradient(color1,color2:cardinal;angle,scale:single);
-var
- grad:TColorGradient;
-begin
- grad.Init(color1,color2,angle,scale);
- WithGradient(grad,false);
-end;
-
-procedure TDrawer.WithGradient(color1,color2:cardinal;angle:single);
-var
- grad:TColorGradient;
-begin
- grad.Init(color1,color2,angle,1);
- WithGradient(grad,true);
-end;
-
-procedure TDrawer.NoGradient;
-begin
- EnsureThreadState;
- useGradient:=false;
 end;
 
 procedure TDrawer.EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
@@ -1283,22 +1543,11 @@ begin
  renderDevice.Draw(TRG_STRIP,(steps+1)*8,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.FillGradrect(x1, y1, x2, y2: integer; color1,
-  color2: cardinal; vertical: boolean);
-var
- vrt:array[0..3] of TVertex;
-begin
- if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- shader.UseTexture(neutral);
- vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
- vrt[1].Init(x2+0.5,y1-0.5,zPlane,color1);
- vrt[2].Init(x2+0.5,y2+0.5,zPlane,color2);
- vrt[3].Init(x1-0.5,y2+0.5,zPlane,color1);
- if vertical then vrt[3].color:=color2
-  else vrt[1].color:=color2;
-
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
-end;
+procedure TDrawer.FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
+ begin
+  if vertical then FillRect(x1,y1,x2,y2,TFill.Linear(180,color1,color2)) // top to bottom
+   else FillRect(x1,y1,x2,y2,TFill.Linear(90,color1,color2)); // left to right
+ end;
 
 procedure TDrawer.FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
 var
@@ -1314,24 +1563,16 @@ end;
 procedure TDrawer.FillRect(x1,y1,x2,y2:NativeInt;color:cardinal);
 var
  vrt:array[0..3] of TVertex;
- sx1,sy1,sx2,sy2,gx,gy:single;
+ sx1,sy1,sx2,sy2:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
  sx1:=x1-0.5; sx2:=x2+0.5;
  sy1:=y1-0.5; sy2:=y2+0.5;
- if useGradient then begin
-  CalcGradient(sx2-sx1,sy2-sy1,gx,gy);
-  vrt[0].Init(sx1,sy1,zPlane,gradient.ColorAt(-gx,-gy));
-  vrt[1].Init(sx2,sy1,zPlane,gradient.ColorAt(gx,-gy));
-  vrt[2].Init(sx2,sy2,zPlane,gradient.ColorAt(gx,gy));
-  vrt[3].Init(sx1,sy2,zPlane,gradient.ColorAt(-gx,gy));
- end else begin
-  vrt[0].Init(sx1,sy1,zPlane,color);
-  vrt[1].Init(sx2,sy1,zPlane,color);
-  vrt[2].Init(sx2,sy2,zPlane,color);
-  vrt[3].Init(sx1,sy2,zPlane,color);
- end;
+ vrt[0].Init(sx1,sy1,zPlane,color);
+ vrt[1].Init(sx2,sy1,zPlane,color);
+ vrt[2].Init(sx2,sy2,zPlane,color);
+ vrt[3].Init(sx1,sy2,zPlane,color);
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
@@ -1339,6 +1580,34 @@ procedure TDrawer.FillRect(x1,y1,x2,y2:single;color:cardinal);
 begin
  FillRect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color);
 end;
+
+procedure TDrawer.FillRect(x1,y1,x2,y2:single;const fill:TFill);
+ var
+  vrt:array[0..3] of TVertex;
+  ix1,iy1,ix2,iy2:integer;
+  box:TRect2;
+ begin
+  case fill.kind of
+   fkNone:exit;
+   fkSolid:begin
+    FillRect(x1,y1,x2,y2,fill.stops[0].color);
+    exit;
+   end;
+  end;
+  ix1:=SRound(x1); iy1:=SRound(y1);
+  ix2:=SRound(x2); iy2:=SRound(y2);
+  if not clippingAPI.Prepare(ix1,iy1,ix2+1,iy2+1) then exit;
+  box.Init(ix1-0.5,iy1-0.5,ix2+0.5,iy2+0.5);
+  vrt[0].Init(box.x1,box.y1,zPlane,0);
+  vrt[1].Init(box.x2,box.y1,zPlane,0);
+  vrt[2].Init(box.x2,box.y2,zPlane,0);
+  vrt[3].Init(box.x1,box.y2,zPlane,0);
+  if VertexFill(fill,box,@vrt[0],4) then begin
+   shader.UseTexture(neutral);
+   renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
+  end else
+   ShapeMesh(@vrt[0],TRG_FAN,2,4,box,fill);
+ end;
 
 procedure TDrawer.FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single;steps:integer);
  var
@@ -1368,6 +1637,45 @@ procedure TDrawer.FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single;steps:
 procedure TDrawer.FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single;steps:integer);
  begin
   FillRRect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color,r,steps);
+ end;
+
+procedure TDrawer.FillRRect(x1,y1,x2,y2:single;const fill:TFill;r:single=2);
+ var
+  i,steps,ix1,iy1,ix2,iy2:integer;
+  vrt:array[0..5+MAX_ARC_STEPS*4] of TVertex;
+  sx1,sy1,sx2,sy2,ds,dc,a:single;
+  box:TRect2;
+ begin
+  case fill.kind of
+   fkNone:exit;
+   fkSolid:begin
+    FillRRect(x1,y1,x2,y2,fill.stops[0].color,r);
+    exit;
+   end;
+  end;
+  ix1:=SRound(x1); iy1:=SRound(y1);
+  ix2:=SRound(x2); iy2:=SRound(y2);
+  if not clippingAPI.Prepare(ix1,iy1,ix2+1,iy2+1) then exit;
+  steps:=ArcSteps(r,0);
+  box.Init(ix1-0.5,iy1-0.5,ix2+0.5,iy2+0.5);
+  // the same fan as the color version
+  sx1:=box.x1+r; sx2:=box.x2-r;
+  sy1:=box.y1+r; sy2:=box.y2-r;
+  vrt[0].Init((sx1+sx2)/2,(sy1+sy2)/2,zPlane,0);
+  for i:=0 to steps do begin
+   a:=0.5*Pi*i/(steps);
+   dc:=r*cos(a); ds:=r*sin(a);
+   vrt[1+i].Init(sx1-dc,sy1-ds,zPlane,0);
+   vrt[2+steps+i].Init(sx2+ds,sy1-dc,zPlane,0);
+   vrt[3+steps*2+i].Init(sx2+dc,sy2+ds,zPlane,0);
+   vrt[4+steps*3+i].Init(sx1-ds,sy2+dc,zPlane,0);
+  end;
+  vrt[5+steps*4]:=vrt[1];
+  if VertexFill(fill,box,@vrt[0],6+steps*4) then begin
+   shader.UseTexture(neutral);
+   renderDevice.Draw(TRG_FAN,4+steps*4,@vrt,TVertex.layoutTex);
+  end else
+   ShapeMesh(@vrt[0],TRG_FAN,4+steps*4,6+steps*4,box,fill);
  end;
 
 procedure TDrawer.ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);

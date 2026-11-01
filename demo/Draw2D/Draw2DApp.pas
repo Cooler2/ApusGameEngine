@@ -114,7 +114,7 @@ SCREEN_TITLES:array[0..SCREEN_COUNT-1] of string=(
 SCREEN_HINTS:array[0..SCREEN_COUNT-1] of string=(
   'Line / Polyline / Polygon',
   'Rect / RRect / FillRRect / RoundRect',
-  'FillRect / FillGradrect / WithGradient',
+  'FillRect / FillGradrect / TFill',
   'FillTriangle / ShadedRect',
   'TexturedRect overloads / RotScaled',
   'Mixed static + animated cases',
@@ -565,8 +565,7 @@ procedure TMainScene.DrawScreenRects(const contentRect:TRect);
 var
   area,r,innerR:TRect;
   t:single;
-  cx,cy:single;
-  ext,glass:TRoundRectExtParams;
+  cx,cy,hw,hh:single;
 begin
   area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
     contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
@@ -604,32 +603,31 @@ begin
   DrawBlock(r,'draw.RoundRect  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
   cy:=innerR.Top+(innerR.Bottom-innerR.Top)*0.28;
-  draw.RoundRect(TVec2.Init(cx,cy),
-    (innerR.Right-innerR.Left-S(60))*0.5+sin(t)*((innerR.Right-innerR.Left-S(60))*0.25),
-    (innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08),
-    S(20)+sin(t*1.5)*S(7),S(3),$FFBFD8F7,$704F6FA4);
+  hw:=((innerR.Right-innerR.Left-S(60))*0.5+sin(t)*((innerR.Right-innerR.Left-S(60))*0.25))*0.5;
+  hh:=((innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08))*0.5;
+  draw.RoundRect(cx-hw,cy-hh,cx+hw,cy+hh,S(20)+sin(t*1.5)*S(7),S(3),$FFBFD8F7,$704F6FA4);
 
-  ext:=TRoundRectExtParams.Init(TColorVector.Init(0.12,0.04,-0.10,0),
-    TColorVector.Init(-0.05,-0.08,-0.12,0),TVec2.Init(0,0));
+  // linear gradient fill, a rotating angle
   draw.RoundRect(innerR.Left+S(20),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(8),
-    innerR.Left+(innerR.Right-innerR.Left) div 2-S(8),innerR.Bottom-S(18),S(16),1,$FFEAF6FF,$90538EBD,@ext);
+    innerR.Left+(innerR.Right-innerR.Left) div 2-S(8),innerR.Bottom-S(18),S(16),1,
+    TFill.Solid($FFEAF6FF),TFill.Linear(t*30,$C07AA8D8,$C0304A80).AddStop(0.5,$C05680B8));
 
-  ext:=TRoundRectExtParams.Init(TColorVector.Init(0.05,0.12,0.18,0),
-    TColorVector.Init(-0.16,-0.06,0.04,0),TVec2.Init(-0.45,-0.35));
+  // per-corner radii, a "metal" frame by the distance from the edge, a vertical fill
   draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+S(8),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(8),
-    innerR.Right-S(20),innerR.Bottom-S(18),S(16),1,$FFFFF4C0,$90686A8D,@ext);
+    innerR.Right-S(20),innerR.Bottom-S(18),TCornerRadii.Init(S(18),S(4),S(18),S(4)),S(5),
+    TFill.Edge(0,$FF5A6270,$FF3A4250).AddStop(0.4,$FFC8D0DC),
+    TFill.Linear(180,$C0787AA0,$C0464870));
 
-  glass:=TRoundRectExtParams.Init(TColorVector.Init(0,0,0,0),
-    TColorVector.Init(0,0,0,-0.22),TVec2.Init(0,-0.35));
+  // glass highlight: fades to transparent without darkening (premultiplied interpolation)
   draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+S(18),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(18),
-    innerR.Right-S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(54),S(12),0,$00000000,$45FFFFFF,@glass);
+    innerR.Right-S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(54),S(12),0,
+    TFill.None,TFill.Linear(180,$60FFFFFF,$00FFFFFF));
 end;
 
-// screen 2: FillRect / FillGradrect / WithGradient — 3 blocks
+// screen 2: FillRect / FillGradrect / TFill — 3 blocks
 procedure TMainScene.DrawScreenFillGrad(const contentRect:TRect);
 var
   area,r,innerR:TRect;
-  g:TColorGradient;
   t:single;
 begin
   area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
@@ -651,17 +649,17 @@ begin
   draw.FillGradrect(innerR.Left+S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(5),
     innerR.Right-S(10),innerR.Bottom-S(10),$FFE06060,$FF50A0E0,true); // vertical
 
-  // block 2: draw.WithGradient / draw.NoGradient — animated
+  // block 2: fills with TFill — animated
   r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
-  DrawBlock(r,'draw.WithGradient  [animated]',innerR);
-  draw.WithGradient($FFF1B45F,$FF4F92D8,t,0.7+0.2*sin(t));
+  DrawBlock(r,'FillRRect / FillRect with TFill  [animated]',innerR);
+  // 2 colors: vertex colors in the standard program
   draw.FillRRect(innerR.Left+S(20),innerR.Top+S(10),innerR.Right-S(20),
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFFFFFFF,S(16));
-  g.Init($FF73DCAA,$FF4B4EA9,t+Pi*0.5,0.55);
-  draw.WithGradient(g,true);
+    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),TFill.Linear(t*57.3,$FFF1B45F,$FF4F92D8),S(16));
+  // 3 colors, repeated: the shape shader
   draw.FillRect(innerR.Left+S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(5),
-    innerR.Right-S(30),innerR.Bottom-S(10),$FFFFFFFF);
-  draw.NoGradient;
+    innerR.Right-S(30),innerR.Bottom-S(10),
+    TFill.Linear(TVec2.Init(0,0),TVec2.Init(0.35+0.15*sin(t),0.35),$FF73DCAA,$FF4B4EA9)
+      .AddStop(0.5,$FFE0E8F0).WithSpread(fsReflect));
   draw.Rect(innerR.Left+S(20),innerR.Top+S(10),innerR.Right-S(20),
     innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFE7F1FF);
 end;
@@ -781,14 +779,13 @@ begin
     draw.Line(innerR.Left+S(10),innerR.Top+S(12)+i*((innerR.Bottom-innerR.Top-S(20)) div 8),
       innerR.Right-S(10),innerR.Top+S(12)+i*((innerR.Bottom-innerR.Top-S(20)) div 8),$30447296);
 
-  // block [0,1]: WithGradient + FillRRect + Line (animated)
+  // block [0,1]: gradient FillRRect + Line (animated)
   r:=GridCell(area,0,1,2,2,S(BLOCK_GAP));
-  DrawBlock(r,'WithGradient + FillRRect + Line  [animated]',innerR);
+  DrawBlock(r,'Gradient FillRRect + Line  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   cy:=(innerR.Top+innerR.Bottom) div 2;
-  draw.WithGradient($FFF1B25C,$FF4E8DD0,t);
-  draw.FillRRect(innerR.Left+S(16),innerR.Top+S(16),innerR.Right-S(16),innerR.Bottom-S(16),$FFFFFFFF,S(16));
-  draw.NoGradient;
+  draw.FillRRect(innerR.Left+S(16),innerR.Top+S(16),innerR.Right-S(16),innerR.Bottom-S(16),
+    TFill.Linear(t*57.3,$FFF1B25C,$FF4E8DD0),S(16));
   for i:=0 to 6 do
     draw.Line(cx,cy,cx+PRound(cos(t+i*0.7)*((innerR.Right-innerR.Left) div 2-S(20))),
       cy+PRound(sin(t*1.2+i*0.7)*((innerR.Bottom-innerR.Top) div 2-S(20))),$FFD8EEFF);

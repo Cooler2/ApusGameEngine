@@ -255,21 +255,15 @@ begin
  shader.Reset;
 end;
 
-{ ---------- current RoundRect with its gradient ext ---------- }
+{ ---------- engine RoundRect: the R-39 shape shader (D in the engine) ---------- }
 
 procedure DrawRoundRect(x1,y1,x2,y2,r,bw:single;fTop,fBottom,bColor:cardinal;hasFill:boolean);
 var
- ext:TRoundRectExtParams;
- a,b:TColorVector;
+ fill:TFill;
 begin
- if hasFill then begin
-  a:=TColorVector.FromColor(fTop);
-  b:=TColorVector.FromColor(fBottom);
-  ext:=TRoundRectExtParams.Init(TColorVector.Init(0,0,0,0),
-    TColorVector.Init((b.red-a.red)/2,(b.green-a.green)/2,(b.blue-a.blue)/2,0),TVec2.Init(0,0));
-  draw.RoundRect(x1,y1,x2-1,y2-1,r,bw,bColor,Color.Mix(fTop,fBottom,0.5),@ext);
- end else
-  draw.RoundRect(x1,y1,x2-1,y2-1,r,bw,bColor,0);
+ if hasFill then fill:=TFill.Linear(180,fTop,fBottom)
+  else fill:=TFill.None;
+ draw.RoundRect(x1,y1,x2-1,y2-1,r,bw,TFill.Solid(bColor),fill);
 end;
 
 { ---------- B: multitexture, rect only (cost estimate) ---------- }
