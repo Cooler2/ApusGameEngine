@@ -269,23 +269,36 @@ implementation
  // token as an alias of a theme token; an application sets them to its own colors.
  const
   DIALOG_STYLE='fill:&file-dialog-fill; color:&file-dialog-text; font-size:&file-dialog-font-size';
-  FRAME_STYLE='fill:&file-dialog-fill; header-fill:&file-dialog-header; border-color:&file-dialog-border; '+
-   'color:&file-dialog-text; font-size:&file-dialog-font-size';
+  FRAME_STYLE='fill:&file-dialog-fill; header-fill:&file-dialog-title; header-line-color:&file-dialog-title-line; '+
+   'border-color:&file-dialog-frame; border-width:2; shadow-color:&file-dialog-window-shadow; '+
+   'color:&file-dialog-text; text-shadow:&file-dialog-text-shadow 0 1; font-weight:bold; '+
+   'font-size:&file-dialog-font-size';
   TABLE_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
    'border-width:1; line-color:&file-dialog-border; header-fill:&file-dialog-header; '+
    'header-color:&file-dialog-text; header-hover-fill:&file-dialog-hover; row-hover-fill:&file-dialog-hover; '+
-   'row-alt-fill:0; selection-fill:&file-dialog-selection; selection-color:&file-dialog-selection-text; '+
+   'row-alt-fill:0; selection-fill:&file-dialog-selection-inactive; selection-color:&file-dialog-text; '+
    'focus-color:&file-dialog-accent; favorite-color:&file-dialog-favorite; recent-color:&file-dialog-muted; '+
-   'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error; disabled-color:&file-dialog-disabled';
+   'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error; disabled-color:&file-dialog-disabled; '+
+   ':focused { border-color:&file-dialog-focus; border-width:2; selection-fill:&file-dialog-selection; '+
+   'selection-color:&file-dialog-selection-text; }';
   SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:&file-dialog-panel; '+
    'active-color:&file-dialog-accent';
   EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
-   'border-width:1; radius:3';
-  BUTTON_STYLE='fill:&file-dialog-header; hover-fill:&file-dialog-hover; pressed-fill:&file-dialog-selection; '+
-   'pressed-color:&file-dialog-selection-text; border-color:&file-dialog-border; '+
-   'focus-border-color:&file-dialog-accent; color:&file-dialog-text; disabled-color:&file-dialog-disabled; '+
-   'glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite';
-  CLOSE_STYLE='hover-fill:&file-dialog-hover; glyph-color:&file-dialog-muted; hover-color:&file-dialog-text';
+   'border-width:1; radius:3; :focused { border-color:&file-dialog-focus; border-width:2; }';
+  BUTTON_STYLE='fill:&file-dialog-button; hover-fill:&file-dialog-button-hover; '+
+   'pressed-fill:&file-dialog-button-pressed; checked-fill:&file-dialog-button-checked; '+
+   'checked-color:&file-dialog-selection-text; default-fill:&file-dialog-default-button; '+
+   'default-hover-fill:&file-dialog-default-button-hover; border-color:&file-dialog-button-border; '+
+   'default-border-color:&file-dialog-default-button-border; shadow-color:&file-dialog-button-shadow; '+
+   'color:&file-dialog-button-text; text-shadow:&file-dialog-text-shadow 0 1; font-weight:bold; '+
+   'disabled-color:&file-dialog-disabled; glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite';
+  // the type chips: flat, smaller than the buttons
+  CHIP_STYLE='fill:&file-dialog-chip; hover-fill:&file-dialog-chip-hover; pressed-fill:&file-dialog-chip-hover; '+
+   'checked-fill:&file-dialog-selection; checked-color:&file-dialog-selection-text; color:&file-dialog-muted; '+
+   'hover-color:&file-dialog-text; font-size:&file-dialog-chip-font-size';
+  CLOSE_STYLE='fill:&file-dialog-close; hover-fill:&file-dialog-close-hover; shadow-color:&file-dialog-button-shadow; '+
+   'glyph-color:&file-dialog-close-glyph; hover-color:&file-dialog-close-glyph-hover; '+
+   'text-shadow:&file-dialog-text-shadow 0 1';
   DRIVEBAR_STYLE='fill:&file-dialog-fill; color:&file-dialog-muted';
   MESSAGE_STYLE='fill:&file-dialog-message-fill; color:&file-dialog-message-text';
 
@@ -367,11 +380,80 @@ implementation
   end;
  end;
 
+ // The font of a caption: the style font, bold with 'font-weight:bold'
+ function CaptionFont(element:TUIElement):TFontHandle;
+ var
+  flags:cardinal;
+ begin
+  flags:=fsIgnoreScale;
+  if SameText(element.GetStyleValue('font-weight',''),'bold') then flags:=flags or fsBold;
+  result:=txt.GetFont(element.GetStyleValue('font','Default'),
+    round(element.GetStyleNumber('font-size',9)*element.globalScale),flags);
+ end;
+
+ // The shadow color of a caption and its vertical offset in pixels: 'text-shadow:<color> [dx dy]'
+ function TextShadow(element:TUIElement;out dy:single):cardinal;
+ var
+  parts:Strings8;
+ begin
+  result:=0; dy:=0;
+  parts:=element.GetStyleValue('text-shadow','').Split(' ');
+  if (length(parts)=0) or (parts[0]='') then exit;
+  result:=ParseStyleColor(ExpandToken(parts[0]));
+  if length(parts)>=3 then dy:=ParseStyleNumber(parts[2])*element.globalScale;
+ end;
+
+ // A caption centered at x on the middle line of r, over its shadow
+ procedure WriteCaption(element:TUIElement;const r:TRect;x:single;ink:cardinal;const caption:String8);
+ var
+  font:TFontHandle;
+  shadow:cardinal;
+  y,dy:single;
+ begin
+  font:=CaptionFont(element);
+  y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(font)*0.45);
+  shadow:=TextShadow(element,dy);
+  if shadow<>0 then txt.Write(font,x,y+Math.Max(1,round(dy)),shadow,caption,taCenter);
+  txt.Write(font,x,y,ink,caption,taCenter);
+ end;
+
+ // The box of a button: a fill (a gradient from the style), a border and a 1 px shadow
+ // under it while it is not pressed. checked - a toggled chip, the active drive.
+ // Returns the color of the caption.
+ function DrawButtonBox(b:TUIButton;const r:TRect;checked:boolean):cardinal;
+ var
+  s,d,width:single;
+  fill:TFill;
+  shadow,border:cardinal;
+  prefix:String8;
+ begin
+  s:=b.globalScale;
+  if b.default then prefix:='default-' else prefix:='';
+  fill:=b.GetStyleFill(prefix+'fill',b.GetStyleFill('fill',TFill.None));
+  if checked then fill:=b.GetStyleFill('checked-fill',fill);
+  if b.pressed then fill:=b.GetStyleFill('pressed-fill',fill)
+   else if b.IsHovered and not checked then
+    fill:=b.GetStyleFill(prefix+'hover-fill',b.GetStyleFill('hover-fill',fill));
+  shadow:=b.GetStyleColor('shadow-color',0);
+  if (shadow<>0) and not b.pressed then begin
+   d:=Math.Max(1,round(s));
+   draw.RoundRect(r.Left,r.Top+d,r.Right-1,r.Bottom-1+d,3*s,0,0,shadow);
+  end;
+  border:=b.GetStyleColor(prefix+'border-color',b.GetStyleColor('border-color',0));
+  // a transparent border would cut the fill: no border then
+  if border shr 24=0 then width:=0 else width:=s;
+  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*s,width,TFill.Solid(border),fill);
+  result:=b.GetStyleColor('color',$FF303030);
+  if checked then result:=b.GetStyleColor('checked-color',result)
+   else if b.IsHovered then result:=b.GetStyleColor('hover-color',result);
+  if not b.IsEnabled then result:=b.GetStyleColor('disabled-color',result);
+ end;
+
  // A toolbar button keeps its shape, a list glyph has no chrome. Only the favorite star
  // of a button and the remove cross carry their own colors, the rest is muted.
  procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TFileDialogGlyph;enabled:boolean=true);
  var
-  fill,ink:cardinal;
+  ink:cardinal;
   isButton:boolean;
  begin
   isButton:=element is TUIButton;
@@ -379,11 +461,7 @@ implementation
   if kind=fgRemove then ink:=element.GetStyleColor('remove-color',ink)
    else if (kind=fgFavorite) and isButton then ink:=element.GetStyleColor('favorite-color',ink);
   if not enabled then ink:=element.GetStyleColor('disabled-color',ink);
-  if isButton then begin
-   fill:=element.GetStyleColor('fill');
-   if TUIButton(element).IsHovered then fill:=element.GetStyleColor('hover-fill',fill);
-   draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*scale,scale,element.GetStyleColor('border-color'),fill);
-  end;
+  if isButton then DrawButtonBox(TUIButton(element),r,false);
   DrawBadgeGlyph(element,r,scale,kind,ink);
  end;
 
@@ -406,22 +484,14 @@ implementation
  var
   b:TUIButton;
   r:TRect;
-  fill,ink,border:cardinal;
-  font:TFontHandle;
-  toggled:boolean;
+  checked:boolean;
+  ink:cardinal;
  begin
   b:=TUIButton(element); r:=element.globalRect;
-  toggled:=(b is TUIToggleButton) and TUIToggleButton(b).toggled;
-  if b is TDriveButton then toggled:=TDriveButton(b).active;
-  fill:=b.GetStyleColor('fill'); ink:=b.GetStyleColor('color'); border:=b.GetStyleColor('border-color');
-  if toggled or b.pressed then fill:=b.GetStyleColor('pressed-fill',fill)
-   else if b.IsHovered then fill:=b.GetStyleColor('hover-fill',fill);
-  if toggled then ink:=b.GetStyleColor('pressed-color',ink);
-  if b.default or (FocusedElement=b) then border:=b.GetStyleColor('focus-border-color',border);
-  if not b.IsEnabled then ink:=b.GetStyleColor('disabled-color',ink);
-  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*element.globalScale,element.globalScale,border,fill);
-  font:=element.StyleFont;
-  txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+r.Bottom-1)*0.5+txt.Height(font)*0.45),ink,b.caption,taCenter);
+  checked:=(b is TUIToggleButton) and TUIToggleButton(b).toggled;
+  if b is TDriveButton then checked:=TDriveButton(b).active;
+  ink:=DrawButtonBox(b,r,checked);
+  WriteCaption(b,r,(r.Left+r.Right)*0.5,ink,b.caption);
  end;
 
  // A dialog button with a caret at the right: it opens a list
@@ -429,51 +499,58 @@ implementation
  var
   b:TUIButton;
   r:TRect;
-  fill,ink,border:cardinal;
-  font:TFontHandle;
+  ink:cardinal;
   s,x,y:single;
  begin
   b:=TUIButton(element); r:=element.globalRect; s:=element.globalScale;
-  fill:=b.GetStyleColor('fill'); ink:=b.GetStyleColor('color'); border:=b.GetStyleColor('border-color');
-  if b.pressed then fill:=b.GetStyleColor('pressed-fill',fill)
-   else if b.IsHovered then fill:=b.GetStyleColor('hover-fill',fill);
-  if FocusedElement=b then border:=b.GetStyleColor('focus-border-color',border);
-  if not b.IsEnabled then ink:=b.GetStyleColor('disabled-color',ink);
-  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*s,s,border,fill);
-  font:=element.StyleFont;
+  ink:=DrawButtonBox(b,r,false);
   x:=r.Right-10*s; y:=(r.Top+r.Bottom)*0.5;
   draw.FillTriangle(x-3.5*s,y-1.8*s,x+3.5*s,y-1.8*s,x,y+2.2*s,ink,ink,ink);
-  txt.Write(font,(r.Left+r.Right)*0.5-7*s,round((r.Top+r.Bottom-1)*0.5+txt.Height(font)*0.45),ink,b.caption,taCenter);
+  WriteCaption(b,r,(r.Left+r.Right)*0.5-7*s,ink,b.caption);
  end;
 
+ // The window: a soft shadow around it, the title with its own fill and a line under it,
+ // a frame over the edges
  procedure DrawDialogFrame(element:TUIElement);
  var
   frame:TUIWindow;
   r,client:TRect;
-  font:TFontHandle;
+  s,blur,width:single;
+  shadow:cardinal;
  begin
   frame:=TUIWindow(element);
-  r:=frame.globalRect; client:=frame.GetClientPosOnScreen;
+  r:=frame.globalRect; client:=frame.GetClientPosOnScreen; s:=frame.globalScale;
+  shadow:=frame.GetStyleColor('shadow-color',0);
+  if shadow<>0 then begin
+   blur:=round(16*s);
+   draw.RoundRect(r.Left-blur,r.Top-blur*0.5,r.Right-1+blur,r.Bottom-1+blur*1.5,blur,0,
+     TFill.None,TFill.Edge(blur,shadow and $FFFFFF,shadow));
+  end;
   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,frame.GetStyleColor('fill'));
-  draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,frame.GetStyleColor('header-fill'));
-  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,frame.GetStyleColor('border-color'));
-  font:=frame.StyleFont;
-  txt.Write(font,(r.Left+r.Right)*0.5,round((r.Top+client.Top-1)*0.5+txt.Height(font)*0.45),
-    frame.GetStyleColor('color'),frame.caption,taCenter);
+  draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,frame.GetStyleFill('header-fill',TFill.None));
+  draw.FillRect(r.Left,client.Top-Math.Max(1,round(s)),r.Right-1,client.Top-1,
+    frame.GetStyleColor('header-line-color',0));
+  width:=Math.Max(1,round(frame.GetStyleNumber('border-width',1)*s));
+  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,0,width,frame.GetStyleColor('border-color'),0);
+  WriteCaption(frame,Types.Rect(r.Left,r.Top,r.Right,client.Top),(r.Left+r.Right)*0.5,
+    frame.GetStyleColor('color'),frame.caption);
  end;
 
  procedure DrawCloseButton(element:TUIElement);
  var
+  b:TUIButton;
   r:TRect;
-  ink:cardinal;
+  ink,shadow:cardinal;
+  dy:single;
  begin
-  r:=element.globalRect;
-  ink:=element.GetStyleColor('glyph-color');
-  if TUIButton(element).IsHovered then begin
-   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,element.GetStyleColor('hover-fill'));
-   ink:=element.GetStyleColor('hover-color',ink);
-  end;
-  DrawBadgeGlyph(element,r,element.globalScale*0.9,fgClose,ink);
+  b:=TUIButton(element); r:=element.globalRect;
+  DrawButtonBox(b,r,false);
+  ink:=b.GetStyleColor('glyph-color');
+  if b.IsHovered then ink:=b.GetStyleColor('hover-color',ink);
+  shadow:=TextShadow(b,dy);
+  if shadow<>0 then
+   DrawBadgeGlyph(b,Types.Rect(r.Left,r.Top+round(dy),r.Right,r.Bottom+round(dy)),b.globalScale*0.9,fgClose,shadow);
+  DrawBadgeGlyph(b,r,b.globalScale*0.9,fgClose,ink);
  end;
 
  procedure DrawDriveBar(element:TUIElement);
@@ -584,6 +661,15 @@ implementation
   result:=prefix+UTF8.Encode(copy(chars,lo,length(chars)-lo));
  end;
 
+ // The frame of a list drawn by the dialog: 'border-color' and 'border-width', ':focused' included
+ procedure DrawListFrame(list:TUIElement;const r:TRect);
+ var
+  w:single;
+ begin
+  w:=Math.Max(1,round(list.GetStyleNumber('border-width',1)*list.globalScale));
+  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,0,w,list.GetStyleColor('border-color',$FF808080),0);
+ end;
+
  procedure DrawLocations(element:TUIElement);
  var
   list:TLocationsList;
@@ -601,7 +687,6 @@ implementation
   r:=list.GetClientPosOnScreen;
   font:=list.StyleFont;
   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,list.GetStyleColor('fill',$FFD0D0D8));
-  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,list.GetStyleColor('line-color',$FF808080));
   rowH:=list.rowHeight*s;
   pos:=list.ScrollPos*s;
   first:=trunc(pos/rowH);
@@ -642,6 +727,7 @@ implementation
    gfx.clip.Restore;
   end;
   gfx.clip.Restore;
+  DrawListFrame(list,r);
  end;
 
  function TLocationsList.IsMissing(tag:NativeInt):boolean;
@@ -831,7 +917,7 @@ implementation
    end;
   end;
   gfx.clip.Restore;
-  draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,table.GetStyleColor('line-color',$FF808080));
+  DrawListFrame(table,r);
  end;
 
  function JoinPath(const folder,name:String8):String8;
@@ -1539,7 +1625,7 @@ implementation
    tableTop:=80;
    // equal chips from the left, never wider than a short caption needs
    chipWidth:=Math.Min(68.0,typeBar.clientWidth/length(typeBar.children));
-   for i:=0 to high(typeBar.children) do Place(typeBar.children[i],i*chipWidth,0,chipWidth-4,28);
+   for i:=0 to high(typeBar.children) do Place(typeBar.children[i],i*chipWidth,3,chipWidth-3,22);
   end;
   // Empty slots occupy no space. Preview and options share the compact bottom area.
   if HasVisibleChild(placesPanel) then begin
@@ -1913,7 +1999,7 @@ implementation
  begin
   b:=TTypeChip.Create(48,28,typeBar,name+'\Type'+suffix);
   b.drawer:=DrawDialogButton;
-  b.styleInfo:=BUTTON_STYLE;
+  b.styleInfo:=CHIP_STYLE;
   b.Setup(caption,toggled);
   b.dialog:=self; b.index:=index;
   b.flags.canHaveFocus:=false;
@@ -2369,7 +2455,6 @@ implementation
   closeButton.drawer:=DrawCloseButton;
   closeButton.styleInfo:=CLOSE_STYLE;
   closeButton.flags.noParentClip:=true;
-  closeButton.flags.canHaveFocus:=false;
   closeButton.hint:='Cancel';
   preferredW:=1020; preferredH:=610;
   onCreate;
@@ -2501,10 +2586,38 @@ initialization
  DefineToken('file-dialog-disabled','&text-muted');
  DefineToken('file-dialog-selection','&accent');
  DefineToken('file-dialog-selection-text','&accent-text');
+ DefineToken('file-dialog-selection-inactive','&overlay'); // the selection of a list without the focus
+ DefineToken('file-dialog-focus','&accent'); // the frame of a field or a list with the focus
+ // buttons: fills may be gradients ('linear(180deg, #48525E, #3A434E)')
+ DefineToken('file-dialog-button','&overlay');
+ DefineToken('file-dialog-button-hover','&control');
+ DefineToken('file-dialog-button-pressed','&accent');
+ DefineToken('file-dialog-button-checked','&accent');
+ DefineToken('file-dialog-button-border','&border-dark');
+ DefineToken('file-dialog-button-shadow','0'); // 1 px under a button, 0 - none
+ DefineToken('file-dialog-button-text','&text');
+ DefineToken('file-dialog-default-button','&overlay');
+ DefineToken('file-dialog-default-button-hover','&control');
+ DefineToken('file-dialog-default-button-border','&accent');
+ DefineToken('file-dialog-text-shadow','0'); // under the captions of the buttons and the title
+ DefineToken('file-dialog-chip','&overlay');
+ DefineToken('file-dialog-chip-hover','&control');
+ DefineToken('file-dialog-chip-font-size','8');
+ DefineToken('file-dialog-close','0');
+ DefineToken('file-dialog-close-hover','&control');
+ DefineToken('file-dialog-close-glyph','&text-muted');
+ DefineToken('file-dialog-close-glyph-hover','&text');
+ // the window
+ DefineToken('file-dialog-title','&overlay');
+ DefineToken('file-dialog-title-line','&border-dark');
+ DefineToken('file-dialog-frame','&border-dark');
+ DefineToken('file-dialog-window-shadow','$60000000');
  DefineToken('file-dialog-accent','&accent');
  DefineToken('file-dialog-favorite','&warning');
  DefineToken('file-dialog-error','&danger');
  DefineToken('file-dialog-message-fill','&danger'); // the error line under the table
  DefineToken('file-dialog-message-text','&warning');
  DefineToken('file-dialog-font-size','9');
+ // the buttons take no focus: Tab and clicks keep it on the fields and the lists
+ TDialogButton.SetClassAttribute('defaultCanHaveFocus',false);
 end.
