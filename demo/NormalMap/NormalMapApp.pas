@@ -89,7 +89,7 @@ var
 begin
   n:=cardinal(x)*1973+cardinal(y)*9277+$68BC21EB;
   n:=n xor (n shr 13);
-  n:=n*1274126177;
+  n:=cardinal(n*1274126177); // keep the low 32 bits of the noise hash
   result:=(n and $FFFF)/65535;
 end;
 

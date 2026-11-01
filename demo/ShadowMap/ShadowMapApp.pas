@@ -58,8 +58,8 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  if DirectoryExists('..\Demo\ShadowMap') then
-   baseDir:='..\Demo\ShadowMap\';
+  if DirectoryExists('../demo/ShadowMap') then
+   baseDir:='../demo/ShadowMap/';
  end;
 
 procedure TMainApp.SetupApplication;
@@ -101,7 +101,7 @@ procedure TMainScene.InitGfx;
   mesh:Apus.Engine.Mesh.TMesh;
  begin
   inherited;
-  mesh:=LoadMeshOBJ(baseDir+'res\honey.obj');
+  mesh:=LoadMeshOBJ(baseDir+'res/honey.obj');
   objHoney:=TGpuMesh.Create(mesh);
   objHoney.Upload([muDiscardCPUCopy]);
   // No pixel format for the image buffer means that only depth buffer should be allocated

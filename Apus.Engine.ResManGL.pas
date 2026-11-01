@@ -883,10 +883,9 @@ begin
  {$ENDIF}
  begin
   // Clear in the internal storage
-  r:=Rect(x,y,x+width-1,y+width-1);
+  r:=Rect(x,y,x+width-1,y+height-1);
   Lock(mipLevel,lmReadWrite,@r);
-  pb:=data;
-  inc(pb,y*pitch+x*4);
+  pb:=data; // partial Lock already points at the rectangle origin
   for yy:=y to y+height-1 do begin
    Mem.FillD(pb^,width,color);
    inc(pb,pitch);

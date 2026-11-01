@@ -55,8 +55,8 @@ implementation
 constructor TMainApp.Create;
  begin
   inherited;
-  if DirectoryExists('..\Demo\Simple3D') then
-   baseDir:='..\Demo\Simple3D\';
+  if DirectoryExists('../demo/Simple3D') then
+   baseDir:='../demo/Simple3D/';
  end;
 
 procedure TMainApp.SetupApplication;
@@ -84,9 +84,9 @@ constructor TMainScene.Create;
   cameraZoom.Init(1);
   // Load resources
   {$IFDEF WEBP}
-  texture:=LoadImageFromFile(baseDir+'res\cubetex.webp');
+  texture:=LoadImageFromFile(baseDir+'res/cubetex.webp');
   {$ELSE}
-  texture:=LoadImageFromFile(baseDir+'res\cubetex.png');
+  texture:=LoadImageFromFile(baseDir+'res/cubetex.png');
   {$ENDIF}
  end;
 
@@ -114,11 +114,11 @@ procedure TMainScene.InitGfx;
   generatedMesh:=TGpuMesh.Create(mesh);
   generatedMesh.Upload([muDiscardCPUCopy]);
 
-  texCube:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res\cubetex.obj'));
+  texCube:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res/cubetex.obj'));
   texCube.Upload([muDiscardCPUCopy]);
-  objCube:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res\cube.obj'));
+  objCube:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res/cube.obj'));
   objCube.Upload([muDiscardCPUCopy]);
-  objGear:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res\gear.obj'));
+  objGear:=TGpuMesh.Create(LoadMeshOBJ(baseDir+'res/gear.obj'));
   objGear.Upload([muDiscardCPUCopy]);
  end;
 

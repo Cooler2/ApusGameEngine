@@ -41,6 +41,9 @@ const
   {$IFDEF UNIX}
     {$IFDEF DARWIN}
       MIX_LibName = 'libSDL2_mixer.dylib';
+      {$IFDEF FPC}
+        {$linklib libSDL2_mixer} // APUS: FPC on Darwin needs an explicit linker dependency
+      {$ENDIF}
     {$ELSE}
       {$IFDEF FPC}
         MIX_LibName = 'libSDL2_mixer.so';
