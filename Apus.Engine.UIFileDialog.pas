@@ -284,6 +284,10 @@ implementation
    'selection-color:&file-dialog-selection-text; }';
   SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:&file-dialog-panel; '+
    'active-color:&file-dialog-accent';
+  // over the rows of the tree: a thin slider at the edge, wide and on a track under the mouse
+  OVERLAY_SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:0; '+
+   'active-color:&file-dialog-accent; slider-width:0.4; slider-align:end; radius:0.5; '+
+   ':hover { slider-width:0.9; track-color:&file-dialog-scroll-track; }';
   EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
    'border-width:1; radius:3; :focused { border-color:&file-dialog-focus; border-width:2; }';
   BUTTON_STYLE='fill:&file-dialog-button; hover-fill:&file-dialog-button-hover; '+
@@ -1579,6 +1583,10 @@ implementation
   locationsList.onActivate:=LocationSelected;
   StyleTable(table);
   StyleTable(directoryOutline);
+  // the names of the tree are long, the bar takes no room from them
+  directoryOutline.overlayScrollbars:=true;
+  directoryOutline.scrollerV.GetElement.styleInfo:=OVERLAY_SCROLLBAR_STYLE;
+  directoryOutline.scrollerH.GetElement.styleInfo:=OVERLAY_SCROLLBAR_STYLE;
   StyleTable(locationsList);
   pinButton:=Button('PinFolder','',PinFolder);
   pinButton.drawer:=DrawPinButton;
@@ -2593,6 +2601,7 @@ initialization
  DefineToken('file-dialog-selection-text','&accent-text');
  DefineToken('file-dialog-selection-inactive','&overlay'); // the selection of a list without the focus
  DefineToken('file-dialog-focus','&accent'); // the frame of a field or a list with the focus
+ DefineToken('file-dialog-scroll-track','$60000000'); // under a scroll bar over the rows, with the mouse on it
  // buttons: fills may be gradients ('linear(180deg, #48525E, #3A434E)')
  DefineToken('file-dialog-button','&overlay');
  DefineToken('file-dialog-button-hover','&control');
