@@ -16,6 +16,9 @@ Use it as the primary reference when updating old code.
 - The common box path applies `:focused { fill; border-color; border-width; radius; fill-shade }`
   instantly, before hover, pressed and disabled. A focused edit box or table can now show a
   frame from its style.
+- The common box path checks "nothing to draw" after the state blends: a box that exists only
+  in a state block (`:focused { border-color }` on an element without a base frame, or a
+  `:hover` fill) is drawn.
 
 ## UI: the completion of the edit box follows the text (2026-10-31)
 

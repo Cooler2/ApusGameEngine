@@ -265,6 +265,30 @@ begin
   EndTest;
 end;
 
+// A box that exists only in a state block: ':focused' draws a frame on an element without one
+procedure TestStateOnlyBox;
+var
+  e:TUIElement;
+  xc:integer;
+begin
+  StartTest('Box from a state block only');
+  e:=NewElement(10,56,60,28,':focused { border-color: #FFFFFF; border-width: 2; }');
+  DrawElement(e);
+  gfx.CopyFromBackbuffer(0,0,img);
+  xc:=e.globalRect.CenterPoint.X;
+  CheckPixel(xc,e.globalRect.Top,BG,'not focused: nothing');
+  window.focus.element:=e; // the test root is outside any scene: SetFocus can't reach a window
+  try
+    DrawElement(e);
+  finally
+    window.focus.element:=nil;
+  end;
+  gfx.CopyFromBackbuffer(0,0,img);
+  CheckPixel(xc,e.globalRect.Top,$FFFFFFFF,'focused: the frame');
+  CheckPixel(xc,e.globalRect.CenterPoint.Y,BG,'focused: no fill');
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -312,6 +336,7 @@ begin
       TestEdgeScale;
       TestShadeLayer;
       TestHugeRadius;
+      TestStateOnlyBox;
       gfx.CopyFromBackbuffer(0,0,img);
       outDir:=String8(ExtractFilePath(ParamStr(0)))+'TestStyleFill/';
       Files.Save(outDir+'style_fill.png',SavePNG(img));
