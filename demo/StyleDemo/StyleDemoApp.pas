@@ -92,79 +92,99 @@ procedure RegisterDemoStyles;
   Styles['demo-btn']:='@demo-button; fill:&accent; color:&accent-text;';
   Styles['demo-button-01']:='@demo-button; fill:&control; color:&text;'+
     ':hover { fill:&surface-alt; color:&text; }'+
+    ':checked { fill:&border-dark; color:&text; }'+
     ':pressed { fill:&border-dark; color:&text; }';
   Styles['demo-button-02']:='@demo-button; fill:&surface-alt; color:&text;'+
     'border-light:&border-light; border-dark:&border-dark;'+
     ':hover { fill:&overlay; color:&text; }'+
+    ':checked { fill:&control; color:&text; }'+
     ':pressed { fill:&control; color:&text; }';
   Styles['demo-button-03']:='@demo-button; fill:&overlay; color:&text;'+
     'border-light:$D0FFFFFF; border-dark:&border-dark;'+
     ':hover { fill:&surface-alt; color:&text; }'+
+    ':checked { fill:&control; color:&text; }'+
     ':pressed { fill:&control; color:&text; }';
   Styles['demo-button-04']:='@demo-button; fill:&surface-alt; color:&text;'+
     'border-light:&border-dark; border-dark:$90FFFFFF;'+
     ':hover { fill:&overlay; color:&text; }'+
+    ':checked { fill:&border-dark; color:&text; }'+
     ':pressed { fill:&border-dark; color:&text; }';
   Styles['demo-button-05']:='@demo-button; fill:$FF4E6078; color:&text;'+
     'border-light:$E0FFFFFF; border-dark:$90000000;'+
     ':hover { fill:$FF5E7490; color:&text; }'+
+    ':checked { fill:$FF334052; color:&text; }'+
     ':pressed { fill:$FF334052; color:&text; }';
   Styles['demo-button-06']:='@demo-button; fill:&accent; color:&accent-text;'+
     ':hover { fill:&focus; color:&accent-text; }'+
+    ':checked { fill:&border-dark; color:&text; }'+
     ':pressed { fill:&border-dark; color:&text; }';
   Styles['demo-button-07']:='@demo-button; fill:$00303030; color:&accent;'+
     'border-light:&accent; border-dark:&accent;'+
     ':hover { fill:&overlay; color:&text; }'+
+    ':checked { fill:&accent; color:&accent-text; }'+
     ':pressed { fill:&accent; color:&accent-text; }';
   Styles['demo-button-08']:='@demo-button; fill:&surface; color:&text-muted;'+
     'border-light:&border; border-dark:&border-dark;'+
     ':hover { fill:&control; color:&text; }'+
+    ':checked { fill:&overlay; color:&text; }'+
     ':pressed { fill:&overlay; color:&text; }';
   Styles['demo-button-09']:='@demo-button; fill:&control; color:&text;'+
     ':hover { fill:&surface-alt; color:&text; }'+
+    ':checked { fill:&accent; color:&accent-text; }'+
     ':pressed { fill:&accent; color:&accent-text; }';
   Styles['demo-button-10']:='@demo-button; fill:&accent; color:&accent-text;'+
     'border-light:$C0FFFFFF; border-dark:$80000000;'+
     ':hover { fill:&focus; color:&accent-text; }'+
+    ':checked { fill:&border-dark; color:&text; }'+
     ':pressed { fill:&border-dark; color:&text; }';
   Styles['demo-button-11']:='@demo-button; fill:&control; color:&text;'+
     ':hover { fill:&surface-alt; color:&text; }'+
+    ':checked { fill:&accent; color:&accent-text; }'+
     ':pressed { fill:&accent; color:&accent-text; }';
   Styles['demo-button-12']:='@demo-button; fill:&surface; color:&text;'+
     'border-light:&border; border-dark:&accent;'+
     ':hover { fill:&overlay; color:&text; }'+
+    ':checked { fill:&surface-alt; color:&accent; }'+
     ':pressed { fill:&surface-alt; color:&accent; }';
   Styles['demo-button-13']:='@demo-button; fill:&surface-alt; color:&text;'+
     'border-light:&accent; border-dark:&border-dark;'+
     ':hover { fill:&overlay; color:&text; }'+
+    ':checked { fill:&control; color:&accent; }'+
     ':pressed { fill:&control; color:&accent; }';
   Styles['demo-button-14']:='@demo-button; fill:&surface-alt; color:&text;'+
     'border-light:&focus; border-dark:&accent;'+
     ':hover { fill:&overlay; color:&text; }'+
+    ':checked { fill:&accent; color:&accent-text; }'+
     ':pressed { fill:&accent; color:&accent-text; }';
   Styles['demo-button-15']:='@demo-button; fill:&surface; color:&text;'+
     'border-light:$E0FFFFFF; border-dark:&accent;'+
     ':hover { fill:&surface-alt; color:&text; }'+
+    ':checked { fill:&overlay; color:&accent; }'+
     ':pressed { fill:&overlay; color:&accent; }';
   Styles['demo-button-16']:='@demo-button; fill:$FF30343C; color:$FFE4E8F0;'+
     'border-light:$80B8C4D8; border-dark:$D0000000;'+
     ':hover { fill:$FF3C4450; color:$FFFFFFFF; }'+
+    ':checked { fill:$FF20242C; color:$FFC8D0DC; }'+
     ':pressed { fill:$FF20242C; color:$FFC8D0DC; }';
   Styles['demo-button-17']:='@demo-button; fill:$FF20242A; color:$FFB8F0FF;'+
     'border-light:$FF70E8FF; border-dark:$FF1A6470;'+
     ':hover { fill:$FF263844; color:$FFFFFFFF; }'+
+    ':checked { fill:$FF10242C; color:$FF70E8FF; }'+
     ':pressed { fill:$FF10242C; color:$FF70E8FF; }';
   Styles['demo-button-18']:='@demo-button; fill:$FFEAD8B8; color:$FF3A2614;'+
     'border-light:$FFFFFFFF; border-dark:$FF8A6030;'+
     ':hover { fill:$FFFFE4BC; color:$FF2A180C; }'+
+    ':checked { fill:$FFD0A878; color:$FF2A180C; }'+
     ':pressed { fill:$FFD0A878; color:$FF2A180C; }';
   Styles['demo-button-19']:='@demo-button; fill:&danger; color:&danger-text;'+
     'border-light:$E0FFFFFF; border-dark:$90000000;'+
     ':hover { fill:$FFFF705C; color:&danger-text; }'+
+    ':checked { fill:$FF8A2020; color:&danger-text; }'+
     ':pressed { fill:$FF8A2020; color:&danger-text; }';
   Styles['demo-button-20']:='@demo-button; fill:$00000000; color:&text;'+
     'border-light:$00000000; border-dark:$00000000;'+
     ':hover { fill:$2030A8FF; color:&accent; }'+
+    ':checked { fill:$4030A8FF; color:&accent; }'+
     ':pressed { fill:$4030A8FF; color:&accent; }';
  end;
 
@@ -247,6 +267,7 @@ function ButtonSketchStyle(index:integer):String8;
   result:='@demo-button-'+IntToStr(index+1)+';';
  end;
 
+// The sketches are toggle buttons: a toggled one shows ':checked' (its pressed look)
 procedure AddButtonSketch(parent:TUIElement;index:integer;x,y:single);
  var
   lbl:TUILabel;

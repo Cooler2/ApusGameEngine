@@ -448,11 +448,10 @@ procedure TStyleBlock.SetState(const name:String8; active:boolean);
    end;
   end else begin
    if found>=0 then begin
-    states[found]:=states[high(states)];
-    SetLength(states,high(states));
+    // keep the order: a later state has a higher priority
     activeStates:='';
     for i:=0 to high(states) do begin
-     if states[i].Trim='' then continue;
+     if (i=found) or (states[i].Trim='') then continue;
      if activeStates='' then activeStates:=states[i].Trim
       else activeStates:=activeStates+','+states[i].Trim;
     end;

@@ -136,6 +136,7 @@ interface
    procedure onTimer; override;
    procedure SetPressed(pr:boolean); virtual;
    procedure Click; virtual; // simulate click
+   function GetStates:TElementStates; override; // + pressed
    class function Sender:TUIButton;
   protected
    procedure DoClick; virtual;
@@ -166,6 +167,7 @@ interface
    procedure onMouseMove; override;
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure SetPressed(pr:boolean); override;
+   function GetStates:TElementStates; override; // + checked
   protected
    procedure DoClick; override;
   end;
@@ -603,6 +605,12 @@ implementation
    lastover:=undermouse=self;
   end;
 
+ function TUIButton.GetStates:TElementStates;
+  begin
+   result:=inherited;
+   if pressed then include(result,TElementState.Pressed);
+  end;
+
  procedure TUIButton.onTimer;
   begin
    SetPressed(false);
@@ -648,13 +656,19 @@ implementation
   begin
    toggled:=v;
    // NB: do NOT mirror into `pressed` — rendering reads `toggled`/`checked`
-   // (DrawUICheckbox, TContext), and TUIButton.onMouseMove clears `pressed` on
+   // (GetStates, DrawUICheckbox), and TUIButton.onMouseMove clears `pressed` on
    // mouse-out, which would silently untoggle this element (via SetPressed override).
    if linkedToggled<>nil then linkedToggled^:=toggled;
    if sendSignals<>ssNone then begin
     Signal('UI\Button\Toggle\'+name,UIntPtr(self));
     Signal('UI\'+name+'\Toggle');
    end;
+  end;
+
+ function TUIToggleButton.GetStates:TElementStates;
+  begin
+   result:=inherited;
+   if toggled then include(result,TElementState.Checked);
   end;
 
  procedure TUIToggleButton.SetPressed(pr:boolean);

@@ -52,14 +52,10 @@ implementation
   blendModeChanged:boolean; // per render thread: windows draw in their own threads
 
  type
+  // Drawer memo of an element (state transitions are in element.visualState)
   TContext=class
-   disabled:TTweening;
-   hover:TTweening;
-   active:TTweening;
    skinned:boolean; // set by the box path: a background-image was drawn this frame
    destructor Destroy; override;
-   constructor Create(element:TUIElement);
-   procedure Update(element:TUIElement);
    // Resolve a 'background-image' value to a texture. 'file:' textures are loaded once
    // and memoized (the context holds one reference each); 'tex:' ones are looked up
    // every call and never owned (the creator of a named texture keeps it alive)
@@ -75,7 +71,7 @@ implementation
     if element.styleContext is TContext then exit(TContext(element.styleContext));
     element.StyleContext.Free;
    end;
-   result:=TContext.Create(element);
+   result:=TContext.Create;
    element.styleContext:=result;
   end;
 
@@ -130,7 +126,7 @@ implementation
     defAlign:TTextAlignment=taLeft;defOptions:cardinal=0;
     defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TTextStyle;
   var
-   scale:single;
+   scale,cv:single;
    st:String8;
    parts:Strings8;
    i,n:integer;
@@ -149,9 +145,10 @@ implementation
   begin
    scale:=element.globalScale;
    result.font:=element.StyleFont;
-   result.hover:=context.hover.Value;
-   result.pressed:=context.active.Value;
-   result.disabled:=context.disabled.Value;
+   result.hover:=element.StateWeight(TElementState.Hover);
+   result.pressed:=element.StateWeight(TElementState.Pressed);
+   result.disabled:=element.StateWeight(TElementState.Disabled);
+   cv:=element.StateWeight(TElementState.Checked);
    result.options:=defOptions;
    result.shadowColor:=0;
    result.shadowX:=1; result.shadowY:=1;
@@ -159,12 +156,15 @@ implementation
    result.color:=element.GetBaseStyleColor('color',defColor);
    result.ofsX:=element.GetBaseStyleNumber('text-offset-x');
    result.ofsY:=element.GetBaseStyleNumber('text-offset-y');
-   BlendColor('hover',context.hover.Value,defHoverColor);
-   BlendColor('pressed',context.active.Value,0);
-   BlendColor('disabled',context.disabled.Value,defDisabledColor);
-   BlendOffset('hover',context.hover.Value,0);
-   BlendOffset('pressed',context.active.Value,defPressOfsY);
-   BlendOffset('disabled',context.disabled.Value,0);
+   // priority order (TElementState); 'checked' looks pressed by default
+   BlendColor('hover',result.hover,defHoverColor);
+   BlendColor('checked',cv,0);
+   BlendColor('pressed',result.pressed,0);
+   BlendColor('disabled',result.disabled,defDisabledColor);
+   BlendOffset('hover',result.hover,0);
+   BlendOffset('checked',cv,defPressOfsY);
+   BlendOffset('pressed',result.pressed,defPressOfsY);
+   BlendOffset('disabled',result.disabled,0);
    // Alignment: the style overrides the drawer's default (e.g. TUILabel.align)
    result.align:=defAlign;
    st:=element.GetStyleValue('text-align');
@@ -487,7 +487,7 @@ implementation
    inc(x1,round(size*0.3));
    d:=round(size*0.15);
    //
-   inTransition:=context.active.IsAnimating(window.frameStartMs);
+   inTransition:=(element.visualState<>nil) and element.visualState.Animating(TElementState.Checked);
    if element.classType=TUICheckBox then begin
     vColor:=element.GetStyleColor('tick-color',Color.Add(col,$808080));
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,col,0);
@@ -495,8 +495,8 @@ implementation
     if element.checked or inTransition then begin
      alpha:=1; ss:=1.1;
      if inTransition then begin // transition
-      tt:=context.active.Value;
-      if context.active.FinalValue=1 then begin
+      tt:=element.StateWeight(TElementState.Checked);
+      if element.checked then begin
        // appear
        alpha:=splines.easeOut(tt,0,1,0.5,1);
        ss:=Spline(tt, 0.5,3, 1.1,-1);
@@ -515,8 +515,8 @@ implementation
      alpha:=1;
      v:=size*0.24;
      if inTransition then begin // transition
-      tt:=context.active.Value;
-      if context.active.FinalValue=1 then begin
+      tt:=element.StateWeight(TElementState.Checked);
+      if element.checked then begin
        // appear
        alpha:=tt;
        v:=size*Spline(tt, 0.4,-0.8, 0.24,0.8);
@@ -550,9 +550,9 @@ implementation
    ts:TTextStyle;
   begin
    with control do begin
-      hv:=context.hover.Value;
-      av:=context.active.Value;
-      dv:=context.disabled.Value;
+      hv:=StateWeight(TElementState.Hover);
+      av:=Max(StateWeight(TElementState.Pressed),StateWeight(TElementState.Checked));
+      dv:=StateWeight(TElementState.Disabled);
 
       // The box (fill / fill-shade / background-image, state-blended) is drawn by the common
       // box path. Procedural look adds bevel frames on top of it; a skin has them baked in.
@@ -614,7 +614,7 @@ implementation
     ts.align:=taRight;
     ts.font:=item.ShortcutFont; // smaller by default, on the same baseline
     ts.color:=Color.Mix(item.GetStyleColor('shortcut-color',ts.color),ts.color,
-      Max(context.hover.Value,context.disabled.Value));
+      Max(item.StateWeight(TElementState.Hover),item.StateWeight(TElementState.Disabled)));
     WriteStyled(ts,r.Right-1,y,item.shortcut);
    end;
    gfx.clip.Restore;
@@ -736,7 +736,7 @@ implementation
    if SameText(sStyle,'flat') then begin
     // Flat style. The widths may grow under the mouse (':hover { slider-width }'), dragging keeps
     // them grown; with 'slider-align:end' a narrow slider and track hug the far edge
-    hv:=context.hover.Value;
+    hv:=element.StateWeight(TElementState.Hover);
     if hooked=element then hv:=1;
     trackWidth:=element.GetBaseStyleNumber('track-width',1);
     trackWidth:=Lerp(trackWidth,element.GetStateStyleNumber('hover','track-width',trackWidth),hv);
@@ -1351,7 +1351,7 @@ implementation
    radii:TCornerRadii;
    bWidth,scale:single;
    x1,y1,x2,y2:integer;
-   hv,av,dv:single;
+   hv,av,dv,cv:single;
    isButton:boolean;
    layers:array[0..3] of TImageLayer;
    layerCount:integer;
@@ -1523,9 +1523,10 @@ implementation
    context.skinned:=false;
    ImportRect(element.globalRect);
    scale:=element.globalScale;
-   hv:=context.hover.Value;
-   av:=context.active.Value;
-   dv:=context.disabled.Value;
+   hv:=element.StateWeight(TElementState.Hover);
+   cv:=element.StateWeight(TElementState.Checked);
+   av:=element.StateWeight(TElementState.Pressed);
+   dv:=element.StateWeight(TElementState.Disabled);
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
    isButton:=(element is TUIButton) and not (element is TUICheckbox) and
      not (element is TUIComboBox) and not (element is TUIMenuItem);
@@ -1549,6 +1550,7 @@ implementation
      layers[0].weight:=1;
      layerCount:=1;
      AddImageState('hover',hv);
+     AddImageState('checked',cv);
      AddImageState('pressed',av);
      AddImageState('disabled',dv);
      stretch:=SameText(element.GetStyleValue('background-size','auto'),'stretch');
@@ -1556,6 +1558,7 @@ implementation
      ofsX:=element.GetBaseStyleNumber('background-offset-x');
      ofsY:=element.GetBaseStyleNumber('background-offset-y');
      BlendOffset('hover',hv);
+     BlendOffset('checked',cv);
      BlendOffset('pressed',av);
      BlendOffset('disabled',dv);
     end;
@@ -1566,9 +1569,10 @@ implementation
     else fillDef:=TFill.None;
    shadeSlot.Init(ScaleFill(element.GetBaseStyleFill('fill-shade',fillDef),scale));
 
-   // State blend: focused (instant) -> hover -> pressed -> disabled (layered)
-   if FocusedElement=element then BlendState('focused',1,fillSlot.fill,false);
+   // State blend in priority order (TElementState), layered; 'checked' looks pressed by default
+   BlendState('focused',element.StateWeight(TElementState.Focused),fillSlot.fill,false);
    BlendState('hover',hv,fillSlot.fill.Add($101010),isButton);
+   BlendState('checked',cv,fillSlot.fill.Sub($282020),isButton);
    BlendState('pressed',av,fillSlot.fill.Sub($282020),isButton);
    BlendState('disabled',dv,fillSlot.fill.MixWith($FFA0A0A0,0.5),isButton);
 
@@ -1617,12 +1621,12 @@ implementation
    context:TContext;
   begin
    context:=PrepareContext(element);
-   context.Update(element);
    if (element is TUIButton) and not (element is TUICheckbox) and
      not (element is TUIComboBox) and not (element is TUIMenuItem) then begin
     // Buttons use scroll to move all children as a group. Assign absolutely.
     element.scroll.X:=0;
-    element.scroll.Y:=-context.active.Value*element.GetStyleNumber('content-press-offset',1);
+    element.scroll.Y:=-Max(element.StateWeight(TElementState.Pressed),element.StateWeight(TElementState.Checked))*
+      element.GetStyleNumber('content-press-offset',1);
    end;
    DrawCommonStyle(element,context,element is TUIListBox);
 
@@ -1709,10 +1713,9 @@ implementation
   begin
    // Reading parent text must not destroy another drawer's private context.
    temporary:=(element.styleContext<>nil) and not (element.styleContext is TContext);
-   if temporary then context:=TContext.Create(element)
+   if temporary then context:=TContext.Create
     else context:=PrepareContext(element);
    try
-    context.Update(element);
     result:=ResolveTextStyle(element,context,defColor,defAlign,defOptions,
       defHoverColor,defDisabledColor,defPressOfsY);
    finally
@@ -1732,68 +1735,7 @@ destructor TContext.Destroy;
   i:integer;
  begin
   for i:=0 to high(imgTex) do FreeImage(imgTex[i]);
-  hover.Free;
-  active.Free;
-  disabled.Free;
   inherited;
- end;
-
-constructor TContext.Create(element:TUIElement);
- var
-  v:integer;
- begin
-  if element.IsEnabled then v:=0 else v:=1;
-  disabled.Assign(v);
-  hover.Assign(ord(element.IsHovered));
-  v:=0;
-  if element is TUIButton then
-   if TUIButton(element).pressed then v:=1;
-  if element is TUIToggleButton then
-   if TUIToggleButton(element).toggled then v:=1;
-  active.Assign(v);
- end;
-
-procedure TContext.Update(element:TUIElement);
- var
-  v,duration:integer;
- begin
-  // Mouse hover state
-  v:=ord(element.IsHovered);
-  if hover.FinalValue<>v then begin
-   if v=1 then duration:=120 else duration:=80; // default
-   duration:=element.GetStyleInt('hover-time',duration);
-   if v=1 then duration:=element.GetStyleInt('hover-time-in',duration)
-    else duration:=element.GetStyleInt('hover-time-out',duration);
-   hover.Animate(v,duration);
-  end;
-  // sync hover state to element.style for CSS :hover blocks
-  element.SetState('hover',v=1);
-
-  // Click/toggle state
-  v:=0;
-  if element is TUIButton then
-   if TUIButton(element).pressed then v:=1;
-  if element is TUIToggleButton then
-   if TUIToggleButton(element).toggled then v:=1;
-  if active.FinalValue<>v then begin
-   if v=1 then duration:=120 else duration:=80;
-   duration:=element.GetStyleInt('press-time',duration);
-   if v=0 then duration:=element.GetStyleInt('release-time',duration);
-   active.Animate(v,duration);
-  end;
-  // sync pressed/toggled state
-  element.SetState('pressed',v=1);
-
-  // Disabled state
-  if element.IsEnabled then v:=0 else v:=1;
-  if disabled.FinalValue<>v then begin
-   duration:=element.GetStyleInt('disable-time',0);
-   if v=0 then duration:=element.GetStyleInt('enable-time',duration);
-   disabled.Animate(v,duration);
-  end;
-  // sync disabled state
-  element.SetState('disabled',v=1);
-  // the 'focused' state is synced by DrawUIElement for every drawer
  end;
 
 function TContext.GetImage(const src:String8):TTexture;

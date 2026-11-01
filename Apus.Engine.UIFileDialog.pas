@@ -243,6 +243,7 @@ implementation
   TDriveButton=class(TDialogButton)
    active:boolean;
    procedure onMouseMove; override;
+   function GetStates:TElementStates; override; // the active drive is checked
   end;
   TLocationsList=class(TUITable)
    dialog:TUIFileDialog;
@@ -619,6 +620,12 @@ implementation
  begin
   UpdateHover;
  end;
+
+ function TDriveButton.GetStates:TElementStates;
+  begin
+   result:=inherited;
+   if active then include(result,TElementState.Checked);
+  end;
 
  procedure TDriveButton.onMouseMove;
  begin

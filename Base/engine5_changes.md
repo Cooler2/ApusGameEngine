@@ -3,6 +3,27 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: element states with a priority, `:checked` apart from `:pressed` (2026-11-01)
+
+- Built-in states are `TElementState` (scoped: `Focused, Hover, Checked, Selected, Pressed,
+  Disabled`), in priority order: a later state wins where both declare a key. An element
+  reports them by `GetStates` (virtual: `TUIButton` adds `Pressed`, `TUIToggleButton`
+  `Checked`); `DrawUIElement` calls `UpdateVisualState` before any drawer: the states go into
+  `style.activeStates` in that order (custom `SetState` ones after them), so `GetStyleColor`
+  and the blending drawers agree whatever order the states came in.
+- Transitions live in `element.visualState` (`TUIVisualState`, created on the first draw);
+  `element.StateWeight(TElementState.Hover)` gives the progress. The default drawer's
+  `TContext` no longer has `hover/active/disabled` tweens. A drawer called directly (not by
+  `DrawUIElement`) calls `UpdateVisualState` first, or the weights are 0/1 by `GetStates`.
+- Transition times: `<state>-time`, `<state>-time-in`, `<state>-time-out` (ms) for any built-in
+  state; `press-time`/`release-time`, `disable-time`/`enable-time` remain as aliases with a
+  lower priority. Defaults: hover 50 in / 250 out (was 120/80), pressed and checked 120/80,
+  the others instant. A reversed transition takes its part of the time.
+- A toggled `TUIToggleButton` (a checkbox, a radio button) is `:checked`, not `:pressed`:
+  style it with `:checked { ... }`. By default it looks as before (the derived darker fill,
+  the pressed caption shift); `:pressed` now means the mouse is held on it.
+- `TStyleBlock.SetState(name,false)` keeps the order of the other active states.
+
 ## UI: scroll bars over the rows of a table, a slider that widens under the mouse (2026-11-01)
 
 - `TUITable.overlayScrollbars`: the scroll bars lie over the rows and take no room from them

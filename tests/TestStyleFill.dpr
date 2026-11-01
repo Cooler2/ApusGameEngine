@@ -73,6 +73,7 @@ end;
 procedure DrawElement(e:TUIElement);
 begin
   e.globalRect:=e.GetPosOnScreen;
+  e.UpdateVisualState(CoreTime.Ticks); // as DrawUIElement does (no frame loop here)
   DrawDefaultUI(e);
 end;
 
@@ -289,6 +290,105 @@ begin
   EndTest;
 end;
 
+// Built-in states go into style.activeStates in priority order, custom ones after them:
+// the plain resolver gives the priority whatever the order the states came in
+procedure TestStateOrder;
+var
+  e:TUIElement;
+begin
+  StartTest('State order');
+  e:=TUIElement.Create(10,10,root);
+  e.style.Assign(':hover { color: #111111; } :disabled { color: #222222; }');
+  e.SetState('error',true);
+  e.flags.enabled:=false;
+  e.UpdateVisualState(1000);
+  Check(e.style.activeStates='disabled,error','disabled: '+e.style.activeStates);
+  underMouse:=e;
+  e.UpdateVisualState(1001);
+  Check(e.style.activeStates='hover,disabled,error','hover after disabled: '+e.style.activeStates);
+  Check(e.GetStyleColor('color')=$FF222222,'disabled wins over hover');
+  e.SetState('error',false);
+  e.SetState('warn',true);
+  Check(e.style.activeStates='hover,disabled,warn','custom state removed in place: '+e.style.activeStates);
+  underMouse:=nil;
+  e.flags.enabled:=true;
+  e.UpdateVisualState(1002);
+  Check(e.style.activeStates='warn','only custom: '+e.style.activeStates);
+  e.Free;
+  EndTest;
+end;
+
+// Transition weights: default hover 50/250 ms, a reversed transition takes its part of the
+// time, old key names work as aliases under the new ones
+procedure TestStateTransitions;
+var
+  e:TUIElement;
+  b:TUIButton;
+  procedure CheckW(el:TUIElement;s:TElementState;time:int64;w:single;const msg:String8);
+   begin
+    el.UpdateVisualState(time);
+    Check(abs(el.StateWeight(s)-w)<0.01,msg+': '+FloatToStrF(el.StateWeight(s),ffFixed,6,3));
+   end;
+begin
+  StartTest('State transitions');
+  e:=TUIElement.Create(10,10,root);
+  CheckW(e,TElementState.Hover,1000,0,'initial');
+  underMouse:=e;
+  CheckW(e,TElementState.Hover,2000,0,'hover start');
+  Check(e.visualState.Animating and e.visualState.Animating(TElementState.Hover),'animating');
+  CheckW(e,TElementState.Hover,2025,0.5,'hover in, half of 50 ms');
+  CheckW(e,TElementState.Hover,2050,1,'hover in done');
+  Check(not e.visualState.Animating,'not animating');
+  underMouse:=nil;
+  CheckW(e,TElementState.Hover,3000,1,'hover out start');
+  CheckW(e,TElementState.Hover,3125,0.5,'hover out, half of 250 ms');
+  underMouse:=e;
+  CheckW(e,TElementState.Hover,3125,0.5,'reversed');
+  CheckW(e,TElementState.Hover,3150,1,'reversed: half of 50 ms');
+  underMouse:=nil;
+  e.Free;
+
+  b:=TUIButton.Create(10,10,root).Setup('');
+  b.style.Assign('press-time:200; release-time:40; pressed-time-out:100');
+  CheckW(b,TElementState.Pressed,5000,0,'not pressed');
+  b.pressed:=true;
+  CheckW(b,TElementState.Pressed,6000,0,'press start');
+  CheckW(b,TElementState.Pressed,6100,0.5,'press-time alias');
+  CheckW(b,TElementState.Pressed,6200,1,'pressed');
+  b.pressed:=false;
+  CheckW(b,TElementState.Pressed,7000,1,'release start');
+  CheckW(b,TElementState.Pressed,7050,0.5,'pressed-time-out over release-time');
+  b.Free;
+  EndTest;
+end;
+
+// A toggled button is checked, not pressed: ':pressed' does not apply, the derived checked
+// color is the one of the pressed button
+procedure TestCheckedLook;
+var
+  t:TUIToggleButton;
+  b:TUIButton;
+  c1,c2:cardinal;
+begin
+  StartTest('Checked apart from pressed');
+  t:=TUIToggleButton.Create(60,26,root).Setup('',true);
+  t.SetPos(490,100,pivotTopLeft);
+  t.style.Assign(NO_ANIM+':pressed { fill: #FF0000; }');
+  Check(t.GetStates*[TElementState.Checked,TElementState.Pressed]=[TElementState.Checked],'checked only');
+  b:=TUIButton.Create(60,26,root).Setup('');
+  b.SetPos(565,100,pivotTopLeft);
+  b.style.Assign(NO_ANIM);
+  b.pressed:=true;
+  DrawElement(t);
+  DrawElement(b);
+  gfx.CopyFromBackbuffer(0,0,img);
+  c1:=Pixel(t.globalRect.CenterPoint.X,t.globalRect.CenterPoint.Y);
+  c2:=Pixel(b.globalRect.CenterPoint.X,b.globalRect.CenterPoint.Y);
+  Check(c1=c2,'checked = pressed look: '+IntToHex(c1,8)+' '+IntToHex(c2,8));
+  Check(Channel(c1,16)<200,'no red of :pressed');
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -337,6 +437,9 @@ begin
       TestShadeLayer;
       TestHugeRadius;
       TestStateOnlyBox;
+      TestStateOrder;
+      TestStateTransitions;
+      TestCheckedLook;
       gfx.CopyFromBackbuffer(0,0,img);
       outDir:=String8(ExtractFilePath(ParamStr(0)))+'TestStyleFill/';
       Files.Save(outDir+'style_fill.png',SavePNG(img));

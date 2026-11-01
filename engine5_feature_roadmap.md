@@ -170,7 +170,7 @@ Two tiers, not a version ladder:
   - [ ] Style resolution validated on real project screens (not only StyleDemo).
   - [ ] Resolver performance profiled; caching added if needed.
   - [ ] Visual regression tests via Robot API `pixel` command.
-  - [ ] Drawer rework (`Work/R-05_drawers_rework.md`, 2026-11-01): stage 1 foundation (frame preparation, per-element state runtime with a fixed priority and a `pressed`/`checked` split, `ResolveStyleBox`/`DrawStyleBox`, blended values, `background-clip`, defaults -> theme layers, minimal parts `header`/`body`/`close-button`); stage 3 underlay/overlay phases (`box-shadow`, `outline`, `glow`, a border over the children by an explicit key); stage 5 text by style, typed values and units; stage 6 style sheets in files (PaintRaw E-38).
+  - [ ] Drawer rework (`Work/R-05_drawers_rework.md`, 2026-11-01): stage 1 foundation (frame preparation, per-element state runtime with a fixed priority and a `pressed`/`checked` split, `ResolveStyleBox`/`DrawStyleBox`, blended values, defaults -> theme layers, minimal parts `header`/`body`/`close-button`); stage 3 underlay/overlay phases (`box-shadow`, `outline`, `glow`, a border over the children by an explicit key); stage 5 text by style, typed values and units; stage 6 style sheets in files (PaintRaw E-38).
   - Deferred: `$varName` substitution via `Apus.Publics`.
 - Design: `Work/R-05_notes.md`; drawer rework: `Work/R-05_drawers_rework.md`
 

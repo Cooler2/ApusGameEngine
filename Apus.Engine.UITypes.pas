@@ -99,6 +99,37 @@ type
    dontClipChildren:boolean; // do NOT clip children by self client rect
  end;
 
+ {$SCOPEDENUMS ON}
+ // Built-in visual states in priority order: a later state overrides an earlier one
+ // where both declare a key (':focused' < ':hover' < ... < ':disabled')
+ TElementState=(Focused,Hover,Checked,Selected,Pressed,Disabled);
+ {$SCOPEDENUMS OFF}
+ TElementStates=set of TElementState;
+ TElementStateWeights=array[TElementState] of single; // 0..1, transition progress
+
+ TStateTransition=record
+  from,target:single;
+  start:int64;
+  duration:integer; // ms
+ end;
+
+ // Transition progress of the built-in states of an element. Created on the first draw
+ // (TUIElement.UpdateVisualState); all weights of a frame are taken at one time.
+ // Durations: style keys '<state>-time', '<state>-time-in', '<state>-time-out' (ms)
+ TUIVisualState=class
+  states:TElementStates; // the target set of the last update
+  function Weight(s:TElementState):single;     // progress at the time of the last update
+  function Weights:TElementStateWeights;
+  function Animating:boolean; overload;        // some transition is running
+  function Animating(s:TElementState):boolean; overload;
+  // Move toward newStates; time - frame time (ms)
+  procedure Update(element:TUIElement;newStates:TElementStates;time:int64);
+ private
+  trans:array[TElementState] of TStateTransition;
+  time:int64; // frame time of the last update
+  initialized:boolean;
+ end;
+
  // Base class of the UI element
  TUIElement=class(TNamedObject)
   // Outer geometry: position and size in PARENT space (unaffected by self scale)
@@ -130,6 +161,7 @@ type
   drawer:TUIDrawer;         // direct drawer reference (nil = use default style drawer)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject;     // custom context object used by drawer
+  visualState:TUIVisualState; // state transitions; nil until the element is drawn
 
   // Custom data
   attributes:TNameValueList; // miscellaneous named attributes
@@ -265,6 +297,12 @@ type
   // R-05: style system — use element.style.Assign/Add/SetState/GetColor etc. directly
   function HasState(const name:String8):boolean;  // shortcut for style.HasState
   procedure SetState(const name:String8; active:boolean);  // shortcut for style.SetState
+  // Built-in states of the element now (focus, hover, enabled; widgets add theirs)
+  function GetStates:TElementStates; virtual;
+  // Transition progress of a state: by visualState, 0/1 by GetStates before the first draw
+  function StateWeight(s:TElementState):single;
+  // Called before the drawer each frame: GetStates -> style states (':hover {}'...) -> transitions
+  procedure UpdateVisualState(time:int64);
   // Resolve style attribute value considering cascade (own block → parent chain)
   function GetStyleValue(const key:String8; const defVal:String8=''):String8;
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
@@ -352,6 +390,11 @@ type
   procedure Pop(uiRoot:TUIElement);          // remove uiRoot from the stack, reactivate previous
   function Info:String8;                      // human-readable stack dump for logging
  end;
+
+const
+ // Names of the built-in states in style text (':hover { ... }')
+ ElementStateNames:array[TElementState] of String8=
+   ('focused','hover','checked','selected','pressed','disabled');
 
 
 threadvar
@@ -872,6 +915,7 @@ destructor TUIElement.Destroy;
     FreeChildren;
     if (shape<>nil) and not shape.persistent then FreeAndNil(shape);
     FreeAndNil(styleContext);
+    FreeAndNil(visualState);
     FreeAndNil(style);
     DeleteHotkeys(0);
     Signal('UI\ItemDestroyed',TTag(self));
@@ -1592,6 +1636,154 @@ function TUIElement.GetClientHeight:single;
  procedure TUIElement.SetState(const name:String8; active:boolean);
   begin
    style.SetState(name,active);
+  end;
+
+ function TUIElement.GetStates:TElementStates;
+  begin
+   result:=[];
+   if FocusedElement=self then include(result,TElementState.Focused);
+   if IsHovered then include(result,TElementState.Hover);
+   if not IsEnabled then include(result,TElementState.Disabled);
+  end;
+
+ function TUIElement.StateWeight(s:TElementState):single;
+  begin
+   if visualState<>nil then result:=visualState.Weight(s)
+    else result:=ord(s in GetStates);
+  end;
+
+ // Write the built-in states into style.activeStates in priority order, then the custom ones
+ // (SetState) in their order: the plain resolver (last active state wins) and the blending
+ // drawers see one priority
+ procedure SyncStyleStates(style:TStyleBlock;states:TElementStates);
+  var
+   list:Strings8;
+   s:TElementState;
+   res,n:String8;
+   i:integer;
+   builtIn:boolean;
+  begin
+   res:='';
+   for s:=low(TElementState) to high(TElementState) do
+    if s in states then begin
+     if res<>'' then res:=res+',';
+     res:=res+ElementStateNames[s];
+    end;
+   list:=style.activeStates.Split(',');
+   for i:=0 to high(list) do begin
+    n:=list[i].Trim;
+    if n='' then continue;
+    builtIn:=false;
+    for s:=low(TElementState) to high(TElementState) do
+     if n=ElementStateNames[s] then begin builtIn:=true; break; end;
+    if builtIn then continue;
+    if res<>'' then res:=res+',';
+    res:=res+n;
+   end;
+   if res<>style.activeStates then begin
+    style.activeStates:=res;
+    style.dirty:=true;
+   end;
+  end;
+
+ procedure TUIElement.UpdateVisualState(time:int64);
+  var
+   st:TElementStates;
+  begin
+   st:=GetStates;
+   if visualState=nil then begin
+    visualState:=TUIVisualState.Create;
+    visualState.Update(self,st,time);
+    SyncStyleStates(style,st);
+    exit;
+   end;
+   if st<>visualState.states then SyncStyleStates(style,st);
+   visualState.Update(self,st,time);
+  end;
+
+{ TUIVisualState }
+
+ // Transition time (ms) of entering (or leaving) a state: '<state>-time[-in|-out]',
+ // the old names are aliases with a lower priority
+ function TransitionTime(element:TUIElement;s:TElementState;entering:boolean):integer;
+  const
+   DEF_IN:array[TElementState] of integer=(0,50,120,0,120,0);
+   DEF_OUT:array[TElementState] of integer=(0,250,80,0,80,0);
+  var
+   name:String8;
+  begin
+   if entering then result:=DEF_IN[s] else result:=DEF_OUT[s];
+   case s of
+    TElementState.Pressed:begin
+     result:=element.GetStyleInt('press-time',result);
+     if not entering then result:=element.GetStyleInt('release-time',result);
+    end;
+    TElementState.Disabled:begin
+     result:=element.GetStyleInt('disable-time',result);
+     if not entering then result:=element.GetStyleInt('enable-time',result);
+    end;
+   end;
+   name:=ElementStateNames[s];
+   result:=element.GetStyleInt(name+'-time',result);
+   if entering then result:=element.GetStyleInt(name+'-time-in',result)
+    else result:=element.GetStyleInt(name+'-time-out',result);
+  end;
+
+ function TUIVisualState.Weight(s:TElementState):single;
+  begin
+   with trans[s] do
+    if (duration<=0) or (time>=start+duration) then result:=target
+     else if time<=start then result:=from
+     else result:=from+(target-from)*(time-start)/duration;
+  end;
+
+ function TUIVisualState.Weights:TElementStateWeights;
+  var
+   s:TElementState;
+  begin
+   for s:=low(TElementState) to high(TElementState) do
+    result[s]:=Weight(s);
+  end;
+
+ function TUIVisualState.Animating(s:TElementState):boolean;
+  begin
+   with trans[s] do
+    result:=(duration>0) and (time<start+duration) and (from<>target);
+  end;
+
+ function TUIVisualState.Animating:boolean;
+  var
+   s:TElementState;
+  begin
+   for s:=low(TElementState) to high(TElementState) do
+    if Animating(s) then exit(true);
+   result:=false;
+  end;
+
+ procedure TUIVisualState.Update(element:TUIElement;newStates:TElementStates;time:int64);
+  var
+   s:TElementState;
+   cur,v:single;
+   first:boolean;
+  begin
+   first:=not initialized;
+   initialized:=true;
+   self.time:=time;
+   for s:=low(TElementState) to high(TElementState) do begin
+    v:=ord(s in newStates);
+    if first then begin // the first draw shows the states as they are
+     trans[s].from:=v; trans[s].target:=v; trans[s].duration:=0;
+     continue;
+    end;
+    if trans[s].target=v then continue;
+    cur:=Weight(s);
+    trans[s].from:=cur;
+    trans[s].target:=v;
+    trans[s].start:=time;
+    // a reversed transition takes the part of the time it has to cover
+    trans[s].duration:=round(TransitionTime(element,s,v=1)*abs(v-cur));
+   end;
+   states:=newStates;
   end;
 
  // Resolve style value: own block (with refs) → parent chain, but only for inherited keys
