@@ -247,7 +247,7 @@ var
  stylesRevision:cardinal=0;
 
 implementation
-uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Types;
+uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Types, Apus.Threads;
 
 const
  MAX_NAMED_STYLES = 128;
@@ -1184,6 +1184,9 @@ type
  end;
 
 var
+ // shared by the render threads of all windows: guarded by fillLock (a leaf lock, the parse
+ // itself runs outside it)
+ fillLock:TLock;
  fillCache:array[0..FILL_CACHE_SIZE-1] of TFillCacheEntry;
  warnedFills:String8; // ';value;' - to warn about each invalid fill once
 
@@ -1356,6 +1359,7 @@ function ParseStyleFill(const s:String8; out fill:TFill):boolean;
   h:cardinal;
   i:integer;
   entry:^TFillCacheEntry;
+  warn:boolean;
  begin
   if s='' then begin
    fill:=TFill.None;
@@ -1366,20 +1370,32 @@ function ParseStyleFill(const s:String8; out fill:TFill):boolean;
   for i:=1 to length(s) do
    h:=cardinal((uint64(h xor byte(s[i]))*16777619) and $FFFFFFFF);
   entry:=@fillCache[h and (FILL_CACHE_SIZE-1)];
-  if entry.used and (entry.revision=stylesRevision) and (entry.key=s) then begin
-   fill:=entry.fill;
-   exit(entry.ok);
+  fillLock.Enter;
+  try
+   if entry.used and (entry.revision=stylesRevision) and (entry.key=s) then begin
+    fill:=entry.fill;
+    exit(entry.ok);
+   end;
+  finally
+   fillLock.Leave;
   end;
-  result:=DoParseStyleFill(s,fill);
-  if not result and (warnedFills.IndexOf(';'+s+';',1)<=0) then begin
-   warnedFills:=warnedFills+';'+s+';';
-   Log.Warn('Style: invalid fill "%s"',[s]);
+  result:=DoParseStyleFill(s,fill); // may resolve an image: not under the lock
+  warn:=false;
+  fillLock.Enter;
+  try
+   if not result and (warnedFills.IndexOf(';'+s+';',1)<=0) then begin
+    warnedFills:=warnedFills+';'+s+';';
+    warn:=true;
+   end;
+   entry.key:=s;
+   entry.revision:=stylesRevision;
+   entry.used:=true;
+   entry.ok:=result;
+   entry.fill:=fill;
+  finally
+   fillLock.Leave;
   end;
-  entry.key:=s;
-  entry.revision:=stylesRevision;
-  entry.used:=true;
-  entry.ok:=result;
-  entry.fill:=fill;
+  if warn then Log.Warn('Style: invalid fill "%s"',[s]);
  end;
 
 function ParseStyleRadii(const s:String8; out radii:TCornerRadii):boolean;
@@ -1440,6 +1456,7 @@ procedure RegisterBuiltinThemes;
  end;
 
 initialization
+ fillLock.Init('StyleFills',820);
  Styles:=TStyleCatalog.Create;
  RegisterBuiltinThemes;
  ApplyTheme('light'); // sensible default; no existing UI references tokens yet

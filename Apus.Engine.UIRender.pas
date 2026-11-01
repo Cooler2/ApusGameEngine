@@ -38,9 +38,12 @@ interface
   // the previous render (frame time), but may also contain 0
   //frameTime:int64;
 
-  transpBgnd:boolean=false; // render target is (probably) transparent so blMove should be used to fill it
-
   defaultHintFont:cardinal=0; // font used to show hints
+
+ threadvar
+  // render target is (probably) transparent so blMove should be used to fill it;
+  // per render thread: windows draw in their own threads
+  transpBgnd:boolean;
 
 implementation
  uses Apus.Images, SysUtils, Types,

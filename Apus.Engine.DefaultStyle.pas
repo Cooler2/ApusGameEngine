@@ -36,16 +36,20 @@ implementation
     Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UITable,
     Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
-    Apus.Lib, Apus.Utils, Apus.Strings;
+    Apus.Lib, Apus.Utils, Apus.Strings, Apus.Threads;
 
  var
   hintImage,tickImage:TTexture;
   //imgHash:TObjectMap;  // hash of loaded images: filename -> TTexture
+  // shared by the render threads of all windows: guarded by imageLock (a leaf lock,
+  // images are loaded outside it)
+  imageLock:TLock;
   unsupportedImageSources:Strings8; // already reported to the log
   fillImageSrc:Strings8; // url() images of fills (ResolveFillImage)
   fillImageTex:array of TTexture;
 
-  blendModeChanged:boolean;
+ threadvar
+  blendModeChanged:boolean; // per render thread: windows draw in their own threads
 
  type
   TContext=class
@@ -245,11 +249,16 @@ implementation
    if src.StartsWith('file:',true) then
     LoadImage(result,copy(src,6,200))
    else begin
-    for i:=0 to high(unsupportedImageSources) do
-     if unsupportedImageSources[i]=src then exit;
-    i:=length(unsupportedImageSources);
-    SetLength(unsupportedImageSources,i+1);
-    unsupportedImageSources[i]:=src;
+    imageLock.Enter;
+    try
+     for i:=0 to high(unsupportedImageSources) do
+      if unsupportedImageSources[i]=src then exit;
+     i:=length(unsupportedImageSources);
+     SetLength(unsupportedImageSources,i+1);
+     unsupportedImageSources[i]:=src;
+    finally
+     imageLock.Leave;
+    end;
     Log.Warn('Unsupported image source: '+src);
    end;
   end;
@@ -259,16 +268,34 @@ implementation
  function ResolveFillImage(const src:String8):TObject;
   var
    i,n:integer;
+   tex:TTexture;
   begin
-   for i:=0 to high(fillImageSrc) do
-    if fillImageSrc[i]=src then exit(fillImageTex[i]);
-   result:=ResolveStyleImage(src);
-   if result=nil then exit;
-   n:=length(fillImageSrc);
-   SetLength(fillImageSrc,n+1);
-   SetLength(fillImageTex,n+1);
-   fillImageSrc[n]:=src;
-   fillImageTex[n]:=TTexture(result);
+   imageLock.Enter;
+   try
+    for i:=0 to high(fillImageSrc) do
+     if fillImageSrc[i]=src then exit(fillImageTex[i]);
+   finally
+    imageLock.Leave;
+   end;
+   tex:=ResolveStyleImage(src); // may load a file: not under the lock
+   if tex=nil then exit(nil);
+   imageLock.Enter;
+   try
+    // another thread may have resolved it meanwhile: keep the first one
+    for i:=0 to high(fillImageSrc) do
+     if fillImageSrc[i]=src then begin
+      if src.StartsWith('file:',true) then FreeImage(tex); // our own reference
+      exit(fillImageTex[i]);
+     end;
+    n:=length(fillImageSrc);
+    SetLength(fillImageSrc,n+1);
+    SetLength(fillImageTex,n+1);
+    fillImageSrc[n]:=src;
+    fillImageTex[n]:=tex;
+    result:=tex;
+   finally
+    imageLock.Leave;
+   end;
   end;
 
  procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer;context:TContext);
@@ -1786,6 +1813,7 @@ function TContext.GetImage(const src:String8):TTexture;
  end;
 
 initialization
+ imageLock.Init('StyleImages',820);
  RegisterUIStyle(0,DefaultDrawer,'Default');
  StyleImageResolver:=ResolveFillImage;
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');

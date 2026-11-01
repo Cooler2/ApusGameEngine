@@ -515,6 +515,7 @@ var
  cx,cy,dx,dy:integer;
  scaleX,scaleY,centerX,centerY:double;
  savePos:TVec2;
+ oldTranspBgnd:boolean;
 begin
  if DontPlay then begin
   onDone; exit;
@@ -532,9 +533,13 @@ begin
    // alpha channel, not blend into it! If the background is transparent it's very easy to miss this mistake
    gfx.target.Clear($FF808080,-1,-1);
    target.Process;
+   oldTranspBgnd:=transpBgnd;
    transpBgnd:=true;
-   target.Render;
-   transpBgnd:=false;
+   try
+    target.Render;
+   finally
+    transpBgnd:=oldTranspBgnd;
+   end;
   finally
    gfx.EndPaint;
    TUIScene(target).ui.position:=savePos;
