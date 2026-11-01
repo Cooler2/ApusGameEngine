@@ -273,7 +273,9 @@ there:
 
 ## See also
 
-- `demo/Draw2D` - gradients, per-corner radii and an edge-gradient frame (`-screen=2`, `-screen=3`).
+- `demo/Draw2D` - screen 3 (`-screen=3`) shows every fill feature: angles, stops, spread,
+  edge fills, units, transparency, ramps, `Mix` and a cross-fade; screen 2 - `RoundRect`
+  with gradients and per-corner radii.
 - `tests/TestFill.dpr` (CPU), `tests/TestFillShapes.dpr`, `tests/TestStyleFill.dpr` (GL) -
   executable examples of every case above.
 - `tests/BenchUIShapes.dpr` - the bench behind the performance notes.
