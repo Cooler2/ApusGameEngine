@@ -1424,14 +1424,15 @@ implementation
     else fillDef:=TFill.None;
    shadeSlot.Init(ScaleFill(element.GetBaseStyleFill('fill-shade',fillDef),scale));
 
-   if fillSlot.IsEmpty and borderSlot.IsEmpty and (radii.MaxRadius=0) and (bWidth=0) and
-      (layerCount=0) and not shadeSlot.fill.IsVisible then exit; // nothing to draw
-
    // State blend: focused (instant) -> hover -> pressed -> disabled (layered)
    if FocusedElement=element then BlendState('focused',1,fillSlot.fill,false);
    BlendState('hover',hv,fillSlot.fill.Add($101010),isButton);
    BlendState('pressed',av,fillSlot.fill.Sub($282020),isButton);
    BlendState('disabled',dv,fillSlot.fill.MixWith($FFA0A0A0,0.5),isButton);
+
+   // after the states: a box may exist only in a state block (':focused { border-color }')
+   if fillSlot.IsEmpty and borderSlot.IsEmpty and (radii.MaxRadius=0) and (bWidth=0) and
+      (layerCount=0) and (shadeSlot.count=0) and not shadeSlot.fill.IsVisible then exit; // nothing to draw
 
    // A shade over a solid fill is one gradient: the shade stops composited over the fill color
    // (exact, the shader interpolates premultiplied). The default button stays one call.
