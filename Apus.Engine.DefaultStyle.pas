@@ -1150,6 +1150,14 @@ implementation
      ((fill.kind=fkSolid) and (fill.stops[0].color=0)));
   end;
 
+ // A cross-fade layer at its weight. A ramp can't fade: it appears at the middle of the transition
+ function LayerFill(const f:TFill;weight:single):TFill;
+  begin
+   if f.ramp=nil then result:=f.Faded(weight)
+   else if weight>=0.5 then result:=f
+   else result:=TFill.None;
+  end;
+
  // edge() band width is in logical units in styles
  function ScaleFill(const f:TFill;scale:single):TFill;
   begin
@@ -1306,10 +1314,10 @@ implementation
     if (fillSlot.count=0) and (shadeSlot.count=0) and not shadeSlot.fill.IsVisible then exit;
     RestoreBlendMode;
     for i:=0 to fillSlot.count-1 do
-     FillOne(fillSlot.layers[i].Faded(fillSlot.weights[i]),r,plain);
+     FillOne(LayerFill(fillSlot.layers[i],fillSlot.weights[i]),r,plain);
     FillOne(shadeSlot.fill,r,plain);
     for i:=0 to shadeSlot.count-1 do
-     FillOne(shadeSlot.layers[i].Faded(shadeSlot.weights[i]),r,plain);
+     FillOne(LayerFill(shadeSlot.layers[i],shadeSlot.weights[i]),r,plain);
    end;
   // Fill, shade and border of the box x1..y2 (pixel-inclusive)
   procedure DrawBlock;
@@ -1362,7 +1370,7 @@ implementation
     if w>0 then begin
      Border(borderSlot.fill);
      for i:=0 to borderSlot.count-1 do
-      Border(borderSlot.layers[i].Faded(borderSlot.weights[i]));
+      Border(LayerFill(borderSlot.layers[i],borderSlot.weights[i]));
     end;
    end;
   var

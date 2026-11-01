@@ -8,6 +8,9 @@ The engine5 manual is being written; only these chapters are published so far:
   images are loaded, found, shared and released.
 - [Configuration files (CTL3)](config_files.md) - draft for review: the CTL3 syntax,
   typing rules, layers and the `Apus.Config` interface that replaces `Apus.ControlFiles`.
+- [Gradient fills](gradient_fills.md) - draft for review: `TFill`, the drawing calls that
+  take it, program switches, gradients in UI styles (`fill`, `fill-shade`, transitions)
+  and the limitations.
 - [Optional TextFX captions](ui_textfx_style.md) - button wrappers, caption children,
   shared content displacement and effect caching.
 - [Engine signal inventory](engine_signal_inventory.md) - snapshot of the signals the
