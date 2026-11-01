@@ -317,7 +317,8 @@ function TGLShader.UniformLocation(const name:String8):integer;
   result:=glGetUniformLocation(handle,PAnsiChar(name));
  end;
 
-procedure TGLShader.SetUniformVec4Array(location:integer;values:PSingle;count:integer);
+// System.PSingle: Winapi.Windows declares its own PSingle, Delphi treats it as another type
+procedure TGLShader.SetUniformVec4Array(location:integer;values:System.PSingle;count:integer);
  begin
   if location<0 then exit;
   glUniform4fv(location,count,PGLfloat(values));
