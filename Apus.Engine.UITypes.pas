@@ -1957,40 +1957,38 @@ procedure TUIElement.MarkDeleted;
    if (sendSignals=ssAll) and (name<>'') then Signal('UI\'+name+'\Focus',1);
   end;
 
+ // The element after c in pre-order (children first), wrapping from the last one to the root
+ function NextInTabOrder(c:TUIElement):TUIElement;
+  var
+   i:integer;
+  begin
+   if length(c.children)>0 then exit(c.children[0]);
+   // no children: the next sibling of c or of its nearest ancestor that has one
+   while c.parent<>nil do begin
+    for i:=0 to high(c.parent.children)-1 do
+     if c.parent.children[i]=c then exit(c.parent.children[i+1]);
+    c:=c.parent;
+   end;
+   result:=c; // the root
+  end;
+
+ // A Tab stop: focusable, and it and its ancestors are visible and enabled
+ function IsTabStop(c:TUIElement):boolean;
+  begin
+   result:=c.flags.canHaveFocus and c.IsEnabled and c.IsVisible;
+  end;
+
  procedure TUIElement.SetFocusToNext;
   var
    c:TUIElement;
-   dir:boolean;
-   i:integer;
-   fl:boolean;
   begin
+   // returning from the children to their parent is not a step: the parent precedes them,
+   // so a focusable element with children (a table with its scrollbars) passes the focus on
    c:=self;
-   dir:=true;
    repeat
-    // if there are nested elements and we can go forward - go forward
-    if dir and (length(c.children)>0) then begin
-     c:=c.children[0]; continue;
-    end;
-    // If going forward is not allowed or not possible, can we move on the same level?
-    if (c.parent<>nil) and (length(c.parent.children)>1) then begin
-     fl:=false;
-     for i:=0 to length(c.parent.children)-2 do
-      if (c.parent.children[i]=c) then begin
-       c:=c.parent.children[i+1];
-       dir:=true; // allow moving forward
-       fl:=true;
-       break;
-      end;
-     if fl then continue;
-    end;
-    // If nothing else is left but to go back...
-    if c.parent<>nil then begin
-     dir:=false;
-     c:=c.parent;
-    end else
-     dir:=true; // going back is not allowed either
-   until (c.flags.enabled and c.flags.visible and c.flags.canHaveFocus) or (c=self);
-   if c.flags.canHaveFocus then c.SetFocus;
+    c:=NextInTabOrder(c);
+   until (c=self) or IsTabStop(c);
+   if c<>self then c.SetFocus;
   end;
 
  // reverse of SetFocusToNext: the preceding element in pre-order, wrapping at the root
@@ -2014,8 +2012,8 @@ procedure TUIElement.MarkDeleted;
       end;
     // the last element of the subtree (from the root: wrap around to the end of the tree)
     while length(c.children)>0 do c:=c.children[high(c.children)];
-   until (c.flags.enabled and c.flags.visible and c.flags.canHaveFocus) or (c=self);
-   if c.flags.canHaveFocus then c.SetFocus;
+   until (c=self) or IsTabStop(c);
+   if c<>self then c.SetFocus;
   end;
 
  procedure TUIElement.SetHotKey(vKeyCode:integer;shiftstate:byte);

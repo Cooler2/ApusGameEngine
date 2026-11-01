@@ -174,6 +174,8 @@ implementation
    end else
     drawerProc:=styleDrawers[styleOverride];
    ASSERT(@drawerProc<>nil,'Style not registered: '+item.name);
+   // keyboard focus for ':focused' blocks, custom drawers included (no tweening: switches instantly)
+   item.SetState('focused',FocusedElement=item);
    try
     drawerProc(item);
    except
