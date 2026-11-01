@@ -365,6 +365,15 @@ begin
   Check(ResolveBlockColor(b,'fill',0)=$FF0000FF,'local plain fill');
   b.SetState('hover',true);
   Check(ResolveBlockColor(b,'fill',0)=$FF808080,'ref state beats local plain value');
+  // the state priority goes first: a later active state from a ref beats an earlier local one
+  Styles['btn2']:=':disabled { fill: $FF222222; }';
+  b.ParseText('@btn2; :hover { fill: $FF111111; }');
+  b.SetState('hover',true);
+  b.SetState('disabled',true);
+  Check(ResolveBlockColor(b,'fill',0)=$FF222222,'later ref state beats earlier local state');
+  b.SetState('disabled',false);
+  Check(ResolveBlockColor(b,'fill',0)=$FF111111,'local hover alone');
+  Styles.Remove('btn2');
   b.Free;
   Styles.Remove('btn');
   EndTest;

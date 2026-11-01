@@ -3,6 +3,32 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: the style box of an element, blended values (2026-11-02)
+
+- `TBlendedFill` (Apus.Engine.Types, the former private `TFillSlot` of DefaultStyle): a fill
+  under state blending - the base mixed with every state fill `TFill.Mix` can mix, cross-fade
+  layers for the others (`Layer(i)` gives one at its weight).
+- `TUIElement.GetBlendedStyleColor/Number/Fill`: the value as it is drawn now, the base blended
+  toward the states of `BlendStates` (built-in ones by their weights in priority order, then
+  the active custom ones). Equal to `GetStyleColor/Number/Fill` when no transition runs; an
+  inherited key follows the parent's blended value.
+- DefaultStyle: `ResolveStyleBox(element,box)` gives the box as it is drawn now (`TStyleBox`:
+  rect, radii, border width, fill, border, shade, shadow, background images, all in pixels;
+  `ContentRect` - the box deflated by the widest border of all states, so content does not
+  move on `:focused` with a thicker border); `DrawStyleBox(box,layers)` draws it, all of it or
+  only the shadow, the background or the border; `DrawElementBox(element)` - both plus the
+  inner block in one call, for a custom drawer. They use the style only: the default fill,
+  shade and derived state colors of a plain button stay in the default drawer.
+- `box-shadow` takes an optional fifth value, the spread.
+- A fully transparent border is no border: it no longer cuts the fill.
+- The resolver gives the state priority first: of two active states the later one wins,
+  whether its block is local or comes from a `@ref` (a local `:hover` no longer beats a
+  `:disabled` from a ref).
+- The file dialog draws its buttons with `DrawElementBox`; its styles use state blocks
+  (`:hover`, `:checked`, `:pressed`, `:disabled`) instead of `hover-fill`, `checked-fill`,
+  `pressed-fill`, `checked-color`, `hover-color`; the accept button has its own style instead
+  of the `default-` keys.
+
 ## UI: element states with a priority, `:checked` apart from `:pressed` (2026-11-01)
 
 - Built-in states are `TElementState` (scoped: `Focused, Hover, Checked, Selected, Pressed,

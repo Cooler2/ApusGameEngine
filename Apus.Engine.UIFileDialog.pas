@@ -291,20 +291,25 @@ implementation
    ':hover { slider-width:0.9; track-color:&file-dialog-scroll-track; }';
   EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
    'border-width:1; radius:3; :focused { border-color:&file-dialog-focus; border-width:2; }';
-  BUTTON_STYLE='fill:&file-dialog-button; hover-fill:&file-dialog-button-hover; '+
-   'pressed-fill:&file-dialog-button-pressed; checked-fill:&file-dialog-button-checked; '+
-   'checked-color:&file-dialog-selection-text; default-fill:&file-dialog-default-button; '+
-   'default-hover-fill:&file-dialog-default-button-hover; border-color:&file-dialog-button-border; '+
-   'default-border-color:&file-dialog-default-button-border; shadow-color:&file-dialog-button-shadow; '+
+  // the box keys (fill, border, radius, states) are drawn by DrawElementBox
+  BUTTON_KEYS='border-width:1; radius:3; shadow-color:&file-dialog-button-shadow; '+
    'color:&file-dialog-button-text; text-shadow:&file-dialog-text-shadow 0 1; font-weight:bold; '+
-   'disabled-color:&file-dialog-disabled; glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite';
+   'disabled-color:&file-dialog-disabled; glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite; '+
+   ':checked { fill:&file-dialog-button-checked; color:&file-dialog-selection-text; } '+
+   ':pressed { fill:&file-dialog-button-pressed; } :disabled { color:&file-dialog-disabled; } ';
+  BUTTON_STYLE=BUTTON_KEYS+'fill:&file-dialog-button; border-color:&file-dialog-button-border; '+
+   ':hover { fill:&file-dialog-button-hover; }';
+  // the accept button
+  DEFAULT_BUTTON_STYLE=BUTTON_KEYS+'fill:&file-dialog-default-button; '+
+   'border-color:&file-dialog-default-button-border; :hover { fill:&file-dialog-default-button-hover; }';
   // the type chips: flat, smaller than the buttons
-  CHIP_STYLE='fill:&file-dialog-chip; hover-fill:&file-dialog-chip-hover; pressed-fill:&file-dialog-chip-hover; '+
-   'checked-fill:&file-dialog-selection; checked-color:&file-dialog-selection-text; color:&file-dialog-muted; '+
-   'hover-color:&file-dialog-text; font-size:&file-dialog-chip-font-size';
-  CLOSE_STYLE='fill:&file-dialog-close; hover-fill:&file-dialog-close-hover; shadow-color:&file-dialog-button-shadow; '+
-   'glyph-color:&file-dialog-close-glyph; hover-color:&file-dialog-close-glyph-hover; '+
-   'text-shadow:&file-dialog-text-shadow 0 1';
+  CHIP_STYLE='radius:3; fill:&file-dialog-chip; color:&file-dialog-muted; '+
+   'font-size:&file-dialog-chip-font-size; :hover { fill:&file-dialog-chip-hover; color:&file-dialog-text; } '+
+   ':checked { fill:&file-dialog-selection; color:&file-dialog-selection-text; } '+
+   ':pressed { fill:&file-dialog-chip-hover; }';
+  CLOSE_STYLE='radius:3; fill:&file-dialog-close; shadow-color:&file-dialog-button-shadow; '+
+   'glyph-color:&file-dialog-close-glyph; text-shadow:&file-dialog-text-shadow 0 1; '+
+   ':hover { fill:&file-dialog-close-hover; glyph-color:&file-dialog-close-glyph-hover; }';
   DRIVEBAR_STYLE='fill:&file-dialog-fill; color:&file-dialog-muted';
   MESSAGE_STYLE='fill:&file-dialog-message-fill; color:&file-dialog-message-text';
 
@@ -423,36 +428,22 @@ implementation
   txt.Write(font,x,y,ink,caption,taCenter);
  end;
 
- // The box of a button: a fill (a gradient from the style), a border and a 1 px shadow
- // under it while it is not pressed. checked - a toggled chip, the active drive.
- // Returns the color of the caption.
- function DrawButtonBox(b:TUIButton;const r:TRect;checked:boolean):cardinal;
+ // The box of a button by its style (DrawElementBox) and a 1 px shadow under it while it is
+ // not pressed. Returns the color of the caption.
+ function DrawButtonBox(b:TUIButton):cardinal;
  var
-  s,d,width:single;
-  fill:TFill;
-  shadow,border:cardinal;
-  prefix:String8;
+  s,d:single;
+  shadow:cardinal;
+  r:TRect;
  begin
-  s:=b.globalScale;
-  if b.default then prefix:='default-' else prefix:='';
-  fill:=b.GetStyleFill(prefix+'fill',b.GetStyleFill('fill',TFill.None));
-  if checked then fill:=b.GetStyleFill('checked-fill',fill);
-  if b.pressed then fill:=b.GetStyleFill('pressed-fill',fill)
-   else if b.IsHovered and not checked then
-    fill:=b.GetStyleFill(prefix+'hover-fill',b.GetStyleFill('hover-fill',fill));
+  r:=b.globalRect; s:=b.globalScale;
   shadow:=b.GetStyleColor('shadow-color',0);
   if (shadow<>0) and not b.pressed then begin
    d:=Math.Max(1,round(s));
    draw.RoundRect(r.Left,r.Top+d,r.Right-1,r.Bottom-1+d,3*s,0,0,shadow);
   end;
-  border:=b.GetStyleColor(prefix+'border-color',b.GetStyleColor('border-color',0));
-  // a transparent border would cut the fill: no border then
-  if border shr 24=0 then width:=0 else width:=s;
-  draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,3*s,width,TFill.Solid(border),fill);
-  result:=b.GetStyleColor('color',$FF303030);
-  if checked then result:=b.GetStyleColor('checked-color',result)
-   else if b.IsHovered then result:=b.GetStyleColor('hover-color',result);
-  if not b.IsEnabled then result:=b.GetStyleColor('disabled-color',result);
+  DrawElementBox(b);
+  result:=b.GetBlendedStyleColor('color',$FF303030);
  end;
 
  // A toolbar button keeps its shape, a list glyph has no chrome. Only the favorite star
@@ -467,7 +458,7 @@ implementation
   if kind=fgRemove then ink:=element.GetStyleColor('remove-color',ink)
    else if (kind=fgFavorite) and isButton then ink:=element.GetStyleColor('favorite-color',ink);
   if not enabled then ink:=element.GetStyleColor('disabled-color',ink);
-  if isButton then DrawButtonBox(TUIButton(element),r,false);
+  if isButton then DrawButtonBox(TUIButton(element));
   DrawBadgeGlyph(element,r,scale,kind,ink);
  end;
 
@@ -490,13 +481,10 @@ implementation
  var
   b:TUIButton;
   r:TRect;
-  checked:boolean;
   ink:cardinal;
  begin
   b:=TUIButton(element); r:=element.globalRect;
-  checked:=(b is TUIToggleButton) and TUIToggleButton(b).toggled;
-  if b is TDriveButton then checked:=TDriveButton(b).active;
-  ink:=DrawButtonBox(b,r,checked);
+  ink:=DrawButtonBox(b); // a toggled chip, the active drive: ':checked'
   WriteCaption(b,r,(r.Left+r.Right)*0.5,ink,b.caption);
  end;
 
@@ -509,7 +497,7 @@ implementation
   s,x,y:single;
  begin
   b:=TUIButton(element); r:=element.globalRect; s:=element.globalScale;
-  ink:=DrawButtonBox(b,r,false);
+  ink:=DrawButtonBox(b);
   x:=r.Right-10*s; y:=(r.Top+r.Bottom)*0.5;
   draw.FillTriangle(x-3.5*s,y-1.8*s,x+3.5*s,y-1.8*s,x,y+2.2*s,ink,ink,ink);
   WriteCaption(b,r,(r.Left+r.Right)*0.5-7*s,ink,b.caption);
@@ -550,9 +538,8 @@ implementation
   dy:single;
  begin
   b:=TUIButton(element); r:=element.globalRect;
-  DrawButtonBox(b,r,false);
-  ink:=b.GetStyleColor('glyph-color');
-  if b.IsHovered then ink:=b.GetStyleColor('hover-color',ink);
+  DrawButtonBox(b);
+  ink:=b.GetBlendedStyleColor('glyph-color');
   shadow:=TextShadow(b,dy);
   if shadow<>0 then
    DrawBadgeGlyph(b,Types.Rect(r.Left,r.Top+round(dy),r.Right,r.Bottom+round(dy)),b.globalScale*0.9,fgClose,shadow);
@@ -1567,6 +1554,7 @@ implementation
   messageLabel.styleInfo:=MESSAGE_STYLE;
   acceptButton:=Button('Accept','Open',Confirm);
   acceptButton.default:=true;
+  acceptButton.styleInfo:=DEFAULT_BUTTON_STYLE;
   cancelButton:=Button('Cancel','Cancel',Cancel);
   placesPanel:=TUIElement.Create(0,0,self,name+'\Places');
   previewPanel:=TUIElement.Create(0,0,self,name+'\Preview');

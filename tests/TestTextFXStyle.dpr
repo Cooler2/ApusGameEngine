@@ -42,6 +42,8 @@ begin
     gfx.target.Clear($FF203040,-1,-1);
     gfx.target.BlendMode(blAlpha);
     element.globalRect:=element.GetPosOnScreen;
+    // the states of a caption source, as DrawUIElement syncs them (a child keeps its own)
+    if not fx then element.UpdateVisualState(CoreTime.Ticks);
     if fx then DrawTextFXStyle(element) else DrawDefaultUI(element);
     gfx.CopyFromBackbuffer(0,0,img);
     SetLength(result,W*H);

@@ -107,6 +107,13 @@ type
  TElementStates=set of TElementState;
  TElementStateWeights=array[TElementState] of single; // 0..1, transition progress
 
+ // A state to blend a style value toward, and its weight (TUIElement.BlendStates)
+ TStateWeight=record
+  name:String8;
+  weight:single;
+ end;
+ TStateWeights=array of TStateWeight;
+
  TStateTransition=record
   from,target:single;
   start:int64;
@@ -303,6 +310,14 @@ type
   function StateWeight(s:TElementState):single;
   // Called before the drawer each frame: GetStates -> style states (':hover {}'...) -> transitions
   procedure UpdateVisualState(time:int64);
+  // States to blend the base values toward, in priority order: the built-in ones with a weight
+  // above 0 (fading out included), then the active custom ones (SetState) with weight 1
+  function BlendStates:TStateWeights;
+  // The value as it is drawn now: the base value blended toward each state of BlendStates.
+  // Equals GetStyleColor/Number/Fill when no transition runs
+  function GetBlendedStyleColor(const key:String8; defVal:cardinal=0):cardinal;
+  function GetBlendedStyleNumber(const key:String8; defVal:single=0):single;
+  function GetBlendedStyleFill(const key:String8; const defVal:TFill):TBlendedFill;
   // Resolve style attribute value considering cascade (own block → parent chain)
   function GetStyleValue(const key:String8; const defVal:String8=''):String8;
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
@@ -1699,6 +1714,100 @@ function TUIElement.GetClientHeight:single;
    end;
    if st<>visualState.states then SyncStyleStates(style,st);
    visualState.Update(self,st,time);
+  end;
+
+ function TUIElement.BlendStates:TStateWeights;
+  var
+   s:TElementState;
+   list:Strings8;
+   i,n:integer;
+   w:single;
+   nm:String8;
+   builtIn:boolean;
+  begin
+   SetLength(result,length(ElementStateNames)+4);
+   n:=0;
+   for s:=low(TElementState) to high(TElementState) do begin
+    w:=StateWeight(s);
+    if w<=0 then continue;
+    result[n].name:=ElementStateNames[s];
+    result[n].weight:=w;
+    inc(n);
+   end;
+   if style.activeStates<>'' then begin
+    list:=style.activeStates.Split(',');
+    for i:=0 to high(list) do begin
+     nm:=list[i].Trim;
+     if nm='' then continue;
+     builtIn:=false;
+     for s:=low(TElementState) to high(TElementState) do
+      if nm=ElementStateNames[s] then begin builtIn:=true; break; end;
+     if builtIn then continue;
+     if n>=length(result) then SetLength(result,n*2);
+     result[n].name:=nm;
+     result[n].weight:=1;
+     inc(n);
+    end;
+   end;
+   SetLength(result,n);
+  end;
+
+ function ParseColorDef(const s:String8;defVal:cardinal):cardinal;
+  begin
+   if s='' then exit(defVal);
+   result:=ParseStyleColor(s);
+   if (result=0) and (s<>'0') then result:=defVal;
+  end;
+
+ function TUIElement.GetBlendedStyleColor(const key:String8; defVal:cardinal):cardinal;
+  var
+   st:TStateWeights;
+   i:integer;
+   v:String8;
+  begin
+   v:=ResolveBlockAttrBase(style,key,'');
+   if v<>'' then result:=ParseColorDef(v,defVal)
+    else if (parent<>nil) and IsInheritedStyleKey(key) then result:=parent.GetBlendedStyleColor(key,defVal)
+    else result:=defVal;
+   st:=BlendStates;
+   for i:=0 to high(st) do begin
+    v:=ResolveBlockStateAttr(style,st[i].name,key,'');
+    if v<>'' then result:=Color.Mix(result,ParseColorDef(v,result),st[i].weight);
+   end;
+  end;
+
+ function TUIElement.GetBlendedStyleNumber(const key:String8; defVal:single):single;
+  var
+   st:TStateWeights;
+   i:integer;
+   v:String8;
+  begin
+   v:=ResolveBlockAttrBase(style,key,'');
+   if v<>'' then result:=ParseStyleNumber(v)
+    else if (parent<>nil) and IsInheritedStyleKey(key) then result:=parent.GetBlendedStyleNumber(key,defVal)
+    else result:=defVal;
+   st:=BlendStates;
+   for i:=0 to high(st) do begin
+    v:=ResolveBlockStateAttr(style,st[i].name,key,'');
+    if v<>'' then result:=result+(ParseStyleNumber(v)-result)*st[i].weight;
+   end;
+  end;
+
+ function TUIElement.GetBlendedStyleFill(const key:String8; const defVal:TFill):TBlendedFill;
+  var
+   st:TStateWeights;
+   i:integer;
+   v:String8;
+   f:TFill;
+  begin
+   v:=ResolveBlockAttrBase(style,key,'');
+   if (v<>'') and ParseStyleFill(v,f) then result.Init(f)
+    else if (v='') and (parent<>nil) and IsInheritedStyleKey(key) then result:=parent.GetBlendedStyleFill(key,defVal)
+    else result.Init(defVal);
+   st:=BlendStates;
+   for i:=0 to high(st) do
+    if ParseStyleFill(ResolveBlockStateAttr(style,st[i].name,key,''),f) then
+     result.Blend(f,st[i].weight);
   end;
 
 { TUIVisualState }

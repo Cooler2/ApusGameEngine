@@ -389,6 +389,97 @@ begin
   EndTest;
 end;
 
+// Blended values: halfway through a transition they are between the base and the state;
+// when no transition runs they equal the plain resolution
+procedure TestBlendedValues;
+var
+  e,child:TUIElement;
+  f:TBlendedFill;
+  c:cardinal;
+begin
+  StartTest('Blended values');
+  Styles['blend-ref']:=':disabled { color: #0000FF; }';
+  e:=TUIElement.Create(10,10,root);
+  e.style.Assign('@blend-ref; color: #000000; border-width: 1; fill: linear(180deg, #000000, #FFFFFF); '+
+    ':hover { color: #FFFFFF; border-width: 3; fill: edge(6, #FF0000, #0000FF); } hover-time: 100;');
+  child:=TUIElement.Create(5,5,e);
+  e.UpdateVisualState(1000);
+  Check(e.GetBlendedStyleColor('color')=e.GetStyleColor('color'),'base color');
+  Check(e.GetBlendedStyleNumber('border-width')=1,'base number');
+  underMouse:=e;
+  e.UpdateVisualState(2000);
+  e.UpdateVisualState(2050);
+  c:=e.GetBlendedStyleColor('color');
+  Check((Channel(c,16)>110) and (Channel(c,16)<145),'color halfway: '+IntToHex(c,8));
+  Check(abs(e.GetBlendedStyleNumber('border-width')-2)<0.01,'number halfway');
+  f:=e.GetBlendedStyleFill('fill',TFill.None);
+  Check((f.count=1) and (abs(f.weights[0]-0.5)<0.01),'linear -> edge: a cross-fade layer');
+  Check(child.GetBlendedStyleColor('color')=c,'inherited color follows the parent blend');
+  e.UpdateVisualState(2100);
+  Check(e.GetBlendedStyleColor('color')=e.GetStyleColor('color'),'hover done = plain');
+  Check(e.GetBlendedStyleNumber('border-width')=e.GetStyleNumber('border-width'),'number done = plain');
+  f:=e.GetBlendedStyleFill('fill',TFill.None);
+  Check(f.IsSingle and (f.fill.kind=fkEdge),'fill done = plain');
+  // a disabled state from the ref wins over the local hover
+  e.flags.enabled:=false;
+  e.style.Add('+disabled-time:0');
+  e.UpdateVisualState(2200);
+  Check(e.GetStyleColor('color')=$FF0000FF,'plain: disabled from the ref');
+  Check(e.GetBlendedStyleColor('color')=$FF0000FF,'blended: disabled from the ref');
+  // a custom state applies at once
+  e.flags.enabled:=true;
+  e.UpdateVisualState(5000);
+  e.style.Add(':error { color: #00FF00; }');
+  e.SetState('error',true);
+  Check(e.GetBlendedStyleColor('color')=e.GetStyleColor('color'),'custom state');
+  underMouse:=nil;
+  e.Free;
+  Styles.Remove('blend-ref');
+  EndTest;
+end;
+
+// DrawElementBox draws what the default drawer draws; the content rect keeps its place when
+// a state has a thicker border; a box can be drawn by layers
+procedure TestElementBox;
+var
+  a,b:TUIElement;
+  box:TStyleBox;
+  r1,r2:TRect;
+  y:integer;
+const
+  ST='fill: #3060C0; border-color: #FFFFFF; border-width: 1; radius: 3; :focused { border-width: 3; }';
+begin
+  StartTest('Element box');
+  a:=NewElement(10,143,60,14,ST);
+  b:=NewElement(80,143,60,14,ST);
+  DrawElement(a);
+  b.globalRect:=b.GetPosOnScreen;
+  b.UpdateVisualState(CoreTime.Ticks);
+  r1:=DrawElementBox(b);
+  gfx.CopyFromBackbuffer(0,0,img);
+  y:=a.globalRect.CenterPoint.Y;
+  CheckPixel(b.globalRect.CenterPoint.X,y,Pixel(a.globalRect.CenterPoint.X,y),'same center');
+  CheckPixel(b.globalRect.Left,y,Pixel(a.globalRect.Left,y),'same border');
+  Check(r1.Left=b.globalRect.Left+3,'content inset by the widest border');
+  window.focus.element:=b;
+  b.UpdateVisualState(CoreTime.Ticks);
+  ResolveStyleBox(b,box);
+  r2:=box.ContentRect;
+  Check(abs(box.borderWidth-3)<0.01,'focused border');
+  Check((r1.Left=r2.Left) and (r1.Top=r2.Top) and (r1.Right=r2.Right),'content rect stable');
+  window.focus.element:=nil;
+  // the border layer only
+  a:=NewElement(150,143,60,14,ST);
+  a.globalRect:=a.GetPosOnScreen;
+  a.UpdateVisualState(CoreTime.Ticks);
+  ResolveStyleBox(a,box);
+  DrawStyleBox(box,[TStyleBoxLayer.Border]);
+  gfx.CopyFromBackbuffer(0,0,img);
+  CheckPixel(a.globalRect.CenterPoint.X,a.globalRect.CenterPoint.Y,BG,'no background');
+  CheckPixel(a.globalRect.CenterPoint.X,a.globalRect.Top,$FFFFFFFF,'border');
+  EndTest;
+end;
+
 { TTestApp }
 
 procedure TTestApp.SetupApplication;
@@ -440,6 +531,8 @@ begin
       TestStateOrder;
       TestStateTransitions;
       TestCheckedLook;
+      TestBlendedValues;
+      TestElementBox;
       gfx.CopyFromBackbuffer(0,0,img);
       outDir:=String8(ExtractFilePath(ParamStr(0)))+'TestStyleFill/';
       Files.Save(outDir+'style_fill.png',SavePNG(img));

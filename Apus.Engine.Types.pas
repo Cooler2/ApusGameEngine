@@ -272,6 +272,25 @@ type
   class function Mix(const a,b:TFill;t:single;out r:TFill):boolean; static;
  end;
 
+ // A fill under state blending: the base fill, mixed with every state fill that TFill.Mix can
+ // mix, plus cross-fade layers over it for the states it can't (other kind, stop count...)
+ TBlendedFill=record
+  fill:TFill;                  // the base
+  layers:array[0..2] of TFill; // cross-fade layers over the base
+  weights:array[0..2] of single;
+  count:integer;
+  procedure Init(const f:TFill);
+  // Move toward target by w: (current look)*(1-w)+target*w
+  procedure Blend(const target:TFill;w:single);
+  // Layer i at its weight; a ramp can't fade: it appears at the middle of the transition
+  function Layer(i:integer):TFill;
+  function IsSingle:boolean;  // no layers: one TFill describes it
+  function IsEmpty:boolean;   // nothing at all: no fill or a zero color, no layers
+  function HasAlpha:boolean;  // may be translucent (a translucent color, a ramp or layers)
+  function HasEdge:boolean;   // some part is an edge() fill
+  procedure ScaleEdge(k:single); // edge() band widths multiplied by k (logical units -> pixels)
+ end;
+
  // Corner radii, clockwise from the top-left
  TCornerRadii=record
   topLeft,topRight,bottomRight,bottomLeft:single;
@@ -879,6 +898,85 @@ function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
   end;
 
 { TCornerRadii }
+ { TBlendedFill }
+
+ procedure TBlendedFill.Init(const f:TFill);
+  begin
+   fill:=f;
+   count:=0;
+  end;
+
+ procedure TBlendedFill.Blend(const target:TFill;w:single);
+  var
+   r:array[0..3] of TFill;
+   i:integer;
+   ok:boolean;
+  begin
+   if w<=0 then exit;
+   if w>=1 then begin
+    Init(target); exit;
+   end;
+   ok:=TFill.Mix(fill,target,w,r[0]);
+   for i:=0 to count-1 do
+    ok:=ok and TFill.Mix(layers[i],target,w,r[i+1]);
+   if ok then begin
+    fill:=r[0];
+    for i:=0 to count-1 do layers[i]:=r[i+1];
+   end else
+   if count<=high(layers) then begin
+    layers[count]:=target;
+    weights[count]:=w;
+    inc(count);
+   end else
+   if w>=0.5 then Init(target);
+  end;
+
+ function TBlendedFill.Layer(i:integer):TFill;
+  begin
+   if layers[i].ramp=nil then result:=layers[i].Faded(weights[i])
+   else if weights[i]>=0.5 then result:=layers[i]
+   else result:=TFill.None;
+  end;
+
+ function TBlendedFill.IsSingle:boolean;
+  begin
+   result:=count=0;
+  end;
+
+ function TBlendedFill.IsEmpty:boolean;
+  begin
+   result:=(count=0) and ((fill.kind=fkNone) or
+     ((fill.kind=fkSolid) and (fill.stops[0].color=0)));
+  end;
+
+ function TBlendedFill.HasAlpha:boolean;
+  var
+   i:integer;
+  begin
+   result:=(count>0) or (fill.ramp<>nil);
+   if not result and (fill.kind<>fkNone) then
+    for i:=0 to fill.stopCount-1 do
+     if fill.stops[i].color shr 24<>$FF then exit(true);
+  end;
+
+ function TBlendedFill.HasEdge:boolean;
+  var
+   i:integer;
+  begin
+   result:=fill.kind=fkEdge;
+   for i:=0 to count-1 do
+    result:=result or (layers[i].kind=fkEdge);
+  end;
+
+ procedure TBlendedFill.ScaleEdge(k:single);
+  var
+   i:integer;
+  begin
+   if fill.kind=fkEdge then fill.p0.x:=fill.p0.x*k;
+   for i:=0 to count-1 do
+    if layers[i].kind=fkEdge then layers[i].p0.x:=layers[i].p0.x*k;
+  end;
+
  class function TCornerRadii.All(r:single):TCornerRadii;
   begin
    result.topLeft:=r;

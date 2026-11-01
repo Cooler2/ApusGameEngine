@@ -8,6 +8,54 @@ unit Apus.Engine.DefaultStyle;
 interface
 uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI;
  type
+  TBoxShadow=record
+   color:cardinal;           // 0 - none
+   dx,dy,blur,spread:single; // pixels
+  end;
+  {$SCOPEDENUMS ON}
+  TStyleBoxLayer=(Shadow,Background,Border);
+  {$SCOPEDENUMS OFF}
+  TStyleBoxLayers=set of TStyleBoxLayer;
+  TBoxImage=record
+   tex:TTexture;
+   tint:cardinal;
+   weight:single; // cross-fade weight (alpha multiplier)
+  end;
+
+  // The box of an element as it is drawn now: the style values blended toward the states.
+  // Pixels: lengths are already multiplied by the element scale
+  TStyleBox=record
+   rect:TRect;              // the box, screen pixels (pixel-inclusive edges as globalRect)
+   scale:single;            // globalScale of the element
+   radii:TCornerRadii;
+   borderWidth:single;
+   reserve:single;          // the widest border over the base and all state blocks
+   fill,border,shade:TBlendedFill; // 'fill', 'border-color', 'fill-shade' (over the fill)
+   shadow:TBoxShadow;       // 'box-shadow'
+   outerBorder:boolean;     // the border lies outside rect (list boxes)
+   // 'background-image' layers: the base and state cross-fades; 'background-size: stretch',
+   // 'background-position: top-left', 'background-offset-x/y'
+   images:array[0..3] of TBoxImage;
+   imageCount:integer;
+   imageStretch,imageTopLeft:boolean;
+   imageOfs:TVec2;
+   moveBlend:boolean;       // the shape is not empty: copy over a transparent target (blMove)
+   function IsEmpty:boolean;   // nothing to draw (the shadow aside)
+   function ContentRect:TRect; // rect deflated by reserve: does not move on hover/focus
+  end;
+
+ // The box of an element: base values blended toward its states (call after UpdateVisualState,
+ // which DrawUIElement does). The style only: the default drawer adds the look of a plain
+ // button (a default fill, a shade, derived state colors), this does not
+ procedure ResolveStyleBox(element:TUIElement; out box:TStyleBox);
+ // Draw a resolved box: the shadow, the background (fill, shade, images), the border
+ procedure DrawStyleBox(const box:TStyleBox;
+   layers:TStyleBoxLayers=[TStyleBoxLayer.Shadow..TStyleBoxLayer.Border]);
+ // Resolve and draw the box with the inner block; returns the content rect. One call for a
+ // simple drawer
+ function DrawElementBox(element:TUIElement):TRect;
+
+ type
   // Resolved text parameters. Extensions never share the private style context.
   TUITextStyle=record
    font:TFontHandle;
@@ -1110,20 +1158,46 @@ implementation
    end;
   end;
 
- // 'box-shadow: <color> [dx dy [blur]]' or 'none'; dx,dy,blur in logical units.
+ // 'box-shadow: <color> [dx dy [blur [spread]]]' or 'none'; logical units -> box pixels
+ procedure ResolveBoxShadow(element:TUIElement;scale:single;out shadow:TBoxShadow);
+  var
+   st:String8;
+   parts:Strings8;
+   i,n:integer;
+  begin
+   FillChar(shadow,sizeof(shadow),0);
+   st:=element.GetStyleValue('box-shadow');
+   if (st='') or SameText(st,'none') then exit;
+   parts:=st.Split(' ');
+   n:=0;
+   for i:=0 to high(parts) do
+    if parts[i].Trim<>'' then begin
+     parts[n]:=parts[i].Trim; inc(n);
+    end;
+   if n=0 then exit;
+   shadow.color:=ParseStyleColor(ExpandToken(parts[0]));
+   if shadow.color shr 24=0 then begin
+    shadow.color:=0; exit;
+   end;
+   if n>=3 then begin
+    shadow.dx:=ParseStyleNumber(parts[1])*scale;
+    shadow.dy:=ParseStyleNumber(parts[2])*scale;
+   end;
+   if n>=4 then shadow.blur:=Max(ParseStyleNumber(parts[3])*scale,0);
+   if n>=5 then shadow.spread:=ParseStyleNumber(parts[4])*scale;
+  end;
+
  // The blur is a piecewise linear falloff: full color inside, half at the shifted box edge,
  // zero at blur/2 outside; corners are fans. The core is not filled under the box itself,
  // except a strip of the corner radius - the box covers the rest.
- procedure DrawBoxShadow(element:TUIElement;radius:single);
+ procedure DrawBoxShadow(const box:TStyleBox);
   const
    CORNER_STEPS=6;
    MAX_VERTICES=2*(4+4*CORNER_STEPS)*6+4*6;
   var
-   st:String8;
-   parts:Strings8;
-   i,n,cnt:integer;
+   cnt:integer;
    col,half,none:cardinal;
-   dx,dy,blur,b2,scale:single;
+   b2,radius,sp:single;
    mx1,my1,mx2,my2,ix1,iy1,ix2,iy2,c:single;
    vrt:array[0..MAX_VERTICES-1] of TVertex;
   procedure Add(x,y:single;color:cardinal);
@@ -1165,42 +1239,29 @@ implementation
     Corner(ix1,iy2,Pi*0.5);
    end;
   begin
-   st:=element.GetStyleValue('box-shadow');
-   if (st='') or SameText(st,'none') then exit;
-   parts:=st.Split(' ');
-   n:=0;
-   for i:=0 to high(parts) do
-    if parts[i].Trim<>'' then begin
-     parts[n]:=parts[i].Trim; inc(n);
-    end;
-   col:=ParseStyleColor(ExpandToken(parts[0]));
+   col:=box.shadow.color;
    if col shr 24=0 then exit;
-   scale:=element.globalScale;
-   dx:=0; dy:=0; blur:=0;
-   if n>=3 then begin
-    dx:=ParseStyleNumber(parts[1])*scale;
-    dy:=ParseStyleNumber(parts[2])*scale;
-   end;
-   if n>=4 then blur:=Max(ParseStyleNumber(parts[3])*scale,0);
    half:=(col and $FFFFFF) or ((col shr 25) shl 24);
    none:=col and $FFFFFF;
-   // the box in vertex coordinates (pixel edges), the core: the shifted box shrunk by blur/2
-   with element.globalRect do begin
+   // the box in vertex coordinates (pixel edges), the core: the shifted box grown by the
+   // spread and shrunk by blur/2
+   with box.rect do begin
     mx1:=Left-0.5; my1:=Top-0.5;
     mx2:=Right-0.5; my2:=Bottom-0.5;
    end;
-   b2:=blur/2;
-   ix1:=mx1+dx+b2; ix2:=mx2+dx-b2;
-   iy1:=my1+dy+b2; iy2:=my2+dy-b2;
+   b2:=box.shadow.blur/2;
+   sp:=box.shadow.spread;
+   ix1:=mx1+box.shadow.dx+b2-sp; ix2:=mx2+box.shadow.dx-b2+sp;
+   iy1:=my1+box.shadow.dy+b2-sp; iy2:=my2+box.shadow.dy-b2+sp;
    if ix2<ix1 then begin c:=(ix1+ix2)/2; ix1:=c; ix2:=c; end;
    if iy2<iy1 then begin c:=(iy1+iy2)/2; iy1:=c; iy2:=c; end;
    cnt:=0;
    if b2>=0.5 then begin
     Band(0,b2,col,half);
-    Band(b2,blur,half,none);
+    Band(b2,box.shadow.blur,half,none);
    end;
    // the core minus the box (inset by the radius)
-   radius:=radius*scale;
+   radius:=box.radii.MaxRadius;
    mx1:=mx1+radius; my1:=my1+radius;
    mx2:=mx2-radius; my2:=my2-radius;
    if (mx2<=ix1) or (mx1>=ix2) or (my2<=iy1) or (my1>=iy2) then
@@ -1212,99 +1273,6 @@ implementation
     Fill(mx2,Max(iy1,my1),ix2,Min(iy2,my2)); // right
    end;
    if cnt>0 then draw.TrgList(@vrt[0],cnt div 3,nil);
-  end;
-
- type
-  // A box fill under state blending: the base fill plus cross-fade layers for the states
-  // whose fill can't be interpolated with it (TFill.Mix returns false: other kind, stop count...)
-  TFillSlot=record
-   fill:TFill;
-   layers:array[0..2] of TFill;
-   weights:array[0..2] of single;
-   count:integer;
-   procedure Init(const f:TFill);
-   procedure Blend(const target:TFill;v:single);
-   function HasAlpha:boolean;
-   function HasEdge:boolean;
-   function IsEmpty:boolean; // nothing at all: no fill or a zero color, no layers
-  end;
-
- procedure TFillSlot.Init(const f:TFill);
-  begin
-   fill:=f;
-   count:=0;
-  end;
-
- // Move the slot toward target by v. Interpolable entries are mixed; otherwise the target
- // becomes a layer over the current look: (current)*(1-v)+target*v - the same result
- procedure TFillSlot.Blend(const target:TFill;v:single);
-  var
-   r:array[0..3] of TFill;
-   i:integer;
-   ok:boolean;
-  begin
-   if v<=0 then exit;
-   if v>=1 then begin
-    Init(target); exit;
-   end;
-   ok:=TFill.Mix(fill,target,v,r[0]);
-   for i:=0 to count-1 do
-    ok:=ok and TFill.Mix(layers[i],target,v,r[i+1]);
-   if ok then begin
-    fill:=r[0];
-    for i:=0 to count-1 do layers[i]:=r[i+1];
-   end else
-   if count<=high(layers) then begin
-    layers[count]:=target;
-    weights[count]:=v;
-    inc(count);
-   end else
-   if v>=0.5 then Init(target);
-  end;
-
- function FillHasAlpha(const f:TFill):boolean;
-  var
-   i:integer;
-  begin
-   result:=f.ramp<>nil;
-   if f.kind<>fkNone then
-    for i:=0 to f.stopCount-1 do
-     if Color.HasAlpha(f.stops[i].color) then exit(true);
-  end;
-
- function TFillSlot.HasAlpha:boolean;
-  begin
-   result:=(count>0) or FillHasAlpha(fill);
-  end;
-
- function TFillSlot.HasEdge:boolean;
-  var
-   i:integer;
-  begin
-   result:=fill.kind=fkEdge;
-   for i:=0 to count-1 do
-    result:=result or (layers[i].kind=fkEdge);
-  end;
-
- function TFillSlot.IsEmpty:boolean;
-  begin
-   result:=(count=0) and ((fill.kind=fkNone) or
-     ((fill.kind=fkSolid) and (fill.stops[0].color=0)));
-  end;
-
- // A cross-fade layer at its weight. A ramp can't fade: it appears at the middle of the transition
- function LayerFill(const f:TFill;weight:single):TFill;
-  begin
-   if f.ramp=nil then result:=f.Faded(weight)
-   else if weight>=0.5 then result:=f
-   else result:=TFill.None;
-  end;
-
- // edge() band width is in logical units in styles
- function ScaleFill(const f:TFill;scale:single):TFill;
-  begin
-   result:=f;
-   if result.kind=fkEdge then result.p0.x:=result.p0.x*scale;
   end;
 
  function LerpRadii(const a,b:TCornerRadii;v:single):TCornerRadii;
@@ -1335,63 +1303,60 @@ implementation
    result:=(s<>'') and ParseStyleRadii(s,r);
   end;
 
- // Common box path: fill / background-image, fill-shade, border, radius, inner block.
- // Box keys are state-blended (hover/pressed/disabled) through the context tweenings;
- // fills use TFill.Mix, and a fill that can't be mixed cross-fades as a second layer.
- // Sets context.skinned when a background-image was drawn.
- procedure DrawCommonStyle(element:TUIElement;context:TContext;outerBorder:boolean=false);
-  type
-   TImageLayer=record
-    tex:TTexture;
-    tint:cardinal;
-    weight:single; // cross-fade weight (alpha multiplier)
-   end;
+ // edge() band width is in logical units in styles
+ function ScaleFill(const f:TFill;scale:single):TFill;
+  begin
+   result:=f;
+   if result.kind=fkEdge then result.p0.x:=result.p0.x*scale;
+  end;
+
+{ TStyleBox }
+
+ function TStyleBox.IsEmpty:boolean;
+  begin
+   result:=fill.IsEmpty and border.IsEmpty and (radii.MaxRadius=0) and (borderWidth=0) and
+     (imageCount=0) and (shade.count=0) and not shade.fill.IsVisible;
+  end;
+
+ function TStyleBox.ContentRect:TRect;
   var
-   fillSlot,borderSlot,shadeSlot:TFillSlot;
-   radii:TCornerRadii;
-   bWidth,scale:single;
-   x1,y1,x2,y2:integer;
-   hv,av,dv,cv:single;
+   d:integer;
+  begin
+   result:=rect;
+   if outerBorder then exit;
+   d:=trunc(reserve+0.99); // whole pixels, rounded up
+   result.Inflate(-d,-d);
+  end;
+
+ // A 'background-image' texture of the element: memoized by the default drawer's context
+ // ('file:' images); with a context of another drawer only the 'tex:' ones are available
+ function BoxImage(element:TUIElement;const src:String8):TTexture;
+  begin
+   if (element.styleContext=nil) or (element.styleContext is TContext) then
+    exit(PrepareContext(element).GetImage(src));
+   if src.StartsWith('file:',true) then exit(nil);
+   result:=ResolveStyleImage(src);
+  end;
+
+ // widgetDefaults - the default drawer's look of a plain button: a default fill and shade,
+ // derived state fills
+ procedure ResolveBox(element:TUIElement; out box:TStyleBox; widgetDefaults:boolean);
+  const
+   IMAGE_STATES:array[0..3] of TElementState=
+     (TElementState.Hover,TElementState.Checked,TElementState.Pressed,TElementState.Disabled);
+  var
+   scale,w:single;
    isButton:boolean;
-   layers:array[0..3] of TImageLayer;
-   layerCount:integer;
+   fillDef,f:TFill;
+   st:TStateWeights;
+   i:integer;
    baseImage:String8;
-   ofsX,ofsY:single;
-   stretch,topLeft:boolean;
-  procedure ImportRect(r:TRect;expand:single=0);
-   var
-    d:integer;
-   begin
-    d:=round(expand);
-    x1:=r.Left-d; x2:=r.right-1+d;
-    y1:=r.top-d; y2:=r.bottom-1+d;
-   end;
+   s:TElementState;
+   r:TCornerRadii;
   function StateFill(const state,key:String8;out f:TFill):boolean;
    begin
     result:=ParseStyleFill(element.GetStateStyleValue(state,key),f);
     if result then f:=ScaleFill(f,scale);
-   end;
-  // Blend box fills/metrics toward a state block. The fill of a state without its own value
-  // goes to fillDef when useDef (derived button colors), other keys stay
-  procedure BlendState(const state:String8;v:single;const fillDef:TFill;useDef:boolean);
-   var
-    f:TFill;
-    r:TCornerRadii;
-   begin
-    if v<=0 then exit;
-    if StateFill(state,'fill',f) then fillSlot.Blend(f,v)
-     else if useDef then fillSlot.Blend(fillDef,v);
-    if StateFill(state,'border-color',f) then borderSlot.Blend(f,v);
-    if StateFill(state,'fill-shade',f) then shadeSlot.Blend(f,v);
-    if ParseRadii(element.GetStateStyleValue(state,'radius'),r) then radii:=LerpRadii(radii,r,v);
-    bWidth:=Lerp(bWidth,element.GetStateStyleNumber(state,'border-width',bWidth),v);
-   end;
-  // Blend image offsets toward a state block (logical units)
-  procedure BlendOffset(const state:String8;v:single);
-   begin
-    if v<=0 then exit;
-    ofsX:=Lerp(ofsX,element.GetStateStyleNumber(state,'background-offset-x',ofsX),v);
-    ofsY:=Lerp(ofsY,element.GetStateStyleNumber(state,'background-offset-y',ofsY),v);
    end;
   // Add a state image layer: same image -> blend tint only, other image -> cross-fade layer
   procedure AddImageState(const state:String8;v:single);
@@ -1402,216 +1367,283 @@ implementation
    begin
     // requested even when the state is inactive: preloads it, no file load on the first hover
     src:=element.GetStateStyleValue(state,'background-image',baseImage);
-    tex:=context.GetImage(src);
+    tex:=BoxImage(element,src);
     if (v<=0) or (tex=nil) then exit;
-    tint:=element.GetStateStyleColor(state,'background-tint',layers[layerCount-1].tint);
-    if tex=layers[layerCount-1].tex then begin
-     layers[layerCount-1].tint:=Color.Mix(layers[layerCount-1].tint,tint,v);
-     exit;
-    end;
-    if layerCount>high(layers) then exit;
-    layers[layerCount].tex:=tex;
-    layers[layerCount].tint:=tint;
-    layers[layerCount].weight:=v;
-    inc(layerCount);
-   end;
-  procedure DrawImageLayers;
-   var
-    i:integer;
-    tint:cardinal;
-    w,h,cx,cy,dx,dy:single;
-   begin
-    dx:=ofsX*scale; dy:=ofsY*scale;
-    for i:=0 to layerCount-1 do begin
-     tint:=layers[i].tint;
-     if layers[i].weight<1 then tint:=Color.Scale(tint,layers[i].weight);
-     if stretch then
-      draw.Scaled(x1-0.5+dx,y1-0.5+dy,x2+0.5+dx,y2+0.5+dy,layers[i].tex,tint)
-     else begin
-      // auto: native size in logical units (scaled by globalScale), centered by default or anchored at the top left
-      w:=layers[i].tex.width*scale; h:=layers[i].tex.height*scale;
-      if topLeft then begin
-       cx:=x1+dx+w/2; cy:=y1+dy+h/2;
-      end else begin
-       cx:=(x1+x2+1)/2+dx; cy:=(y1+y2+1)/2+dy;
-      end;
-      draw.Image(cx-w/2,cy-h/2,scale,layers[i].tex,tint,0,0);
+    with box do begin
+     tint:=element.GetStateStyleColor(state,'background-tint',images[imageCount-1].tint);
+     if tex=images[imageCount-1].tex then begin
+      images[imageCount-1].tint:=Color.Mix(images[imageCount-1].tint,tint,v);
+      exit;
      end;
+     if imageCount>high(images) then exit;
+     images[imageCount].tex:=tex;
+     images[imageCount].tint:=tint;
+     images[imageCount].weight:=v;
+     inc(imageCount);
     end;
    end;
-  // A shape fill without a border
-  procedure FillOne(const f:TFill;const r:TCornerRadii;plain:boolean);
+  // Derived state colors of a plain button without its own state fill
+  function DerivedFill(const state:String8;const cur:TFill;out f:TFill):boolean;
    begin
-    if not f.IsVisible then exit;
-    if plain then draw.FillRect(x1,y1,x2,y2,f)
-     else draw.RoundRect(x1,y1,x2,y2,r,0,TFill.None,f);
+    result:=true;
+    if state='hover' then f:=cur.Add($101010) else
+    if (state='checked') or (state='pressed') then f:=cur.Sub($282020) else
+    if state='disabled' then f:=cur.MixWith($FFA0A0A0,0.5) else
+     result:=false;
    end;
-  // The fill, its cross-fade layers and the shade. Only the base fill goes in the blMove
-  // mode (render to a transparent target): layers over it must blend
-  procedure FillShapes(const r:TCornerRadii;plain:boolean);
-   var
-    i:integer;
-   begin
-    FillOne(fillSlot.fill,r,plain);
-    if (fillSlot.count=0) and (shadeSlot.count=0) and not shadeSlot.fill.IsVisible then exit;
-    RestoreBlendMode;
-    for i:=0 to fillSlot.count-1 do
-     FillOne(LayerFill(fillSlot.layers[i],fillSlot.weights[i]),r,plain);
-    FillOne(shadeSlot.fill,r,plain);
-    for i:=0 to shadeSlot.count-1 do
-     FillOne(LayerFill(shadeSlot.layers[i],shadeSlot.weights[i]),r,plain);
-   end;
-  // Fill, shade and border of the box x1..y2 (pixel-inclusive)
-  procedure DrawBlock;
-   var
-    i,bw:integer;
-    r:TCornerRadii;
-    w:single;
-    c:cardinal;
-    plain:boolean;
-   procedure Border(const f:TFill);
-    begin
-     if not f.IsVisible then exit;
-     if outerBorder then
-      draw.RoundRect(x1-w,y1-w,x2+w,y2+w,AdjustRadii(radii,scale,w),w,f,TFill.None)
-     else
-      draw.RoundRect(x1,y1,x2,y2,r,w,f,TFill.None);
-    end;
-   begin
-    r:=AdjustRadii(radii,scale,0);
-    w:=bWidth*scale;
-    if w<=0 then borderSlot.Init(TFill.None);
-    // pixel rectangles with a solid border: the cheap path without the shape shader
-    // (edge fills need the shape distance, FillRect has none)
-    plain:=(radii.MaxRadius<=1) and (borderSlot.count=0) and (borderSlot.fill.kind in [fkNone,fkSolid]) and
-      not fillSlot.HasEdge and not shadeSlot.HasEdge;
-    if plain then begin
-     FillShapes(r,true);
-     if borderSlot.fill.kind=fkSolid then begin
-      c:=borderSlot.fill.stops[0].color;
-      bw:=round(w);
-      if c<>0 then
-       if outerBorder then begin
-        for i:=0 to bw-1 do
-         draw.Rect(x1-1-i,y1-1-i,x2+1+i,y2+1+i,c)
-       end else begin
-        for i:=0 to bw-1 do
-         draw.Rect(x1+i,y1+i,x2-i,y2-i,c)
-       end;
-     end;
-     exit;
-    end;
-    // one shader call for the usual case: fill + border, no layers and no shade
-    if not outerBorder and (fillSlot.count=0) and (borderSlot.count=0) and
-       not shadeSlot.fill.IsVisible and (shadeSlot.count=0) then begin
-     draw.RoundRect(x1,y1,x2,y2,r,w,borderSlot.fill,fillSlot.fill);
-     exit;
-    end;
-    // layered: fills, the shade, then the border over them
-    FillShapes(r,false);
-    if w>0 then begin
-     Border(borderSlot.fill);
-     for i:=0 to borderSlot.count-1 do
-      Border(LayerFill(borderSlot.layers[i],borderSlot.weights[i]));
-    end;
-   end;
-  var
-   fillDef:TFill;
-   rr:TCornerRadii;
-   i:integer;
   begin
-   context.skinned:=false;
-   ImportRect(element.globalRect);
+   FillChar(box,sizeof(box),0);
+   box.rect:=element.globalRect;
    scale:=element.globalScale;
-   hv:=element.StateWeight(TElementState.Hover);
-   cv:=element.StateWeight(TElementState.Checked);
-   av:=element.StateWeight(TElementState.Pressed);
-   dv:=element.StateWeight(TElementState.Disabled);
+   box.scale:=scale;
+   box.moveBlend:=element.shape<>TUIShape.shapeEmpty;
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
-   isButton:=(element is TUIButton) and not (element is TUICheckbox) and
+   isButton:=widgetDefaults and (element is TUIButton) and not (element is TUICheckbox) and
      not (element is TUIComboBox) and not (element is TUIMenuItem);
 
-   // Outer block: base values
+   // Base values
    if isButton then fillDef:=TFill.Solid(defaultBtnColor)
     else fillDef:=TFill.None;
-   fillSlot.Init(ScaleFill(element.GetBaseStyleFill('fill',fillDef),scale));
-   borderSlot.Init(ScaleFill(element.GetBaseStyleFill('border-color',TFill.None),scale));
-   if not ParseRadii(ResolveBlockAttrBase(element.style,'radius'),radii) then radii:=TCornerRadii.All(0);
-   bWidth:=element.GetBaseStyleNumber('border-width');
-   DrawBoxShadow(element,radii.MaxRadius); // under the box
+   box.fill.Init(ScaleFill(element.GetBaseStyleFill('fill',fillDef),scale));
+   box.border.Init(ScaleFill(element.GetBaseStyleFill('border-color',TFill.None),scale));
+   if not ParseRadii(ResolveBlockAttrBase(element.style,'radius'),box.radii) then box.radii:=TCornerRadii.All(0);
+   box.borderWidth:=element.GetBaseStyleNumber('border-width');
+   ResolveBoxShadow(element,scale,box.shadow);
 
    // Background image: base layer + state layers (cross-fade)
-   layerCount:=0;
    baseImage:=element.GetStyleValue('background-image');
    if baseImage<>'' then begin
-    layers[0].tex:=context.GetImage(baseImage);
-    if layers[0].tex<>nil then begin
-     layers[0].tint:=element.GetBaseStyleColor('background-tint',clNeutral);
-     layers[0].weight:=1;
-     layerCount:=1;
-     AddImageState('hover',hv);
-     AddImageState('checked',cv);
-     AddImageState('pressed',av);
-     AddImageState('disabled',dv);
-     stretch:=SameText(element.GetStyleValue('background-size','auto'),'stretch');
-     topLeft:=SameText(element.GetStyleValue('background-position','center'),'top-left');
-     ofsX:=element.GetBaseStyleNumber('background-offset-x');
-     ofsY:=element.GetBaseStyleNumber('background-offset-y');
-     BlendOffset('hover',hv);
-     BlendOffset('checked',cv);
-     BlendOffset('pressed',av);
-     BlendOffset('disabled',dv);
+    box.images[0].tex:=BoxImage(element,baseImage);
+    if box.images[0].tex<>nil then begin
+     box.images[0].tint:=element.GetBaseStyleColor('background-tint',clNeutral);
+     box.images[0].weight:=1;
+     box.imageCount:=1;
+     for s in IMAGE_STATES do
+      AddImageState(ElementStateNames[s],element.StateWeight(s));
+     box.imageStretch:=SameText(element.GetStyleValue('background-size','auto'),'stretch');
+     box.imageTopLeft:=SameText(element.GetStyleValue('background-position','center'),'top-left');
+     box.imageOfs.x:=element.GetBlendedStyleNumber('background-offset-x')*scale;
+     box.imageOfs.y:=element.GetBlendedStyleNumber('background-offset-y')*scale;
     end;
    end;
    // Shade over the fill: procedural buttons have a light-to-dark one by default
    // (a skin has its own look baked in)
-   if isButton and (layerCount=0) then fillDef:=TFill.Linear(180,$30FFFFFF,$30000000)
+   if isButton and (box.imageCount=0) then fillDef:=TFill.Linear(180,$30FFFFFF,$30000000)
     else fillDef:=TFill.None;
-   shadeSlot.Init(ScaleFill(element.GetBaseStyleFill('fill-shade',fillDef),scale));
+   box.shade.Init(ScaleFill(element.GetBaseStyleFill('fill-shade',fillDef),scale));
 
-   // State blend in priority order (TElementState), layered; 'checked' looks pressed by default
-   BlendState('focused',element.StateWeight(TElementState.Focused),fillSlot.fill,false);
-   BlendState('hover',hv,fillSlot.fill.Add($101010),isButton);
-   BlendState('checked',cv,fillSlot.fill.Sub($282020),isButton);
-   BlendState('pressed',av,fillSlot.fill.Sub($282020),isButton);
-   BlendState('disabled',dv,fillSlot.fill.MixWith($FFA0A0A0,0.5),isButton);
+   // the content does not move when a state has a thicker border
+   box.reserve:=box.borderWidth;
+   for s:=low(TElementState) to high(TElementState) do
+    box.reserve:=Max(box.reserve,element.GetStateStyleNumber(ElementStateNames[s],'border-width',0));
+   // States in priority order, layered; a button state without its own fill gets a derived one
+   // ('checked' looks pressed)
+   st:=element.BlendStates;
+   for i:=0 to high(st) do begin
+    w:=st[i].weight;
+    if StateFill(st[i].name,'fill',f) then box.fill.Blend(f,w)
+     else if isButton and DerivedFill(st[i].name,box.fill.fill,f) then box.fill.Blend(f,w);
+    if StateFill(st[i].name,'border-color',f) then box.border.Blend(f,w);
+    if StateFill(st[i].name,'fill-shade',f) then box.shade.Blend(f,w);
+    if ParseRadii(element.GetStateStyleValue(st[i].name,'radius'),r) then box.radii:=LerpRadii(box.radii,r,w);
+    box.borderWidth:=Lerp(box.borderWidth,element.GetStateStyleNumber(st[i].name,'border-width',box.borderWidth),w);
+   end;
+   // logical units -> pixels
+   box.radii:=AdjustRadii(box.radii,scale,0);
+   box.borderWidth:=box.borderWidth*scale;
+   box.reserve:=box.reserve*scale;
+   // no border: also a transparent one, which would cut the fill
+   if (box.borderWidth<=0) or (box.border.IsSingle and (box.border.fill.kind=fkSolid) and
+      (box.border.fill.stops[0].color shr 24=0)) then begin
+    box.border.Init(TFill.None);
+    box.borderWidth:=0;
+   end;
+  end;
 
-   // after the states: a box may exist only in a state block (':focused { border-color }')
-   if fillSlot.IsEmpty and borderSlot.IsEmpty and (radii.MaxRadius=0) and (bWidth=0) and
-      (layerCount=0) and (shadeSlot.count=0) and not shadeSlot.fill.IsVisible then exit; // nothing to draw
+ procedure ResolveStyleBox(element:TUIElement; out box:TStyleBox);
+  begin
+   ResolveBox(element,box,false);
+  end;
 
+ // Fill, shade and border of a box rect x1..y2 (pixel-inclusive); outer - the border lies
+ // outside the rect
+ procedure DrawBoxBlock(x1,y1,x2,y2:integer;const radii:TCornerRadii;w:single;
+   fill,border,shade:TBlendedFill;outer:boolean;layers:TStyleBoxLayers);
+  var
+   i,bw:integer;
+   c:cardinal;
+   plain:boolean;
+  // A shape fill without a border
+  procedure FillOne(const f:TFill);
+   begin
+    if not f.IsVisible then exit;
+    if plain then draw.FillRect(x1,y1,x2,y2,f)
+     else draw.RoundRect(x1,y1,x2,y2,radii,0,TFill.None,f);
+   end;
+  // The fill, its cross-fade layers and the shade. Only the base fill goes in the blMove
+  // mode (render to a transparent target): layers over it must blend
+  procedure FillShapes;
+   var
+    i:integer;
+   begin
+    FillOne(fill.fill);
+    if (fill.count=0) and (shade.count=0) and not shade.fill.IsVisible then exit;
+    RestoreBlendMode;
+    for i:=0 to fill.count-1 do FillOne(fill.Layer(i));
+    FillOne(shade.fill);
+    for i:=0 to shade.count-1 do FillOne(shade.Layer(i));
+   end;
+  procedure DrawBorder(const f:TFill);
+   begin
+    if not f.IsVisible then exit;
+    if outer then
+     draw.RoundRect(x1-w,y1-w,x2+w,y2+w,AdjustRadii(radii,1,w),w,f,TFill.None)
+    else
+     draw.RoundRect(x1,y1,x2,y2,radii,w,f,TFill.None);
+   end;
+  begin
+   if not (TStyleBoxLayer.Background in layers) then begin
+    fill.Init(TFill.None); shade.Init(TFill.None);
+   end;
+   if (w<=0) or not (TStyleBoxLayer.Border in layers) then begin
+    border.Init(TFill.None); w:=0;
+   end;
    // A shade over a solid fill is one gradient: the shade stops composited over the fill color
    // (exact, the shader interpolates premultiplied). The default button stays one call.
-   if (fillSlot.count=0) and (shadeSlot.count=0) and (fillSlot.fill.kind=fkSolid) and
-      shadeSlot.fill.IsVisible and (shadeSlot.fill.ramp=nil) then begin
-    fillDef:=shadeSlot.fill;
-    for i:=0 to fillDef.stopCount-1 do
-     fillDef.stops[i].color:=Color.Blend(fillSlot.fill.stops[0].color,fillDef.stops[i].color);
-    fillSlot.Init(fillDef);
-    shadeSlot.Init(TFill.None);
+   if (fill.count=0) and (shade.count=0) and (fill.fill.kind=fkSolid) and
+      shade.fill.IsVisible and (shade.fill.ramp=nil) then begin
+    c:=fill.fill.stops[0].color;
+    fill.Init(shade.fill);
+    for i:=0 to fill.fill.stopCount-1 do
+     fill.fill.stops[i].color:=Color.Blend(c,fill.fill.stops[i].color);
+    shade.Init(TFill.None);
    end;
+   // pixel rectangles with a solid border: the cheap path without the shape shader
+   // (edge fills need the shape distance, FillRect has none)
+   plain:=(radii.MaxRadius<=1) and (border.count=0) and (border.fill.kind in [fkNone,fkSolid]) and
+     not fill.HasEdge and not shade.HasEdge;
+   if plain then begin
+    FillShapes;
+    if border.fill.kind=fkSolid then begin
+     c:=border.fill.stops[0].color;
+     bw:=round(w);
+     if c<>0 then
+      if outer then begin
+       for i:=0 to bw-1 do
+        draw.Rect(x1-1-i,y1-1-i,x2+1+i,y2+1+i,c)
+      end else begin
+       for i:=0 to bw-1 do
+        draw.Rect(x1+i,y1+i,x2-i,y2-i,c)
+      end;
+    end;
+    exit;
+   end;
+   // one shader call for the usual case: fill + border, no layers and no shade
+   if not outer and (fill.count=0) and (border.count=0) and
+      not shade.fill.IsVisible and (shade.count=0) then begin
+    draw.RoundRect(x1,y1,x2,y2,radii,w,border.fill,fill.fill);
+    exit;
+   end;
+   // layered: fills, the shade, then the border over them
+   FillShapes;
+   if w>0 then begin
+    DrawBorder(border.fill);
+    for i:=0 to border.count-1 do DrawBorder(border.Layer(i));
+   end;
+  end;
 
-   // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
-   // to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
-   if fillSlot.HasAlpha or (layerCount>0) then SetProperBlendMode(element);
-   DrawBlock;
-   if layerCount>0 then begin
-    DrawImageLayers;
-    context.skinned:=true;
+ procedure DrawBoxImages(const box:TStyleBox);
+  var
+   i:integer;
+   tint:cardinal;
+   w,h,cx,cy,dx,dy,scale:single;
+   x1,y1,x2,y2:integer;
+  begin
+   x1:=box.rect.Left; x2:=box.rect.Right-1;
+   y1:=box.rect.Top; y2:=box.rect.Bottom-1;
+   dx:=box.imageOfs.x; dy:=box.imageOfs.y;
+   scale:=box.scale;
+   for i:=0 to box.imageCount-1 do begin
+    tint:=box.images[i].tint;
+    if box.images[i].weight<1 then tint:=Color.Scale(tint,box.images[i].weight);
+    if box.imageStretch then
+     draw.Scaled(x1-0.5+dx,y1-0.5+dy,x2+0.5+dx,y2+0.5+dy,box.images[i].tex,tint)
+    else begin
+     // auto: native size in logical units (scaled by globalScale), centered by default or anchored at the top left
+     w:=box.images[i].tex.width*scale; h:=box.images[i].tex.height*scale;
+     if box.imageTopLeft then begin
+      cx:=x1+dx+w/2; cy:=y1+dy+h/2;
+     end else begin
+      cx:=(x1+x2+1)/2+dx; cy:=(y1+y2+1)/2+dy;
+     end;
+     draw.Image(cx-w/2,cy-h/2,scale,box.images[i].tex,tint,0,0);
+    end;
    end;
+  end;
+
+ procedure DrawStyleBox(const box:TStyleBox; layers:TStyleBoxLayers);
+  begin
+   if TStyleBoxLayer.Shadow in layers then DrawBoxShadow(box); // under the box
+   if box.IsEmpty or (layers*[TStyleBoxLayer.Background,TStyleBoxLayer.Border]=[]) then exit;
+   // This is important for drawing large semi-transparent areas on a transparent background
+   // (render to texture) to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
+   if transpBgnd and box.moveBlend and (TStyleBoxLayer.Background in layers) and
+      (box.fill.HasAlpha or (box.imageCount>0)) then begin
+    gfx.target.BlendMode(blMove);
+    blendModeChanged:=true;
+   end;
+   with box.rect do
+    DrawBoxBlock(Left,Top,Right-1,Bottom-1,box.radii,box.borderWidth,box.fill,box.border,box.shade,
+      box.outerBorder,layers);
+   if (TStyleBoxLayer.Background in layers) and (box.imageCount>0) then DrawBoxImages(box);
    RestoreBlendMode;
+  end;
 
-   // Inner (client) block: no states, no shade
-   outerBorder:=false;
-   fillSlot.Init(ScaleFill(element.GetBaseStyleFill('inner-fill',TFill.None),scale));
-   borderSlot.Init(ScaleFill(element.GetBaseStyleFill('inner-border-color',TFill.None),scale));
-   shadeSlot.Init(TFill.None);
-   if ParseRadii(ResolveBlockAttrBase(element.style,'inner-radius'),rr) then radii:=rr; // the outer radii by default
-   bWidth:=element.GetBaseStyleNumber('inner-border-width',bWidth);
-   if not fillSlot.IsEmpty or not borderSlot.IsEmpty then begin
-    ImportRect(element.GetClientPosOnScreen,bWidth*scale);
-    DrawBlock;
-   end;
+ // Inner (client) block: 'inner-fill', 'inner-border-color', 'inner-radius' (the outer radii
+ // by default), 'inner-border-width' (the outer one by default); no states, no shade
+ procedure DrawInnerBlock(element:TUIElement;const box:TStyleBox);
+  var
+   fill,border,none:TBlendedFill;
+   radii:TCornerRadii;
+   w:single;
+   r:TRect;
+   d:integer;
+  begin
+   fill.Init(ScaleFill(element.GetBaseStyleFill('inner-fill',TFill.None),box.scale));
+   border.Init(ScaleFill(element.GetBaseStyleFill('inner-border-color',TFill.None),box.scale));
+   if fill.IsEmpty and border.IsEmpty then exit;
+   none.Init(TFill.None);
+   if ParseRadii(ResolveBlockAttrBase(element.style,'inner-radius'),radii) then
+    radii:=AdjustRadii(radii,box.scale,0)
+   else
+    radii:=box.radii;
+   w:=element.GetBaseStyleNumber('inner-border-width',box.borderWidth/box.scale)*box.scale;
+   r:=element.GetClientPosOnScreen;
+   d:=round(w);
+   DrawBoxBlock(r.Left-d,r.Top-d,r.Right-1+d,r.Bottom-1+d,radii,w,fill,border,none,false,
+     [TStyleBoxLayer.Background,TStyleBoxLayer.Border]);
+  end;
+
+ function DrawElementBox(element:TUIElement):TRect;
+  var
+   box:TStyleBox;
+  begin
+   ResolveStyleBox(element,box);
+   DrawStyleBox(box);
+   DrawInnerBlock(element,box);
+   result:=box.ContentRect;
+  end;
+
+ // Common box path of the default drawer; sets context.skinned when a background-image was drawn
+ procedure DrawCommonStyle(element:TUIElement;context:TContext;outerBorder:boolean=false);
+  var
+   box:TStyleBox;
+  begin
+   ResolveBox(element,box,true);
+   box.outerBorder:=outerBorder;
+   DrawStyleBox(box);
+   context.skinned:=(box.imageCount>0) and not box.IsEmpty;
+   DrawInnerBlock(element,box);
   end;
 
  // Default UI drawer

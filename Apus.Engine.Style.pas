@@ -1072,9 +1072,20 @@ function ResolveStatePhase(block:TStyleBlock; const states,key:String8):String8;
  end;
 
 function ResolveBlockAttrRaw(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+ var
+  list:Strings8;
+  i:integer;
  begin
-  // states first (local block, then refs), then plain values (local, then refs)
-  result:=ResolveStatePhase(block,block.activeStates,key);
+  // active states first, the later listed (higher priority) one wins; each state is looked up
+  // in the local block, then in refs (as the blending drawers do); then plain values
+  result:='';
+  if block.activeStates<>'' then begin
+   list:=block.activeStates.Split(',');
+   for i:=high(list) downto 0 do begin
+    result:=ResolveStatePhase(block,list[i].Trim,key);
+    if result<>'' then break;
+   end;
+  end;
   if result='' then result:=ResolveBlockAttrBaseRaw(block,key,'');
   if result='' then result:=defVal;
  end;
