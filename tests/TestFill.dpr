@@ -137,6 +137,8 @@ begin
   Check((f.stops[0].color=$FF101010) and (f.stops[1].color=$FF202020),'Sub');
   f:=TFill.Solid($FF000000).MixWith($FFFFFFFF,0.5);
   Check(SameColor(f.stops[0].color,$FF808080),'MixWith');
+  f:=TFill.Linear(180,$FF102030,$80405060).Faded(0.5);
+  Check((f.stops[0].color=$80102030) and (f.stops[1].color=$40405060),'Faded');
   Check(Near(TCornerRadii.Init(1,5,3,2).MaxRadius,5),'MaxRadius');
   EndTest;
 end;

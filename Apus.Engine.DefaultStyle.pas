@@ -41,6 +41,8 @@ implementation
   hintImage,tickImage:TTexture;
   //imgHash:TObjectMap;  // hash of loaded images: filename -> TTexture
   unsupportedImageSources:Strings8; // already reported to the log
+  fillImageSrc:Strings8; // url() images of fills (ResolveFillImage)
+  fillImageTex:array of TTexture;
 
   blendModeChanged:boolean;
 
@@ -249,6 +251,23 @@ implementation
     unsupportedImageSources[i]:=src;
     Log.Warn('Unsupported image source: '+src);
    end;
+  end;
+
+ // StyleImageResolver for 'url(...)' fills: textures are resolved once and kept for the
+ // lifetime of the program (ramps are small and shared by many elements)
+ function ResolveFillImage(const src:String8):TObject;
+  var
+   i,n:integer;
+  begin
+   for i:=0 to high(fillImageSrc) do
+    if fillImageSrc[i]=src then exit(fillImageTex[i]);
+   result:=ResolveStyleImage(src);
+   if result=nil then exit;
+   n:=length(fillImageSrc);
+   SetLength(fillImageSrc,n+1);
+   SetLength(fillImageTex,n+1);
+   fillImageSrc[n]:=src;
+   fillImageTex[n]:=TTexture(result);
   end;
 
  procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer;context:TContext);
@@ -507,10 +526,9 @@ implementation
       av:=context.active.Value;
       dv:=context.disabled.Value;
 
-      // The box (fill / background-image, state-blended) is drawn by the common box path.
-      // Procedural look adds a bevel on top of it; a skinned button has the bevel baked in.
+      // The box (fill / fill-shade / background-image, state-blended) is drawn by the common
+      // box path. Procedural look adds bevel frames on top of it; a skin has them baked in.
       if not context.skinned then begin
-       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,$30FFFFFF,$30000000,true); // bevel gradient
        c:=control.GetBaseStyleColor('border-light',$60000000);
        c2:=control.GetBaseStyleColor('border-dark',$80FFFFFF);
        draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // outer frame
@@ -1054,8 +1072,122 @@ implementation
    if cnt>0 then draw.TrgList(@vrt[0],cnt div 3,nil);
   end;
 
- // Common box path: fill / background-image, border, radius, inner block.
- // All box keys are state-blended (hover/pressed/disabled) through the context tweenings.
+ type
+  // A box fill under state blending: the base fill plus cross-fade layers for the states
+  // whose fill can't be interpolated with it (TFill.Mix returns false: other kind, stop count...)
+  TFillSlot=record
+   fill:TFill;
+   layers:array[0..2] of TFill;
+   weights:array[0..2] of single;
+   count:integer;
+   procedure Init(const f:TFill);
+   procedure Blend(const target:TFill;v:single);
+   function HasAlpha:boolean;
+   function HasEdge:boolean;
+   function IsEmpty:boolean; // nothing at all: no fill or a zero color, no layers
+  end;
+
+ procedure TFillSlot.Init(const f:TFill);
+  begin
+   fill:=f;
+   count:=0;
+  end;
+
+ // Move the slot toward target by v. Interpolable entries are mixed; otherwise the target
+ // becomes a layer over the current look: (current)*(1-v)+target*v - the same result
+ procedure TFillSlot.Blend(const target:TFill;v:single);
+  var
+   r:array[0..3] of TFill;
+   i:integer;
+   ok:boolean;
+  begin
+   if v<=0 then exit;
+   if v>=1 then begin
+    Init(target); exit;
+   end;
+   ok:=TFill.Mix(fill,target,v,r[0]);
+   for i:=0 to count-1 do
+    ok:=ok and TFill.Mix(layers[i],target,v,r[i+1]);
+   if ok then begin
+    fill:=r[0];
+    for i:=0 to count-1 do layers[i]:=r[i+1];
+   end else
+   if count<=high(layers) then begin
+    layers[count]:=target;
+    weights[count]:=v;
+    inc(count);
+   end else
+   if v>=0.5 then Init(target);
+  end;
+
+ function FillHasAlpha(const f:TFill):boolean;
+  var
+   i:integer;
+  begin
+   result:=f.ramp<>nil;
+   if f.kind<>fkNone then
+    for i:=0 to f.stopCount-1 do
+     if Color.HasAlpha(f.stops[i].color) then exit(true);
+  end;
+
+ function TFillSlot.HasAlpha:boolean;
+  begin
+   result:=(count>0) or FillHasAlpha(fill);
+  end;
+
+ function TFillSlot.HasEdge:boolean;
+  var
+   i:integer;
+  begin
+   result:=fill.kind=fkEdge;
+   for i:=0 to count-1 do
+    result:=result or (layers[i].kind=fkEdge);
+  end;
+
+ function TFillSlot.IsEmpty:boolean;
+  begin
+   result:=(count=0) and ((fill.kind=fkNone) or
+     ((fill.kind=fkSolid) and (fill.stops[0].color=0)));
+  end;
+
+ // edge() band width is in logical units in styles
+ function ScaleFill(const f:TFill;scale:single):TFill;
+  begin
+   result:=f;
+   if result.kind=fkEdge then result.p0.x:=result.p0.x*scale;
+  end;
+
+ function LerpRadii(const a,b:TCornerRadii;v:single):TCornerRadii;
+  begin
+   result.topLeft:=Lerp(a.topLeft,b.topLeft,v);
+   result.topRight:=Lerp(a.topRight,b.topRight,v);
+   result.bottomRight:=Lerp(a.bottomRight,b.bottomRight,v);
+   result.bottomLeft:=Lerp(a.bottomLeft,b.bottomLeft,v);
+  end;
+
+ // Each radius scaled by k, then grown by d (only rounded corners grow; never below 0)
+ function AdjustRadii(const r:TCornerRadii;k,d:single):TCornerRadii;
+  function One(v:single):single;
+   begin
+    v:=v*k;
+    if v>0 then result:=Max(v+d,0) else result:=0;
+   end;
+  begin
+   result.topLeft:=One(r.topLeft);
+   result.topRight:=One(r.topRight);
+   result.bottomRight:=One(r.bottomRight);
+   result.bottomLeft:=One(r.bottomLeft);
+  end;
+
+ // 'radius' as declared for a state ('' = not declared)
+ function ParseRadii(const s:String8;out r:TCornerRadii):boolean;
+  begin
+   result:=(s<>'') and ParseStyleRadii(s,r);
+  end;
+
+ // Common box path: fill / background-image, fill-shade, border, radius, inner block.
+ // Box keys are state-blended (hover/pressed/disabled) through the context tweenings;
+ // fills use TFill.Mix, and a fill that can't be mixed cross-fades as a second layer.
  // Sets context.skinned when a background-image was drawn.
  procedure DrawCommonStyle(element:TUIElement;context:TContext;outerBorder:boolean=false);
   type
@@ -1065,8 +1197,9 @@ implementation
     weight:single; // cross-fade weight (alpha multiplier)
    end;
   var
-   fillColor,borderColor:cardinal;
-   radius,bWidth,scale:single;
+   fillSlot,borderSlot,shadeSlot:TFillSlot;
+   radii:TCornerRadii;
+   bWidth,scale:single;
    x1,y1,x2,y2:integer;
    hv,av,dv:single;
    isButton:boolean;
@@ -1083,13 +1216,24 @@ implementation
     x1:=r.Left-d; x2:=r.right-1+d;
     y1:=r.top-d; y2:=r.bottom-1+d;
    end;
-  // Blend box colors/metrics toward a state block (fillDef = default fill for the state)
-  procedure BlendState(const state:String8;v:single;fillDef:cardinal);
+  function StateFill(const state,key:String8;out f:TFill):boolean;
+   begin
+    result:=ParseStyleFill(element.GetStateStyleValue(state,key),f);
+    if result then f:=ScaleFill(f,scale);
+   end;
+  // Blend box fills/metrics toward a state block. The fill of a state without its own value
+  // goes to fillDef when useDef (derived button colors), other keys stay
+  procedure BlendState(const state:String8;v:single;const fillDef:TFill;useDef:boolean);
+   var
+    f:TFill;
+    r:TCornerRadii;
    begin
     if v<=0 then exit;
-    fillColor:=Color.Mix(fillColor,element.GetStateStyleColor(state,'fill',fillDef),v);
-    borderColor:=Color.Mix(borderColor,element.GetStateStyleColor(state,'border-color',borderColor),v);
-    radius:=Lerp(radius,element.GetStateStyleNumber(state,'radius',radius),v);
+    if StateFill(state,'fill',f) then fillSlot.Blend(f,v)
+     else if useDef then fillSlot.Blend(fillDef,v);
+    if StateFill(state,'border-color',f) then borderSlot.Blend(f,v);
+    if StateFill(state,'fill-shade',f) then shadeSlot.Blend(f,v);
+    if ParseRadii(element.GetStateStyleValue(state,'radius'),r) then radii:=LerpRadii(radii,r,v);
     bWidth:=Lerp(bWidth,element.GetStateStyleNumber(state,'border-width',bWidth),v);
    end;
   // Blend image offsets toward a state block (logical units)
@@ -1145,34 +1289,86 @@ implementation
      end;
     end;
    end;
+  // A shape fill without a border
+  procedure FillOne(const f:TFill;const r:TCornerRadii;plain:boolean);
+   begin
+    if not f.IsVisible then exit;
+    if plain then draw.FillRect(x1,y1,x2,y2,f)
+     else draw.RoundRect(x1,y1,x2,y2,r,0,TFill.None,f);
+   end;
+  // The fill, its cross-fade layers and the shade. Only the base fill goes in the blMove
+  // mode (render to a transparent target): layers over it must blend
+  procedure FillShapes(const r:TCornerRadii;plain:boolean);
+   var
+    i:integer;
+   begin
+    FillOne(fillSlot.fill,r,plain);
+    if (fillSlot.count=0) and (shadeSlot.count=0) and not shadeSlot.fill.IsVisible then exit;
+    RestoreBlendMode;
+    for i:=0 to fillSlot.count-1 do
+     FillOne(fillSlot.layers[i].Faded(fillSlot.weights[i]),r,plain);
+    FillOne(shadeSlot.fill,r,plain);
+    for i:=0 to shadeSlot.count-1 do
+     FillOne(shadeSlot.layers[i].Faded(shadeSlot.weights[i]),r,plain);
+   end;
+  // Fill, shade and border of the box x1..y2 (pixel-inclusive)
   procedure DrawBlock;
    var
     i,bw:integer;
+    r:TCornerRadii;
+    w:single;
+    c:cardinal;
+    plain:boolean;
+   procedure Border(const f:TFill);
+    begin
+     if not f.IsVisible then exit;
+     if outerBorder then
+      draw.RoundRect(x1-w,y1-w,x2+w,y2+w,AdjustRadii(radii,scale,w),w,f,TFill.None)
+     else
+      draw.RoundRect(x1,y1,x2,y2,r,w,f,TFill.None);
+    end;
    begin
-    if radius>1 then begin
-     if outerBorder then begin
-      if fillColor<>0 then
-       draw.RoundRect(x1,y1,x2,y2,radius*scale,0,0,fillColor);
-      if (borderColor<>0) and (bWidth>0) then
-       draw.RoundRect(x1-bWidth*scale,y1-bWidth*scale,x2+bWidth*scale,y2+bWidth*scale,
-         (radius+bWidth)*scale,bWidth*scale,borderColor,0);
-     end else
-      draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
-    end else begin
-     if fillColor<>0 then
-      draw.FillRect(x1,y1,x2,y2,fillColor);
-     if borderColor<>0 then begin
-      bw:=round(bWidth*scale);
-      if outerBorder then begin
-       for i:=0 to bw-1 do
-        draw.Rect(x1-1-i,y1-1-i,x2+1+i,y2+1+i,borderColor)
-      end else begin
-       for i:=0 to bw-1 do
-        draw.Rect(x1+i,y1+i,x2-i,y2-i,borderColor)
-      end;
+    r:=AdjustRadii(radii,scale,0);
+    w:=bWidth*scale;
+    if w<=0 then borderSlot.Init(TFill.None);
+    // pixel rectangles with a solid border: the cheap path without the shape shader
+    // (edge fills need the shape distance, FillRect has none)
+    plain:=(radii.MaxRadius<=1) and (borderSlot.count=0) and (borderSlot.fill.kind in [fkNone,fkSolid]) and
+      not fillSlot.HasEdge and not shadeSlot.HasEdge;
+    if plain then begin
+     FillShapes(r,true);
+     if borderSlot.fill.kind=fkSolid then begin
+      c:=borderSlot.fill.stops[0].color;
+      bw:=round(w);
+      if c<>0 then
+       if outerBorder then begin
+        for i:=0 to bw-1 do
+         draw.Rect(x1-1-i,y1-1-i,x2+1+i,y2+1+i,c)
+       end else begin
+        for i:=0 to bw-1 do
+         draw.Rect(x1+i,y1+i,x2-i,y2-i,c)
+       end;
      end;
+     exit;
+    end;
+    // one shader call for the usual case: fill + border, no layers and no shade
+    if not outerBorder and (fillSlot.count=0) and (borderSlot.count=0) and
+       not shadeSlot.fill.IsVisible and (shadeSlot.count=0) then begin
+     draw.RoundRect(x1,y1,x2,y2,r,w,borderSlot.fill,fillSlot.fill);
+     exit;
+    end;
+    // layered: fills, the shade, then the border over them
+    FillShapes(r,false);
+    if w>0 then begin
+     Border(borderSlot.fill);
+     for i:=0 to borderSlot.count-1 do
+      Border(borderSlot.layers[i].Faded(borderSlot.weights[i]));
     end;
    end;
+  var
+   fillDef:TFill;
+   rr:TCornerRadii;
+   i:integer;
   begin
    context.skinned:=false;
    ImportRect(element.globalRect);
@@ -1185,12 +1381,13 @@ implementation
      ((element is TUIToggleButton) and not (element is TUICheckbox));
 
    // Outer block: base values
-   if isButton then fillColor:=element.GetBaseStyleColor('fill',defaultBtnColor)
-    else fillColor:=element.GetBaseStyleColor('fill');
-   borderColor:=element.GetBaseStyleColor('border-color');
-   radius:=element.GetBaseStyleNumber('radius');
+   if isButton then fillDef:=TFill.Solid(defaultBtnColor)
+    else fillDef:=TFill.None;
+   fillSlot.Init(ScaleFill(element.GetBaseStyleFill('fill',fillDef),scale));
+   borderSlot.Init(ScaleFill(element.GetBaseStyleFill('border-color',TFill.None),scale));
+   if not ParseRadii(ResolveBlockAttrBase(element.style,'radius'),radii) then radii:=TCornerRadii.All(0);
    bWidth:=element.GetBaseStyleNumber('border-width');
-   DrawBoxShadow(element,radius); // under the box
+   DrawBoxShadow(element,radii.MaxRadius); // under the box
 
    // Background image: base layer + state layers (cross-fade)
    layerCount:=0;
@@ -1213,23 +1410,34 @@ implementation
      BlendOffset('disabled',dv);
     end;
    end;
+   // Shade over the fill: procedural buttons have a light-to-dark one by default
+   // (a skin has its own look baked in)
+   if isButton and (layerCount=0) then fillDef:=TFill.Linear(180,$30FFFFFF,$30000000)
+    else fillDef:=TFill.None;
+   shadeSlot.Init(ScaleFill(element.GetBaseStyleFill('fill-shade',fillDef),scale));
 
-   if (fillColor=0) and (borderColor=0) and (radius=0) and (bWidth=0) and (layerCount=0) then exit; // nothing to draw
+   if fillSlot.IsEmpty and borderSlot.IsEmpty and (radii.MaxRadius=0) and (bWidth=0) and
+      (layerCount=0) and not shadeSlot.fill.IsVisible then exit; // nothing to draw
 
    // State blend: hover -> pressed -> disabled (layered)
-   if isButton then begin
-    BlendState('hover',hv,Color.Add(fillColor,$101010));
-    BlendState('pressed',av,Color.Sub(fillColor,$282020));
-    BlendState('disabled',dv,Color.Mix(fillColor,$FFA0A0A0,128));
-   end else begin
-    BlendState('hover',hv,fillColor);
-    BlendState('pressed',av,fillColor);
-    BlendState('disabled',dv,fillColor);
+   BlendState('hover',hv,fillSlot.fill.Add($101010),isButton);
+   BlendState('pressed',av,fillSlot.fill.Sub($282020),isButton);
+   BlendState('disabled',dv,fillSlot.fill.MixWith($FFA0A0A0,0.5),isButton);
+
+   // A shade over a solid fill is one gradient: the shade stops composited over the fill color
+   // (exact, the shader interpolates premultiplied). The default button stays one call.
+   if (fillSlot.count=0) and (shadeSlot.count=0) and (fillSlot.fill.kind=fkSolid) and
+      shadeSlot.fill.IsVisible and (shadeSlot.fill.ramp=nil) then begin
+    fillDef:=shadeSlot.fill;
+    for i:=0 to fillDef.stopCount-1 do
+     fillDef.stops[i].color:=Color.Blend(fillSlot.fill.stops[0].color,fillDef.stops[i].color);
+    fillSlot.Init(fillDef);
+    shadeSlot.Init(TFill.None);
    end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
    // to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
-   if Color.HasAlpha(fillColor) or (layerCount>0) then SetProperBlendMode(element);
+   if fillSlot.HasAlpha or (layerCount>0) then SetProperBlendMode(element);
    DrawBlock;
    if layerCount>0 then begin
     DrawImageLayers;
@@ -1237,13 +1445,14 @@ implementation
    end;
    RestoreBlendMode;
 
-   // Inner (client) block
+   // Inner (client) block: no states, no shade
    outerBorder:=false;
-   fillColor:=element.GetBaseStyleColor('inner-fill');
-   borderColor:=element.GetBaseStyleColor('inner-border-color');
-   radius:=element.GetBaseStyleNumber('inner-radius',radius);
+   fillSlot.Init(ScaleFill(element.GetBaseStyleFill('inner-fill',TFill.None),scale));
+   borderSlot.Init(ScaleFill(element.GetBaseStyleFill('inner-border-color',TFill.None),scale));
+   shadeSlot.Init(TFill.None);
+   if ParseRadii(ResolveBlockAttrBase(element.style,'inner-radius'),rr) then radii:=rr; // the outer radii by default
    bWidth:=element.GetBaseStyleNumber('inner-border-width',bWidth);
-   if (fillColor<>0) or (borderColor<>0) then begin
+   if not fillSlot.IsEmpty or not borderSlot.IsEmpty then begin
     ImportRect(element.GetClientPosOnScreen,bWidth*scale);
     DrawBlock;
    end;
@@ -1450,6 +1659,7 @@ function TContext.GetImage(const src:String8):TTexture;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
+ StyleImageResolver:=ResolveFillImage;
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
    'color:&text; box-shadow:&shadow 2 3 4');

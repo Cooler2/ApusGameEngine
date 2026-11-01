@@ -5,6 +5,7 @@ uses
   Apus.Core,
   Apus.Conv,
   Apus.Strings,
+  Apus.Engine.Types,
   Apus.Engine.Style;
 
 {$I ..\Base\tests\Test.inc}
@@ -388,6 +389,131 @@ begin
   EndTest;
 end;
 
+// --- Fills (R-39) ---
+
+var
+  rampTex:TObject; // a stand-in for a ramp texture
+
+function TestImageResolver(const src:String8):TObject;
+begin
+  if src='file:ramp.png' then result:=rampTex else result:=nil;
+end;
+
+function Near(a,b:single):boolean;
+begin
+  result:=abs(a-b)<1E-4;
+end;
+
+procedure TestFillPlain;
+var
+  f:TFill;
+begin
+  StartTest('Fill: plain values');
+  Check(ParseStyleFill('$FF102030',f) and (f.kind=fkSolid) and (f.stops[0].color=$FF102030),'color');
+  Check(ParseStyleFill('#ABC',f) and (f.stops[0].color=$FFAABBCC),'short color');
+  Check(ParseStyleFill('none',f) and (f.kind=fkNone),'none');
+  Check(ParseStyleFill('0',f) and (f.kind=fkSolid) and (f.stops[0].color=0),'zero color');
+  Check(ParseStyleFill('$00000000',f) and (f.stops[0].color=0),'transparent black');
+  Check(not ParseStyleFill('',f),'empty');
+  Check(not ParseStyleFill('junk',f),'invalid color');
+  EndTest;
+end;
+
+procedure TestFillLinear;
+var
+  f:TFill;
+begin
+  StartTest('Fill: linear');
+  Check(ParseStyleFill('linear(180deg, #FF0000, #0000FF)',f),'parsed');
+  Check((f.kind=fkLinear) and (f.units=fuAngle) and Near(f.p0.x,180),'angle');
+  Check((f.stopCount=2) and (f.stops[0].color=$FFFF0000) and (f.stops[1].color=$FF0000FF),'colors');
+  Check(Near(f.stops[0].pos,0) and Near(f.stops[1].pos,1),'default positions');
+  Check(f.spread=fsPad,'pad by default');
+  Check(ParseStyleFill('linear(to right, #000, #FFF)',f) and Near(f.p0.x,90),'to right');
+  Check(ParseStyleFill('LINEAR( 45 ,#000,#FFF )',f) and Near(f.p0.x,45),'case, spaces, no deg');
+  Check(ParseStyleFill('linear(90deg, #000, #F00, #0F0 75%, #FFF)',f) and (f.stopCount=4),'4 stops');
+  Check(Near(f.stops[1].pos,0.375) and Near(f.stops[2].pos,0.75),'missing positions spread evenly');
+  Check(ParseStyleFill('linear(90deg, #000 60%, #FFF 20%)',f) and Near(f.stops[1].pos,0.6),'a position never goes back');
+  Check(ParseStyleFill('linear(90deg, #000, #FFF 50%, reflect)',f) and (f.spread=fsReflect) and
+    Near(f.stops[1].pos,0.5),'reflect');
+  Check(ParseStyleFill('linear(90deg, #000, #FFF, repeat)',f) and (f.spread=fsRepeat),'repeat');
+  Check(not ParseStyleFill('linear(90deg, #000, #111, #222, #333, #444)',f),'5 stops');
+  Check(not ParseStyleFill('linear(90deg, #000)',f),'1 stop');
+  Check(not ParseStyleFill('linear(abc, #000, #FFF)',f),'bad angle');
+  Check(not ParseStyleFill('linear(90deg, #000, nocolor)',f),'bad stop');
+  Check(not ParseStyleFill('radial(#000, #FFF)',f),'unknown function');
+  EndTest;
+end;
+
+procedure TestFillEdgeAndRamp;
+var
+  f:TFill;
+begin
+  StartTest('Fill: edge and ramp');
+  Check(ParseStyleFill('edge(4, #FF5A6270, #FFC8D0DC 40%, #FF3A4250)',f) and (f.kind=fkEdge),'edge');
+  Check(Near(f.p0.x,4) and (f.stopCount=3) and Near(f.stops[1].pos,0.4),'width and stops');
+  Check(not ParseStyleFill('edge(0, #000, #FFF)',f),'zero width');
+  rampTex:=TObject.Create;
+  StyleImageResolver:=nil;
+  Check(not ParseStyleFill('linear(0deg, url(file:ramp.png))',f),'no resolver');
+  StyleImageResolver:=TestImageResolver;
+  inc(stylesRevision); // the failed result above is cached
+  Check(ParseStyleFill('linear(0deg, url(file:ramp.png))',f) and (f.ramp=rampTex) and (f.kind=fkLinear),'ramp');
+  Check(ParseStyleFill('edge(3, url(file:ramp.png))',f) and (f.ramp=rampTex) and (f.kind=fkEdge),'edge ramp');
+  Check(not ParseStyleFill('linear(0deg, url(file:other.png))',f),'unresolved image');
+  StyleImageResolver:=nil;
+  inc(stylesRevision);
+  rampTex.Free;
+  EndTest;
+end;
+
+procedure TestFillTokens;
+var
+  f:TFill;
+  b:TStyleBlock;
+begin
+  StartTest('Fill: tokens, cache, blocks');
+  SetToken('fill-a','$FF00FF00');
+  SetToken('fill-stop','#FFFFFF 30%');
+  SetToken('fill-shade','linear(180deg, #30FFFFFF, #30000000)');
+  Check(ParseStyleFill('linear(0deg, &fill-a, &fill-stop, #000)',f) and (f.stops[0].color=$FF00FF00),'token color');
+  Check((f.stops[1].color=$FFFFFFFF) and Near(f.stops[1].pos,0.3),'token stop with a position');
+  Check(ParseStyleFill('&fill-shade',f) and (f.kind=fkLinear) and (f.stops[0].color=$30FFFFFF),'whole token');
+  // a token change invalidates cached results
+  SetToken('fill-a','$FFFF0000');
+  Check(ParseStyleFill('linear(0deg, &fill-a, &fill-stop, #000)',f) and (f.stops[0].color=$FFFF0000),'cache follows tokens');
+  // through the style text and the resolvers
+  b:=TStyleBlock.Create;
+  b.ParseText('fill: linear(180deg, #6F7F98, #435166); border-color: #C8D4E8; :hover { fill: &fill-a; }');
+  f:=ResolveBlockFill(b,'fill',TFill.None);
+  Check((f.kind=fkLinear) and (f.stops[1].color=$FF435166),'gradient survives style parsing');
+  Check(ResolveBlockFill(b,'border-color',TFill.None).stops[0].color=$FFC8D4E8,'color as a fill');
+  Check(ResolveBlockFill(b,'missing',TFill.Solid($FF123456)).stops[0].color=$FF123456,'default');
+  b.SetState('hover',true);
+  f:=ResolveBlockFill(b,'fill',TFill.None);
+  Check((f.kind=fkSolid) and (f.stops[0].color=$FFFF0000),'state fill');
+  b.Free;
+  RemoveToken('fill-a');
+  RemoveToken('fill-stop');
+  RemoveToken('fill-shade');
+  EndTest;
+end;
+
+procedure TestRadii;
+var
+  r:TCornerRadii;
+begin
+  StartTest('Corner radii');
+  Check(ParseStyleRadii('6',r) and Near(r.topLeft,6) and Near(r.bottomLeft,6),'one value');
+  Check(ParseStyleRadii('6 0',r) and Near(r.topLeft,6) and Near(r.topRight,0) and
+    Near(r.bottomRight,6) and Near(r.bottomLeft,0),'two values');
+  Check(ParseStyleRadii('1 2 3',r) and Near(r.topRight,2) and Near(r.bottomRight,3) and Near(r.bottomLeft,2),'three values');
+  Check(ParseStyleRadii(' 1  2 3 4 ',r) and Near(r.topLeft,1) and Near(r.bottomLeft,4),'four values');
+  Check(not ParseStyleRadii('',r),'empty');
+  Check(not ParseStyleRadii('1 2 3 4 5',r),'five values');
+  EndTest;
+end;
+
 // --- Main ---
 begin
   writeln('=== TestStyle ===');
@@ -413,6 +539,11 @@ begin
   TestInheritedKeys;
   TestStateFromRef;
   TestTokenInRefState;
+  TestFillPlain;
+  TestFillLinear;
+  TestFillEdgeAndRamp;
+  TestFillTokens;
+  TestRadii;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

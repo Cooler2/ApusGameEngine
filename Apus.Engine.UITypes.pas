@@ -281,6 +281,11 @@ type
   function GetStateStyleValue(const state,key:String8; const defVal:String8=''):String8;
   function GetStateStyleColor(const state,key:String8; defVal:cardinal=0):cardinal;
   function GetStateStyleNumber(const state,key:String8; defVal:single=0):single;
+  // <fill> values (R-39): 'fill', 'border-color', 'fill-shade'... - a color or a gradient;
+  // defVal for a missing or invalid value. edge() width is in logical units
+  function GetStyleFill(const key:String8; const defVal:TFill):TFill;
+  function GetBaseStyleFill(const key:String8; const defVal:TFill):TFill;
+  function GetStateStyleFill(const state,key:String8; const defVal:TFill):TFill;
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -1653,6 +1658,22 @@ function TUIElement.GetClientHeight:single;
  function TUIElement.GetStateStyleNumber(const state,key:String8; defVal:single):single;
   begin
    result:=ResolveBlockStateNumber(style,state,key,defVal);
+  end;
+
+ function TUIElement.GetStyleFill(const key:String8; const defVal:TFill):TFill;
+  begin
+   if not ParseStyleFill(GetStyleValue(key,''),result) then result:=defVal;
+  end;
+
+ function TUIElement.GetBaseStyleFill(const key:String8; const defVal:TFill):TFill;
+  begin
+   // box keys never inherit, so the element's own block is enough
+   if not ParseStyleFill(ResolveBlockAttrBase(style,key,''),result) then result:=defVal;
+  end;
+
+ function TUIElement.GetStateStyleFill(const state,key:String8; const defVal:TFill):TFill;
+  begin
+   if not ParseStyleFill(ResolveBlockStateAttr(style,state,key,''),result) then result:=defVal;
   end;
 
  function TUIElement.GetBaseStyleColor(const key:String8; defVal:cardinal):cardinal;

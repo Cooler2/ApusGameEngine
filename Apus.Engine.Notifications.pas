@@ -59,7 +59,7 @@ interface
  procedure DrawNotifications;
 
 implementation
- uses Apus.Strings, Apus.Threads, Apus.Tweenings, Apus.Engine.Window, Apus.Engine.Style;
+ uses Apus.Strings, Apus.Threads, Apus.Tweenings, Apus.Engine.Types, Apus.Engine.Window, Apus.Engine.Style;
 
  type
   TToastPhase=(Entering,Visible,Leaving);
@@ -445,7 +445,8 @@ procedure Layout;
 procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit-test
  var
   block:TStyleBlock;
-  fill,border,textCol:cardinal;
+  fill,border:TFill;
+  textCol:cardinal;
   radius:single;
   font:TFontHandle;
   r:TRect;
@@ -453,19 +454,20 @@ procedure DrawToast(var t:TToast); // var: writes back t.rect for next-frame hit
   animVal,s:single;
  begin
   block:=Styles.Block(t.styleName);
-  fill:=ResolveBlockColor(block,'fill',$E0303840);
-  border:=ResolveBlockColor(block,'border-color',$FF5878A0);
+  fill:=ResolveBlockFill(block,'fill',TFill.Solid($E0303840));
+  border:=ResolveBlockFill(block,'border-color',TFill.Solid($FF5878A0));
   textCol:=ResolveBlockColor(block,'color',$FFFFFFFF);
   radius:=ResolveBlockNumber(block,'radius',8);
   font:=ResolveFont;
   s:=UIScale;
+  if fill.kind=fkEdge then fill.p0.x:=fill.p0.x*s; // edge() width: logical units
+  if border.kind=fkEdge then border.p0.x:=border.p0.x*s;
   animVal:=t.anim.Value; // cache: avoids repeated spinlock + FinalizeEffect calls
 
   r:=ToastRect(t);
   t.rect:=r;
   // Background + border (alpha follows fade)
-  draw.RoundRect(r.Left,r.Top,r.Right,r.Bottom,radius*s,1.5*s,
-                 ScaleAlpha(border,animVal),ScaleAlpha(fill,animVal));
+  draw.RoundRect(r.Left,r.Top,r.Right,r.Bottom,radius*s,1.5*s,border.Faded(animVal),fill.Faded(animVal));
   // Text lines
   lh:=round(txt.Height(font)*1.7);
   textCol:=ScaleAlpha(textCol,animVal);

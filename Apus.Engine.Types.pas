@@ -266,6 +266,8 @@ type
   function Add(color:cardinal):TFill;
   function Sub(color:cardinal):TFill;
   function MixWith(color:cardinal;t:single):TFill;
+  // alpha of every stop multiplied by k (fades, cross-fade layers); a ramp is not faded
+  function Faded(k:single):TFill;
   // style transitions: false if a and b can't be interpolated - the caller cross-fades two draws
   class function Mix(const a,b:TFill;t:single;out r:TFill):boolean; static;
  end;
@@ -802,6 +804,20 @@ function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
    result:=self;
    for i:=0 to stopCount-1 do
     result.stops[i].color:=Apus.Colors.Color.Mix(stops[i].color,color,t);
+  end;
+
+ function TFill.Faded(k:single):TFill;
+  var
+   i:integer;
+   c:cardinal;
+  begin
+   result:=self;
+   if k>=1 then exit;
+   if k<0 then k:=0;
+   for i:=0 to stopCount-1 do begin
+    c:=stops[i].color;
+    result.stops[i].color:=(c and $FFFFFF) or (cardinal(round((c shr 24)*k)) shl 24);
+   end;
   end;
 
  function IsPlainFill(const f:TFill):boolean; inline;
