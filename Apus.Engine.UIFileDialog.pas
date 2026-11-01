@@ -260,6 +260,7 @@ implementation
  const
   DRIVE_MIN_WIDTH=32;
   LOCATION_ACTION_WIDTH=26;
+  LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
 
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
  function SamePath(const a,b:String8):boolean; forward;
@@ -661,11 +662,14 @@ implementation
   result:=prefix+UTF8.Encode(copy(chars,lo,length(chars)-lo));
  end;
 
- // The frame of a list drawn by the dialog: 'border-color' and 'border-width', ':focused' included
- procedure DrawListFrame(list:TUIElement;const r:TRect);
+ // The frame of a list drawn by the dialog: 'border-color' and 'border-width', ':focused' included.
+ // It lies on the padding of the list (LIST_FRAME), so the scroll bars do not cover it.
+ procedure DrawListFrame(list:TUIElement);
  var
+  r:TRect;
   w:single;
  begin
+  r:=list.globalRect;
   w:=Math.Max(1,round(list.GetStyleNumber('border-width',1)*list.globalScale));
   draw.RoundRect(r.Left,r.Top,r.Right-1,r.Bottom-1,0,w,list.GetStyleColor('border-color',$FF808080),0);
  end;
@@ -686,7 +690,7 @@ implementation
   s:=list.globalScale;
   r:=list.GetClientPosOnScreen;
   font:=list.StyleFont;
-  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,list.GetStyleColor('fill',$FFD0D0D8));
+  with list.globalRect do draw.FillRect(Left,Top,Right-1,Bottom-1,list.GetStyleColor('fill',$FFD0D0D8));
   rowH:=list.rowHeight*s;
   pos:=list.ScrollPos*s;
   first:=trunc(pos/rowH);
@@ -727,7 +731,7 @@ implementation
    gfx.clip.Restore;
   end;
   gfx.clip.Restore;
-  DrawListFrame(list,r);
+  DrawListFrame(list);
  end;
 
  function TLocationsList.IsMissing(tag:NativeInt):boolean;
@@ -881,7 +885,7 @@ implementation
   s:=table.globalScale;
   font:=table.StyleFont;
   headerBottom:=r.Top+round(table.headerHeight*s);
-  draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,table.GetStyleColor('fill',$FFD0D0D8));
+  with table.globalRect do draw.FillRect(Left,Top,Right-1,Bottom-1,table.GetStyleColor('fill',$FFD0D0D8));
   gfx.clip.Rect(Types.Rect(r.Left,headerBottom,r.Right,r.Bottom));
   rowH:=table.rowHeight*s;
   pos:=table.ScrollPos*s;
@@ -917,7 +921,7 @@ implementation
    end;
   end;
   gfx.clip.Restore;
-  DrawListFrame(table,r);
+  DrawListFrame(table);
  end;
 
  function JoinPath(const folder,name:String8):String8;
@@ -1525,6 +1529,7 @@ implementation
  procedure StyleTable(t:TUITable);
  begin
   t.styleInfo:=TABLE_STYLE;
+  t.SetPadding(LIST_FRAME); // the rows and the scroll bars stay inside the frame
   t.scrollerV.GetElement.styleInfo:=SCROLLBAR_STYLE;
   t.scrollerH.GetElement.styleInfo:=SCROLLBAR_STYLE;
  end;
