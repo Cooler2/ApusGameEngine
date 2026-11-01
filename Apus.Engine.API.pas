@@ -175,6 +175,11 @@ type
  TARGBColor = Apus.Engine.Types.TARGBColor;
  PARGBColor = Apus.Engine.Types.PARGBColor;
 
+ // Fills of shapes (solid or gradient) and corner radii
+ TFill = Apus.Engine.Types.TFill;
+ TFillStop = Apus.Engine.Types.TFillStop;
+ TCornerRadii = Apus.Engine.Types.TCornerRadii;
+
  // SDL cursors are pointers; Unix THandle is only a 32-bit file descriptor.
  TCursorHandle = NativeUInt;
 
@@ -680,24 +685,34 @@ type
   procedure Triangle(p1,p2,p3:TVec3;color:cardinal); overload; // filled triangle, uniform color
   procedure Triangle(p1,p2,p3:TVec3;c1,c2,c3:cardinal); overload; // filled triangle, per-vertex color
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
-  procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
+  procedure Polygon(points:PVec2;cnt:integer;color:cardinal); overload;
+  // a fill that vertex colors can't express goes through the shape shader (one program switch)
+  procedure Polygon(points:PVec2;cnt:integer;const fill:TFill); overload;
   procedure BeginLines; // start batching line primitives
   procedure EndLines; // flush batched lines and stop batching
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload; // geometry-based version
   procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload; // geometry-based version
-  procedure RoundRect(center:TVec2;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
-    ext:PRoundRectExtParams=nil); overload; // shader-based smooth version
-  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal;
-    ext:PRoundRectExtParams=nil); overload; // shader-based smooth version
+  // Rounded rectangle: a fill and a border with their own fills, antialiased edges.
+  // x1..x2, y1..y2 - pixels included, as in FillRect. SDF shader on a tight mesh:
+  // a frame with an invisible fill rasterizes only the band along the edge.
+  // The fill lies inside the border; a border fkEdge spans its thickness (t=0 outside).
+  procedure RoundRect(x1,y1,x2,y2:single;const radii:TCornerRadii;borderWidth:single;
+    const border,fill:TFill); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;const border,fill:TFill); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;
+    borderColor,fillColor:cardinal); overload; // solid shortcut; fillColor=0 - no fill
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
+  // solid and 2-color linear fills - vertex colors in the standard program; others - the shape shader
+  procedure FillRect(x1,y1,x2,y2:single;const fill:TFill); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
+  procedure FillRRect(x1,y1,x2,y2:single;const fill:TFill;r:single=2); overload; // geometry edges, no AA
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
-  procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
+  procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean); // FillRect with TFill.Linear
 
   // Textured primitives ---------------
   // Coordinates specify the pixels that will be drawn (excluding the border)
@@ -717,12 +732,6 @@ type
   // Returns scale
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
-
-  // Gradients
-  procedure WithGradient(const gradient:TColorGradient;stretch:boolean=false); overload;
-  procedure WithGradient(color1,color2:cardinal;angle,scale:single); overload;
-  procedure WithGradient(color1,color2:cardinal;angle:single); overload;
-  procedure NoGradient;
 
   // Draw a billboard: place this texture at the specified 3D point toward camera
   // texelSize - size of one billboard texel in world CS

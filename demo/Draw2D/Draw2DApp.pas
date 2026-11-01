@@ -43,6 +43,7 @@ uses
 type
   TMainScene=class(TUIScene)
     checkerTex,helperTex,atlasTex:TTexture;
+    rampTex:TTexture; // gradient colors for TFill.WithRamp
     atlasPart:TTexture; // cloned part of atlasTex (2x2 cells)
     stretchPatch,tiledPatch:TNinePatch;
     particles:array[0..47] of TParticle;
@@ -60,6 +61,7 @@ type
     procedure BuildCheckerTexture;
     procedure BuildHelperTexture;
     procedure BuildAtlasTexture;
+    procedure BuildRampTexture;
     procedure BuildNinePatches;
     function BuildPatch(size:integer;tileMode:boolean;
       topCol,botCol,rimCol,accentCol:cardinal;const name:string):TNinePatch;
@@ -114,7 +116,7 @@ SCREEN_TITLES:array[0..SCREEN_COUNT-1] of string=(
 SCREEN_HINTS:array[0..SCREEN_COUNT-1] of string=(
   'Line / Polyline / Polygon',
   'Rect / RRect / FillRRect / RoundRect',
-  'FillRect / FillGradrect / WithGradient',
+  'TFill: linear, edge, stops, spread, units, ramp, Mix',
   'FillTriangle / ShadedRect',
   'TexturedRect overloads / RotScaled',
   'Mixed static + animated cases',
@@ -179,6 +181,29 @@ begin
     end;
   end;
   checkerTex.Unlock;
+end;
+
+// A ramp for TFill.WithRamp: the middle row is read left to right - here a rainbow,
+// more colors than the 4 stops of a fill
+procedure TMainScene.BuildRampTexture;
+const
+  KEYS:array[0..6] of cardinal=($FFE04040,$FFF0A030,$FFF0E050,$FF50C060,$FF40A0E0,$FF6050D0,$FFE04040);
+var
+  x,y,i:integer;
+  row:PCardinalRow;
+  p:single;
+begin
+  rampTex:=AllocImage(128,4,ipfARGB,aiTexture+aiClampUV,'Draw2DRamp');
+  rampTex.Lock;
+  for y:=0 to rampTex.height-1 do begin
+    row:=PCardinalRow(rampTex.ScanLine(y));
+    for x:=0 to rampTex.width-1 do begin
+      p:=x/(rampTex.width-1)*6;
+      i:=Min(trunc(p),5);
+      row^[x]:=Color.Mix(KEYS[i],KEYS[i+1],p-i);
+    end;
+  end;
+  rampTex.Unlock;
 end;
 
 procedure TMainScene.BuildHelperTexture;
@@ -349,6 +374,7 @@ begin
   BuildCheckerTexture;
   BuildHelperTexture;
   BuildAtlasTexture;
+  BuildRampTexture;
   atlasPart:=atlasTex.ClonePart(Rect(32,32,96,96));
   BuildNinePatches;
   InitParticles;
@@ -565,8 +591,7 @@ procedure TMainScene.DrawScreenRects(const contentRect:TRect);
 var
   area,r,innerR:TRect;
   t:single;
-  cx,cy:single;
-  ext,glass:TRoundRectExtParams;
+  cx,cy,hw,hh:single;
 begin
   area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
     contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
@@ -604,66 +629,167 @@ begin
   DrawBlock(r,'draw.RoundRect  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right)*0.5;
   cy:=innerR.Top+(innerR.Bottom-innerR.Top)*0.28;
-  draw.RoundRect(TVec2.Init(cx,cy),
-    (innerR.Right-innerR.Left-S(60))*0.5+sin(t)*((innerR.Right-innerR.Left-S(60))*0.25),
-    (innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08),
-    S(20)+sin(t*1.5)*S(7),S(3),$FFBFD8F7,$704F6FA4);
+  hw:=((innerR.Right-innerR.Left-S(60))*0.5+sin(t)*((innerR.Right-innerR.Left-S(60))*0.25))*0.5;
+  hh:=((innerR.Bottom-innerR.Top)*0.28+cos(t*1.3)*((innerR.Bottom-innerR.Top)*0.08))*0.5;
+  draw.RoundRect(cx-hw,cy-hh,cx+hw,cy+hh,S(20)+sin(t*1.5)*S(7),S(3),$FFBFD8F7,$704F6FA4);
 
-  ext:=TRoundRectExtParams.Init(TColorVector.Init(0.12,0.04,-0.10,0),
-    TColorVector.Init(-0.05,-0.08,-0.12,0),TVec2.Init(0,0));
+  // linear gradient fill, a rotating angle
   draw.RoundRect(innerR.Left+S(20),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(8),
-    innerR.Left+(innerR.Right-innerR.Left) div 2-S(8),innerR.Bottom-S(18),S(16),1,$FFEAF6FF,$90538EBD,@ext);
+    innerR.Left+(innerR.Right-innerR.Left) div 2-S(8),innerR.Bottom-S(18),S(16),1,
+    TFill.Solid($FFEAF6FF),TFill.Linear(t*30,$C07AA8D8,$C0304A80).AddStop(0.5,$C05680B8));
 
-  ext:=TRoundRectExtParams.Init(TColorVector.Init(0.05,0.12,0.18,0),
-    TColorVector.Init(-0.16,-0.06,0.04,0),TVec2.Init(-0.45,-0.35));
+  // per-corner radii, a "metal" frame by the distance from the edge, a vertical fill
   draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+S(8),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(8),
-    innerR.Right-S(20),innerR.Bottom-S(18),S(16),1,$FFFFF4C0,$90686A8D,@ext);
+    innerR.Right-S(20),innerR.Bottom-S(18),TCornerRadii.Init(S(18),S(4),S(18),S(4)),S(5),
+    TFill.Edge(0,$FF5A6270,$FF3A4250).AddStop(0.4,$FFC8D0DC),
+    TFill.Linear(180,$C0787AA0,$C0464870));
 
-  glass:=TRoundRectExtParams.Init(TColorVector.Init(0,0,0,0),
-    TColorVector.Init(0,0,0,-0.22),TVec2.Init(0,-0.35));
+  // glass highlight: fades to transparent without darkening (premultiplied interpolation)
   draw.RoundRect(innerR.Left+(innerR.Right-innerR.Left) div 2+S(18),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(18),
-    innerR.Right-S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(54),S(12),0,$00000000,$45FFFFFF,@glass);
+    innerR.Right-S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(54),S(12),0,
+    TFill.None,TFill.Linear(180,$60FFFFFF,$00FFFFFF));
 end;
 
-// screen 2: FillRect / FillGradrect / WithGradient — 3 blocks
+// screen 2: FillRect / FillGradrect / TFill — 3x2 blocks
 procedure TMainScene.DrawScreenFillGrad(const contentRect:TRect);
 var
-  area,r,innerR:TRect;
-  g:TColorGradient;
-  t:single;
+  area,r,ir:TRect;
+  t,k,x,y,sw,sh,gap:single;
+  L,T0,W,H,i:integer;
+  f,a,b:TFill;
+  star:array[0..9] of TVec2;
+ procedure Lbl(x,y:single;const s:string);
+  begin
+   txt.Write(bodyFont,round(x),round(y),$FFB8C8DC,s,taLeft,0);
+  end;
+ // the block's inner area as L,T0,W,H
+ procedure Inner(col,row:integer;const title:string);
+  begin
+   r:=GridCell(area,col,row,3,2,S(BLOCK_GAP));
+   DrawBlock(r,title,ir);
+   L:=ir.Left; T0:=ir.Top;
+   W:=ir.Right-ir.Left; H:=ir.Bottom-ir.Top;
+  end;
 begin
   area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,
     contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
   t:=animTime*1.5;
+  gap:=S(10);
 
-  // block 0: draw.FillRect — solid + alpha layering
-  r:=GridCell(area,0,0,3,1,S(BLOCK_GAP));
-  DrawBlock(r,'draw.FillRect',innerR);
-  draw.FillRect(innerR.Left+S(10),innerR.Top+S(10),innerR.Left+S(160),innerR.Top+S(160),$B0E97B5A);
-  draw.FillRect(innerR.Left+S(80),innerR.Top+S(60),innerR.Right-S(30),innerR.Top+S(220),$909CE8A8);
-  draw.FillRect(innerR.Left+S(30),innerR.Top+S(200),innerR.Right-S(50),innerR.Bottom-S(20),$70D8D8FF);
+  // [0,0] the color calls: solid with alpha, FillGradrect (a wrapper over TFill.Linear)
+  Inner(0,0,'draw.FillRect / draw.FillGradrect');
+  draw.FillRect(L+gap,T0+gap,L+W*0.42,T0+H*0.42,$B0E97B5A);
+  draw.FillRect(L+W*0.22,T0+H*0.22,L+W*0.58,T0+H*0.52,$909CE8A8);
+  draw.FillGradrect(round(L+W*0.64),round(T0+gap),round(L+W-gap),round(T0+H*0.52),$FFF0A040,$FF7030A0,false);
+  draw.FillGradrect(round(L+gap),round(T0+H*0.6),round(L+W-gap),round(T0+H-gap-S(14)),$FFE06060,$FF50A0E0,true);
+  Lbl(L+gap,T0+H-S(6),'FillGradrect = FillRect with TFill.Linear(90/180)');
 
-  // block 1: draw.FillGradrect — horizontal and vertical
-  r:=GridCell(area,1,0,3,1,S(BLOCK_GAP));
-  DrawBlock(r,'draw.FillGradrect',innerR);
-  draw.FillGradrect(innerR.Left+S(10),innerR.Top+S(10),innerR.Right-S(10),
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFF0A040,$FF7030A0,false); // horizontal
-  draw.FillGradrect(innerR.Left+S(10),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(5),
-    innerR.Right-S(10),innerR.Bottom-S(10),$FFE06060,$FF50A0E0,true); // vertical
+  // [1,0] linear gradients: CSS angles, stops, hard edges, spread
+  Inner(1,0,'TFill.Linear: angles, stops, spread');
+  sw:=(W-gap*7)/6; sh:=H*0.26;
+  for i:=0 to 5 do begin
+    x:=L+gap+i*(sw+gap);
+    if i<5 then f:=TFill.Linear(i*45,$FF203048,$FFF0C060)
+      else f:=TFill.Linear(t*40,$FF203048,$FFF0C060); // animated angle
+    draw.RoundRect(x,T0+gap,x+sw,T0+gap+sh,S(6),0,TFill.None,f);
+    if i<5 then Lbl(x,T0+gap+sh+S(14),IntToStr(i*45)+'deg')
+      else Lbl(x,T0+gap+sh+S(14),'anim');
+  end;
+  y:=T0+gap+sh+S(24);
+  sh:=(T0+H-y-gap*3-S(42))/3;
+  // two stops at one position: a hard edge
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(4),0,TFill.None,
+    TFill.Linear(90,$FF2F8EFF,$FFE04848).AddStop(0.5,$FF2F8EFF).AddStop(0.5,$FFE04848));
+  Lbl(L+gap,y+sh+S(13),'hard edge: two stops at 50%');
+  y:=y+sh+S(20);
+  // repeat: hard stripes moving along
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(4),0,TFill.None,
+    TFill.Linear(TVec2.Init(frac(t*0.1),0),TVec2.Init(frac(t*0.1)+0.08,0.4),$FF404A58,$FFD8C060)
+      .AddStop(0.5,$FF404A58).AddStop(0.5,$FFD8C060).WithSpread(fsRepeat));
+  Lbl(L+gap,y+sh+S(13),'fsRepeat, 4 stops: stripes');
+  y:=y+sh+S(20);
+  // reflect: a smooth wave
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(4),0,TFill.None,
+    TFill.Linear(TVec2.Init(0,0),TVec2.Init(0.2,0),$FF20304A,$FF70D8B0).AddStop(0.5,$FF4080C0).WithSpread(fsReflect));
+  Lbl(L+gap,y+sh+S(13),'fsReflect, 3 stops');
 
-  // block 2: draw.WithGradient / draw.NoGradient — animated
-  r:=GridCell(area,2,0,3,1,S(BLOCK_GAP));
-  DrawBlock(r,'draw.WithGradient  [animated]',innerR);
-  draw.WithGradient($FFF1B45F,$FF4F92D8,t,0.7+0.2*sin(t));
-  draw.FillRRect(innerR.Left+S(20),innerR.Top+S(10),innerR.Right-S(20),
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFFFFFFF,S(16));
-  g.Init($FF73DCAA,$FF4B4EA9,t+Pi*0.5,0.55);
-  draw.WithGradient(g,true);
-  draw.FillRect(innerR.Left+S(30),innerR.Top+(innerR.Bottom-innerR.Top) div 2+S(5),
-    innerR.Right-S(30),innerR.Bottom-S(10),$FFFFFFFF);
-  draw.NoGradient;
-  draw.Rect(innerR.Left+S(20),innerR.Top+S(10),innerR.Right-S(20),
-    innerR.Top+(innerR.Bottom-innerR.Top) div 2-S(5),$FFE7F1FF);
+  // [2,0] simple primitives: vertex colors when exact, the shape shader otherwise
+  Inner(2,0,'FillRRect / FillRect / Polygon with TFill');
+  draw.FillRRect(L+gap,T0+gap,L+W-gap,T0+H*0.3,TFill.Linear(t*57.3,$FFF1B45F,$FF4F92D8),S(16));
+  Lbl(L+gap,T0+H*0.3+S(14),'2 stops: vertex colors, no program switch');
+  draw.FillRect(L+gap,T0+H*0.36,L+W-gap,T0+H*0.6,
+    TFill.Linear(TVec2.Init(0,0),TVec2.Init(0.35+0.15*sin(t),0.35),$FF73DCAA,$FF4B4EA9)
+      .AddStop(0.5,$FFE0E8F0).WithSpread(fsReflect));
+  Lbl(L+gap,T0+H*0.6+S(14),'3 stops, reflect: the shape shader');
+  // a star polygon: local units use the bbox of its points
+  x:=L+W*0.5; y:=T0+H*0.8;
+  sh:=Min(W,H)*0.16;
+  for i:=0 to 9 do begin
+    if odd(i) then k:=sh*0.45 else k:=sh;
+    star[i].x:=x+k*sin(i*Pi/5+t*0.3);
+    star[i].y:=y-k*cos(i*Pi/5+t*0.3);
+  end;
+  draw.Polygon(@star[0],10,TFill.Linear(180,$FFFFE080,$FFE06020));
+
+  // [0,1] gradients by the distance from the edge: bevel, glow, frame, pill
+  Inner(0,1,'TFill.Edge: bevel, glow, frame, pill');
+  sw:=(W-gap*3)/2; sh:=(H-gap*3-S(28))/2;
+  x:=L+gap; y:=T0+gap;
+  draw.RoundRect(x,y,x+sw,y+sh,S(8),S(1),TFill.Solid($FF101820),
+    TFill.Edge(S(8),$FFA8C8F0,$FF3A6AB0).AddStop(0.5,$FF5A8AD0));
+  Lbl(x,y+sh+S(13),'bevel: an edge fill');
+  x:=L+gap*2+sw;
+  draw.RoundRect(x,y,x+sw,y+sh,S(12),0,TFill.None,TFill.Edge(S(16),$FFFFC060,$00FFC060));
+  Lbl(x,y+sh+S(13),'inner glow');
+  x:=L+gap; y:=T0+gap*2+sh+S(14);
+  draw.RoundRect(x,y,x+sw,y+sh,S(10),S(8),
+    TFill.Edge(0,$FF5A6270,$FF3A4250).AddStop(0.4,$FFE0E6EE),TFill.None);
+  Lbl(x,y+sh+S(13),'frame: edge border');
+  x:=L+gap*2+sw;
+  draw.RoundRect(x,y+sh*0.2,x+sw,y+sh*0.8,999,S(2),TFill.Solid($FFE0F0FF),
+    TFill.Edge(S(10),$FF2F8EFF,$FF9FD8FF));
+  Lbl(x,y+sh+S(13),'pill: radius 999');
+
+  // [1,1] units and transparency
+  Inner(1,1,'Units, transparency');
+  sw:=(W-gap*2)/6; sh:=H*0.18;
+  y:=T0+gap;
+  for i:=0 to 5 do begin
+    x:=L+gap+i*sw;
+    draw.RoundRect(x+S(2),y,x+sw-S(2),y+sh,S(4),0,TFill.None,TFill.Linear(90,$FF2F8EFF,$FFF0C060));
+    draw.RoundRect(x+S(2),y+sh+gap,x+sw-S(2),y+sh*2+gap,S(4),0,TFill.None,
+      TFill.Linear(TVec2.Init(L+gap,0),TVec2.Init(L+W-gap,0),$FF2F8EFF,$FFF0C060,fuAbsolute));
+  end;
+  Lbl(L+gap,y+sh*2+gap+S(14),'fuLocal: per shape / fuAbsolute: one across');
+  // a fade to transparent over stripes: premultiplied, no dark band
+  y:=y+sh*2+gap+S(26);
+  for i:=0 to 11 do
+    if odd(i) then draw.FillRect(L+gap+i*(W-gap*2)/12,y,L+gap+(i+1)*(W-gap*2)/12-1,T0+H-gap-S(14),$FFD0D8E0);
+  draw.RoundRect(L+gap,y+S(6),L+W-gap,T0+H-gap-S(20),S(8),0,TFill.None,TFill.Linear(90,$FFE03030,$00000000));
+  Lbl(L+gap,T0+H-S(6),'red -> $00000000: fades without darkening');
+
+  // [2,1] a ramp texture and transitions
+  Inner(2,1,'Ramp texture, TFill.Mix');
+  sh:=(H-gap*4-S(42))/3;
+  y:=T0+gap;
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(6),0,TFill.None,
+    TFill.Linear(TVec2.Init(frac(t*0.05),0),TVec2.Init(frac(t*0.05)+0.5,0),0,0).WithRamp(rampTex).WithSpread(fsRepeat));
+  Lbl(L+gap,y+sh+S(13),'colors from a ramp image, repeat');
+  // interpolable: angle and colors blend
+  k:=0.5+0.5*sin(t);
+  y:=y+sh+S(20);
+  a:=TFill.Linear(90,$FF2F8EFF,$FF0A2050);
+  b:=TFill.Linear(180,$FFF0C060,$FF803010);
+  TFill.Mix(a,b,k,f);
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(6),0,TFill.None,f);
+  Lbl(L+gap,y+sh+S(13),'Mix: 90deg blue -> 180deg orange');
+  // not interpolable: drawn as a cross-fade, as style transitions do
+  y:=y+sh+S(20);
+  a:=TFill.Linear(180,$FF5A6A80,$FF283040);
+  b:=TFill.Edge(S(10),$FFFFE0A0,$FFB04020);
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(6),0,TFill.None,a);
+  draw.RoundRect(L+gap,y,L+W-gap,y+sh,S(6),0,TFill.None,b.Faded(k));
+  Lbl(L+gap,y+sh+S(13),'linear vs edge: no Mix, cross-fade');
 end;
 
 // screen 3: FillTriangle / ShadedRect — 3 blocks
@@ -781,14 +907,13 @@ begin
     draw.Line(innerR.Left+S(10),innerR.Top+S(12)+i*((innerR.Bottom-innerR.Top-S(20)) div 8),
       innerR.Right-S(10),innerR.Top+S(12)+i*((innerR.Bottom-innerR.Top-S(20)) div 8),$30447296);
 
-  // block [0,1]: WithGradient + FillRRect + Line (animated)
+  // block [0,1]: gradient FillRRect + Line (animated)
   r:=GridCell(area,0,1,2,2,S(BLOCK_GAP));
-  DrawBlock(r,'WithGradient + FillRRect + Line  [animated]',innerR);
+  DrawBlock(r,'Gradient FillRRect + Line  [animated]',innerR);
   cx:=(innerR.Left+innerR.Right) div 2;
   cy:=(innerR.Top+innerR.Bottom) div 2;
-  draw.WithGradient($FFF1B25C,$FF4E8DD0,t);
-  draw.FillRRect(innerR.Left+S(16),innerR.Top+S(16),innerR.Right-S(16),innerR.Bottom-S(16),$FFFFFFFF,S(16));
-  draw.NoGradient;
+  draw.FillRRect(innerR.Left+S(16),innerR.Top+S(16),innerR.Right-S(16),innerR.Bottom-S(16),
+    TFill.Linear(t*57.3,$FFF1B25C,$FF4E8DD0),S(16));
   for i:=0 to 6 do
     draw.Line(cx,cy,cx+PRound(cos(t+i*0.7)*((innerR.Right-innerR.Left) div 2-S(20))),
       cy+PRound(sin(t*1.2+i*0.7)*((innerR.Bottom-innerR.Top) div 2-S(20))),$FFD8EEFF);

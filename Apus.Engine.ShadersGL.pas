@@ -63,6 +63,8 @@ type
   procedure SetUniform(name:String8;const value:TMat4); overload; override;
   procedure SetUniform(name:String8;const value:TQuat); overload; override;
   procedure SetUniform(uniLoc:integer;const value:TVec3); overload;
+  function UniformLocation(const name:String8):integer; override;
+  procedure SetUniformVec4Array(location:integer;values:PSingle;count:integer); override;
   procedure UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4); // Get transformation matrices and upload them to uniforms
  end;
 
@@ -308,6 +310,18 @@ procedure TGLShader.SetUniform(uniLoc:integer;const value:TVec3);
  begin
   if uniLoc>=0 then
    glUniform3fv(uniLoc,1,@value);
+ end;
+
+function TGLShader.UniformLocation(const name:String8):integer;
+ begin
+  result:=glGetUniformLocation(handle,PAnsiChar(name));
+ end;
+
+procedure TGLShader.SetUniformVec4Array(location:integer;values:PSingle;count:integer);
+ begin
+  if location<0 then exit;
+  glUniform4fv(location,count,PGLfloat(values));
+  CheckForGLError(402);
  end;
 
 procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4);

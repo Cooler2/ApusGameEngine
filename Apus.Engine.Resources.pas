@@ -186,6 +186,10 @@ interface
   procedure SetUniform(name:String8;const value:TQuat); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TMat4d); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TMat4); overload; virtual; abstract;
+  // Fast path for per-draw parameters: resolve the location once, then upload by it.
+  // The shader must be active (shader.UseCustom) when uploading.
+  function UniformLocation(const name:String8):integer; virtual; abstract; // -1: not found
+  procedure SetUniformVec4Array(location:integer;values:PSingle;count:integer); virtual; abstract; // count of vec4
   class function VectorFromColor3(color:cardinal):TVec3;
   class function VectorFromColor(color:cardinal):TQuat;
  protected

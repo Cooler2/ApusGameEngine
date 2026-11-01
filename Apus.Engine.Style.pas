@@ -27,8 +27,11 @@
 // (see IsInheritedStyleKey); box chrome never inherits.
 //
 //  Box (chrome):
-//   fill                 background color (0 = none)
-//   border-color         border color; border-width; radius
+//   fill                 background <fill> (0 or none = no fill)
+//   fill-shade           <fill> layer over the fill, inside the border (procedural buttons
+//                        have a light-to-dark shade by default; 'none' removes it)
+//   border-color         border <fill>; border-width;
+//   radius               '<r>' or '<tl> <tr> <br> <bl>' (2 or 3 values as in CSS)
 //   border-light         bevel highlight (button); border-dark  bevel shadow (button, frame)
 //   inner-fill, inner-border-color, inner-radius, inner-border-width  (client-area block)
 //   background-image     file:<name> | tex:<name> | none; drawn by the box path between fill and
@@ -56,6 +59,15 @@
 //   hover-time, hover-time-in, hover-time-out, press-time, release-time,
 //   disable-time, enable-time;  hover-target: parent  (hover follows the parent)
 //
+// <fill> values (R-39):
+//   <color> | none
+//   linear(<angle>, <stop>, <stop> [, <stop>...] [, repeat | reflect])
+//   linear(<angle>, url(<image>))          -- a ramp texture: 'url(file:ramp.png)'
+//   edge(<width>, <stop>, <stop> [, ...])  -- from the shape edge inwards, width in logical units
+//   <angle> := <deg>deg | <deg> | to top | to right | to bottom | to left   (0deg = to top)
+//   <stop>  := <color> [<pos>%]   -- up to 4 stops; ones without a position are spread evenly
+//   Example: fill: linear(180deg, #6F7F98, #435166); fill-shade: &shade-raised
+//
 // Author: Apus Engine R-05 refactoring
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
@@ -63,7 +75,7 @@
 unit Apus.Engine.Style;
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 interface
-uses Apus.Core;
+uses Apus.Core, Apus.Engine.Types;
 
 type
   // A single key-value attribute pair (both stored as strings)
@@ -185,6 +197,19 @@ function ParseStyleColor(const s:String8):cardinal;
 
 // Parse numeric string: plain number or percentage ('50%' -> 0.5)
 function ParseStyleNumber(const s:String8):single;
+
+// Parse a <fill> value (see the header); tokens are expanded, also inside its parts.
+// False for '' or an invalid value. Results are cached by the text until stylesRevision changes.
+// edge() width stays in logical units: the drawer scales it.
+function ParseStyleFill(const s:String8; out fill:TFill):boolean;
+// '<r>' or '<tl> <tr> <br> <bl>'; 2 values: tl+br, tr+bl; 3 values: tl, tr+bl, br. False for ''
+function ParseStyleRadii(const s:String8; out radii:TCornerRadii):boolean;
+function ResolveBlockFill(block:TStyleBlock; const key:String8; const defVal:TFill):TFill;
+
+var
+ // Turns an image reference of 'url(...)' into a texture (TTexture) that stays alive while
+ // fills use it. Installed by the drawer (DefaultStyle); without it url() fills are invalid.
+ StyleImageResolver:function(const src:String8):TObject;
 
 // True for attributes that cascade down the element tree when not set locally
 // (typography and content color). Box chrome (fill, border*, radius...) never inherits.
@@ -1140,6 +1165,248 @@ function ResolveBlockStateNumber(block:TStyleBlock; const stateName,key:String8;
   s:=ResolveBlockStateAttr(block,stateName,key,'');
   if s='' then exit(defVal);
   result:=ParseStyleNumber(s);
+ end;
+
+{ Fills (R-39) }
+
+const
+ FILL_CACHE_SIZE=128; // direct-mapped, a power of 2
+
+type
+ TFillCacheEntry=record
+  key:String8;
+  revision:cardinal;
+  used:boolean; // the entry holds a parse result
+  ok:boolean;
+  fill:TFill;
+ end;
+
+var
+ fillCache:array[0..FILL_CACHE_SIZE-1] of TFillCacheEntry;
+ warnedFills:String8; // ';value;' - to warn about each invalid fill once
+
+// Split by top-level commas: commas inside nested parentheses stay, as in 'url(a,b)'
+function SplitFillArgs(const s:String8):Strings8;
+ var
+  i,depth,start,n:integer;
+ begin
+  result:=nil;
+  n:=0; depth:=0; start:=1;
+  for i:=1 to length(s)+1 do
+   if (i>length(s)) or ((s[i]=',') and (depth=0)) then begin
+    SetLength(result,n+1);
+    result[n]:=Copy(s,start,i-start).Trim;
+    inc(n);
+    start:=i+1;
+   end else
+   if s[i]='(' then inc(depth)
+   else if s[i]=')' then dec(depth);
+ end;
+
+function IsNumberText(const s:String8):boolean;
+ begin
+  result:=(s<>'') and (s[1] in ['0'..'9','-','+','.']);
+ end;
+
+// A color part: tokens expanded; zero colors ('0', '$00000000') are valid
+function ParseFillColor(const s:String8; out c:cardinal):boolean;
+ var
+  t:String8;
+  i:integer;
+ begin
+  t:=ExpandToken(s).Trim;
+  c:=ParseStyleColor(t);
+  if c<>0 then exit(true);
+  if (t<>'') and ((t[1]='#') or (t[1]='$')) then Delete(t,1,1);
+  result:=t<>'';
+  for i:=1 to length(t) do
+   if t[i]<>'0' then exit(false);
+ end;
+
+function ParseFillAngle(const s:String8; out angle:single):boolean;
+ var
+  t:String8;
+ begin
+  t:=ExpandToken(s).Trim.ToLower;
+  result:=true;
+  if t='to top' then angle:=0 else
+  if t='to right' then angle:=90 else
+  if t='to bottom' then angle:=180 else
+  if t='to left' then angle:=270 else begin
+   if t.EndsWith('deg') then t:=Copy(t,1,length(t)-3).Trim;
+   result:=IsNumberText(t);
+   if result then angle:=Conv.ToFloat(t);
+  end;
+ end;
+
+// '<color> [<pos>]', the whole stop may be a token
+function ParseFillStop(const s:String8; out c:cardinal; out pos:single; out hasPos:boolean):boolean;
+ var
+  parts:Strings8;
+  i,n:integer;
+ begin
+  parts:=ExpandToken(s).Trim.Split(' ');
+  n:=0;
+  for i:=0 to high(parts) do
+   if parts[i]<>'' then begin
+    parts[n]:=parts[i]; inc(n);
+   end;
+  result:=(n in [1,2]) and ParseFillColor(parts[0],c);
+  hasPos:=n=2;
+  pos:=0;
+  if hasPos then begin
+   result:=result and IsNumberText(parts[1]);
+   pos:=ParseStyleNumber(parts[1]);
+  end;
+ end;
+
+function DoParseStyleFill(const s:String8; out fill:TFill):boolean;
+ var
+  t,head:String8;
+  args:Strings8;
+  i,j,k,n,p:integer;
+  isEdge:boolean;
+  lead:single; // the angle or the edge band width
+  spread:TFillSpread;
+  colors:array[0..MAX_FILL_STOPS-1] of cardinal;
+  pos:array[0..MAX_FILL_STOPS-1] of single;
+  hasPos:array[0..MAX_FILL_STOPS-1] of boolean;
+  tex:TObject;
+ begin
+  result:=false;
+  fill:=TFill.None;
+  t:=ExpandToken(s).Trim;
+  if t='' then exit;
+  if t.ToLower='none' then exit(true);
+  p:=t.IndexOf('(');
+  if p<=0 then begin // a plain color
+   result:=ParseFillColor(t,colors[0]);
+   if result then fill:=TFill.Solid(colors[0]);
+   exit;
+  end;
+  if t[length(t)]<>')' then exit;
+  head:=Copy(t,1,p-1).Trim.ToLower;
+  if head='linear' then isEdge:=false
+  else if head='edge' then isEdge:=true
+  else exit;
+  args:=SplitFillArgs(Copy(t,p+1,length(t)-p-1));
+  n:=length(args);
+  if n<2 then exit;
+  if isEdge then begin
+   head:=ExpandToken(args[0]).Trim;
+   if not IsNumberText(head) then exit;
+   lead:=ParseStyleNumber(head);
+   if lead<=0 then exit;
+  end else
+   if not ParseFillAngle(args[0],lead) then exit;
+  // spread mode
+  spread:=fsPad;
+  head:=args[n-1].ToLower;
+  if head='repeat' then spread:=fsRepeat else
+  if head='reflect' then spread:=fsReflect;
+  if (head='repeat') or (head='reflect') or (head='pad') then dec(n);
+  // a ramp texture
+  if (n=2) and args[1].StartsWith('url(',true) and (args[1][length(args[1])]=')') then begin
+   if not Assigned(StyleImageResolver) then exit;
+   tex:=StyleImageResolver(Copy(args[1],5,length(args[1])-5).Trim);
+   if tex=nil then exit;
+   if isEdge then fill:=TFill.Edge(lead,0,0)
+    else fill:=TFill.Linear(lead,0,0);
+   fill:=fill.WithRamp(tex).WithSpread(spread);
+   exit(true);
+  end;
+  // color stops: args[1..n-1]
+  dec(n);
+  if (n<2) or (n>MAX_FILL_STOPS) then exit;
+  for i:=0 to n-1 do
+   if not ParseFillStop(args[i+1],colors[i],pos[i],hasPos[i]) then exit;
+  // positions as in CSS: the ends default to 0 and 1, missing inner ones are spread
+  // evenly between their known neighbours, and a position never goes back
+  if not hasPos[0] then pos[0]:=0;
+  if not hasPos[n-1] then pos[n-1]:=1;
+  hasPos[0]:=true; hasPos[n-1]:=true;
+  i:=1;
+  while i<n-1 do begin
+   if hasPos[i] then begin
+    inc(i); continue;
+   end;
+   j:=i;
+   while not hasPos[j] do inc(j);
+   for k:=i to j-1 do
+    pos[k]:=pos[i-1]+(pos[j]-pos[i-1])*(k-i+1)/(j-i+1);
+   i:=j;
+  end;
+  for i:=1 to n-1 do
+   if pos[i]<pos[i-1] then pos[i]:=pos[i-1];
+  if isEdge then fill:=TFill.Edge(lead,colors[0],colors[n-1])
+   else fill:=TFill.Linear(lead,colors[0],colors[n-1]);
+  fill.stopCount:=n;
+  for i:=0 to n-1 do begin
+   fill.stops[i].pos:=pos[i];
+   fill.stops[i].color:=colors[i];
+  end;
+  fill:=fill.WithSpread(spread);
+  result:=true;
+ end;
+
+function ParseStyleFill(const s:String8; out fill:TFill):boolean;
+ var
+  h:cardinal;
+  i:integer;
+  entry:^TFillCacheEntry;
+ begin
+  if s='' then begin
+   fill:=TFill.None;
+   exit(false);
+  end;
+  // FNV-1a over the text
+  h:=2166136261;
+  for i:=1 to length(s) do
+   h:=cardinal((uint64(h xor byte(s[i]))*16777619) and $FFFFFFFF);
+  entry:=@fillCache[h and (FILL_CACHE_SIZE-1)];
+  if entry.used and (entry.revision=stylesRevision) and (entry.key=s) then begin
+   fill:=entry.fill;
+   exit(entry.ok);
+  end;
+  result:=DoParseStyleFill(s,fill);
+  if not result and (warnedFills.IndexOf(';'+s+';',1)<=0) then begin
+   warnedFills:=warnedFills+';'+s+';';
+   Log.Warn('Style: invalid fill "%s"',[s]);
+  end;
+  entry.key:=s;
+  entry.revision:=stylesRevision;
+  entry.used:=true;
+  entry.ok:=result;
+  entry.fill:=fill;
+ end;
+
+function ParseStyleRadii(const s:String8; out radii:TCornerRadii):boolean;
+ var
+  parts:Strings8;
+  v:array[0..3] of single;
+  i,n:integer;
+ begin
+  radii:=TCornerRadii.All(0);
+  parts:=ExpandToken(s).Trim.Split(' ');
+  n:=0;
+  for i:=0 to high(parts) do
+   if parts[i]<>'' then begin
+    if n>3 then exit(false);
+    v[n]:=ParseStyleNumber(ExpandToken(parts[i]));
+    inc(n);
+   end;
+  result:=n>0;
+  case n of
+   1:radii:=TCornerRadii.All(v[0]);
+   2:radii:=TCornerRadii.Init(v[0],v[1],v[0],v[1]);
+   3:radii:=TCornerRadii.Init(v[0],v[1],v[2],v[1]);
+   4:radii:=TCornerRadii.Init(v[0],v[1],v[2],v[3]);
+  end;
+ end;
+
+function ResolveBlockFill(block:TStyleBlock; const key:String8; const defVal:TFill):TFill;
+ begin
+  if not ParseStyleFill(ResolveBlockAttr(block,key,''),result) then result:=defVal;
  end;
 
 { Built-in themes — draft palettes from design doc §3.
