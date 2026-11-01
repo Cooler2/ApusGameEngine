@@ -155,6 +155,37 @@ begin
   EndTest;
 end;
 
+// A radius larger than the box is clamped to half the smaller side: semicircle ends
+// (a pill), not two arcs meeting at a sharp point
+procedure TestHugeRadius;
+var
+  e:TUIElement;
+  yc:integer;
+begin
+  StartTest('Huge radius gives semicircle ends');
+  e:=NewElement(330,90,140,40,'fill: #E0A030; radius: 999;');
+  DrawElement(e);
+  gfx.CopyFromBackbuffer(0,0,img);
+  yc:=e.globalRect.CenterPoint.Y;
+  with e.globalRect do begin
+    CheckPixel(Left,Top,BG,'corner');
+    CheckPixel(Left+1,yc,$FFE0A030,'the end touches the box at mid-height');
+    // (-16,10) from the end center: inside the semicircle of radius 20, outside a sharp lens
+    CheckPixel(Left+4,yc+10,$FFE0A030,'round end, not a point');
+    CheckPixel(Left+4,yc-10,$FFE0A030,'round end, not a point (top)');
+    CheckPixel(Left+30,Top,$FFE0A030,'straight top edge');
+  end;
+  // the geometry version (a fan, no AA) is clamped the same way
+  draw.FillRRect(490,90,629,129,$FF30A0E0,999);
+  gfx.CopyFromBackbuffer(0,0,img);
+  CheckPixel(490,90,BG,'FillRRect: corner');
+  CheckPixel(491,110,$FF30A0E0,'FillRRect: the end at mid-height');
+  CheckPixel(494,120,$FF30A0E0,'FillRRect: round end, not a point');
+  CheckPixel(494,100,$FF30A0E0,'FillRRect: round end, not a point (top)');
+  CheckPixel(520,90,$FF30A0E0,'FillRRect: straight top edge');
+  EndTest;
+end;
+
 // edge() width is in logical units: twice as wide at scale 2
 procedure TestEdgeScale;
 var
@@ -280,6 +311,7 @@ begin
       TestCornerRadii;
       TestEdgeScale;
       TestShadeLayer;
+      TestHugeRadius;
       gfx.CopyFromBackbuffer(0,0,img);
       outDir:=String8(ExtractFilePath(ParamStr(0)))+'TestStyleFill/';
       Files.Save(outDir+'style_fill.png',SavePNG(img));

@@ -745,6 +745,16 @@ begin
   else result:=0.5-0.5/k;
 end;
 
+// A corner radius limited to half of the shape size: a larger one would make the arcs
+// of opposite corners cross (a pointed shape) instead of semicircle ends
+function ArcRadius(r,width,height:single):single;
+begin
+ if r>width*0.5 then r:=width*0.5;
+ if r>height*0.5 then r:=height*0.5;
+ if r<0 then r:=0;
+ result:=r;
+end;
+
 function TDrawer.ArcSteps(r:single;steps:integer):integer;
 begin
  // the arc length in real pixels decides
@@ -1486,10 +1496,11 @@ var
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
- steps:=ArcSteps(r,steps);
  d:=HairlineShift; // outer pixels of the cells, as Rect
  x1:=x1-d; y1:=y1-d;
  x2:=x2+d; y2:=y2+d;
+ r:=ArcRadius(r,x2-x1,y2-y1);
+ steps:=ArcSteps(r,steps);
  vrt[0].Init(x1+r,y1,zPlane,color);
  vrt[1].Init(x2-r,y1,zPlane,color);
  vrt[1+steps].Init(x2,y1+r,zPlane,color);
@@ -1520,6 +1531,7 @@ begin
  shader.UseTexture(neutral);
  // the outer edge is exactly the edge of FillRRect with the same arguments
  x2:=x2+0.5; x1:=x1-0.5; y1:=y1-0.5; y2:=y2+0.5;
+ r:=ArcRadius(r,x2-x1,y2-y1);
  steps:=ArcSteps(r,steps);
  b:=(steps+1)*2;
  for i:=0 to steps do begin
@@ -1616,6 +1628,7 @@ procedure TDrawer.FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single;steps:
   sx1,sy1,sx2,sy2,ds,dc,a:single;
  begin
   if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
+  r:=ArcRadius(r,x2-x1+1,y2-y1+1);
   steps:=ArcSteps(r,steps);
   shader.UseTexture(neutral);
   sx1:=x1-0.5+r; sx2:=x2+0.5-r;
@@ -1656,6 +1669,7 @@ procedure TDrawer.FillRRect(x1,y1,x2,y2:single;const fill:TFill;r:single=2);
   ix1:=SRound(x1); iy1:=SRound(y1);
   ix2:=SRound(x2); iy2:=SRound(y2);
   if not clippingAPI.Prepare(ix1,iy1,ix2+1,iy2+1) then exit;
+  r:=ArcRadius(r,ix2-ix1+1,iy2-iy1+1);
   steps:=ArcSteps(r,0);
   box.Init(ix1-0.5,iy1-0.5,ix2+0.5,iy2+0.5);
   // the same fan as the color version
