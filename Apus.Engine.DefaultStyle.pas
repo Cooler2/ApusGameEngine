@@ -842,7 +842,7 @@ implementation
     if i-scroll.X>(x2-x1-d-offset) then scroll.X:=i-(x2-x1-d-offset);
     scrollPixels:=round(scroll.X); // scroll.X is already in screen pixels
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
-    if not completion.IsEmpty then begin
+    if HasCompletion then begin
      j:=xStart+txt.WidthW(font,wst);
      txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),
        copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);

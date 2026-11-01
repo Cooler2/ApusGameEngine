@@ -49,6 +49,7 @@ type
   wasMaximized:boolean; // maximize on the next switch to the window mode (start or return from fullscreen)
   configured:boolean;   // Configure was called: the startup state is applied
   normalRect:TRect;     // the normal (restored) window rect left for fullscreen, empty if none: the window returns there
+  procedure ChangeState(cmd:integer);
   function CustomFrameActive:boolean;
   function FrameHitTestAt(const p:TPoint;const client:TRect):integer;
   procedure ApplySizeLimits(var info:TMinMaxInfo);
@@ -948,19 +949,45 @@ function TWinGLWindow.IsTerminated:boolean;
   result:=terminated;
  end;
 
+// ShowWindow for everything but hiding. A window driven by the robot never takes the
+// activation: the commands turn into the ones that keep it. Maximizing has no such command,
+// but a minimized window restores to maximized without the activation (so the state passes
+// through Minimized). The commands that do not take it are unaffected by SW_HIDE of the
+// process startup info (Start-Process -WindowStyle Hidden), unlike the first SW_SHOW.
+procedure TWinGLWindow.ChangeState(cmd:integer);
+ var
+  p:TWindowPlacement;
+ begin
+  if robotDriven then
+   case cmd of
+    SW_SHOW:cmd:=SW_SHOWNA;
+    SW_SHOWNORMAL,SW_RESTORE:cmd:=SW_SHOWNOACTIVATE;
+    SW_MINIMIZE:cmd:=SW_SHOWMINNOACTIVE;
+    SW_MAXIMIZE:begin
+     p.length:=sizeof(p);
+     GetWindowPlacement(window,@p);
+     p.flags:=WPF_RESTORETOMAXIMIZED;
+     p.showCmd:=SW_SHOWMINNOACTIVE;
+     SetWindowPlacement(window,@p);
+     cmd:=SW_SHOWNOACTIVATE;
+    end;
+   end;
+  windows.ShowWindow(window,cmd);
+ end;
+
 procedure TWinGLWindow.Minimize;
  begin
-  windows.ShowWindow(window,SW_MINIMIZE);
+  ChangeState(SW_MINIMIZE);
  end;
 
 procedure TWinGLWindow.Maximize;
  begin
-  windows.ShowWindow(window,SW_MAXIMIZE);
+  ChangeState(SW_MAXIMIZE);
  end;
 
 procedure TWinGLWindow.Restore;
  begin
-  windows.ShowWindow(window,SW_RESTORE);
+  ChangeState(SW_RESTORE);
  end;
 
 function TWinGLWindow.CustomFrameActive:boolean;
@@ -1455,7 +1482,7 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    zoomed:=IsZoomed(window);
    if zoomed and not windowed then begin // fullscreen from the maximized state
     wasMaximized:=true;
-    windows.ShowWindow(window,SW_RESTORE);
+    ChangeState(SW_RESTORE);
     zoomed:=false;
    end;
    if wasWindowed and not windowed then GetWindowRect(window,normalRect); // restored above if it was maximized
@@ -1493,9 +1520,9 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    // The normal size is set above, so Restore returns to it. Shown maximized at once: no flash
    if windowed and wasMaximized then begin
     wasMaximized:=false;
-    windows.ShowWindow(window,SW_SHOWMAXIMIZED);
+    ChangeState(SW_MAXIMIZE);
    end else
-    windows.ShowWindow(window,SW_SHOW);
+    ChangeState(SW_SHOW);
    UpdateWindow(Window);
 
    GetWindowRect(window,r);
@@ -1519,8 +1546,8 @@ procedure TWinGLWindow.Show(show:boolean);
  begin
   //LoadCursor(0,IDC_ARROW);
   if show then begin
-   if IsZoomed(window) then windows.ShowWindow(window,SW_SHOW) // SW_SHOWNORMAL would restore it
-    else windows.ShowWindow(window,SW_SHOWNORMAL);
+   if IsZoomed(window) then ChangeState(SW_SHOW) // SW_SHOWNORMAL would restore it
+    else ChangeState(SW_SHOWNORMAL);
   end else
    windows.ShowWindow(window,SW_HIDE);
  end;

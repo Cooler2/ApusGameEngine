@@ -275,9 +275,11 @@ type
   lastTakeMs:int64; // when the last operation was taken (for delayMs)
   activeValue:boolean;
   closedValue:boolean;
+  unattended:boolean; // counted in unattendedCount
   applied:TVirtualInputState;
   procedure DropQueued; // under lock
   procedure UpdateDone; // under lock
+  procedure UpdateUnattended; // under lock
  public
   constructor Create(owner:TWindow);
   procedure AddRef;
@@ -664,6 +666,9 @@ type
  TSurfaceConfigHook=procedure(wnd:TWindow;const input:TSurfaceInput;var config:TSurfaceConfig) of object;
 var
  surfaceConfigHook:TSurfaceConfigHook;
+ // -ROBOT=VIRTUAL: only the Robot API drives the application. Windows are in the virtual
+ // input from their creation and never take the activation from the user
+ robotDriven:boolean;
 
 function FindWindowByHandle(handle:THandle):TWindow;
 function ListWindows:TWindowArray;
@@ -731,6 +736,10 @@ constructor TVirtualInput.Create(owner:TWindow);
    viRegistry[n]:=self;
   finally
    viRegistryLock.Leave;
+  end;
+  if robotDriven then begin
+   reqActive:=true;
+   SetActive(true);
   end;
  end;
 
@@ -938,7 +947,24 @@ procedure TVirtualInput.Complete(const ticket:int64;const st:TVirtualInputState)
 
 procedure TVirtualInput.SetActive(enable:boolean);
  begin
-  activeValue:=enable;
+  lock.Enter;
+  try
+   activeValue:=enable;
+   UpdateUnattended;
+  finally
+   lock.Leave;
+  end;
+ end;
+
+procedure TVirtualInput.UpdateUnattended;
+ var
+  value:boolean;
+ begin
+  value:=activeValue and not closedValue;
+  if value=unattended then exit;
+  unattended:=value;
+  if value then Atomic.Inc(unattendedCount)
+   else Atomic.Dec(unattendedCount);
  end;
 
 procedure TVirtualInput.Close;
@@ -949,6 +975,7 @@ procedure TVirtualInput.Close;
   try
    if closedValue then exit;
    closedValue:=true;
+   UpdateUnattended;
    DropQueued;
    if takenTicket<>0 then begin // the window stops in the middle of an operation
     i:=length(dropped);

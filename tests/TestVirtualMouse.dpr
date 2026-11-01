@@ -2,7 +2,7 @@
 // regular routing of the engine - hit-test, hover, pressed state, capture, modal dialogs,
 // clicks - and is checked by the state of real UI elements, not by handler calls.
 // Also the keyboard routing around the focus, the popup menu (mouse and keys), the event
-// methods of widgets and the queue of message dialogs.
+// methods of widgets, the queue of message dialogs and the -ROBOT=VIRTUAL start.
 // No native window: TTestWindow plays the platform (OS pointer, OS button events), the
 // frames run the window-level steps of TGame.FrameLoop, the main window in this thread,
 // the second one in its own thread like an extra window.
@@ -109,9 +109,11 @@ type
   // receives the event methods of widgets
   TEventProbe=class
     clicks,changes,enters:integer;
+    edit:TUIEditBox;
     procedure DoClick;
     procedure DoChange;
     procedure DoEnter;
+    procedure DoComplete;
   end;
 
   // text sizes for the layouts that measure text: nothing is drawn here
@@ -300,6 +302,11 @@ procedure TEventProbe.DoChange;
 procedure TEventProbe.DoEnter;
  begin
   inc(enters);
+ end;
+
+procedure TEventProbe.DoComplete;
+ begin
+  edit.completion:=UTF8.Decode('abcdef');
  end;
 
 // plain menu commands: inline and async (the async one runs in its own thread)
@@ -1111,10 +1118,82 @@ procedure TestEventMethods;
   e.onEnter:=nil;
   Check(e.onKey(ord(TKey.Enter),true,0),'with no onEnter the key goes on');
   e.onEnter:=probe.DoEnter;
+  e.onKey(ord(TKey.EndKey),true,0);
   e.completion:=UTF8.Decode('abcdef');
   Check(not e.onKey(ord(TKey.Enter),true,0),'a completion takes Enter');
   Check((e.text='abcdef') and (probe.enters=1),'and onEnter is not called');
   Check(probe.changes=4,'the accepted completion is an edit');
+  probe.Free;
+  EndTest;
+ end;
+
+// The gray tail of an edit box continues the current text: a change of the text drops it,
+// and it counts only while it fits the text and the caret is at the end
+procedure TestCompletion;
+ var
+  form:TUIScene;
+  probe:TEventProbe;
+  e:TUIEditBox;
+ begin
+  StartTest('Completion');
+  probe:=TEventProbe.Create;
+  form:=TUIScene.Create('CompletionForm',false,wndA); // never active: no part in the mouse tests
+  e:=TUIEditBox.Create(100,20,form.UI,'CompletionEdit');
+  e.onEnter:=probe.DoEnter;
+
+  e.completion:=UTF8.Decode('abcdef');
+  Check(e.HasCompletion,'it continues an empty text');
+  e.onUniChar(Char32('a'),0);
+  Check(e.completion.IsEmpty,'typing drops it');
+  e.completion:=UTF8.Decode('abcdef');
+  Check(e.HasCompletion,'it continues the text');
+  e.cursorPos:=0;
+  Check(not e.HasCompletion,'the caret left the end');
+  e.onKey(ord(TKey.Enter),true,0);
+  Check((e.text='a') and (probe.enters=1),'Enter does not take it then');
+  e.onKey(ord(TKey.EndKey),true,0);
+  e.selStart:=0;
+  e.selCount:=1;
+  Check(not e.HasCompletion,'a selection hides it');
+  e.selCount:=0;
+  e.realText:=UTF8.Decode('abx');
+  e.cursorPos:=3;
+  Check(not e.HasCompletion,'text assigned to realText does not lead to it');
+  e.onKey(ord(TKey.Enter),true,0);
+  Check((e.text='abx') and (probe.enters=2),'Enter does not take a tail of another text');
+
+  e.text:='aB';
+  Check(e.completion.IsEmpty,'assigning another text drops it');
+  e.completion:=UTF8.Decode('abcdef');
+  e.text:='aB';
+  Check(not e.completion.IsEmpty,'assigning the same text keeps it');
+  e.cursorPos:=2;
+  Check(e.HasCompletion,'letter case does not matter');
+  e.completion:=UTF8.Decode('ab');
+  Check(not e.HasCompletion,'nothing to add');
+  e.realText:=[$41F];
+  e.completion:=[$43F,$430];
+  e.cursorPos:=1;
+  Check(e.HasCompletion,'letter case does not matter beyond ASCII');
+
+  e.text:='ab';
+  e.cursorPos:=2;
+  e.completion:=UTF8.Decode('abcdef');
+  e.onKey(ord(TKey.Backspace),true,0);
+  Check(e.completion.IsEmpty,'deleting drops it');
+  e.sendSignals:=ssNone;
+  e.completion:=UTF8.Decode('abcdef');
+  e.onUniChar(Char32('b'),0);
+  Check(e.completion.IsEmpty,'with no signals as well');
+  e.sendSignals:=ssAll;
+
+  probe.edit:=e;
+  e.onChange:=probe.DoComplete;
+  e.onUniChar(Char32('c'),0);
+  Check(e.HasCompletion,'onChange gives a new one');
+  Check(not e.onKey(ord(TKey.Enter),true,0),'Enter takes it');
+  Check((e.text='abcdef') and (e.cursorPos=6),'the caret goes to the end of the accepted text');
+  Check((probe.enters=2) and not e.HasCompletion,'taken once: nothing is left to add');
   probe.Free;
   EndTest;
  end;
@@ -1546,6 +1625,39 @@ procedure TestPhysicalAgain;
   EndTest;
  end;
 
+// While a window is in the virtual mode nobody answers a modal box: the windows are counted
+// for SystemMessage. -ROBOT=VIRTUAL: a new window starts in this mode.
+procedure TestRobotDriven;
+ var
+  op:TVirtualInputOp;
+  wnd:TTestWindow;
+  base:integer;
+ begin
+  StartTest('Robot driven window');
+  base:=unattendedCount;
+  FillChar(op,sizeof(op),0);
+  op.kind:=vioMode;
+  op.enable:=true;
+  wndA.virtualInput.Queue(op);
+  RunFrame(wndA);
+  Check(unattendedCount=base+1,'the virtual mode is counted');
+  op.enable:=false;
+  wndA.virtualInput.Queue(op);
+  RunFrame(wndA);
+  Check(unattendedCount=base,'the physical mode is not');
+  robotDriven:=true;
+  wnd:=NewWindow('Driven',800,600);
+  robotDriven:=false;
+  Check(wnd.virtualInput.IsActive,'a new window is in the virtual mode');
+  Check(wnd.virtualInput.RequestedActive,'mouse commands are accepted at once');
+  Check(unattendedCount=base+1,'it is counted');
+  wnd.PlatformMouseButton(1,true);
+  Check(wnd.mouseButtons=0,'a physical button does not reach it');
+  FreeAndNil(wnd);
+  Check(unattendedCount=base,'a closed window is not counted');
+  EndTest;
+ end;
+
 procedure TestShutdown;
  var
   a:String8;
@@ -1642,6 +1754,7 @@ begin
   TestKeyboardTarget;
   TestEditKeys;
   TestEventMethods;
+  TestCompletion;
   TestMessageQueue;
   TestFocusKeys;
   TestDrag;
@@ -1652,6 +1765,7 @@ begin
   TestSecondWindow;
   TestCloseWithPending;
   TestPhysicalAgain;
+  TestRobotDriven;
   TestShutdown;
   if Files.Exists(ROBOT_IN) then Files.Delete(ROBOT_IN);
   if Files.Exists(ROBOT_OUT) then Files.Delete(ROBOT_OUT);

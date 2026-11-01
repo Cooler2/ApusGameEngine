@@ -494,6 +494,7 @@ function TSDLPlatform.CreateWindow(const name:String8;title:string):TWindow;
    Log.Msg('CreateWindow: %s (%s)',[name,title]);
    ApplyOpenGLContextAttributes(oglContextTemplate,false);
    ust:=title;
+   if robotDriven then SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN,'1');
    // NB: SDL_WINDOWS_DPI_SCALING is deliberately left off. It would make SDL express
    // window sizes in logical points, while the engine already scales the requested size
    // by deviceScale itself (TGameApplication.SetupGameSettings) - the two would fight.

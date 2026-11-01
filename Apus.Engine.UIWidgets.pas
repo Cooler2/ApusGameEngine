@@ -244,7 +244,7 @@ interface
   // auto-complete (completion), placeholder (defaultText), and horizontal scroll.
   TUIEditBox=class(TUIElement)
    realText:String32; // real text value of the edit box
-   completion:String32; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
+   completion:String32; // grayed tail of the text, Enter makes it realText (see HasCompletion). Any change of the text drops it: onChange is the place to set a new one
    defaultText:String32; // grayed background text, displayed if realText is empty
    cursorPos:integer;     // caret position in String32 (0..length, 0-based)
    maxLength:integer;      // max allowed length
@@ -268,6 +268,8 @@ interface
    procedure SetFocus; override;
    procedure onLostFocus; override;
    procedure SelectAll; virtual;
+   // The completion is in force: it continues the text (letter case aside), the caret is at the end, nothing is selected
+   function HasCompletion:boolean;
   private
    savedText:String32;
    lastClickTime:int64;
@@ -1049,8 +1051,18 @@ function TUILabel.Right(text:String8):TUILabel;
    if selstart+selcount>length(realtext) then selcount:=length(realtext)-selstart;
   end;
 
+ function TUIEditBox.HasCompletion:boolean;
+  var
+   len:integer;
+  begin
+   len:=length(realText);
+   result:=(length(completion)>len) and (cursorPos=len) and (selCount=0) and
+     completion.ToLower.StartsWith(realText.ToLower);
+  end;
+
  procedure TUIEditBox.TextChanged(const oldText:String32);
   begin
+   completion:=[];
    if sendSignals<>ssAll then exit;
    savedText:=oldText;
    Signal('UI\'+name+'\changed',0);
@@ -1084,6 +1096,7 @@ function TUIEditBox.GetText:String8;
 
  procedure TUIEditBox.SetText(s:String8);
   begin
+   if s<>GetText then completion:=[];
    realtext:=UTF8.Decode(s);
    if cursorpos>length(realtext) then cursorpos:=length(realtext);
   end;
@@ -1233,7 +1246,7 @@ function TUIEditBox.GetText:String8;
     // [Enter]: accept autocompletion if present, otherwise emit Enter signal
     if (TKey(keycode)=TKey.Enter) and (sendSignals<>ssNone) then begin
      TUIElement.sender:=self;
-     if (not completion.IsEmpty) and (not realText.Same(completion)) then begin
+     if HasCompletion then begin
       realText:=completion;
       completion:=[];
       cursorpos:=length(realtext);

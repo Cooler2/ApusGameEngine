@@ -3,6 +3,33 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: the completion of the edit box follows the text (2026-10-31)
+
+- `TUIEditBox.completion`: any change of the text drops it (typing, deleting, undo, `text:=`
+  with another value), `onChange` runs after that and sets a new one. `realText:=` doesn't
+  drop it, but a completion that no longer fits is not drawn and not accepted.
+- New `TUIEditBox.HasCompletion`: the completion continues the text (letter case aside), the
+  caret is at the end, nothing is selected. Only then it is drawn and Enter takes it; in other
+  cases Enter works as with no completion.
+
+## 9-patch: cells with thin content are not lost (2026-10-31)
+
+- `TCustomNinePatch` looks for visible pixels in the whole cell, not in every 4th pixel: a 1 px
+  cell or a dot off that lattice made the cell "empty", and it was not drawn.
+- Tiled patches: a resizeable range shorter than 16 px is scaled up and repeats with a step of
+  16 px. A range of 1 px crashed with a division by zero, a short one gave a huge mesh.
+
+## Robot API: `-ROBOT=VIRTUAL`, no modal boxes under the virtual input (2026-10-31)
+
+- New command line parameter `-ROBOT=VIRTUAL`: the Robot API is on, windows are in the
+  virtual input from their creation (`robotDriven` in `Apus.Engine.Window`) and on Windows
+  never take the activation: showing, maximizing, restoring, minimizing and mode changes keep
+  it. See "Run without a user" in `robot_api_protocol.md`.
+- `Apus.Core`: while `unattendedCount>0` `SystemMessage` skips the outputs in `unattendedOff`
+  (default: the message box), log and console stay. The engine counts the windows in the
+  virtual input, so a modal box no longer stops a robot run; `-ROBOT=VIRTUAL` adds one for
+  the whole process. `InitSound` shows no message then either.
+
 ## Message dialogs: the queue waits for the closing effect (2026-10-31)
 
 - `Apus.Engine.MessageScene`: the next queued message starts on `ENGINE\EffectDone` of the

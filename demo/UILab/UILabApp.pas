@@ -31,6 +31,7 @@ implementation
    procedure InitGfx; override;
    procedure Render; override;
    procedure FileDone(dialog:TUIFileDialog;const value:TFileDialogResult);
+   procedure CompleteEdited;
   end;
 
  const
@@ -45,6 +46,7 @@ implementation
   dynCountLabel:TUILabel;   // Scroll page: shows dynCount
   freeSlider:TUIScrollBar;  // Scroll page: standalone scrollbar used as a slider
   sliderValLabel:TUILabel;  // Scroll page: live readout of freeSlider.value
+  completeEdit:TUIEditBox;  // Input page: the field with a completion
   tabsPanel:TUIGroupBox;    // left sidebar tab stack; used as a geometry anchor
   themeBtn:TUIButton;       // bottom sidebar button; used as a geometry anchor
   darkTheme:boolean=true;
@@ -209,6 +211,13 @@ implementation
 
 // --- Page: Input & focus -----------------------------------------------------
 
+ // Any edit drops the completion. A real field looks a new one up here;
+ // this one offers the same word, shown while the typed text leads to it.
+ procedure TUILabScene.CompleteEdited;
+  begin
+   completeEdit.completion:=Str32('autocompletion');
+  end;
+
  procedure PageInput;
   var
    col:TUIElement;
@@ -231,8 +240,9 @@ implementation
    edit.defaultText:=Str32('Password');
    edit.password:=true;
 
-   edit:=TUIEditBox.Create(260,26,col,'Lab\EditComplete');
-   edit.completion:=Str32('autocompletion');       // ghost text, accepted on Enter
+   completeEdit:=TUIEditBox.Create(260,26,col,'Lab\EditComplete');
+   completeEdit.onChange:=scene.CompleteEdited;
+   scene.CompleteEdited;                           // ghost text, accepted on Enter
 
    // Selection widgets on the right. Titles are flowing children of the column,
    // so they track the real layout instead of being pinned at guessed Y offsets
