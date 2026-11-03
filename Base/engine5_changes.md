@@ -19,7 +19,7 @@ Use it as the primary reference when updating old code.
   - `TryNormalize(minLength)` (TVec2d, TVec2; also TVec3d, TVec3 in Geom3D) - false and the
     vector unchanged if it is not longer than minLength; strict `Normalize` is unchanged.
   - `TSegment2.ClosestPoint(pnt[,t])`, `TSegment2.Distance2(pnt)` - nearest point of the segment
-    (t clamped to [0,1]); `ProjectPoint` keeps the line projection, but a degenerate segment
+    (t clamped to [0,1]); `TSegment2.Init(p1,p2)` from two `TVec2d`; `ProjectPoint` keeps the line projection, but a degenerate segment
     gives parameter=0, deviation=distance instead of a division by zero.
   - `TVec2d.BezierDerivative`, `BezierDerivative2`, `TryBezierCurvature` - exact derivatives and
     signed curvature of the cubic Bezier.

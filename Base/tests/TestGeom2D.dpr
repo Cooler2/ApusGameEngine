@@ -379,6 +379,9 @@ begin
   Check((Abs(t-0.5)<1E-12) and (Abs(p.x-0.5)<1E-12) and (p.y=0),'interior projection');
   Check(Abs(seg.Distance2(Vec2d(0.5,2))-4)<1E-12,'interior distance2');
   Check(seg.Distance2(Vec2d(0.3,0))=0,'point on the segment');
+  seg:=TSegment2.Init(Vec2d(0,0),Vec2d(1,0)); // endpoints as vectors
+  Check((seg.x1=0) and (seg.y1=0) and (seg.x2=1) and (seg.y2=0) and (seg.Distance2(Vec2d(2,1))=2),
+    'Init from two TVec2d');
   // the line projection keeps its contract: unclamped parameter
   seg.ProjectPoint(Vec2d(2,1),par,dev);
   Check((Abs(par-2)<1E-12) and (Abs(Abs(dev)-1)<1E-12),'ProjectPoint is still the line projection');

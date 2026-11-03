@@ -146,6 +146,7 @@ interface
    x1,y1,x2,y2:double;
    class function Init(x1,y1,x2,y2:integer):TSegment2; overload; static;
    class function Init(x1,y1,x2,y2:double):TSegment2; overload; static;
+   class function Init(const p1,p2:TVec2d):TSegment2; overload; static;
    // Projection onto the infinite line: parameter (0 at x1,y1, 1 at x2,y2, not clamped) and
    // signed distance from the line. Degenerate segment: parameter=0, deviation=distance to (x1,y1)
    procedure ProjectPoint(const pnt:TVec2d;out parameter,deviation:double);
@@ -483,6 +484,14 @@ class function TSegment2.Init(x1,y1,x2,y2:double):TSegment2;
   result.x2:=x2;
   result.y1:=y1;
   result.y2:=y2;
+ end;
+
+class function TSegment2.Init(const p1,p2:TVec2d):TSegment2;
+ begin
+  result.x1:=p1.x;
+  result.y1:=p1.y;
+  result.x2:=p2.x;
+  result.y2:=p2.y;
  end;
 
 procedure TSegment2.ProjectPoint(const pnt:TVec2d;out parameter,deviation:double);
