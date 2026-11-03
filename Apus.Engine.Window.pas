@@ -524,7 +524,7 @@ public
   // physicalPointer). Then dispatches the move (FlushMouseInput) - in the physical mode
   // only when the pointer was sampled.
   procedure FrameInput(physicalPointer:boolean);
-  function ProcessScenes(deltaTime:integer):boolean;
+  function ProcessScenes(deltaUs:int64):boolean;
 
   // --- Working surface: rebuild requests (any thread; only stores the request) ---
   procedure RequestResize(const client:TSize); overload;
@@ -1491,6 +1491,7 @@ procedure TWindow.AddScene(scene:TGameScene);
    SetLength(scenes,i+1);
    scenes[i]:=scene;
    scene.ownerWindow:=pointer(self);
+   scene.clock.rate:=0; // initialized by the next frame: Process runs at once
   finally
    UnlockState;
   end;
@@ -2074,35 +2075,32 @@ procedure TWindow.UpdateScreenScale;
   game.screenScale:=scale;
  end;
 
-function TWindow.ProcessScenes(deltaTime:integer):boolean;
+function TWindow.ProcessScenes(deltaUs:int64):boolean;
  var
-  i,time,n:integer;
+  i,k,n:integer;
+  sc:TGameScene;
  begin
   result:=false;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].status<>TSceneStatus.ssFrozen then begin
-    if scenes[i].frequency>0 then begin
-     time:=1000 div scenes[i].frequency;
-     inc(scenes[i].accumTime,deltaTime);
-     n:=0;
-     while scenes[i].accumTime>0 do begin
-      result:=scenes[i].Process or result;
-      dec(scenes[i].accumTime,time);
-      inc(n);
-      if n>5 then begin
-       scenes[i].accumTime:=0;
-       break;
-      end;
-     end;
-    end else
-     result:=scenes[i].Process or result;
-   end;
+  for i:=low(scenes) to high(scenes) do begin
+   sc:=scenes[i];
+   if sc.status=TSceneStatus.ssFrozen then continue;
+   if sc.frequency>0 then begin
+    n:=0;
+    if sc.clock.rate<>sc.frequency then begin // new scene or new frequency: one call at once
+     sc.clock.Init(sc.frequency);
+     n:=1;
+    end;
+    // exact frequency, stalls longer than 100 ms are not caught up
+    inc(n,sc.clock.Advance(deltaUs));
+    for k:=1 to n do result:=sc.Process or result;
+   end else
+    result:=sc.Process or result;
+  end;
  end;
 
 function TWindow.OnFrame:boolean;
 var
  i,n:integer;
- deltaTime:integer;
 begin
  result:=false;
  // a nested pass (a modal message pump inside a handler) is refused: the outer one owns the frame
@@ -2134,8 +2132,7 @@ begin
    if scenes[i].IsActive then
     scenes[i].PumpInput(shiftState);
 
-  deltaTime:=integer(frameDeltaMs);
-  result:=ProcessScenes(deltaTime);
+  result:=ProcessScenes(frameDeltaUs);
  finally
   UnlockState;
   inFrame:=false;

@@ -3,6 +3,17 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Scenes: exact `Process` frequency on `TStepClock` (2026-11-03)
+
+- `TGameScene.accumTime` -> `clock:TStepClock`: a scene with `frequency>0` gets `Process`
+  exactly `frequency` times per second. In `Render`, `clock.Alpha` is the share of the next
+  step for interpolation. The first call comes at once after the scene is added or
+  `frequency` changes.
+- Fixed with it: the step was `1000 div frequency` ms (60 Hz gave 62.5 calls per second), the
+  frame time was taken in whole ms (~13% lost at 144 FPS), and the time left after 6 calls in
+  one frame was silently dropped (now: one long frame counts as at most 100 ms).
+- `TWindow.ProcessScenes(deltaUs:int64)` - frame time in microseconds (was ms).
+
 ## Core: `TStepClock` - fixed-step clock (2026-11-03)
 
 - `Apus.Core.TStepClock`: elapsed time -> whole simulation steps of `1/rate` s and the fraction

@@ -1,4 +1,4 @@
-// TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
+﻿// TWindow cross-thread entry: Lock/Unlock (reentrancy, `window` context), QueueCall,
 // Acquire/Release, the close protocol (BeginClose, WaitReleased), the context of
 // onClickAsync threads, deferred removal of UI elements (TUIElement.Remove), keyboard
 // focus as window state, the window thread's mouse state of removed elements,
@@ -685,6 +685,67 @@ procedure TestDestroyScenes;
   EndTest;
  end;
 
+// counts its Process calls
+type
+  TCountScene=class(TGameScene)
+    calls:integer;
+    function Process:boolean; override;
+  end;
+
+function TCountScene.Process:boolean;
+ begin
+  inc(calls);
+  result:=false;
+ end;
+
+procedure TestSceneFrequency;
+ var
+  w:TWindow;
+  sc:TCountScene;
+  i:integer;
+ begin
+  StartTest('Scene Process frequency');
+  w:=NewWindow('Frequency');
+  window:=w;
+  sc:=TCountScene.Create('FrequencyScene',false,w);
+  sc.SetStatus(TSceneStatus.ssActive);
+  sc.frequency:=60;
+  w.ProcessScenes(0);
+  Check(sc.calls=1,'first Process at once');
+  sc.calls:=0;
+  for i:=1 to 125 do w.ProcessScenes(8000); // one second at 125 FPS
+  Check(sc.calls=60,'60 calls per second at 125 FPS');
+  sc.calls:=0;
+  for i:=1 to 144 do w.ProcessScenes((i*1000000) div 144-((i-1)*1000000) div 144); // one second at 144 FPS
+  Check(sc.calls=60,'60 calls per second at 144 FPS');
+  sc.calls:=0;
+  w.ProcessScenes(5000000);
+  Check(sc.calls=6,'a long frame is clamped to 100 ms');
+  sc.calls:=0;
+  sc.frequency:=30;
+  w.ProcessScenes(0);
+  Check(sc.calls=1,'new frequency: Process at once');
+  sc.calls:=0;
+  sc.SetStatus(TSceneStatus.ssFrozen);
+  w.ProcessScenes(100000);
+  Check(sc.calls=0,'frozen scene is not processed');
+  sc.SetStatus(TSceneStatus.ssActive);
+  w.RemoveScene(sc);
+  w.AddScene(sc);
+  w.ProcessScenes(0);
+  Check(sc.calls=1,'re-added scene: Process at once');
+  sc.calls:=0;
+  sc.frequency:=0;
+  w.ProcessScenes(123);
+  w.ProcessScenes(456);
+  Check(sc.calls=2,'frequency 0: once per frame');
+  w.BeginClose;
+  w.DestroyScenes;
+  window:=nil;
+  w.Free;
+  EndTest;
+ end;
+
 procedure Worker;
  begin
   window:=nil;
@@ -742,6 +803,7 @@ begin
   TestQueueCall;
   TestClose;
   TestDestroyScenes;
+  TestSceneFrequency;
   TestWorkerThread;
   TestAsyncClick;
   TestRemove;

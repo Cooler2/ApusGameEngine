@@ -71,7 +71,7 @@ TGameScene=class(TNamedObject)
   ownerWindow:pointer; // window that owns this scene (Apus.Engine.Window.TWindow)
   status:TSceneStatus;
   fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
-  frequency:integer; // how many times per second the scene handler should be called (0 - every frame)
+  frequency:integer; // how many times per second Process is called (0 - once every frame); may change any time
   effect:TSceneEffect; // effect applied when the scene is drawn
   zOrder:integer; // defines the scene drawing order
   activated:boolean; // true if the scene has started showing or is shown, but has no closing effect yet
@@ -81,8 +81,11 @@ TGameScene=class(TNamedObject)
   gfxInitialized:boolean; // true after InitGfx was called by the render loop
   loaded:boolean; // true after Load has completed
 
-  // Internal values
-  accumTime:integer; // accumulated time (in ms)
+  // Timing of Process when frequency>0 (driven by the window). Process runs exactly frequency
+  // times per second of frame time, 0..N calls per frame; the first call comes at once after
+  // the scene is added or frequency changes. In Render, clock.Alpha is the share of the next
+  // Process already elapsed (to interpolate between the last two states)
+  clock:TStepClock;
 
   constructor Create(fullscreen:boolean=true); overload;
   // Unified constructor: optional scene name and optional owner window object.
@@ -114,7 +117,7 @@ TGameScene=class(TNamedObject)
   // Override only to allocate GPU resources (render targets, shaders, etc.)
   procedure InitGfx; virtual;
 
-  // Called with the specified frequency (regardless of the FPS) unless scene is Frozen
+  // Called with the specified frequency (regardless of the FPS, see clock) unless scene is Frozen
   // Can return false if scene doesn't change and doesn't need to be rendered
   function Process:boolean; virtual;
 

@@ -1136,7 +1136,6 @@ constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSyst
 procedure TGameBase.AddScene(scene:TGameScene);
  begin
   if scene=nil then raise EWarning.Create('Can''t add nil scene');
-  scene.accumTime:=0;
   mainWindow.AddScene(scene);
  end;
 
