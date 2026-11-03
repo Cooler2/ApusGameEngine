@@ -1283,6 +1283,76 @@ begin
   EndTest;
 end;
 
+// TStepClock: whole steps of 1/rate s from elapsed microseconds, exact in integers
+procedure TestStepClock;
+const
+  TOTAL_US=3000001; // 2880.00096 steps at 960 Hz
+var
+  a,b:TStepClock;
+  rnd:TRandom;
+  left,frame:int64;
+  i,stepsA,stepsB,outside:integer;
+begin
+  StartTest('TStepClock');
+  // the same time in different frame splits: the same steps and fraction
+  a.Init(960);
+  b.Init(960);
+  rnd.Init(12345);
+  stepsA:=0; stepsB:=0; outside:=0;
+  left:=TOTAL_US;
+  while left>0 do begin
+    frame:=Min(left,rnd.Range(1,40000));
+    inc(stepsA,a.Advance(frame));
+    if (a.Alpha<0) or (a.Alpha>=1) then inc(outside);
+    dec(left,frame);
+  end;
+  left:=TOTAL_US;
+  while left>0 do begin
+    frame:=Min(left,16667);
+    inc(stepsB,b.Advance(frame));
+    dec(left,frame);
+  end;
+  Check((stepsA=2880) and (stepsB=2880),'960 Hz: 3.000001 s gives 2880 steps in any split');
+  Check(a.Alpha=b.Alpha,'the same fraction in any split');
+  Check(Abs(a.Alpha-0.00096)<1E-12,'the fraction is exact');
+  Check((a.total=2880) and (b.total=2880),'total counts the steps');
+  Check(outside=0,'Alpha stays in [0,1)');
+  Check(Abs(a.StepTime-1/960)<1E-15,'StepTime'); // x87: the constant is extended
+
+  // a rate that does not divide a second in microseconds: 1 us frames
+  a.Init(7);
+  stepsA:=0;
+  for i:=1 to 1000000 do inc(stepsA,a.Advance(1));
+  Check((stepsA=7) and (a.Alpha=0),'7 Hz: a million 1 us frames give exactly 7 steps');
+
+  // negative time, stalls, Reset
+  a.Init(960);
+  a.Advance(1500);
+  Check((a.Advance(-5000)=0) and (Abs(a.Alpha-0.44)<1E-12),'negative time counts as 0');
+  a.Reset;
+  Check(a.Alpha=0,'Reset drops the fraction');
+  Check(a.Advance(5000000)=96,'a stall is cut to maxElapsedUs (100 ms = 96 steps)');
+  a.Init(960,0);
+  Check(a.Advance(5000000)=4800,'maxElapsedUs=0: no limit');
+  Check(a.total=4800,'Init resets total');
+
+  {$IFDEF TIME_OVERRIDE}
+  try
+    a.Init(960);
+    CoreTime.Override(1000);
+    Check(a.Tick=0,'the first Tick gives 0');
+    CoreTime.Override(1000+1042); // 1042 us = 1.00032 steps
+    Check(a.Tick=1,'Tick advances by the time since the previous one');
+    a.Reset;
+    CoreTime.Override(9000000);
+    Check(a.Tick=0,'the first Tick after Reset gives 0: a pause is not caught up');
+  finally
+    CoreTime.Override(0);
+  end;
+  {$ENDIF}
+  EndTest;
+end;
+
 procedure TestTicksResolution;
 const
   SAMPLE_TIME_US=50000;
@@ -1508,6 +1578,7 @@ begin
     TestExceptionMsg;
     TestTime;
     TestTimeOverride;
+    TestStepClock;
     TestTicksResolution;
     TestStorageDirs;
     TestEnv;

@@ -3,6 +3,15 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Core: `TStepClock` - fixed-step clock (2026-11-03)
+
+- `Apus.Core.TStepClock`: elapsed time -> whole simulation steps of `1/rate` s and the fraction
+  of the next one (`Alpha`) for interpolation. Exact in integers (microseconds*rate): the step
+  length is never rounded, the same total time gives the same steps in any frame split.
+  `Advance(elapsedUs)` takes the time from the caller, `Tick` measures it with `Time.TicksUs`;
+  `maxElapsedUs` (default 100 ms) cuts stalls and bounds the steps per frame; `Reset` after a
+  pause; `total` counts the steps (simulation time = `total/rate`). Runs nothing itself.
+
 ## Mesh: `Append` attribute set, `MeshOps.Transform`, `MeshOps.SetColor` (2026-11-03)
 
 - `TMesh.Append`:

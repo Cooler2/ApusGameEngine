@@ -575,6 +575,36 @@ type
   end;
 
 // =============================================================================
+// TStepClock - fixed-step clock: turns elapsed time into whole simulation steps of 1/rate s
+// and the fraction of the next one (to interpolate the drawn state). Exact in integers: the
+// step length is never rounded, so the same total time gives the same steps however it is
+// split into frames. Runs nothing itself:
+//   clock.Init(960);
+//   for i:=1 to clock.Tick do sim.Step(clock.StepTime);
+//   view.Paint(clock.Alpha);
+// =============================================================================
+type
+  TStepClock=record
+    rate:integer;        // steps per second
+    maxElapsedUs:int64;  // a longer frame (stall, debugger, resume) is cut to this; 0 - no limit.
+                         // It also bounds the steps per frame: a slow simulation never spirals
+    total:int64;         // steps since Init: the simulation time is total/rate
+    procedure Init(stepsPerSecond:integer;aMaxElapsedUs:int64=100000);
+    // Drop the accumulated fraction and the time stamp of Tick (after a pause or a load)
+    procedure Reset;
+    // Account elapsed time, return the number of steps to run now. Negative counts as 0
+    function Advance(elapsedUs:int64):integer;
+    // Advance by the time since the previous Tick or Reset (Time.TicksUs); the first one gives 0
+    function Tick:integer;
+    function Alpha:double;    // fraction of the next step done, [0,1)
+    function StepTime:double; // 1/rate s, the dt of one step
+  private
+    remainder:int64;          // accumulated microseconds*rate below one step: [0,1e6)
+    lastUs:int64;             // time stamp of the previous Tick
+    started:boolean;          // lastUs is valid
+  end;
+
+// =============================================================================
 // TRandom - fast pseudo-random generator with explicit state (PCG32, not cryptographic).
 // An instance is not thread-safe: use one per thread or guard it with a lock.
 // =============================================================================
@@ -1018,6 +1048,60 @@ var
 begin
   QPC(now);
   result:=(now-internalTimer)*timerMul;
+end;
+
+{ TStepClock }
+
+procedure TStepClock.Init(stepsPerSecond:integer;aMaxElapsedUs:int64=100000);
+begin
+  ASSERT(stepsPerSecond>0);
+  ASSERT(aMaxElapsedUs>=0);
+  rate:=stepsPerSecond;
+  maxElapsedUs:=aMaxElapsedUs;
+  total:=0;
+  Reset;
+end;
+
+procedure TStepClock.Reset;
+begin
+  remainder:=0;
+  started:=false;
+end;
+
+function TStepClock.Advance(elapsedUs:int64):integer;
+var
+  steps:int64;
+begin
+  ASSERT(rate>0,'TStepClock: Init was not called');
+  if elapsedUs<=0 then exit(0);
+  if (maxElapsedUs>0) and (elapsedUs>maxElapsedUs) then elapsedUs:=maxElapsedUs;
+  // one step is 1e6 units of microseconds*rate: exact for any rate
+  remainder:=remainder+elapsedUs*rate;
+  steps:=remainder div 1000000;
+  remainder:=remainder-steps*1000000;
+  inc(total,steps);
+  result:=steps;
+end;
+
+function TStepClock.Tick:integer;
+var
+  now:int64;
+begin
+  now:=Time.TicksUs;
+  if started then result:=Advance(now-lastUs)
+   else result:=0;
+  lastUs:=now;
+  started:=true;
+end;
+
+function TStepClock.Alpha:double;
+begin
+  result:=remainder/1000000;
+end;
+
+function TStepClock.StepTime:double;
+begin
+  result:=1/rate;
 end;
 
 { TRandom }
