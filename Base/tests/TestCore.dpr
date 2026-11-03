@@ -112,6 +112,9 @@ begin
   EndTest;
 end;
 
+var
+  big1,big2:array[0..9999] of byte; // larger than the old 4 KB Swap buffer (global: not on the stack)
+
 procedure TestSwap;
 var
   a,b:integer;
@@ -119,6 +122,7 @@ var
   s1,s2:string;
   s81,s82:string8;
   rec1,rec2:record x,y:integer; end;
+  i,bad:integer;
 begin
   StartTest('Swap');
   a:=1; b:=2;
@@ -141,6 +145,32 @@ begin
   rec2.x:=3; rec2.y:=4;
   Swap(rec1,rec2,sizeof(rec1));
   Check((rec1.x=3) and (rec1.y=4) and (rec2.x=1) and (rec2.y=2),'Swap untyped');
+
+  // sizes with a tail shorter than a word, larger than the old 4 KB buffer, zero, self
+  for i:=0 to high(big1) do begin
+    big1[i]:=byte(i);
+    big2[i]:=byte(i*7+3);
+  end;
+  Swap(big1[1],big2[1],13); // unaligned start, word + tail
+  bad:=0;
+  for i:=0 to high(big1) do
+    if (i>=1) and (i<=13) then begin
+      if (big1[i]<>byte(i*7+3)) or (big2[i]<>byte(i)) then inc(bad);
+    end else
+      if (big1[i]<>byte(i)) or (big2[i]<>byte(i*7+3)) then inc(bad);
+  Check(bad=0,'Swap untyped: 13 bytes from an unaligned address, neighbours intact');
+  Swap(big1,big2,sizeof(big1));
+  bad:=0;
+  for i:=0 to high(big1) do
+    if (i>=1) and (i<=13) then begin
+      if (big1[i]<>byte(i)) or (big2[i]<>byte(i*7+3)) then inc(bad);
+    end else
+      if (big1[i]<>byte(i*7+3)) or (big2[i]<>byte(i)) then inc(bad);
+  Check(bad=0,'Swap untyped: 10000 bytes (over the old 4 KB limit)');
+  Swap(big1,big2,0);
+  Check((big1[0]=3) and (big2[0]=0),'Swap untyped: zero size does nothing');
+  Swap(big1,big1,sizeof(big1));
+  Check((big1[0]=3) and (big1[9999]=byte(9999*7+3)),'Swap untyped: with itself');
   EndTest;
 end;
 
@@ -177,6 +207,62 @@ begin
   Check(Log2i(1025)=11,'Log2i(1025)');
   Check(Log2i(int64(1) shl 40)=40,'Log2i(2^40)');
   Check(Log2i((int64(1) shl 40)+1)=41,'Log2i(2^40+1)');
+  EndTest;
+end;
+
+// WrapSigned: shortest signed difference on a cycle, range [-period/2, period/2)
+procedure TestWrapSigned;
+var
+  s,s270,s360:single;
+  d,heading:double;
+  i,outside:integer;
+begin
+  StartTest('WrapSigned');
+  Check(Abs(WrapSigned(1.0-359.0,360.0)-2)<1E-9,'heading 359 -> 1 is +2');
+  Check(Abs(WrapSigned(10.0-990.0,1000.0)-20)<1E-9,'lap 990 -> 10 is +20');
+  Check(WrapSigned(180.0,360.0)=-180,'+half period maps to -half');
+  Check(WrapSigned(-180.0,360.0)=-180,'-half period stays');
+  // ties at odd multiples of half period: all go to the same end of the range
+  Check((WrapSigned(1.0,2.0)=-1) and (WrapSigned(3.0,2.0)=-1) and (WrapSigned(5.0,2.0)=-1),
+    'ties 1/3/5 with period 2 all give -1');
+  Check(WrapSigned(-7.0,2.0)=-1,'negative multiple');
+  heading:=2*Pi*1000000+0.25; // a million accumulated turns
+  Check(Abs(WrapSigned(heading,2*Pi)-0.25)<1E-6,'accumulated heading');
+  d:=WrapSigned(-heading,2*Pi);
+  Check(Abs(d+0.25)<1E-6,'accumulated negative heading');
+  s270:=270; s360:=360;
+  s:=WrapSigned(s270,s360);
+  Check(s=-90,'single overload');
+  outside:=0;
+  for i:=-2000 to 2000 do begin
+    d:=WrapSigned(i*0.37,2*Pi);
+    if (d<-Pi) or (d>=Pi) then inc(outside);
+  end;
+  Check(outside=0,'results stay in [-Pi, Pi)');
+  EndTest;
+end;
+
+// Approach: move towards target by at most maxDelta, no overshoot
+procedure TestApproach;
+var
+  v,one,zero,step:double; // typed variables: float literals would pick the single overload
+  sv,st,sd:single;
+  steps:integer;
+begin
+  StartTest('Approach');
+  v:=0; one:=1; zero:=0; step:=0.3; steps:=0;
+  while (v<>1) and (steps<10) do begin
+    v:=Approach(v,one,step);
+    inc(steps);
+  end;
+  Check((v=1) and (steps=4),'0 -> 1 by 0.3: 4 steps, lands exactly on target');
+  Check(Abs(Approach(one,zero,step)-0.7)<1E-12,'moves down');
+  Check(Approach(one,zero+5,zero)=1,'zero step does not move');
+  step:=0.25;
+  Check(Approach(zero,step,step)=0.25,'distance equal to step');
+  Check(Approach(one,one,step)=1,'already at target');
+  sv:=0; st:=-1; sd:=0.25;
+  Check(Approach(sv,st,sd)=-0.25,'single overload');
   EndTest;
 end;
 
@@ -1364,6 +1450,8 @@ begin
     TestMinMaxCornerCases;
     TestClamp;
     TestLerp;
+    TestWrapSigned;
+    TestApproach;
     TestSwap;
     TestPow2;
     TestWrapRound;

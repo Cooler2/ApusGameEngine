@@ -13,8 +13,6 @@ interface
  const
   Epsilon:extended    = 1E-12;  // for double and extended
   EpsilonS:single     = 0.00001; // for single
-  pi                  = 3.1415926536;
-  pi2                 = pi/2;
  type
   // Intersection status
   TStatus=(intNone,intPoint,intSegment,intLine);
@@ -24,20 +22,31 @@ interface
    x,y:double;
    constructor Init(x,y:double); overload;
    constructor Init(pnt:TPoint); overload;
+   // Signed shortest turn from angle a1 to a2, in [-Pi, Pi)
    class function AngleDiff(a1,a2:double):double; static;
    class function IsEqual(const a,b:TVec2d):boolean; static;
    class function LexCompare(const a,b:TVec2d):integer; static;
    class function Lerp(const p1,p2:TVec2d;factor:double):TVec2d; static;
    class function Bezier(const p0,p1,p2,p3:TVec2d;t:double):TVec2d; static;
+   // Exact 1st/2nd derivatives of the same cubic Bezier by t (tangent, its change)
+   class function BezierDerivative(const p0,p1,p2,p3:TVec2d;t:double):TVec2d; static;
+   class function BezierDerivative2(const p0,p1,p2,p3:TVec2d;t:double):TVec2d; static;
+   // Signed curvature (1/radius) at t: positive when the curve turns from +X towards +Y.
+   // False (curvature=0) if the 1st derivative is shorter than minSpeed (cusp, coincident points)
+   class function TryBezierCurvature(const p0,p1,p2,p3:TVec2d;t:double;out curvature:double;
+     minSpeed:double=1E-9):boolean; static;
    class function Between(const source,target:TVec2d):TVec2d; static;
    class function FromAngle(angle:double):TVec2d; static;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
-   procedure Normalize; inline;
+   procedure Normalize; inline; // zero vector -> NaN
+   // Normalize if longer than minLength and return true; otherwise keep the vector unchanged
+   function TryNormalize(minLength:double=1E-12):boolean;
    function Dot(const p:TVec2d):double; inline;
    function Cross(const p:TVec2d):double; inline;
    function Direction:double; inline;
+   // Unsigned angle between the vectors, [0, Pi]; 0 if either is zero. Precise near 0 and Pi
    function AngleTo(const p:TVec2d):double; inline;
    function ClockwiseAngleTo(const p:TVec2d):double; inline;
    function Length:double; inline;
@@ -64,10 +73,13 @@ interface
    class function RandomInCircle(r:single):TVec2; static;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
-   procedure Normalize; inline;
+   procedure Normalize; inline; // zero vector -> NaN
+   // Normalize if longer than minLength and return true; otherwise keep the vector unchanged
+   function TryNormalize(minLength:single=1E-6):boolean;
    function Dot(const p:TVec2):single; inline;
    function Cross(const p:TVec2):single; inline;
    function Direction:single; inline;
+   // Unsigned angle between the vectors, [0, Pi]; 0 if either is zero. Precise near 0 and Pi
    function AngleTo(const p:TVec2):single; inline;
    function Length:single; inline;
    function Length2:single; inline;
@@ -134,7 +146,14 @@ interface
    x1,y1,x2,y2:double;
    class function Init(x1,y1,x2,y2:integer):TSegment2; overload; static;
    class function Init(x1,y1,x2,y2:double):TSegment2; overload; static;
+   // Projection onto the infinite line: parameter (0 at x1,y1, 1 at x2,y2, not clamped) and
+   // signed distance from the line. Degenerate segment: parameter=0, deviation=distance to (x1,y1)
    procedure ProjectPoint(const pnt:TVec2d;out parameter,deviation:double);
+   // Nearest point of the segment itself: t is clamped to [0,1] (0 for a degenerate segment)
+   function ClosestPoint(const pnt:TVec2d;out t:double):TVec2d; overload;
+   function ClosestPoint(const pnt:TVec2d):TVec2d; overload; inline;
+   // Squared distance from pnt to the segment (no sqrt)
+   function Distance2(const pnt:TVec2d):double;
    class function Intersect(const s1,s2:TSegment2;out p:TVec2d;out param1,param2:double):TStatus; static;
    function PointInTriangle(const a,b,c:TVec2d):integer;
    function IsDegenerate:boolean; inline;
@@ -272,6 +291,18 @@ procedure TVec2d.Normalize;
   y:=y/l;
  end;
 
+function TVec2d.TryNormalize(minLength:double):boolean;
+ var
+  l2,l:double;
+ begin
+  l2:=Length2;
+  result:=l2>minLength*minLength; // false for NaN too
+  if not result then exit;
+  l:=sqrt(l2);
+  x:=x/l;
+  y:=y/l;
+ end;
+
 function TVec2.Length:single;
  begin
   result:=sqrt(x*x+y*y);
@@ -324,28 +355,27 @@ procedure TVec2.Normalize;
   y:=y/l;
  end;
 
+function TVec2.TryNormalize(minLength:single):boolean;
+ var
+  l2,l:single;
+ begin
+  l2:=Length2;
+  result:=l2>minLength*minLength; // false for NaN too
+  if not result then exit;
+  l:=sqrt(l2);
+  x:=x/l;
+  y:=y/l;
+ end;
+
 function TVec2d.Direction:double;
 begin
   result:=ArcTan2(y,x);
 end;
 
 function TVec2d.AngleTo(const p:TVec2d):double;
-var
-  n1,n2:TVec2d;
-  c:double;
 begin
-  n1:=self;
-  n2:=p;
-  n1.Normalize;
-  n2.Normalize;
-  c:=n1.Dot(n2);
-  if c>1 then begin
-    c:=1;
-  end;
-  if c<-1 then begin
-    c:=-1;
-  end;
-  result:=ArcCos(c);
+  // atan2 keeps the small cross term that acos(dot) loses near 0 and Pi
+  result:=abs(ArcTan2(Cross(p),Dot(p)));
 end;
 
 function TVec2d.ClockwiseAngleTo(const p:TVec2d):double;
@@ -362,31 +392,14 @@ begin
 end;
 
 function TVec2.AngleTo(const p:TVec2):single;
-var
-  n1,n2:TVec2;
-  c:single;
 begin
-  n1:=self;
-  n2:=p;
-  n1.Normalize;
-  n2.Normalize;
-  c:=n1.Dot(n2);
-  if c>1 then begin
-    c:=1;
-  end;
-  if c<-1 then begin
-    c:=-1;
-  end;
-  result:=ArcCos(c);
+  // atan2 keeps the small cross term that acos(dot) loses near 0 and Pi
+  result:=abs(ArcTan2(Cross(p),Dot(p)));
 end;
 
 class function TVec2d.AngleDiff(a1,a2:double):double;
   begin
-   result:=a2-a1;
-   while result>Pi do result:=result-2*Pi;
-   while result<-Pi do result:=result+2*Pi;
-{   if (result>pi) or (result<-pi) then
-     result:=result-2*pi*int(result/(2*pi));}
+   result:=WrapSigned(a2-a1,2*Pi);
   end;
 
 class function TVec2d.IsEqual(const a,b:TVec2d):boolean;
@@ -478,6 +491,11 @@ procedure TSegment2.ProjectPoint(const pnt:TVec2d;out parameter,deviation:double
   begin
    v.x:=x2-x1;
    v.y:=y2-y1;
+   if (v.x=0) and (v.y=0) then begin // no line to project onto
+    parameter:=0;
+    deviation:=Hypot(pnt.x-x1,pnt.y-y1);
+    exit;
+   end;
    n:=v;
    n.Normalize;
    n:=n.Turn90R;
@@ -485,6 +503,39 @@ procedure TSegment2.ProjectPoint(const pnt:TVec2d;out parameter,deviation:double
    d.y:=pnt.y-y1;
    deviation:=n.x*d.x+n.y*d.y;
    parameter:=(v.x*d.x+v.y*d.y)/(v.x*v.x+v.y*v.y);
+  end;
+
+function TSegment2.ClosestPoint(const pnt:TVec2d;out t:double):TVec2d;
+  var
+   vx,vy,dot,len2:double;
+  begin
+   vx:=x2-x1;
+   vy:=y2-y1;
+   dot:=(pnt.x-x1)*vx+(pnt.y-y1)*vy;
+   len2:=vx*vx+vy*vy;
+   // clamp before dividing: the division happens only for 0<dot<len2, so a zero-length
+   // (or tiny) segment never divides by zero or overflows
+   if dot<=0 then t:=0
+   else
+   if dot>=len2 then t:=1
+   else
+    t:=dot/len2;
+   result.x:=x1+vx*t;
+   result.y:=y1+vy*t;
+  end;
+
+function TSegment2.ClosestPoint(const pnt:TVec2d):TVec2d;
+  var
+   t:double;
+  begin
+   result:=ClosestPoint(pnt,t);
+  end;
+
+function TSegment2.Distance2(const pnt:TVec2d):double;
+  var
+   t:double;
+  begin
+   result:=ClosestPoint(pnt,t).Distance2(pnt);
   end;
 
 class function TLine2.Intersect(const l1,l2:TLine2;out p:TVec2d):TStatus;
@@ -745,6 +796,47 @@ class function TVec2d.Bezier(const p0,p1,p2,p3:TVec2d;t:double):TVec2d;
    b1:=b1*3*t; // 3*(1-t)^2
    result.x:=p0.x*b0+p1.x*b1+p2.x*b2+p3.x*b3;
    result.y:=p0.y*b0+p1.y*b1+p2.y*b2+p3.y*b3;
+  end;
+
+class function TVec2d.BezierDerivative(const p0,p1,p2,p3:TVec2d;t:double):TVec2d;
+  var
+   s,b0,b1,b2:double;
+  begin
+   // 3(1-t)^2*(p1-p0) + 6(1-t)t*(p2-p1) + 3t^2*(p3-p2)
+   s:=1-t;
+   b0:=3*s*s;
+   b1:=6*s*t;
+   b2:=3*t*t;
+   result.x:=(p1.x-p0.x)*b0+(p2.x-p1.x)*b1+(p3.x-p2.x)*b2;
+   result.y:=(p1.y-p0.y)*b0+(p2.y-p1.y)*b1+(p3.y-p2.y)*b2;
+  end;
+
+class function TVec2d.BezierDerivative2(const p0,p1,p2,p3:TVec2d;t:double):TVec2d;
+  var
+   b0,b1:double;
+  begin
+   // 6(1-t)*(p2-2p1+p0) + 6t*(p3-2p2+p1)
+   b0:=6*(1-t);
+   b1:=6*t;
+   result.x:=(p2.x-2*p1.x+p0.x)*b0+(p3.x-2*p2.x+p1.x)*b1;
+   result.y:=(p2.y-2*p1.y+p0.y)*b0+(p3.y-2*p2.y+p1.y)*b1;
+  end;
+
+class function TVec2d.TryBezierCurvature(const p0,p1,p2,p3:TVec2d;t:double;out curvature:double;
+  minSpeed:double):boolean;
+  var
+   d1,d2:TVec2d;
+   l2:double;
+  begin
+   d1:=BezierDerivative(p0,p1,p2,p3,t);
+   l2:=d1.Length2;
+   result:=l2>minSpeed*minSpeed;
+   if not result then begin
+    curvature:=0;
+    exit;
+   end;
+   d2:=BezierDerivative2(p0,p1,p2,p3,t);
+   curvature:=d1.Cross(d2)/(l2*sqrt(l2)); // cross(d1,d2)/|d1|^3
   end;
 
 class function TVec2.RandomInCircle(r:single):TVec2;

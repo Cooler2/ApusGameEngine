@@ -107,6 +107,30 @@ type
   free:integer; // first free element
  end;
 
+ // Growable array for often appended data (logs, samples, history): Count is separate
+ // from Capacity, growth is amortized (x2), Clear keeps the memory for the next fill.
+ // items[0..Count-1] are valid and contiguous (direct access, no checks); the rest is reserve.
+ // Managed elements (strings, interfaces) are released by Clear/Pop/SetCount.
+ // No Init needed: a fresh variable is empty. Don't copy it by assignment (storage is shared)
+ TGrowArray<T>=record
+  items:array of T; // storage: length(items) = Capacity
+  function Add(const item:T):integer; // returns the index of the new item
+  procedure Reserve(minCapacity:integer); // Capacity>=minCapacity, never shrinks
+  procedure Clear(freeMemory:boolean=false); // Count:=0; storage is kept unless freeMemory
+  procedure SetCount(newCount:integer); // new items are Default(T), dropped ones are released
+  function Get(index:integer):T; inline; // index is checked by ASSERT
+  function Last:T;
+  function Pop:T; // return the last item and remove it
+  function ItemPtr(index:integer):pointer; inline; // items index..Count-1 follow it in memory
+  function Count:integer; inline;
+  function Capacity:integer; inline;
+  function IsEmpty:boolean; inline;
+ private
+  fCount:integer; // valid only while items<>nil: locals are not zeroed, managed items are
+  procedure Grow(minCapacity:integer);
+  procedure Release(from,upto:integer); // reset items[from..upto-1] to Default(T)
+ end;
+
  TPriorityFunc=function(const item:TDataItem):single;
 
  // Priotity queue
@@ -632,6 +656,115 @@ procedure TGenQueue<T>.Init(size:integer);
   SetLength(data,size);
   used:=0; free:=0;
   lock:=0;
+ end;
+
+{ TGrowArray<T> }
+
+function TGrowArray<T>.Count:integer;
+ begin
+  if items=nil then result:=0
+   else result:=fCount;
+ end;
+
+function TGrowArray<T>.Capacity:integer;
+ begin
+  result:=length(items);
+ end;
+
+function TGrowArray<T>.IsEmpty:boolean;
+ begin
+  result:=Count=0;
+ end;
+
+procedure TGrowArray<T>.Grow(minCapacity:integer);
+ var
+  newCap:integer;
+ begin
+  newCap:=length(items);
+  if newCap<16 then newCap:=16;
+  while newCap<minCapacity do
+   if newCap>MaxInt div 2 then newCap:=minCapacity // doubling would overflow
+    else newCap:=newCap*2;
+  Reserve(newCap);
+ end;
+
+procedure TGrowArray<T>.Reserve(minCapacity:integer);
+ begin
+  ASSERT(minCapacity>=0);
+  if items=nil then fCount:=0;
+  if minCapacity>length(items) then SetLength(items,minCapacity);
+ end;
+
+function TGrowArray<T>.Add(const item:T):integer;
+ begin
+  if items=nil then Grow(1)
+  else
+  if fCount=length(items) then begin
+   ASSERT(fCount<MaxInt);
+   Grow(fCount+1);
+  end;
+  items[fCount]:=item;
+  result:=fCount;
+  inc(fCount);
+ end;
+
+procedure TGrowArray<T>.Release(from,upto:integer);
+ var
+  i:integer;
+ begin
+  for i:=from to upto-1 do
+   items[i]:=Default(T);
+ end;
+
+procedure TGrowArray<T>.Clear(freeMemory:boolean);
+ begin
+  if freeMemory then begin
+   items:=nil;
+   fCount:=0;
+   exit;
+  end;
+  if IsManagedType(T) then Release(0,Count);
+  fCount:=0;
+ end;
+
+procedure TGrowArray<T>.SetCount(newCount:integer);
+ var
+  n:integer;
+ begin
+  ASSERT(newCount>=0);
+  n:=Count;
+  if newCount>n then begin
+   if newCount>length(items) then Grow(newCount);
+   Release(n,newCount); // reserve slots may hold stale unmanaged values
+  end else
+   if IsManagedType(T) then Release(newCount,n);
+  if items<>nil then fCount:=newCount;
+ end;
+
+function TGrowArray<T>.Get(index:integer):T;
+ begin
+  ASSERT((index>=0) and (index<Count));
+  result:=items[index];
+ end;
+
+function TGrowArray<T>.Last:T;
+ begin
+  ASSERT(Count>0);
+  result:=items[fCount-1];
+ end;
+
+function TGrowArray<T>.Pop:T;
+ begin
+  ASSERT(Count>0);
+  dec(fCount);
+  result:=items[fCount];
+  if IsManagedType(T) then items[fCount]:=Default(T);
+ end;
+
+function TGrowArray<T>.ItemPtr(index:integer):pointer;
+ begin
+  ASSERT((index>=0) and (index<Count));
+  result:=@items[index];
  end;
 
 

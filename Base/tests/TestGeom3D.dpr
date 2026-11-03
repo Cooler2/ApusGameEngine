@@ -331,10 +331,29 @@ begin
   EndTest;
 end;
 
+// TryNormalize: explicit failure for zero/short vectors
+procedure TestVec3TryNormalize;
+var
+  vd:TVec3d;
+  v:TVec3;
+begin
+  StartTest('TVec3/TVec3d TryNormalize');
+  vd:=TVec3d.Init(0,3,4);
+  Check(vd.TryNormalize and (Abs(vd.Length-1)<1E-15),'TVec3d regular vector');
+  vd:=TVec3d.Init(0,0,0);
+  Check((not vd.TryNormalize) and vd.IsZero,'TVec3d zero vector: false, unchanged');
+  v:=TVec3.Init(0,0,0);
+  Check((not v.TryNormalize) and v.IsZero,'TVec3 zero vector: false, unchanged');
+  v:=TVec3.Init(2,0,0);
+  Check(v.TryNormalize and (Abs(v.x-1)<1E-6),'TVec3 regular vector');
+  EndTest;
+end;
+
 begin
   try
     TestVec3Core;
     TestVec3Normalize;
+    TestVec3TryNormalize;
     TestMatrices;
     TestMat4Unaligned;
     TestMat4TransformArrays;

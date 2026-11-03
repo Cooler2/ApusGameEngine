@@ -361,6 +361,121 @@ begin
   EndTest;
 end;
 
+// Segment: closest point with t clamped to the ends, distance², degenerate cases
+procedure TestSegmentClosest;
+var
+  seg:TSegment2;
+  p:TVec2d;
+  t,par,dev:double;
+begin
+  StartTest('TSegment2.ClosestPoint/Distance2');
+  seg:=TSegment2.Init(0.0,0.0,1.0,0.0);
+  p:=seg.ClosestPoint(Vec2d(2,1),t);
+  Check((t=1) and (p.x=1) and (p.y=0),'beyond the end -> end point, t=1');
+  Check(seg.Distance2(Vec2d(2,1))=2,'distance2 beyond the end');
+  p:=seg.ClosestPoint(Vec2d(-1,-1),t);
+  Check((t=0) and (p.x=0) and (p.y=0),'before the start -> start point, t=0');
+  p:=seg.ClosestPoint(Vec2d(0.5,2),t);
+  Check((Abs(t-0.5)<1E-12) and (Abs(p.x-0.5)<1E-12) and (p.y=0),'interior projection');
+  Check(Abs(seg.Distance2(Vec2d(0.5,2))-4)<1E-12,'interior distance2');
+  Check(seg.Distance2(Vec2d(0.3,0))=0,'point on the segment');
+  // the line projection keeps its contract: unclamped parameter
+  seg.ProjectPoint(Vec2d(2,1),par,dev);
+  Check((Abs(par-2)<1E-12) and (Abs(Abs(dev)-1)<1E-12),'ProjectPoint is still the line projection');
+  // degenerate segment: defined results, no division by zero
+  seg:=TSegment2.Init(1.0,1.0,1.0,1.0);
+  p:=seg.ClosestPoint(Vec2d(4,5),t);
+  Check((t=0) and (p.x=1) and (p.y=1),'zero-length segment -> its point');
+  Check(seg.Distance2(Vec2d(4,5))=25,'zero-length segment distance2');
+  seg.ProjectPoint(Vec2d(4,5),par,dev);
+  Check((par=0) and (Abs(dev-5)<1E-12),'ProjectPoint on zero-length segment');
+  seg:=TSegment2.Init(0.0,0.0,1E-200,0.0); // length² underflows to 0
+  p:=seg.ClosestPoint(Vec2d(1,0),t);
+  Check((t>=0) and (t<=1) and (Abs(seg.Distance2(Vec2d(1,0))-1)<1E-12),'near-degenerate segment');
+  EndTest;
+end;
+
+// TryNormalize: explicit failure instead of NaN
+procedure TestTryNormalize;
+var
+  v:TVec2d;
+  vs:TVec2;
+begin
+  StartTest('TryNormalize');
+  v:=Vec2d(3,4);
+  Check(v.TryNormalize and (Abs(v.x-0.6)<1E-15) and (Abs(v.y-0.8)<1E-15),'regular vector');
+  v:=Vec2d(0,0);
+  Check((not v.TryNormalize) and (v.x=0) and (v.y=0),'zero vector: false, unchanged');
+  v:=Vec2d(1E-13,0);
+  Check(not v.TryNormalize,'shorter than default minLength');
+  Check(v.TryNormalize(0) and (v.x=1),'minLength=0 accepts any non-zero vector');
+  vs:=TVec2.Init(0,0);
+  Check((not vs.TryNormalize) and vs.IsValid,'TVec2 zero vector: false, no NaN');
+  vs:=TVec2.Init(0,-2);
+  Check(vs.TryNormalize and (vs.y=-1),'TVec2 regular vector');
+  EndTest;
+end;
+
+// AngleTo via atan2: precise for almost parallel / opposite vectors
+procedure TestAngleTo;
+var
+  a:double;
+  s:single;
+begin
+  StartTest('AngleTo precision');
+  a:=Vec2d(1,0).AngleTo(Vec2d(1,1E-9));
+  Check(Abs(a-1E-9)<1E-15,'tiny angle (acos gave 0 here)');
+  a:=Vec2d(1,0).AngleTo(Vec2d(-1,1E-9));
+  Check(Abs(a-(Pi-1E-9))<1E-15,'almost opposite');
+  a:=Vec2d(1000,0).AngleTo(Vec2d(0,0.001));
+  Check(Abs(a-Pi/2)<1E-15,'perpendicular, different scales');
+  a:=Vec2d(0,0).AngleTo(Vec2d(1,0));
+  Check(a=0,'zero vector -> 0');
+  s:=TVec2.Init(1,0).AngleTo(TVec2.Init(1,1E-4));
+  Check(Abs(s-1E-4)<1E-8,'single: small angle');
+  a:=Vec2d(0,1).ClockwiseAngleTo(Vec2d(1,0));
+  Check(Abs(a-Pi/2)<1E-12,'ClockwiseAngleTo stays consistent');
+  Check(Abs(TVec2d.AngleDiff(0,2*Pi*1000+0.5)-0.5)<1E-9,'AngleDiff of a large angle');
+  Check(Abs(TVec2d.AngleDiff(0.1,2*Pi-0.1)+0.2)<1E-12,'AngleDiff across zero');
+  EndTest;
+end;
+
+// Bezier derivatives against the analytic form and finite differences
+procedure TestBezierDerivatives;
+const
+  h=1E-5;
+  KAPPA=0.5522847498; // quarter-circle approximation
+var
+  p0,p1,p2,p3,d,dn,d2,d2n:TVec2d;
+  k:double;
+begin
+  StartTest('Bezier derivatives and curvature');
+  // straight line with uniform control points
+  p0:=Vec2d(0,0); p1:=Vec2d(1,0); p2:=Vec2d(2,0); p3:=Vec2d(3,0);
+  d:=TVec2d.BezierDerivative(p0,p1,p2,p3,0.4);
+  Check((Abs(d.x-3)<1E-12) and (d.y=0),'line: constant derivative');
+  Check(TVec2d.TryBezierCurvature(p0,p1,p2,p3,0.4,k) and (k=0),'line: zero curvature');
+  // a general curve: compare with central differences
+  p0:=Vec2d(0,0); p1:=Vec2d(1,2); p2:=Vec2d(3,-1); p3:=Vec2d(4,1);
+  d:=TVec2d.BezierDerivative(p0,p1,p2,p3,0.3);
+  dn:=(TVec2d.Bezier(p0,p1,p2,p3,0.3+h)-TVec2d.Bezier(p0,p1,p2,p3,0.3-h))*(1/(2*h));
+  Check((d-dn).Length<1E-6,'1st derivative matches finite difference');
+  d2:=TVec2d.BezierDerivative2(p0,p1,p2,p3,0.3);
+  d2n:=(TVec2d.BezierDerivative(p0,p1,p2,p3,0.3+h)-TVec2d.BezierDerivative(p0,p1,p2,p3,0.3-h))*(1/(2*h));
+  Check((d2-d2n).Length<1E-5,'2nd derivative matches finite difference');
+  d:=TVec2d.BezierDerivative(p0,p1,p2,p3,0);
+  dn:=TVec2d.BezierDerivative(p0,p1,p2,p3,1);
+  Check((d.x=3) and (d.y=6) and (dn.x=3) and (dn.y=6),'end tangents are 3*(p1-p0) and 3*(p3-p2)');
+  // quarter circle of radius 1, counter-clockwise from +X to +Y
+  p0:=Vec2d(1,0); p1:=Vec2d(1,KAPPA); p2:=Vec2d(KAPPA,1); p3:=Vec2d(0,1);
+  Check(TVec2d.TryBezierCurvature(p0,p1,p2,p3,0.5,k) and (Abs(k-1)<0.01),'quarter circle: curvature ~1');
+  Check(TVec2d.TryBezierCurvature(p3,p2,p1,p0,0.5,k) and (Abs(k+1)<0.01),'reversed: negative curvature');
+  // cusp: first control point coincides with the start
+  p0:=Vec2d(0,0); p1:=Vec2d(0,0); p2:=Vec2d(1,1); p3:=Vec2d(2,0);
+  Check((not TVec2d.TryBezierCurvature(p0,p1,p2,p3,0,k)) and (k=0),'zero tangent: failure, curvature=0');
+  EndTest;
+end;
+
 begin
   try
     TestVec2Core;
@@ -370,6 +485,10 @@ begin
     TestPolygonOps;
     TestGeom2DUtility;
     TestTriangulation;
+    TestSegmentClosest;
+    TestTryNormalize;
+    TestAngleTo;
+    TestBezierDerivatives;
     writeln;
     writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
     if testsFailed>0 then

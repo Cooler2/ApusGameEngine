@@ -48,6 +48,23 @@ begin
   EndTest;
 end;
 
+// RGB adjustments keep alpha and clamp channels
+procedure TestAdjustments;
+begin
+  StartTest('Brighten/ScaleRGB/Contrast');
+  Check(Color.Brighten($80102030,20)=$80243444,'Brighten adds to RGB, alpha kept');
+  Check(Color.Brighten($80102030,300)=$80FFFFFF,'Brighten clamps at 255');
+  Check(Color.Brighten($FF102030,-50)=$FF000000,'negative Brighten clamps at 0');
+  Check(Color.Brighten($FF102030,MaxInt)=$FFFFFFFF,'extreme value does not overflow');
+  Check(Color.ScaleRGB($FF6496C8,0.8)=$FF5078A0,'ScaleRGB 0.8: 20% darker, alpha kept');
+  Check(Color.ScaleRGB($406496C8,2)=$40C8FFFF,'ScaleRGB clamps at 255');
+  Check(Color.ScaleRGB($7F6496C8,0)=$7F000000,'ScaleRGB 0: black, alpha kept');
+  Check(Color.Contrast($C0907060,256)=$C0907060,'Contrast 256: no change');
+  Check(Color.Contrast($C0907060,0)=$C0808080,'Contrast 0: flat gray');
+  Check(Color.Contrast($C0907060,512)=$C0A06040,'Contrast 512: doubled around 128');
+  EndTest;
+end;
+
 begin
   try
     writeln('Testing [Colors] module');
@@ -55,6 +72,7 @@ begin
 
     TestBilinearMixF;
     TestBilinearMixColor;
+    TestAdjustments;
 
     writeln;
     if testsFailed=0 then

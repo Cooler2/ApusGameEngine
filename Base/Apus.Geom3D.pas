@@ -28,6 +28,8 @@ type
     // Linear interpolation: p0*(1-t)+p1*t.
     constructor Init(p0,p1:TVec3d;t:double); overload;
     procedure Normalize;
+    // Normalize if longer than minLength and return true; otherwise keep the vector unchanged
+    function TryNormalize(minLength:double=1E-12):boolean;
     function IsValid:boolean;
     function IsZero:boolean; inline;
     // Component-wise comparison with tolerance = Epsilon*precision.
@@ -61,6 +63,8 @@ type
     // Weighted sum: p0*weight0 + p1*weight1.
     constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
     procedure Normalize;
+    // Normalize if longer than minLength and return true; otherwise keep the vector unchanged
+    function TryNormalize(minLength:single=1E-6):boolean;
     // Approximate normalization using fast reciprocal square root where available.
     procedure NormalizeFast;
     function IsValid:boolean;
@@ -2687,6 +2691,19 @@ procedure TVec3d.Normalize;
   z:=z*l;
  end;
 
+function TVec3d.TryNormalize(minLength:double):boolean;
+ var
+  l2,l:double;
+ begin
+  l2:=Length2;
+  result:=l2>minLength*minLength; // false for NaN too
+  if not result then exit;
+  l:=1/sqrt(l2);
+  x:=x*l;
+  y:=y*l;
+  z:=z*l;
+ end;
+
 function TVec3d.Sub(const p:TVec3d):TVec3d;
  begin
   result.x:=x-p.x;
@@ -2821,6 +2838,19 @@ end;
   x:=x*l; y:=y*l; z:=z*l;
  end;
 {$ENDIF}
+
+function TVec3.TryNormalize(minLength:single):boolean;
+ var
+  l2,l:single;
+ begin
+  l2:=Length2;
+  result:=l2>minLength*minLength; // false for NaN too
+  if not result then exit;
+  l:=1/sqrt(l2);
+  x:=x*l;
+  y:=y*l;
+  z:=z*l;
+ end;
 
 procedure TVec3.NormalizeFast;
 {$IFDEF CPUx64}

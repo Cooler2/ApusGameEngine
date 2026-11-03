@@ -3,6 +3,34 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Base: geometry and math helpers, RGB adjustments, TGrowArray, Swap (2026-11-03)
+
+- `Apus.Core`: `WrapSigned(value,period)` - shortest signed difference on a cycle, range
+  `[-period/2, period/2)`, cost independent of the number of periods; `Approach(current,target,
+  maxDelta)` - bounded step towards a target, no overshoot.
+- `Apus.Geom2D`:
+  - the `pi` constant (10 digits) is removed: it shadowed `System.Pi` in every unit using
+    Geom2D. Code using `pi` now gets `System.Pi`. `pi2` (= pi/2, unused) is removed: use `Pi/2`.
+  - `TVec2d.AngleDiff` is `WrapSigned(a2-a1,2*Pi)`: range `[-Pi, Pi)` (`+Pi` now gives `-Pi`),
+    no loop over accumulated turns.
+  - `AngleTo` (TVec2d, TVec2) is `abs(atan2(cross,dot))`: precise near 0 and Pi (acos of the dot
+    product gave 0 for angles below ~1e-8 rad in double, ~3e-4 in single); a zero vector
+    gives 0 instead of NaN.
+  - `TryNormalize(minLength)` (TVec2d, TVec2; also TVec3d, TVec3 in Geom3D) - false and the
+    vector unchanged if it is not longer than minLength; strict `Normalize` is unchanged.
+  - `TSegment2.ClosestPoint(pnt[,t])`, `TSegment2.Distance2(pnt)` - nearest point of the segment
+    (t clamped to [0,1]); `ProjectPoint` keeps the line projection, but a degenerate segment
+    gives parameter=0, deviation=distance instead of a division by zero.
+  - `TVec2d.BezierDerivative`, `BezierDerivative2`, `TryBezierCurvature` - exact derivatives and
+    signed curvature of the cubic Bezier.
+- `Apus.Colors`: `Color.Brighten` (was `Assert(false)`) adds a value to RGB, `Color.Contrast`
+  (was an empty asm body returning garbage) scales RGB around 128 (256 = no change); new
+  `Color.ScaleRGB(c,factor)`. All keep alpha and clamp.
+- `Apus.Core`: `Swap(var a,b;size)` exchanges in place by machine words: no 4 KB stack buffer, so
+  no size limit (it was ASSERT-only: a larger size overran the stack in release builds).
+- `Apus.Containers`: `TGrowArray<T>` - growable array with `Count` apart from `Capacity`,
+  `Reserve`, amortized growth, `Clear` that keeps the memory, release of managed items.
+
 ## Base: `Thread.Start` with instantly finishing callbacks (2026-11-03)
 
 - `Thread.Start`: a callback that finishes before `Start` returns is safe. The handle is taken

@@ -228,6 +228,17 @@ var
   // Wrap - wrap value into [0, max) range
   function Wrap(value,max:single):single; overload; inline;
   function Wrap(value,max:double):double; overload; inline;
+  // WrapSigned - wrap value into [-period/2, period/2): the shortest signed difference
+  // on a cycle, e.g. WrapSigned(a2-a1,2*Pi) for angles, WrapSigned(pos2-pos1,lapLength).
+  // Cost does not depend on how many periods value spans. Requires period>0 and a finite
+  // value: NaN/Inf give NaN or a floating-point exception, depending on the FPU mask
+  function WrapSigned(value,period:single):single; overload;
+  function WrapSigned(value,period:double):double; overload;
+
+  // Approach - move current towards target by at most maxDelta (>=0), never overshooting:
+  // Approach(0,1,0.3) = 0.3, then 0.6, 0.9, 1, 1...
+  function Approach(current,target,maxDelta:single):single; overload; inline;
+  function Approach(current,target,maxDelta:double):double; overload; inline;
 
   // Rounding helpers
   function FRound(v:double):integer; inline;  // fast round, slightly biased near .5
@@ -246,7 +257,7 @@ var
   procedure Swap(var a,b:byte); overload; inline;
   procedure Swap(var a,b:string); overload; inline;
   procedure Swap(var a,b:string8); overload; inline;
-  procedure Swap(var a,b;size:integer); overload; inline;
+  procedure Swap(var a,b;size:integer); overload; inline; // any size, in place; a and b must not partially overlap
 
   // Pow2
   function Pow2(e:integer):int64; inline;      // 2^e
@@ -1300,6 +1311,53 @@ begin
   if result<0 then result:=result+max;
 end;
 
+function WrapSigned(value,period:single):single;
+var
+  v,p:double;
+begin
+  v:=value; p:=period; // computed in double, rounded to single once
+  result:=WrapSigned(v,p);
+  if result>=period*0.5 then result:=result-period; // rounding to single may hit +period/2
+end;
+
+function WrapSigned(value,period:double):double;
+var
+  half,n:double;
+begin
+  ASSERT(period>0);
+  half:=period*0.5;
+  if (value>=-half) and (value<half) then exit(value); // fast path: already in range
+  // n = floor(value/period+0.5) as a float: no integer overflow for huge values
+  n:=value/period+0.5;
+  result:=Int(n);
+  if result>n then result:=result-1;
+  result:=value-period*result;
+  // rounding of the product may leave result just outside the range
+  if result>=half then result:=result-period
+  else
+  if result<-half then result:=result+period;
+end;
+
+function Approach(current,target,maxDelta:single):single;
+begin
+  ASSERT(maxDelta>=0);
+  if target>current+maxDelta then result:=current+maxDelta
+  else
+  if target<current-maxDelta then result:=current-maxDelta
+  else
+    result:=target;
+end;
+
+function Approach(current,target,maxDelta:double):double;
+begin
+  ASSERT(maxDelta>=0);
+  if target>current+maxDelta then result:=current+maxDelta
+  else
+  if target<current-maxDelta then result:=current-maxDelta
+  else
+    result:=target;
+end;
+
 function FRound(v:double):integer;
 const
   EPSILON=0.00001;
@@ -1397,12 +1455,25 @@ end;
 
 procedure Swap(var a,b;size:integer);
 var
-  buf:array[0..4095] of byte;
+  pa,pb:PNativeUInt;
+  t:NativeUInt;
+  ba,bb:PByte;
+  tb:byte;
 begin
-  ASSERT(size<=length(buf));
-  move(a,buf,size);
-  move(b,a,size);
-  move(buf,b,size);
+  // exchange in place by machine words: no buffer, so no size limit.
+  // NativeUInt rather than uint64: unaligned 64-bit access may fault on ARM32
+  pa:=@a; pb:=@b;
+  while size>=SizeOf(NativeUInt) do begin
+    t:=pa^; pa^:=pb^; pb^:=t;
+    inc(pa); inc(pb);
+    dec(size,SizeOf(NativeUInt));
+  end;
+  ba:=PByte(pa); bb:=PByte(pb);
+  while size>0 do begin // tail shorter than a word
+    tb:=ba^; ba^:=bb^; bb^:=tb;
+    inc(ba); inc(bb);
+    dec(size);
+  end;
 end;
 
 function NextPow2(v:uint64):uint64;

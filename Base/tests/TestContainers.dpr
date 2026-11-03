@@ -302,6 +302,88 @@ begin
   EndTest;
 end;
 
+// TGrowArray<T>: Count vs Capacity, amortized growth, memory reuse, managed items
+type
+  TTracked=class(TInterfacedObject)
+    destructor Destroy; override;
+  end;
+var
+  trackedAlive:integer;
+
+destructor TTracked.Destroy;
+begin
+  dec(trackedAlive);
+  inherited;
+end;
+
+function NewTracked:IInterface;
+begin
+  inc(trackedAlive);
+  result:=TTracked.Create;
+end;
+
+procedure TestGrowArray;
+var
+  a:TGrowArray<integer>;
+  objs:TGrowArray<IInterface>;
+  strs:TGrowArray<String8>;
+  obj:IInterface;
+  i,bad,growths,cap:integer;
+begin
+  StartTest('TGrowArray');
+  Check((a.Count=0) and (a.Capacity=0) and a.IsEmpty,'fresh local variable is empty');
+  // 1000 appends: count growths of the storage
+  growths:=0; cap:=a.Capacity;
+  for i:=0 to 999 do begin
+    a.Add(i);
+    if a.Capacity<>cap then begin inc(growths); cap:=a.Capacity; end;
+  end;
+  Check((a.Count=1000) and (a.Capacity>=1000),'1000 items added');
+  Check(growths<=7,'amortized growth: at most 7 reallocations for 1000 items');
+  bad:=0;
+  for i:=0 to 999 do
+    if a.items[i]<>i then inc(bad);
+  Check(bad=0,'items keep their order');
+  Check(PInteger(UIntPtr(a.ItemPtr(0))+5*SizeOf(integer))^=5,'storage is contiguous');
+  Check((a.Last=999) and (a.Pop=999) and (a.Count=999),'Last/Pop');
+  // Clear keeps the memory: refill without reallocation
+  cap:=a.Capacity;
+  a.Clear;
+  Check((a.Count=0) and (a.Capacity=cap),'Clear keeps capacity');
+  for i:=0 to 999 do a.Add(i);
+  Check(a.Capacity=cap,'refill reuses the memory');
+  a.Clear(true);
+  Check(a.Capacity=0,'Clear(true) frees the memory');
+  a.Reserve(5000);
+  cap:=a.Capacity;
+  for i:=1 to 5000 do a.Add(i);
+  Check((cap=5000) and (a.Capacity=5000),'Reserve: no growth up to the reserved size');
+  // SetCount: new items are default even over stale reserve slots
+  a.Clear;
+  a.Add(1); a.Add(2); a.Add(3);
+  a.SetCount(1);
+  a.SetCount(3);
+  Check((a.Count=3) and (a.items[1]=0) and (a.items[2]=0),'SetCount growth gives default items');
+  // managed items are released while the memory is kept
+  trackedAlive:=0;
+  for i:=1 to 10 do begin
+    obj:=NewTracked; // explicit variable: a compiler temp would keep the last item alive
+    objs.Add(obj);
+  end;
+  obj:=nil;
+  objs.SetCount(4);
+  Check(trackedAlive=4,'SetCount releases dropped items');
+  obj:=objs.Pop; // the popped item is returned to the caller...
+  obj:=nil;       // ...and released here
+  Check(trackedAlive=3,'Pop releases the item');
+  objs.Clear;
+  Check((trackedAlive=0) and (objs.Capacity>0),'Clear releases items, keeps capacity');
+  for i:=1 to 100 do strs.Add(String8('item')+String8(IntToStr(i)));
+  Check((strs.Count=100) and (strs.items[41]='item42'),'strings');
+  strs.Clear(true);
+  EndTest;
+end;
+
 begin
   try
     TestGenericTree;
@@ -311,6 +393,7 @@ begin
     TestGenQueue;
     TestPriorityQueue;
     TestObjectList;
+    TestGrowArray;
 
     writeln;
     if testsFailed=0 then

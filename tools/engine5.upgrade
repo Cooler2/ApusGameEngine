@@ -213,6 +213,8 @@ TPoint3 -> TVec3d [Apus.Geom3D]
 // === Apus.Geom2D: constant renames ===
 IdentMatrix32 -> IdentMat32d [Apus.Geom2D]
 IdentMatrix2 -> IdentMat2d [Apus.Geom2D]
+// pi (2026-11-03): the Geom2D constant is removed, System.Pi is used instead - no change needed
+pi2 -> ?Apus.Geom2D.pi2 (=pi/2) removed: use Pi/2 [Apus.Geom2D]
 
 // === Apus.Geom3D: constant renames ===
 IdentMatrix4s -> IdentMat4 [Apus.Geom3D]

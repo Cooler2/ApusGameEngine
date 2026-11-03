@@ -50,9 +50,10 @@ type
   class function Lightness(color:cardinal):byte; static; inline;
   class function Diff(c1,c2:cardinal):single; static; inline;
   class function SimpleDiff(c1,c2:cardinal):integer; static; inline;
-  // adjustments
-  class function Brighten(c:cardinal;value:integer):cardinal; static;
-  class function Contrast(c:cardinal;value:integer):cardinal; static;
+  // adjustments: RGB only, alpha is kept; results are clamped to 0..255
+  class function Brighten(c:cardinal;value:integer):cardinal; static;  // add value (-255..255) to each RGB channel
+  class function ScaleRGB(c:cardinal;factor:single):cardinal; static;  // multiply RGB by factor (0.8 = 20% darker), rounded
+  class function Contrast(c:cardinal;value:integer):cardinal; static;  // scale RGB around 128: value=256 - no change, 0 - flat gray, 512 - double
  end;
 
  // Bilinear interpolation of scalar values — not a color operation
@@ -384,13 +385,35 @@ implementation
   end;
 
  class function Color.Brighten(c:cardinal;value:integer):cardinal;
+  var
+   col:TARGBColor absolute result;
   begin
-   result:=c; // TODO: implement brightness adjustment
-   Assert(false,'Brighten not implemented');
+   value:=Clamp(value,-255,255); // no integer overflow for extreme values
+   result:=c;
+   col.r:=Clamp(col.r+value,0,255);
+   col.g:=Clamp(col.g+value,0,255);
+   col.b:=Clamp(col.b+value,0,255);
+  end;
+
+ class function Color.ScaleRGB(c:cardinal;factor:single):cardinal;
+  var
+   col:TARGBColor absolute result;
+  begin
+   ASSERT(factor>=0);
+   result:=c;
+   col.r:=round(Clamp(col.r*factor,0.0,255.0));
+   col.g:=round(Clamp(col.g*factor,0.0,255.0));
+   col.b:=round(Clamp(col.b*factor,0.0,255.0));
   end;
 
  class function Color.Contrast(c:cardinal;value:integer):cardinal;
-  asm
+  var
+   col:TARGBColor absolute result;
+  begin
+   result:=c;
+   col.r:=Clamp(128+DivFloor((col.r-128)*value+128,256),0,255);
+   col.g:=Clamp(128+DivFloor((col.g-128)*value+128,256),0,255);
+   col.b:=Clamp(128+DivFloor((col.b-128)*value+128,256),0,255);
   end;
 
  // --- free functions ---
