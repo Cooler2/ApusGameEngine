@@ -434,6 +434,17 @@ begin
   Check(Abs(a-Pi/2)<1E-15,'perpendicular, different scales');
   a:=Vec2d(0,0).AngleTo(Vec2d(1,0));
   Check(a=0,'zero vector -> 0');
+  // the dot product is -0 here: x87 atan2(+0,-0) gave Pi
+  a:=Vec2d(0,0).AngleTo(Vec2d(-1,-1));
+  Check(a=0,'zero vector vs negative direction');
+  a:=Vec2d(-1,-1).AngleTo(Vec2d(0,0));
+  Check(a=0,'negative direction vs zero vector');
+  s:=TVec2.Init(0,0).AngleTo(TVec2.Init(-1,-1));
+  Check(s=0,'single: zero vector vs negative direction');
+  s:=TVec2.Init(-1,-1).AngleTo(TVec2.Init(0,0));
+  Check(s=0,'single: negative direction vs zero vector');
+  a:=Vec2d(0,0).ClockwiseAngleTo(Vec2d(-1,1));
+  Check(a=0,'ClockwiseAngleTo of a zero vector');
   s:=TVec2.Init(1,0).AngleTo(TVec2.Init(1,1E-4));
   Check(Abs(s-1E-4)<1E-8,'single: small angle');
   a:=Vec2d(0,1).ClockwiseAngleTo(Vec2d(1,0));

@@ -213,8 +213,8 @@ end;
 // WrapSigned: shortest signed difference on a cycle, range [-period/2, period/2)
 procedure TestWrapSigned;
 var
-  s,s270,s360:single;
-  d,heading:double;
+  s,s270,s360,sBig,sPeriod:single;
+  d,heading,big,period:double;
   i,outside:integer;
 begin
   StartTest('WrapSigned');
@@ -239,6 +239,19 @@ begin
     if (d<-Pi) or (d>=Pi) then inc(outside);
   end;
   Check(outside=0,'results stay in [-Pi, Pi)');
+  // huge values: the remainder is not exact any more, but must stay in range
+  big:=1E18; period:=2*Pi;
+  d:=WrapSigned(big,period);
+  Check((d>=-period/2) and (d<period/2),'1E18 by 2*Pi stays in range');
+  big:=1E17; period:=0.3;
+  d:=WrapSigned(big,period);
+  Check((d>=-0.15) and (d<0.15),'1E17 by 0.3 stays in range');
+  big:=-1E300; period:=0.3;
+  d:=WrapSigned(big,period);
+  Check((d>=-0.15) and (d<0.15),'-1E300 by 0.3 stays in range');
+  sBig:=1E20; sPeriod:=0.3;
+  s:=WrapSigned(sBig,sPeriod);
+  Check((s>=-sPeriod/2) and (s<sPeriod/2),'single 1E20 by 0.3 stays in range');
   EndTest;
 end;
 

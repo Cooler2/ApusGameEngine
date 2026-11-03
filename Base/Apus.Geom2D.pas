@@ -46,7 +46,8 @@ interface
    function Dot(const p:TVec2d):double; inline;
    function Cross(const p:TVec2d):double; inline;
    function Direction:double; inline;
-   // Unsigned angle between the vectors, [0, Pi]; 0 if either is zero. Precise near 0 and Pi
+   // Unsigned angle between the vectors, [0, Pi]; 0 if either is zero (also when the
+   // products underflow to 0 for tiny vectors). Precise near 0 and Pi
    function AngleTo(const p:TVec2d):double; inline;
    function ClockwiseAngleTo(const p:TVec2d):double; inline;
    function Length:double; inline;
@@ -79,7 +80,8 @@ interface
    function Dot(const p:TVec2):single; inline;
    function Cross(const p:TVec2):single; inline;
    function Direction:single; inline;
-   // Unsigned angle between the vectors, [0, Pi]; 0 if either is zero. Precise near 0 and Pi
+   // Unsigned angle between the vectors, [0, Pi]; 0 if either is zero (also when the
+   // products underflow to 0 for tiny vectors). Precise near 0 and Pi
    function AngleTo(const p:TVec2):single; inline;
    function Length:single; inline;
    function Length2:single; inline;
@@ -374,9 +376,14 @@ begin
 end;
 
 function TVec2d.AngleTo(const p:TVec2d):double;
+var
+  c,d:double;
 begin
+  c:=Cross(p); d:=Dot(p);
+  // a zero vector: atan2 of signed zeros gives 0 or Pi (x87: atan2(+0,-0)=Pi)
+  if (c=0) and (d=0) then exit(0);
   // atan2 keeps the small cross term that acos(dot) loses near 0 and Pi
-  result:=abs(ArcTan2(Cross(p),Dot(p)));
+  result:=abs(ArcTan2(c,d));
 end;
 
 function TVec2d.ClockwiseAngleTo(const p:TVec2d):double;
@@ -393,9 +400,14 @@ begin
 end;
 
 function TVec2.AngleTo(const p:TVec2):single;
+var
+  c,d:single;
 begin
+  c:=Cross(p); d:=Dot(p);
+  // a zero vector: atan2 of signed zeros gives 0 or Pi (x87: atan2(+0,-0)=Pi)
+  if (c=0) and (d=0) then exit(0);
   // atan2 keeps the small cross term that acos(dot) loses near 0 and Pi
-  result:=abs(ArcTan2(Cross(p),Dot(p)));
+  result:=abs(ArcTan2(c,d));
 end;
 
 class function TVec2d.AngleDiff(a1,a2:double):double;

@@ -230,8 +230,10 @@ var
   function Wrap(value,max:double):double; overload; inline;
   // WrapSigned - wrap value into [-period/2, period/2): the shortest signed difference
   // on a cycle, e.g. WrapSigned(a2-a1,2*Pi) for angles, WrapSigned(pos2-pos1,lapLength).
-  // Cost does not depend on how many periods value spans. Requires period>0 and a finite
-  // value: NaN/Inf give NaN or a floating-point exception, depending on the FPU mask
+  // Cost does not depend on how many periods value spans. Any finite value lands in the
+  // range, but beyond |value/period|>2^53 the result is not the exact remainder: the input
+  // itself has no digits left there. Requires period>0 and a finite value/period:
+  // NaN/Inf give NaN or a floating-point exception, depending on the FPU mask
   function WrapSigned(value,period:single):single; overload;
   function WrapSigned(value,period:double):double; overload;
 
@@ -1322,20 +1324,27 @@ end;
 
 function WrapSigned(value,period:double):double;
 var
-  half,n:double;
+  half,n,k:double;
+  pass:integer;
 begin
   ASSERT(period>0);
   half:=period*0.5;
-  if (value>=-half) and (value<half) then exit(value); // fast path: already in range
-  // n = floor(value/period+0.5) as a float: no integer overflow for huge values
-  n:=value/period+0.5;
-  result:=Int(n);
-  if result>n then result:=result-1;
-  result:=value-period*result;
-  // rounding of the product may leave result just outside the range
-  if result>=half then result:=result-period
-  else
-  if result<-half then result:=result+period;
+  result:=value;
+  // One pass while |value/period|<2^53. Above that period*k is rounded and the remainder
+  // is about ulp(value): the next pass reduces it again, each pass shrinks a huge value by
+  // ~2^-53, so even 1E308 needs ~20 passes. The bound stops NaN/Inf, which never get in range
+  for pass:=1 to 64 do begin
+    if (result>=-half) and (result<half) then exit; // in range
+    // k = floor(result/period+0.5) as a float: no integer overflow for huge values
+    n:=result/period+0.5;
+    k:=Int(n);
+    if k>n then k:=k-1;
+    result:=result-period*k;
+    // rounding of the product may leave result just outside the range
+    if result>=half then result:=result-period
+    else
+    if result<-half then result:=result+period;
+  end;
 end;
 
 function Approach(current,target,maxDelta:single):single;
