@@ -84,6 +84,9 @@ type
   procedure InitDefaults; virtual;
   function IndexOfChar(ch:Char32):integer;
   function Interval(ch1,ch2:Char32):integer; // distance between start of ch1 and start of ch2
+  function Advance(ch:Char32):integer; // pen step after ch without kerning
+  function InkRight(ch:Char32):integer; // right edge of the ink of ch from its pen position (a space - its advance)
+  function HasGlyph(ch:Char32):boolean; // the font has ch (not substituted by the default char)
   procedure CalculateAdvKerning(index:integer);
   function GetTextWidth(st:String32):integer; // up to the ink edge of the last glyph (a trailing space counts by its advance)
   function GetHeight:integer; // Height of characters like '0' or 'A'
@@ -403,6 +406,27 @@ function TUnicodeFont.GetTextWidth(st:String32):integer;
    inc(result,chars[index].width)
   else
    inc(result,chars[index].imageWidth+chars[index].imageX);
+ end;
+
+function TUnicodeFont.Advance(ch:Char32):integer;
+ begin
+  if ch=$FEFF then exit(0);
+  result:=chars[IndexOfChar(ch)].width;
+  if advancedKerning then inc(result); // see Interval
+ end;
+
+function TUnicodeFont.InkRight(ch:Char32):integer;
+ var
+  index:integer;
+ begin
+  index:=IndexOfChar(ch);
+  if ch=ord(' ') then result:=chars[index].width
+   else result:=chars[index].imageWidth+chars[index].imageX;
+ end;
+
+function TUnicodeFont.HasGlyph(ch:Char32):boolean;
+ begin
+  result:=(ch<=$FFFF) and (chars[IndexOfChar(ch)].charcode=WideChar(ch));
  end;
 
 function TUnicodeFont.IndexOfChar(ch:Char32):integer;

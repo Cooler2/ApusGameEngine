@@ -19,6 +19,7 @@ uses
   Apus.Engine.API,
   Apus.Engine.GameApp,
   Apus.Engine.Scene,
+  Apus.Strings,
   Apus.Engine.TextEffects;
 
 {$I ..\Base\tests\Test.inc}
@@ -324,6 +325,93 @@ end;
 
 // Faux bold widens the glyph cell by a column: it must be cleared, uploaded and drawn
 // with the same width whether the glyph is just rendered, cached or put into a reused atlas area
+// Horizontal ink centroid of a mask
+function InkCenterX(const p:TPlane):single;
+var
+  x,y:integer;
+  sum,sx:double;
+begin
+  sum:=0; sx:=0;
+  for y:=0 to H-1 do
+    for x:=0 to W-1 do begin
+      sum:=sum+p[x+y*W];
+      sx:=sx+p[x+y*W]*x;
+    end;
+  if sum>0 then result:=sx/sum else result:=-1;
+end;
+
+// The output follows the metrics: the pen positions of Write are PenPositions, tabular
+// digits are centered in equal cells
+procedure TestOutputMetrics;
+const
+  TEXTS:array[0..1] of String8=('Hello, World 42','-12:34.5');
+var
+  saved,tab,big,fnt:TFontHandle;
+  pos:SingleArray;
+  i,t,f:integer;
+  okPos,okMeasure:boolean;
+  m1,m8,mOpt:TPlane;
+  c1,c8,p1:single;
+  st:String8;
+begin
+  StartTest('Output follows the text metrics');
+  okPos:=true; okMeasure:=true;
+  for f:=0 to 1 do
+    for t:=0 to high(TEXTS) do begin
+      if f=0 then fnt:=font else fnt:=font or fsTabularDigits;
+      st:=TEXTS[t];
+      gfx.BeginPaint(rt);
+      try
+        txt.Write(fnt,TEXT_X,TEXT_Y,$FFFFFFFF,st,taLeft,toMeasure);
+      finally
+        gfx.EndPaint;
+      end;
+      txt.PenPositions(fnt,UTF8.Decode(st),pos);
+      for i:=1 to length(st)-1 do // [0] is the anchor, the last one the ink edge
+        if txt.MeasuredRect(i).Left-TEXT_X<>round(pos[i]) then okPos:=false;
+      gfx.BeginPaint(rt);
+      try
+        txt.Write(fnt,TEXT_X,TEXT_Y,$FFFFFFFF,st,taLeft,toMeasure or toDontDraw);
+      finally
+        gfx.EndPaint;
+      end;
+      for i:=1 to length(st)-1 do
+        if txt.MeasuredRect(i).Left-TEXT_X<>round(pos[i]) then okMeasure:=false;
+    end;
+  Check(okPos,'Write moves the pen as PenPositions');
+  Check(okMeasure,'measuring without drawing gives the same positions');
+
+  saved:=font;
+  big:=txt.GetFont('Default',30,fsIgnoreScale);
+  tab:=big or fsTabularDigits;
+  try
+    font:=tab;
+    m1:=ReadMask('1',taLeft);
+    m8:=ReadMask('8',taLeft);
+    font:=big;
+    p1:=InkCenterX(ReadMask('1',taLeft));
+    mOpt:=nil;
+    gfx.BeginPaint(rt);
+    try
+      gfx.target.Clear(0,-1,-1);
+      gfx.target.BlendMode(blAlpha);
+      txt.Write(big,TEXT_X,TEXT_Y,$FFFFFFFF,'1',taLeft,toTabularDigits);
+      ReadTarget;
+    finally
+      gfx.EndPaint;
+    end;
+    SetLength(mOpt,W*H);
+    for i:=0 to W*H-1 do mOpt[i]:=(Pixel(i mod W,i div W) shr 24)/255;
+  finally
+    font:=saved;
+  end;
+  c1:=InkCenterX(m1); c8:=InkCenterX(m8);
+  Check(abs(c1-c8)<=1.5,Format('digits centered in the cell (1: %.1f, 8: %.1f)',[c1,c8]));
+  Check(c1-p1>3,Format('a narrow digit moves to the cell center (%.1f -> %.1f)',[p1,c1]));
+  Check(abs(InkCenterX(mOpt)-c1)<0.01,'toTabularDigits = fsTabularDigits');
+  EndTest;
+end;
+
 procedure TestBoldGlyphs;
 var
   oldFont:TFontHandle;
@@ -394,6 +482,7 @@ begin
       TestCache;
       TestLayerSprites;
       TestBoldGlyphs;
+      TestOutputMetrics;
     finally
       FreeAndNil(img);
       FreeImage(rt);

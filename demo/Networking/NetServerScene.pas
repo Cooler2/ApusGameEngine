@@ -181,7 +181,7 @@ begin
     for i:=0 to high(users) do begin
       if y+rowH>inner.Bottom then break;
       txt.Write(uiFont,inner.Left,y,COL_CHAT_PEER,
-        FitWidth(uiFont,users[i].name+'  (uid '+IntToStr(users[i].id)+')',inner.Right-inner.Left),
+        txt.FitText(uiFont,users[i].name+'  (uid '+IntToStr(users[i].id)+')',inner.Right-inner.Left),
         taLeft,toAddBaseline);
       inc(y,rowH);
     end;

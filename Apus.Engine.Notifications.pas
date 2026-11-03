@@ -264,26 +264,13 @@ function LineWidth(font:TFontHandle;const line:String8):integer;
 // Word-wrap a plain line to maxTextWidth. SML lines are kept intact (tag-safe).
 procedure WrapLine(font:TFontHandle;const line:String8;maxTextWidth:integer;var dst:Strings8);
  var
-  words:Strings8;
-  cur,probe:String8;
   w:String8;
  begin
   if (Pos('{',line)>0) or (LineWidth(font,line)<=maxTextWidth) then begin
    dst.Add(line);
    exit;
   end;
-  words:=line.Split(' ');
-  cur:='';
-  for w in words do begin
-   if cur='' then probe:=w
-    else probe:=cur+' '+w;
-   if (cur<>'') and (txt.Width(font,probe)>maxTextWidth) then begin
-    dst.Add(cur);
-    cur:=w;
-   end else
-    cur:=probe;
-  end;
-  if cur<>'' then dst.Add(cur);
+  for w in txt.WrapText(font,line,maxTextWidth) do dst.Add(w);
  end;
 
 // Build a TToast from raw text+options: resolve style/duration, split+wrap, measure.

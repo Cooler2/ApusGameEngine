@@ -81,6 +81,14 @@ interface
    function Width(font:TFontHandle;st:String8):integer; // text width in pixels
    function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels
    function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
+   function Advance(font:TFontHandle;const st:String8):single;
+   function AdvanceW(font:TFontHandle;const st:String32):single;
+   procedure PenPositions(font:TFontHandle;const st:String32;var pos:SingleArray);
+   // Text layout (see ITextDrawer)
+   function WrapText(font:TFontHandle;const st:String8;width:single):Strings8; overload;
+   function WrapText(font:TFontHandle;const st:String8;width:single;out widths:SingleArray):Strings8; overload;
+   function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd;
+     const ellipsis:String8=#$E2#$80#$A6):String8;
    function MeasuredCnt:integer;
    function MeasuredRect(idx:integer):TRect;
    function MeasuredBounds:TRect; // bounding rect of the last measured text (relative to its pen position)
@@ -99,6 +107,7 @@ interface
    class function PixelRatio:single;
    // The same font sized in real pixels for the given ratio (flags kept)
    function PixelFont(font:TFontHandle;ratio:single):TFontHandle;
+   function HasGlyph(font:TFontHandle;ch:Char32):boolean; // the font has a glyph for ch
   private
    fonts:array of TObject;
    procedure EnsureThreadState;
@@ -110,6 +119,7 @@ interface
       options:cardinal;targetWidth:integer;query:cardinal);
    function RawWidthW(font:TFontHandle;st:String32):integer;
    function RawHeight(font:TFontHandle):integer;
+   function RawAdvanceW(font:TFontHandle;const st:String32):single;
   end;
 
  var
@@ -153,6 +163,8 @@ const
  // Font handle flags (affecting rendered glyphs)
  fhNoHinting     = $200;
  fhAutoHinting   = $400;
+ // Font handle flags (layout only)
+ fhTabularDigits = fsTabularDigits;
  // Internal-only txt.Write option: don't apply BeginBlock textBlockOptions.
  // Used to avoid recursion when toWithShadow is expanded into nested WriteW calls.
  toInternalNoBlock = $40000000;
@@ -171,6 +183,31 @@ type
   downscaleFactor:single; // scale glyphs down if scale is less than this value
   upscaleFactor:single; // scale glyphs up if scale is larger than this value
   procedure InitDefaults; override;
+ end;
+
+ // Pen steps of one font handle in its own pixels. Metrics and output share these rules,
+ // so the measured text is the drawn one
+ TPenMetrics=record
+  uniFont:TUnicodeFontEx;
+  {$IFDEF FREETYPE}
+  ftFont:TFreeTypeFont;
+  size:single;
+  {$ENDIF}
+  charScale:single; // raster font glyphs scaled
+  tabular:boolean;  // digits take cells
+  cell:single;      // width of a digit cell
+  procedure Init(obj:TObject;font:TFontHandle);
+  function IsCell(ch:Char32):boolean; inline; // ch takes a tabular cell
+  function GlyphAdv(ch:Char32):single; // pen step after the glyph of ch, no kerning
+  function Adv(ch:Char32):single; // pen step after ch at the end of a line (a cell for a digit)
+  function Step(ch1,ch2:Char32):single; // pen step from ch1 to the next ch2
+  function Shift(ch:Char32):single; // glyph offset from the pen (centered in its cell)
+  // Width of a line counts from LeftEdge of the first char to RightEdge of the last one,
+  // both relative to their pen positions. A line drawn at x starts its pen at x-LeftEdge
+  function LeftEdge(ch:Char32):single;
+  function RightEdge(ch:Char32):single;
+  function LineWidth(const st:String32;first,last:integer):single; // st[first..last]
+  function LineAdvance(const st:String32;first,last:integer):single; // st[first..last]
  end;
 
  threadvar
@@ -300,12 +337,7 @@ procedure TTextDrawer.EnsureThreadState;
    pw^:=i*4+2; inc(pw);
    pw^:=i*4+3; inc(pw);
   end;
-  textVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxGlyphBufferCount,TBufferUsage.buDynamic,abThreadLocal);
-  textVB.debugName:='textVB';
-  textIB:=gfx.resMan.AllocIndexBuffer(6*MaxGlyphBufferCount,2,TBufferUsage.buStatic,abThreadLocal);
-  textIB.debugName:='textIB';
-  textIB.Upload(0,6*MaxGlyphBufferCount,@txtInd[0]);
-  textIB.MakeImmutable;
+  // GPU buffers come with the first flush: metrics and layout need no graphics
   txtVertCount:=0;
   textCaching:=false;
   curTextLink:=0;
@@ -319,6 +351,14 @@ procedure TTextDrawer.FlushTextCache;
  begin
   EnsureThreadState;
   if txtVertCount=0 then exit;
+  if textVB=nil then begin
+   textVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxGlyphBufferCount,TBufferUsage.buDynamic,abThreadLocal);
+   textVB.debugName:='textVB';
+   textIB:=gfx.resMan.AllocIndexBuffer(6*MaxGlyphBufferCount,2,TBufferUsage.buStatic,abThreadLocal);
+   textIB.debugName:='textIB';
+   textIB.Upload(0,6*MaxGlyphBufferCount,@txtInd[0]);
+   textIB.MakeImmutable;
+  end;
   shader.UseTexture(textCache);
   if txtVertCount>0 then begin
     idxCount:=txtVertCount*3 div 2; // 6 indices per 4 vertices
@@ -471,6 +511,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    if flags and fsItalic>0 then result:=result or fhItalic;
    if flags and fsBold>0 then result:=result or fhBold;
    if flags and fsUnderline>0 then result:=result or fhUnderline;
+   if flags and fsTabularDigits>0 then result:=result or fhTabularDigits;
   end
    else result:=0;
  end;
@@ -541,6 +582,130 @@ procedure TTextDrawer.ClearLink;
  begin
   curTextLink:=0;
   curTextLinkRect:=types.Rect(-1,-1,-1,-1);
+ end;
+
+{ TPenMetrics }
+
+procedure TPenMetrics.Init(obj:TObject;font:TFontHandle);
+ var
+  d:integer;
+  scale:single;
+ begin
+  uniFont:=nil;
+  {$IFDEF FREETYPE}
+  ftFont:=nil;
+  size:=0;
+  {$ENDIF}
+  charScale:=1;
+  tabular:=false;
+  cell:=0;
+  if obj is TUnicodeFont then begin
+   uniFont:=TUnicodeFontEx(obj);
+   scale:=ScaleFromHandle(font);
+   if (scale<uniFont.downscaleFactor) or (scale>uniFont.upscaleFactor) then charScale:=scale;
+  end
+  {$IFDEF FREETYPE}
+  else
+  if obj is TFreeTypeFont then begin
+   ftFont:=TFreeTypeFont(obj);
+   size:=20*ScaleFromHandle(font);
+  end
+  {$ENDIF};
+  if Bits.HasAny(font,fhTabularDigits) then begin
+   for d:=ord('0') to ord('9') do cell:=Max(cell,GlyphAdv(d));
+   tabular:=true;
+  end;
+ end;
+
+function TPenMetrics.IsCell(ch:Char32):boolean;
+ begin
+  result:=tabular and (ch>=ord('0')) and (ch<=ord('9'));
+ end;
+
+function TPenMetrics.GlyphAdv(ch:Char32):single;
+ begin
+  result:=0;
+  if uniFont<>nil then result:=uniFont.Advance(ch)*charScale
+  {$IFDEF FREETYPE}
+  else
+  if ftFont<>nil then result:=ftFont.Advance(ch,size)
+  {$ENDIF};
+ end;
+
+function TPenMetrics.Adv(ch:Char32):single;
+ begin
+  if IsCell(ch) then result:=cell
+   else result:=GlyphAdv(ch);
+ end;
+
+function TPenMetrics.Step(ch1,ch2:Char32):single;
+ begin
+  if IsCell(ch1) then exit(cell);
+  if IsCell(ch2) then ch2:=ord('0'); // the same step before any digit
+  result:=0;
+  if uniFont<>nil then result:=uniFont.Interval(ch1,ch2)*charScale
+  {$IFDEF FREETYPE}
+  else
+  if ftFont<>nil then result:=ftFont.Interval(ch1,ch2,size)
+  {$ENDIF};
+ end;
+
+function TPenMetrics.Shift(ch:Char32):single;
+ begin
+  if IsCell(ch) then result:=(cell-GlyphAdv(ch))/2
+   else result:=0;
+ end;
+
+function TPenMetrics.LeftEdge(ch:Char32):single;
+ begin
+  result:=0; // a raster font counts from the pen
+  {$IFDEF FREETYPE}
+  if (ftFont<>nil) and not IsCell(ch) then result:=ftFont.CharPadding(ch,size);
+  {$ENDIF}
+ end;
+
+function TPenMetrics.RightEdge(ch:Char32):single;
+ begin
+  {$IFDEF FREETYPE}
+  if ftFont<>nil then begin // a vector font counts to the last ink pixel, inclusive
+   if IsCell(ch) then exit(cell-1);
+   exit(ftFont.InkRight(ch,size)-1);
+  end;
+  {$ENDIF}
+  if IsCell(ch) then exit(cell);
+  result:=0;
+  if uniFont<>nil then result:=uniFont.InkRight(ch)*charScale;
+ end;
+
+function TPenMetrics.LineWidth(const st:String32;first,last:integer):single;
+ var
+  i:integer;
+ begin
+  result:=0;
+  for i:=first to last-1 do result:=result+Step(st[i],st[i+1]);
+  result:=result+RightEdge(st[last])-LeftEdge(st[first]);
+ end;
+
+function TPenMetrics.LineAdvance(const st:String32;first,last:integer):single;
+ var
+  i:integer;
+ begin
+  result:=0;
+  for i:=first to last-1 do result:=result+Step(st[i],st[i+1]);
+  result:=result+Adv(st[last]);
+ end;
+
+// Next line of st from pos: [first..last], pos moves past its line break. False when no
+// lines left. CR, LF and CRLF break lines; an empty line gives last<first
+function NextLine(const st:String32;var pos:integer;out first,last:integer):boolean;
+ begin
+  result:=pos<=length(st);
+  if not result then exit;
+  first:=pos;
+  while (pos<length(st)) and (st[pos]<>10) and (st[pos]<>13) do inc(pos);
+  last:=pos-1;
+  if (pos<length(st)) and (st[pos]=13) and (pos+1<length(st)) and (st[pos+1]=10) then inc(pos);
+  inc(pos); // past the break (or past the end: no more lines)
  end;
 
 constructor TTextDrawer.Create;
@@ -680,6 +845,9 @@ function TTextDrawer.Height(font:cardinal):integer;
 
 function TTextDrawer.RawWidthW(font:cardinal;st:String32):integer;
  var
+  pm:TPenMetrics;
+  pos,first,last:integer;
+  w:single;
   width:integer;
   obj:TObject;
   uniFont:TUnicodeFontEx;
@@ -692,6 +860,13 @@ function TTextDrawer.RawWidthW(font:cardinal;st:String32):integer;
    result:=0; exit;
   end;
   obj:=GetFontObject(font);
+  if Bits.HasAny(font,fhTabularDigits) then begin // digits in cells: by the pen rules
+   pm.Init(obj,font);
+   pos:=0; w:=0;
+   while NextLine(st,pos,first,last) do
+    if last>=first then w:=Max(w,pm.LineWidth(st,first,last));
+   exit(round(w));
+  end;
   scale:=ScaleFromHandle(font);
   if obj is TUnicodeFont then begin
    unifont:=obj as TUnicodeFontEx;
@@ -709,6 +884,184 @@ function TTextDrawer.RawWidthW(font:cardinal;st:String32):integer;
   end else
   {$ENDIF}
    raise EWarning.Create('GTW 1');
+ end;
+
+function TTextDrawer.RawAdvanceW(font:TFontHandle;const st:String32):single;
+ var
+  pm:TPenMetrics;
+  pos,first,last:integer;
+ begin
+  result:=0;
+  if length(st)=0 then exit;
+  pm.Init(GetFontObject(font),font);
+  pos:=0;
+  while NextLine(st,pos,first,last) do
+   if last>=first then result:=Max(result,pm.LineAdvance(st,first,last));
+ end;
+
+function TTextDrawer.Advance(font:TFontHandle;const st:String8):single;
+ begin
+  result:=AdvanceW(font,UTF8.Decode(st));
+ end;
+
+function TTextDrawer.AdvanceW(font:TFontHandle;const st:String32):single;
+ var
+  k:single;
+ begin
+  if font=0 then font:=defaultFontHandle;
+  k:=PixelRatio;
+  if k=1 then exit(RawAdvanceW(font,st));
+  result:=RawAdvanceW(PixelFont(font,k),st)/k;
+ end;
+
+procedure TTextDrawer.PenPositions(font:TFontHandle;const st:String32;var pos:SingleArray);
+ var
+  pm:TPenMetrics;
+  i,n:integer;
+  k:single;
+ begin
+  if font=0 then font:=defaultFontHandle;
+  k:=PixelRatio;
+  if k<>1 then font:=PixelFont(font,k);
+  n:=length(st);
+  SetLength(pos,n+1);
+  pos[0]:=0;
+  if n=0 then exit;
+  pm.Init(GetFontObject(font),font);
+  pos[0]:=-pm.LeftEdge(st[0]);
+  for i:=1 to n-1 do pos[i]:=pos[i-1]+pm.Step(st[i-1],st[i]);
+  pos[n]:=pos[n-1]+pm.Adv(st[n-1]);
+  if k<>1 then
+   for i:=0 to n do pos[i]:=pos[i]/k;
+ end;
+
+function TTextDrawer.HasGlyph(font:TFontHandle;ch:Char32):boolean;
+ var
+  obj:TObject;
+ begin
+  obj:=GetFontObject(font);
+  result:=false;
+  if obj is TUnicodeFont then result:=TUnicodeFont(obj).HasGlyph(ch)
+  {$IFDEF FREETYPE}
+  else
+  if obj is TFreeTypeFont then result:=TFreeTypeFont(obj).HasGlyph(ch)
+  {$ENDIF};
+ end;
+
+function TTextDrawer.WrapText(font:TFontHandle;const st:String8;width:single):Strings8;
+ var
+  widths:SingleArray;
+ begin
+  result:=WrapText(font,st,width,widths);
+ end;
+
+function TTextDrawer.WrapText(font:TFontHandle;const st:String8;width:single;out widths:SingleArray):Strings8;
+ var
+  s:String32;
+  pos:SingleArray;
+  cnt,p,first,last:integer;
+ procedure AddLine(a,b:integer); // s[a..b)
+  var
+   line:String32;
+  begin
+   if cnt>=length(result) then begin
+    SetLength(result,cnt*2+4);
+    SetLength(widths,cnt*2+4);
+   end;
+   line:=copy(s,a,b-a);
+   result[cnt]:=UTF8.Encode(line);
+   widths[cnt]:=WidthW(font,line);
+   inc(cnt);
+  end;
+ function Fits(a,b:integer):boolean; // s[a..b) by Width
+  begin
+   result:=WidthW(font,copy(s,a,b-a))<=width;
+  end;
+ procedure WrapParagraph(a,b:integer); // s[a..b)
+  var
+   start,e,sp,lineEnd,next:integer;
+  begin
+   if (width<=0) or (b=a) or Fits(a,b) then begin
+    AddLine(a,b); exit;
+   end;
+   PenPositions(font,copy(s,a,b-a),pos); // the pen finds the cut, Width checks it
+   start:=a;
+   while start<b do begin
+    if Fits(start,b) then begin
+     AddLine(start,b); break;
+    end;
+    e:=start+1; // at least one character per line
+    while (e<b) and (pos[e+1-a]-pos[start-a]<=width) do inc(e);
+    while (e<b) and Fits(start,e+1) do inc(e); // the ink may end before the pen
+    while (e>start+1) and not Fits(start,e) do dec(e);
+    next:=e;
+    if (e<b) and (s[e]<>32) and (s[e-1]<>32) then begin // the cut is inside a word
+     sp:=e-1;
+     while (sp>start) and (s[sp]<>32) do dec(sp);
+     lineEnd:=sp;
+     while (lineEnd>start) and (s[lineEnd-1]=32) do dec(lineEnd);
+     if (s[sp]=32) and (lineEnd>start) then next:=sp // break at the last space
+      else lineEnd:=e; // a word longer than the line: break between characters
+    end else begin
+     lineEnd:=e;
+     while (lineEnd>start) and (s[lineEnd-1]=32) do dec(lineEnd);
+    end;
+    if lineEnd>start then AddLine(start,lineEnd);
+    while (next<b) and (s[next]=32) do inc(next); // spaces at the break are dropped
+    start:=next;
+   end;
+  end;
+ begin
+  result:=nil;
+  widths:=nil;
+  cnt:=0;
+  s:=UTF8.Decode(st);
+  p:=0;
+  while NextLine(s,p,first,last) do WrapParagraph(first,last+1);
+  SetLength(result,cnt);
+  SetLength(widths,cnt);
+ end;
+
+function TTextDrawer.FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd;
+  const ellipsis:String8=#$E2#$80#$A6):String8;
+ var
+  s,e:String32;
+  n,lo,hi,k:integer;
+ // st with k characters kept and the ellipsis at the cut
+ function Compose(k:integer):String32;
+  var
+   head,tail,tailStart:integer;
+  begin
+   case cut of
+    TTextCut.atEnd:begin head:=k; tail:=0; end;
+    TTextCut.atStart:begin head:=0; tail:=k; end;
+    else begin head:=(k+1) div 2; tail:=k div 2; end;
+   end;
+   while (head>0) and (s[head-1]=32) do dec(head); // no spaces at the cut
+   tailStart:=n-tail;
+   while (tailStart<n) and (s[tailStart]=32) do inc(tailStart);
+   tail:=n-tailStart;
+   result:=nil;
+   SetLength(result,head+length(e)+tail);
+   if head>0 then Move(s[0],result[0],head*sizeof(Char32));
+   if length(e)>0 then Move(e[0],result[head],length(e)*sizeof(Char32));
+   if tail>0 then Move(s[tailStart],result[head+length(e)],tail*sizeof(Char32));
+  end;
+ begin
+  s:=UTF8.Decode(st);
+  if WidthW(font,s)<=width then exit(st);
+  if (ellipsis=#$E2#$80#$A6) and not HasGlyph(font,$2026) then e:=UTF8.Decode('...')
+   else e:=UTF8.Decode(ellipsis);
+  if (length(e)>0) and (WidthW(font,e)>width) then exit('');
+  n:=length(s);
+  // the most characters kept that fit (the width grows with them); 0 - the ellipsis alone
+  lo:=0; hi:=n-1;
+  while lo<hi do begin
+   k:=(lo+hi+1) div 2;
+   if WidthW(font,Compose(k))<=width then lo:=k
+    else hi:=k-1;
+  end;
+  result:=UTF8.Encode(Compose(lo));
  end;
 
 function TTextDrawer.RawHeight(font:cardinal):integer;
@@ -815,6 +1168,7 @@ var
  linkStart:integer; // x position for link rect
  queryX,queryY:integer;
  activeGlyphCache:TGlyphCache;
+ pm:TPenMetrics; // pen steps: the same as in the metrics
 
  // For complex text
  stack:array[0..7,0..31] of cardinal; // stack of current attributes (0 - default value)
@@ -970,6 +1324,9 @@ var
      end;
    end;
 
+   if Bits.HasAny(options,toTabularDigits) then font:=font or fhTabularDigits; // measured the same way
+   pm.Init(obj,font);
+
    width:=0;
    charSpacing:=0; // extra spacing between regular characters
    spaceSpacing:=0; // extra width of spaces
@@ -1012,7 +1369,7 @@ var
     end;
    end;
    {$IFDEF FREETYPE}
-   if (align=taCenter) and (obj is TFreeTypeFont) and (length(st)>0) then begin // indent is ignored when centering
+   if (align=taCenter) and (obj is TFreeTypeFont) and (length(st)>0) and not pm.IsCell(st[0]) then begin // indent is ignored when centering
     dec(x,ftFont.CharPadding(st[0],size));
    end;
    {$ENDIF}
@@ -1311,13 +1668,7 @@ var
     if (oldLink=0) and (link<>0) then linkStart:=round(px);
     // Go to next character
     if i>0 then begin
-     if unifont<>nil then
-       advance:=unifont.Interval(st[i-1],st[i])*charScaleX
-     {$IFDEF FREETYPE}
-     else
-     if ftFont<>nil then
-      advance:=ftFont.Interval(st[i-1],st[i],size)
-     {$ENDIF} ;
+     advance:=pm.Step(st[i-1],st[i]);
      px:=px+advance+charSpacing;
      if st[i-1]=ord(' ') then px:=px+spaceSpacing;
      // Metrics
@@ -1355,7 +1706,11 @@ var
      if lpCount>=high(linePoints) then dec(lpCount,2);
     end;
 
-    if (st[i]=32) or Bits.HasAny(options,toDontDraw) then continue; // space -> no glyph => skip drawing
+    if Bits.HasAny(options,toDontDraw) then begin
+     if i=0 then px:=px-pm.LeftEdge(st[0]); // as the glyph would shift the pen below
+     continue;
+    end;
+    if st[i]=32 then continue; // space -> no glyph => skip drawing
 
     if uniFont<>nil then begin // Unicode raster font
      idx:=unifont.IndexOfChar(st[i]);
@@ -1372,7 +1727,7 @@ var
         w:=gl.width-2;
        end;
        if pnt.x>=0 then
-        AddVertices(chardata,pnt,round(px),y,imageX,imageY,w,imageHeight,outVertex,cnt);
+        AddVertices(chardata,pnt,round(px+pm.Shift(st[i])),y,imageX,imageY,w,imageHeight,outVertex,cnt);
       end;
     end
     {$IFDEF FREETYPE}
@@ -1399,9 +1754,9 @@ var
       dy:=gl.dy;
       fl:=true;
      end;
-     if i=0 then px:=px-dx; // remove any x-padding for the 1-st character
+     if (i=0) and not pm.IsCell(st[0]) then px:=px-dx; // remove any x-padding for the 1-st character
      if fl then
-      AddVertices(chardata,pnt,round(px),y,dX,dY,imgW,imgH,outVertex,cnt);
+      AddVertices(chardata,pnt,round(px+pm.Shift(st[i])),y,dX,dY,imgW,imgH,outVertex,cnt);
     end
     {$ENDIF};
    end; // FOR

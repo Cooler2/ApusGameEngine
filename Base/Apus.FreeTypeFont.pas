@@ -34,6 +34,9 @@ type
     // TODO: document or redesign the synchronization contract; the class currently
     // relies on a global lock and RenderGlyph still returns borrowed bitmap data.
     function Interval(ch1,ch2:Char32;size:single):integer; // spacing between start point of ch1 and the next ch2
+    function Advance(ch:Char32;size:single):integer; // pen step after ch without kerning
+    function InkRight(ch:Char32;size:single):integer; // right edge of the ink of ch from its pen position (exclusive)
+    function HasGlyph(ch:Char32):boolean; // the font has a glyph for ch (not the missing glyph)
     function GetTextWidth(st:String32;size:single):integer; // up to the ink edge of the last glyph, same as TUnicodeFont
     function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
     // Largest size (as passed to RenderGlyph) at which every glyph (the font bounding box) rises
@@ -173,8 +176,8 @@ begin
    end;
    result:=result+Interval(st[i],st[i+1],size);
   end;
-  // lastCharW is the advance of the last glyph: -1 turns the next pen position into
-  // the ink edge (the convention of TUnicodeFont); Engine 2 returned the pen position
+  // lastCharW is the right ink edge of the last glyph (a space - its advance), exclusive:
+  // -1 makes it inclusive
   result:=max(maxLineWidth,result+lastCharW)-1;
 end;
 
@@ -222,6 +225,33 @@ begin
    intervalHash[h].ch2:=ch2;
    intervalHash[h].size:=s;
    intervalHash[h].interval:=result;
+ finally
+  cSect.Leave;
+ end;
+end;
+
+function TFreeTypeFont.Advance(ch:Char32;size:single):integer;
+begin
+ result:=Interval(ch,0,size); // glyph 0 has no kerning pairs
+end;
+
+function TFreeTypeFont.InkRight(ch:Char32;size:single):integer;
+var
+ h,s:integer;
+begin
+ SetSize(size);
+ s:=round(size*4);
+ h:=(integer(ch)+s*47) and $3FF;
+ if (glyphWidthHash[h].ch<>ch) or
+    (glyphWidthHash[h].size<>s) then FillGlyphMetrics(ch,h,s);
+ result:=glyphWidthHash[h].value;
+end;
+
+function TFreeTypeFont.HasGlyph(ch:Char32):boolean;
+begin
+ cSect.Enter;
+ try
+  result:=FT_Get_Char_Index(face,cardinal(ch))<>0;
  finally
   cSect.Leave;
  end;

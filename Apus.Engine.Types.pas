@@ -73,6 +73,12 @@ type
                  taRight,     // output point indicates the right edge; use boundary-1 to keep ink before a guide/border line
                  taJustify);  // output point indicates the left edge, while spacing is the line width
                               // (falls back to left-aligned output when actual width is too small or the line ends with #10/#13)
+ {$SCOPEDENUMS ON}
+ // Where txt.FitText cuts a text that doesn't fit
+ TTextCut=(atEnd,     // keep the start: "Long tex…"
+           atStart,   // keep the end: "…ong text"
+           atMiddle); // keep both ends: "Lon…text" (paths)
+ {$SCOPEDENUMS OFF}
 
  // Display mode
  TDisplayMode=(dmNone,             //< not specified

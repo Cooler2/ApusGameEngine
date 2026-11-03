@@ -3,6 +3,31 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Text: `Advance`, `PenPositions`, tabular digits, `WrapText`, `FitText` (2026-11-03)
+
+- `ITextDrawer` has the second metric of a text: `Advance`/`AdvanceW` - the pen advance (where
+  a next text starts), additive up to the kerning at the junction. `Width` stays the visible
+  text (ink), not additive.
+- `PenPositions(font,st32,pos)` - the pen before each character and after the last one,
+  relative to x of `Write`. The edit box takes its caret, hit-test and selection from it
+  instead of a `toMeasure` pass: the caret at the end of the text now stands at the pen (was
+  at the ink edge), the completion goes on from the pen. The selection highlight spans the
+  font's line like the caret (was the whole box height, over the frame).
+- Tabular digits: `fsTabularDigits` (`GetFont`) / `toTabularDigits` (`Write`). Digits take
+  cells of the widest digit advance, centered; a digit at an edge counts by its cell, so a
+  right-aligned or centered number doesn't move when its digits change (with Open Sans,
+  whose digit advances are already equal, `Width('1:11')<>Width('8:88')` without the flag).
+- `WrapText` (optionally with the width of each line) and `FitText` with
+  `TTextCut.atEnd/atStart/atMiddle` (`Apus.Engine.Types`); the default ellipsis `'…'` falls
+  back to `'...'` without that glyph. `Notifications` wraps toasts with `WrapText`: a word
+  longer than the line is now broken between characters. Networking demo `FitWidth` ->
+  `txt.FitText`.
+- `TTextDrawer.HasGlyph`; `TFreeTypeFont`/`TUnicodeFont`: `Advance`, `InkRight`, `HasGlyph`.
+- Fixed: measuring without drawing (`toMeasure or toDontDraw`) gave per-character positions
+  shifted by the bearing of the first glyph.
+- `TTextDrawer` allocates its GPU buffers at the first flush: metrics and layout work
+  without graphics (`tests/TestTextMetrics`).
+
 ## Scenes: exact `Process` frequency on `TStepClock` (2026-11-03)
 
 - `TGameScene.accumTime` -> `clock:TStepClock`: a scene with `frequency>0` gets `Process`

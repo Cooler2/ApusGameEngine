@@ -64,7 +64,6 @@ type
     function S(v:integer):integer;
     procedure AddFeed(color:cardinal;const text:String8);
     function Hit(const r:TRect):boolean;
-    function FitWidth(font:TFontHandle;const s:String8;maxW:integer):String8;
     function FitTail(font:TFontHandle;const prefix,s,suffix:String8;maxW:integer):String8;
     procedure DrawHeader(const title,subtitle:String8);
     procedure DrawStatus(const text:String8;ok:boolean);
@@ -187,16 +186,6 @@ begin
   result:=Types.PtInRect(r,Types.Point(window.mousePos.x,window.mousePos.y));
 end;
 
-// Truncate the END of a string to fit maxW pixels (keeps the start, adds an ellipsis).
-function TNetSceneBase.FitWidth(font:TFontHandle;const s:String8;maxW:integer):String8;
-begin
-  if txt.Width(font,s)<=maxW then exit(s);
-  result:=s;
-  while (result<>'') and (txt.Width(font,result+'...')>maxW) do
-    delete(result,length(result),1);
-  result:=result+'...';
-end;
-
 // Keep the TAIL of the input that fits maxW pixels (so the caret stays visible).
 function TNetSceneBase.FitTail(font:TFontHandle;const prefix,s,suffix:String8;maxW:integer):String8;
 begin
@@ -211,7 +200,7 @@ begin
   w:=window.canvasWidth;
   draw.FillRect(0,0,w,S(58),COL_HEADER);
   txt.Write(titleFont,S(16),S(12),COL_WHITE,title,taLeft,toAddBaseline);
-  txt.Write(smallFont,S(16),S(40),COL_DIM,FitWidth(smallFont,subtitle,w-S(32)),taLeft,toAddBaseline);
+  txt.Write(smallFont,S(16),S(40),COL_DIM,txt.FitText(smallFont,subtitle,w-S(32)),taLeft,toAddBaseline);
 end;
 
 procedure TNetSceneBase.DrawStatus(const text:String8;ok:boolean);
@@ -220,7 +209,7 @@ begin
   w:=window.canvasWidth;
   draw.FillRect(0,S(58),w,S(84),COL_STATUS);
   if ok then col:=COL_OK else col:=COL_WARN;
-  txt.Write(smallFont,S(16),S(66),col,FitWidth(smallFont,text,w-S(32)),taLeft,toAddBaseline);
+  txt.Write(smallFont,S(16),S(66),col,txt.FitText(smallFont,text,w-S(32)),taLeft,toAddBaseline);
 end;
 
 // Draw a titled panel; returns the inner content rectangle (below the header bar, padded).
@@ -256,7 +245,7 @@ begin
   for i:=0 to feedCount-1 do begin
     if y<r.Top then break;
     idx:=(feedHead-1-i+MAX_FEED) mod MAX_FEED;
-    txt.Write(uiFont,r.Left,y,feed[idx].color,FitWidth(uiFont,feed[idx].text,r.Right-r.Left),taLeft,toAddBaseline);
+    txt.Write(uiFont,r.Left,y,feed[idx].color,txt.FitText(uiFont,feed[idx].text,r.Right-r.Left),taLeft,toAddBaseline);
     dec(y,rowH);
   end;
 end;

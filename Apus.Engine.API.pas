@@ -107,6 +107,7 @@ const
  toItalic         =  $2000000; // Overrides font style flag
  toUnderline      =  $4000000; // Overrides font style flag
  toLetterSpacing  = $10000000; // Additional spacing between letters
+ toTabularDigits  = $20000000; // Digits 0..9 take equal cells (overrides font style flag, see fsTabularDigits)
 
  // GetFont() style flags
  fsDontTranslate = 1; // Don't use UDict to translate strings
@@ -118,6 +119,10 @@ const
  fsItalic      =     $2000000;
  fsUnderline   =     $4000000;
  fsLetterSpacing  = $10000000;
+ // Digits 0..9 take equal cells: the widest digit's advance, a glyph centered in its cell.
+ // Changing numbers keep their digits in place. Width, Advance, PenPositions and the
+ // output all follow it; a digit at an edge of a text counts by its cell, not its ink
+ fsTabularDigits  = $20000000;
 
  // Font options (for SetFontOption)
  foDownscaleFactor = 1;
@@ -657,10 +662,32 @@ type
   procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
   // Centered: x is the center
   procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
-  // Measure text dimensions. Width ends at the right edge of the last glyph's ink,
-  // not at the pen position for a next char (Engine 2 returned 1 pixel more)
+  // Two metrics of a text (unlike most text APIs, where "width" is the pen advance):
+  // Width - the visible text: from the ink start of the first glyph to the ink edge of the
+  //   last one. Not additive: Width(a+b)<>Width(a)+Width(b). Multi-line: the widest line.
+  // Advance - the pen advance: where a next text would start. Additive up to the kerning at
+  //   the junction. Multi-line: the widest line.
+  // Neither translates the text: pass the text as it will be drawn.
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
   function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels
+  function Advance(font:TFontHandle;const st:String8):single;
+  function AdvanceW(font:TFontHandle;const st:String32):single;
+  // Pen position before each character of a single line: pos[i] for st[i], and
+  // pos[length(st)] after the last one, pos[length]-pos[0]=AdvanceW(st). Relative to x of
+  // Write (taLeft): the ink starts at x, so pos[0] is minus the bearing of the first glyph.
+  // For a caret, a selection, hit-testing a click
+  procedure PenPositions(font:TFontHandle;const st:String32;var pos:SingleArray);
+  // Split a text into lines no wider than width (by Width). Breaks: explicit line breaks
+  // (CR, LF, CRLF), then spaces; a word wider than width is broken between characters.
+  // Spaces at a break are dropped, empty lines kept; width<=0 - explicit breaks only.
+  // widths - Width of each line
+  function WrapText(font:TFontHandle;const st:String8;width:single):Strings8; overload;
+  function WrapText(font:TFontHandle;const st:String8;width:single;out widths:SingleArray):Strings8; overload;
+  // st if it fits width (by Width), otherwise st cut at a character boundary with ellipsis
+  // at the cut (spaces at the cut dropped); '' if even the ellipsis doesn't fit. The default
+  // ellipsis '…' becomes '...' for a font without that glyph
+  function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd;
+    const ellipsis:String8=#$E2#$80#$A6):String8;
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
   function MeasuredCnt:integer; // length of the measured rects array
   function MeasuredRect(idx:integer):TRect; // rect[idx] of text measurement command

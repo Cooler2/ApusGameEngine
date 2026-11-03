@@ -85,6 +85,7 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
   compile_only tests/TestVirtualMouse.dpr
   compile_only tests/TestNinePatch.dpr
   compile_only tests/TestFill.dpr
+  compile_only tests/TestTextMetrics.dpr
   compile_only tests/TestSteam.dpr
 fi
 

@@ -898,11 +898,17 @@ implementation
 
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
-   wst:String32;
+   wst,rest:String32;
    i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,targetX,midX,txtLen:integer;
    capH,caretW,caretTop,caretBottom:integer;
    font:TFontHandle;
    col:cardinal;
+   pos,cpos:SingleArray;
+  // caret before character i, from the text start (the ink start of the first glyph)
+  function CaretX(i:integer):integer;
+   begin
+    result:=Max(0,round(pos[i]));
+   end;
   begin
    font:=control.StyleFont;
    col:=control.GetStyleColor('color',$FF202020);
@@ -923,45 +929,46 @@ implementation
      exit;
     end;
     txtLen:=length(wst);
-    // Measure full string once and use the same metrics for:
-    // caret position, mouse hit-test, and selection bounds.
-    if txtLen>0 then
-     txt.WriteW(font,0,mY,col,wst,taLeft,toDontTranslate or toDontDraw or toMeasure);
+    // Pen positions of the whole string, the same for the caret, the mouse hit-test and
+    // the selection bounds
+    txt.PenPositions(font,wst,pos);
 
     if needpos>=0 then begin
      targetX:=needPos-3+round(scroll.X);
      cursorpos:=0;
      while cursorpos<txtLen do begin
-      midX:=(txt.MeasuredRect(cursorpos).Left+txt.MeasuredRect(cursorpos+1).Left) div 2;
+      midX:=(CaretX(cursorpos)+CaretX(cursorpos+1)) div 2;
       if targetX<midX then break;
       inc(cursorpos);
      end;
      needpos:=-1;
     end;
-    if txtLen=0 then
-     i:=0
-    else
-     i:=txt.MeasuredRect(cursorpos).Left; // caret x in text-local coordinates
+    i:=CaretX(cursorpos); // caret x in text-local coordinates
     d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible
     if i-scroll.X<0 then scroll.X:=i;
     if i-scroll.X>(x2-x1-d-offset) then scroll.X:=i-(x2-x1-d-offset);
     scrollPixels:=round(scroll.X); // scroll.X is already in screen pixels
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if HasCompletion then begin
-     j:=xStart+txt.WidthW(font,wst);
-     txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),
-       copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);
+     rest:=copy(completion,length(wst),length(completion)-length(wst));
+     txt.PenPositions(font,rest,cpos);
+     j:=xStart+round(pos[txtLen]-cpos[0]); // the completion goes on from the pen
+     txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),rest,taLeft,toDontTranslate);
     end;
     j:=xStart+offset;
+    // the font's line (not the box): the caret and the selection span it
+    capH:=txt.Height(font);
+    caretTop:=Max(y1+2,mY-round(capH*1.3));
+    caretBottom:=Min(y2-2,mY+round(capH*0.3));
     selX1:=0; selX2:=0;
     if (selcount>0) and (txtLen>0) and (FocusedElement=control) then begin // part of the text is selected
-     selX1:=j+txt.MeasuredRect(selstart).Left;
-     selX2:=j+txt.MeasuredRect(selstart+selcount).Left;
+     selX1:=j+CaretX(selstart);
+     selX2:=j+CaretX(selstart+selcount);
     end;
     if selX2>selX1 then begin
      // The whole string is drawn each time with the same layout, only clipped differently:
      // separately drawn parts would start at rounded positions and shift the glyphs
-     draw.FillRect(selX1,y1+1,selX2-1,y2-1,$FF4488CC); // selection highlight
+     draw.FillRect(selX1,caretTop,selX2-1,caretBottom,$FF4488CC); // selection highlight
      gfx.clip.Rect(Rect(x1,y1,selX1,y2));
      txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
      gfx.clip.Restore;
@@ -974,11 +981,7 @@ implementation
     end else
      txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
     if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // cursor
-     // the caret spans the font's line (not the box) and gets thicker with the font size
-     capH:=txt.Height(font);
-     caretW:=Max(1,round(capH/12));
-     caretTop:=Max(y1+2,mY-round(capH*1.3));
-     caretBottom:=Min(y2-2,mY+round(capH*0.3));
+     caretW:=Max(1,round(capH/12)); // thicker with the font size
      curX:=j+i-(caretW+1) div 2; // centered on the glyph boundary
      draw.FillRect(curX,caretTop,curX+caretW-1,caretBottom,col);
     end;

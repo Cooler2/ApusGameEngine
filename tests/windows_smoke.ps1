@@ -100,6 +100,7 @@ Invoke-FpcTarget 'tests/TestCulling.dpr' -CompileOnly # needs a GL window: run l
 Invoke-FpcTarget 'tests/TestSceneEffectBuffers.dpr' -CompileOnly # needs a GL window: run locally
 Invoke-FpcTarget 'tests/TestCursorHandles.dpr' -CompileOnly # needs an SDL window: run locally
 Invoke-FpcTarget 'tests/TestFill.dpr'
+Invoke-FpcTarget 'tests/TestTextMetrics.dpr'
 Invoke-FpcTarget 'tests/TestStyle.dpr'
 Invoke-FpcTarget 'tests/TestUIHint.dpr'
 Invoke-FpcTarget 'tests/TestUIScript.dpr'
