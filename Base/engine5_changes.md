@@ -3,6 +3,20 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Mesh: `Append` attribute set, `MeshOps.Transform`, `MeshOps.SetColor` (2026-11-03)
+
+- `TMesh.Append`:
+  - an empty mesh takes the attribute set of the first appended part (it kept only the
+    positions: callers had to start from a copy of the first part);
+  - a part without colors appended to a mesh with colors gets white (was 0, transparent black);
+    any other attribute the target has and the part lacks is an `ASSERT` (zeros in release);
+  - normals are transformed by the inverse transpose of the linear part (were rotated by the
+    linear part itself: wrong under a non-uniform scale); a mirroring matrix flips the
+    triangle winding and the tangent `w` of the appended part.
+- `MeshOps.Transform(mesh,m)` - the same transform of a whole mesh in place.
+- `MeshOps.SetColor(mesh,color)` - one vertex color for the whole mesh: white parts tinted
+  with `shader.Material` give one GPU mesh drawn in many colors.
+
 ## UI: hotkeys set in any thread work in their window (2026-11-03)
 
 - `TUIElement.SetHotKey` registered the hotkey in a threadvar list of the calling thread,

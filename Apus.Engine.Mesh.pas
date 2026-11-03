@@ -82,12 +82,14 @@ type
   procedure EndSection;
   procedure AddSection(const aName:String8;firstIndex,indexCount:integer);
 
-  // Append src into self under transform m: positions <- m*pos, normals/tangents
-  // rotated by the linear part of m (re-normalized, xyz only), indices offset by
-  // the current vertex count. Attributes present in self but absent in src are
-  // left at their default value; attributes present in src but absent in self
-  // are dropped (R-19 stage-A guarded semantics). Adds and returns a new
-  // (unnamed) section covering the appended index range. Marks bounds dirty.
+  // Append src into self under transform m (applied to the appended part as by
+  // MeshOps.Transform, mirroring included), indices offset by the current vertex count.
+  // The attribute set of self is kept: an empty self takes the one of src; attributes
+  // present in src but absent in self are dropped. An attribute present in self but
+  // absent in src: colors are filled white (neutral for the material tint), any other
+  // one is an error (ASSERT; zeros in release).
+  // Adds and returns a new (unnamed) section covering the appended index range.
+  // Marks bounds dirty.
   function Append(const src:TMesh;const m:TMat4):TMeshSection;
 
   // Validate, compute MaxIndex/bounds, mark bounds clean. Call once after build.
@@ -114,9 +116,68 @@ type
   // Requires positions, normals, uv0, indices (call ComputeNormals first if needed).
   // Replaces any previous tangents array.
   class procedure ComputeTangents(mesh:TMesh); static;
+  // Transform the mesh in place: positions by m, normals by the inverse transpose of its
+  // linear part (right under a non-uniform scale), tangents (xyz) by the linear part, both
+  // re-normalized. A mirroring m (negative determinant) also flips the winding of every
+  // triangle and the tangent handedness w: the outward side and the bitangent stay right.
+  // m must not be degenerate (zero scale). Marks bounds dirty.
+  class procedure Transform(mesh:TMesh;const m:TMat4); static;
+  // Set the vertex color of the whole mesh (adds the colors if the mesh has none).
+  // Neutral white + shader.Material gives one mesh drawn in many colors.
+  class procedure SetColor(mesh:TMesh;color:cardinal); static;
  end;
 
 implementation
+
+// Transform vertices [first,first+count) and the triangles of indices [firstIndex,
+// firstIndex+indexCount) of mesh in place (see MeshOps.Transform)
+procedure TransformRange(mesh:TMesh;first,count,firstIndex,indexCount:integer;const m:TMat4);
+ var
+  i,k:integer;
+  lin,nm:TMat3;
+  v:TVec3;
+  det:single;
+  mirror:boolean;
+ begin
+  lin:=TMat3.Init(m);
+  det:=lin.Determinant;
+  ASSERT(det<>0,'MeshOps.Transform: degenerate matrix');
+  mirror:=det<0;
+  // normals: the inverse transpose keeps them perpendicular to the surface. Its rows are
+  // the cross products of the rows of lin divided by det: the length goes away with the
+  // normalization, the sign of det stays (a mirror would turn the normals inside out)
+  nm.rows[0]:=lin.rows[1].Cross(lin.rows[2]);
+  nm.rows[1]:=lin.rows[2].Cross(lin.rows[0]);
+  nm.rows[2]:=lin.rows[0].Cross(lin.rows[1]);
+  for i:=first to first+count-1 do
+   mesh.positions[i]:=m.TransformPoint(mesh.positions[i]);
+  if length(mesh.normals)>0 then
+   for i:=first to first+count-1 do begin
+    v:=mesh.normals[i];
+    nm.TransformPoints(@v,1,0);
+    v.Normalize;
+    if mirror then v:=Vec3(-v.x,-v.y,-v.z);
+    mesh.normals[i]:=v;
+   end;
+  if length(mesh.tangents)>0 then
+   for i:=first to first+count-1 do begin
+    v:=mesh.tangents[i].xyz;
+    lin.TransformPoints(@v,1,0);
+    v.Normalize;
+    if mirror then mesh.tangents[i]:=Vec4(v,-mesh.tangents[i].w)
+     else mesh.tangents[i]:=Vec4(v,mesh.tangents[i].w);
+   end;
+  if mirror then begin // keep the triangles counter-clockwise from outside
+   i:=firstIndex;
+   while i+2<firstIndex+indexCount do begin
+    k:=mesh.indices[i+1];
+    mesh.indices[i+1]:=mesh.indices[i+2];
+    mesh.indices[i+2]:=k;
+    inc(i,3);
+   end;
+  end;
+  mesh.boundsDirty:=true;
+ end;
 
 { MeshOps }
 
@@ -192,6 +253,19 @@ begin
   if tn.Cross(tx).Dot(bAcc[i])<0 then w:=1.0;
   mesh.tangents[i]:=Vec4(tx,w);
  end;
+end;
+
+class procedure MeshOps.Transform(mesh:TMesh;const m:TMat4);
+begin
+ TransformRange(mesh,0,mesh.VertexCount,0,mesh.IndexCount,m);
+end;
+
+class procedure MeshOps.SetColor(mesh:TMesh;color:cardinal);
+var
+ i:integer;
+begin
+ SetLength(mesh.colors,mesh.VertexCount);
+ for i:=0 to high(mesh.colors) do mesh.colors[i]:=color;
 end;
 
 { TMesh }
@@ -331,67 +405,72 @@ procedure TMesh.AddSection(const aName:String8;firstIndex,indexCount:integer);
 function TMesh.Append(const src:TMesh;const m:TMat4):TMeshSection;
  var
   baseVertex,baseIndex,n,i,s:integer;
-  rot:TMat3;
-  v:TVec3;
-  t:TVec4;
+  empty:boolean;
+ // self keeps the attribute: it has one, or it is empty and src has one
+ function Keeps(selfLen,srcLen:integer):boolean;
+  begin
+   result:=(selfLen>0) or (empty and (srcLen>0));
+  end;
+ // an attribute of self that src lacks (not for colors: those become white)
+ procedure CheckSrc(srcLen:integer;const attr:String8);
+  begin
+   ASSERT((n=0) or (srcLen>0),'TMesh.Append: '+src.name+' has no '+attr+' that '+name+' has');
+  end;
  begin
   baseVertex:=VertexCount;
   baseIndex:=IndexCount;
   n:=src.VertexCount;
-  rot:=TMat3.Init(m);
+  empty:=baseVertex=0;
 
   SetLength(positions,baseVertex+n);
-  for i:=0 to n-1 do positions[baseVertex+i]:=m.TransformPoint(src.positions[i]);
+  for i:=0 to n-1 do positions[baseVertex+i]:=src.positions[i];
 
-  if length(normals)>0 then begin
+  if Keeps(length(normals),length(src.normals)) then begin
    SetLength(normals,baseVertex+n);
+   CheckSrc(length(src.normals),'normals');
    if length(src.normals)>0 then
-    for i:=0 to n-1 do begin
-     v:=src.normals[i];
-     rot.TransformPoints(@v,1,0);
-     v.Normalize;
-     normals[baseVertex+i]:=v;
-    end;
+    for i:=0 to n-1 do normals[baseVertex+i]:=src.normals[i];
   end;
 
-  if length(colors)>0 then begin
+  if Keeps(length(colors),length(src.colors)) then begin
    SetLength(colors,baseVertex+n);
    if length(src.colors)>0 then
-    for i:=0 to n-1 do colors[baseVertex+i]:=src.colors[i];
+    for i:=0 to n-1 do colors[baseVertex+i]:=src.colors[i]
+   else
+    for i:=0 to n-1 do colors[baseVertex+i]:=$FFFFFFFF;
   end;
 
-  if length(uv0)>0 then begin
+  if Keeps(length(uv0),length(src.uv0)) then begin
    SetLength(uv0,baseVertex+n);
+   CheckSrc(length(src.uv0),'uv0');
    if length(src.uv0)>0 then
     for i:=0 to n-1 do uv0[baseVertex+i]:=src.uv0[i];
   end;
 
-  if length(uv1)>0 then begin
+  if Keeps(length(uv1),length(src.uv1)) then begin
    SetLength(uv1,baseVertex+n);
+   CheckSrc(length(src.uv1),'uv1');
    if length(src.uv1)>0 then
     for i:=0 to n-1 do uv1[baseVertex+i]:=src.uv1[i];
   end;
 
-  if length(tangents)>0 then begin
+  if Keeps(length(tangents),length(src.tangents)) then begin
    SetLength(tangents,baseVertex+n);
+   CheckSrc(length(src.tangents),'tangents');
    if length(src.tangents)>0 then
-    for i:=0 to n-1 do begin
-     t:=src.tangents[i];
-     v:=t.xyz;
-     rot.TransformPoints(@v,1,0);
-     v.Normalize;
-     tangents[baseVertex+i]:=Vec4(v,t.w);
-    end;
+    for i:=0 to n-1 do tangents[baseVertex+i]:=src.tangents[i];
   end;
 
-  if length(joints)>0 then begin
+  if Keeps(length(joints),length(src.joints)) then begin
    SetLength(joints,baseVertex+n);
+   CheckSrc(length(src.joints),'joints');
    if length(src.joints)>0 then
     for i:=0 to n-1 do joints[baseVertex+i]:=src.joints[i];
   end;
 
-  if length(weights)>0 then begin
+  if Keeps(length(weights),length(src.weights)) then begin
    SetLength(weights,baseVertex+n);
+   CheckSrc(length(src.weights),'weights');
    if length(src.weights)>0 then
     for i:=0 to n-1 do weights[baseVertex+i]:=src.weights[i];
   end;
@@ -400,6 +479,8 @@ function TMesh.Append(const src:TMesh;const m:TMat4):TMeshSection;
    SetLength(indices,baseIndex+length(src.indices));
    for i:=0 to high(src.indices) do indices[baseIndex+i]:=src.indices[i]+baseVertex;
   end;
+
+  TransformRange(self,baseVertex,n,baseIndex,length(src.indices),m);
 
   result.name:='';
   result.firstIndex:=baseIndex;

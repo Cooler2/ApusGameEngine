@@ -124,6 +124,127 @@ procedure TestAppend;
   EndTest;
  end;
 
+// the attribute set of the result: an empty mesh takes the first part's, a missing
+// color becomes white, any other missing attribute is an error
+procedure TestAppendAttributes;
+ var
+  a,b,e:TMesh;
+  i:integer;
+  allWhite,raised:boolean;
+ begin
+  StartTest('TMesh.Append attribute set');
+  b:=MeshShapes.Box(1); // normals, uv0, tangents, no colors
+  e:=TMesh.Create('Empty');
+  e.Append(b,identMat4);
+  Check((length(e.normals)=24) and (length(e.uv0)=24) and (length(e.tangents)=24),
+    'an empty mesh takes the attributes of the first part');
+  Check(length(e.colors)=0,'and no attribute the part lacks');
+  e.Free;
+
+  a:=MeshShapes.Box(2);
+  SetLength(a.colors,a.VertexCount);
+  for i:=0 to high(a.colors) do a.colors[i]:=$FF102030;
+  a.Append(b,TMat4.Translation(5,0,0));
+  allWhite:=true;
+  for i:=24 to 47 do
+   if a.colors[i]<>$FFFFFFFF then allWhite:=false;
+  Check((length(a.colors)=48) and (a.colors[0]=$FF102030) and allWhite,
+    'a part without colors is appended white');
+
+  e:=TMesh.Create('NoNormals');
+  e.SetVertexCount(3,[TMeshAttribute.UV0,TMeshAttribute.Tangent]);
+  raised:=false;
+  try
+   a.Append(e,identMat4);
+  except
+   on EAssertionFailed do raised:=true;
+  end;
+  Check(raised,'a part without normals the target has is an error');
+  e.Free;
+  a.Free;
+  b.Free;
+  EndTest;
+ end;
+
+// Normals of a transformed sphere: perpendicular to the (transformed) tangents, which
+// lie in the surface, and pointing outward from the transformed center
+function SphereNormalsRight(m:TMesh;const center:TVec3):boolean;
+ var
+  i:integer;
+ begin
+  result:=true;
+  for i:=0 to m.VertexCount-1 do begin
+   if abs(m.normals[i].Dot(m.tangents[i].xyz))>1E-4 then exit(false);
+   if m.normals[i].Dot(m.positions[i]-center)<=0 then exit(false);
+  end;
+ end;
+
+// Every non-degenerate triangle is counter-clockwise seen from outside
+function SphereWindingOutward(m:TMesh;const center:TVec3):boolean;
+ var
+  i:integer;
+  p0,p1,p2,fn:TVec3;
+ begin
+  result:=true;
+  i:=0;
+  while i+2<=high(m.indices) do begin
+   p0:=m.positions[m.indices[i]];
+   p1:=m.positions[m.indices[i+1]];
+   p2:=m.positions[m.indices[i+2]];
+   fn:=(p1-p0).Cross(p2-p0);
+   if (fn.Length>1E-6) and (fn.Dot(p0-center)<0) then exit(false);
+   inc(i,3);
+  end;
+ end;
+
+procedure TestTransform;
+ var
+  m,e,orig:TMesh;
+  i:integer;
+  center:TVec3;
+  flipped,sameColor:boolean;
+ begin
+  StartTest('MeshOps.Transform, MeshOps.SetColor');
+  center:=Vec3(3,-2,1);
+  // a non-uniform scale after a rotation: the rows of the linear part are not orthogonal
+  m:=MeshShapes.UVSphere(16,8);
+  MeshOps.Transform(m,TMat4.RotationZ(0.7)*TMat4.Scale(3,1,0.5)*TMat4.Translation(3,-2,1));
+  Check(SphereNormalsRight(m,center),'normals stay perpendicular to the surface under a non-uniform scale');
+  m.Free;
+  m:=MeshShapes.UVSphere(16,8);
+  MeshOps.Transform(m,TMat4.Scale(3,1,0.5)*TMat4.RotationZ(0.7)*TMat4.Translation(3,-2,1));
+  Check(SphereNormalsRight(m,center),'and with the scale and the rotation the other way round');
+  m.Free;
+
+  // a mirror
+  orig:=MeshShapes.UVSphere(16,8);
+  m:=MeshShapes.UVSphere(16,8);
+  MeshOps.Transform(m,TMat4.Scale(-2,1,1)*TMat4.RotationZ(0.3)*TMat4.Translation(3,-2,1));
+  Check(SphereNormalsRight(m,center),'mirror: normals still point outward');
+  Check(SphereWindingOutward(m,center),'mirror: triangles flipped to stay counter-clockwise');
+  flipped:=true;
+  for i:=0 to high(m.tangents) do
+   if m.tangents[i].w<>-orig.tangents[i].w then flipped:=false;
+  Check(flipped,'mirror: tangent handedness flipped');
+  orig.Free;
+  m.Free;
+
+  // Append goes through the same transform
+  e:=TMesh.Create('Ellipsoid');
+  m:=MeshShapes.UVSphere(16,8);
+  e.Append(m,TMat4.Scale(-3,1,0.5)*TMat4.Translation(3,-2,1));
+  Check(SphereNormalsRight(e,center) and SphereWindingOutward(e,center),'Append: non-uniform mirroring transform');
+  e.Free;
+
+  MeshOps.SetColor(m,$FF336699);
+  sameColor:=length(m.colors)=m.VertexCount;
+  for i:=0 to high(m.colors) do
+   if m.colors[i]<>$FF336699 then sameColor:=false;
+  Check(sameColor,'SetColor adds colors to every vertex');
+  m.Free;
+  EndTest;
+ end;
+
 // All side vertices (indices 0..2*(segments+1)-1) sit on the expected radius:
 // even index = bottom ring (r1), odd index = top ring (r2).
 function SideVertsAtRadius(m:TMesh;segments:integer;r1,r2:single):boolean;
@@ -400,6 +521,8 @@ begin
   writeln('=== TestMeshShapes ===');
   TestBox;
   TestAppend;
+  TestAppendAttributes;
+  TestTransform;
   TestCylinder;
   TestPlane;
   TestOctasphere;

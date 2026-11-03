@@ -73,7 +73,7 @@ type
   // divisions. pos+normal+uv+tangent; normal = position/radius (unit
   // direction); u=lon/2pi, v=lat/pi where lat=0 at the +Z pole and lat=pi at
   // the -Z pole; tangent = dPos/dlon direction (+U), analytic and well-defined
-  // at the poles, w=+1 (bitangent parallel to dPos/dlat, the +V direction).
+  // at the poles, w=-1 (shader B=cross(T,N)*w along dPos/dlat, the +V direction).
   // Poles use per-segment duplicate vertices (same position, distinct u) for
   // a clean UV fan.
   class function UVSphere(segments,rings:integer;radius:single=1):TMesh; overload; static;
