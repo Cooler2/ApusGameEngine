@@ -3,6 +3,18 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Base: `Atomic` for pointers, ordered `Load`/`Store`, `Fence` (2026-11-03)
+
+- `Apus.Core.Atomic`: `Exchange`/`CmpExchange` for pointers (typed ones are cast:
+  `Atomic.Exchange(pointer(obj),nil)`); `Load` (acquire) and `Store` (release) for longint and
+  pointer - not inline, so the call is also a compiler barrier and a wait loop reads the
+  variable each time; `Fence` - full barrier. Read-modify-write operations stay full barriers.
+- `Atomic.Add`/`Sub` are one locked `xadd` instead of a CAS loop; they return the new value, as
+  before. `Inc`/`Dec` lost the needless `overload` directive.
+- The `MemoryBarrier` fallback of Core (FPC has none in System) is `Atomic.Fence`; `SpinUnlock`
+  on weak memory models uses `Atomic.Store`.
+- No 64-bit atomics: FPC has none on Win32, and nothing in the engine needs them.
+
 ## Base: geometry and math helpers, RGB adjustments, TGrowArray, Swap (2026-11-03)
 
 - `Apus.Core`: `WrapSigned(value,period)` - shortest signed difference on a cycle, range

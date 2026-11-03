@@ -534,16 +534,31 @@ type
 // Atomic scope - atomic operations for lock-free synchronization
 // =============================================================================
 type
+  // Memory order: every read-modify-write operation (Inc..CmpExchange) is a full barrier.
+  // Load is an acquire: later reads and writes are not moved before it. Store is a release:
+  // earlier reads and writes are not moved after it. Load/Store are not inline on purpose:
+  // the call is also a compiler barrier, so a wait loop reads the variable every time.
+  // Targets must be naturally aligned (no packed records).
+  // Pointer overloads take a pointer variable: cast typed ones, Atomic.Load(pointer(obj))
   Atomic=record
-    // Increment/Decrement - map directly to RTL AtomicIncrement/Decrement
-    class function Inc(var target:longint):longint; overload; static; inline;
-    class function Dec(var target:longint):longint; overload; static; inline;
-    // Add/Sub with custom value - use CmpExchange loop for arbitrary values
+    // Inc/Dec/Add/Sub return the new value
+    class function Inc(var target:longint):longint; static; inline;
+    class function Dec(var target:longint):longint; static; inline;
     class function Add(var target:longint; value:longint):longint; static; inline;
     class function Sub(var target:longint; value:longint):longint; static; inline;
-    // Exchange and CompareExchange - map directly to RTL
-    class function Exchange(var target:longint; value:longint):longint; static; inline;
-    class function CmpExchange(var target:longint; newValue,comparand:longint):longint; static; inline;
+    // Exchange returns the old value; CmpExchange writes newValue only if target=comparand
+    // and returns the value target had before (=comparand on success)
+    class function Exchange(var target:longint; value:longint):longint; overload; static; inline;
+    class function Exchange(var target:pointer; value:pointer):pointer; overload; static; inline;
+    class function CmpExchange(var target:longint; newValue,comparand:longint):longint; overload; static; inline;
+    class function CmpExchange(var target:pointer; newValue,comparand:pointer):pointer; overload; static; inline;
+    // Load (acquire) / Store (release)
+    class function Load(var target:longint):longint; overload; static;
+    class function Load(var target:pointer):pointer; overload; static;
+    class procedure Store(var target:longint; value:longint); overload; static;
+    class procedure Store(var target:pointer; value:pointer); overload; static;
+    // Full barrier: no read or write crosses it in either direction
+    class procedure Fence; static;
   end;
 
 // =============================================================================
@@ -677,12 +692,74 @@ begin
  {$ENDIF}
 end;
 
+class function Atomic.Exchange(var target:pointer; value:pointer):pointer;
+begin
+ {$IF Declared(AtomicExchange)}
+ result:=AtomicExchange(target,value);
+ {$ELSE}
+ result:=System.InterlockedExchange(target,value); // the Windows unit hides the pointer overload
+ {$ENDIF}
+end;
+
 class function Atomic.CmpExchange(var target:longint; newValue,comparand:longint):longint;
 begin
  {$IF Declared(AtomicCmpExchange)}
  result:=AtomicCmpExchange(target,newValue,comparand);
  {$ELSE}
  result:=InterlockedCompareExchange(target,newValue,comparand);
+ {$ENDIF}
+end;
+
+class function Atomic.CmpExchange(var target:pointer; newValue,comparand:pointer):pointer;
+begin
+ {$IF Declared(AtomicCmpExchange)}
+ result:=AtomicCmpExchange(target,newValue,comparand);
+ {$ELSE}
+ result:=System.InterlockedCompareExchange(target,newValue,comparand); // the Windows unit hides the pointer overload
+ {$ENDIF}
+end;
+
+// x86 keeps loads in order with other loads and stores, and stores with earlier loads and
+// stores: a plain aligned mov is already an acquire load and a release store. Weak memory
+// models (ARM) need a barrier after the load and before the store
+class function Atomic.Load(var target:longint):longint;
+begin
+ result:=target;
+ {$IF not (DEFINED(CPUX86) OR DEFINED(CPUX64))}
+ Fence;
+ {$IFEND}
+end;
+
+class function Atomic.Load(var target:pointer):pointer;
+begin
+ result:=target;
+ {$IF not (DEFINED(CPUX86) OR DEFINED(CPUX64))}
+ Fence;
+ {$IFEND}
+end;
+
+class procedure Atomic.Store(var target:longint; value:longint);
+begin
+ {$IF not (DEFINED(CPUX86) OR DEFINED(CPUX64))}
+ Fence;
+ {$IFEND}
+ target:=value;
+end;
+
+class procedure Atomic.Store(var target:pointer; value:pointer);
+begin
+ {$IF not (DEFINED(CPUX86) OR DEFINED(CPUX64))}
+ Fence;
+ {$IFEND}
+ target:=value;
+end;
+
+class procedure Atomic.Fence;
+begin
+ {$IFDEF FPC}
+ ReadWriteBarrier;
+ {$ELSE}
+ MemoryBarrier;
  {$ENDIF}
 end;
 
@@ -740,7 +817,7 @@ begin
   {$IF DEFINED(CPUX86) OR DEFINED(CPUX64)}
   lock:=0; // x86 does not reorder stores with earlier loads/stores: a plain store releases the lock
   {$ELSE}
-  Atomic.Exchange(lock,0); // weak memory model (ARM): full barrier
+  Atomic.Store(lock,0); // weak memory model (ARM): release
   {$IFEND}
 end;
 
@@ -782,24 +859,20 @@ begin
  {$ENDIF}
 end;
 
+// one locked xadd; Delphi's AtomicIncrement returns the new value, FPC's
+// InterlockedExchangeAdd the old one
 class function Atomic.Add(var target:longint; value:longint):longint;
-var
- old:longint;
 begin
- repeat
-  old:=target;
- until CmpExchange(target,old+value,old)=old;
- result:=old+value;
+ {$IF Declared(AtomicIncrement)}
+ result:=AtomicIncrement(target,value);
+ {$ELSE}
+ result:=InterlockedExchangeAdd(target,value)+value;
+ {$ENDIF}
 end;
 
 class function Atomic.Sub(var target:longint; value:longint):longint;
-var
- old:longint;
 begin
- repeat
-  old:=target;
- until CmpExchange(target,old-value,old)=old;
- result:=old-value;
+ result:=Add(target,-value);
 end;
 
 // Probing with ptrace(PTRACE_TRACEME) is not an option: it makes the parent process the
@@ -890,16 +963,8 @@ end;
 
 {$IFDEF NEED_MEMORY_BARRIER}
 procedure MemoryBarrier; inline;
-var
-  dummy:longint;
 begin
-  {$IF DEFINED(CPUX86) OR DEFINED(CPUX64)}
-  asm mfence end;
-  {$ELSE}
-  // Fallback full barrier via atomic read-modify-write operation.
-  dummy:=0;
-  Atomic.CmpExchange(dummy,0,0);
-  {$ENDIF}
+  Atomic.Fence;
 end;
 {$ENDIF}
 

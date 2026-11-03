@@ -317,6 +317,8 @@ procedure TestAtomicSpin;
 var
   v:longint;
   lock:integer;
+  p:pointer;
+  a,b:integer;
 begin
   StartTest('Atomic/Spin/Barrier');
 
@@ -333,6 +335,24 @@ begin
   Check(v=100,'Atomic.CmpExchange success writes new');
   Check(Atomic.CmpExchange(v,7,42)=100,'Atomic.CmpExchange fail returns current');
   Check(v=100,'Atomic.CmpExchange fail keeps value');
+  Check(Atomic.Add(v,-30)=70,'Atomic.Add negative');
+  Check(Atomic.Sub(v,-5)=75,'Atomic.Sub negative');
+  Atomic.Store(v,-12);
+  Check(v=-12,'Atomic.Store');
+  Check(Atomic.Load(v)=-12,'Atomic.Load');
+
+  p:=nil;
+  Check(Atomic.Exchange(p,@a)=nil,'Atomic.Exchange pointer returns old');
+  Check(p=@a,'Atomic.Exchange pointer writes new');
+  Check(Atomic.CmpExchange(p,@b,@a)=@a,'Atomic.CmpExchange pointer success returns old');
+  Check(p=@b,'Atomic.CmpExchange pointer success writes new');
+  Check(Atomic.CmpExchange(p,nil,@a)=@b,'Atomic.CmpExchange pointer fail returns current');
+  Check(p=@b,'Atomic.CmpExchange pointer fail keeps value');
+  Atomic.Store(p,@a);
+  Check(p=@a,'Atomic.Store pointer');
+  Check(Atomic.Load(p)=@a,'Atomic.Load pointer');
+  Atomic.Fence;
+  Check(true,'Atomic.Fence callable');
 
   lock:=0;
   SpinLock(lock);

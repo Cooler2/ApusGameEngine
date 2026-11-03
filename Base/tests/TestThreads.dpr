@@ -719,6 +719,147 @@ end;
 
 // 3 threads increment shared counter 100 times each under a TLock.
 // Final counter must be exactly 300 — any miss means lock is broken.
+// ============================================================================
+// Atomic from several threads
+// ============================================================================
+const
+  ATOMIC_THREADS=4;
+  ATOMIC_ROUNDS=100000;
+  PUSH_NODES=20000; // per thread
+  MAILBOX_ROUNDS=20000;
+  MAILBOX_SIZE=16;
+  SPIN_LIMIT=200000000; // a wait loop that never sees the value: fail instead of hanging
+type
+  PStackNode=^TStackNode;
+  TStackNode=record
+    next:pointer;
+    seen:integer;
+  end;
+var
+  atomicCounter:longint;
+  stackTop:pointer;
+  stackNodes:array of TStackNode;
+  mailbox:array[0..MAILBOX_SIZE-1] of longint;
+  mailboxSeq,mailboxAck:longint;
+  mailboxTorn,mailboxTimeout:longint;
+
+function AddWorker(ctx:TThreadContext):UIntPtr;
+var
+  i:integer;
+begin
+  for i:=1 to ATOMIC_ROUNDS do begin
+    Atomic.Add(atomicCounter,3);
+    Atomic.Sub(atomicCounter,1);
+  end;
+  result:=0;
+end;
+
+// push-only Treiber stack: CAS of the top pointer (no pops, so no ABA)
+function PushWorker(ctx:TThreadContext):UIntPtr;
+var
+  i,base:integer;
+  node:PStackNode;
+  old:pointer;
+begin
+  base:=integer(UIntPtr(ctx.Parameter))*PUSH_NODES;
+  for i:=0 to PUSH_NODES-1 do begin
+    node:=@stackNodes[base+i];
+    repeat
+      old:=Atomic.Load(stackTop);
+      node.next:=old;
+    until Atomic.CmpExchange(stackTop,node,old)=old;
+  end;
+  result:=0;
+end;
+
+// waits until target=value; false if it never comes
+function WaitValue(var target:longint; value:longint):boolean;
+var
+  spins:integer;
+begin
+  spins:=0;
+  while Atomic.Load(target)<>value do begin
+    inc(spins);
+    if spins>=SPIN_LIMIT then exit(false);
+    if spins and 1023=0 then Sleep(0);
+  end;
+  result:=true;
+end;
+
+// message passing: plain writes of the data, then Store (release) of the sequence number
+function MailboxProducer(ctx:TThreadContext):UIntPtr;
+var
+  r,k:integer;
+begin
+  for r:=1 to MAILBOX_ROUNDS do begin
+    if not WaitValue(mailboxAck,r-1) then begin
+      Atomic.Inc(mailboxTimeout); break;
+    end;
+    for k:=0 to MAILBOX_SIZE-1 do mailbox[k]:=r*MAILBOX_SIZE+k;
+    Atomic.Store(mailboxSeq,r);
+  end;
+  result:=0;
+end;
+
+// Load (acquire) of the sequence number, then plain reads must see that round's data
+function MailboxConsumer(ctx:TThreadContext):UIntPtr;
+var
+  r,k:integer;
+begin
+  for r:=1 to MAILBOX_ROUNDS do begin
+    if not WaitValue(mailboxSeq,r) then begin
+      Atomic.Inc(mailboxTimeout); break;
+    end;
+    for k:=0 to MAILBOX_SIZE-1 do
+      if mailbox[k]<>r*MAILBOX_SIZE+k then Atomic.Inc(mailboxTorn);
+    Atomic.Store(mailboxAck,r);
+  end;
+  result:=0;
+end;
+
+procedure TestAtomicThreads;
+var
+  th:array[0..ATOMIC_THREADS-1] of IThread;
+  producer,consumer:IThread;
+  i,count,duplicates,missing:integer;
+  node:PStackNode;
+begin
+  StartTest('Atomic from multiple threads');
+
+  atomicCounter:=0;
+  for i:=0 to ATOMIC_THREADS-1 do th[i]:=Thread.Start('Add%',TThreadFunc(@AddWorker));
+  for i:=0 to ATOMIC_THREADS-1 do th[i].Wait;
+  Check(atomicCounter=ATOMIC_THREADS*ATOMIC_ROUNDS*2,'Add/Sub lose no updates');
+
+  SetLength(stackNodes,ATOMIC_THREADS*PUSH_NODES);
+  stackTop:=nil;
+  for i:=0 to ATOMIC_THREADS-1 do th[i]:=Thread.Start('Push%',TThreadFunc(@PushWorker),pointer(UIntPtr(i)));
+  for i:=0 to ATOMIC_THREADS-1 do th[i].Wait;
+  count:=0; duplicates:=0;
+  node:=stackTop;
+  while (node<>nil) and (count<=length(stackNodes)) do begin
+    inc(count);
+    inc(node.seen);
+    if node.seen>1 then inc(duplicates);
+    node:=node.next;
+  end;
+  missing:=0;
+  for i:=0 to high(stackNodes) do
+    if stackNodes[i].seen=0 then inc(missing);
+  Check(count=length(stackNodes),'pointer CAS stack holds every pushed node');
+  Check((duplicates=0) and (missing=0),'pointer CAS stack: each node exactly once');
+
+  mailboxSeq:=0; mailboxAck:=0; mailboxTorn:=0; mailboxTimeout:=0;
+  consumer:=Thread.Start('MailboxConsumer',TThreadFunc(@MailboxConsumer));
+  producer:=Thread.Start('MailboxProducer',TThreadFunc(@MailboxProducer));
+  producer.Wait;
+  consumer.Wait;
+  Check(mailboxTimeout=0,'Load re-reads the variable in a wait loop');
+  Check(mailboxTorn=0,'Store/Load pass the data written before the Store');
+
+  EndTest;
+end;
+
 procedure TestMultithreadedLock;
 var
   th1,th2,th3:IThread;
@@ -915,6 +1056,7 @@ begin
 
     // Multithreading tests
     TestMultithreadedLock;
+    TestAtomicThreads;
 
     // RW-lock tests
     TestRWLock;
