@@ -182,6 +182,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 - do not add unit finalization unless needed
 - **FPC quirk**: `single(10)` is a reinterpret cast (wrong!), use `single(10.0)` for proper type conversion
 - **FPC quirk**: `$FF00000000000000` is int64 (signed), use `uint64($FF00000000000000)` for unsigned comparison
+- **FPC quirk**: a float literal not exact in single (`0.999999`, unlike `0.5`) is a double constant, so `a*0.999999` with `a:single` runs in double with conversions (measured 2x slower than the same code in double); in hot single-precision code use typed constants (`k:single=0.999999`)
 
 ## License
 
