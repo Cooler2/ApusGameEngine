@@ -765,14 +765,14 @@ function UIScene(name:String8):TUIScene;
      if (c<>nil) and c.IsEnabled then begin
       if pressed then begin
        if c.onKey(keyc,true,shift) then
-        uiConsumed:=ProcessHotKey(keyc,shift) // focus passed the key on: UI hotkeys may claim it
+        uiConsumed:=ProcessHotKey(window,keyc,shift) // focus passed the key on: UI hotkeys may claim it
        else
         uiConsumed:=true;                     // focus consumed the key
       end else
        uiConsumed:=not c.onKey(keyc,false,shift);
      end else
       // no (enabled) focus — UI hotkeys may still claim the key
-      if pressed then uiConsumed:=ProcessHotKey(keyc,shift);
+      if pressed then uiConsumed:=ProcessHotKey(window,keyc,shift);
     end;
    finally
     window.UnlockState;

@@ -1673,8 +1673,6 @@ implementation
  begin
   fRequest:=request;
   fRequest.types:=Copy(request.types);
-  // Scenes may be constructed by the application thread. UI hotkeys belong to the
-  // window thread, where Setup and input run, rather than to that constructor's thread.
   SetHotKey(ord(TKey.Escape));
   SetHotKey(ord(TKey.F5));
   table.keyScope:=self;

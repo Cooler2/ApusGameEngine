@@ -3,6 +3,18 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## UI: hotkeys set in any thread work in their window (2026-11-03)
+
+- `TUIElement.SetHotKey` registered the hotkey in a threadvar list of the calling thread,
+  `ProcessHotKey` looked only into the list of the window thread. A scene is built by the
+  control thread, so every hotkey set in a scene constructor was silent: Enter/Escape of the
+  `MessageScene` dialogs (`Ask`, `ShowMessage`, `Confirm`) never fired. An element freed in
+  another thread left its entry behind.
+- Now one list of all windows under a leaf lock; `ProcessHotKey(wnd,keycode,shiftstate)` takes
+  the window and fires only the hotkeys of its elements.
+- Game code: hotkeys may be set anywhere, including scene constructors; a workaround that sets
+  them later from the window thread is no longer needed.
+
 ## Base: `Atomic` for pointers, ordered `Load`/`Store`, `Fence` (2026-11-03)
 
 - `Apus.Core.Atomic`: `Exchange`/`CmpExchange` for pointers (typed ones are cast:

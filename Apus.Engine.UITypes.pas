@@ -452,9 +452,9 @@ procedure ClearFocus(wnd:TWindow);
 // can't reach the window thread's mouse state). Called by the window's mouse dispatch.
 procedure DropRemovedMouseState;
 
- // Keycode - virtual key
+ // Keycode - virtual key. Tries the hotkeys of the elements in wnd (the caller's window)
  // Returns true if a hotkey matched and consumed the key
- function ProcessHotKey(keycode:integer;shiftstate:byte):boolean;
+ function ProcessHotKey(wnd:TWindow;keycode:integer;shiftstate:byte):boolean;
  // Free the elements deleted in this window (see TUIElement.Remove) that nobody holds.
  // Called by the window's thread at frame start and when the window is destroyed.
  procedure DestroyQueuedElements(wnd:TWindow);
@@ -478,40 +478,50 @@ implementation
   // TUIElement class hash
   UIHash:TObjectHash;
   uiElementCounter:integer=0; // global counter for auto-generated element names
-threadvar
-  // Hotkeys
-  hotKeys:THotKeys;
-
  var
+  // Hotkeys of the elements of all windows: SetHotKey may run in any thread (scenes are
+  // built by the control thread), ProcessHotKey takes the ones of its own window
+  hotKeys:THotKeys;
+  hotKeyLock:TLock; // a leaf lock
   // deleted elements outside any window that were held at the time: freed by the next
   // DestroyQueuedElements of any window once released
   orphans:array of TUIElement;
   orphanLock:TLock; // a leaf lock
 
- function ProcessHotKey(keycode:integer;shiftstate:byte):boolean;
+ function ProcessHotKey(wnd:TWindow;keycode:integer;shiftstate:byte):boolean;
   var
-   i:integer;
+   i,n:integer;
    c,modal:TUIElement;
-   wnd:TWindow;
-   keys:THotKeys;
+   keys:TUIElements;
   begin
    result:=false;
-   keys:=Copy(hotKeys); // a handler may add or remove hotkeys
-   for i:=0 to high(keys) do
-    if (keys[i].vKey=keycode) then
-      if (keys[i].shiftstate=shiftstate) or
-         ((keys[i].shiftstate>0) and (keys[i].shiftstate and ShiftState=keys[i].shiftstate)) then
-       begin
-        c:=keys[i].element;
-        // Element should be alive, visible and enabled
-        if not c.deleted and c.IsVisible and c.IsEnabled then begin
-         // If the element's window has a modal element - it should be parent
-         wnd:=c.GetWindow;
-         if wnd<>nil then modal:=wnd.modal.Root else modal:=nil;
-         if (modal=nil) or (c=modal) or (c.HasParent(modal)) then
-          if c.onHotKey(keycode,shiftstate) then exit(true);
-        end;
-       end;
+   if wnd=nil then exit;
+   // Collect the matching elements of wnd, then run the handlers outside the lock: they
+   // may add or remove hotkeys. The collected elements stay alive: only the thread of wnd
+   // frees them, and that is the caller (see TUIElement.Destroy)
+   hotKeyLock.Enter;
+   try
+    SetLength(keys,length(hotKeys));
+    n:=0;
+    for i:=0 to high(hotKeys) do
+     if (hotKeys[i].vKey=keycode) and
+        ((hotKeys[i].shiftstate=shiftstate) or
+         ((hotKeys[i].shiftstate>0) and (hotKeys[i].shiftstate and shiftstate=hotKeys[i].shiftstate))) and
+        (hotKeys[i].element.GetWindow=wnd) then begin
+      keys[n]:=hotKeys[i].element;
+      inc(n);
+     end;
+   finally
+    hotKeyLock.Leave;
+   end;
+   modal:=wnd.modal.Root;
+   for i:=0 to n-1 do begin
+    c:=keys[i];
+    // the element should be alive, visible and enabled; under a modal element - inside it
+    if c.deleted or not c.IsVisible or not c.IsEnabled then continue;
+    if (modal=nil) or (c=modal) or c.HasParent(modal) then
+     if c.onHotKey(keycode,shiftstate) then exit(true);
+   end;
   end;
 
 { TModalStateHelper }
@@ -1454,24 +1464,22 @@ function TUIElement.IsEnabled:boolean;
 procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
   var
    i,max:integer;
-   wnd:TWindow;
   begin
-   wnd:=GetWindow;
-   if wnd<>nil then wnd.LockState;
+   hotKeyLock.Enter;
    try
-   i:=0; max:=high(hotkeys);
-   while i<=max do
-    if (hotkeys[i].element=self) and
-      ((vKeyCode=0) or
-       ((hotkeys[i].vKey=vKeyCode) and
-       (hotkeys[i].shiftstate=shiftstate))) then begin
-     hotkeys[i]:=hotkeys[max];
-     dec(max);
-   end else
-     inc(i);
-    SetLength(hotkeys,max+1);
+    i:=0; max:=high(hotKeys);
+    while i<=max do
+     if (hotKeys[i].element=self) and
+       ((vKeyCode=0) or
+        ((hotKeys[i].vKey=vKeyCode) and
+        (hotKeys[i].shiftstate=shiftstate))) then begin
+      hotKeys[i]:=hotKeys[max];
+      dec(max);
+     end else
+      inc(i);
+    SetLength(hotKeys,max+1);
    finally
-    if wnd<>nil then wnd.UnlockState;
+    hotKeyLock.Leave;
    end;
   end;
 
@@ -2403,15 +2411,20 @@ procedure TUIElement.MarkDeleted;
   var
    i:integer;
   begin
-   // Check for duplicate
-   for i:=0 to high(hotKeys) do
-    if (hotkeys[i].element=self) and (hotkeys[i].vKey=vKeyCode) and
-       (hotkeys[i].shiftstate=shiftstate) then exit;
-   i:=length(hotKeys);
-   SetLength(hotkeys,i+1);
-   hotkeys[i].vKey:=vKeyCode;
-   hotkeys[i].shiftstate:=shiftstate;
-   hotkeys[i].element:=self;
+   hotKeyLock.Enter;
+   try
+    // Check for duplicate
+    for i:=0 to high(hotKeys) do
+     if (hotKeys[i].element=self) and (hotKeys[i].vKey=vKeyCode) and
+        (hotKeys[i].shiftstate=shiftstate) then exit;
+    i:=length(hotKeys);
+    SetLength(hotKeys,i+1);
+    hotKeys[i].vKey:=vKeyCode;
+    hotKeys[i].shiftstate:=shiftstate;
+    hotKeys[i].element:=self;
+   finally
+    hotKeyLock.Leave;
+   end;
   end;
 
 procedure DestroyQueuedElements(wnd:TWindow);
@@ -2474,6 +2487,7 @@ procedure DestroyQueuedElements(wnd:TWindow);
 initialization
  UIHash.Init;
  orphanLock.Init('UIOrphans',810);
+ hotKeyLock.Init('UIHotKeys',810);
  TUIElement.SetClassAttribute('handleMouseIfDisabled',false);
 finalization
 end.

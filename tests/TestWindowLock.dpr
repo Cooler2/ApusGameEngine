@@ -56,6 +56,7 @@ var
   freedCount:integer;
   asyncGate:integer; // the async handler waits while 0
   removeTarget:TUIElement;
+  hotParent:TUIElement; // where HotKeyWorker creates its element
   focusTarget:TUIElement;
   testScene:TGameScene;
   effectsFreed:integer;
@@ -335,9 +336,9 @@ procedure TestRemoveInHandlers;
   a.SetHotKey(77);
   b.SetHotKey(77);
   a.removeOnHotKey:=true;
-  ProcessHotKey(77,0);
+  ProcessHotKey(w,77,0);
   Check((a.hotKeyCalls=1) and (b.hotKeyCalls=1),'both hotkey handlers ran');
-  ProcessHotKey(77,0);
+  ProcessHotKey(w,77,0);
   Check((a.hotKeyCalls=1) and (b.hotKeyCalls=2),'removed element lost its hotkey');
   DestroyQueuedElements(w);
 
@@ -354,6 +355,58 @@ procedure TestRemoveInHandlers;
   Check(freedCount=1,'freed by the window thread at the frame start');
 
   root.Free;
+  w.Free;
+  EndTest;
+ end;
+
+// a scene is built by the control thread: its hotkeys must work in the window thread
+procedure HotKeyWorker;
+ begin
+  removeTarget:=TProbe.Create(10,10,hotParent,'WorkerHot');
+  removeTarget.SetHotKey(78);
+  Atomic.Exchange(workerState,1);
+ end;
+
+procedure TestHotKeysAcrossThreads;
+ var
+  w,w2:TWindow;
+  root,root2:TUIElement;
+  scene2:TGameScene;
+  target,other:TProbe;
+  th:IThread;
+ begin
+  StartTest('UI hotkeys: set in any thread, fire in their window');
+  w:=NewWindow('HotKeys');
+  root:=NewSceneRoot(w,'HotKeysRoot');
+  hotParent:=root;
+  workerState:=0;
+  th:=Thread.Start('UIHotKeyWorker',TThreadProc(@HotKeyWorker));
+  th.Wait(2000);
+  Check(workerState=1,'worker set the hotkey');
+  target:=TProbe(removeTarget);
+  ProcessHotKey(w,78,0);
+  Check(target.hotKeyCalls=1,'hotkey set in a worker thread fires for its window');
+
+  w2:=NewWindow('HotKeys2');
+  scene2:=TGameScene.Create(false);
+  scene2.name:='TestScene2';
+  scene2.ownerWindow:=pointer(w2);
+  root2:=TUIElement.Create(400,300,nil,'HotKeysRoot2');
+  root2.ownerScene:=scene2;
+  other:=TProbe.Create(10,10,root2,'OtherHot');
+  other.SetHotKey(78);
+  ProcessHotKey(w,78,0);
+  Check((target.hotKeyCalls=2) and (other.hotKeyCalls=0),'a hotkey of another window does not fire');
+  ProcessHotKey(w2,78,0);
+  Check((target.hotKeyCalls=2) and (other.hotKeyCalls=1),'each window fires its own hotkeys');
+
+  root2.Free; // its hotkey goes with it
+  ProcessHotKey(w,78,0);
+  Check(target.hotKeyCalls=3,'hotkeys of a freed element are gone, the others stay');
+  hotParent:=nil;
+  removeTarget:=nil;
+  root.Free;
+  w2.Free;
   w.Free;
   EndTest;
  end;
@@ -693,6 +746,7 @@ begin
   TestAsyncClick;
   TestRemove;
   TestRemoveInHandlers;
+  TestHotKeysAcrossThreads;
   TestFocus;
   TestRemovedMouseState;
   TestEffectReplace;
