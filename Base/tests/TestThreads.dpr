@@ -642,6 +642,81 @@ begin
   EndTest;
 end;
 
+// Callbacks that finish before Thread.Start returns (RQ-23 of the Racing channel).
+// The worker's exit races the tail of Thread.Start: the handle and the registry entry
+// must stay valid whatever the order, and every thread must unregister.
+var
+  fastFinished:integer; // threads unregistered so far (counted by onThreadFinished)
+
+procedure EmptyProc;
+begin
+end;
+
+procedure CountFinished(threadID:TThreadIdent;const threadName:String8);
+begin
+  Atomic.Inc(fastFinished);
+end;
+
+// wait until count threads have unregistered (bounded by timeout)
+procedure WaitFastFinished(count:integer;timeout:integer=5000);
+var
+  startTime:int64;
+begin
+  startTime:=GetTickCount64;
+  while (Atomic.CmpExchange(fastFinished,0,0)<count) and (GetTickCount64-startTime<timeout) do
+    Sleep(1);
+end;
+
+procedure TestFastThreadStart;
+const
+  N=300;
+  BATCH=50; // FPC reserves 4 MB of stack per thread: keep Win32 address space clear
+  TOTAL=N*2+N div 10;
+var
+  th:IThread;
+  i,badWait,badError:integer;
+  oldHook:TThreadFinishedProc;
+begin
+  StartTest('Thread.Start with instantly finishing callbacks');
+
+  oldHook:=onThreadFinished;
+  onThreadFinished:=CountFinished;
+  fastFinished:=0;
+
+  // Wait right after Start
+  badWait:=0;
+  for i:=1 to N do begin
+    th:=Thread.Start('FastWait',TThreadProc(@EmptyProc));
+    th.Wait(2000);
+    if th.Status<>TThreadStatus.Finished then inc(badWait);
+  end;
+  th:=nil;
+  Check(badWait=0,'Every instant thread should be Finished after Wait');
+
+  // the caller drops the handle at once; the thread still runs to the end
+  for i:=1 to N do begin
+    th:=Thread.Start('FastDrop',TThreadFunc(@SimpleWorker));
+    th:=nil;
+    if i mod BATCH=0 then WaitFastFinished(N+i);
+  end;
+
+  // callback reports an error and exits at once
+  badError:=0;
+  for i:=1 to N div 10 do begin
+    th:=Thread.Start('FastError',TThreadProc(@ErrorWorker));
+    th.Wait(2000);
+    if th.Status<>TThreadStatus.Error then inc(badError);
+  end;
+  th:=nil;
+  Check(badError=0,'Instant failing thread should report Error');
+
+  WaitFastFinished(TOTAL);
+  Check(fastFinished=TOTAL,'Every instant thread should unregister');
+
+  onThreadFinished:=oldHook;
+  EndTest;
+end;
+
 // 3 threads increment shared counter 100 times each under a TLock.
 // Final counter must be exactly 300 — any miss means lock is broken.
 procedure TestMultithreadedLock;
@@ -832,6 +907,7 @@ begin
     TestStartMethod;
     TestThreadTermination;
     TestThreadWaitTimeout;
+    TestFastThreadStart;
 
     // Thread naming tests
     TestThreadNames;

@@ -3,6 +3,14 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Base: `Thread.Start` with instantly finishing callbacks (2026-11-03)
+
+- `Thread.Start`: a callback that finishes before `Start` returns is safe. The handle is taken
+  before the thread starts and the thread frees its registry entry only after `Start` is done
+  with it (it used to write into the freed entry and impl). A failed native thread creation
+  raises `EError` and leaves no registry entry (it used to return a handle of a thread that
+  never ran: `Wait` hung until the timeout).
+
 ## UI: parts of an element, default tokens, PixelWidth (2026-11-02)
 
 - Parts: a nested block in the style text, `header { fill: ...; :hover { ... } }`, is a style

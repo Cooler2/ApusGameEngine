@@ -297,6 +297,7 @@ type
     terminating:LongBool; // atomic termination flag
     paused:LongBool;      // atomic pause flag
     implPtr:pointer;      // TThreadImpl pointer for status updates (raw - avoids forward declaration)
+    launched:integer;     // 1 once Thread.Start stopped touching this entry (the thread may free it only then)
     {$IFDEF LINUX}
     tid:cardinal;
     {$ENDIF}
@@ -1002,6 +1003,7 @@ begin
   data^.paused:=false;
   data^.handle:=handle;
   data^.implPtr:=implObj;
+  data^.launched:=1; // registered from within the thread: nobody else fills this entry
   {$IFDEF LINUX}
   data^.tid:=Do_syscall(syscall_nr_gettid); // syscall outside lock
   extra:='tid: '+Conv.ToStr(data^.tid);
@@ -1054,8 +1056,20 @@ var
   data:PThreadData;
   threadName:String8;
   finishedHook:TThreadFinishedProc;
+  spins:integer;
 begin
   id:=GetCurrentThreadID;
+  // A callback may finish before Thread.Start has filled in its entry: the entry and
+  // the impl must outlive that, so wait here (thread exit), not before the callback
+  data:=CurrentThread.data;
+  if data<>nil then begin
+    spins:=0;
+    while Atomic.CmpExchange(data^.launched,0,0)=0 do begin
+      if spins<100 then Sleep(0)
+        else Sleep(1); // creator may run at a lower priority
+      inc(spins);
+    end;
+  end;
   data:=nil;
 
   SpinLock;
@@ -1123,10 +1137,6 @@ begin
 
   // Set thread context (data is heap-allocated → pointer stable regardless of threads[] realloc)
   CurrentThread.data:=data;
-  // Ensure implPtr is set before user code runs — DoStartThread may not have reached
-  // the post-BeginThread assignment yet if this thread was scheduled immediately
-  if data^.implPtr=nil then
-    data^.implPtr:=startData^.impl;
   data^.startTime:=CoreTime.Ticks; // mark when thread actually began executing
   {$IFDEF DEBUG}
   startupUs:=round(Timer.Get(startupTimer)*1e6);
@@ -1185,6 +1195,8 @@ var
   handle:THandle;
   uniqueName:String8;
   data:PThreadData;
+  failed:boolean;
+  i:integer;
 begin
   // Allocate thread registry entry
   New(data);
@@ -1195,9 +1207,10 @@ begin
   data^.userTag:=userTag;
   data^.terminating:=false;
   data^.paused:=false;
-  data^.ID:=0;     // filled after BeginThread
+  data^.ID:=0;     // filled after BeginThread (and by the wrapper, whichever comes first)
   data^.handle:=0; // filled after BeginThread
-  data^.implPtr:=nil; // filled after BeginThread
+  data^.implPtr:=nil; // filled before BeginThread
+  data^.launched:=0;  // set once this routine no longer touches data
 
   // Resolve name and add to registry (both under same lock to fix # pattern race)
   SpinLock;
@@ -1209,8 +1222,12 @@ begin
     SpinUnlock;
   end;
 
-  // Create impl with final resolved name (cached for IThread lifetime)
+  // Create impl with final resolved name (cached for IThread lifetime).
+  // Take the caller's reference before the thread starts: a callback that finishes at once
+  // releases keepAlive, and without this reference the impl would be destroyed under our feet
   impl:=TThreadImpl.Create(uniqueName);
+  result:=impl;
+  data^.implPtr:=impl; // visible to the thread: BeginThread publishes all prior writes
 
   // Finalize wrapper data
   startData^.threadData:=data;
@@ -1235,20 +1252,45 @@ begin
   threadID:=TThreadIdent(sysThreadID);
   {$ENDIF}
 
-  // Update registry entry with actual ID (wrapper also sets this, but we set it here too)
-  SpinLock;
-  try
-    data^.ID:=threadID;
-    data^.handle:=handle;
-    data^.implPtr:=impl;
-  finally
-    SpinUnlock;
+  {$IFDEF MSWINDOWS}
+  failed:=handle=0;
+  {$ELSE}
+  failed:=threadID=0;
+  {$ENDIF}
+  if failed then begin
+    // the thread never ran: undo the registration and release everything ourselves
+    SpinLock;
+    try
+      for i:=0 to high(threads) do
+        if threads[i]=data then begin
+          threads[i]:=threads[high(threads)];
+          SetLength(threads,high(threads));
+          break;
+        end;
+    finally
+      SpinUnlock;
+    end;
+    Dispose(data);
+    Dispose(startData);
+    impl.IntSetError('failed to create native thread');
+    impl.IntFinish; // drop the self-reference
+    result:=nil;
+    raise EError.Create('Thread.Start: failed to create thread '+string(uniqueName));
   end;
 
   impl.threadID:=threadID;
   impl.handle:=handle;
 
-  result:=impl;
+  // Update registry entry with actual ID (wrapper also sets this, but we set it here too).
+  // After launched=1 the thread may free data at any moment - don't touch it any more
+  SpinLock;
+  try
+    data^.ID:=threadID;
+    data^.handle:=handle;
+    Atomic.Exchange(data^.launched,1);
+  finally
+    SpinUnlock;
+  end;
 end;
 
 class function Thread.Start(const name:String8; func:TThreadFunc; parameter:pointer; const tag:String8):IThread;
