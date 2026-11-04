@@ -411,6 +411,9 @@ type
   // Use big enough zMin and zMax since z-range is not linear and precision near zMax is much lower than near zMin.
   // So use values where main visible geometry is at least in the near 10% Z-range
   procedure Perspective(fovRad:single;zMin,zMax:double); overload;
+  // The same with the FOV spanning the given axis: e.g. TFovAxis.diagonal keeps the angle
+  // corner to corner on a normal, ultrawide or tall target (see FovExtents)
+  procedure Perspective(fovRad:single;axis:TFovAxis;zMin,zMax:double); overload;
 
   // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
   // zMin, zMax - near and far Z plane

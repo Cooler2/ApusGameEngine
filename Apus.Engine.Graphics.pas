@@ -92,6 +92,7 @@ type
   constructor Create;
   procedure DefaultView; virtual;
   procedure Perspective(fov:single;zMin,zMax:double); overload; virtual; // FOV in radians - on larger screen axis
+  procedure Perspective(fov:single;axis:TFovAxis;zMin,zMax:double); overload; virtual;
   procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload; virtual;
   procedure Orthographic(scale,zMin,zMax:double); virtual;
   procedure SetProjection(proj:TMat4d); virtual;
@@ -400,14 +401,15 @@ function TTransformationAPI.ProjWidth:single;
  end;
 
 procedure TTransformationAPI.Perspective(fov:single;zMin,zMax:double);
- var
-  x,y,aspect:single;
  begin
-  x:=tan(fov/2);
-  y:=x;
-  aspect:=renderTargetAPI.aspect;
-  if aspect>1 then y:=y/aspect
-   else x:=x*aspect;
+  Perspective(fov,TFovAxis.larger,zMin,zMax);
+ end;
+
+procedure TTransformationAPI.Perspective(fov:single;axis:TFovAxis;zMin,zMax:double);
+ var
+  x,y:double;
+ begin
+  FovExtents(fov,renderTargetAPI.aspect,axis,x,y);
   Perspective(-x,x,-y,y,1,zMin,zMax);
  end;
 

@@ -6,6 +6,15 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## 3D: FOV axis for `Perspective` (2026-11-04)
+
+- `gfx.transform.Perspective(fovRad,axis,zMin,zMax)` with `TFovAxis` (`Apus.Engine.Types`):
+  `larger` (what `Perspective(fovRad,zMin,zMax)` always did), `horizontal`, `vertical`,
+  `diagonal` - corner to corner, the same angle keeps its meaning on a normal, ultrawide or
+  tall target. `FovExtents(fovRad,aspect,axis,x,y)` gives the half extents at distance 1
+  (the frustum the overload builds) for code that converts between the axes itself
+  (Racing RQ-34).
+
 ## Text: the default `FitText` ellipsis is right in any caller (2026-11-04)
 
 - `txt.FitText` without the `ellipsis` argument is now its own overload, and the ellipsis

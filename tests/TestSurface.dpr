@@ -2,7 +2,8 @@
 // Covers: ValidateSurfaceConfig rules, ResolveSurface for every mode of
 // Work/surface_size_design.md §6 (table in Work/R-31_api_design.md §10),
 // client<->canvas transforms incl. round-trip on display rect edges,
-// safe area mapping, renderScale, FitToBudget and change masks.
+// safe area mapping, renderScale, FitToBudget and change masks; FovExtents (the FOV axis
+// of a perspective view at the target aspect).
 {$APPTYPE CONSOLE}
 program TestSurface;
 uses
@@ -392,6 +393,43 @@ procedure TestChanges;
   EndTest;
  end;
 
+// FOV axis of a perspective view on normal, ultrawide and tall targets (Racing RQ-34)
+procedure TestFov;
+ const
+  FOV=70*Pi/180;
+  ASPECTS:array[0..4] of double=(1,16/9,21/9,32/9,9/16);
+ var
+  i:integer;
+  x,y:double;
+  okDiag,okHor,okVert,okLarger,okRatio:boolean;
+ function Near(a,b:double):boolean;
+  begin
+   result:=abs(a-b)<1E-9;
+  end;
+ begin
+  StartTest('FOV extents');
+  okDiag:=true; okHor:=true; okVert:=true; okLarger:=true; okRatio:=true;
+  for i:=0 to high(ASPECTS) do begin
+   FovExtents(FOV,ASPECTS[i],TFovAxis.diagonal,x,y);
+   if not Near(2*ArcTan(sqrt(x*x+y*y)),FOV) then okDiag:=false;
+   if not Near(x/y,ASPECTS[i]) then okRatio:=false;
+   FovExtents(FOV,ASPECTS[i],TFovAxis.horizontal,x,y);
+   if not Near(2*ArcTan(x),FOV) or not Near(x/y,ASPECTS[i]) then okHor:=false;
+   FovExtents(FOV,ASPECTS[i],TFovAxis.vertical,x,y);
+   if not Near(2*ArcTan(y),FOV) or not Near(x/y,ASPECTS[i]) then okVert:=false;
+   // larger: the angle on the larger side, as Perspective(fov,zMin,zMax) always did
+   FovExtents(FOV,ASPECTS[i],TFovAxis.larger,x,y);
+   if x<y then x:=y; // the larger extent
+   if not Near(2*ArcTan(x),FOV) then okLarger:=false;
+  end;
+  Check(okDiag,'diagonal: the angle between opposite corners');
+  Check(okRatio,'diagonal: the extents keep the aspect');
+  Check(okHor,'horizontal: the angle across the width');
+  Check(okVert,'vertical: the angle across the height');
+  Check(okLarger,'larger: the angle across the larger side');
+  EndTest;
+ end;
+
 begin
   writeln('=== TestSurface ===');
   TestValidation;
@@ -405,6 +443,7 @@ begin
   TestTransforms;
   TestSafeArea;
   TestChanges;
+  TestFov;
   writeln;
   if testsFailed=0 then
     writeln('All tests passed ('+IntToStr(testsTotal)+')')

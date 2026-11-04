@@ -78,6 +78,11 @@ type
  TTextCut=(atEnd,     // keep the start: "Long tex…"
            atStart,   // keep the end: "…ong text"
            atMiddle); // keep both ends: "Lon…text" (paths)
+ // Which extent of the view a perspective field of view (FOV) angle spans
+ TFovAxis=(larger,      // the larger side: horizontal on a wide target, vertical on a tall one
+           horizontal,
+           vertical,
+           diagonal);   // corner to corner: the same angle keeps its meaning at any aspect
  {$SCOPEDENUMS OFF}
 
  // Display mode
@@ -335,6 +340,11 @@ type
  // keeping the aspect; returns (0,0) (= native) when the client already fits.
  function FitToBudget(const client:TSize;maxW,maxH:integer):TSize;
 
+ // Half extents of a perspective view at distance 1 (tangents of the half angles) for a FOV
+ // of fovRad radians spanning the given axis of a target with aspect = width/height.
+ // Perspective(fovRad,axis,...) builds its frustum from them: (-x,x,-y,y) at zScreen=1
+ procedure FovExtents(fovRad,aspect:double;axis:TFovAxis;out x,y:double);
+
 implementation
 uses SysUtils, Apus.Utils;
 
@@ -587,6 +597,22 @@ function FitToBudget(const client:TSize;maxW,maxH:integer):TSize;
   if (client.cx<=maxW) and (client.cy<=maxH) then exit(MakeSize(0,0)); // fits: native
   k:=Min(maxW/client.cx,maxH/client.cy);
   result:=MakeSize(Min(maxW,round(client.cx*k)),Min(maxH,round(client.cy*k)));
+ end;
+
+procedure FovExtents(fovRad,aspect:double;axis:TFovAxis;out x,y:double);
+ var
+  t:double;
+ begin
+  ASSERT(aspect>0,'FovExtents: aspect must be positive');
+  t:=sin(fovRad/2)/cos(fovRad/2);
+  if axis=TFovAxis.larger then
+   if aspect>1 then axis:=TFovAxis.horizontal
+    else axis:=TFovAxis.vertical;
+  case axis of
+   TFovAxis.horizontal:begin x:=t; y:=t/aspect; end;
+   TFovAxis.vertical:begin y:=t; x:=t*aspect; end;
+   else begin y:=t/sqrt(1+sqr(aspect)); x:=y*aspect; end; // diagonal: x^2+y^2=t^2, x/y=aspect
+  end;
  end;
 
  {$EXCESSPRECISION OFF}
