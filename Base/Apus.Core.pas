@@ -633,6 +633,10 @@ implementation
 
 uses
   Apus.Conv, DateUtils, Variants
+  // RTL string conversions (UTF8String <-> UnicodeString, literals in expressions) on desktop
+  // Unix as on Windows: without cwstring non-ASCII text turns into '?'. The engine itself
+  // does not need it (String8 + own UTF-8 code); -dNOCWSTRING builds without it to check that
+  {$IF defined(UNIX) and not defined(ANDROID) and not defined(IOS) and not defined(NOCWSTRING)}, cwstring{$IFEND}
   {$IFDEF MSWINDOWS}, Windows{$ENDIF}
   {$IFDEF UNIX}, BaseUnix{$ENDIF}
   {$IF DEFINED(LINUX) OR DEFINED(ANDROID)}, Linux{$IFEND};

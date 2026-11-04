@@ -98,6 +98,18 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Run Unicode Base tests without cwstring (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          # Apus.Core links cwstring on desktop Unix; the engine must not depend on it
+          export TEST_FLAGS="-dNOCWSTRING"
+          for t in Conv Strings Files; do
+            echo "::group::Base test $t (NOCWSTRING)"
+            bash Base/tests/test.sh "$t"
+            echo "::endgroup::"
+          done
+
       - name: Test bundled Linux WebP decoder
         if: runner.os == 'Linux'
         run: |

@@ -4,6 +4,15 @@ Changes of the Base library (`Base/Apus.*`): what moved out of `Apus.Common`, re
 removed API, changed behaviour. Use it as the reference when updating old code. Changes of
 the engine modules are in [`engine_changes.md`](../engine_changes.md).
 
+## Core: `cwstring` on desktop Unix (2026-11-04)
+
+- `Apus.Core` links FPC `cwstring` on Linux and macOS (not Android/iOS): RTL string
+  conversions (`UTF8String` <-> `UnicodeString`/`WideString`, a non-ASCII literal inside an
+  expression) work as on Windows instead of giving `?` or one char per UTF-8 byte. A program
+  that added `cwstring` itself may keep it or drop it. Conversions to a plain `string`
+  (`CP_ACP`) now follow the locale (`LANG`). `-dNOCWSTRING` builds without it: the Linux CI
+  runs the Unicode Base tests that way, so the engine itself still does not depend on it.
+
 ## Fonts: `Advance`, `InkRight`, `HasGlyph` (2026-11-03)
 
 - `TFreeTypeFont` (`Apus.FreeTypeFont`) and `TUnicodeFont` (`Apus.UnicodeFont`): `Advance(ch)` -
