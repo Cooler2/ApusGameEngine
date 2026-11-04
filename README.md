@@ -79,7 +79,7 @@ The current stable version is **engine4**. It is used in shipped games and is th
 
 ### 🚧 Engine 5 — in development
 
-`engine5` is a major refactoring of the entire codebase. **APIs may still change.** Preview snapshots are published as [pre-releases](https://github.com/Cooler2/ApusGameEngine/releases); coming from engine4, see the migration guide [`Base/engine5_changes.md`](Base/engine5_changes.md).
+`engine5` is a major refactoring of the entire codebase. **APIs may still change.** Preview snapshots are published as [pre-releases](https://github.com/Cooler2/ApusGameEngine/releases); coming from engine4, see the migration guides [`engine_changes.md`](engine_changes.md) (engine) and [`Base/engine5_changes.md`](Base/engine5_changes.md) (Base library).
 
 What's being worked on is tracked in [engine5_feature_roadmap.md](engine5_feature_roadmap.md). Current highlights:
 

@@ -9,7 +9,8 @@ All of them depend on `Apus.Common` (and `Model3D` also on `Apus.CrossPlatform`)
 monolithic foundation units that engine5 split into `Apus.Core`, `Apus.Conv`, `Apus.Strings`,
 `Apus.Log`, `Apus.Threads`, `Apus.Files` and others. The retired units are no longer in the
 repository. The migration algorithm is described in `CLAUDE.md` ("Refactoring Notes"); the list
-of API changes is in [`Base/engine5_changes.md`](../Base/engine5_changes.md).
+of API changes is in [`engine_changes.md`](../engine_changes.md) (engine) and
+[`Base/engine5_changes.md`](../Base/engine5_changes.md) (Base library).
 
 ## Contents
 

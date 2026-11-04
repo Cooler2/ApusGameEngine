@@ -21,8 +21,8 @@ Until the rest is written, these are the best places to learn the engine:
 - [`demo/`](../demo/) and [`demo/demo_inventory.md`](../demo/demo_inventory.md) - working
   demos with a short description of each; start with `SimpleDemo` and
   [`ProjectTemplate`](../demo/ProjectTemplate/README.md).
-- [`Base/engine5_changes.md`](../Base/engine5_changes.md) - what changed compared to
-  engine4 (migration guide).
+- [`engine_changes.md`](../engine_changes.md) and [`Base/engine5_changes.md`](../Base/engine5_changes.md) -
+  what changed compared to engine4 in the engine and in the Base library (migration guides).
 - [`robot_api_protocol.md`](../robot_api_protocol.md) - the Robot API for automated
   testing and tool integration.
 - [`engine5_feature_roadmap.md`](../engine5_feature_roadmap.md) - feature status and plans.
