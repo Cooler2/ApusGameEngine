@@ -681,6 +681,13 @@ function ListWindows:TWindowArray;
 // Release it; nil if there is no such window or it is closing.
 function FindVirtualInput(const windowName:String8):TVirtualInput;
 
+// Draw tex stretched over dest (pixels of the current target, Right/Bottom exclusive)
+// with linear filtering. Along an axis where dest is exactly k times the texture (integer
+// k>=2) every k-th pixel is a source pixel as is and the pixels between are interpolated;
+// the last k-1 pixels repeat the last source one, so tex must clamp UV. At other scales the
+// texture edges lie on the dest edges. The final frame output (BlitDefaultRT) goes this way.
+procedure BlitScaled(tex:TTexture;const dest:TRect;color:cardinal);
+
 implementation
  uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.GfxFormats, Apus.Files, Apus.Strings,
    {$IFDEF MSWINDOWS}Apus.Engine.Clipboard,{$ENDIF}
@@ -2615,7 +2622,7 @@ begin
   if not gfx.config.ShouldUseTextureAsDefaultRT or
      (gfx.config.QueryMaxRTSize<width) then exit;
   Log.Msg('Switching to the modern rendering model');
-  flags:=aiRenderTarget;
+  flags:=aiRenderTarget+aiClampUV; // the output samples past the last pixel centers (BlitScaled)
   if (zbuffer>0) and not useDepthTex then
    flags:=flags+aiDepthBuffer;
   defaultRT.rt:=AllocImage(width,height,pfRenderTarget,flags,'DefaultRT');
@@ -2637,6 +2644,27 @@ begin
  result:=defaultRT.depth;
 end;
 
+// Texture coordinate shift that puts the centers of the source pixels on every k-th dest
+// pixel: 0 unless destSize=k*srcSize with integer k>=2
+function SampleShift(srcSize,destSize:integer):single;
+var
+ k:integer;
+begin
+ result:=0;
+ if (srcSize<=0) or (destSize<2*srcSize) or (destSize mod srcSize<>0) then exit;
+ k:=destSize div srcSize;
+ result:=(0.5-0.5/k)/srcSize;
+end;
+
+procedure BlitScaled(tex:TTexture;const dest:TRect;color:cardinal);
+var
+ du,dv:single;
+begin
+ du:=SampleShift(tex.width,dest.Width);
+ dv:=SampleShift(tex.height,dest.Height);
+ draw.TexturedRect(dest.Left,dest.Top,dest.Right-1,dest.Bottom-1,tex,du,dv,1+du,dv,1+du,1+dv,color);
+end;
+
 procedure TWindow.BlitDefaultRT(tintColor:cardinal);
 begin
  if defaultRT.rt=nil then exit;
@@ -2648,8 +2676,7 @@ begin
   if not ((displayRect.Left=0) and (displayRect.Top=0) and
           (displayRect.Right=clientWidth) and (displayRect.Bottom=clientHeight)) and
      ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
-  with displayRect do
-   draw.TexturedRect(Left,Top,right-1,bottom-1,defaultRT.rt,0,0,1,0,1,1,tintColor);
+  BlitScaled(defaultRT.rt,displayRect,tintColor);
  finally
   gfx.EndPaint;
  end;

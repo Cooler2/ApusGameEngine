@@ -6,6 +6,19 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## Window: the final frame output keeps the source pixels at an integer scale (2026-11-04)
+
+- The default render target goes to the window through the new `BlitScaled(tex,dest,color)`
+  (`Apus.Engine.Window`). Along an axis where the output is exactly k times the render target
+  (integer k>=2, e.g. `SetupFixedCanvas(1024,768,TFixedCanvasRender.cheap)` in a 2048x1536
+  window), every k-th output pixel is a source pixel as is and the pixels between are
+  interpolated: a line profile `0,255,0` becomes `0,128,255,128,0` (was `0,64,191,191,64,0`).
+  The picture moves by half an output pixel up and left relative to the old output; the last
+  k-1 columns/rows repeat the last source pixel. Fractional scales and 1:1 are unchanged.
+  Checks that pinned the old profile need the new values (SpectroDev B-53).
+- The default render target clamps UV (`aiClampUV`): the output no longer mixes the opposite
+  edge into the edge pixels of the frame, at any scale.
+
 ## Scenes: `onBeforeShow`/`onShow`; a show of a hiding window scene waits for the hide; effects of undrawn and extra windows (2026-11-04)
 
 - `TShowWindowEffect` (also `ShowWindowScene`): a show requested while the scene still hides

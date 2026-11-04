@@ -14,7 +14,9 @@ interface
   {$SCOPEDENUMS ON}
   // Screen orientation policy for the main window (R-31)
   TOrientation=(any,portrait,landscape);
-  // How a fixed canvas is rendered: at native resolution (sharp) or at canvas resolution (cheap)
+  // How a fixed canvas is rendered: at native resolution (sharp) or at canvas resolution (cheap).
+  // A cheap frame is stretched to the window linearly; at an integer scale k every k-th pixel
+  // is a canvas pixel as is (Apus.Engine.Window.BlitScaled)
   TFixedCanvasRender=(sharp,cheap);
   {$SCOPEDENUMS OFF}
 
