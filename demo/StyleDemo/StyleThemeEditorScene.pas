@@ -15,7 +15,7 @@ interface
   TStyleThemeEditorScene=class(TUIScene)
    constructor Create(sceneName:string='StyleThemeEditor');
    procedure CreateUI;
-   procedure SetStatus(st:TSceneStatus); override;
+   procedure ApplyStatus(st:TSceneStatus); override;
    procedure onMouseBtn(btn:byte;pressed:boolean); override;
    function Process:boolean; override;
    procedure Render; override;
@@ -209,7 +209,7 @@ procedure TStyleThemeEditorScene.LoadToken(index:integer);
   swatch.style.Assign('fill:&'+STYLEDEMO_PALETTE[index]+'; border-width:1; border-color:&border;');
  end;
 
-procedure TStyleThemeEditorScene.SetStatus(st:TSceneStatus);
+procedure TStyleThemeEditorScene.ApplyStatus(st:TSceneStatus);
  begin
   inherited;
   if (st=TSceneStatus.ssActive) and (wnd<>nil) then

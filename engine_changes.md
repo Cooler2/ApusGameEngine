@@ -6,6 +6,35 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## Scenes: `onBeforeShow`/`onShow`; a show of a hiding window scene waits for the hide; effects of undrawn and extra windows (2026-11-04)
+
+- `TShowWindowEffect` (also `ShowWindowScene`): a show requested while the scene still hides
+  is no longer ignored ("SWE for active scene IGNORED!"): it starts when the hide ends. A hide
+  requested before that calls it off. The scene state of such a show (activation, modal stack,
+  focus) comes later, not at the call.
+- A window that is not drawn (minimized; inactive in `dmSwitchResolution`) ends the effects at
+  once instead of holding them until it is drawn: shows, hides and screen transitions apply
+  their final state. An effect without one (`TBlurEffect`) keeps running. New
+  `TSceneEffect.Finish`/`DoFinish` (override to apply the final state), `TWindow.ProcessEffects`.
+- Extra windows (`AddWindow`) play the effects: before, their timers never advanced, so a show
+  or hide in such a window never ended.
+- `TGameScene.onShow` now comes after the scene became active: its UI is shown, a modal one
+  is on the modal stack, the focus can be set (a show effect calls it after the modal push;
+  a show that waits for a hide - when it starts). The old `onShow` (before the activation,
+  the scene not active yet) is `onBeforeShow`: rename an override that relies on that.
+- `SetStatus` is not virtual any more: a scene class overrides `ApplyStatus` (called by
+  `SetStatus`, also without a change; call inherited). `TUIScene`, `TConsoleScene`,
+  `TTweakerScene` did so. An override of `SetStatus` fails to compile.
+- The default switcher (`ShowWindowScene`/`HideWindowScene`) fades the window in and out:
+  its effect drew nothing for 250 ms. `TFileDialogScene` fades too (150/120 ms) instead of an
+  instant show and hide; it sets the focus in `onShow`, and opening it again while it hides
+  shows it after the hide.
+- A window scene gets no input while its show or hide effect plays (as before): a Robot API
+  click that comes right after the dialog appears and before the fade ends is lost. Wait for
+  the end of the effect (`ui.hittest` finds the dialog) before clicking.
+- `ENGINE\EffectDone` comes after the effect is freed and `scene.effect` is `nil` (was: before),
+  so a handler may start a new effect of the scene.
+
 ## Robot API: a `-ROBOT=VIRTUAL` window stays under the active window (2026-11-04)
 
 - On Windows a window driven by the robot is placed right under the active window of the user

@@ -191,10 +191,12 @@ interface
    constructor Create(const sceneName:String8='FileDialog';wnd:TWindow=nil);
    destructor Destroy; override;
    procedure Open(modal:boolean=true);
+   procedure onShow; override;
    procedure onResize; override;
    function Layout:TFileDialogLayout;
    procedure SetLayout(const value:TFileDialogLayout);
   private
+   isOpen:boolean; // from Open to Close: the scene may still hide or wait to be shown
    prevFocus:TUIElement;
    closeButton:TUIButton;
    preferredW,preferredH:single; // the frame size to restore on the next request
@@ -262,6 +264,8 @@ implementation
   DRIVE_MIN_WIDTH=32;
   LOCATION_ACTION_WIDTH=26;
   LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
+  SHOW_MS=150; // the window fades in
+  HIDE_MS=120; // and out
 
  function PathIndex(const paths:Strings8;const path:String8):integer; forward;
  function SamePath(const a,b:String8):boolean; forward;
@@ -2490,7 +2494,8 @@ implementation
  var
   f:TUIElement;
  begin
-  if IsActive then exit;
+  if isOpen then exit;
+  isOpen:=true;
   onResize;
   if dialog.request.title<>'' then frame.caption:=dialog.request.title
    else if dialog.request.mode=fdOpen then frame.caption:=dialog.texts.openTitle
@@ -2499,11 +2504,15 @@ implementation
   openedLayout:=Layout;
   f:=FocusedElement;
   if (f<>nil) and f.Acquire then prevFocus:=f;
-  // Immediate show/hide keeps completion deterministic and permits opening another dialog
-  // from onDone. Effects still own modal-stack and input-lock handling.
-  if modal then TShowWindowEffect.Create(self,0,sweShowModal,0)
-   else TShowWindowEffect.Create(self,0,sweShow,0);
-  FreeAndNil(effect);
+  // the scene state comes at once, or when the hide of the previous request ends: onShow.
+  // Not the switcher: it finds the scene by name, and each window may have its own dialog
+  if modal then TShowWindowEffect.Create(self,SHOW_MS,sweShowModal,1)
+   else TShowWindowEffect.Create(self,SHOW_MS,sweShow,1);
+ end;
+
+ procedure TFileDialogScene.onShow;
+ begin
+  inherited;
   dialog.nameEdit.SetFocus;
   dialog.nameEdit.SelectAll;
  end;
@@ -2514,8 +2523,8 @@ implementation
  begin
   // the size the user gave the frame is kept for the next request
   preferredW:=frame.size.x; preferredH:=frame.size.y;
-  TShowWindowEffect.Create(self,0,sweHide,0);
-  FreeAndNil(effect);
+  isOpen:=false;
+  TShowWindowEffect.Create(self,HIDE_MS,sweHide,1); // leaves the modal stack and the focus at once
   f:=prevFocus;
   prevFocus:=nil;
   if f<>nil then begin

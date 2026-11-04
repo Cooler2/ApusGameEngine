@@ -30,6 +30,7 @@ type
   initialized,dontPlay:boolean;
   buffer:TTexture;
   procedure UpdateBuffer; // keep the buffer as the owner window renders
+  procedure DoFinish; override;
  end;
 
  // Simple fade effect
@@ -45,6 +46,8 @@ type
   procedure DrawScene; override;
   destructor Destroy; override;
   procedure Initialize; override;
+ protected
+  procedure DoFinish; override;
  private
   buffer,prevbuf:TTexture;
   initialized,DontPlay:boolean;
@@ -56,7 +59,9 @@ type
             sweShowModal,  // show and make the window modal
             sweHide);      // hide
  TShowWindowEffect=class(TSceneEffect)
-  // show or hide the scene
+  // Show or hide the scene. The scene state (activation, modal stack, focus) changes at once,
+  // except a show requested while the scene still hides: it starts when the hide ends.
+  // A hide requested then calls such a show off
   constructor Create(scene:TUIScene;duration:integer;effMode:TShowMode;effect:integer);
   procedure Initialize;
   procedure DrawScene; override;
@@ -64,7 +69,11 @@ type
   procedure onDone;
  protected
   procedure Replace; override;
+  procedure DoFinish; override;
  private
+  pending:boolean; // a show was requested while this hide plays
+  pendingMode:TShowMode;
+  pendingDuration,pendingEffect:integer;
   buffer:TTexture;
   mode:TShowMode;
   x,y,w,h:integer;
@@ -74,6 +83,7 @@ type
   savedSceneStatus:TSceneStatus;
   restored:boolean; // scene state handed back
   procedure RestoreScene;
+  procedure StartPending;
  end;
 
  {$IFDEF OPENGL}
@@ -207,6 +217,12 @@ begin
  if not initialized then Initialize;
 end;
 
+procedure TSwitchScreenEffect.DoFinish;
+begin
+ done:=true;
+ if prevScene<>nil then prevScene.SetStatus(TSceneStatus.ssFrozen);
+end;
+
 procedure TSwitchScreenEffect.UpdateBuffer;
 var
  flags:cardinal;
@@ -302,6 +318,12 @@ begin
  EnsureSceneBuffer(prevbuf,wnd,aiRenderTarget+aiTexture,'TransEffect2');
 end;
 
+procedure TRotScaleEffect.DoFinish;
+begin
+ done:=true;
+ target.SetStatus(TSceneStatus.ssFrozen);
+end;
+
 procedure TRotScaleEffect.Initialize;
 begin
  try
@@ -366,20 +388,54 @@ begin
 end;
 
 { TShowWindowEffect }
+
+// A request the scene state does not take now: a show of a scene that still hides waits for
+// the end of the hide, a hide calls such a show off; other requests for a scene that is
+// already in the state are ignored
+function Deferred(scene:TUIScene;effMode:TShowMode;duration,effect:integer):boolean;
+var
+ wnd:TWindow;
+ hiding:TShowWindowEffect; // the hide the scene plays, nil - none
+begin
+ result:=false;
+ wnd:=OwnerWindow(scene);
+ wnd.LockState;
+ try
+  hiding:=nil;
+  if (scene.effect is TShowWindowEffect) and (TShowWindowEffect(scene.effect).mode=sweHide) and
+     not scene.effect.done then hiding:=TShowWindowEffect(scene.effect);
+  if (effMode in [sweShow,sweShowModal]) and scene.IsActive then begin
+   result:=true;
+   if hiding<>nil then begin
+    hiding.pending:=true;
+    hiding.pendingMode:=effMode;
+    hiding.pendingDuration:=duration;
+    hiding.pendingEffect:=effect;
+    Log.Msg('SWE: %s is shown when its hide ends',[scene.name]);
+   end else
+    Log.Msg('SWE for active scene IGNORED! '+scene.name+' : '+scene.UI.name);
+  end else
+  if (effMode=sweHide) and not scene.activated then begin
+   result:=true;
+   if (hiding<>nil) and hiding.pending then begin
+    hiding.pending:=false;
+    Log.Msg('SWE: the show of %s requested while it hides is called off',[scene.name]);
+   end else
+    Log.Msg('sweHide for inactive scene IGNORED! '+scene.name+' : '+scene.UI.name);
+  end;
+ finally
+  wnd.UnlockState;
+ end;
+end;
 constructor TShowWindowEffect.Create(scene: TUIScene; duration: integer;
   effMode: TShowMode;effect:integer);
 var
  wnd:TWindow; // window that owns the modal state for this scene
+ activates:boolean; // the show activates the scene: onShow when its state is complete
 begin
  try
- if (effMode in [sweSHow,sweShowModal]) and scene.IsActive then begin
-  Log.Msg('SWE for active scene IGNORED! '+scene.name+' : '+scene.UI.name);
-  exit;
- end;
- if (effMode=sweHide) and (not scene.activated) then begin
-  Log.Msg('sweHide for inactive scene IGNORED! '+scene.name+' : '+scene.UI.name);
-  exit;
- end;
+ if Deferred(scene,effMode,duration,effect) then exit;
+ activates:=false;
  initialized:=false;
  buffer:=nil;
  // Show a modal window
@@ -401,7 +457,13 @@ begin
  LockSceneInput(scene); // no input while the window moves: the hit-test uses its final layout
  if (mode<>sweHide) and not target.IsActive then begin
   savedSceneStatus:=target.status;
-  target.SetStatus(TSceneStatus.ssActive);
+  target.holdOnShow:=true;
+  try
+   target.SetStatus(TSceneStatus.ssActive);
+  finally
+   target.holdOnShow:=false;
+  end;
+  activates:=target.IsActive;
  end;
  wnd:=scene.UI.GetWindow; // modal state lives on the owning window
 
@@ -428,6 +490,7 @@ begin
  end;
 
  eff:=effect;
+ if activates then target.onShow; // active, shown and on the modal stack
  if duration=0 then onDone; // Immediate action
 
  finally
@@ -518,7 +581,9 @@ var
  oldTranspBgnd:boolean;
 begin
  if DontPlay then begin
-  onDone; exit;
+  onDone;
+  StartPending;
+  exit;
  end;
  if not initialized then Initialize;
  with target as TUIScene do begin
@@ -558,6 +623,7 @@ begin
   stage:=255;
   onDone;
  end;
+ try
  if mode=sweHide then stage:=255-stage;
  if shadow<>0 then
   target.shadowColor:=Color.Mix(shadow,shadow and $FFFFFF,stage);
@@ -649,6 +715,25 @@ begin
  except
   on e:exception do Log.Force('WndEff error: '+ExceptionMsg(e));
  end;
+ finally
+  if done then StartPending; // after the last frame of the hide: the new effect takes the scene
+ end;
+end;
+
+// The hide is over: the show requested while it played starts now. Only when the hide ends
+// by itself: an effect that replaces it takes the scene instead
+procedure TShowWindowEffect.StartPending;
+begin
+ if not pending then exit;
+ pending:=false;
+ Log.Msg('SWE: %s is hidden, the requested show starts',[target.name]);
+ TShowWindowEffect.Create(target as TUIScene,pendingDuration,pendingMode,pendingEffect);
+end;
+
+procedure TShowWindowEffect.DoFinish;
+begin
+ onDone;
+ StartPending;
 end;
 
 procedure TShowWindowEffect.onDone;
@@ -891,7 +976,7 @@ end;
 
 procedure TBaseSceneSwitcher.HideWindowScene(name:string8);
  begin
-  TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,sweHide,0);
+  TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,sweHide,1); // fade
  end;
 
 procedure TBaseSceneSwitcher.ShowWindowScene(name:string8;modal:boolean=true);
@@ -900,7 +985,7 @@ procedure TBaseSceneSwitcher.ShowWindowScene(name:string8;modal:boolean=true);
  begin
   if modal then mode:=sweShowModal
    else mode:=sweShow;
-  TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,mode,0);
+  TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,mode,1); // fade
  end;
 
 procedure TBaseSceneSwitcher.SwitchToScene(name:string8);

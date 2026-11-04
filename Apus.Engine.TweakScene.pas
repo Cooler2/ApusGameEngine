@@ -24,7 +24,7 @@ implementation
    editors:array[0..15] of TUIElement;
    edCount:integer;
    constructor Create(tinyFont_,normalFont_:cardinal);
-   procedure SetStatus(st:TSceneStatus); override;
+   procedure ApplyStatus(st:TSceneStatus); override;
    procedure onMouseBtn(btn:byte;pressed:boolean); override;
    procedure onMouseWheel(delta:integer); override;
    procedure PlaceTrackers(keepPos:boolean=false);
@@ -192,7 +192,7 @@ begin
  if ui.position.y<5 then ui.position.y:=5;
 end;
 
-procedure TTweakerScene.SetStatus(st:TSceneStatus);
+procedure TTweakerScene.ApplyStatus(st:TSceneStatus);
 var
  sa:Strings8;
  lastIdx:integer;

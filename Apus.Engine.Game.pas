@@ -2079,7 +2079,8 @@ procedure TGame.RenderAndPresentFrame;
      end;
      if window.timings.phaseMetrics then renderUs:=round(Timer.Get(phaseTimer)*1000000);
     end;
-   end;
+   end else
+    window.ProcessEffects(0,true); // nobody sees the effects: a show or hide must not wait for a frame
 
    // Something can be done here
    if window.timings.phaseMetrics then Timer.Start(phaseTimer);
@@ -2342,6 +2343,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
        else begin
         wnd.LockState;
         try
+         wnd.ProcessEffects(integer(wnd.frameDeltaMs));
          gameEx.RenderScenesForWindow(wnd);
         finally
          wnd.UnlockState;
@@ -2356,8 +2358,10 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
       wnd.screenChanged:=false;
       wnd.timings.idleRedrawAccUs:=0;
       presented:=true;
-     end else
+     end else begin
+      if wnd.state=TWindowState.Minimized then wnd.ProcessEffects(0,true);
       CoreTime.Sleep(5);
+     end;
 
      if presented then begin
       wnd.timings.PushSample(wnd.timings.presentSampleAccUs,0,0,0,0,0);

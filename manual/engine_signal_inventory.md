@@ -32,7 +32,7 @@
 | `ENGINE\DPICHANGED` | notification | `TWindow` | `newDPI` | The window DPI changed. |
 | `ENGINE\DPICHANGED\DONE` | notification | `TGame` | `dpi` | Scale/parameters have been recalculated after a DPI change. |
 | `ENGINE\REDRAW` | command | `TWindowsPlatform` | `0` | Request an immediate redraw (usually from `WM_PAINT`). |
-| `ENGINE\EFFECTDONE` | notification | `TWindow` (scene effects) | `UIntPtr(scene)` | A scene effect has finished; further transitions/cleanup can be done. |
+| `ENGINE\EFFECTDONE` | notification | `TWindow` (scene effects) | `UIntPtr(scene)` | A scene effect has finished and is freed: `scene.effect` is already `nil`, a handler may start a new effect. A hide that ends into a show requested meanwhile sends none. |
 | `ENGINE\FRAMECAPTURED` | notification | `TWindow` | `UIntPtr(TBitmapImage)` | A frame was captured and is ready for the consumer. |
 | `ENGINE\BEFOREINITGRAPH` | hook | `TGame` | `0` | Extension point before the graphics backend is initialized. |
 | `ENGINE\AFTERINITGRAPH` | hook | `TGame` | `0` | Extension point after graphics initialization. |

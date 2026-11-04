@@ -940,7 +940,10 @@ type
   function GetScene(name:string):TGameScene; virtual;
 
   procedure SwitchToScene(name:string); virtual; abstract; // switch to a fullscreen scene
-  procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract; // show a windowed scene
+  // Show a windowed scene. Returns at once, the show takes the time of the switcher's effect.
+  // A scene that still hides is shown when the hide ends: its state (activation, modal stack,
+  // focus) is not there right after the call
+  procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract;
   procedure HideWindowScene(name:string); virtual; abstract; // hide a windowed scene
 
   // Cursors

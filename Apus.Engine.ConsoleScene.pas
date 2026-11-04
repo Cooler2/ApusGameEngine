@@ -10,7 +10,7 @@ type
  TConsoleScene=class(TUIScene)
   constructor Create;
   procedure ScrollToEnd;
-  procedure SetStatus(status:TSceneStatus); override;
+  procedure ApplyStatus(status:TSceneStatus); override;
   function Process:boolean; override;
  private
   editbox:TUIEditBox;
@@ -621,7 +621,7 @@ begin
  end;
 end;
 
-procedure TConsoleScene.SetStatus(status: TSceneStatus);
+procedure TConsoleScene.ApplyStatus(status: TSceneStatus);
 begin
  inherited;
  if status=TSceneStatus.ssActive then ResetWindowIfOffscreen; // before ScrollToEnd (uses window size)

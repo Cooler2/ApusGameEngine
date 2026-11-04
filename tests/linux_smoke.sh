@@ -83,6 +83,7 @@ compile_only tests/TestStyleFill.dpr # needs a GL window: run locally
 compile_only tests/TestPixelGrid.dpr # needs a GL window: run locally
 compile_only tests/TestCulling.dpr # needs a GL window: run locally
 compile_only tests/TestSceneEffectBuffers.dpr # needs a GL window: run locally
+compile_only tests/TestWindowSceneShow.dpr # needs a GL window: run locally
 compile_only tests/TestCursorHandles.dpr # needs an SDL window: run locally
 run_test tests/TestFill.dpr
 run_test tests/TestTextMetrics.dpr

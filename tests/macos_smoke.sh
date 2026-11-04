@@ -82,6 +82,7 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "engine" ]; then
   compile_only tests/TestPixelGrid.dpr # needs a GL window: run locally
   compile_only tests/TestCulling.dpr # needs a GL window: run locally
   compile_only tests/TestSceneEffectBuffers.dpr # needs a GL window: run locally
+  compile_only tests/TestWindowSceneShow.dpr # needs a GL window: run locally
   compile_only tests/TestVirtualMouse.dpr
   compile_only tests/TestNinePatch.dpr
   compile_only tests/TestFill.dpr

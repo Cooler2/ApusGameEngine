@@ -23,7 +23,7 @@ type
   frameTime:int64; // time elapsed from the last frame
   constructor Create(scenename:string='';fullScreen:boolean=true;wnd:TWindow=nil);
   destructor Destroy; override; // the UI goes too
-  procedure SetStatus(st:TSceneStatus); override;
+  procedure ApplyStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
   procedure onResize; override;
@@ -720,7 +720,7 @@ function UIScene(name:String8):TUIScene;
    inherited;
   end;
 
- procedure TUIScene.SetStatus(st:TSceneStatus);
+ procedure TUIScene.ApplyStatus(st:TSceneStatus);
   var
    w,h:integer;
   begin

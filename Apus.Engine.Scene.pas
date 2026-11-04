@@ -31,10 +31,16 @@ type
   constructor Create(scene:TGameScene;TotalTime:integer); // create an effect for the given time (in ms), replacing the current effect of the scene
   procedure DrawScene; virtual; abstract; // must fully draw the scene with the effect (into the current RT)
   procedure Paint; // the engine draws the scene through this, not DrawScene directly
+  // The window is not drawn (minimized): end the effect at once if it has a final state,
+  // the engine calls this instead of Paint. The effect may be freed: re-read scene.effect
+  procedure Finish;
   destructor Destroy; override; // releases the input locks taken by LockSceneInput
  protected
   replaced:boolean; // replaced by a new effect from inside its own DrawScene: freed when DrawScene returns
   procedure Replace; virtual; // a new effect takes the scene: free now, or after DrawScene if it is running
+  // Apply the final state of the effect and set done. Default: nothing, the effect keeps
+  // running until the window is drawn again (an overlay like blur has no final state)
+  procedure DoFinish; virtual;
   // Block the input of a scene for the lifetime of this effect (the scene stays drawn as is)
   procedure LockSceneInput(scene:TGameScene);
  private
@@ -46,7 +52,7 @@ type
  TSceneSwitcher=class
   class var defaultSwitcher:TSceneSwitcher; // global scene switcher is here
   procedure SwitchToScene(name:string8); virtual; abstract; // switch to a fullscreen scene
-  procedure ShowWindowScene(name:string8;modal:boolean=true); virtual; abstract; // show a windowed scene
+  procedure ShowWindowScene(name:string8;modal:boolean=true); virtual; abstract; // show a windowed scene, see TGameBase.ShowWindowScene
   procedure HideWindowScene(name:string8); virtual; abstract; // hide a windowed scene
  end;
 
@@ -80,6 +86,9 @@ TGameScene=class(TNamedObject)
   inputLocks:integer; // >0: the scene gets no input (mouse, keyboard, UI hit-test); drawing is not affected
   gfxInitialized:boolean; // true after InitGfx was called by the render loop
   loaded:boolean; // true after Load has completed
+  // A show effect activates the scene and then puts it on the modal stack: SetStatus leaves
+  // onShow to the effect, which calls it when the state is complete
+  holdOnShow:boolean;
 
   // Timing of Process when frequency>0 (driven by the window). Process runs exactly frequency
   // times per second of frame time, 0..N calls per frame; the first call comes at once after
@@ -97,8 +106,12 @@ TGameScene=class(TNamedObject)
   // !!! Call this manually from constructor!
   procedure onCreate; virtual;
 
-  // Use only this to change the status!
-  procedure SetStatus(st:TSceneStatus); virtual;
+  // Use only this to change the status! On a change: onBeforeShow, ApplyStatus, then onShow
+  // or onHide
+  procedure SetStatus(st:TSceneStatus);
+  // What the scene class does on SetStatus, also without a change: override it (call inherited)
+  // instead of SetStatus, never call it directly
+  procedure ApplyStatus(st:TSceneStatus); virtual;
 
   // status=ssActive
   function IsActive:boolean;
@@ -160,7 +173,10 @@ TGameScene=class(TNamedObject)
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
   procedure onMouseWheel(delta:integer); virtual;
-  procedure onShow; virtual; // called when status changed to Active
+  procedure onBeforeShow; virtual; // the scene is about to become active: it is not active yet, its UI is hidden
+  // The scene became active: its UI is shown, a modal one is on the modal stack, the focus can
+  // be set. A show effect may still play; a show that waits for the end of a hide comes later
+  procedure onShow; virtual;
   procedure onHide; virtual; // called when status changed from Active
   procedure onEvent(eventPart:String8;tag:NativeInt); virtual; // called when 'Scenes\[SceneName]\xxx' event is fired, "xxx" part is passed
 
@@ -313,6 +329,10 @@ constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
   begin
   end;
 
+ procedure TGameScene.onBeforeShow;
+  begin
+  end;
+
  procedure TGameScene.onShow;
   begin
   end;
@@ -458,19 +478,29 @@ class procedure TGameScene.LoadAllScenes;
 
  procedure TGameScene.SetStatus(st:TSceneStatus);
   var
-   wasActive:boolean;
+   changed,wasActive:boolean;
   begin
-   if status=st then exit; // no change
+   changed:=status<>st;
    wasActive:=status=ssActive;
-   if (st=ssActive) and not loaded then
-    Log.Msg('WARN! Activating scene "%s" which was not loaded',[name]);
-   if st=ssActive then onShow; // make sure to call this BEFORE the scene become active
-   status:=st;
-   activated:=st=ssActive;
+   if changed and (st=ssActive) then begin
+    if not loaded then
+     Log.Msg('WARN! Activating scene "%s" which was not loaded',[name]);
+    onBeforeShow;
+   end;
+   ApplyStatus(st);
+   if not changed then exit;
    if wasActive and (status<>ssActive) then begin
     ClearKeyBuf; // drop any buffered input so it isn't dispatched on reactivation
     onHide;
    end;
+   if (status=ssActive) and not holdOnShow then onShow;
+  end;
+
+ procedure TGameScene.ApplyStatus(st:TSceneStatus);
+  begin
+   if status=st then exit; // no change
+   status:=st;
+   activated:=st=ssActive;
   end;
 
  { TSceneEffect }
@@ -500,6 +530,23 @@ class procedure TGameScene.LoadAllScenes;
     drawing:=false;
     if replaced then Free;
    end;
+  end;
+
+ // Like Paint: DoFinish may start a new effect for the same scene, this one survives until
+ // DoFinish returns
+ procedure TSceneEffect.Finish;
+  begin
+   drawing:=true;
+   try
+    DoFinish;
+   finally
+    drawing:=false;
+    if replaced then Free;
+   end;
+  end;
+
+ procedure TSceneEffect.DoFinish;
+  begin
   end;
 
  // The scene's Process/Render (called from DrawScene) may create a new effect for the

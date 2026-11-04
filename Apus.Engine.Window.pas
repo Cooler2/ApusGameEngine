@@ -590,6 +590,10 @@ public
   procedure RenderFrame(const params:TGameSettings;
     drawCursor,drawOverlays:TRenderProc);
   procedure RenderScenes(drawOverlays:TRenderProc);
+  // Advance the scene effects by deltaTime ms and free the finished ones (ENGINE\EffectDone).
+  // Before drawing a frame; finish=true - the window is not drawn, the effects end at once
+  // (TSceneEffect.Finish). Takes the window lock
+  procedure ProcessEffects(deltaTime:integer;finish:boolean=false);
   // Instead of the scenes when the frames keep failing: red background and "ERROR",
   // as little as possible, so it does not fail the same way
   procedure RenderErrorState;
@@ -2223,13 +2227,47 @@ begin
  end;
 end;
 
+procedure TWindow.ProcessEffects(deltaTime:integer;finish:boolean=false);
+var
+ i:integer;
+ scene:TGameScene;
+ effect:TSceneEffect;
+begin
+ frameLog.Add('Eff');
+ LockState;
+ try
+  try
+   for i:=low(scenes) to high(scenes) do begin
+    scene:=scenes[i];
+    if scene.effect=nil then continue;
+    frameLog.Add('Eff on '+scene.ClassName+' is '+scene.effect.ClassName+' : '+
+     inttostr(scene.effect.timer)+','+booltostr(scene.effect.done));
+    if finish and not scene.effect.done then
+     scene.effect.Finish; // may replace the effect: a hide starts the show requested meanwhile
+    effect:=scene.effect;
+    if effect=nil then continue;
+    inc(effect.timer,deltaTime);
+    if effect.done then begin
+     // the scene is free of the effect before the handlers see the signal: they may start a new one
+     scene.effect:=nil;
+     effect.Free;
+     Signal('ENGINE\EffectDone',UIntPtr(scene));
+    end;
+   end;
+  except
+   on e:exception do CriticalError('RFrame2 '+ExceptionMsg(e));
+  end;
+ finally
+  UnlockState;
+ end;
+end;
+
 procedure TWindow.RenderFrame(const params:TGameSettings;
   drawCursor,drawOverlays:TRenderProc);
 var
  i,n:integer;
  sc:array[1..50] of TGameScene;
  shadows:array[1..50] of cardinal;
- effect:TSceneEffect;
  deltaTime:integer;
  fl:boolean;
  z:single;
@@ -2256,25 +2294,7 @@ begin
   except
    on e:exception do CriticalError('RFrame1 '+ExceptionMsg(e));
   end;
-  frameLog.Add('Eff');
-  try
-   // process effects on all scenes
-   for i:=low(scenes) to high(scenes) do
-    if scenes[i].effect<>nil then begin
-     frameLog.Add('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
-      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
-     effect:=scenes[i].effect;
-     frameLog.Add('Eff ret');
-     inc(effect.timer,deltaTime);
-     if effect.done then begin
-      Signal('ENGINE\EffectDone',UIntPtr(scenes[i]));
-      effect.Free;
-      scenes[i].effect:=nil;
-     end;
-    end;
-  except
-   on e:exception do CriticalError('RFrame2 '+ExceptionMsg(e));
-  end;
+  ProcessEffects(deltaTime);
  finally
   UnlockState;
  end;
