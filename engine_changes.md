@@ -6,6 +6,15 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## Robot API: a `-ROBOT=VIRTUAL` window stays under the active window (2026-11-04)
+
+- On Windows a window driven by the robot is placed right under the active window of the user
+  when it is shown and when its state changes (normal, maximized, minimized, mode changes),
+  not on top: a maximized window no longer covers the terminal it was started from. The
+  activation was already kept. Not for a topmost active window, the desktop or a window of
+  the application itself. `screenshot` and `pixel` of a covered window are unaffected.
+- Under `-SDL` the window is still shown on top.
+
 ## Text: `Advance`, `PenPositions`, tabular digits, `WrapText`, `FitText` (2026-11-03)
 
 - `ITextDrawer` has the second metric of a text: `Advance`/`AdvanceW` - the pen advance (where

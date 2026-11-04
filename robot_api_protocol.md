@@ -236,15 +236,18 @@ that nobody watches (e2e scripts started next to a user at work):
   before the first request. `input.mode` with `MODE: virtual` changes nothing then,
   `MODE: physical` works as usual.
 - A window never takes the activation, the user keeps working in another one. Showing,
-  `window.state` transitions and mode changes keep it. The window stays visible, it is not
-  hidden, and `-WindowStyle Hidden` of the launcher does not hide it. The main window stays
+  `window.state` transitions and mode changes keep it. On Windows they also place the window
+  right under the active window, not on top of it (unless that window is topmost, the desktop
+  or a window of the application). The window stays visible, it is not
+  hidden, and `-WindowStyle Hidden` of the launcher does not hide it; a covered window renders
+  and answers `screenshot`/`pixel` as usual. The main window stays
   inactive: `Delay(5)` per frame, and nothing is drawn in `dmSwitchResolution`.
   On Windows a maximize goes through the minimized state: `ENGINE\WINDOW\MINIMIZED` comes
   right before `ENGINE\WINDOW\MAXIMIZED`.
 - The modal boxes are off from the start of the process, before the first window too.
 
 Under `-SDL` only the first show keeps the activation (`SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN`,
-Windows): SDL maximizes and restores with its own activating calls. On Linux and macOS the
+Windows) and the window is shown on top: SDL maximizes and restores with its own activating calls. On Linux and macOS the
 window manager decides.
 
 **Reset** (`input.reset`, also part of every mode switch) cancels the gesture without

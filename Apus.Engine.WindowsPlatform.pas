@@ -49,6 +49,7 @@ type
   wasMaximized:boolean; // maximize on the next switch to the window mode (start or return from fullscreen)
   configured:boolean;   // Configure was called: the startup state is applied
   normalRect:TRect;     // the normal (restored) window rect left for fullscreen, empty if none: the window returns there
+  stayUnder:HWND;       // while a robot-driven window changes the state: the window it is placed under, 0 - none
   procedure ChangeState(cmd:integer);
   function CustomFrameActive:boolean;
   function FrameHitTestAt(const p:TPoint;const client:TRect):integer;
@@ -552,6 +553,14 @@ begin
    end;
   end;
 
+  WM_WINDOWPOSCHANGING:begin
+   // the state commands put a window on top even when they keep the activation
+   wnd:=FindWindowByHandle(THandle(Window));
+   if (wnd<>nil) and (TWinGLWindow(wnd).stayUnder<>0) then
+    with PWindowPos(lParam)^ do
+     if flags and SWP_NOZORDER=0 then hwndInsertAfter:=TWinGLWindow(wnd).stayUnder;
+  end;
+
   WM_NCACTIVATE:begin
    // no OS caption to repaint on (de)activation: lParam=-1 keeps DefWindowProc from drawing it
    wnd:=FindWindowByHandle(THandle(Window));
@@ -949,16 +958,30 @@ function TWinGLWindow.IsTerminated:boolean;
   result:=terminated;
  end;
 
+function GetShellWindow:HWND; stdcall; external 'user32.dll'; // not in Delphi's Winapi.Windows
+
+// The window of the user a robot-driven window is placed under: the active one, unless it is
+// this window, the desktop or a topmost window (the topmost ones are above anyway)
+function UserWindowAbove(own:HWND):HWND;
+ begin
+  result:=GetForegroundWindow;
+  if (result=own) or (result=GetShellWindow) or
+     (GetWindowLong(result,GWL_EXSTYLE) and WS_EX_TOPMOST<>0) then result:=0;
+ end;
+
 // ShowWindow for everything but hiding. A window driven by the robot never takes the
 // activation: the commands turn into the ones that keep it. Maximizing has no such command,
 // but a minimized window restores to maximized without the activation (so the state passes
 // through Minimized). The commands that do not take it are unaffected by SW_HIDE of the
 // process startup info (Start-Process -WindowStyle Hidden), unlike the first SW_SHOW.
+// They still put the window on top, over the window the user works in: WM_WINDOWPOSCHANGING
+// places it under that window instead.
 procedure TWinGLWindow.ChangeState(cmd:integer);
  var
   p:TWindowPlacement;
  begin
-  if robotDriven then
+  if robotDriven then begin
+   stayUnder:=UserWindowAbove(window);
    case cmd of
     SW_SHOW:cmd:=SW_SHOWNA;
     SW_SHOWNORMAL,SW_RESTORE:cmd:=SW_SHOWNOACTIVATE;
@@ -972,7 +995,12 @@ procedure TWinGLWindow.ChangeState(cmd:integer);
      cmd:=SW_SHOWNOACTIVATE;
     end;
    end;
-  windows.ShowWindow(window,cmd);
+  end;
+  try
+   windows.ShowWindow(window,cmd);
+  finally
+   stayUnder:=0;
+  end;
  end;
 
 procedure TWinGLWindow.Minimize;
