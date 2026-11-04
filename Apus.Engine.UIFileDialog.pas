@@ -628,7 +628,7 @@ implementation
  // are cut first. The fallback removes whole Unicode characters from a long leaf.
  function PathCaption(font:TFontHandle;const path:String8;width:single):String8;
  var
-  root,tail,prefix,candidate:String8;
+  root,tail,prefix,candidate,ellipsis:String8;
   chars:String32;
   i,j,rootLen,lo,hi,mid:integer;
  begin
@@ -645,13 +645,18 @@ implementation
    end;
   end else if (path<>'') and (path[1] in ['/','\']) then rootLen:=1;
   root:=copy(path,1,rootLen);
-  prefix:=root+'...'+PathDelim;
+  // U+2026 as txt.FitText puts it (the dialog fonts have it); this unit has no UTF-8 BOM,
+  // so FPC would take a non-ASCII literal ('…' or #$E2#$80#$A6) as Latin-1
+  SetLength(chars,1);
+  chars[0]:=$2026;
+  ellipsis:=UTF8.Encode(chars);
+  prefix:=root+ellipsis+PathDelim;
   for i:=rootLen+1 to length(path) do if path[i] in ['/','\'] then begin
    candidate:=prefix+copy(path,i+1,length(path));
    if txt.Width(font,candidate)<=width then exit(candidate);
   end;
   if txt.Width(font,prefix)>width then begin
-   if txt.Width(font,'...')<=width then exit('...') else exit('');
+   if txt.Width(font,ellipsis)<=width then exit(ellipsis) else exit('');
   end;
   tail:=Files.GetName(path);
   chars:=UTF8.Decode(tail);
@@ -729,7 +734,8 @@ implementation
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
-   txt.Write(font,cell.Left+round(5*s),baseline,color,labelText);
+   txt.Write(font,cell.Left+round(5*s),baseline,color,
+     txt.FitText(font,labelText,cell.Right-cell.Left-round(LOCATION_ACTION_WIDTH*s)-round(5*s)));
    gfx.clip.Restore;
   end;
   gfx.clip.Restore;
@@ -918,7 +924,8 @@ implementation
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    if textLeft<cell.Right-round(5*s) then begin
     gfx.clip.Rect(Types.Rect(textLeft,cell.Top,cell.Right-round(5*s),cell.Bottom));
-    txt.Write(font,textLeft,baseline,color,table.CellText(row,0));
+    txt.Write(font,textLeft,baseline,color,
+      txt.FitText(font,table.CellText(row,0),cell.Right-round(5*s)-textLeft));
     gfx.clip.Restore;
    end;
   end;
@@ -1500,6 +1507,7 @@ implementation
   upButton.drawer:=DrawUpButton;
   table:=TUITable.Create(100,100,self,name+'\Table');
   table.AddColumn('',0);
+  table.columns[0].cut:=TTextCut.atMiddle; // a long name keeps its extension
   table.AddColumn('',140,taLeft,tsKey);
   table.AddColumn('',80,taRight,tsKey);
   table.SortBy(0);

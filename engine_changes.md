@@ -6,6 +6,15 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## UI: table cells, the folder tree and the places of the file dialog fit their text (2026-11-04)
+
+- `TTableColumn.cut:TTextCut` (default `atEnd`): a cell text wider than its column loses a part
+  there, `txt.FitText` puts an ellipsis in its place (was cut by the clip in the middle of a
+  glyph). Header captions are cut at the end.
+- `TUIFileDialog`: the name column is cut in the middle (a long name keeps its extension); the
+  folder tree and the places list cut their labels at the end; a shortened path of the places
+  list takes the same `…` (was `...`).
+
 ## 3D: FOV axis for `Perspective` (2026-11-04)
 
 - `gfx.transform.Perspective(fovRad,axis,zMin,zMax)` with `TFovAxis` (`Apus.Engine.Types`):

@@ -1044,8 +1044,9 @@ implementation
     result.Bottom:=y2;
    end;
 
-  procedure WriteCell(const area:TRect;align:TTextAlignment;color:cardinal;const text:String8;
-    rightGap:integer);
+  // a text that doesn't fit loses its part at cut, an ellipsis takes its place
+  procedure WriteCell(const area:TRect;align:TTextAlignment;cut:TTextCut;color:cardinal;
+    const text:String8;rightGap:integer);
    begin
     if (text='') or (area.Right-area.Left<=2*pad) then exit;
     gfx.clip.Rect(Rect(area.Left+pad,area.Top,area.Right-pad-rightGap,area.Bottom));
@@ -1055,7 +1056,7 @@ implementation
      else x:=area.Left+pad;
     end;
     base:=round((area.Top+area.Bottom-1)*0.5+txt.Height(font)*0.45);
-    txt.Write(font,x,base,color,text,align);
+    txt.Write(font,x,base,color,txt.FitText(font,text,area.Right-area.Left-2*pad-rightGap,cut),align);
     gfx.clip.Restore;
    end;
 
@@ -1093,7 +1094,7 @@ implementation
      draw.Rect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,table.GetStyleColor('focus-color',textColor));
     if table.IsSelected(row) then c:=selColor else c:=textColor;
     for col:=0 to high(table.columns) do
-     WriteCell(ColumnRect(col,cell.Top,cell.Bottom),table.columns[col].align,c,
+     WriteCell(ColumnRect(col,cell.Top,cell.Bottom),table.columns[col].align,table.columns[col].cut,c,
        table.CellText(row,col),0);
    end;
    gfx.clip.Restore;
@@ -1117,9 +1118,9 @@ implementation
        draw.FillTriangle(cx1,y-tri*0.5,cx2,y-tri*0.5,(cx1+cx2)*0.5,y+tri*0.5,c,c,c)
       else
        draw.FillTriangle(cx1,y+tri*0.5,cx2,y+tri*0.5,(cx1+cx2)*0.5,y-tri*0.5,c,c,c);
-      WriteCell(cell,table.columns[col].align,c,table.columns[col].caption,2*tri+pad);
+      WriteCell(cell,table.columns[col].align,TTextCut.atEnd,c,table.columns[col].caption,2*tri+pad);
      end else
-      WriteCell(cell,table.columns[col].align,c,table.columns[col].caption,0);
+      WriteCell(cell,table.columns[col].align,TTextCut.atEnd,c,table.columns[col].caption,0);
      if col<high(table.columns) then
       draw.Line(cell.Right-0.5,cell.Top+3*scale,cell.Right-0.5,cell.Bottom-3*scale,lineColor);
     end;
