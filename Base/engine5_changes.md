@@ -19,7 +19,9 @@ Use it as the primary reference when updating old code.
   whose digit advances are already equal, `Width('1:11')<>Width('8:88')` without the flag).
 - `WrapText` (optionally with the width of each line) and `FitText` with
   `TTextCut.atEnd/atStart/atMiddle` (`Apus.Engine.Types`); the default ellipsis `'…'` falls
-  back to `'...'` without that glyph. `Notifications` wraps toasts with `WrapText`: a word
+  back to `'...'` without that glyph. Punctuation right after a word is a part of it: when a
+  word wider than the line is broken between characters, no line starts with such a mark (a
+  letter goes with it). `Notifications` wraps toasts with `WrapText`: a word
   longer than the line is now broken between characters. Networking demo `FitWidth` ->
   `txt.FitText`.
 - `TTextDrawer.HasGlyph`; `TFreeTypeFont`/`TUnicodeFont`: `Advance`, `InkRight`, `HasGlyph`.
@@ -27,6 +29,8 @@ Use it as the primary reference when updating old code.
   shifted by the bearing of the first glyph.
 - `TTextDrawer` allocates its GPU buffers at the first flush: metrics and layout work
   without graphics (`tests/TestTextMetrics`).
+- Showcase: TextDemo screen 10 (`Wrap & Fit`) - `WrapText` and `FitText` against a moving
+  boundary; hovering a stand drives the width with the mouse.
 
 ## Scenes: exact `Process` frequency on `TStepClock` (2026-11-03)
 

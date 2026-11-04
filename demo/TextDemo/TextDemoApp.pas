@@ -83,10 +83,14 @@ type
     procedure DrawUnicodeComplex(const contentRect:TRect);
     procedure DrawMetrics(const contentRect:TRect);
     procedure DrawEffects(const contentRect:TRect);
+    function StandWidth(const r:TRect;phase,minF:single):integer;
+    procedure DrawStandBoundary(const r:TRect;w:integer);
+    procedure DrawWrapStand(const r:TRect;font:TFontHandle;const st:String8;w:integer;centered:boolean);
+    procedure DrawWrapFit(const contentRect:TRect);
   end;
 
 const
-  SCREEN_COUNT=9;
+  SCREEN_COUNT=10;
   MENU_WIDTH=380;
   MENU_TOP=78;
   MENU_ITEM_HEIGHT=54;
@@ -104,7 +108,8 @@ const
     'Block && Cache',
     'Unicode && Complex',
     'Metrics && Scale',
-    'Text Effects'
+    'Text Effects',
+    'Wrap && Fit'
   );
 
   SCREEN_HINTS:array[0..SCREEN_COUNT-1] of string=(
@@ -116,8 +121,21 @@ const
     'BeginBlock/EndBlock, toDontCache and MAGIC_TEXTCACHE preview',
     'multiline Unicode + complex markup + align',
     'Width/WidthW/Height, ScaleFont, font options',
-    'DrawTextFX: glow, outline, shadow layers (R-33)'
+    'DrawTextFX: glow, outline, shadow layers (R-33)',
+    'WrapText / FitText at a moving width; hover a stand to drive the width with the mouse'
   );
+
+  // stand texts are typed constants: a non-ASCII literal inside an expression is lossy in FPC on Linux
+  WRAP_TEXT_EN:String8='WrapText breaks at spaces and keeps explicit line breaks:'#10+
+    'this line starts after one.'#10#10+
+    'An empty line above is kept too. A word wider than the line, like '+
+    'Supercalifragilisticexpialidocious, is broken between characters.';
+  WRAP_TEXT_RU:String8='Перенос работает и для кириллицы: строка режется только '+
+    'на границе знака, UTF-8 не портится. Строки выровнены по центру '+
+    'по ширинам, которые WrapText отдаёт вместе со строками.';
+  FIT_PATH:String8='C:\Games\Apus\demo\TextDemo\res\fonts\DemoArial.ttf';
+  FIT_INPUT:String8='Text typed into an edit box: the tail stays visible';
+  FIT_TEXT_RU:String8='Длинная подпись сокращается с многоточием';
 
 var
   sceneMain:TMainScene;
@@ -284,10 +302,10 @@ end;
 
 procedure TMainScene.HandleInput;
 const
-  F_SCANS:array[0..8] of integer=(Scan.F1,Scan.F2,Scan.F3,Scan.F4,Scan.F5,
-    Scan.F6,Scan.F7,Scan.F8,Scan.F9);
-  D_SCANS:array[0..8] of integer=(Scan.D1,Scan.D2,Scan.D3,Scan.D4,Scan.D5,
-    Scan.D6,Scan.D7,Scan.D8,Scan.D9);
+  F_SCANS:array[0..SCREEN_COUNT-1] of integer=(Scan.F1,Scan.F2,Scan.F3,Scan.F4,Scan.F5,
+    Scan.F6,Scan.F7,Scan.F8,Scan.F9,Scan.F10);
+  D_SCANS:array[0..SCREEN_COUNT-1] of integer=(Scan.D1,Scan.D2,Scan.D3,Scan.D4,Scan.D5,
+    Scan.D6,Scan.D7,Scan.D8,Scan.D9,Scan.D0);
 var
   i,item:integer;
 begin
@@ -320,7 +338,7 @@ begin
   draw.Rect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF3B4B60);
 
   txt.Write(titleFont,S(20),S(28),$FFE8F0FA,'TextDemo Screens',taLeft,toAddBaseline or toWithShadow);
-  txt.Write(hintFont,S(20),S(52),$FFA4B7CE,'Mouse click or keys [F1..F9] / [1..9]',taLeft,toAddBaseline);
+  txt.Write(hintFont,S(20),S(52),$FFA4B7CE,'Mouse click or keys [F1..F10] / [1..9,0]',taLeft,toAddBaseline);
 
   for i:=0 to SCREEN_COUNT-1 do begin
     top:=menuTop+i*menuItemHeight;
@@ -893,6 +911,130 @@ begin
   DrawTextFX(bigFont,innerR.Left+S(20),innerR.Top+S(62),(alpha shl 24)+$FFFFFF,'Fading glow',taLeft,[glow,outline1],toAddBaseline);
 end;
 
+// Width available to the text of a stand (from r.Left): follows the mouse while it is over
+// the stand, otherwise swings between minF and 98% of the stand width
+function TMainScene.StandWidth(const r:TRect;phase,minF:single):integer;
+var
+  f:single;
+begin
+  if PtInRect(r,Point(window.mousePos.x,window.mousePos.y)) then
+    exit(window.mousePos.x-r.Left);
+  f:=minF+(0.98-minF)*(0.5+0.5*sin(window.frameStartMs/1000*0.5+phase));
+  result:=round((r.Right-r.Left)*f);
+end;
+
+// The space past the width is shaded, the width edge is a bright line: x=r.Left+w is the first
+// pixel the text must not reach
+procedure TMainScene.DrawStandBoundary(const r:TRect;w:integer);
+var
+  bx:integer;
+begin
+  bx:=r.Left+w;
+  draw.FillRect(r.Left,r.Top,bx,r.Bottom,$18A0C8FF);
+  draw.FillRect(bx,r.Top,r.Right,r.Bottom,$40000000);
+  draw.Line(r.Left,r.Top,r.Left,r.Bottom,$5060B080);
+  draw.Line(bx,r.Top,bx,r.Bottom,$C0FFB050);
+end;
+
+// Wrapped lines one under another, each over a bar of its width (the widths output)
+procedure TMainScene.DrawWrapStand(const r:TRect;font:TFontHandle;const st:String8;w:integer;centered:boolean);
+var
+  lines:Strings8;
+  widths:SingleArray;
+  i,x,y,h,step,shown:integer;
+begin
+  lines:=txt.WrapText(font,st,w,widths);
+  h:=txt.Height(font);
+  step:=round(h*1.65); // as multiline Write spaces the lines
+  y:=r.Top+S(24); // below the readout
+  shown:=0;
+  for i:=0 to high(lines) do begin
+    if y+step>r.Bottom then break;
+    if centered then
+      x:=r.Left+round((w-widths[i])/2)
+    else
+      x:=r.Left;
+    if lines[i]<>'' then
+      draw.FillRect(x,y-S(2),x+round(widths[i])-1,y+h+S(2),$30FFE080);
+    txt.Write(font,x,y,$FFE5EDF7,lines[i],taLeft,toAddBaseline);
+    inc(y,step);
+    inc(shown);
+  end;
+  txt.Write(monoFont,r.Right-S(6),r.Top+S(2),$FFA8BDD5,
+    UTF8.Format('width=%d  lines=%d',[w,length(lines)]),taRight,toAddBaseline);
+  if shown<length(lines) then
+    txt.Write(monoFont,r.Left+S(6),r.Bottom-S(14),$FFFFB050,
+      UTF8.Format('+%d more lines',[length(lines)-shown]),taLeft,toAddBaseline);
+end;
+
+procedure TMainScene.DrawWrapFit(const contentRect:TRect);
+const
+  CUT_NAMES:array[TTextCut] of string=('TTextCut.atEnd','TTextCut.atStart','TTextCut.atMiddle');
+var
+  area,r,innerR,sr:TRect;
+  wrapFont,fitFont:TFontHandle;
+  cut:TTextCut;
+  w,y:integer;
+  res:String8;
+begin
+  area:=Rect(contentRect.Left+S(BLOCK_GAP),contentRect.Top+screenTopOffset,contentRect.Right-S(BLOCK_GAP),contentRect.Bottom-S(BLOCK_GAP));
+  wrapFont:=txt.ScaleFont(vectorFont,1.25);
+  fitFont:=wrapFont;
+
+  // 0) WrapText: the bars show each line's Width, never past the boundary
+  r:=GridCell(area,0,0,2,2,S(BLOCK_GAP));
+  DrawBlock(r,'WrapText: spaces, line breaks, long word',innerR);
+  sr:=Rect(innerR.Left+S(6),innerR.Top+S(18),innerR.Right-S(6),innerR.Bottom-S(4));
+  w:=StandWidth(sr,0,0.1);
+  DrawStandBoundary(sr,w);
+  DrawWrapStand(sr,wrapFont,WRAP_TEXT_EN,w,false);
+
+  // 1) WrapText, Cyrillic: lines centered by the widths output
+  r:=GridCell(area,1,0,2,2,S(BLOCK_GAP));
+  DrawBlock(r,'WrapText + widths: centered lines',innerR);
+  sr:=Rect(innerR.Left+S(6),innerR.Top+S(18),innerR.Right-S(6),innerR.Bottom-S(4));
+  w:=StandWidth(sr,1.6,0.1);
+  DrawStandBoundary(sr,w);
+  DrawWrapStand(sr,rasterFont,WRAP_TEXT_RU,w,true);
+
+  // 2) FitText: the three cuts on a path, and the edit box tail without ellipsis
+  r:=GridCell(area,0,1,2,2,S(BLOCK_GAP));
+  DrawBlock(r,'FitText: atEnd / atStart / atMiddle',innerR);
+  sr:=Rect(innerR.Left+S(6),innerR.Top+S(18),innerR.Right-S(6),innerR.Bottom-S(4));
+  w:=StandWidth(sr,3.2,0.05);
+  DrawStandBoundary(sr,w);
+  y:=sr.Top+S(8);
+  for cut:=low(TTextCut) to high(TTextCut) do begin
+    txt.Write(hintFont,sr.Left+S(4),y,$FF90C0E8,CUT_NAMES[cut],taLeft,toAddBaseline);
+    txt.Write(fitFont,sr.Left,y+S(20),$FFE5EDF7,txt.FitText(fitFont,FIT_PATH,w,cut),taLeft,toAddBaseline);
+    inc(y,S(56));
+  end;
+  txt.Write(hintFont,sr.Left+S(4),y,$FF90C0E8,'TTextCut.atStart, ellipsis '''' (edit box tail)',taLeft,toAddBaseline);
+  txt.Write(fitFont,sr.Left,y+S(20),$FFE5EDF7,txt.FitText(fitFont,FIT_INPUT,w,TTextCut.atStart,''),taLeft,toAddBaseline);
+  txt.Write(monoFont,sr.Right-S(6),sr.Top+S(2),$FFA8BDD5,UTF8.Format('width=%d',[w]),taRight,toAddBaseline);
+
+  // 3) FitText, smaller font: down to a width where even the ellipsis doesn't fit
+  r:=GridCell(area,1,1,2,2,S(BLOCK_GAP));
+  DrawBlock(r,'FitText: Width of the result, down to ''''',innerR);
+  sr:=Rect(innerR.Left+S(6),innerR.Top+S(18),innerR.Right-S(6),innerR.Bottom-S(4));
+  w:=StandWidth(sr,4.8,0);
+  DrawStandBoundary(sr,w);
+  y:=sr.Top+S(8);
+  for cut:=low(TTextCut) to high(TTextCut) do begin
+    if cut=TTextCut.atStart then continue;
+    res:=txt.FitText(rasterFont,FIT_TEXT_RU,w,cut);
+    txt.Write(hintFont,sr.Left+S(4),y,$FF90C0E8,CUT_NAMES[cut],taLeft,toAddBaseline);
+    txt.Write(rasterFont,sr.Left,y+S(20),$FFE5EDF7,res,taLeft,toAddBaseline);
+    if res='' then
+      txt.Write(monoFont,sr.Left+S(4),y+S(42),$FFFFB050,'result is '''': the ellipsis is wider than the width',taLeft,toAddBaseline)
+    else
+      txt.Write(monoFont,sr.Left+S(4),y+S(42),$FFA8BDD5,
+        UTF8.Format('Width(result)=%d',[txt.Width(rasterFont,res)]),taLeft,toAddBaseline);
+    inc(y,S(70));
+  end;
+  txt.Write(monoFont,sr.Right-S(6),sr.Top+S(2),$FFA8BDD5,UTF8.Format('width=%d',[w]),taRight,toAddBaseline);
+end;
+
 procedure TMainScene.Render;
 var
   area,menuRect,contentRect:TRect;
@@ -926,6 +1068,7 @@ begin
       6:DrawUnicodeComplex(contentRect);
       7:DrawMetrics(contentRect);
       8:DrawEffects(contentRect);
+      9:DrawWrapFit(contentRect);
     end;
   finally
     txt.EndBlock;

@@ -708,6 +708,20 @@ function NextLine(const st:String32;var pos:integer;out first,last:integer):bool
   inc(pos); // past the break (or past the end: no more lines)
  end;
 
+// A mark that belongs to the word before it: a break between characters never puts it
+// at the start of a line
+function IsTrailingMark(c:cardinal):boolean;
+ begin
+  case c of
+   ord('.'),ord(','),ord(';'),ord(':'),ord('!'),ord('?'),ord(')'),ord(']'),ord('}'),
+   ord('%'),ord(''''),ord('"'),ord('-'),
+   $BB,$2019,$201D,$203A, // closing quotes: » ’ ” ›
+   $2010..$2015,$2026, // hyphens, dashes, …
+   $3001,$3002,$FF01,$FF09,$FF0C,$FF0E,$FF1A,$FF1B,$FF1F: result:=true; // CJK / fullwidth
+   else result:=false;
+  end;
+ end;
+
 constructor TTextDrawer.Create;
  begin
   EnsureThreadState;
@@ -1001,7 +1015,10 @@ function TTextDrawer.WrapText(font:TFontHandle;const st:String8;width:single;out
      lineEnd:=sp;
      while (lineEnd>start) and (s[lineEnd-1]=32) do dec(lineEnd);
      if (s[sp]=32) and (lineEnd>start) then next:=sp // break at the last space
-      else lineEnd:=e; // a word longer than the line: break between characters
+     else begin // a word longer than the line: break between characters
+      while (e>start+1) and IsTrailingMark(s[e]) and (s[e-1]<>32) do dec(e); // the marks go with a letter
+      lineEnd:=e; next:=e;
+     end;
     end else begin
      lineEnd:=e;
      while (lineEnd>start) and (s[lineEnd-1]=32) do dec(lineEnd);

@@ -151,11 +151,11 @@ var
   lines:Strings8;
   widths:SingleArray;
   w:single;
-  okFit,okJoin,okGreedy,okSpaces,okWidths,okWord,okWordJoin,okCyr,okCyrJoin:boolean;
+  okFit,okJoin,okGreedy,okSpaces,okWidths,okWord,okWordJoin,okCyr,okCyrJoin,okMarks:boolean;
 begin
   StartTest('WrapText');
   okFit:=true; okJoin:=true; okGreedy:=true; okSpaces:=true; okWidths:=true;
-  okWord:=true; okWordJoin:=true; okCyr:=true; okCyrJoin:=true;
+  okWord:=true; okWordJoin:=true; okCyr:=true; okCyrJoin:=true; okMarks:=true;
   for f:=0 to high(fonts) do begin
    font:=fonts[f];
    w:=td.Width(font,'The quick brown fox');
@@ -181,6 +181,11 @@ begin
    for i:=0 to high(lines) do
     if td.Width(font,lines[i])>w then okCyr:=false;
    if JoinLines(lines,' ')<>CYR then okCyrJoin:=false;
+   // punctuation after a word doesn't fit: a letter goes with it to the next line
+   w:=td.Width(font,'word');
+   lines:=td.WrapText(font,'word. word?! (word),',w);
+   for i:=0 to high(lines) do
+    if (lines[i]<>'') and (lines[i][1] in ['.',',','?','!',')']) then okMarks:=false;
   end;
   Check(okFit,'lines fit the width');
   Check(okWidths,'widths = Width of the lines');
@@ -191,6 +196,7 @@ begin
   Check(okWordJoin,'a broken word keeps all its characters');
   Check(okCyr,'UTF-8 lines fit the width');
   Check(okCyrJoin,'UTF-8 text is kept whole');
+  Check(okMarks,'no line starts with punctuation torn off its word');
 
   font:=fonts[high(fonts)];
   lines:=td.WrapText(font,'a'#13#10'b'#13'c'#10#10'd',1000);

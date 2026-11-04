@@ -678,7 +678,8 @@ type
   // For a caret, a selection, hit-testing a click
   procedure PenPositions(font:TFontHandle;const st:String32;var pos:SingleArray);
   // Split a text into lines no wider than width (by Width). Breaks: explicit line breaks
-  // (CR, LF, CRLF), then spaces; a word wider than width is broken between characters.
+  // (CR, LF, CRLF), then spaces; a word wider than width is broken between characters
+  // (punctuation right after a word is a part of it: a line never starts with it).
   // Spaces at a break are dropped, empty lines kept; width<=0 - explicit breaks only.
   // widths - Width of each line
   function WrapText(font:TFontHandle;const st:String8;width:single):Strings8; overload;
