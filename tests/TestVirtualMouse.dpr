@@ -27,6 +27,7 @@ uses
   Apus.Engine.UIWidgets,
   Apus.Engine.UIShapes,
   Apus.Engine.UIScene,
+  Apus.Engine.SceneEffects,
   Apus.Engine.UIMenu,
   Apus.Engine.TextDraw,
   Apus.Engine.MessageScene,
@@ -883,6 +884,62 @@ procedure TestMoveHover;
   a:=Move(5,5);
   Check(underMouse=btn.parent,'leaving the button: hover goes to the root');
   Check(btn.clicks=0,'no clicks from moves');
+  EndTest;
+ end;
+
+// Frames with the scene processing (hint timing) for ms milliseconds; the hint text shown
+// in wndA at the end ('' - none)
+function HintAfter(ms:integer):String8;
+ var
+  start:int64;
+  h:TUIHint;
+ begin
+  start:=CoreTime.Ticks;
+  repeat
+   RunFrame(wndA);
+   sceneA.Process;
+   Sleep(5);
+  until CoreTime.Ticks-start>ms;
+  h:=TUIHint.Current(wndA);
+  if (h<>nil) and h.flags.visible then result:=h.simpleText
+   else result:='';
+ end;
+
+procedure DropHint;
+ begin
+  if TUIHint.Current(wndA)<>nil then TUIHint.Current(wndA).Remove;
+ end;
+
+// A hint planned for an element must not show once the element is hidden with its scene
+// and the mouse did not move (PaintRaw E-30)
+procedure TestHintHiddenScene;
+ begin
+  StartTest('Hint of an element hidden with its scene');
+  btnDlg.hint:='DlgHint';
+  btnDlg.attributes.Item['hintDelay']:='50';
+  try
+   dialog.SetStatus(ssActive);
+   Move(5,5);
+   Move(330,315);
+   Check(HintAfter(150)='DlgHint','the hint shows for a visible element');
+   DropHint;
+   Move(5,5);
+   Move(330,315);
+   dialog.SetStatus(ssFrozen);
+   Check(HintAfter(150)='','no hint after SetStatus(ssFrozen)');
+   DropHint;
+   dialog.SetStatus(ssActive);
+   Move(5,5);
+   Move(330,315);
+   TShowWindowEffect.Create(dialog,120,sweHide,1);
+   wndA.ProcessEffects(0,true);
+   Check(HintAfter(150)='','no hint after a hide effect');
+  finally
+   DropHint;
+   dialog.SetStatus(ssFrozen);
+   btnDlg.hint:='';
+   Move(5,5);
+  end;
   EndTest;
  end;
 
@@ -1787,6 +1844,7 @@ begin
   TestClick;
   TestDownUp;
   TestBatch;
+  TestHintHiddenScene;
   TestWheel;
   TestRules;
   TestKeyboardTarget;
