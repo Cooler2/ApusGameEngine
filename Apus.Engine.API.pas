@@ -685,10 +685,12 @@ type
   function WrapText(font:TFontHandle;const st:String8;width:single):Strings8; overload;
   function WrapText(font:TFontHandle;const st:String8;width:single;out widths:SingleArray):Strings8; overload;
   // st if it fits width (by Width), otherwise st cut at a character boundary with ellipsis
-  // at the cut (spaces at the cut dropped); '' if even the ellipsis doesn't fit. The default
-  // ellipsis '…' becomes '...' for a font without that glyph
-  function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd;
-    const ellipsis:String8=#$E2#$80#$A6):String8;
+  // at the cut (spaces at the cut dropped); '' if even the ellipsis doesn't fit. Without
+  // ellipsis it is '…' (U+2026); '…' becomes '...' for a font without that glyph.
+  // No default parameter value: FPC converts a non-ASCII default in the caller's source
+  // codepage, so a caller unit without a BOM would get mangled bytes
+  function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd):String8; overload;
+  function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut;const ellipsis:String8):String8; overload;
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
   function MeasuredCnt:integer; // length of the measured rects array
   function MeasuredRect(idx:integer):TRect; // rect[idx] of text measurement command

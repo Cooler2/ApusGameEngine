@@ -6,6 +6,15 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## Text: the default `FitText` ellipsis is right in any caller (2026-11-04)
+
+- `txt.FitText` without the `ellipsis` argument is now its own overload, and the ellipsis
+  `…` (U+2026) is built inside the engine. The old non-ASCII default parameter value was
+  converted by FPC in the caller's source codepage, so a caller unit without a UTF-8 BOM got
+  6 mangled bytes ("â ¦") instead of `E2 80 A6`. Calls compile as before; a passed `'…'` is
+  treated as the default one (`'...'` for a font without that glyph). Rule for engine API: no
+  non-ASCII string literals as default parameter values (PaintRaw E-43).
+
 ## Window: the final frame output keeps the source pixels at an integer scale (2026-11-04)
 
 - The default render target goes to the window through the new `BlitScaled(tex,dest,color)`

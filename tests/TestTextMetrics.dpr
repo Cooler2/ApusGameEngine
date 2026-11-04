@@ -11,7 +11,8 @@ uses
   Apus.Strings,
   Apus.Engine.Types,
   Apus.Engine.API,
-  Apus.Engine.TextDraw;
+  Apus.Engine.TextDraw,
+  TextFitNoBom;
 
 {$I ..\Base\tests\Test.inc}
 
@@ -21,14 +22,18 @@ const
 {$ENDIF}
 {$I ..\defaultFont10.inc}
 
-const
-  ELLIPSIS=#$E2#$80#$A6;
-
 var
   td:TTextDrawer;
   txtIntf:ITextDrawer; // keeps td alive
   fonts:array of TFontHandle; // raster, then vector 10 and 24
   vectorFont:TFontHandle; // 0 without FREETYPE
+
+// '…' (U+2026) in UTF-8, built from bytes: a literal would depend on the source codepage
+function Ellipsis:String8;
+begin
+  SetLength(result,3);
+  result[1]:=AnsiChar($E2); result[2]:=AnsiChar($80); result[3]:=AnsiChar($A6);
+end;
 
 function S32(const st:String8):String32;
 begin
@@ -221,17 +226,19 @@ var
   font:TFontHandle;
   r,e:String8;
   w:single;
-  okFit,okEnd,okMax,okStart,okMiddle,okNone,okTiny,okCyr,okSpace:boolean;
+  okFit,okEnd,okMax,okStart,okMiddle,okNone,okTiny,okCyr,okSpace,okNoBom,okExplicit:boolean;
 begin
   StartTest('FitText');
   okFit:=true; okEnd:=true; okMax:=true; okStart:=true; okMiddle:=true; okNone:=true;
-  okTiny:=true; okCyr:=true; okSpace:=true;
+  okTiny:=true; okCyr:=true; okSpace:=true; okNoBom:=true; okExplicit:=true;
   for f:=0 to high(fonts) do begin
    font:=fonts[f];
    if td.FitText(font,TEXT,td.Width(font,TEXT))<>TEXT then okFit:=false;
-   if td.HasGlyph(font,$2026) then e:=ELLIPSIS else e:='...';
+   if td.HasGlyph(font,$2026) then e:=Ellipsis else e:='...';
    w:=td.Width(font,TEXT)*0.6;
    r:=td.FitText(font,TEXT,w);
+   if FitDefault(txtIntf,font,TEXT,w)<>r then okNoBom:=false;
+   if td.FitText(font,TEXT,w,TTextCut.atEnd,Ellipsis)<>r then okExplicit:=false;
    if (td.Width(font,r)>w) or (Copy(r,length(r)-length(e)+1,length(e))<>e) or
       (Copy(TEXT,1,length(r)-length(e))<>Copy(r,1,length(r)-length(e))) then okEnd:=false;
    // the most that fits: one more character doesn't
@@ -259,6 +266,8 @@ begin
   Check(okTiny,'narrower than the ellipsis: empty');
   Check(okCyr,'UTF-8 cut at a character boundary');
   Check(okSpace,'no space before the ellipsis');
+  Check(okNoBom,'the default ellipsis is the same for a caller unit without a BOM');
+  Check(okExplicit,'an explicit ''…'' is the default one (''...'' without the glyph)');
   EndTest;
 end;
 

@@ -54,7 +54,6 @@ uses SysUtils, Apus.Conv, Apus.Strings, Apus.Log, Apus.Files, Apus.EventMan;
 const
   INPUT_FILE  = 'robot_in.txt';
   OUTPUT_FILE = 'robot_out.txt';
-  UTF8_BOM=#$EF#$BB#$BF;
   SLOW_INTERVAL = 500; // ms between checks in slow mode
   FAST_INTERVAL = 100; // ms between checks in fast mode
   FAST_TIMEOUT  = 5000; // ms of inactivity before returning to slow mode
@@ -138,8 +137,6 @@ begin
 
   for i:=0 to high(lines) do begin
     line:=lines[i].Trim;
-    if (i=0) and line.StartsWith(UTF8_BOM) then
-      line:=line.Substr(4,length(line)-3).Trim;
     if (line='---') or (line='===') then begin
       if cur.cmd<>'' then begin
         if reqCount>=length(result) then
@@ -215,7 +212,7 @@ var
 begin
   SetLength(requests,0);
   if Files.Exists(INPUT_FILE) then begin
-    content:=Files.LoadAsString(INPUT_FILE);
+    content:=Files.LoadAsString(INPUT_FILE); // a UTF-8 BOM is dropped here
     if content.IndexOf('===')>0 then begin
       Log.Msg('RobotAPI: processing input file');
       lastActivityTime:=CoreTime.Ticks;

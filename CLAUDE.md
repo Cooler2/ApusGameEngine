@@ -183,6 +183,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 - **FPC quirk**: `single(10)` is a reinterpret cast (wrong!), use `single(10.0)` for proper type conversion
 - **FPC quirk**: `$FF00000000000000` is int64 (signed), use `uint64($FF00000000000000)` for unsigned comparison
 - **FPC quirk**: a float literal not exact in single (`0.999999`, unlike `0.5`) is a double constant, so `a*0.999999` with `a:single` runs in double with conversions (measured 2x slower than the same code in double); in hot single-precision code use typed constants (`k:single=0.999999`)
+- **FPC quirk**: a non-ASCII string default parameter value (`const s:String8=#$E2#$80#$A6` or `='…'`) is converted in the caller's source codepage: a caller unit without a UTF-8 BOM gets mangled bytes. Never use one - add an overload without the parameter instead
 
 ## License
 

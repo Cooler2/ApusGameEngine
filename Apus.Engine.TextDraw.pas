@@ -87,8 +87,8 @@ interface
    // Text layout (see ITextDrawer)
    function WrapText(font:TFontHandle;const st:String8;width:single):Strings8; overload;
    function WrapText(font:TFontHandle;const st:String8;width:single;out widths:SingleArray):Strings8; overload;
-   function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd;
-     const ellipsis:String8=#$E2#$80#$A6):String8;
+   function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd):String8; overload;
+   function FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut;const ellipsis:String8):String8; overload;
    function MeasuredCnt:integer;
    function MeasuredRect(idx:integer):TRect;
    function MeasuredBounds:TRect; // bounding rect of the last measured text (relative to its pen position)
@@ -120,6 +120,7 @@ interface
    function RawWidthW(font:TFontHandle;st:String32):integer;
    function RawHeight(font:TFontHandle):integer;
    function RawAdvanceW(font:TFontHandle;const st:String32):single;
+   function FitTextW(font:TFontHandle;const st:String8;width:single;cut:TTextCut;e:String32):String8;
   end;
 
  var
@@ -1039,10 +1040,23 @@ function TTextDrawer.WrapText(font:TFontHandle;const st:String8;width:single;out
   SetLength(widths,cnt);
  end;
 
-function TTextDrawer.FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd;
-  const ellipsis:String8=#$E2#$80#$A6):String8;
+function TTextDrawer.FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut=TTextCut.atEnd):String8;
  var
-  s,e:String32;
+  e:String32;
+ begin
+  SetLength(e,1);
+  e[0]:=$2026;
+  result:=FitTextW(font,st,width,cut,e);
+ end;
+
+function TTextDrawer.FitText(font:TFontHandle;const st:String8;width:single;cut:TTextCut;const ellipsis:String8):String8;
+ begin
+  result:=FitTextW(font,st,width,cut,UTF8.Decode(ellipsis));
+ end;
+
+function TTextDrawer.FitTextW(font:TFontHandle;const st:String8;width:single;cut:TTextCut;e:String32):String8;
+ var
+  s:String32;
   n,lo,hi,k:integer;
  // st with k characters kept and the ellipsis at the cut
  function Compose(k:integer):String32;
@@ -1067,8 +1081,7 @@ function TTextDrawer.FitText(font:TFontHandle;const st:String8;width:single;cut:
  begin
   s:=UTF8.Decode(st);
   if WidthW(font,s)<=width then exit(st);
-  if (ellipsis=#$E2#$80#$A6) and not HasGlyph(font,$2026) then e:=UTF8.Decode('...')
-   else e:=UTF8.Decode(ellipsis);
+  if (length(e)=1) and (e[0]=$2026) and not HasGlyph(font,$2026) then e:=UTF8.Decode('...');
   if (length(e)>0) and (WidthW(font,e)>width) then exit('');
   n:=length(s);
   // the most characters kept that fit (the width grows with them); 0 - the ellipsis alone
