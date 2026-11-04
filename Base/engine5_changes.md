@@ -4,6 +4,17 @@ Changes of the Base library (`Base/Apus.*`): what moved out of `Apus.Common`, re
 removed API, changed behaviour. Use it as the reference when updating old code. Changes of
 the engine modules are in [`engine_changes.md`](../engine_changes.md).
 
+## Files: `MatchMask`, `Folder.ListFolders`; listings apply masks themselves (2026-11-04)
+
+- `Files.MatchMask(name,masks)`: the name matches one of the `;`/`,`-separated masks; `*`, `?`
+  (one character, not a UTF-8 byte), case-insensitive on every platform, `''` and `*.*` match
+  any name.
+- `Folder.ListItems(path,mask)` and `Folder.ListFiles(path,mask)` read the folder once and
+  filter with `MatchMask`. Was one OS search per mask: overlapping masks gave a file twice
+  (8.3 names on Windows too) and masks were case-sensitive on Linux/macOS (`*.png` missed
+  `A.PNG`). Now each file comes once and in any case.
+- `Folder.ListFolders(path)`: only the subfolders, e.g. for a folder tree (PaintRaw E-29).
+
 ## Core: `cwstring` on desktop Unix (2026-11-04)
 
 - `Apus.Core` links FPC `cwstring` on Linux and macOS (not Android/iOS): RTL string

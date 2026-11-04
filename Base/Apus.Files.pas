@@ -110,6 +110,10 @@ type
     class function GetName(const fname:String8):String8; static; // name with the extension
     class function GetExt(const fname:String8):String8; static;  // '.ext', '' if none; a leading dot ('.gitignore') is not one
     class function ChangeExt(const fname,ext:String8):String8; static; // ext with the dot, '' removes the extension
+    // name (without the path) matches one of the ';' or ','-separated masks: '*' - any
+    // characters, '?' - one character (not a UTF-8 byte); case-insensitive on every
+    // platform. '' and '*.*' match any name, a name without a dot too
+    class function MatchMask(const name,masks:String8):boolean; static;
     // Absolute name in UTF-8, like ExpandFileName: relative to the current folder, '.' and '..'
     // resolved as text (the file may not exist, symlinks are not followed). Delimiters of the
     // OS in the result; '' gives ''
@@ -142,11 +146,14 @@ type
     class function Copy(const sour,dest:String8):boolean; static;
     class function Move(const sour,dest:String8):boolean; static;
     class function Find(const name,path:String8; findDir:boolean=false):String8; static; // recursive file/directory search
-    // mask supports ';'-separated patterns, e.g. '*.png;*.jpg'
+    // mask: patterns as in Files.MatchMask, e.g. '*.png;*.jpg' (each file once, any case)
     class function ListFiles(const path:String8; const mask:String8='*'; recursive:boolean=false):Strings8; static;
     // Subfolders and files of the folder, without '.' and '..', in the order the OS gives them.
-    // mask filters the files only, folders are always listed; nil if the folder can't be read
+    // mask filters the files only (Files.MatchMask), folders are always listed; nil if the
+    // folder can't be read
     class function ListItems(const path:String8; const mask:String8='*'):TFolderItems; static;
+    // Only the subfolders (a folder tree does not read the files)
+    class function ListFolders(const path:String8):TFolderItems; static;
     // File system roots: the drives ('C:', 'D:'...) on Windows, '/' elsewhere
     class function Roots:Strings8; static;
   end;
@@ -763,26 +770,9 @@ begin
   if result then SysUtils.DeleteFile(SysName(probe));
 end;
 
-// Patterns of a ';' or ','-separated mask list, '*' if there are none
-function SplitMasks(const mask:String8):Strings8;
-var
-  i,start:integer;
-begin
-  result:=nil;
-  start:=1;
-  for i:=1 to length(mask)+1 do begin
-    if (i>length(mask)) or (mask[i] in [';',',']) then begin
-      if i>start then result.Add(mask.Substr(start,i-start));
-      start:=i+1;
-    end;
-  end;
-  if result=nil then result.Add('*');
-end;
-
 class function Folder.ListFiles(const path:String8; const mask:String8; recursive:boolean):Strings8;
 var
-  masks:Strings8;
-  mCnt,cnt,i,j:integer;
+  cnt,j:integer;
   sr:TSysSearchRec;
   dir:String8;
   sub:Strings8;
@@ -792,18 +782,15 @@ begin
   if (length(dir)>0) and (dir[length(dir)]=PathDelim) then
     SetLength(dir,length(dir)-1);
 
-  masks:=SplitMasks(mask);
-  mCnt:=length(masks);
-
-  // list files for each mask via provider
-  for i:=0 to mCnt-1 do begin
-    sub:=fileSystem.ListFiles(dir,masks[i]);
-    for j:=0 to length(sub)-1 do begin
-      if cnt>=length(result) then
-        SetLength(result,(cnt+16)*2);
-      result[cnt]:=sub[j];
-      inc(cnt);
-    end;
+  // one pass via the provider, the masks are applied here: an OS search per mask gave a
+  // file twice for overlapping masks (8.3 names on Windows) and was case-sensitive on Unix
+  sub:=fileSystem.ListFiles(dir,'*');
+  for j:=0 to length(sub)-1 do begin
+    if not Files.MatchMask(Files.GetName(sub[j]),mask) then continue;
+    if cnt>=length(result) then
+      SetLength(result,(cnt+16)*2);
+    result[cnt]:=sub[j];
+    inc(cnt);
   end;
 
   // recurse into subdirectories (OS-level enumeration)
@@ -827,27 +814,28 @@ begin
   SetLength(result,cnt);
 end;
 
-class function Folder.ListItems(const path:String8; const mask:String8):TFolderItems;
+// Subfolders and (withFiles) the files matching mask of the folder: one OS pass, the masks
+// are applied here (no duplicates from overlapping masks, any case on every platform)
+function ScanFolder(const path,mask:String8; withFiles:boolean):TFolderItems;
 var
-  masks:Strings8;
-  dir:String8;
-  cnt,i:integer;
-
-  // Add the items found by the pattern: the folders, the files or both
-  procedure Scan(const pattern:String8; folders,files:boolean);
-  var
-    sr:TSysSearchRec;
-    isFolder:boolean;
-  begin
-    if not SysFindFirst(dir+pattern,faAnyFile,sr) then exit;
+  dir,fName:String8;
+  cnt:integer;
+  sr:TSysSearchRec;
+  isFolder:boolean;
+begin
+  result:=nil; cnt:=0;
+  dir:=path; // '' - the current folder
+  if (dir<>'') and not (dir[length(dir)] in ['/','\']) then dir:=dir+PathDelim;
+  if SysFindFirst(dir+'*',faAnyFile,sr) then begin
     repeat
       if (sr.Name='.') or (sr.Name='..') then continue;
       isFolder:=sr.Attr and faDirectory<>0;
-      if (isFolder and not folders) or (not isFolder and not files) then continue;
+      fName:=FoundName(sr);
+      if not isFolder and (not withFiles or not Files.MatchMask(fName,mask)) then continue;
       if cnt>=length(result) then
         SetLength(result,(cnt+16)*2);
       with result[cnt] do begin
-        name:=FoundName(sr);
+        name:=fName;
         info.isDirectory:=isFolder;
         if isFolder then info.size:=0
           else info.size:=sr.Size;
@@ -862,21 +850,17 @@ var
     until SysUtils.FindNext(sr)<>0;
     SysUtils.FindClose(sr);
   end;
-
-begin
-  result:=nil; cnt:=0;
-  dir:=path; // '' - the current folder
-  if (dir<>'') and not (dir[length(dir)] in ['/','\']) then dir:=dir+PathDelim;
-  masks:=SplitMasks(mask);
-  if (length(masks)=1) and ((masks[0]='*') or (masks[0]='*.*')) then
-    Scan('*',true,true)
-  else begin
-    // a mask must not hide the folders to go into
-    Scan('*',true,false);
-    for i:=0 to high(masks) do
-      Scan(masks[i],false,true);
-  end;
   SetLength(result,cnt);
+end;
+
+class function Folder.ListItems(const path:String8; const mask:String8):TFolderItems;
+begin
+  result:=ScanFolder(path,mask,true);
+end;
+
+class function Folder.ListFolders(const path:String8):TFolderItems;
+begin
+  result:=ScanFolder(path,'',false);
 end;
 
 class function Folder.Roots:Strings8;
@@ -1086,6 +1070,51 @@ begin
   dot:=ExtStart(fname);
   if dot>0 then result:=Copy(fname,1,dot-1)+ext
     else result:=fname+ext;
+end;
+
+// '*' and '?' wildcards over lowercased UTF-8: '?' takes a whole character
+function MatchOneMask(const name,mask:String8):boolean;
+var
+  n,m,starN,starM:integer;
+  // the start of the character after the one at i
+  function NextChar(const s:String8;i:integer):integer;
+  begin
+    result:=i+1;
+    while (result<=length(s)) and ((byte(s[result]) and $C0)=$80) do inc(result);
+  end;
+begin
+  n:=1; m:=1; starN:=0; starM:=0;
+  while n<=length(name) do
+    if (m<=length(mask)) and (mask[m]='*') then begin
+      starM:=m; starN:=n; inc(m);
+    end else if (m<=length(mask)) and (mask[m]='?') then begin
+      n:=NextChar(name,n); inc(m);
+    end else if (m<=length(mask)) and (mask[m]=name[n]) then begin
+      inc(n); inc(m);
+    end else if starM>0 then begin
+      m:=starM+1; starN:=NextChar(name,starN); n:=starN;
+    end else exit(false);
+  while (m<=length(mask)) and (mask[m]='*') do inc(m);
+  result:=m>length(mask);
+end;
+
+class function Files.MatchMask(const name,masks:String8):boolean;
+var
+  i,start:integer;
+  lowName,lowMasks,mask:String8;
+begin
+  lowName:=UTF8.ToLower(name);
+  lowMasks:=UTF8.ToLower(masks);
+  start:=1;
+  result:=true;
+  for i:=1 to length(lowMasks)+1 do
+    if (i>length(lowMasks)) or (lowMasks[i] in [';',',']) then begin
+      mask:=Copy(lowMasks,start,i-start).Trim;
+      start:=i+1;
+      if mask='' then continue;
+      result:=false; // there is a mask
+      if (mask='*.*') or MatchOneMask(lowName,mask) then exit(true);
+    end;
 end;
 
 {$IFDEF MSWINDOWS}

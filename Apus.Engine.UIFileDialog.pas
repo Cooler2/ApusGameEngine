@@ -1000,34 +1000,6 @@ implementation
   result:=result+' '+UNITS[u];
  end;
 
- // The index after the UTF-8 character at i
- function NextChar(const s:String8;i:integer):integer;
- begin
-  result:=i+1;
-  while (result<=length(s)) and ((byte(s[result]) and $C0)=$80) do inc(result);
- end;
-
- // '*' and '?' wildcards, '?' is one character; the name and the ';'-separated masks are
- // lowercased by the caller. Temporary until Files matches masks itself (PaintRaw E-29)
- function MatchesMask(const name,mask:String8):boolean;
- var
-  n,m,starN,starM:integer;
- begin
-  n:=1; m:=1; starN:=0; starM:=0;
-  while n<=length(name) do
-   if (m<=length(mask)) and (mask[m]='*') then begin
-    starM:=m; starN:=n; inc(m);
-   end else if (m<=length(mask)) and (mask[m]='?') then begin
-    n:=NextChar(name,n); inc(m);
-   end else if (m<=length(mask)) and (mask[m]=name[n]) then begin
-    inc(n); inc(m);
-   end else if starM>0 then begin
-    m:=starM+1; starN:=NextChar(name,starN); n:=starN;
-   end else exit(false);
-  while (m<=length(mask)) and (mask[m]='*') do inc(m);
-  result:=m>length(mask);
- end;
-
  function HasWildcards(const s:String8):boolean;
  begin
   result:=(Pos(String8('*'),s)>0) or (Pos(String8('?'),s)>0);
@@ -1045,21 +1017,8 @@ implementation
   for i:=1 to length(masks)+1 do
    if (i>length(masks)) or (masks[i] in [';',',']) then begin
     mask:=copy(masks,start,i-start).Trim;
-    if (mask<>'') and (MatchesMask(name,mask) or ((Pos(String8('.'),mask)=0) and MatchesMask(stem,mask))) then
+    if (mask<>'') and (Files.MatchMask(name,mask) or ((Pos(String8('.'),mask)=0) and Files.MatchMask(stem,mask))) then
      exit(true);
-    start:=i+1;
-   end;
-  result:=false;
- end;
-
- function MatchesMasks(const name,masks:String8):boolean;
- var
-  i,start:integer;
- begin
-  start:=1;
-  for i:=1 to length(masks)+1 do
-   if (i>length(masks)) or (masks[i] in [';',',']) then begin
-    if (i>start) and MatchesMask(name,copy(masks,start,i-start)) then exit(true);
     start:=i+1;
    end;
   result:=false;
@@ -1101,7 +1060,7 @@ implementation
   result:=length(listings);
   SetLength(listings,result+1);
   listings[result].path:=path;
-  items:=Apus.Files.Folder.ListItems(path);
+  items:=Apus.Files.Folder.ListFolders(path);
   count:=0;
   with listings[result] do begin
    SetLength(names,length(items));
@@ -1819,7 +1778,7 @@ implementation
    if info.isDirectory then continue;
    if hidden and not showHidden then continue;
    lowName:=UTF8.ToLower(name);
-   if (masks<>'') and not MatchesMasks(lowName,masks) then continue;
+   if (masks<>'') and not Files.MatchMask(lowName,masks) then continue;
    if (query<>'') and not MatchesNameMasks(lowName,query) then continue;
    row:=table.AddRow(i);
    table.SetCell(row,0,name);
@@ -1911,7 +1870,7 @@ implementation
    lowName:=UTF8.ToLower(name);
    if copy(lowName,1,length(lowPrefix))<>lowPrefix then continue;
    if not info.isDirectory and
-      ((Mode=fdSave) or ((masks<>'') and not MatchesMasks(lowName,masks))) then continue;
+      ((Mode=fdSave) or ((masks<>'') and not Files.MatchMask(lowName,masks))) then continue;
    if (best<>'') and (NaturalCompare(lowName,lowBest)>=0) then continue;
    best:=name; lowBest:=lowName;
    if info.isDirectory then best:=JoinPath(best,'');
@@ -2085,17 +2044,23 @@ implementation
   if fSaveType>=0 then formatMenu.current:=TUIMenuItem(formatMenu.children[fSaveType]);
  end;
 
- // The index of the first type whose masks match the name, the save format first; -1 - none
+ // The index of the first type whose masks match the name, the save format first; -1 - none.
+ // A type without masks matches nothing
  function TUIFileDialog.TypeOfName(const fileName:String8):integer;
  var
-  lowName:String8;
+  name:String8;
   i:integer;
+
+  function Matches(i:integer):boolean;
+  begin
+   result:=(fRequest.types[i].masks<>'') and Files.MatchMask(name,fRequest.types[i].masks);
+  end;
+
  begin
-  lowName:=UTF8.ToLower(Files.GetName(fileName));
-  if (fSaveType>=0) and MatchesMasks(lowName,UTF8.ToLower(fRequest.types[fSaveType].masks)) then
-   exit(fSaveType);
+  name:=Files.GetName(fileName);
+  if (fSaveType>=0) and Matches(fSaveType) then exit(fSaveType);
   for i:=0 to high(fRequest.types) do
-   if MatchesMasks(lowName,UTF8.ToLower(fRequest.types[i].masks)) then exit(i);
+   if Matches(i) then exit(i);
   result:=-1;
  end;
 

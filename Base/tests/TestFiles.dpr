@@ -387,7 +387,8 @@ begin
   Check(Folder.ListItems(TestDir+'/missing')=nil,'missing folder = nil');
 
   // non-ASCII names come in UTF-8 and go in as UTF-8 (FPC: not in the ANSI code page)
-  SysUtils.ForceDirectories(UnicodeString(TestDir+'/names/'+CYR_NAME+'/sub'));
+  // PathDelim: on Windows Delphi's ForceDirectories splits the path at backslashes only
+  SysUtils.ForceDirectories(UnicodeString(TestDir+PathDelim+'names'+PathDelim+CYR_NAME+PathDelim+'sub'));
   items:=Folder.ListItems(TestDir+'/names');
   // bytes, not '=': FPC converts the code page an ANSI string carries before comparing
   Check((length(items)=1) and (length(items[0].name)=length(CYR_NAME)) and
@@ -401,6 +402,39 @@ begin
   Check(roots.Contains(String8(SysUtils.ExtractFileDrive(SysUtils.GetCurrentDir))+''),'roots have the current drive');
   {$ENDIF}
 
+  EndTest;
+end;
+
+// Files.MatchMask and the listings that filter by it (PaintRaw E-29)
+procedure TestMasks;
+const
+  CYR_NAME:String8='Ёж.TXT';
+  CYR_MASK:String8='??.txt';
+var
+  list:Strings8;
+  items:TFolderItems;
+begin
+  StartTest('Masks');
+  Check(Files.MatchMask('a.png','*.png'),'* matches');
+  Check(not Files.MatchMask('a.png','*.txt'),'other extension');
+  Check(Files.MatchMask('A.PNG','*.png') and Files.MatchMask('a.png','*.PNG'),'any case');
+  Check(Files.MatchMask(CYR_NAME,CYR_MASK),'? is one character, the case of Cyrillic ignored');
+  Check(not Files.MatchMask('abc.txt',CYR_MASK),'? is exactly one character');
+  Check(Files.MatchMask('b.jpg',' *.png ; *.jpg'),'a list with spaces');
+  Check(Files.MatchMask('README','*.*') and Files.MatchMask('README',''),'*.* and no masks match any name');
+
+  Folder.Create(TestDir+'/masks/sub');
+  Files.Save(TestDir+'/masks/a.png','');
+  Files.Save(TestDir+'/masks/B.PNG','');
+  Files.Save(TestDir+'/masks/c.txt','');
+  list:=Folder.ListFiles(TestDir+'/masks','*.png');
+  Check(length(list)=2,'ListFiles: *.png finds B.PNG on every platform');
+  list:=Folder.ListFiles(TestDir+'/masks','*.png;*.PNG;a*');
+  Check(length(list)=2,'ListFiles: overlapping masks give each file once');
+  items:=Folder.ListItems(TestDir+'/masks','*.png;*.PNG;a*');
+  Check(length(items)=3,'ListItems: the folder and each matching file once');
+  items:=Folder.ListFolders(TestDir+'/masks');
+  Check((length(items)=1) and (items[0].name='sub') and items[0].info.isDirectory,'ListFolders: only the folder');
   EndTest;
 end;
 
@@ -1162,6 +1196,7 @@ begin
     TestWriteCreatesFolder;
     TestListFiles;
     TestListItems;
+    TestMasks;
     TestFind;
     TestUnicodeNames;
     TestLogTail;
