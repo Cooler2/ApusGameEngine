@@ -202,6 +202,10 @@ Scale factors are where wrong homes concentrate, so they are worth listing expli
 Two of these are in the wrong home today; section 11 says which, and
 `Work/text_scale_design.md` has the analysis and the migration options.
 
+[Text size, DPI, and font lifetime](text_and_dpi.md) defines the text API contract:
+automatic versus explicit sizing, handle invalidation, and the boundary between
+client mistakes and engine defects.
+
 ### 2.5 The ambient `window` and the control thread
 
 Scene and UI construction reads the ambient `window` threadvar to decide which window

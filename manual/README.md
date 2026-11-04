@@ -13,6 +13,9 @@ The engine5 manual is being written; only these chapters are published so far:
   and the limitations.
 - [Optional TextFX captions](ui_textfx_style.md) - button wrappers, caption children,
   shared content displacement and effect caching.
+- [Text size, DPI, and font lifetime](text_and_dpi.md) - the scaling contract,
+  automatic and explicit sizing, custom drawers, handle invalidation, and how to
+  distinguish client mistakes from engine defects.
 - [Engine signal inventory](engine_signal_inventory.md) - snapshot of the signals the
   engine sends and handles.
 
