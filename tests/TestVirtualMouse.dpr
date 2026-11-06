@@ -1364,6 +1364,8 @@ procedure TestEditMouse;
  var
   e:TUIEditBox;
   a:String8;
+  side:integer;
+  step:single;
  begin
   StartTest('Edit box mouse selection');
   e:=TUIEditBox.Create(100,20,sceneA.UI,'MouseEdit'); // 600..700 x 500..520
@@ -1389,13 +1391,12 @@ procedure TestEditMouse;
   PlaceCaret(e);
   Check((e.selStart=0) and (e.selCount=3),
     'released before the drawer step, left of the box: '+IntToStr(e.selStart)+'+'+IntToStr(e.selCount));
-  // selectOnClick
-  e.selectOnClick:=true;
+  // selectOnFocus (default)
   ClearFocus(wndA);
   Sleep(350);
   Click(621,510);
   PlaceCaret(e);
-  Check((FocusedElement=e) and (e.selCount=5) and (e.cursorPos=5),'selectOnClick: a click that gives the focus selects all');
+  Check((FocusedElement=e) and (e.selCount=5) and (e.cursorPos=5),'selectOnFocus: a click that gives the focus selects all');
   Sleep(350);
   Click(621,510);
   PlaceCaret(e);
@@ -1408,6 +1409,31 @@ procedure TestEditMouse;
   Robot(Req('u','mouse.up','X: 641;Y: 510'));
   PlaceCaret(e);
   Check((e.selStart=2) and (e.selCount=2),'a drag that gives the focus selects a part: '+IntToStr(e.selStart)+'+'+IntToStr(e.selCount));
+  // beyond a side the drawer scrolls the text every frame, also with the mouse at rest
+  Sleep(350);
+  Move(621,510);
+  Robot(Req('d','mouse.down','X: 621;Y: 510'));
+  Move(780,510);
+  e.DragScroll(side); // the first frame out there only starts the clock
+  Sleep(50);
+  step:=e.DragScroll(side);
+  Check((side=1) and (step>0) and (e.needPos<0),'beyond the right side the text scrolls to the end: '+FloatToStr(step));
+  Move(580,510);
+  Sleep(50);
+  step:=e.DragScroll(side);
+  Check((side=-1) and (step<0),'beyond the left side to the start: '+FloatToStr(step));
+  Robot(Req('u','mouse.up','X: 580;Y: 510'));
+  step:=e.DragScroll(side);
+  Check((side=0) and (step=0),'the release stops the scroll');
+  e.selectOnFocus:=false;
+  ClearFocus(wndA);
+  e.SetFocus;
+  Check((e.selCount=0) and (e.cursorPos=5),'without selectOnFocus the focus puts the caret at the end');
+  ClearFocus(wndA);
+  Sleep(350);
+  Click(621,510);
+  PlaceCaret(e);
+  Check((FocusedElement=e) and (e.selCount=0) and (e.cursorPos=2),'and a click that gives the focus places the caret');
   ClearFocus(wndA);
   e.Hide;
   EndTest;

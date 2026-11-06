@@ -899,10 +899,11 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst,rest:String32;
-   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,txtLen,anchor,caret:integer;
+   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,txtLen,anchor,caret,side,visW:integer;
    capH,caretW,caretTop,caretBottom:integer;
    font:TFontHandle;
    col:cardinal;
+   step:single;
    pos,cpos:SingleArray;
   // caret before character i, from the text start (the ink start of the first glyph)
   function CaretX(i:integer):integer;
@@ -945,17 +946,30 @@ implementation
     // the selection bounds
     txt.PenPositions(font,wst,pos);
 
-    if (needPos>=0) or (needAnchor>=0) then begin
+    d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible
+    visW:=x2-x1-d-offset; // the caret is visible up to this x from the scroll
+    // A mouse selection beyond a side scrolls the text (up to the scroll of the caret at the
+    // end) and moves the caret to the last visible boundary of that side
+    step:=DragScroll(side);
+    if side<>0 then scroll.X:=Clamp(scroll.X+step,0,Max(0,CaretX(txtLen)-visW));
+    if (needPos>=0) or (needAnchor>=0) or (side<>0) then begin
      anchor:=-1; caret:=-1;
      if needAnchor>=0 then anchor:=CaretAt(needAnchor);
-     if needPos>=0 then caret:=CaretAt(needPos);
+     if side<0 then begin
+      caret:=0;
+      while (caret<txtLen) and (CaretX(caret)<scroll.X) do inc(caret);
+     end else
+     if side>0 then begin
+      caret:=txtLen;
+      while (caret>0) and (CaretX(caret)-scroll.X>visW) do dec(caret);
+     end else
+      if needPos>=0 then caret:=CaretAt(needPos);
      needPos:=-1; needAnchor:=-1;
      MouseCaretPlaced(anchor,caret);
     end;
     i:=CaretX(cursorpos); // caret x in text-local coordinates
-    d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible
     if i-scroll.X<0 then scroll.X:=i;
-    if i-scroll.X>(x2-x1-d-offset) then scroll.X:=i-(x2-x1-d-offset);
+    if i-scroll.X>visW then scroll.X:=i-visW;
     scrollPixels:=round(scroll.X); // scroll.X is already in screen pixels
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if HasCompletion then begin
