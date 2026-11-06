@@ -6,6 +6,19 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## UI: edit box mouse selection follows a fast drag; `selectOnClick` (2026-11-05)
+
+- A mouse selection in `TUIEditBox` ends at the last mouse position before the frame, also
+  outside the box: the press captures the mouse (`hooked`) until the release. Before, a fast
+  drag stopped at an early position (often one character), leaving the box ended it.
+- The drawer turns mouse x into caret positions: `needPos` (the caret) and the new `needAnchor`
+  (the press), then calls the new `MouseCaretPlaced(anchor,caret)` (-1 - not pending). A custom
+  edit box drawer that set `cursorPos` from `needPos` itself must do the same, or the mouse
+  selects nothing.
+- New `TUIEditBox.selectOnClick` (default false): a click that gives the focus selects the whole
+  text, a drag from it still selects a part; a click in the focused box places the caret. The
+  focus from the keyboard selects all as before.
+
 ## 3D: FOV axis for `Perspective` (2026-11-04)
 
 - `gfx.transform.Perspective(fovRad,axis,zMin,zMax)` with `TFovAxis` (`Apus.Engine.Types`):

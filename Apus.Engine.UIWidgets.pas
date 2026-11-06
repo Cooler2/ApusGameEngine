@@ -253,8 +253,10 @@ interface
    password:boolean;    // if true, all characters are displayed as '*'
    selStart,selCount:integer; //
    cursorTimer:int64;  // time offset for cursor blinking
-   needPos:integer;    // pixel position feedback from the drawer
+   needPos:integer;    // mouse x for the drawer to turn into the caret (-1 - none), then it calls MouseCaretPlaced
+   needAnchor:integer; // mouse x of the press for the drawer to turn into the selection anchor (-1 - none)
    msSelect:boolean;   // mouse selection mode is ON
+   selectOnClick:boolean; // a click that gives the focus selects the whole text (a drag from it still selects a part)
    protection:byte;    // xor all characters with this value
    offset:integer;     // shift text right by this number of pixels
    onChange:TObjProcedure; // the user changed the text (assigning realText/text doesn't call it)
@@ -270,13 +272,17 @@ interface
    procedure SetFocus; override;
    procedure onLostFocus; override;
    procedure SelectAll; virtual;
+   // For the drawer: needAnchor and needPos turned into caret positions (-1 - was not pending)
+   procedure MouseCaretPlaced(anchor,caret:integer);
    // The completion is in force: it continues the text (letter case aside), the caret is at the end, nothing is selected
    function HasCompletion:boolean;
   private
    savedText:String32;
    lastClickTime:int64;
    msSelStart:integer; // mouse selection anchor (0-based), -1 if not set
+   focusClick:boolean; // the button is held after a press that gave the focus (with selectOnClick)
    procedure AdjustState;
+   function MouseX:integer;
    procedure TextChanged(const oldText:String32);
    function GetText:String8;
    procedure SetText(s:String8);
@@ -1095,6 +1101,7 @@ function TUILabel.Right(text:String8):TUILabel;
    password:=false;
    protection:=0;
    needPos:=-1;
+   needAnchor:=-1;
    offset:=0;
    flags.canhavefocus:=true;
    sendSignals:=ssAll;
@@ -1360,27 +1367,42 @@ function TUIEditBox.GetText:String8;
 
  procedure TUIEditBox.onMouseButtons(button:byte;state:boolean);
   var
-   doubleClick:boolean;
+   doubleClick,hadFocus:boolean;
   begin
    doubleClick:=false;
-   if (button=1) and (state) then begin
+   if (button=1) and state then begin
     if CoreTime.Ticks<lastClickTime+300 then doubleClick:=true;
     lastClickTime:=CoreTime.Ticks;
    end;
+   hadFocus:=FocusedElement=self;
    AdjustState;
    inherited;
-   needpos:=curMouseX-globalrect.Left-offset;
-   if (selcount>0) and (button=1) and state then begin
-    selcount:=0; selStart:=0;
-   end;
-  if (button=1) and state then
-    msselect:=true
-   else begin
-    msselect:=false;
+   if button<>1 then exit;
+   if state then begin
+    selStart:=0; selCount:=0;
     msSelStart:=-1;
-   end;
-  if doubleclick then begin
-    selStart:=0; selCount:=length(realText);
+    focusClick:=selectOnClick and not hadFocus and (FocusedElement=self);
+    if doubleClick then begin
+     SelectAll;
+     needPos:=-1; needAnchor:=-1;
+     msSelect:=false;
+     exit;
+    end;
+    // The drawer turns both into caret positions, the anchor even if the button is
+    // released before the next frame
+    needPos:=MouseX;
+    needAnchor:=needPos;
+    msSelect:=true;
+    if hooked=nil then hooked:=self; // the drag goes on outside the box, the release comes back here
+   end else begin
+    msSelect:=false;
+    if hooked=self then hooked:=nil;
+    // a click without a drag (the anchor may still wait for the drawer)
+    if focusClick and (selCount=0) and ((needAnchor<0) or (needPos=needAnchor)) then begin
+     SelectAll;
+     needPos:=-1; needAnchor:=-1;
+    end;
+    focusClick:=false;
    end;
   end;
 
@@ -1388,23 +1410,29 @@ function TUIEditBox.GetText:String8;
   begin
    AdjustState;
    inherited;
-   if underMouse<>self then begin
-    msselect:=false;
+   if not msSelect then exit;
+   if underMouse<>self then begin // the capture was not available or was taken away
+    msSelect:=false;
     exit;
    end;
-  if msselect and (needpos=-1) then begin
-    if (msSelStart<0) then msSelStart:=cursorpos;
-    if (msSelStart>=0) and (cursorpos<>msSelStart) then begin
-      if cursorpos<msSelStart then begin
-       selstart:=cursorPos;
-       selcount:=msSelStart-cursorpos;
-      end else begin
-       selStart:=msSelStart;
-       selcount:=cursorPos-msSelStart;
-      end;
-    end;
-    needpos:=curMouseX-globalrect.Left-offset;
-   end;
+   // Only the last position before the frame matters: the selection follows
+   // the caret when the drawer places it, not here
+   needPos:=MouseX;
+  end;
+
+ function TUIEditBox.MouseX:integer;
+  begin
+   result:=Max(0,curMouseX-globalRect.Left-offset); // left of the box is the text start, and -1 stays "none"
+  end;
+
+ procedure TUIEditBox.MouseCaretPlaced(anchor,caret:integer);
+  begin
+   if caret>=0 then cursorPos:=caret;
+   if anchor>=0 then msSelStart:=anchor // a press finishes its selection even after the release
+    else if not msSelect then exit;
+   if msSelStart<0 then exit;
+   selStart:=Min(msSelStart,cursorPos);
+   selCount:=abs(cursorPos-msSelStart);
   end;
 
  procedure TUIEditBox.SelectAll;
@@ -1427,6 +1455,9 @@ function TUIEditBox.GetText:String8;
  procedure TUIEditBox.onLostFocus;
   begin
    inherited;
+   if hooked=self then hooked:=nil;
+   msSelect:=false;
+   focusClick:=false;
    {$IFDEF IOS}
    Signal('UI\EditBox\LostFocus',TTag(self));
    {$ENDIF}

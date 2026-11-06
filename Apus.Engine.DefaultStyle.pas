@@ -899,7 +899,7 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst,rest:String32;
-   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,targetX,midX,txtLen:integer;
+   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,txtLen,anchor,caret:integer;
    capH,caretW,caretTop,caretBottom:integer;
    font:TFontHandle;
    col:cardinal;
@@ -908,6 +908,18 @@ implementation
   function CaretX(i:integer):integer;
    begin
     result:=Max(0,round(pos[i]));
+   end;
+  // caret nearest to the mouse x, from the box left (TUIEditBox.needPos)
+  function CaretAt(x:integer):integer;
+   var
+    targetX:integer;
+   begin
+    targetX:=x-3+round(control.scroll.X);
+    result:=0;
+    while result<txtLen do begin
+     if targetX<(CaretX(result)+CaretX(result+1)) div 2 then break;
+     inc(result);
+    end;
    end;
   begin
    font:=control.StyleFont;
@@ -933,15 +945,12 @@ implementation
     // the selection bounds
     txt.PenPositions(font,wst,pos);
 
-    if needpos>=0 then begin
-     targetX:=needPos-3+round(scroll.X);
-     cursorpos:=0;
-     while cursorpos<txtLen do begin
-      midX:=(CaretX(cursorpos)+CaretX(cursorpos+1)) div 2;
-      if targetX<midX then break;
-      inc(cursorpos);
-     end;
-     needpos:=-1;
+    if (needPos>=0) or (needAnchor>=0) then begin
+     anchor:=-1; caret:=-1;
+     if needAnchor>=0 then anchor:=CaretAt(needAnchor);
+     if needPos>=0 then caret:=CaretAt(needPos);
+     needPos:=-1; needAnchor:=-1;
+     MouseCaretPlaced(anchor,caret);
     end;
     i:=CaretX(cursorpos); // caret x in text-local coordinates
     d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible

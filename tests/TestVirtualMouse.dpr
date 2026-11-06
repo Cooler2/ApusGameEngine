@@ -1341,6 +1341,78 @@ procedure TestDrag;
   EndTest;
  end;
 
+// The drawer step of DefaultStyle for 10 px wide characters and no text margin
+procedure PlaceCaret(e:TUIEditBox);
+ var
+  a,c:integer;
+ function At(x:integer):integer;
+  begin
+   result:=Min(length(e.realText),(x+5) div 10);
+  end;
+ begin
+  a:=-1; c:=-1;
+  if e.needAnchor>=0 then a:=At(e.needAnchor);
+  if e.needPos>=0 then c:=At(e.needPos);
+  e.needAnchor:=-1; e.needPos:=-1;
+  e.MouseCaretPlaced(a,c);
+ end;
+
+// Mouse selection in an edit box: it ends where the drawer puts the caret for the last
+// mouse position, the drag goes on outside the box. No frames are drawn here, so every
+// drag is "fast": all its moves come before the drawer step
+procedure TestEditMouse;
+ var
+  e:TUIEditBox;
+  a:String8;
+ begin
+  StartTest('Edit box mouse selection');
+  e:=TUIEditBox.Create(100,20,sceneA.UI,'MouseEdit'); // 600..700 x 500..520
+  e.SetPos(600,500,pivotTopLeft);
+  e.cursor:=CursorID.Default; // no game object here to switch the cursor
+  e.text:='12345';
+  Move(601,510);
+  a:=Robot(Req('d','mouse.down','X: 601;Y: 510'));
+  Check(IsOk(a,'d') and (hooked=e),'the edit box captures the mouse: '+a);
+  Move(640,510);
+  Move(780,510); // past the right edge
+  Check(underMouse=e,'the drag goes on outside the box');
+  PlaceCaret(e);
+  Check((e.selStart=0) and (e.selCount=5) and (e.cursorPos=5),
+    'one drawer step selects up to the last position: '+IntToStr(e.selStart)+'+'+IntToStr(e.selCount));
+  Robot(Req('u','mouse.up','X: 780;Y: 510'));
+  Check((hooked=nil) and (e.selCount=5),'the release ends the capture and keeps the selection');
+  Sleep(350); // not a double click
+  Move(631,510);
+  Robot(Req('d','mouse.down','X: 631;Y: 510'));
+  Move(580,510); // past the left edge
+  Robot(Req('u','mouse.up','X: 580;Y: 510'));
+  PlaceCaret(e);
+  Check((e.selStart=0) and (e.selCount=3),
+    'released before the drawer step, left of the box: '+IntToStr(e.selStart)+'+'+IntToStr(e.selCount));
+  // selectOnClick
+  e.selectOnClick:=true;
+  ClearFocus(wndA);
+  Sleep(350);
+  Click(621,510);
+  PlaceCaret(e);
+  Check((FocusedElement=e) and (e.selCount=5) and (e.cursorPos=5),'selectOnClick: a click that gives the focus selects all');
+  Sleep(350);
+  Click(621,510);
+  PlaceCaret(e);
+  Check((e.selCount=0) and (e.cursorPos=2),'a click in the focused box places the caret');
+  ClearFocus(wndA);
+  Sleep(350);
+  Move(621,510);
+  Robot(Req('d','mouse.down','X: 621;Y: 510'));
+  Move(641,510);
+  Robot(Req('u','mouse.up','X: 641;Y: 510'));
+  PlaceCaret(e);
+  Check((e.selStart=2) and (e.selCount=2),'a drag that gives the focus selects a part: '+IntToStr(e.selStart)+'+'+IntToStr(e.selCount));
+  ClearFocus(wndA);
+  e.Hide;
+  EndTest;
+ end;
+
 procedure TestReset;
  var
   a:String8;
@@ -1855,6 +1927,7 @@ begin
   TestFocusKeys;
   TestTabOrder;
   TestDrag;
+  TestEditMouse;
   TestReset;
   TestPhysicalIgnored;
   TestKeyboard;
