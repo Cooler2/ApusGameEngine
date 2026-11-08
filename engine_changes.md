@@ -6,6 +6,14 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## UI: a translucent border lies over the fill (2026-11-08)
+
+- A style box with a rounded corner and a translucent `border-color` was drawn by one
+  `draw.RoundRect` call, which puts the fill inside the border: the border blended with what
+  is behind the element. Now such a box goes the layered way, the fill under the whole box and
+  the border over it, as the other paths (square boxes, shades, state layers) always drew it
+  (CSS `background-clip: border-box`). An opaque border is drawn as before, in one call.
+
 ## UI: the file dialog creates folders (2026-11-08)
 
 - `TUIFileDialog.NewFolder(parent)`: the name of a new subfolder is typed in the tree, in a row

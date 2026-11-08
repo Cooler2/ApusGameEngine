@@ -1584,8 +1584,10 @@ implementation
     end;
     exit;
    end;
-   // one shader call for the usual case: fill + border, no layers and no shade
-   if not outer and (fill.count=0) and (border.count=0) and
+   // one shader call for the usual case: fill + an opaque border, no layers and no shade.
+   // The shader puts the fill inside the border, so a translucent border goes the layered
+   // way: over the fill, as the other paths draw it (CSS background-clip: border-box)
+   if not outer and (fill.count=0) and (border.count=0) and not border.HasAlpha and
       not shade.fill.IsVisible and (shade.count=0) then begin
     draw.RoundRect(x1,y1,x2,y2,radii,w,border.fill,fill.fill);
     exit;

@@ -138,6 +138,22 @@ begin
   EndTest;
 end;
 
+// A translucent border lies over the fill, not over what is behind the box
+procedure TestTranslucentBorder;
+var
+  e:TUIElement;
+  xc:integer;
+begin
+  StartTest('Translucent border over the fill');
+  e:=NewElement(300,143,60,14,'fill: #3060C0; radius: 3; border-color: $40000000; border-width: 1;');
+  DrawElement(e);
+  gfx.CopyFromBackbuffer(0,0,img);
+  xc:=e.globalRect.CenterPoint.X;
+  CheckPixel(xc,e.globalRect.Top,Color.Blend($FF3060C0,$40000000),'border');
+  CheckPixel(xc,e.globalRect.CenterPoint.Y,$FF3060C0,'fill');
+  EndTest;
+end;
+
 // 'radius: tl tr br bl'
 procedure TestCornerRadii;
 var
@@ -562,6 +578,7 @@ begin
       TestCrossFade;
       TestDefaultButton;
       TestGradientBox;
+      TestTranslucentBorder;
       TestCornerRadii;
       TestEdgeScale;
       TestShadeLayer;
