@@ -13,6 +13,9 @@ mechanical renames of both.
   is behind the element. Now such a box goes the layered way, the fill under the whole box and
   the border over it, as the other paths (square boxes, shades, state layers) always drew it
   (CSS `background-clip: border-box`). An opaque border is drawn as before, in one call.
+- `TUIFileDialog`: the 1 px shadow of a button is only the strip below it, it no longer lies
+  under the side borders. The glyphs of the Up, New folder and Pin buttons are scaled by the
+  button style key `glyph-scale` (token `file-dialog-button-glyph-scale`, 1 by default).
 
 ## UI: the file dialog creates folders (2026-11-08)
 

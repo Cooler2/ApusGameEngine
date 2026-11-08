@@ -312,6 +312,7 @@ implementation
    'border-width:1; radius:3; :focused { border-color:&file-dialog-focus; border-width:2; }';
   // the box keys (fill, border, radius, states) are drawn by DrawElementBox
   BUTTON_KEYS='border-width:1; radius:3; shadow-color:&file-dialog-button-shadow; '+
+   'glyph-scale:&file-dialog-button-glyph-scale; '+
    'color:&file-dialog-button-text; text-shadow:&file-dialog-text-shadow 0 1; font-weight:bold; '+
    'disabled-color:&file-dialog-disabled; glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite; '+
    ':checked { fill:&file-dialog-button-checked; color:&file-dialog-selection-text; } '+
@@ -470,7 +471,10 @@ implementation
   shadow:=b.GetStyleColor('shadow-color',0);
   if (shadow<>0) and not b.pressed then begin
    d:=Math.Max(1,round(s));
+   // only the strip below the button: a translucent border must not lie over the shadow
+   gfx.clip.Rect(Types.Rect(r.Left,r.Bottom,r.Right,r.Bottom+round(d)));
    draw.RoundRect(r.Left,r.Top+d,r.Right-1,r.Bottom-1+d,3*s,0,0,shadow);
+   gfx.clip.Restore;
   end;
   DrawElementBox(b);
   result:=b.GetBlendedStyleColor('color',$FF303030);
@@ -478,6 +482,7 @@ implementation
 
  // A toolbar button keeps its shape, a list glyph has no chrome. Only the favorite star
  // of a button and the remove cross carry their own colors, the rest is muted.
+ // The glyph of a button is 'glyph-scale' times larger than in a list.
  procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TFileDialogGlyph;enabled:boolean=true);
  var
   ink:cardinal;
@@ -488,7 +493,10 @@ implementation
   if kind=fgRemove then ink:=element.GetStyleColor('remove-color',ink)
    else if (kind=fgFavorite) and isButton then ink:=element.GetStyleColor('favorite-color',ink);
   if not enabled then ink:=element.GetStyleColor('disabled-color',ink);
-  if isButton then DrawButtonBox(TUIButton(element));
+  if isButton then begin
+   DrawButtonBox(TUIButton(element));
+   scale:=scale*element.GetStyleNumber('glyph-scale',1);
+  end;
   DrawBadgeGlyph(element,r,scale,kind,ink);
  end;
 
@@ -2878,6 +2886,7 @@ initialization
  DefineToken('file-dialog-button-checked','&accent');
  DefineToken('file-dialog-button-border','&border-dark');
  DefineToken('file-dialog-button-shadow','0'); // 1 px under a button, 0 - none
+ DefineToken('file-dialog-button-glyph-scale','1'); // the glyphs of Up, New folder and Pin
  DefineToken('file-dialog-button-text','&text');
  DefineToken('file-dialog-default-button','&overlay');
  DefineToken('file-dialog-default-button-hover','&control');
