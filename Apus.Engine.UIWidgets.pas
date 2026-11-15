@@ -1816,6 +1816,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
  constructor TUIHint.Create(x,y:single;text:String8;parent_:TUIElement);
   begin
    inherited Create(1,1,parent_,'_hint'); // not a unique name: every window may show a hint
+   order:=High(integer); // above popup siblings, including menus and color pickers
    SetPos(x,y,pivotTopLeft);
    shape:=shapeEmpty;
    simpleText:=text;

@@ -150,7 +150,6 @@ function UIScene(name:String8):TUIScene;
     hint:=TUIHint.Create(localPos.x,localPos.y,msg,parent);
     if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
     hint.timer:=time;
-    hint.order:=10000; // Top
     wnd.hint.area:=area;
     hint.MakeCurrent;
     Log.Debug('Hint created '+inttohex(UIntPtr(hint),16));
@@ -259,8 +258,9 @@ function UIScene(name:String8):TUIScene;
  // each toggle the same element), then forward the raw event to gameplay scenes.
  procedure DispatchMouseButton(wnd:TWindow;btn:byte;pressed:boolean);
   var
-   c,c2:TUIElement;
-   e:boolean;
+   c,c2,scope:TUIElement;
+   e,consumeScene:boolean;
+   bit:byte;
    st:String8;
    i:integer;
   begin
@@ -280,6 +280,20 @@ function UIScene(name:String8):TUIScene;
     if hooked<>nil then begin
      c:=hooked;
      e:=true;
+    end;
+    bit:=0;
+    if btn in [1..5] then bit:=1 shl (btn-1);
+    consumeScene:=false;
+    if pressed then begin
+     scope:=c;
+     while scope<>nil do begin
+      if scope.ConsumesSceneButtons then begin consumeScene:=true; break; end;
+      scope:=scope.parent;
+     end;
+     if consumeScene then wnd.uiConsumedButtons:=wnd.uiConsumedButtons or bit;
+    end else begin
+     consumeScene:=(wnd.uiConsumedButtons and bit)<>0;
+     wnd.uiConsumedButtons:=wnd.uiConsumedButtons and not bit;
     end;
     if pressed then begin
      if e and (c<>nil) then
@@ -321,6 +335,7 @@ function UIScene(name:String8):TUIScene;
    finally
     wnd.UnlockState;
    end;
+   if consumeScene then exit;
    // forward the raw button to gameplay scenes (custom onMouseBtn overrides).
    // The UI element above already got its onMouseButtons exactly once, so this
    // never produces a double toggle even with several active UIScene.
@@ -751,7 +766,7 @@ function UIScene(name:String8):TUIScene;
  // with the focus anywhere. A release the focus did not consume reaches the scene as well.
  function TUIScene.DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean;
   var
-   c:TUIElement;
+   c,scope:TUIElement;
    keyc:integer;
    uiConsumed:boolean;
   begin
@@ -763,6 +778,11 @@ function UIScene(name:String8):TUIScene;
      if pressed and (keyc=ord('S')) and (shift=8+2) then PrintUILog; // Win+Ctrl+S
      c:=FocusedElement;
      if (c<>nil) and c.IsEnabled then begin
+      scope:=c;
+      while scope<>nil do begin
+       if not scope.onDescendantKey(c,keyc,pressed,shift) then exit(true);
+       scope:=scope.parent;
+      end;
       if pressed then begin
        if c.onKey(keyc,true,shift) then
         uiConsumed:=ProcessHotKey(window,keyc,shift) // focus passed the key on: UI hotkeys may claim it

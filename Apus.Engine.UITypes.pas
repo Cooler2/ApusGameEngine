@@ -200,6 +200,9 @@ type
   // attached again (see `deleted`). Direct Free is for the window's own thread outside
   // handlers.
   procedure Remove;
+  // Called once when marked deleted, possibly from another thread under the window lock.
+  // Release held references only: do not modify the tree or invoke application callbacks.
+  procedure onRemoved; virtual;
   // Remove the root UI element of a scene that is being destroyed (TUIScene.Destroy)
   procedure RemoveSceneRoot;
   // Keep the element alive across threads: a held element may be removed, but it is not
@@ -270,6 +273,11 @@ type
   // Key press/release for the focused element. Return false for the keys the element handled
   // (consumed: UI hotkeys and the scene don't get them), true to pass the key on.
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
+  // Ancestor key filter, before the focused element. False consumes the event. A popup
+  // may route it to focused itself and swallow unhandled keys. Default: pass through.
+  function onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
+  // A popup may consume complete mouse gestures before raw scene callbacks. Default: false.
+  function ConsumesSceneButtons:boolean; virtual;
   procedure onChar(ch:char;scancode:byte); virtual;
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
@@ -1414,6 +1422,16 @@ function TUIElement.IsEnabled:boolean;
    if (sendSignals=ssAll) and (name<>'') then Signal('UI\'+name+'\Focus',0);
   end;
 
+ function TUIElement.onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+  begin
+   result:=true;
+  end;
+
+ function TUIElement.ConsumesSceneButtons:boolean;
+  begin
+   result:=false;
+  end;
+
  procedure TUIElement.onTimer;
   begin
   end;
@@ -2114,7 +2132,12 @@ procedure TUIElement.MarkDeleted;
   begin
    fDeleted:=true;
    UIHash.Remove(self); // not found by name any more: the name may be reused at once
+   onRemoved;
    for child in children do child.MarkDeleted;
+  end;
+
+ procedure TUIElement.onRemoved;
+  begin
   end;
 
  function TUIElement.InSubtree(e:TUIElement):boolean;
