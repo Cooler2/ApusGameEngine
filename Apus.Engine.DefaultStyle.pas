@@ -8,24 +8,46 @@ unit Apus.Engine.DefaultStyle;
 interface
 uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UITypes;
  type
+  // Outer-shadow description stored in TStyleBox.shadow and drawn by DrawStyleBox
+  // when its Shadow layer is selected. ResolveStyleBox fills it from 'box-shadow';
+  // a custom drawer may adjust it on the resolved box before drawing. Distances
+  // are already in screen pixels.
   TBoxShadow=record
    color:cardinal;           // 0 - none
    dx,dy,blur,spread:single; // pixels
   end;
+  // Rendering stage selected through DrawStyleBox's layers argument: Shadow is
+  // the outer box shadow, Background includes fills/shading/images, and Border is
+  // the outline. Select stages to compose a styled box with custom content.
   {$SCOPEDENUMS ON}
   TStyleBoxLayer=(Shadow,Background,Border);
   {$SCOPEDENUMS OFF}
+  // Layer mask accepted by DrawStyleBox, e.g. [TStyleBoxLayer.Shadow]. Draw the
+  // shadow/background first, add custom content, then draw the border above it.
+  // Omitting the layers argument draws all stages in one call.
   TStyleBoxLayers=set of TStyleBoxLayer;
+
+  // One background-image layer in TStyleBox.images[0..imageCount-1]. ResolveStyleBox
+  // supplies the base image and any state cross-fades; DrawStyleBox consumes them
+  // in its Background layer. Custom drawers may inspect or replace these entries.
+  // The record borrows tex: copying it does not acquire ownership, and textures
+  // supplied by the resolver must not be freed through this record.
   TBoxImage=record
    tex:TTexture;
    tint:cardinal;
    weight:single; // cross-fade weight (alpha multiplier)
   end;
 
-  // The box of an element as it is drawn now: the style values blended toward the states.
-  // Pixels: lengths are already multiplied by the element scale
+  // Per-draw box description returned by either ResolveStyleBox overload for a
+  // custom element or named-part drawer. Resolve after updating element geometry
+  // and visual state, optionally adjust this value, then pass it to DrawStyleBox.
+  // ContentRect gives content bounds that reserve the widest border across states;
+  // use DrawElementBox when resolving, drawing and obtaining those bounds is enough.
+  // Colors/fills reflect current state weights; geometry is already in screen
+  // pixels. Texture references are borrowed and must stay valid through drawing.
+  // Re-resolve when the element's style, state, geometry or UI scale changes.
   TStyleBox=record
-   rect:TRect;              // the box, screen pixels (pixel-inclusive edges as globalRect)
+   rect:TRect;              // screen bounds; Right and Bottom are exclusive
    scale:single;            // globalScale of the element
    radii:TCornerRadii;
    borderWidth:single;
@@ -60,14 +82,23 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
  function DrawElementBox(element:TUIElement):TRect;
 
  type
-  // Automatic disabled content appearance. Highlight offsets are screen pixels.
+  // Result of ResolveEmboss, exposed so custom UI drawers can share the default
+  // disabled appearance of captions, checkbox marks and other content.
+  // A transient value describing the fully disabled appearance: draw the offset
+  // highlight first, then the main content. The caller handles state transitions
+  // and explicit style overrides. Highlight offsets are screen pixels.
   TUIEmbossStyle=record
    color,shadowColor:cardinal;
    shadowX,shadowY:single;
    dimRGB:boolean; // light content keeps its coverage when darkened
   end;
 
-  // Resolved text parameters. Extensions never share the private style context.
+  // Per-draw caption description returned by ResolveUITextStyle so custom drawers
+  // can reuse the default typography, text effects and state transitions. Resolve
+  // after updating the element's visual state, optionally adjust font/color/align,
+  // then pass this value and a screen-space text anchor/baseline to WriteUIText.
+  // Offsets are already in screen pixels; the font handle is borrowed. Re-resolve
+  // when style, state or UI scale changes.
   TUITextStyle=record
    font:TFontHandle;
    color:cardinal;
@@ -81,16 +112,22 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
    emboss:TUIEmbossStyle; // derived from content color before disabled dimming
   end;
 
- // Light content dims RGB without losing coverage; dark content fades toward its surface.
- // A known opaque surface strengthens the highlight on light fills.
- // Surface color 0 means unknown; the highlight is lower-right in every theme.
+ // Compute fully disabled emboss parameters from the original content color.
+ // surfaceColor is an optional known opaque solid background (0 = unknown).
+ // Use ResolveUITextStyle when element styles and state transitions are also needed.
  function ResolveEmboss(baseColor:cardinal;surfaceColor:cardinal=0):TUIEmbossStyle;
 
  // Retain the standard skin/focus/transitions while optionally replacing caption.
  procedure DrawDefaultUI(element:TUIElement;drawButtonCaption:boolean=true);
+ // Build TUITextStyle for a custom caption drawer from the element's current
+ // styles/state weights and the caller's defaults. UpdateVisualState first
+ // (the normal DrawUIElement path does this before calling the drawer).
  function ResolveUITextStyle(element:TUIElement;defColor:cardinal;
    defAlign:TTextAlignment=taLeft;defOptions:cardinal=0;
    defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TUITextStyle;
+ // Draw a resolved TUITextStyle, including its offsets and shadow. x is the
+ // alignment anchor and y the baseline in screen pixels; targetWidth controls
+ // text layout, for example justification. The caller supplies any clipping.
  procedure WriteUIText(const style:TUITextStyle;x,y:single;const text:String8;targetWidth:integer=0);
 
  var
