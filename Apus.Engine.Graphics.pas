@@ -146,7 +146,7 @@ type
  TClippingAPI=class(TInterfacedObject,IClipping)
   constructor Create;
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
-  procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
+  procedure Nothing; //< don't clip anything, save previous (same as Rect over the whole render target)
   procedure Restore; //< restore previous clipping rect
   // Unwind the saved clipping rects (left by a failed frame); true if there were any
   function Unwind:boolean;

@@ -1,4 +1,4 @@
-﻿// Windows-specific functions used by Game object
+﻿// SDL2 platform backend: window class (TSDLGLWindow) and system services (TSDLPlatform)
 //
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)

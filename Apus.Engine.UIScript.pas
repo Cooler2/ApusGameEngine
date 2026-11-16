@@ -16,7 +16,8 @@ type
   class function ListFieldsOf(variable:pointer):string8; override;
  end;
 
- // reference to an element (parent, children[i]): the variable is ^TUIElement, its value is the short name
+ // reference to an element (parent, children[i]): the variable is ^TUIElement, its value
+ // is Class('name'). Read-only: SetValue raises EWarning.
  TVarTypeElementRef=class(TVarTypeStruct)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;

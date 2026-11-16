@@ -8,7 +8,7 @@
 unit Apus.Engine.UdpTransport;
 interface
  const
-  MAX_PACKET = 1200; // 512;//1400; // reduced packet size
+  MAX_PACKET = 1200; // max UDP payload (fits a 1280-byte IPv6 MTU)
  var
   MaxSendTick:integer=8192; // max 8K outgoing traffic per iteration
   HistoryMsgSize:integer=512; // history data size
@@ -92,8 +92,8 @@ interface
  // ip=0, port=0 if the connection that received the message is already destroyed
  procedure GetMsgOrigin(handle:NativeInt;var ip:cardinal;var port:word);
 
- // Parse and resolve an address string when needed.
- // Warning: this can take a long time. Returns 0 or an error code.
+ // Resolve adr ("host:port" or "host") into ip/port; blocking DNS, may take long.
+ // ip=0 on failure.
  procedure GetInternetAddress(adr:string;var ip:cardinal;var port:word);
 
  // Is internet connection available? positive - yes, negative - no

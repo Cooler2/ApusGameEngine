@@ -24,14 +24,16 @@ type
   cntX,cntY:integer;
 
   // Load a large image into a set of textures
-  // specify the cell size for splitting, the size of cells where incomplete pieces go
-  // and the share to upload to video memory (from 0 to 1)
+  // Split it into cellsize x cellsize tiles (edge cells keep the real size).
+  // flags - subimage flags for the incomplete edge cells (full cells use aiTexture);
+  // precache - share (0..1) uploaded now. At most 16x16 cells: a larger image writes past
+  // tiles[] - TODO: clamp cntX/cntY or raise.
   constructor Create(fname:string;ForceFormat:TImagePixelFormat;
                 cellsize:integer;flags:integer=0;precache:single=0);
   destructor Destroy; override;
   procedure Draw(x,y:integer;color:cardinal); virtual;
   procedure Precache(part:single); virtual;
-  // get a region that defines the opaque part (transparency <50%)
+  // TODO: implement: region of the opaque part (transparency <50%); returns nil (TPatchedImage raises)
   function GetRegion:TUIShape; virtual;
  end;
 

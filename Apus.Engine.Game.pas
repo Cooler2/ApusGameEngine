@@ -20,14 +20,14 @@ uses Classes, Apus.Core, Apus.Threads, Apus.Engine.Types, Apus.Engine.Window, Ap
 
 var
  onFrameDelay:integer=0; // Sleep this time every frame
- disableDRT:boolean=false; // always render directly to the backbuffer - no
+ disableDRT:boolean=false; // render straight to the backbuffer: no default RT, no surface scaling/present blit
  useDepthTexture:boolean=false; // when default RT is used, allocate a depth buffer texture instead of regular depth buffer
  minRedrawIntervalMs:integer=100; // force frame redraw at least once per interval (0=disabled)
 
 type
  { TGame }
  TGame=class(TGameBase)
-  constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem); // create an instance
+  constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
   procedure Run; override; // start the engine (create the window, switch the display mode etc.)
   {$IFDEF DARWIN}
   procedure RunCurrentThread; // run window/event/render lifecycle on the calling OS thread
@@ -53,8 +53,6 @@ type
   function GetCursorForID(cursorID:integer):TCursorHandle; override;
   procedure ToggleCursor(CursorID:integer;state:boolean=true); override;
   procedure HideAllCursors; override;
-
-  // Translate coordinates in window's client area
 
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;

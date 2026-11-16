@@ -28,8 +28,8 @@ interface
  // Not reloaded: images taken from atlases, textures that were not loaded from a file.
  function ReloadFileImages(const prefix:String8=''):integer;
 
- // (Re)load texture from an image file. defaultImagesDir is used if path is relative
- // Default flags can be used from defaultLoadImageFlags
+ // (Re)load img from a file; the old texture is freed. A relative path is prefixed with
+ // defaultImagesDir. flags=liffDefault resolves to the engine default flags.
  procedure LoadImage(var img:TTexture;fName:String8;flags:cardinal=liffDefault);
 
  // Save image to file (mostly for debug purposes)
