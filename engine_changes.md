@@ -33,6 +33,25 @@ mechanical renames of both.
   `TFileDialogGlyph`: an application `glyphDrawer` with an array indexed by the glyph needs
   one more entry.
 
+## UI: edit box mouse selection follows a fast drag; a click focus selects all (2026-11-05)
+
+- A mouse selection in `TUIEditBox` ends at the last mouse position before the frame, also
+  outside the box: the press captures the mouse (`hooked`) until the release. Before, a fast
+  drag stopped at an early position (often one character), leaving the box ended it.
+- The drawer turns mouse x into caret positions: `needPos` (the caret) and the new `needAnchor`
+  (the press), then calls the new `MouseCaretPlaced(anchor,caret)` (-1 - not pending). A custom
+  edit box drawer that set `cursorPos` from `needPos` itself must do the same, or the mouse
+  selects nothing.
+- A mouse selection with the pointer beyond the left or right side of the box scrolls the text
+  that way every frame, also with the mouse at rest, faster the farther the pointer is; the
+  caret stays at the last visible character of that side. A custom drawer gets the step from
+  the new `DragScroll(side)` and places the caret itself.
+- A click that gives an edit box the focus now selects the whole text, like the focus from the
+  keyboard always did (as in Windows edit boxes); a drag from it still selects a part, a click in
+  the focused box places the caret. Before, such a click placed the caret. New
+  `TUIEditBox.selectOnFocus` (default true) turns it off: then no focus selects anything, the
+  caret goes to the click point (Tab, `SetFocus`: to the text end).
+
 ## UI: table cells, the folder tree and the places of the file dialog fit their text (2026-11-04)
 
 - `TTableColumn.cut:TTextCut` (default `atEnd`): a cell text wider than its column loses a part

@@ -274,12 +274,12 @@ Two tiers, not a version ladder:
   5. **TUIMenu** — menu bar + popup/context menus with keyboard nav
   6. **TUISpinner** — numeric EditBox with ▲▼ step buttons
   7. **TUITreeView** — hierarchical list with expand/collapse
-  8. **TUIColorPicker** — composite color control (own module)
+  8. **TUIColorPicker** — first local implementation 2026-11-15 (`Apus.Engine.UIColorPicker`, Racing RQ-40): color button, replaceable mouse-only picker with optional alpha and RGB/HEX readouts, shared five-color ARGB MRU, preview/commit/cancel; demo/UI includes a custom HEX editor. API and consumer acceptance pending; Color Combo follows separately. See `manual/ui_color_picker.md`
   9. **TUIFileDialog** — modal open/save (own module, custom UI not OS-native; done, merged into engine5 2026-11-01)
   10. **TUITable** — columns, sorting, single selection (own module `UITable`, done, merged into engine5 2026-11-01; the file dialog lists folders with it)
 - Label/button enhancements: icon support (texture region beside text), Ctrl+C text copy from focused static labels.
 - Module split: `UIWidgets` (primitives) + `UIComposite` (composites that own child widgets) + `UIColorPicker` + `UIFileDialog`.
-- Out of scope: animation on Section; TreeView drag-drop; alpha in ColorPicker MVP; OS-native file dialog.
+- Out of scope: animation on Section; TreeView drag-drop; OS-native file dialog.
 - Next (2026-11-01, `Work/R-05_drawers_rework.md`): the window frame through the shared style box path with a soft shadow (PaintRaw E-32 p. 3, E-39 p. 21; frame geometry agrees with the drag/resize zones of `GetAreaType`) as the first consumer of the drawer rework; a cell/row callback for `TUITable` (E-39 p. 17); a dialog request with roles in `MessageScene` (E-32 p. 6); an engine icon set (E-39 p. 20).
 
 ### [R-15] Demo Suite Restructuring

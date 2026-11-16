@@ -12,7 +12,7 @@ uses Apus.Engine.Types, Apus.Engine.Resources, Apus.Engine.API;
 
 type
  TDebugState=record
-  overlay:integer; // debug overlay index (0=none, 1=help, 2=glyphs, 3=scenes)
+  overlay:integer; // debug overlay page: 0=none, 1=help, 2=glyphs, 3=scenes, 4=UI tree, 5=render stats
   features:set of TDebugFeature;
   magnifierTex:TTexture;
  end;

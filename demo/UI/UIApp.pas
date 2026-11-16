@@ -20,13 +20,35 @@ interface
 
 implementation
  uses Apus.EventMan, Apus.Colors,
-   Apus.Engine.UI, Apus.Engine.UIMenu;
+   SysUtils, Apus.Core, Apus.Conv, Apus.Geom2D, Apus.Engine.UI, Apus.Engine.UIMenu,
+   Apus.Engine.UIColorPicker, Apus.Engine.TextFXStyle, Apus.Engine.DefaultStyle;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
    procedure InitGfx; override;
    procedure Render; override;
+   procedure ColorPreview(sender:TUIColorButton;oldColor,newColor:cardinal);
+   procedure ColorChanged(sender:TUIColorButton;oldColor,newColor:cardinal);
+   procedure ColorCancelled(sender:TUIColorButton;oldColor,newColor:cardinal);
+   procedure SaveColors;
+   procedure ToggleColorAlpha;
+  end;
+
+  // An application-owned editor, supplied through the color button's factory.
+  // It uses child keyboard focus and exact input instead of the default H/SV fields.
+  THexColorEditor=class(TUIColorEditor)
+   constructor Create(parent:TUIElement;const name:String8); override;
+   procedure SetColor(value:cardinal); override;
+   function CanAccept:boolean; override;
+   function PreferredSize:TVec2; override;
+   function InitialFocus:TUIElement; override;
+   procedure Refresh; override;
+  private
+   input:TUIEditBox;
+   recent:array[0..4] of TUIColorSwatch;
+   procedure EditChanged;
+   procedure RecentClick;
   end;
 
  var
@@ -34,6 +56,89 @@ implementation
   root:TUIElement;
   demoMenu:TUIPopupMenu;
   menuResult:TUILabel;
+  colorResult,saveResult:TUILabel;
+  colorA,colorB:TUIColorButton;
+  colorCommits,colorSaves:integer;
+
+constructor THexColorEditor.Create(parent:TUIElement;const name:String8);
+ var
+  i:integer;
+  btn:TUIButton;
+ begin
+  inherited;
+  TUILabel.Create(240,22,self,name+'\Title').Setup('Application HEX editor');
+  input:=TUIEditBox.Create(240,26,self,name+'\Hex'); input.SetPos(0,26);
+  input.maxLength:=8; input.onChange:=EditChanged;
+  for i:=0 to 4 do begin
+   recent[i]:=TUIColorSwatch.Create(42,24,self,name+'\Recent'+Conv.ToStr(i+1));
+   recent[i].SetPos(i*49,62); recent[i].onClickMethod:=RecentClick;
+  end;
+  btn:=TUIButton.Create(72,26,self,name+'\Accept').Setup('OK');
+  btn.SetPos(84,104); btn.flags.canHaveFocus:=false; btn.onClickMethod:=Accept;
+  btn:=TUIButton.Create(72,26,self,name+'\Cancel').Setup('Cancel');
+  btn.SetPos(168,104); btn.flags.canHaveFocus:=false; btn.onClickMethod:=Cancel;
+ end;
+
+procedure THexColorEditor.SetColor(value:cardinal);
+ begin
+  inherited;
+  if alphaEnabled then input.text:=Conv.ToHex(color,8)
+   else input.text:=Conv.ToHex(color and $FFFFFF,6);
+ end;
+
+function THexColorEditor.CanAccept:boolean;
+ var
+  n:int64;
+  digits:integer;
+ begin
+  if alphaEnabled then digits:=8 else digits:=6;
+  result:=(length(input.text)=digits) and TryStrToInt64('$'+string(input.text),n) and (n>=0) and (n<=High(cardinal));
+ end;
+function THexColorEditor.PreferredSize:TVec2;
+ begin result:=Vec2(240,130); end;
+function THexColorEditor.InitialFocus:TUIElement;
+ begin result:=input; end;
+procedure THexColorEditor.EditChanged;
+ var n:int64;
+ begin
+  if CanAccept and TryStrToInt64('$'+string(input.text),n) then ChooseColor(cardinal(n));
+ end;
+procedure THexColorEditor.RecentClick;
+ begin ChooseColor(TUIColorSwatch(TUIButton.Sender).color); end;
+procedure THexColorEditor.Refresh;
+ var
+  colors:TUIColorValues;
+  i:integer;
+ begin
+  if alphaEnabled then input.maxLength:=8 else input.maxLength:=6;
+  if history<>nil then colors:=history.GetColors else colors:=nil;
+  for i:=0 to 4 do begin
+   recent[i].flags.visible:=i<length(colors);
+   if i<length(colors) then recent[i].color:=colors[i];
+  end;
+ end;
+
+function CreateHexColorEditor(parent:TUIElement;const name:String8):TUIColorEditor;
+ begin result:=THexColorEditor.Create(parent,name); end;
+
+procedure TMainScene.ColorPreview(sender:TUIColorButton;oldColor,newColor:cardinal);
+ begin colorResult.caption:='Preview ARGB $'+Conv.ToHex(newColor,8); end;
+procedure TMainScene.ColorChanged(sender:TUIColorButton;oldColor,newColor:cardinal);
+ begin
+  inc(colorCommits);
+  colorResult.caption:='Commit '+Conv.ToStr(colorCommits)+' ARGB $'+Conv.ToHex(newColor,8);
+ end;
+procedure TMainScene.ColorCancelled(sender:TUIColorButton;oldColor,newColor:cardinal);
+ begin colorResult.caption:='Cancel ARGB $'+Conv.ToHex(oldColor,8); end;
+procedure TMainScene.SaveColors;
+ begin
+  inc(colorSaves);
+  saveResult.caption:='Save '+Conv.ToStr(colorSaves)+' ARGB $'+Conv.ToHex(colorA.color,8)+
+   ' $'+Conv.ToHex(colorB.color,8);
+ end;
+
+procedure TMainScene.ToggleColorAlpha;
+ begin colorA.alphaEnabled:=TUIToggleButton(TUIButton.Sender).toggled; end;
 
 procedure TMainApp.SetupApplication;
  begin
@@ -80,8 +185,90 @@ procedure InitTestLayer;
  end;
 
 procedure TestButtons;
+ var
+  panel:TUIElement;
+  check:TUICheckBox;
+  radio:TUIRadioButton;
+  button:TUIButton;
+  i,j:integer;
+  id,disabledStyle,shadowOffset:String8;
+  emboss:TUIEmbossStyle;
  begin
   InitTestLayer;
+  for i:=0 to 2 do begin
+   id:='Disabled'+Conv.ToStr(i);
+   panel:=TUIElement.Create(250,490,root,id);
+   panel.SetPos(16+i*264,16);
+   panel.shape:=TUIShape.shapeFull;
+   case i of
+    0:panel.styleInfo:='fill:$FFE0E0E0; color:$FF303030';
+    1:panel.styleInfo:='fill:$FF282C34; color:$FFE0E0E0';
+    else panel.styleInfo:='fill:$FF607C70; color:$FF183028';
+   end;
+   panel.style.SetAttr('disabled-effect','emboss'); // inherited by all controls below
+   emboss:=ResolveEmboss(panel.GetStyleColor('color'));
+   shadowOffset:=Conv.ToStr(emboss.shadowX/panel.globalScale)+' '+Conv.ToStr(emboss.shadowY/panel.globalScale);
+   TUILabel.Create(230,24,panel,id+'Title').Setup('Enabled / disabled').SetPos(10,8);
+   TUICheckBox.Create(230,26,panel,id+'EnabledOn').Setup('Enabled checked',true).SetPos(10,40);
+   TUICheckBox.Create(230,26,panel,id+'EnabledOff').Setup('Enabled unchecked').SetPos(10,70);
+   for j:=0 to 2 do begin
+    case j of
+     0:disabledStyle:=''; // derive both dimming and highlight from the inherited text color
+     1:disabledStyle:=':disabled { border-light:$FFFFFFFF; text-shadow:$FFFFFFFF '+shadowOffset+'; }';
+     else disabledStyle:=':disabled { border-light:$30FFFFFF; text-shadow:$30FFFFFF '+shadowOffset+'; }';
+    end;
+    case j of
+     0:TUILabel.Create(230,20,panel,id+'White').Setup('Automatic emboss').SetPos(10,110);
+     1:TUILabel.Create(230,20,panel,id+'Tinted').Setup('Override: opaque white').SetPos(10,200);
+     2:TUILabel.Create(230,20,panel,id+'Flat').Setup('Override: weak white').SetPos(10,290);
+    end;
+    check:=TUICheckBox.Create(230,26,panel,id+'On'+Conv.ToStr(j));
+    check.Setup('Disabled checked',true).SetPos(10,132+j*90);
+    check.styleInfo:=disabledStyle; check.Disable;
+    check:=TUICheckBox.Create(230,26,panel,id+'Off'+Conv.ToStr(j));
+    check.Setup('Disabled unchecked').SetPos(10,158+j*90);
+    check.styleInfo:=disabledStyle; check.Disable;
+   end;
+   radio:=TUIRadioButton.Create(230,26,panel,id+'Radio');
+   radio.Setup('Disabled radio',true).SetPos(10,370); radio.Disable;
+   button:=TUIButton.Create(230,30,panel,id+'Button').Setup('Disabled button');
+   button.SetPos(10,408); button.styleInfo:='fill:none; fill-shade:none; border-light:0; border-dark:0';
+   button.Disable;
+   button:=TUIButton.Create(230,30,panel,id+'TextFX').Setup('Disabled TextFX');
+   button.SetPos(10,448); button.styleInfo:='fill:none; fill-shade:none; border-light:0; border-dark:0';
+   button.drawer:=@DrawTextFXStyle; button.Disable;
+  end;
+ end;
+
+procedure TestColors;
+ var
+  custom:TUIColorButton;
+ begin
+  InitTestLayer;
+  colorCommits:=0; colorSaves:=0;
+  TUILabel.Create(640,26,root,'Colors\Help').Setup('Choose a color, then click Save or another swatch. Escape cancels.').SetPos(20,20);
+  colorA:=TUIColorButton.Create(100,36,root,'Colors\A');
+  colorA.SetPos(20,64); colorA.color:=$FF40A0D0;
+  colorA.onPreview:=sceneMain.ColorPreview; colorA.onChange:=sceneMain.ColorChanged; colorA.onCancel:=sceneMain.ColorCancelled;
+  colorB:=TUIColorButton.Create(100,36,root,'Colors\B');
+  colorB.SetPos(140,64); colorB.color:=$FFD09040;
+  colorB.alphaEnabled:=false;
+  colorB.onPreview:=sceneMain.ColorPreview; colorB.onChange:=sceneMain.ColorChanged; colorB.onCancel:=sceneMain.ColorCancelled;
+  custom:=TUIColorButton.Create(100,36,root,'Colors\Custom');
+  custom.SetPos(260,64); custom.color:=$FF406040; custom.editorFactory:=@CreateHexColorEditor;
+  custom.onPreview:=sceneMain.ColorPreview; custom.onChange:=sceneMain.ColorChanged; custom.onCancel:=sceneMain.ColorCancelled;
+  TUILabel.Create(240,22,root,'Colors\CustomLabel').Setup('Custom ARGB HEX editor').SetPos(260,104);
+  TUICheckBox.Create(230,24,root,'Colors\AlphaEnabled').Setup('Alpha for first picker',true).SetPos(20,112);
+  UIButton('Colors\AlphaEnabled').onClickMethod:=sceneMain.ToggleColorAlpha;
+  TUIButton.Create(100,32,root,'Colors\Save').Setup('Save').SetPos(400,64);
+  UIButton('Colors\Save').onClickMethod:=sceneMain.SaveColors;
+  colorResult:=TUILabel.Create(640,26,root,'Colors\Result'); colorResult.SetPos(20,150);
+  saveResult:=TUILabel.Create(640,26,root,'Colors\Saved'); saveResult.SetPos(20,182);
+  // Edge placement and a different scale use the same editor and shared MRU.
+  custom:=TUIColorButton.Create(80,30,root,'Colors\Edge');
+  custom.SetPos(root.clientWidth-90,root.clientHeight-45).SetAnchors(1,1,1,1);
+  custom.color:=$80A060C0;
+  custom.onChange:=sceneMain.ColorChanged; custom.onCancel:=sceneMain.ColorCancelled;
  end;
 
 // Commands of the popup menu on the Widgets page
@@ -281,6 +468,7 @@ procedure TMainScene.InitGfx;
   TUIButton.Create(120,30,panel,'Main\Buttons').Setup('Buttons').onClickAsync:=@TestButtons;
   TUIButton.Create(120,30,panel,'Main\Layouts').Setup('Layouts').onClickAsync:=@TestLayouts;
   TUIButton.Create(120,30,panel,'Main\HitTest').Setup('HitTest').onClickAsync:=@TestHitTest;
+  TUIButton.Create(120,30,panel,'Main\Colors').Setup('Color Picker').onClick:=@TestColors;
   TUIButton.Create(120,30,panel,'Main\Close').Setup('Exit');
   Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
 

@@ -146,7 +146,7 @@ type
   procedure Unlock; override;
   procedure Dump(filename:string8=''); override;
  protected
-  layers:array of TGLTexture; // fake texture objects used to
+  layers:array of TGLTexture; // per-layer adapters sharing this GL object
   lockedLayer:integer;
   procedure FreeData; override;
   procedure UploadInternalData; override;
@@ -183,7 +183,7 @@ type
   function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean;
 
   // Helper functions (for debugging/getting info)
-  function GetStatus(line:byte):string; // build status lines
+  function GetStatus(line:byte):string; // TODO: implement status lines; raises EError
 
   // Create a dump of video memory usage and allocation
   procedure Dump(st:string='');
@@ -203,8 +203,8 @@ type
   //CurTag:integer;
   //data:TObject;
   //texFilters:array[0..15] of TTexFilter;
-  procedure FreeVidMem; // free some amount of video memory
-  procedure FreeMetaTexSpace(n:integer); // free some space in the given metatexture
+  procedure FreeVidMem; // TODO: implement GPU memory eviction; empty stub
+  procedure FreeMetaTexSpace(n:integer); // obsolete: was meant to free space in a metatexture (removed); empty and unused - remove
   procedure AllocRenderTarget(tex:TGLTexture;flags:cardinal);
  end;
 

@@ -33,11 +33,11 @@ var
 
 type
  TSoundLib = (
-  slDefault,   // platform default selection
-  slNative,    // AndroidSoundPool / AVAudioPlayer
-  slIMixer,    // IMixerPro (ImxEx.dll, Win32-only)
-  slBass,      // BASS (bass.dll)
-  slSDL);      // SDL Mixer
+  slDefault,   // platform default selection: best compiled-in backend; none - sound stays inactive
+  slNative,    // TODO: implement AndroidSoundPool / AVAudioPlayer backend; Init raises for now
+  slIMixer,    // IMixerPro (ImxEx.dll, Win32-only), compiled only with IMX; Init raises otherwise
+  slBass,      // TODO: implement BASS (bass.dll) backend; Init raises for now
+  slSDL);      // SDL2_mixer, requires the SDLMIX define
 
  TMediaLoadingMode = (
    mlmJustOpen,     // open file but don't load its content

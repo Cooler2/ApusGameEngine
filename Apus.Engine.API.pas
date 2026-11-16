@@ -231,7 +231,7 @@ type
  // Blending mode (operation applied to the background)
  TBlendingMode=(blNone,   // background not modified
                 blAlpha,  // regular alpha blending
-                blAdd,    // additive mode ("Screen"
+                blAdd,    // additive mode ("Screen")
                 blSub,    // subtractive mode
                 blModulate,   // "Multiply" mode
                 blModulate2X,  // "Multiply" mode with 2x factor

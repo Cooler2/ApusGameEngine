@@ -65,7 +65,7 @@ type
  // TGameScene — a visual layer bound to a window.
  //
  // Lifecycle:
- //   Create(window)  — any thread. Set up all state not requiring a render context.
+ //   Create(name, fullscreen, wnd) — any thread. Set up all state not requiring a render context.
  //   Load            — called automatically, not from the render thread.
  //                      Load heavy resources here (textures, data).
  //   InitGfx         — render thread, once, automatic. Allocate render targets, shaders, etc.

@@ -335,6 +335,7 @@ begin
         IsInheritedStyleKey('font-size') and IsInheritedStyleKey('text-align'),'typography/content keys inherit');
   Check(not (IsInheritedStyleKey('fill') or IsInheritedStyleKey('border-color') or
         IsInheritedStyleKey('radius') or IsInheritedStyleKey('tint')),'box chrome does not inherit');
+  Check(IsInheritedStyleKey('disabled-effect'),'disabled appearance inherits from containers');
   Check(IsInheritedStyleKey('Color'),'key match is case-insensitive');
   Check(not IsInheritedStyleKey('col'),'partial key does not match');
   EndTest;

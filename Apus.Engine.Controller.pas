@@ -15,6 +15,8 @@ type
                       gcGamepad,
                       gcWheel);
 
+ // Raw axis slots plus semantic stick names. TODO: backends must fill atLeftX..atRightY;
+ // currently only atAxis0..atAxis7 are written, so the named axes read 0.
  TConAxisType=(atAxis0,
             atAxis1,
             atAxis2,

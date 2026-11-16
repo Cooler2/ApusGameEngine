@@ -37,7 +37,7 @@ type
  // Stores uniform locations and per-program state caches.
  TGLShader=class(TShader)
   handle:TGLShaderHandle;
-  texMode:cardinal; // low part of TTexMode
+  texMode:cardinal; // the whole encoded mode word (TTexMode.mode)
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normal matrix = inverse-transpose of model 3x3, for transforming normals (named "NormalMatrix")

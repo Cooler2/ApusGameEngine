@@ -8,24 +8,46 @@ unit Apus.Engine.DefaultStyle;
 interface
 uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UITypes;
  type
+  // Outer-shadow description stored in TStyleBox.shadow and drawn by DrawStyleBox
+  // when its Shadow layer is selected. ResolveStyleBox fills it from 'box-shadow';
+  // a custom drawer may adjust it on the resolved box before drawing. Distances
+  // are already in screen pixels.
   TBoxShadow=record
    color:cardinal;           // 0 - none
    dx,dy,blur,spread:single; // pixels
   end;
+  // Rendering stage selected through DrawStyleBox's layers argument: Shadow is
+  // the outer box shadow, Background includes fills/shading/images, and Border is
+  // the outline. Select stages to compose a styled box with custom content.
   {$SCOPEDENUMS ON}
   TStyleBoxLayer=(Shadow,Background,Border);
   {$SCOPEDENUMS OFF}
+  // Layer mask accepted by DrawStyleBox, e.g. [TStyleBoxLayer.Shadow]. Draw the
+  // shadow/background first, add custom content, then draw the border above it.
+  // Omitting the layers argument draws all stages in one call.
   TStyleBoxLayers=set of TStyleBoxLayer;
+
+  // One background-image layer in TStyleBox.images[0..imageCount-1]. ResolveStyleBox
+  // supplies the base image and any state cross-fades; DrawStyleBox consumes them
+  // in its Background layer. Custom drawers may inspect or replace these entries.
+  // The record borrows tex: copying it does not acquire ownership, and textures
+  // supplied by the resolver must not be freed through this record.
   TBoxImage=record
    tex:TTexture;
    tint:cardinal;
    weight:single; // cross-fade weight (alpha multiplier)
   end;
 
-  // The box of an element as it is drawn now: the style values blended toward the states.
-  // Pixels: lengths are already multiplied by the element scale
+  // Per-draw box description returned by either ResolveStyleBox overload for a
+  // custom element or named-part drawer. Resolve after updating element geometry
+  // and visual state, optionally adjust this value, then pass it to DrawStyleBox.
+  // ContentRect gives content bounds that reserve the widest border across states;
+  // use DrawElementBox when resolving, drawing and obtaining those bounds is enough.
+  // Colors/fills reflect current state weights; geometry is already in screen
+  // pixels. Texture references are borrowed and must stay valid through drawing.
+  // Re-resolve when the element's style, state, geometry or UI scale changes.
   TStyleBox=record
-   rect:TRect;              // the box, screen pixels (pixel-inclusive edges as globalRect)
+   rect:TRect;              // screen bounds; Right and Bottom are exclusive
    scale:single;            // globalScale of the element
    radii:TCornerRadii;
    borderWidth:single;
@@ -60,7 +82,23 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
  function DrawElementBox(element:TUIElement):TRect;
 
  type
-  // Resolved text parameters. Extensions never share the private style context.
+  // Result of ResolveEmboss, exposed so custom UI drawers can share the default
+  // disabled appearance of captions, checkbox marks and other content.
+  // A transient value describing the fully disabled appearance: draw the offset
+  // highlight first, then the main content. The caller handles state transitions
+  // and explicit style overrides. Highlight offsets are screen pixels.
+  TUIEmbossStyle=record
+   color,shadowColor:cardinal;
+   shadowX,shadowY:single;
+   dimRGB:boolean; // light content keeps its coverage when darkened
+  end;
+
+  // Per-draw caption description returned by ResolveUITextStyle so custom drawers
+  // can reuse the default typography, text effects and state transitions. Resolve
+  // after updating the element's visual state, optionally adjust font/color/align,
+  // then pass this value and a screen-space text anchor/baseline to WriteUIText.
+  // Offsets are already in screen pixels; the font handle is borrowed. Re-resolve
+  // when style, state or UI scale changes.
   TUITextStyle=record
    font:TFontHandle;
    color:cardinal;
@@ -70,13 +108,26 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
    shadowX,shadowY:single;
    ofsX,ofsY:single; // screen pixels
    hover,pressed,disabled:single; // transition progress
+   disabledEmboss:boolean;
+   emboss:TUIEmbossStyle; // derived from content color before disabled dimming
   end;
+
+ // Compute fully disabled emboss parameters from the original content color.
+ // surfaceColor is an optional known opaque solid background (0 = unknown).
+ // Use ResolveUITextStyle when element styles and state transitions are also needed.
+ function ResolveEmboss(baseColor:cardinal;surfaceColor:cardinal=0):TUIEmbossStyle;
 
  // Retain the standard skin/focus/transitions while optionally replacing caption.
  procedure DrawDefaultUI(element:TUIElement;drawButtonCaption:boolean=true);
+ // Build TUITextStyle for a custom caption drawer from the element's current
+ // styles/state weights and the caller's defaults. UpdateVisualState first
+ // (the normal DrawUIElement path does this before calling the drawer).
  function ResolveUITextStyle(element:TUIElement;defColor:cardinal;
    defAlign:TTextAlignment=taLeft;defOptions:cardinal=0;
    defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TUITextStyle;
+ // Draw a resolved TUITextStyle, including its offsets and shadow. x is the
+ // alignment anchor and y the baseline in screen pixels; targetWidth controls
+ // text layout, for example justification. The caller supplies any clipping.
  procedure WriteUIText(const style:TUITextStyle;x,y:single;const text:String8;targetWidth:integer=0);
 
  var
@@ -164,6 +215,73 @@ implementation
   end;}
 
 
+ // Light content must cover the bright copy underneath instead of letting it shine
+ // through the body of each stroke. Dark content keeps the accepted fading behavior.
+ function DimEmbossColor(baseColor:cardinal;lightContent:boolean):cardinal;
+  const DIM_FACTOR:single=0.45;
+  begin
+   if lightContent then result:=Color.ScaleRGB(baseColor,DIM_FACTOR)
+    else result:=Color.Scale(baseColor,DIM_FACTOR);
+  end;
+
+ function ResolveEmboss(baseColor:cardinal;surfaceColor:cardinal):TUIEmbossStyle;
+  var brightness,strength,alpha:single;
+  function SmoothStrength(value,lowValue,highValue:single):single;
+   begin
+    result:=Clamp((value-lowValue)/(highValue-lowValue),0,1);
+    result:=result*result*(3-2*result);
+   end;
+  begin
+   brightness:=Color.Lightness(baseColor)/255;
+   alpha:=0.18+0.17*SmoothStrength(brightness,0.25,0.75);
+   // On a light surface the white rim needs more contrast, even for dark text.
+   if surfaceColor shr 24=$FF then begin
+    strength:=SmoothStrength(Color.Lightness(surfaceColor)/255,0.65,0.85);
+    alpha:=Lerp(alpha,0.95,strength);
+   end;
+   result.dimRGB:=brightness>=0.5;
+   result.color:=DimEmbossColor(baseColor,result.dimRGB);
+   if result.dimRGB then
+    // Keep the rim visibly lighter than the gray strokes without a near-white highlight.
+    result.shadowColor:=Color.Brighten(result.color,48)
+   else
+    result.shadowColor:=Color.Scale($FFFFFFFF,alpha*(baseColor shr 24)/255);
+   result.shadowX:=1; result.shadowY:=1;
+  end;
+
+ // Resolve only a known solid surface. Images, gradients, shades and translucent
+ // layers keep the content-color fallback rather than guessing their displayed color.
+ function EmbossSurfaceColor(element:TUIElement):cardinal;
+  var
+   fill,shade:TBlendedFill;
+   image:String8;
+   plainButton:boolean;
+  begin
+   result:=0;
+   while element<>nil do begin
+    image:=element.GetStyleValue('background-image');
+    if (image<>'') and not SameText(image,'none') then exit;
+    plainButton:=(element is TUIButton) and not (element is TUICheckBox) and
+      not (element is TUIComboBox) and not (element is TUIMenuItem);
+    // The procedural button skin includes a default fill and gradient shade.
+    if plainButton and ((element.GetStyleValue('fill')='') or
+      (element.GetStyleValue('fill-shade')='')) then exit;
+    shade:=element.GetBlendedStyleFill('fill-shade',TFill.None);
+    if not shade.IsEmpty then exit;
+    fill:=element.GetBlendedStyleFill('fill',TFill.None);
+    if not fill.IsSingle then exit;
+    case fill.fill.kind of
+     fkNone:;
+     fkSolid:begin
+      if fill.fill.stops[0].color shr 24=$FF then exit(fill.fill.stops[0].color);
+      if fill.fill.stops[0].color shr 24<>0 then exit;
+     end;
+     else exit;
+    end;
+    element:=element.parent;
+   end;
+  end;
+
  type
   // Content (text) style of an element, resolved for its current state.
   // Offsets are screen pixels (logical style units multiplied by globalScale).
@@ -179,6 +297,7 @@ implementation
     defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TTextStyle;
   var
    scale,cv:single;
+   surfaceColor:cardinal;
    st:String8;
    parts:Strings8;
    i,n:integer;
@@ -212,6 +331,21 @@ implementation
    BlendColor('hover',result.hover,defHoverColor);
    BlendColor('checked',cv,0);
    BlendColor('pressed',result.pressed,0);
+   st:=element.GetStyleValue('disabled-effect');
+   if (st='') and (element is TUIButton) then st:='emboss';
+   result.disabledEmboss:=SameText(st,'emboss');
+   surfaceColor:=0;
+   if result.disabledEmboss and (result.disabled>0) then surfaceColor:=EmbossSurfaceColor(element);
+   result.emboss:=ResolveEmboss(result.color,surfaceColor);
+   if result.disabledEmboss then begin
+    defDisabledColor:=result.emboss.color;
+    if result.disabled>0 then begin
+     result.options:=result.options and not toWithShadow;
+     result.shadowColor:=Color.Scale(result.emboss.shadowColor,result.disabled);
+     result.shadowX:=result.emboss.shadowX;
+     result.shadowY:=result.emboss.shadowY;
+    end;
+   end;
    BlendColor('disabled',result.disabled,defDisabledColor);
    BlendOffset('hover',result.hover,0);
    BlendOffset('checked',cv,defPressOfsY);
@@ -233,6 +367,7 @@ implementation
    st:=element.GetStyleValue('text-shadow');
    if st<>'' then begin
     result.options:=result.options and not toWithShadow;
+    result.shadowColor:=0; // explicit 'none' also suppresses automatic emboss
     if not SameText(st,'none') then begin
      parts:=st.Split(' ');
      n:=0;
@@ -249,8 +384,12 @@ implementation
    end;
    result.ofsX:=result.ofsX*scale;
    result.ofsY:=result.ofsY*scale;
-   result.shadowX:=result.shadowX*scale;
-   result.shadowY:=result.shadowY*scale;
+   // Automatic emboss is a one-screen-pixel relief at every DPI. Explicit text-shadow
+   // offsets retain their documented logical units.
+   if (st<>'') or not result.disabledEmboss then begin
+    result.shadowX:=result.shadowX*scale;
+    result.shadowY:=result.shadowY*scale;
+   end;
   end;
 
  // Anchor point matching ts.align inside a horizontal span (x2 = inclusive right edge)
@@ -519,19 +658,36 @@ implementation
     '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
-   col,vColor:cardinal;
+   col,vColor,baseCol,baseTick,lightColor:cardinal;
    font:TFontHandle;
-   d,y,yy,fontH,size:integer;
-   v,ss,tt,alpha:single;
+   d,y,yy,fontH,size,captionLeft:integer;
+   v,ss,tt,alpha,lightX,lightY:single;
    context:TContext;
    ts:TTextStyle;
    inTransition:boolean;
   begin
    context:=element.styleContext as TContext;
 
-   col:=element.GetStyleColor('border-color',$FF808080); // box outline
-   ts:=ResolveTextStyle(element,context,col); // caption is always left-aligned after the box
+   baseCol:=element.GetBaseStyleColor('border-color',$FF808080);
+   ts:=ResolveTextStyle(element,context,baseCol);
    ts.align:=taLeft;
+   // Explicit disabled colors take precedence over automatic emboss dimming.
+   col:=element.GetBlendedStyleColor('border-color',baseCol);
+   if ts.disabledEmboss and (element.GetStateStyleValue('disabled','border-color')='') then
+    col:=Color.Mix(col,DimEmbossColor(col,ts.emboss.dimRGB),ts.disabled);
+   if element.classType=TUICheckBox then baseTick:=Color.Add(baseCol,$808080)
+    else baseTick:=baseCol;
+   baseTick:=element.GetBlendedStyleColor('tick-color',baseTick);
+   if ts.disabledEmboss and (element.GetStateStyleValue('disabled','tick-color')='') then
+    baseTick:=Color.Mix(baseTick,DimEmbossColor(baseTick,ts.emboss.dimRGB),ts.disabled);
+   // The indicator shares the caption's derived highlight, unless explicitly overridden.
+   lightColor:=0;
+   if ts.disabled>0 then begin
+    if ts.disabledEmboss then lightColor:=ts.emboss.shadowColor;
+    lightColor:=Color.Scale(element.GetStyleColor('border-light',lightColor),ts.disabled);
+   end;
+   lightX:=ts.emboss.shadowX;
+   lightY:=ts.emboss.shadowY;
    font:=ts.font;
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
@@ -541,7 +697,9 @@ implementation
    //
    inTransition:=(element.visualState<>nil) and element.visualState.Animating(TElementState.Checked);
    if element.classType=TUICheckBox then begin
-    vColor:=element.GetStyleColor('tick-color',Color.Add(col,$808080));
+    vColor:=baseTick;
+    if lightColor shr 24<>0 then
+     draw.RoundRect(x1+lightX,y-size+d+lightY,x1+size+lightX,y+d+lightY,size*0.24,element.globalScale,lightColor,0);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,col,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
@@ -557,11 +715,15 @@ implementation
        alpha:=tt;
       end;
      end;
+     if lightColor shr 24<>0 then
+      draw.Centered(x1+size*0.65+lightX,y-size*0.4+lightY,ss*size/tickImage.height,tickImage,Color.Scale(lightColor,alpha));
      draw.Centered(x1+size*0.65,y-size*0.4,ss*size/tickImage.height,tickImage,Color.Scale(vColor,alpha));
     end;
    end;
    if element.ClassType=TUIRadioButton then begin
     yy:=y-size+d;
+    if lightColor shr 24<>0 then
+     draw.RoundRect(x1+lightX,yy+lightY,x1+size+lightX,yy+size+lightY,size*0.5+1,element.globalScale,lightColor,0);
     draw.RoundRect(x1,yy,x1+size,yy+size,size*0.5+1,element.globalScale,col,0);
     if element.checked or inTransition then begin
      alpha:=1;
@@ -578,13 +740,19 @@ implementation
        v:=size*(0.24+tt*0.2);
       end;
      end;
-     vColor:=Color.Scale(element.GetStyleColor('tick-color',col),alpha);
+     vColor:=Color.Scale(baseTick,alpha);
+     if lightColor shr 24<>0 then
+      draw.RoundRect(x1+v+lightX,yy+v+lightY,x1+size-v+lightX,yy+size-v+lightY,size*0.5+1-v,1,
+       Color.Scale(lightColor,alpha),Color.Scale(lightColor,alpha));
      draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,vColor,vColor);
     end;
    end;
    // Caption
    inc(x1,round(size*1.5));
-   gfx.clip.Rect(Rect(x1,y1,x2,y2));
+   // The gap before the caption also reserves room for an upper-left highlight.
+   captionLeft:=x1;
+   if (ts.shadowColor shr 24<>0) and (ts.shadowX<0) then inc(captionLeft,round(ts.shadowX));
+   gfx.clip.Rect(Rect(captionLeft,y1,x2,y2));
    WriteStyled(ts,x1,y,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
@@ -634,12 +802,10 @@ implementation
       if drawCaption and (caption<>'') and
          not SameText(control.GetStyleValue('caption-display'),'none') then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000,$80000000);
+       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000);
        localRect:=GetRect;
        localRect.MoveBy(-scroll.X,-scroll.Y);
        captionRect:=TransformToScreen(localRect).Rounded;
-       // fully disabled: engraved look (light shadow under the dimmed caption)
-       if (dv>=1) and (ts.shadowColor=0) then ts.shadowColor:=$E0FFFFFF;
        mY:=round((captionRect.Top+captionRect.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
        wSt:=Str32(caption);
        WriteStyled(ts,AlignAnchor(ts,captionRect.Left,captionRect.Right-1),mY,wst);
@@ -899,15 +1065,28 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst,rest:String32;
-   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,targetX,midX,txtLen:integer;
+   i,j,mY,d,curX,scrollPixels,xStart,selX1,selX2,txtLen,anchor,caret,side,visW:integer;
    capH,caretW,caretTop,caretBottom:integer;
    font:TFontHandle;
    col:cardinal;
+   step:single;
    pos,cpos:SingleArray;
   // caret before character i, from the text start (the ink start of the first glyph)
   function CaretX(i:integer):integer;
    begin
     result:=Max(0,round(pos[i]));
+   end;
+  // caret nearest to the mouse x, from the box left (TUIEditBox.needPos)
+  function CaretAt(x:integer):integer;
+   var
+    targetX:integer;
+   begin
+    targetX:=x-3+round(control.scroll.X);
+    result:=0;
+    while result<txtLen do begin
+     if targetX<(CaretX(result)+CaretX(result+1)) div 2 then break;
+     inc(result);
+    end;
    end;
   begin
    font:=control.StyleFont;
@@ -933,20 +1112,30 @@ implementation
     // the selection bounds
     txt.PenPositions(font,wst,pos);
 
-    if needpos>=0 then begin
-     targetX:=needPos-3+round(scroll.X);
-     cursorpos:=0;
-     while cursorpos<txtLen do begin
-      midX:=(CaretX(cursorpos)+CaretX(cursorpos+1)) div 2;
-      if targetX<midX then break;
-      inc(cursorpos);
-     end;
-     needpos:=-1;
+    d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible
+    visW:=x2-x1-d-offset; // the caret is visible up to this x from the scroll
+    // A mouse selection beyond a side scrolls the text (up to the scroll of the caret at the
+    // end) and moves the caret to the last visible boundary of that side
+    step:=DragScroll(side);
+    if side<>0 then scroll.X:=Clamp(scroll.X+step,0,Max(0,CaretX(txtLen)-visW));
+    if (needPos>=0) or (needAnchor>=0) or (side<>0) then begin
+     anchor:=-1; caret:=-1;
+     if needAnchor>=0 then anchor:=CaretAt(needAnchor);
+     if side<0 then begin
+      caret:=0;
+      while (caret<txtLen) and (CaretX(caret)<scroll.X) do inc(caret);
+     end else
+     if side>0 then begin
+      caret:=txtLen;
+      while (caret>0) and (CaretX(caret)-scroll.X>visW) do dec(caret);
+     end else
+      if needPos>=0 then caret:=CaretAt(needPos);
+     needPos:=-1; needAnchor:=-1;
+     MouseCaretPlaced(anchor,caret);
     end;
     i:=CaretX(cursorpos); // caret x in text-local coordinates
-    d:=round((y2-y1)*0.15)+8; // left text margin + right padding to keep cursor visible
     if i-scroll.X<0 then scroll.X:=i;
-    if i-scroll.X>(x2-x1-d-offset) then scroll.X:=i-(x2-x1-d-offset);
+    if i-scroll.X>visW then scroll.X:=i-visW;
     scrollPixels:=round(scroll.X); // scroll.X is already in screen pixels
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if HasCompletion then begin
@@ -1842,7 +2031,7 @@ initialization
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
    'color:&text; box-shadow:&shadow 2 3 4');
  TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
-   ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
+   ':hover { fill:&accent; color:&accent-text; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
  TUITable.SetDefault('styleInfo','fill:&surface; border-color:&border-dark; border-width:1; '+
    'color:&text; header-fill:&surface-alt; header-hover-fill:&overlay; line-color:&border-dark; '+

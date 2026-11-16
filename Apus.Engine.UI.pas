@@ -78,8 +78,9 @@ type
 
   procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
 
-  // Find elements by name. If an element is not found, then...
-  // mustExists=true - exception, false - it is created (and a message is written to the log)
+  // Find elements by name. UIElement: autoCreate=false - nil if not found, true - create it
+  // under the auto-created root. The typed finders below create the element when it is
+  // missing or has another class; mustExist - raise EWarning instead.
   function UIElement(name:string8;autoCreate:boolean=false):TUIElement;
   function UIButton(name:string8;mustExist:boolean=false):TUIButton;
   function UIEditBox(name:string8;mustExist:boolean=false):TUIEditBox;

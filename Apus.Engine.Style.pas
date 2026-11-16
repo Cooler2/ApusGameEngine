@@ -32,7 +32,8 @@
 //                        have a light-to-dark shade by default; 'none' removes it)
 //   border-color         border <fill>; border-width;
 //   radius               '<r>' or '<tl> <tr> <br> <bl>' (2 or 3 values as in CSS)
-//   border-light         bevel highlight (button); border-dark  bevel shadow (button, frame)
+//   border-light         bevel highlight (button), disabled checkbox/radio highlight
+//   border-dark          bevel shadow (button, frame)
 //   inner-fill, inner-border-color, inner-radius, inner-border-width  (client-area block)
 //   background-image     file:<name> | tex:<name> | none; drawn by the box path between fill and
 //                        border; state blocks cross-fade images (':hover { background-image }')
@@ -46,6 +47,10 @@
 //   text-align [inh]     left | center | right | justify
 //   text-shadow [inh]    '<color> [dx dy]' | none — a second text layer under the first
 //                        (dx,dy in logical units, 1 1 by default); replaces toWithShadow
+//   disabled-effect [inh]  emboss | none; buttons/checkboxes default to emboss, others to none
+//                        dims content and derives a highlight from its color and a known solid
+//                        surface; the highlight offset is 1 1 screen pixels at every UI scale;
+//                        explicit disabled colors, text-shadow and border-light take priority
 //   text-decoration [inh]  underline | none
 //   caption-display      none disables the button's own caption (text remains available)
 //   content-press-offset button caption/children shift down while pressed, logical units (default 1)
@@ -314,7 +319,7 @@ var
 
 const
  // ';'-delimited for a cheap substring test; keys are lowercase (ParseKV normalizes)
- INHERITED_KEYS=';font;font-size;color;text-align;text-shadow;text-decoration;';
+ INHERITED_KEYS=';font;font-size;color;text-align;text-shadow;text-decoration;disabled-effect;';
 
 function IsInheritedStyleKey(const key:String8):boolean;
  begin

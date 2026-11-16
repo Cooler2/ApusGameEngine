@@ -11,7 +11,8 @@ interface
 
  // Render an UI element and all its descendants (skip elements with manualDraw=true)
  procedure DrawUI(item:TUIElement);
- // Draw just this element (and it descedants with manualDraw=true)
+ // Draw the elements of this subtree that have manualDraw=true
+ // (recursive=false: this element only)
  procedure DrawManualUI(item:TUIElement;recursive:boolean=false);
  // Render single UI element
  procedure DrawUIElement(item:TUIElement;styleOverride:integer=-1);
@@ -19,12 +20,11 @@ interface
  procedure BackgroundRenderBegin;
  procedure BackgroundRenderEnd;
 
+ // fill the whole window canvas with color (a global veil, not an actual shadow)
  procedure DrawGlobalShadow(color:cardinal);
 
- // Set custom style drawer (style=1..50)
- // 0..9 - reserved for engine styles
- // 10..19 - for private game styles
- // 20..50 - 3-rd party libraries
+ // Register a custom style drawer (0..50). 0 is the default style and is already taken;
+ // 1..9 are engine styles, 10..19 private game styles, 20..50 third-party libraries.
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string8='');
 
  // Get registered style drawer by ID (for backward-compat numeric style APIs)

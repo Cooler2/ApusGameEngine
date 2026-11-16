@@ -366,6 +366,7 @@ public
   moveKind:TMoveKind; // set by the UI dispatcher before each gameplay onMouseMove call
   mouseOverUI:boolean; // true while the cursor sits over a consuming UI element (prev-frame state)
   mouseButtons:byte; // buttons held now (bit 0=left, 1=right, 2=middle), set by the button events
+  uiConsumedButtons:byte; // UI-owned gestures: swallow their scene press and release, even after popup closes
   // Virtual pointer input of this window (see TVirtualInput). Never nil; owned by the
   // window (holders elsewhere AddRef it). While it is active the physical pointer and
   // buttons are ignored in this window.
