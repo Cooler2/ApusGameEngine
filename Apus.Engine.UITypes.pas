@@ -224,6 +224,8 @@ type
 
   // --- Tree: modification ---
   procedure AttachTo(newParent:TUIElement;pos:integer=-1); // attach at position (or end if pos<0)
+  // Take the element out of its parent. The default (shouldAddToRootControls=true) raises
+  // EWarning: detached roots are not supported; pass false, then AttachTo another element.
   procedure Detach(shouldAddToRootControls:boolean=true);
   procedure InsertAfter(element:TUIElement);
   procedure InsertBefore(element:TUIElement);
@@ -278,7 +280,7 @@ type
   function onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
   // A popup may consume complete mouse gestures before raw scene callbacks. Default: false.
   function ConsumesSceneButtons:boolean; virtual;
-  procedure onChar(ch:char;scancode:byte); virtual;
+  procedure onChar(ch:char;scancode:byte); virtual; // legacy, not called: use onUniChar
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
   procedure onTimer; virtual;

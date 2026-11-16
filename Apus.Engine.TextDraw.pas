@@ -46,7 +46,7 @@ interface
 
     txtBuf:array of TVertex;
     txtInd:array of word;
-    txtVertCount:integer; // number of vertices stored in textBuf
+    txtVertCount:integer; // number of vertices stored in txtBuf, 4 per glyph
     textVB:TVertexBuffer;
     textIB:TIndexBuffer;
 

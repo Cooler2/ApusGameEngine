@@ -76,7 +76,7 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
   procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); overload;
   procedure Scaled(x,y,scale:single;image:TTexture;color:cardinal=$FF808080); overload;
-  procedure RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);  // x,y - �����
+  procedure RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);  // x0,y0 - rotation point; pivotX/pivotY - pivot point inside the image (0..1); angle in radians
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 

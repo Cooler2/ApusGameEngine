@@ -1,4 +1,4 @@
-﻿// Standard scene for visual editing of published variables (using MyServis unit)
+﻿// Standard scene for visual editing of published variables (Apus.Publics)
 // Press Ctrl+[~] to show/hide
 //
 // Copyright (C) 2013-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)

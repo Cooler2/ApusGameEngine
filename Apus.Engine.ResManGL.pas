@@ -146,7 +146,7 @@ type
   procedure Unlock; override;
   procedure Dump(filename:string8=''); override;
  protected
-  layers:array of TGLTexture; // fake texture objects used to
+  layers:array of TGLTexture; // per-layer adapters sharing this GL object
   lockedLayer:integer;
   procedure FreeData; override;
   procedure UploadInternalData; override;
@@ -204,7 +204,7 @@ type
   //data:TObject;
   //texFilters:array[0..15] of TTexFilter;
   procedure FreeVidMem; // free some amount of video memory
-  procedure FreeMetaTexSpace(n:integer); // free some space in the given metatexture
+  procedure FreeMetaTexSpace(n:integer); // reserved hook: free GPU memory (n - requested amount, currently unused)
   procedure AllocRenderTarget(tex:TGLTexture;flags:cardinal);
  end;
 

@@ -35,9 +35,9 @@ type
   width,height:integer;
   data:array of word;
   constructor Create(w,h:integer);
-  constructor CreateFrom(img:TRawImage; trColor,trMask:integer);
+  constructor CreateFrom(img:TRawImage; trColor,trMask:integer); // not implemented: asserts
   procedure Invert;
-  function IsOpaque(x,y:single):boolean; override;
+  function IsOpaque(x,y:single):boolean; override; // always false in this build
  end;
 
 var

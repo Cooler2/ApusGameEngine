@@ -1,4 +1,5 @@
-// Nine Patch library - compatible with Android 9-patches, but supports extended features such as overlapping
+// Nine Patch library - compatible with Android 9-patches, plus overlapping (non-scaling)
+// and tiled ranges
 //
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
