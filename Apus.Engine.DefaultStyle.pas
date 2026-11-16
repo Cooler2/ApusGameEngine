@@ -60,6 +60,13 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
  function DrawElementBox(element:TUIElement):TRect;
 
  type
+  // Automatic disabled content appearance. Highlight offsets are screen pixels.
+  TUIEmbossStyle=record
+   color,shadowColor:cardinal;
+   shadowX,shadowY:single;
+   dimRGB:boolean; // light content keeps its coverage when darkened
+  end;
+
   // Resolved text parameters. Extensions never share the private style context.
   TUITextStyle=record
    font:TFontHandle;
@@ -70,7 +77,14 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
    shadowX,shadowY:single;
    ofsX,ofsY:single; // screen pixels
    hover,pressed,disabled:single; // transition progress
+   disabledEmboss:boolean;
+   emboss:TUIEmbossStyle; // derived from content color before disabled dimming
   end;
+
+ // Light content dims RGB without losing coverage; dark content fades toward its surface.
+ // A known opaque surface strengthens the highlight on light fills.
+ // Surface color 0 means unknown; the highlight is lower-right in every theme.
+ function ResolveEmboss(baseColor:cardinal;surfaceColor:cardinal=0):TUIEmbossStyle;
 
  // Retain the standard skin/focus/transitions while optionally replacing caption.
  procedure DrawDefaultUI(element:TUIElement;drawButtonCaption:boolean=true);
@@ -164,6 +178,73 @@ implementation
   end;}
 
 
+ // Light content must cover the bright copy underneath instead of letting it shine
+ // through the body of each stroke. Dark content keeps the accepted fading behavior.
+ function DimEmbossColor(baseColor:cardinal;lightContent:boolean):cardinal;
+  const DIM_FACTOR:single=0.45;
+  begin
+   if lightContent then result:=Color.ScaleRGB(baseColor,DIM_FACTOR)
+    else result:=Color.Scale(baseColor,DIM_FACTOR);
+  end;
+
+ function ResolveEmboss(baseColor:cardinal;surfaceColor:cardinal):TUIEmbossStyle;
+  var brightness,strength,alpha:single;
+  function SmoothStrength(value,lowValue,highValue:single):single;
+   begin
+    result:=Clamp((value-lowValue)/(highValue-lowValue),0,1);
+    result:=result*result*(3-2*result);
+   end;
+  begin
+   brightness:=Color.Lightness(baseColor)/255;
+   alpha:=0.18+0.17*SmoothStrength(brightness,0.25,0.75);
+   // On a light surface the white rim needs more contrast, even for dark text.
+   if surfaceColor shr 24=$FF then begin
+    strength:=SmoothStrength(Color.Lightness(surfaceColor)/255,0.65,0.85);
+    alpha:=Lerp(alpha,0.95,strength);
+   end;
+   result.dimRGB:=brightness>=0.5;
+   result.color:=DimEmbossColor(baseColor,result.dimRGB);
+   if result.dimRGB then
+    // Keep the rim visibly lighter than the gray strokes without a near-white highlight.
+    result.shadowColor:=Color.Brighten(result.color,48)
+   else
+    result.shadowColor:=Color.Scale($FFFFFFFF,alpha*(baseColor shr 24)/255);
+   result.shadowX:=1; result.shadowY:=1;
+  end;
+
+ // Resolve only a known solid surface. Images, gradients, shades and translucent
+ // layers keep the content-color fallback rather than guessing their displayed color.
+ function EmbossSurfaceColor(element:TUIElement):cardinal;
+  var
+   fill,shade:TBlendedFill;
+   image:String8;
+   plainButton:boolean;
+  begin
+   result:=0;
+   while element<>nil do begin
+    image:=element.GetStyleValue('background-image');
+    if (image<>'') and not SameText(image,'none') then exit;
+    plainButton:=(element is TUIButton) and not (element is TUICheckBox) and
+      not (element is TUIComboBox) and not (element is TUIMenuItem);
+    // The procedural button skin includes a default fill and gradient shade.
+    if plainButton and ((element.GetStyleValue('fill')='') or
+      (element.GetStyleValue('fill-shade')='')) then exit;
+    shade:=element.GetBlendedStyleFill('fill-shade',TFill.None);
+    if not shade.IsEmpty then exit;
+    fill:=element.GetBlendedStyleFill('fill',TFill.None);
+    if not fill.IsSingle then exit;
+    case fill.fill.kind of
+     fkNone:;
+     fkSolid:begin
+      if fill.fill.stops[0].color shr 24=$FF then exit(fill.fill.stops[0].color);
+      if fill.fill.stops[0].color shr 24<>0 then exit;
+     end;
+     else exit;
+    end;
+    element:=element.parent;
+   end;
+  end;
+
  type
   // Content (text) style of an element, resolved for its current state.
   // Offsets are screen pixels (logical style units multiplied by globalScale).
@@ -179,6 +260,7 @@ implementation
     defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TTextStyle;
   var
    scale,cv:single;
+   surfaceColor:cardinal;
    st:String8;
    parts:Strings8;
    i,n:integer;
@@ -212,6 +294,21 @@ implementation
    BlendColor('hover',result.hover,defHoverColor);
    BlendColor('checked',cv,0);
    BlendColor('pressed',result.pressed,0);
+   st:=element.GetStyleValue('disabled-effect');
+   if (st='') and (element is TUIButton) then st:='emboss';
+   result.disabledEmboss:=SameText(st,'emboss');
+   surfaceColor:=0;
+   if result.disabledEmboss and (result.disabled>0) then surfaceColor:=EmbossSurfaceColor(element);
+   result.emboss:=ResolveEmboss(result.color,surfaceColor);
+   if result.disabledEmboss then begin
+    defDisabledColor:=result.emboss.color;
+    if result.disabled>0 then begin
+     result.options:=result.options and not toWithShadow;
+     result.shadowColor:=Color.Scale(result.emboss.shadowColor,result.disabled);
+     result.shadowX:=result.emboss.shadowX;
+     result.shadowY:=result.emboss.shadowY;
+    end;
+   end;
    BlendColor('disabled',result.disabled,defDisabledColor);
    BlendOffset('hover',result.hover,0);
    BlendOffset('checked',cv,defPressOfsY);
@@ -233,6 +330,7 @@ implementation
    st:=element.GetStyleValue('text-shadow');
    if st<>'' then begin
     result.options:=result.options and not toWithShadow;
+    result.shadowColor:=0; // explicit 'none' also suppresses automatic emboss
     if not SameText(st,'none') then begin
      parts:=st.Split(' ');
      n:=0;
@@ -249,8 +347,12 @@ implementation
    end;
    result.ofsX:=result.ofsX*scale;
    result.ofsY:=result.ofsY*scale;
-   result.shadowX:=result.shadowX*scale;
-   result.shadowY:=result.shadowY*scale;
+   // Automatic emboss is a one-screen-pixel relief at every DPI. Explicit text-shadow
+   // offsets retain their documented logical units.
+   if (st<>'') or not result.disabledEmboss then begin
+    result.shadowX:=result.shadowX*scale;
+    result.shadowY:=result.shadowY*scale;
+   end;
   end;
 
  // Anchor point matching ts.align inside a horizontal span (x2 = inclusive right edge)
@@ -519,19 +621,36 @@ implementation
     '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
-   col,vColor:cardinal;
+   col,vColor,baseCol,baseTick,lightColor:cardinal;
    font:TFontHandle;
-   d,y,yy,fontH,size:integer;
-   v,ss,tt,alpha:single;
+   d,y,yy,fontH,size,captionLeft:integer;
+   v,ss,tt,alpha,lightX,lightY:single;
    context:TContext;
    ts:TTextStyle;
    inTransition:boolean;
   begin
    context:=element.styleContext as TContext;
 
-   col:=element.GetStyleColor('border-color',$FF808080); // box outline
-   ts:=ResolveTextStyle(element,context,col); // caption is always left-aligned after the box
+   baseCol:=element.GetBaseStyleColor('border-color',$FF808080);
+   ts:=ResolveTextStyle(element,context,baseCol);
    ts.align:=taLeft;
+   // Explicit disabled colors take precedence over automatic emboss dimming.
+   col:=element.GetBlendedStyleColor('border-color',baseCol);
+   if ts.disabledEmboss and (element.GetStateStyleValue('disabled','border-color')='') then
+    col:=Color.Mix(col,DimEmbossColor(col,ts.emboss.dimRGB),ts.disabled);
+   if element.classType=TUICheckBox then baseTick:=Color.Add(baseCol,$808080)
+    else baseTick:=baseCol;
+   baseTick:=element.GetBlendedStyleColor('tick-color',baseTick);
+   if ts.disabledEmboss and (element.GetStateStyleValue('disabled','tick-color')='') then
+    baseTick:=Color.Mix(baseTick,DimEmbossColor(baseTick,ts.emboss.dimRGB),ts.disabled);
+   // The indicator shares the caption's derived highlight, unless explicitly overridden.
+   lightColor:=0;
+   if ts.disabled>0 then begin
+    if ts.disabledEmboss then lightColor:=ts.emboss.shadowColor;
+    lightColor:=Color.Scale(element.GetStyleColor('border-light',lightColor),ts.disabled);
+   end;
+   lightX:=ts.emboss.shadowX;
+   lightY:=ts.emboss.shadowY;
    font:=ts.font;
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
@@ -541,7 +660,9 @@ implementation
    //
    inTransition:=(element.visualState<>nil) and element.visualState.Animating(TElementState.Checked);
    if element.classType=TUICheckBox then begin
-    vColor:=element.GetStyleColor('tick-color',Color.Add(col,$808080));
+    vColor:=baseTick;
+    if lightColor shr 24<>0 then
+     draw.RoundRect(x1+lightX,y-size+d+lightY,x1+size+lightX,y+d+lightY,size*0.24,element.globalScale,lightColor,0);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,col,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
@@ -557,11 +678,15 @@ implementation
        alpha:=tt;
       end;
      end;
+     if lightColor shr 24<>0 then
+      draw.Centered(x1+size*0.65+lightX,y-size*0.4+lightY,ss*size/tickImage.height,tickImage,Color.Scale(lightColor,alpha));
      draw.Centered(x1+size*0.65,y-size*0.4,ss*size/tickImage.height,tickImage,Color.Scale(vColor,alpha));
     end;
    end;
    if element.ClassType=TUIRadioButton then begin
     yy:=y-size+d;
+    if lightColor shr 24<>0 then
+     draw.RoundRect(x1+lightX,yy+lightY,x1+size+lightX,yy+size+lightY,size*0.5+1,element.globalScale,lightColor,0);
     draw.RoundRect(x1,yy,x1+size,yy+size,size*0.5+1,element.globalScale,col,0);
     if element.checked or inTransition then begin
      alpha:=1;
@@ -578,13 +703,19 @@ implementation
        v:=size*(0.24+tt*0.2);
       end;
      end;
-     vColor:=Color.Scale(element.GetStyleColor('tick-color',col),alpha);
+     vColor:=Color.Scale(baseTick,alpha);
+     if lightColor shr 24<>0 then
+      draw.RoundRect(x1+v+lightX,yy+v+lightY,x1+size-v+lightX,yy+size-v+lightY,size*0.5+1-v,1,
+       Color.Scale(lightColor,alpha),Color.Scale(lightColor,alpha));
      draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,vColor,vColor);
     end;
    end;
    // Caption
    inc(x1,round(size*1.5));
-   gfx.clip.Rect(Rect(x1,y1,x2,y2));
+   // The gap before the caption also reserves room for an upper-left highlight.
+   captionLeft:=x1;
+   if (ts.shadowColor shr 24<>0) and (ts.shadowX<0) then inc(captionLeft,round(ts.shadowX));
+   gfx.clip.Rect(Rect(captionLeft,y1,x2,y2));
    WriteStyled(ts,x1,y,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
@@ -634,12 +765,10 @@ implementation
       if drawCaption and (caption<>'') and
          not SameText(control.GetStyleValue('caption-display'),'none') then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000,$80000000);
+       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000);
        localRect:=GetRect;
        localRect.MoveBy(-scroll.X,-scroll.Y);
        captionRect:=TransformToScreen(localRect).Rounded;
-       // fully disabled: engraved look (light shadow under the dimmed caption)
-       if (dv>=1) and (ts.shadowColor=0) then ts.shadowColor:=$E0FFFFFF;
        mY:=round((captionRect.Top+captionRect.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
        wSt:=Str32(caption);
        WriteStyled(ts,AlignAnchor(ts,captionRect.Left,captionRect.Right-1),mY,wst);
@@ -1862,7 +1991,7 @@ initialization
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
    'color:&text; box-shadow:&shadow 2 3 4');
  TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
-   ':hover { fill:&accent; color:&accent-text; } :disabled { color:&text-muted; }');
+   ':hover { fill:&accent; color:&accent-text; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
  TUITable.SetDefault('styleInfo','fill:&surface; border-color:&border-dark; border-width:1; '+
    'color:&text; header-fill:&surface-alt; header-hover-fill:&overlay; line-color:&border-dark; '+

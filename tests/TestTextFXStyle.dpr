@@ -3,10 +3,10 @@
 program TestTextFXStyle;
 uses
   {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
-  SysUtils, Types, Apus.Core, Apus.Images, Apus.EventMan,
+  SysUtils, Types, Apus.Core, Apus.Images, Apus.EventMan, Apus.Colors,
   Apus.Engine.Types, Apus.Engine.API, Apus.Engine.GameApp, Apus.Engine.Scene,
   Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
-  Apus.Engine.DefaultStyle, Apus.Engine.TextFXStyle, Apus.Engine.TextEffects,
+  Apus.Engine.DefaultStyle, Apus.Engine.TextFXStyle, Apus.Engine.TextEffects, Apus.Engine.UIMenu,
   Apus.Engine.Style;
 
 {$I ..\Base\tests\Test.inc}
@@ -314,6 +314,166 @@ begin
   EndTest;
 end;
 
+procedure TestDisabledEmboss;
+const scales:array[0..3] of single=(1.0,1.25,1.5,2.0);
+var
+  b:TUIButton;
+  labelElement:TUILabel;
+  ts:TUITextStyle;
+  e:TUIEmbossStyle;
+  lightSurfaceAlpha:cardinal;
+  i,corePixels:integer;
+  savedScale:single;
+  covered:boolean;
+  savedStyle:String8;
+  plain,fx:TPixels;
+begin
+  StartTest('Shared disabled emboss, inheritance and explicit overrides');
+  savedStyle:=root.style.Text;
+  savedScale:=root.scale;
+  b:=TUIButton.Create(180,32,root).Setup('Disabled emboss');
+  labelElement:=TUILabel.Create(180,32,root).Setup('Inherited emboss');
+  try
+    root.style.Assign('disabled-effect:emboss');
+    b.SetPos(12,12);
+    b.style.Assign('font-size:12; color:#303030; disable-time:0; enable-time:0');
+    b.Disable;
+    plain:=Capture(b,false);
+    fx:=Capture(b,true);
+    Check(EqualPixels(plain,fx),'TextFX shares automatic disabled appearance');
+    ts:=ResolveUITextStyle(b,$FF000000);
+    Check(ts.disabledEmboss and (ts.color shr 24<$FF),'emboss dims the original content');
+    Check((ts.shadowX=1) and (ts.shadowY=1),'emboss offset is exactly one screen pixel');
+    for i:=0 to high(scales) do begin
+      root.scale:=scales[i];
+      ts:=ResolveUITextStyle(b,$FF000000);
+      Check((ts.shadowX=1) and (ts.shadowY=1),'automatic emboss offset stays one pixel at scale '+FloatToStr(scales[i]));
+    end;
+    root.scale:=savedScale;
+    b.style.SetAttr('color','#E0E0E0');
+    ts:=ResolveUITextStyle(b,$FF000000);
+    Check((Color.Lightness(ts.shadowColor)>Color.Lightness(ts.color)) and
+      (Color.Lightness(ts.shadowColor)<Color.Lightness($FFE0E0E0)),
+      'light content has a brighter rim below the enabled text brightness');
+    Check((ts.color shr 24=$FF) and (ts.color and $FFFFFF<$E0E0E0),
+      'light content becomes opaque gray rather than translucent white');
+    Check((ts.shadowX=1) and (ts.shadowY=1),
+      'light content keeps the one-pixel lower-right highlight');
+
+    plain:=Capture(b,false);
+    b.style.SetAttr('text-shadow','none');
+    fx:=Capture(b,false);
+    corePixels:=0; covered:=true;
+    for i:=0 to high(fx) do
+     if fx[i]=ts.color then begin
+      inc(corePixels);
+      // Allow one quantization step where a nearly opaque edge rounds to the core color.
+      if (abs(integer(plain[i] and $FF)-integer(fx[i] and $FF))>1) or
+        (abs(integer((plain[i] shr 8) and $FF)-integer((fx[i] shr 8) and $FF))>1) or
+        (abs(integer((plain[i] shr 16) and $FF)-integer((fx[i] shr 16) and $FF))>1) then covered:=false;
+     end;
+    Check((corePixels>0) and covered,'white highlight does not shine through solid glyph strokes');
+    ts:=ResolveUITextStyle(b,$FF000000);
+    Check(ts.shadowColor=0,'explicit none suppresses the automatic text shadow');
+    plain:=Capture(b,false); fx:=Capture(b,true);
+    Check(EqualPixels(plain,fx),'TextFX respects explicit shadow suppression');
+
+    b.Free;
+    b:=TUIButton.Create(180,32,root).Setup('Explicit disabled style');
+    b.scale:=1.5;
+    b.style.Assign('color:#303030; disable-time:0; enable-time:0;'+
+      ':disabled { color:#12AB34; text-shadow:$40ABCDEF 2 3; }');
+    b.Disable;
+    b.UpdateVisualState(CoreTime.Ticks);
+    ts:=ResolveUITextStyle(b,$FF000000);
+    Check(ts.color=$FF12AB34,'explicit disabled color is not dimmed again');
+    Check(ts.shadowColor=$40ABCDEF,'explicit disabled shadow overrides emboss');
+    Check((ts.shadowX=2*b.globalScale) and (ts.shadowY=3*b.globalScale),'explicit shadow offsets override emboss');
+
+    b.style.Assign('color:#303030; disable-time:0; enable-time:0');
+    root.style.Assign('disabled-effect:none');
+    ts:=ResolveUITextStyle(b,$FF000000);
+    Check(not ts.disabledEmboss and (ts.color=$FF303030) and (ts.shadowColor=0),
+      'inherited none disables automatic dimming and shadow');
+    Styles['test-disabled-emboss']:='disabled-effect:emboss';
+    b.style.AddRef('test-disabled-emboss');
+    ts:=ResolveUITextStyle(b,$FF000000);
+    Check(ts.disabledEmboss,'a named style overrides the inherited effect');
+
+    root.style.Assign('disabled-effect:emboss');
+    labelElement.Disable;
+    labelElement.style.Assign('disable-time:0; color:#303030');
+    labelElement.UpdateVisualState(CoreTime.Ticks);
+    ts:=ResolveUITextStyle(labelElement,$FF000000);
+    Check(ts.disabledEmboss and (ts.shadowColor shr 24>0),'labels can opt in through a container');
+    root.style.SetAttr('fill','#E0E0E0');
+    ts:=ResolveUITextStyle(labelElement,$FF000000);
+    lightSurfaceAlpha:=ts.shadowColor shr 24;
+    root.style.SetAttr('fill','#607C70');
+    ts:=ResolveUITextStyle(labelElement,$FF000000);
+    Check(lightSurfaceAlpha>ts.shadowColor shr 24,'the same dark text gets more highlight on a light surface');
+    e:=ResolveEmboss($FF303030);
+    Check(ts.shadowColor=e.shadowColor,'a medium surface preserves the weak highlight');
+    root.style.SetAttr('fill','linear(90deg,#000,#FFF)');
+    ts:=ResolveUITextStyle(labelElement,$FF000000);
+    Check(ts.shadowColor=e.shadowColor,'an unknown gradient surface keeps the content-color fallback');
+    e:=ResolveEmboss($00303030);
+    Check((e.color shr 24=0) and (e.shadowColor shr 24=0),'transparent content produces no visible emboss');
+  finally
+    root.style.Assign(savedStyle);
+    root.scale:=savedScale;
+    Styles.Remove('test-disabled-emboss');
+    labelElement.Free;
+    b.Free;
+  end;
+  EndTest;
+end;
+
+procedure TestDisabledMenuEmboss;
+const
+  surfaces:array[0..1] of String8=('#E0E0E0','#282C34');
+  colors:array[0..1] of String8=('#202020','#E0E0E0');
+var
+  menu:TUIPopupMenu;
+  item:TUIMenuItem;
+  ts:TUITextStyle;
+  full,captionOnly:TPixels;
+  i,j,divider:integer;
+  captionUnchanged,shortcutDrawn:boolean;
+begin
+  StartTest('Disabled menu captions and shortcuts use the shared emboss');
+  menu:=TUIPopupMenu.Create(root,'TestEmbossMenu');
+  try
+    menu.SetPos(0,0); menu.Resize(260,60); menu.flags.visible:=true;
+    item:=menu.Add('Item','Ctrl+Z');
+    item.SetPos(0,0); item.Resize(240,32);
+    item.style.SetAttr('font-size','16');
+    item.style.SetAttr('disable-time','0');
+    item.Disable;
+    for i:=0 to high(surfaces) do begin
+      menu.style.SetAttr('fill',surfaces[i]);
+      menu.style.SetAttr('color',colors[i]);
+      item.shortcut:='Ctrl+Z';
+      full:=Capture(item,false);
+      ts:=ResolveUITextStyle(item,$FF000000);
+      Check(ts.disabledEmboss and (ts.color=ts.emboss.color) and
+        (ts.shadowColor=ts.emboss.shadowColor),'default menu style keeps generated emboss colors');
+      Check((ts.shadowX=1) and (ts.shadowY=1),'menu emboss uses one screen pixel');
+      item.shortcut:='';
+      captionOnly:=Capture(item,false);
+      divider:=round((item.globalRect.Left+item.globalRect.Right)*0.5);
+      captionUnchanged:=true; shortcutDrawn:=false;
+      for j:=0 to high(full) do
+        if full[j]<>captionOnly[j] then
+          if j mod W<divider then captionUnchanged:=false else shortcutDrawn:=true;
+      Check(captionUnchanged and shortcutDrawn,'disabled shortcut is drawn separately from the caption');
+    end;
+  finally
+    menu.Free;
+  end;
+  EndTest;
+end;
+
 procedure TTestApp.SetupApplication;
 begin
   inherited;
@@ -351,6 +511,8 @@ begin
       TestContentShift;
       TestCaptionChild;
       TestChildStateOverrides;
+      TestDisabledEmboss;
+      TestDisabledMenuEmboss;
     finally
       underMouse:=nil;
       root.Free;

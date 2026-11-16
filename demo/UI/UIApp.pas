@@ -21,7 +21,7 @@ interface
 implementation
  uses Apus.EventMan, Apus.Colors,
    SysUtils, Apus.Core, Apus.Conv, Apus.Geom2D, Apus.Engine.UI, Apus.Engine.UIMenu,
-   Apus.Engine.UIColorPicker;
+   Apus.Engine.UIColorPicker, Apus.Engine.TextFXStyle, Apus.Engine.DefaultStyle;
 
  type
   // This will be our single scene
@@ -185,8 +185,59 @@ procedure InitTestLayer;
  end;
 
 procedure TestButtons;
+ var
+  panel:TUIElement;
+  check:TUICheckBox;
+  radio:TUIRadioButton;
+  button:TUIButton;
+  i,j:integer;
+  id,disabledStyle,shadowOffset:String8;
+  emboss:TUIEmbossStyle;
  begin
   InitTestLayer;
+  for i:=0 to 2 do begin
+   id:='Disabled'+Conv.ToStr(i);
+   panel:=TUIElement.Create(250,490,root,id);
+   panel.SetPos(16+i*264,16);
+   panel.shape:=TUIShape.shapeFull;
+   case i of
+    0:panel.styleInfo:='fill:$FFE0E0E0; color:$FF303030';
+    1:panel.styleInfo:='fill:$FF282C34; color:$FFE0E0E0';
+    else panel.styleInfo:='fill:$FF607C70; color:$FF183028';
+   end;
+   panel.style.SetAttr('disabled-effect','emboss'); // inherited by all controls below
+   emboss:=ResolveEmboss(panel.GetStyleColor('color'));
+   shadowOffset:=Conv.ToStr(emboss.shadowX/panel.globalScale)+' '+Conv.ToStr(emboss.shadowY/panel.globalScale);
+   TUILabel.Create(230,24,panel,id+'Title').Setup('Enabled / disabled').SetPos(10,8);
+   TUICheckBox.Create(230,26,panel,id+'EnabledOn').Setup('Enabled checked',true).SetPos(10,40);
+   TUICheckBox.Create(230,26,panel,id+'EnabledOff').Setup('Enabled unchecked').SetPos(10,70);
+   for j:=0 to 2 do begin
+    case j of
+     0:disabledStyle:=''; // derive both dimming and highlight from the inherited text color
+     1:disabledStyle:=':disabled { border-light:$FFFFFFFF; text-shadow:$FFFFFFFF '+shadowOffset+'; }';
+     else disabledStyle:=':disabled { border-light:$30FFFFFF; text-shadow:$30FFFFFF '+shadowOffset+'; }';
+    end;
+    case j of
+     0:TUILabel.Create(230,20,panel,id+'White').Setup('Automatic emboss').SetPos(10,110);
+     1:TUILabel.Create(230,20,panel,id+'Tinted').Setup('Override: opaque white').SetPos(10,200);
+     2:TUILabel.Create(230,20,panel,id+'Flat').Setup('Override: weak white').SetPos(10,290);
+    end;
+    check:=TUICheckBox.Create(230,26,panel,id+'On'+Conv.ToStr(j));
+    check.Setup('Disabled checked',true).SetPos(10,132+j*90);
+    check.styleInfo:=disabledStyle; check.Disable;
+    check:=TUICheckBox.Create(230,26,panel,id+'Off'+Conv.ToStr(j));
+    check.Setup('Disabled unchecked').SetPos(10,158+j*90);
+    check.styleInfo:=disabledStyle; check.Disable;
+   end;
+   radio:=TUIRadioButton.Create(230,26,panel,id+'Radio');
+   radio.Setup('Disabled radio',true).SetPos(10,370); radio.Disable;
+   button:=TUIButton.Create(230,30,panel,id+'Button').Setup('Disabled button');
+   button.SetPos(10,408); button.styleInfo:='fill:none; fill-shade:none; border-light:0; border-dark:0';
+   button.Disable;
+   button:=TUIButton.Create(230,30,panel,id+'TextFX').Setup('Disabled TextFX');
+   button.SetPos(10,448); button.styleInfo:='fill:none; fill-shade:none; border-light:0; border-dark:0';
+   button.drawer:=@DrawTextFXStyle; button.Disable;
+  end;
  end;
 
 procedure TestColors;

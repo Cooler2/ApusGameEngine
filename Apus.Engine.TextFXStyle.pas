@@ -67,8 +67,7 @@ implementation
    if text='' then exit;
    if source is TUIButton then begin
     // No default per-caption press nudge: button.scroll already shifts content.
-    ts:=ResolveUITextStyle(source,clBlack,taCenter,0,$FF300000,$80000000);
-    if (ts.disabled>=1) and (ts.shadowColor=0) then ts.shadowColor:=$E0FFFFFF;
+    ts:=ResolveUITextStyle(source,clBlack,taCenter,0,$FF300000);
    end else begin
     if source is TUILabel then
      ts:=ResolveUITextStyle(source,$FF808080,TUILabel(source).align)
