@@ -224,7 +224,7 @@ interface
 
 implementation
  uses SysUtils, Math, Types, Apus.Conv, Apus.Strings, Apus.Geom2D, Apus.EventMan, Apus.Engine.Keys,
-  Apus.Engine.API, Apus.Engine.DefaultStyle, Apus.Engine.Style,
+  Apus.Colors, Apus.Engine.API, Apus.Engine.DefaultStyle, Apus.Engine.Style,
   Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.SceneEffects{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
  type
@@ -279,6 +279,7 @@ implementation
   DRIVE_MIN_WIDTH=32;
   LOCATION_ACTION_WIDTH=26;
   LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
+  TITLE_HEIGHT=27; // the window title: a bit taller than wcTitleHeight for the bold caption
   SHOW_MS=150; // the window fades in
   HIDE_MS=120; // and out
 
@@ -302,10 +303,8 @@ implementation
    'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error; disabled-color:&file-dialog-disabled; '+
    ':focused { border-color:&file-dialog-focus; border-width:2; selection-fill:&file-dialog-selection; '+
    'selection-color:&file-dialog-selection-text; }';
-  SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:&file-dialog-panel; '+
-   'active-color:&file-dialog-accent';
-  // over the rows of the tree: a thin slider at the edge, wide and on a track under the mouse
-  OVERLAY_SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:0; '+
+  // over the rows of every list: a thin slider at the edge, wide and on a track under the mouse
+  SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:0; '+
    'active-color:&file-dialog-accent; slider-width:0.4; slider-align:end; radius:0.5; '+
    ':hover { slider-width:0.9; track-color:&file-dialog-scroll-track; }';
   EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
@@ -559,9 +558,13 @@ implementation
   r:=frame.globalRect; client:=frame.GetClientPosOnScreen; s:=frame.globalScale;
   shadow:=frame.GetStyleColor('shadow-color',0);
   if shadow<>0 then begin
+   // the falloff runs 2*blur inward, so no flat part shows outside the window: a flat strip
+   // next to a falloff looks lighter than the falloff (Mach bands). t^2 by 4 stops: the shadow
+   // is densest at the window and fades smoothly; the sides are lighter, the top barely visible
    blur:=round(16*s);
    draw.RoundRect(r.Left-blur,r.Top-blur*0.5,r.Right-1+blur,r.Bottom-1+blur*1.5,blur,0,
-     TFill.None,TFill.Edge(blur,shadow and $FFFFFF,shadow));
+     TFill.None,TFill.Edge(blur*2,shadow and $FFFFFF,shadow).
+       AddStop(1/3,Color.Scale(shadow,1/9)).AddStop(2/3,Color.Scale(shadow,4/9)));
   end;
   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,frame.GetStyleColor('fill'));
   draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,frame.GetStyleFill('header-fill',TFill.None));
@@ -1723,6 +1726,8 @@ implementation
  begin
   t.styleInfo:=TABLE_STYLE;
   t.SetPadding(LIST_FRAME); // the rows and the scroll bars stay inside the frame
+  // the bars take no room from the rows: the names are long, the bars look the same everywhere
+  t.overlayScrollbars:=true;
   t.scrollerV.GetElement.styleInfo:=SCROLLBAR_STYLE;
   t.scrollerH.GetElement.styleInfo:=SCROLLBAR_STYLE;
  end;
@@ -1777,10 +1782,6 @@ implementation
   locationsList.onActivate:=LocationSelected;
   StyleTable(table);
   StyleTable(directoryOutline);
-  // the names of the tree are long, the bar takes no room from them
-  directoryOutline.overlayScrollbars:=true;
-  directoryOutline.scrollerV.GetElement.styleInfo:=OVERLAY_SCROLLBAR_STYLE;
-  directoryOutline.scrollerH.GetElement.styleInfo:=OVERLAY_SCROLLBAR_STYLE;
   StyleTable(locationsList);
   pinButton:=Button('PinFolder','',PinFolder);
   pinButton.drawer:=DrawPinButton;
@@ -2728,6 +2729,8 @@ implementation
   zOrder:=100;
   UI.order:=zOrder;
   frame:=TUIWindow.Create(1004,580,true,UI,sceneName+'\Frame','Open');
+  frame.padding.Top:=TITLE_HEIGHT;
+  frame.header:=round(Dp(TITLE_HEIGHT));
   frame.minW:=680; frame.minH:=420;
   dialog:=TUIFileDialog.Create(frame.clientWidth,frame.clientHeight,frame,sceneName);
   dialog.SetAnchors(anchorAll);
