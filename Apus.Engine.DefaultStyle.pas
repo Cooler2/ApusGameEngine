@@ -1071,11 +1071,10 @@ implementation
    pad:=round(5*scale);
    headerBottom:=r.Top+round(table.headerHeight*scale);
    rowsRight:=r.Left+round(table.RowsWidth*scale);
-   gfx.clip.Rect(Rect(r.Left,r.Top,rowsRight,r.Bottom));
    // rows
    rowH:=table.rowHeight*scale;
    pos:=table.ScrollPos*scale;
-   gfx.clip.Rect(Rect(r.Left,headerBottom,r.Right,r.Bottom));
+   gfx.clip.Rect(Rect(r.Left,headerBottom,rowsRight,r.Bottom));
    if rowH>0 then first:=trunc(pos/rowH) else first:=table.RowCount;
    for place:=first to table.RowCount-1 do begin
     y:=headerBottom+round(place*rowH-pos);
@@ -1098,8 +1097,9 @@ implementation
        table.CellText(row,col),0);
    end;
    gfx.clip.Restore;
-   // header
+   // header: over the column of the vertical bar too, the bar starts under it
    if headerBottom>r.Top then begin
+    gfx.clip.Rect(Rect(r.Left,r.Top,r.Right,headerBottom));
     c:=table.GetStyleColor('header-fill',0);
     if c<>0 then draw.FillRect(r.Left,r.Top,r.Right-1,headerBottom-1,c);
     c:=table.GetStyleColor('header-color',textColor);
@@ -1125,8 +1125,8 @@ implementation
       draw.Line(cell.Right-0.5,cell.Top+3*scale,cell.Right-0.5,cell.Bottom-3*scale,lineColor);
     end;
     draw.Line(r.Left,headerBottom-0.5,r.Right,headerBottom-0.5,lineColor);
+    gfx.clip.Restore;
    end;
-   gfx.clip.Restore;
   end;
 
  procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox;context:TContext);
