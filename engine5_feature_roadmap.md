@@ -126,6 +126,7 @@ Two tiers, not a version ladder:
 - [ ] L1. Engine5 project template
 - [ ] L2. Migration-path documentation (Engine4 -> Engine5)
 - [ ] L3. Pre-release check suite
+- [ ] L4. Consumer onboarding and fail-early diagnostics (from the Racing MaterialLab first-contact feedback, 2026-11-17; detailed list with code references in `Work/engine_friendliness_2026-11-17.md`). Entry page `manual/using_the_engine.md` (draft: review, track in git, link from both READMEs). Fail early: validate UI element names in the constructor instead of the `UI\ItemCreated` handler whose exception EventMan swallows; name the owner in `Duplicate object name`. Opposite key-handler result conventions (`TUIElement.onKey` false = consumed, `TGameScene.onKeyDown` true = consumed). Readable failures: line info in `ExceptionMsg` stack traces, collapse a repeated frame error, a toast for the first swallowed error in debug builds. Doc fixes: `TTexture.SetFilter` comment, `IShader.Build` error contract, signal lists in widget class comments. Tactical: scrollbar drag rounds to an integer (`TUIScrollBar`)
 
 ## 3) Feature Cards
 
