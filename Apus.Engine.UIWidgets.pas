@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // Standard widget classes
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
@@ -328,7 +328,7 @@ interface
    procedure MoveTo(val:single;smooth:boolean=false); virtual;
    procedure MoveRel(delta:single;smooth:boolean=false); virtual;
    procedure Link(elem:TUIScrollable); virtual; // link to a scrollable element
-   procedure UseButtons(lessBtn,moreBtn:String8); // not implemented yet: does nothing
+   procedure UseButtons(lessBtn,moreBtn:String8); // TODO: implement: scroll on lessBtn/moreBtn press signals; empty now
    procedure CalcSliderPos(minSize:single=0.5); // minSize <2 - share of bar thickness, >=2 - pixels
    procedure onTimer; override;
 

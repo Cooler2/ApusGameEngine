@@ -1,4 +1,4 @@
-﻿// OpenGL-based texture classes and texture manager
+// OpenGL-based texture classes and texture manager
 //
 // Copyright (C) 2011 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -183,7 +183,7 @@ type
   function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean;
 
   // Helper functions (for debugging/getting info)
-  function GetStatus(line:byte):string; // build status lines
+  function GetStatus(line:byte):string; // TODO: implement status lines; raises EError
 
   // Create a dump of video memory usage and allocation
   procedure Dump(st:string='');
@@ -203,8 +203,8 @@ type
   //CurTag:integer;
   //data:TObject;
   //texFilters:array[0..15] of TTexFilter;
-  procedure FreeVidMem; // free some amount of video memory
-  procedure FreeMetaTexSpace(n:integer); // reserved hook: free GPU memory (n - requested amount, currently unused)
+  procedure FreeVidMem; // TODO: implement GPU memory eviction; empty stub
+  procedure FreeMetaTexSpace(n:integer); // obsolete: was meant to free space in a metatexture (removed); empty and unused - remove
   procedure AllocRenderTarget(tex:TGLTexture;flags:cardinal);
  end;
 

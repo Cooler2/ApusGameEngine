@@ -77,6 +77,9 @@ click, and the answers come in the request order.
 - Required: `W`, `H` (>0).
 - Optional: `X`, `Y` (must be provided together; if omitted, current window position is used).
 - Returns: `x`, `y` (client origin on the screen), `clientWidth`, `clientHeight`, `canvasWidth`, `canvasHeight`.
+- The platform may not grant the requested size (for example, a window larger than the
+  screen, or a hidden window): tests should use the returned `clientWidth`/`clientHeight`,
+  not the requested `W`/`H`.
 
 ### `window.state` - query or change the state of the main window.
 - Optional `WINDOW`: only `0`/`main` supported.

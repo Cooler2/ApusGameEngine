@@ -35,9 +35,10 @@ type
   width,height:integer;
   data:array of word;
   constructor Create(w,h:integer);
-  constructor CreateFrom(img:TRawImage; trColor,trMask:integer); // not implemented: asserts
+  // TODO: implement: build from img, a pixel is opaque when (pixel and trMask)=trColor; asserts now
+  constructor CreateFrom(img:TRawImage; trColor,trMask:integer);
   procedure Invert;
-  function IsOpaque(x,y:single):boolean; override; // always false in this build
+  function IsOpaque(x,y:single):boolean; override; // TODO: implement hit-testing; always false for now
  end;
 
 var

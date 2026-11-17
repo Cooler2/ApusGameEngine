@@ -6,6 +6,33 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## UI: a translucent border lies over the fill (2026-11-08)
+
+- A style box with a rounded corner and a translucent `border-color` was drawn by one
+  `draw.RoundRect` call, which puts the fill inside the border: the border blended with what
+  is behind the element. Now such a box goes the layered way, the fill under the whole box and
+  the border over it, as the other paths (square boxes, shades, state layers) always drew it
+  (CSS `background-clip: border-box`). An opaque border is drawn as before, in one call.
+- `TUIFileDialog`: the 1 px shadow of a button is only the strip below it, it no longer lies
+  under the side borders. The glyphs of the Up, New folder and Pin buttons are scaled by the
+  button style key `glyph-scale` (token `file-dialog-button-glyph-scale`, 1 by default).
+
+## UI: the file dialog creates folders (2026-11-08)
+
+- `TUIFileDialog.NewFolder(parent)`: the name of a new subfolder is typed in the tree, in a row
+  under its parent. Enter (or the accept button) creates the folder and opens it, Esc drops
+  it, the focus moving away tries the name once. The tree menu (right button, "Create
+  subfolder") does it for the folder under the mouse, the new toolbar button between Up and
+  Pin and Ctrl+Shift+N - for the current folder.
+- Save creates the missing folders of a typed name: the folder of `sprites\hero.png` is
+  created before `onValidate` (the client may write the file there), `sprites\` creates and
+  opens the folder.
+  `texts.destinationNotFound` is removed - there is no such error any more.
+- New texts: `newFolderHint`, `createSubfolder`, `newFolderName`, `invalidFolderName`,
+  `nameExists`, `cannotCreateFolder`. New glyph `fgNewFolder` at the end of
+  `TFileDialogGlyph`: an application `glyphDrawer` with an array indexed by the glyph needs
+  one more entry.
+
 ## UI: edit box mouse selection follows a fast drag; a click focus selects all (2026-11-05)
 
 - A mouse selection in `TUIEditBox` ends at the last mouse position before the frame, also
@@ -24,6 +51,15 @@ mechanical renames of both.
   the focused box places the caret. Before, such a click placed the caret. New
   `TUIEditBox.selectOnFocus` (default true) turns it off: then no focus selects anything, the
   caret goes to the click point (Tab, `SetFocus`: to the text end).
+
+## UI: table cells, the folder tree and the places of the file dialog fit their text (2026-11-04)
+
+- `TTableColumn.cut:TTextCut` (default `atEnd`): a cell text wider than its column loses a part
+  there, `txt.FitText` puts an ellipsis in its place (was cut by the clip in the middle of a
+  glyph). Header captions are cut at the end.
+- `TUIFileDialog`: the name column is cut in the middle (a long name keeps its extension); the
+  folder tree and the places list cut their labels at the end; a shortened path of the places
+  list takes the same `…` (was `...`).
 
 ## 3D: FOV axis for `Perspective` (2026-11-04)
 

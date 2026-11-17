@@ -111,6 +111,7 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure DisableSoftParticles;
 
  procedure SetZ(z:single);
+ // TODO: implement glyph-cache debug view (txt.WriteW(MAGIC_TEXTCACHE,...)); empty stub
  procedure DebugScreen1;
  procedure Reset;
  protected

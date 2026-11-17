@@ -1,4 +1,4 @@
-﻿// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 
@@ -33,10 +33,10 @@ var
 
 type
  TSoundLib = (
-  slDefault,   // best compiled-in backend; none compiled in - sound stays inactive
-  slNative,    // not implemented: Init raises
-  slIMixer,    // legacy IMX build only (IMX define): Init raises otherwise
-  slBass,      // not implemented: retained for old configs
+  slDefault,   // platform default selection: best compiled-in backend; none - sound stays inactive
+  slNative,    // TODO: implement AndroidSoundPool / AVAudioPlayer backend; Init raises for now
+  slIMixer,    // IMixerPro (ImxEx.dll, Win32-only), compiled only with IMX; Init raises otherwise
+  slBass,      // TODO: implement BASS (bass.dll) backend; Init raises for now
   slSDL);      // SDL2_mixer, requires the SDLMIX define
 
  TMediaLoadingMode = (

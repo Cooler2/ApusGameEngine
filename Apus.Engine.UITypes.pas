@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // User Interface classes
 // This is independent brick.
 //
@@ -280,7 +280,7 @@ type
   function onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
   // A popup may consume complete mouse gestures before raw scene callbacks. Default: false.
   function ConsumesSceneButtons:boolean; virtual;
-  procedure onChar(ch:char;scancode:byte); virtual; // legacy, not called: use onUniChar
+  procedure onChar(ch:char;scancode:byte); virtual; // legacy, never called (use onUniChar); remove
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
   procedure onTimer; virtual;

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // Apus.Engine.CmdProc — command processor.
 //
 // Executes text commands and command files. Supports
@@ -40,7 +40,7 @@ interface
   CAT_CONSOLE_CMD=200; // log category for command I/O; the console mirror filters it out
 
  var
-  LastCmdError:string8; // reserved: cleared before each command, never set; errors go to CmdOutput
+  LastCmdError:string8; // unused: never set (only cleared); intended as error text when no handler matches - implement or remove
   curObj:pointer; // current object pointer
   curObjClass:TVarClassStruct; // current object class
   OnOutput:TCmdOutputProc; // set by the console consumer; nil = no live console

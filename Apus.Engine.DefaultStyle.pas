@@ -1233,8 +1233,9 @@ implementation
     result.Bottom:=y2;
    end;
 
-  procedure WriteCell(const area:TRect;align:TTextAlignment;color:cardinal;const text:String8;
-    rightGap:integer);
+  // a text that doesn't fit loses its part at cut, an ellipsis takes its place
+  procedure WriteCell(const area:TRect;align:TTextAlignment;cut:TTextCut;color:cardinal;
+    const text:String8;rightGap:integer);
    begin
     if (text='') or (area.Right-area.Left<=2*pad) then exit;
     gfx.clip.Rect(Rect(area.Left+pad,area.Top,area.Right-pad-rightGap,area.Bottom));
@@ -1244,7 +1245,7 @@ implementation
      else x:=area.Left+pad;
     end;
     base:=round((area.Top+area.Bottom-1)*0.5+txt.Height(font)*0.45);
-    txt.Write(font,x,base,color,text,align);
+    txt.Write(font,x,base,color,txt.FitText(font,text,area.Right-area.Left-2*pad-rightGap,cut),align);
     gfx.clip.Restore;
    end;
 
@@ -1259,11 +1260,10 @@ implementation
    pad:=round(5*scale);
    headerBottom:=r.Top+round(table.headerHeight*scale);
    rowsRight:=r.Left+round(table.RowsWidth*scale);
-   gfx.clip.Rect(Rect(r.Left,r.Top,rowsRight,r.Bottom));
    // rows
    rowH:=table.rowHeight*scale;
    pos:=table.ScrollPos*scale;
-   gfx.clip.Rect(Rect(r.Left,headerBottom,r.Right,r.Bottom));
+   gfx.clip.Rect(Rect(r.Left,headerBottom,rowsRight,r.Bottom));
    if rowH>0 then first:=trunc(pos/rowH) else first:=table.RowCount;
    for place:=first to table.RowCount-1 do begin
     y:=headerBottom+round(place*rowH-pos);
@@ -1282,12 +1282,13 @@ implementation
      draw.Rect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,table.GetStyleColor('focus-color',textColor));
     if table.IsSelected(row) then c:=selColor else c:=textColor;
     for col:=0 to high(table.columns) do
-     WriteCell(ColumnRect(col,cell.Top,cell.Bottom),table.columns[col].align,c,
+     WriteCell(ColumnRect(col,cell.Top,cell.Bottom),table.columns[col].align,table.columns[col].cut,c,
        table.CellText(row,col),0);
    end;
    gfx.clip.Restore;
-   // header
+   // header: over the column of the vertical bar too, the bar starts under it
    if headerBottom>r.Top then begin
+    gfx.clip.Rect(Rect(r.Left,r.Top,r.Right,headerBottom));
     c:=table.GetStyleColor('header-fill',0);
     if c<>0 then draw.FillRect(r.Left,r.Top,r.Right-1,headerBottom-1,c);
     c:=table.GetStyleColor('header-color',textColor);
@@ -1306,15 +1307,15 @@ implementation
        draw.FillTriangle(cx1,y-tri*0.5,cx2,y-tri*0.5,(cx1+cx2)*0.5,y+tri*0.5,c,c,c)
       else
        draw.FillTriangle(cx1,y+tri*0.5,cx2,y+tri*0.5,(cx1+cx2)*0.5,y-tri*0.5,c,c,c);
-      WriteCell(cell,table.columns[col].align,c,table.columns[col].caption,2*tri+pad);
+      WriteCell(cell,table.columns[col].align,TTextCut.atEnd,c,table.columns[col].caption,2*tri+pad);
      end else
-      WriteCell(cell,table.columns[col].align,c,table.columns[col].caption,0);
+      WriteCell(cell,table.columns[col].align,TTextCut.atEnd,c,table.columns[col].caption,0);
      if col<high(table.columns) then
       draw.Line(cell.Right-0.5,cell.Top+3*scale,cell.Right-0.5,cell.Bottom-3*scale,lineColor);
     end;
     draw.Line(r.Left,headerBottom-0.5,r.Right,headerBottom-0.5,lineColor);
+    gfx.clip.Restore;
    end;
-   gfx.clip.Restore;
   end;
 
  procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox;context:TContext);
@@ -1772,8 +1773,10 @@ implementation
     end;
     exit;
    end;
-   // one shader call for the usual case: fill + border, no layers and no shade
-   if not outer and (fill.count=0) and (border.count=0) and
+   // one shader call for the usual case: fill + an opaque border, no layers and no shade.
+   // The shader puts the fill inside the border, so a translucent border goes the layered
+   // way: over the fill, as the other paths draw it (CSS background-clip: border-box)
+   if not outer and (fill.count=0) and (border.count=0) and not border.HasAlpha and
       not shade.fill.IsVisible and (shade.count=0) then begin
     draw.RoundRect(x1,y1,x2,y2,radii,w,border.fill,fill.fill);
     exit;

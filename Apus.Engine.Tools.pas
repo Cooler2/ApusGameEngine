@@ -1,4 +1,4 @@
-﻿// Common purpose routines for engine
+// Common purpose routines for engine
 // Utility functions
 //
 // Copyright (C) 2003-2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
@@ -26,13 +26,14 @@ type
   // Load a large image into a set of textures
   // Split it into cellsize x cellsize tiles (edge cells keep the real size).
   // flags - subimage flags for the incomplete edge cells (full cells use aiTexture);
-  // precache - share (0..1) uploaded now. At most 16x16 cells: a larger image writes past tiles[].
+  // precache - share (0..1) uploaded now. At most 16x16 cells: a larger image writes past
+  // tiles[] - TODO: clamp cntX/cntY or raise.
   constructor Create(fname:string;ForceFormat:TImagePixelFormat;
                 cellsize:integer;flags:integer=0;precache:single=0);
   destructor Destroy; override;
   procedure Draw(x,y:integer;color:cardinal); virtual;
   procedure Precache(part:single); virtual;
-  // not implemented: returns nil (TPatchedImage raises)
+  // TODO: implement: region of the opaque part (transparency <50%); returns nil (TPatchedImage raises)
   function GetRegion:TUIShape; virtual;
  end;
 

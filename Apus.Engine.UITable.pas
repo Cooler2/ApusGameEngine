@@ -20,6 +20,7 @@ interface
    caption:String8;
    width:single;         // UI units; 0 - a share of the room the fixed columns leave
    align:TTextAlignment;
+   cut:TTextCut;         // where a cell text that doesn't fit loses its part (an ellipsis there)
    sort:TTableSort;
    flexible:boolean;     // added with width 0: keeps taking the table's width changes after a resize
   end;

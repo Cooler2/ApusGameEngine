@@ -1,5 +1,8 @@
 # Engine5 manual
 
+Writing an application on the engine? Start with [Using Apus Engine: start here](using_the_engine.md)
+(draft) - where the documentation is, which units a typical task needs, conventions and known traps.
+
 The engine5 manual is being written; only these chapters are published so far:
 
 - [Chapter 18. Application Lifecycle](ch18_application_lifecycle.md) - threads, where

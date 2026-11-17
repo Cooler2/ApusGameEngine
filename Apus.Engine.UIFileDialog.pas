@@ -56,8 +56,12 @@ interface
    nameColumn,modifiedColumn,sizeColumn:String8;
    maskColumn:String8; // the name column under a mask: '%s' - the mask
    addFavoriteHint,removeFavoriteHint,unpinRecentHint,removeEntryHint:String8;
-   enterName,chooseFolder,nameIsFolder,fileNotFound,folderNotFound,destinationNotFound:String8;
+   enterName,chooseFolder,nameIsFolder,fileNotFound,folderNotFound:String8;
    confirmOverwrite:String8; // '%s' - the accept caption
+   newFolderHint,createSubfolder:String8;
+   newFolderName:String8; // the first name a new folder is offered
+   invalidFolderName:String8;
+   nameExists,cannotCreateFolder:String8; // '%s' - the name, the path
   end;
 
   // Size of the frame, column widths and sort order: the application may keep it between runs
@@ -69,7 +73,7 @@ interface
   end;
 
   // Glyphs of the buttons, the tree and the places list
-  TFileDialogGlyph=(fgAddFavorite,fgFavorite,fgRemove,fgExpand,fgCollapse,fgUp,fgRecent,fgClose);
+  TFileDialogGlyph=(fgAddFavorite,fgFavorite,fgRemove,fgExpand,fgCollapse,fgUp,fgRecent,fgClose,fgNewFolder);
   // Draw a glyph centered in r (screen pixels) in an ARGB color; scale - screen pixels per
   // UI unit. False - draw the built-in vector glyph. Clipping is already set by the caller.
   TFileDialogGlyphDrawer=function(glyph:TFileDialogGlyph;const r:TRect;color:cardinal;scale:single):boolean of object;
@@ -83,6 +87,9 @@ interface
   // Setup runs in the owning window thread and starts a new request, also on an active dialog.
   // A standalone widget calls onDone directly; the scene host closes and restores focus before
   // delivering it. Callbacks must not free the widget inline.
+  // New folders: the tree menu creates a subfolder of its folder, the toolbar button and
+  // Ctrl+Shift+N - of the current one; the name is typed in the tree. Save also creates
+  // the missing folders of a typed 'folder\name' before onValidate, and 'folder\' opens one.
   // The client's controls go to the slots: placesPanel at the left of the file table,
   // previewPanel and optionsPanel under the name, slotHeight high. A slot with no visible
   // child takes no room, so the client shows its controls for the requests it wants them in.
@@ -107,6 +114,9 @@ interface
    procedure Confirm;
    procedure Cancel;
    procedure Reload; // read the folder and the tree again, F5
+   // Type the name of a new subfolder in the tree: parent - a folder of the tree, '' - the
+   // current one. Enter or the focus moving away creates the folder and opens it, Esc drops it
+   procedure NewFolder(const parent:String8='');
    procedure ShowError(const message:String8);
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure Resize(newWidth,newHeight:single); override;
@@ -115,8 +125,8 @@ interface
    typeBar:TUIElement;
    allTypeButton,allFilesButton:TUIToggleButton;
    typeButtons:array of TUIToggleButton;
-   upButton,acceptButton,cancelButton,formatButton:TUIButton;
-   formatMenu:TUIPopupMenu;
+   upButton,newFolderButton,acceptButton,cancelButton,formatButton:TUIButton;
+   formatMenu,folderMenu:TUIPopupMenu;
    nameLabel,messageLabel:TUILabel;
    navigationPanel,driveBar:TUIElement;
    directoryOutline,locationsList:TUITable;
@@ -139,6 +149,7 @@ interface
    activeTypes:array of boolean;
    fSaveType:integer;
    host:TFileDialogScene;
+   menuFolder:String8; // the folder the menu of the tree is opened on
    function StartFolder(const folder:String8):String8;
    function Mode:TFileDialogMode;
    function Template(const pattern,value:String8):String8;
@@ -167,6 +178,10 @@ interface
    procedure PinFolder;
    procedure RememberFolder(const path:String8);
    procedure GoUp;
+   procedure NewFolderHere;
+   procedure ShowFolderMenu(const path:String8);
+   procedure CreateSubfolder;
+   function FolderNameError(const name:String8):String8; // '' - the name is fine
    procedure PathEntered;
    procedure Edited;
    function ItemPath(index:integer):String8;
@@ -209,7 +224,7 @@ interface
 
 implementation
  uses SysUtils, Math, Types, Apus.Conv, Apus.Strings, Apus.Geom2D, Apus.EventMan, Apus.Engine.Keys,
-  Apus.Engine.API, Apus.Engine.DefaultStyle, Apus.Engine.Style,
+  Apus.Colors, Apus.Engine.API, Apus.Engine.DefaultStyle, Apus.Engine.Style,
   Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.SceneEffects{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
  type
@@ -264,6 +279,7 @@ implementation
   DRIVE_MIN_WIDTH=32;
   LOCATION_ACTION_WIDTH=26;
   LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
+  TITLE_HEIGHT=27; // the window title: a bit taller than wcTitleHeight for the bold caption
   SHOW_MS=150; // the window fades in
   HIDE_MS=120; // and out
 
@@ -287,16 +303,15 @@ implementation
    'glyph-color:&file-dialog-muted; remove-color:&file-dialog-error; disabled-color:&file-dialog-disabled; '+
    ':focused { border-color:&file-dialog-focus; border-width:2; selection-fill:&file-dialog-selection; '+
    'selection-color:&file-dialog-selection-text; }';
-  SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:&file-dialog-panel; '+
-   'active-color:&file-dialog-accent';
-  // over the rows of the tree: a thin slider at the edge, wide and on a track under the mouse
-  OVERLAY_SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:0; '+
+  // over the rows of every list: a thin slider at the edge, wide and on a track under the mouse
+  SCROLLBAR_STYLE='variant:flat; color:&file-dialog-muted; track-color:0; '+
    'active-color:&file-dialog-accent; slider-width:0.4; slider-align:end; radius:0.5; '+
    ':hover { slider-width:0.9; track-color:&file-dialog-scroll-track; }';
   EDIT_STYLE='fill:&file-dialog-panel; color:&file-dialog-text; border-color:&file-dialog-border; '+
    'border-width:1; radius:3; :focused { border-color:&file-dialog-focus; border-width:2; }';
   // the box keys (fill, border, radius, states) are drawn by DrawElementBox
   BUTTON_KEYS='border-width:1; radius:3; shadow-color:&file-dialog-button-shadow; '+
+   'glyph-scale:&file-dialog-button-glyph-scale; '+
    'color:&file-dialog-button-text; text-shadow:&file-dialog-text-shadow 0 1; font-weight:bold; '+
    'disabled-color:&file-dialog-disabled; glyph-color:&file-dialog-muted; favorite-color:&file-dialog-favorite; '+
    ':checked { fill:&file-dialog-button-checked; color:&file-dialog-selection-text; } '+
@@ -379,6 +394,17 @@ implementation
     ThickLine(x-4*scale,y,x+4*scale,y,1.5*scale,ink);
     if kind=fgExpand then ThickLine(x,y-4*scale,x,y+4*scale,1.5*scale,ink);
    end;
+   fgNewFolder:begin
+    // a folder with its tab at the left and a plus inside
+    ThickLine(x-6*scale,y-4.5*scale,x-6*scale,y+4.5*scale,1.1*scale,ink);
+    ThickLine(x-6*scale,y+4.5*scale,x+6*scale,y+4.5*scale,1.1*scale,ink);
+    ThickLine(x+6*scale,y+4.5*scale,x+6*scale,y-2.5*scale,1.1*scale,ink);
+    ThickLine(x+6*scale,y-2.5*scale,x-0.5*scale,y-2.5*scale,1.1*scale,ink);
+    ThickLine(x-0.5*scale,y-2.5*scale,x-2*scale,y-4.5*scale,1.1*scale,ink);
+    ThickLine(x-2*scale,y-4.5*scale,x-6*scale,y-4.5*scale,1.1*scale,ink);
+    ThickLine(x-2.5*scale,y+1*scale,x+2.5*scale,y+1*scale,1.1*scale,ink);
+    ThickLine(x,y-1.5*scale,x,y+3.5*scale,1.1*scale,ink);
+   end;
    else begin
     for i:=0 to 9 do begin
      a:=-Pi/2+i*Pi/5;
@@ -444,7 +470,10 @@ implementation
   shadow:=b.GetStyleColor('shadow-color',0);
   if (shadow<>0) and not b.pressed then begin
    d:=Math.Max(1,round(s));
+   // only the strip below the button: a translucent border must not lie over the shadow
+   gfx.clip.Rect(Types.Rect(r.Left,r.Bottom,r.Right,r.Bottom+round(d)));
    draw.RoundRect(r.Left,r.Top+d,r.Right-1,r.Bottom-1+d,3*s,0,0,shadow);
+   gfx.clip.Restore;
   end;
   DrawElementBox(b);
   result:=b.GetBlendedStyleColor('color',$FF303030);
@@ -452,6 +481,7 @@ implementation
 
  // A toolbar button keeps its shape, a list glyph has no chrome. Only the favorite star
  // of a button and the remove cross carry their own colors, the rest is muted.
+ // The glyph of a button is 'glyph-scale' times larger than in a list.
  procedure DrawBadge(element:TUIElement;const r:TRect;scale:single;kind:TFileDialogGlyph;enabled:boolean=true);
  var
   ink:cardinal;
@@ -462,7 +492,10 @@ implementation
   if kind=fgRemove then ink:=element.GetStyleColor('remove-color',ink)
    else if (kind=fgFavorite) and isButton then ink:=element.GetStyleColor('favorite-color',ink);
   if not enabled then ink:=element.GetStyleColor('disabled-color',ink);
-  if isButton then DrawButtonBox(TUIButton(element));
+  if isButton then begin
+   DrawButtonBox(TUIButton(element));
+   scale:=scale*element.GetStyleNumber('glyph-scale',1);
+  end;
   DrawBadgeGlyph(element,r,scale,kind,ink);
  end;
 
@@ -479,6 +512,11 @@ implementation
  procedure DrawUpButton(element:TUIElement);
  begin
   DrawBadge(element,element.globalRect,element.globalScale,fgUp,element.IsEnabled);
+ end;
+
+ procedure DrawNewFolderButton(element:TUIElement);
+ begin
+  DrawBadge(element,element.globalRect,element.globalScale,fgNewFolder,element.IsEnabled);
  end;
 
  procedure DrawDialogButton(element:TUIElement);
@@ -520,9 +558,13 @@ implementation
   r:=frame.globalRect; client:=frame.GetClientPosOnScreen; s:=frame.globalScale;
   shadow:=frame.GetStyleColor('shadow-color',0);
   if shadow<>0 then begin
+   // the falloff runs 2*blur inward, so no flat part shows outside the window: a flat strip
+   // next to a falloff looks lighter than the falloff (Mach bands). t^2 by 4 stops: the shadow
+   // is densest at the window and fades smoothly; the sides are lighter, the top barely visible
    blur:=round(16*s);
    draw.RoundRect(r.Left-blur,r.Top-blur*0.5,r.Right-1+blur,r.Bottom-1+blur*1.5,blur,0,
-     TFill.None,TFill.Edge(blur,shadow and $FFFFFF,shadow));
+     TFill.None,TFill.Edge(blur*2,shadow and $FFFFFF,shadow).
+       AddStop(1/3,Color.Scale(shadow,1/9)).AddStop(2/3,Color.Scale(shadow,4/9)));
   end;
   draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom-1,frame.GetStyleColor('fill'));
   draw.FillRect(r.Left,r.Top,r.Right-1,client.Top-1,frame.GetStyleFill('header-fill',TFill.None));
@@ -628,7 +670,7 @@ implementation
  // are cut first. The fallback removes whole Unicode characters from a long leaf.
  function PathCaption(font:TFontHandle;const path:String8;width:single):String8;
  var
-  root,tail,prefix,candidate:String8;
+  root,tail,prefix,candidate,ellipsis:String8;
   chars:String32;
   i,j,rootLen,lo,hi,mid:integer;
  begin
@@ -645,13 +687,18 @@ implementation
    end;
   end else if (path<>'') and (path[1] in ['/','\']) then rootLen:=1;
   root:=copy(path,1,rootLen);
-  prefix:=root+'...'+PathDelim;
+  // U+2026 as txt.FitText puts it (the dialog fonts have it); this unit has no UTF-8 BOM,
+  // so FPC would take a non-ASCII literal ('…' or #$E2#$80#$A6) as Latin-1
+  SetLength(chars,1);
+  chars[0]:=$2026;
+  ellipsis:=UTF8.Encode(chars);
+  prefix:=root+ellipsis+PathDelim;
   for i:=rootLen+1 to length(path) do if path[i] in ['/','\'] then begin
    candidate:=prefix+copy(path,i+1,length(path));
    if txt.Width(font,candidate)<=width then exit(candidate);
   end;
   if txt.Width(font,prefix)>width then begin
-   if txt.Width(font,'...')<=width then exit('...') else exit('');
+   if txt.Width(font,ellipsis)<=width then exit(ellipsis) else exit('');
   end;
   tail:=Files.GetName(path);
   chars:=UTF8.Decode(tail);
@@ -729,7 +776,8 @@ implementation
    end;
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
    gfx.clip.Rect(Types.Rect(cell.Left+round(5*s),cell.Top,cell.Right-round(LOCATION_ACTION_WIDTH*s),cell.Bottom));
-   txt.Write(font,cell.Left+round(5*s),baseline,color,labelText);
+   txt.Write(font,cell.Left+round(5*s),baseline,color,
+     txt.FitText(font,labelText,cell.Right-cell.Left-round(LOCATION_ACTION_WIDTH*s)-round(5*s)));
    gfx.clip.Restore;
   end;
   gfx.clip.Restore;
@@ -834,11 +882,21 @@ implementation
    depth:integer;
    opened:boolean; // its subfolders are the rows below it
    leaf:boolean;   // known to have no subfolders: no disclosure button
+   pending:boolean; // the row of a new folder whose name is typed: no folder yet, path is the parent
   end;
   TDirectoryListing=record
    path:String8;
    names:Strings8; // subfolders in the natural order
    hidden:array of boolean;
+  end;
+  TDirectoryOutline=class;
+  // The name of a new folder over its row: Enter creates it, Esc drops it, the focus moving
+  // away tries the name once
+  TFolderNameEdit=class(TUIEditBox)
+   outline:TDirectoryOutline;
+   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
+   procedure onUniChar(ch:Char32;scancode:byte); override;
+   procedure onLostFocus; override;
   end;
   // Local tree adapter: one row per visible directory, the row index is the node index.
   // The tree starts with the folders of the drive root, the root itself is the drive button.
@@ -846,6 +904,7 @@ implementation
   // directory rows. Listings are cached until Reload, so rebuilding the rows reads only
   // folders not read before. A click opens the folder at once without expanding it, the
   // keyboard cursor after a pause or Enter. A double click, Left and Right collapse and expand.
+  // A new folder is a pending row, the first under its parent, with the name editor over it.
   TDirectoryOutline=class(TUITable)
    dialog:TUIFileDialog;
    nodes:array of TDirectoryNode;
@@ -856,6 +915,9 @@ implementation
    building,selecting,clicking:boolean;
    lastClickPath:String8; // a click opens the folder and rebuilds the rows, so a double click
    lastClickTime:int64;   // is told by the folder, not by the row
+   pendingParent:String8; // the folder a new subfolder is typed in, '' - none
+   pendingRow:integer;
+   editor:TFolderNameEdit;
    constructor Create(parent:TUIElement;dialog:TUIFileDialog;const name:String8);
    procedure Build(const folder:String8);
    procedure Reload;
@@ -870,6 +932,11 @@ implementation
    procedure onTimer; override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure ToggleNode(index:integer);
+   procedure StartEdit(const parent:String8);
+   // accept - create the folder of a good name; keepOnError - a wrong name stays to be fixed
+   procedure EndEdit(accept,keepOnError:boolean);
+   procedure PlaceEditor;
+   function FreeName(const parent:String8):String8;
   end;
 
  procedure DrawDirectoryOutline(element:TUIElement);
@@ -883,6 +950,7 @@ implementation
   kind:TFileDialogGlyph;
  begin
   table:=TDirectoryOutline(element);
+  table.PlaceEditor; // the editor is a child, it follows the scrolled row before it is drawn
   r:=table.GetClientPosOnScreen;
   s:=table.globalScale;
   font:=table.StyleFont;
@@ -904,7 +972,9 @@ implementation
    if row=table.selected then begin
     fill:=table.GetStyleColor('selection-fill',$FF356FA3);
     color:=table.GetStyleColor('selection-color',$FFFFFFFF);
-   end else if row=table.hoverRow then fill:=table.GetStyleColor('row-hover-fill',$FF99B5CF)
+   end else if (row=table.hoverRow) or table.dialog.folderMenu.IsOpen and
+     SamePath(table.nodes[index].path,table.dialog.menuFolder) then
+    fill:=table.GetStyleColor('row-hover-fill',$FF99B5CF)
    else if odd(place) then fill:=table.GetStyleColor('row-alt-fill',0);
    if fill<>0 then draw.FillRect(cell.Left,cell.Top,cell.Right-1,cell.Bottom-1,fill);
    badge:=cell;
@@ -916,9 +986,10 @@ implementation
    end;
    textLeft:=badge.Right+round(5*s);
    baseline:=round((cell.Top+cell.Bottom-1)*0.5+txt.Height(font)*0.45);
-   if textLeft<cell.Right-round(5*s) then begin
+   if not table.nodes[index].pending and (textLeft<cell.Right-round(5*s)) then begin
     gfx.clip.Rect(Types.Rect(textLeft,cell.Top,cell.Right-round(5*s),cell.Bottom));
-    txt.Write(font,textLeft,baseline,color,table.CellText(row,0));
+    txt.Write(font,textLeft,baseline,color,
+      txt.FitText(font,table.CellText(row,0),cell.Right-round(5*s)-textLeft));
     gfx.clip.Restore;
    end;
   end;
@@ -1033,6 +1104,12 @@ implementation
   onSelect:=DirectorySelected;
   onActivate:=DirectoryActivated;
   drawer:=DrawDirectoryOutline;
+  pendingRow:=-1;
+  editor:=TFolderNameEdit.Create(100,22,self,name+'\NewFolder');
+  editor.outline:=self;
+  editor.styleInfo:=EDIT_STYLE;
+  editor.maxLength:=255;
+  editor.flags.visible:=false;
  end;
 
  function TDirectoryOutline.ToggleLeft(index:integer):single;
@@ -1103,6 +1180,18 @@ implementation
   with listings[listing] do
    result:=dialog.showHidden or not hidden[i] or OnRoute(JoinPath(path,names[i]));
  end;
+ procedure AddPending(depth:integer);
+ var
+  index:integer;
+ begin
+  index:=length(nodes);
+  SetLength(nodes,index+1);
+  nodes[index].path:=pendingParent;
+  nodes[index].depth:=depth;
+  nodes[index].leaf:=true;
+  nodes[index].pending:=true;
+  pendingRow:=AddRow(index);
+ end;
  procedure AddNode(const path:String8;depth:integer);
  var
   labelText:String8;
@@ -1124,6 +1213,10 @@ implementation
   if not nodes[index].opened and (cached<0) then exit;
   listing:=ListingOf(path);
   nodes[index].leaf:=true;
+  if nodes[index].opened and SamePath(path,pendingParent) then begin
+   nodes[index].leaf:=false;
+   AddPending(depth+1);
+  end;
   for i:=0 to high(listings[listing].names) do
    if Visible(listing,i) then begin
     nodes[index].leaf:=false;
@@ -1142,6 +1235,7 @@ implementation
   building:=true;
   try
    selectedRow:=-1;
+   pendingRow:=-1;
    ClearRows;
    nodes:=nil;
    if folder='' then exit;
@@ -1163,6 +1257,7 @@ implementation
    current:=folder;
    // the root has no row: the drive button above stands for it
    listing:=ListingOf(root);
+   if SamePath(root,pendingParent) then AddPending(0);
    for i:=0 to high(listings[listing].names) do
     if Visible(listing,i) then AddNode(JoinPath(root,listings[listing].names[i]),0);
    selected:=selectedRow;
@@ -1177,13 +1272,103 @@ implementation
     scrollerV.SetValue(selectedRow*rowHeight-RowsHeight/3);
   finally
    building:=false;
+   // the parent of a new folder left the tree (another drive, a closed branch): drop the name
+   if (pendingParent<>'') and (pendingRow<0) then begin
+    pendingParent:='';
+    editor.flags.visible:=false;
+   end;
   end;
+ end;
+
+ // The first name of a new folder: texts.newFolderName, then with a number, that is free in parent
+ function TDirectoryOutline.FreeName(const parent:String8):String8;
+ var
+  n:integer;
+ function Taken(const name:String8):boolean;
+ begin
+  result:=Apus.Files.Folder.Exists(JoinPath(parent,name)) or NativeFileExists(JoinPath(parent,name));
+ end;
+ begin
+  result:=dialog.texts.newFolderName;
+  n:=1;
+  while Taken(result) and (n<1000) do begin
+   inc(n);
+   result:=dialog.texts.newFolderName+' ('+Conv.ToStr(n)+')';
+  end;
+ end;
+
+ procedure TDirectoryOutline.StartEdit(const parent:String8);
+ var
+  p,up:String8;
+ begin
+  if (pendingParent<>'') or (parent='') or not Apus.Files.Folder.Exists(parent) then exit;
+  // the new row is the first under its parent: open the parent and the branch above it
+  p:=parent;
+  repeat
+   if PathIndex(expanded,p)<0 then expanded:=expanded+[p];
+   if PathIndex(userOpened,p)<0 then userOpened:=userOpened+[p];
+   up:=ParentFolder(p);
+   if SamePath(up,p) then break;
+   p:=up;
+  until false;
+  pendingParent:=parent;
+  Build(dialog.Folder);
+  if pendingRow<0 then exit; // not a folder of the tree
+  ScrollToRow(pendingRow);
+  editor.text:=FreeName(parent);
+  editor.flags.visible:=true;
+  PlaceEditor;
+  editor.SetFocus; // selects the name: typing replaces it
+ end;
+
+ procedure TDirectoryOutline.EndEdit(accept,keepOnError:boolean);
+ var
+  name,path,error:String8;
+  focused:boolean;
+ begin
+  if pendingParent='' then exit;
+  name:=editor.text.Trim;
+  path:='';
+  if accept and (name<>'') then begin
+   path:=JoinPath(pendingParent,name);
+   error:=dialog.FolderNameError(name);
+   if (error='') and (Apus.Files.Folder.Exists(path) or NativeFileExists(path)) then
+    error:=dialog.Template(dialog.texts.nameExists,name);
+   if (error='') and not Apus.Files.Folder.Create(path) then
+    error:=dialog.Template(dialog.texts.cannotCreateFolder,path);
+   if error<>'' then begin
+    dialog.ShowError(error);
+    if keepOnError then exit;
+    path:='';
+   end;
+  end;
+  focused:=editor.HasFocus;
+  pendingParent:='';
+  editor.flags.visible:=false;
+  if focused then SetFocus; // the tree takes the focus back from the hidden editor
+  if path<>'' then begin
+   Reload;
+   dialog.SetFolder(path);
+  end else
+   Build(dialog.Folder);
+ end;
+
+ // Over the name of the pending row, as the row is scrolled now
+ procedure TDirectoryOutline.PlaceEditor;
+ var
+  x:single;
+ begin
+  if (pendingRow<0) or not editor.flags.visible then exit;
+  x:=ToggleLeft(pendingRow)+OUTLINE_TOGGLE_WIDTH+1;
+  editor.SetPos(x,headerHeight+PlaceOf(pendingRow)*rowHeight-ScrollPos);
+  editor.Resize(Math.Max(24.0,RowsWidth-x-2),rowHeight);
  end;
 
  procedure TDirectoryOutline.Navigate(row:integer);
  begin
   timer:=0;
-  if (row<0) or (row>=length(nodes)) or SamePath(nodes[row].path,dialog.Folder) then exit;
+  if (row<0) or (row>=length(nodes)) or nodes[row].pending or
+     SamePath(nodes[row].path,dialog.Folder) then exit;
   selecting:=true;
   try
    dialog.SetFolder(nodes[row].path);
@@ -1278,6 +1463,18 @@ implementation
   row:integer;
   left:single;
  begin
+  // the press ends the name first: the rows move after it, so it does nothing else
+  if state and (pendingParent<>'') then begin
+   EndEdit(true,false);
+   exit;
+  end;
+  if (button=2) and state then begin
+   p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
+   row:=RowAtPoint(p.x,p.y);
+   if (row>=0) and (row<length(nodes)) then dialog.ShowFolderMenu(nodes[row].path)
+    else dialog.ShowFolderMenu(dialog.Folder);
+   exit;
+  end;
   if (button=1) and state then begin
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
    row:=RowAtPoint(p.x,p.y);
@@ -1314,6 +1511,36 @@ implementation
   inherited;
   hint:='';
   if (hoverRow>=0) and (hoverRow<length(nodes)) then hint:=nodes[hoverRow].path;
+ end;
+
+ function TFolderNameEdit.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+ begin
+  if pressed and (shiftstate=0) then
+   case TKey(keycode) of
+    TKey.Enter:begin
+     outline.EndEdit(true,true);
+     exit(false);
+    end;
+    TKey.Escape:begin
+     outline.EndEdit(false,false);
+     exit(false);
+    end;
+    // the file table takes these keys from anywhere in the dialog: not from the name
+    TKey.Up,TKey.Down,TKey.PageUp,TKey.PageDown:exit(false);
+   end;
+  result:=inherited onKey(keycode,pressed,shiftstate);
+ end;
+
+ procedure TFolderNameEdit.onUniChar(ch:Char32;scancode:byte);
+ begin
+  inherited;
+  if outline.dialog.messageLabel.caption<>'' then outline.dialog.ShowError(''); // the name is being fixed
+ end;
+
+ procedure TFolderNameEdit.onLostFocus;
+ begin
+  inherited;
+  outline.EndEdit(true,false);
  end;
 
  procedure TDialogButton.DoClick;
@@ -1414,8 +1641,13 @@ implementation
    nameIsFolder:='The name belongs to a folder';
    fileNotFound:='File not found: %s';
    folderNotFound:='Folder not found: %s';
-   destinationNotFound:='Destination folder not found';
    confirmOverwrite:='File exists. Press %s again to replace it.';
+   newFolderHint:='New folder in the current one (Ctrl+Shift+N)';
+   createSubfolder:='Create subfolder';
+   newFolderName:='New folder';
+   invalidFolderName:='A folder name cannot contain \ / : * ? " < > | or end with a dot';
+   nameExists:='Already exists: %s';
+   cannotCreateFolder:='Cannot create folder: %s';
   end;
  end;
 
@@ -1451,6 +1683,9 @@ implementation
  procedure TUIFileDialog.ApplyTexts;
  begin
   upButton.hint:=texts.parentHint;
+  newFolderButton.hint:=texts.newFolderHint;
+  folderMenu.Clear;
+  folderMenu.Add(texts.createSubfolder,'',folderMenu.name+'\Create').onClickMethod:=CreateSubfolder;
   UpdateNameColumn;
   table.columns[1].caption:=texts.modifiedColumn;
   table.columns[2].caption:=texts.sizeColumn;
@@ -1491,6 +1726,8 @@ implementation
  begin
   t.styleInfo:=TABLE_STYLE;
   t.SetPadding(LIST_FRAME); // the rows and the scroll bars stay inside the frame
+  // the bars take no room from the rows: the names are long, the bars look the same everywhere
+  t.overlayScrollbars:=true;
   t.scrollerV.GetElement.styleInfo:=SCROLLBAR_STYLE;
   t.scrollerH.GetElement.styleInfo:=SCROLLBAR_STYLE;
  end;
@@ -1498,8 +1735,11 @@ implementation
   pathEdit:=Edit('Path',true);
   upButton:=Button('Up','',GoUp);
   upButton.drawer:=DrawUpButton;
+  newFolderButton:=Button('NewFolder','',NewFolderHere);
+  newFolderButton.drawer:=DrawNewFolderButton;
   table:=TUITable.Create(100,100,self,name+'\Table');
   table.AddColumn('',0);
+  table.columns[0].cut:=TTextCut.atMiddle; // a long name keeps its extension
   table.AddColumn('',140,taLeft,tsKey);
   table.AddColumn('',80,taRight,tsKey);
   table.SortBy(0);
@@ -1511,6 +1751,7 @@ implementation
   formatButton:=Button('Format','',ShowFormats);
   formatButton.drawer:=DrawFormatButton;
   formatMenu:=TUIPopupMenu.Create(self,name+'\Formats');
+  folderMenu:=TUIPopupMenu.Create(self,name+'\FolderMenu');
   typeBar:=TUIElement.Create(100,28,self,name+'\Types');
   messageLabel:=TUILabel.Create(100,24,self,name+'\Message');
   messageLabel.SetPaddings(6,0,6,0);
@@ -1541,10 +1782,6 @@ implementation
   locationsList.onActivate:=LocationSelected;
   StyleTable(table);
   StyleTable(directoryOutline);
-  // the names of the tree are long, the bar takes no room from them
-  directoryOutline.overlayScrollbars:=true;
-  directoryOutline.scrollerV.GetElement.styleInfo:=OVERLAY_SCROLLBAR_STYLE;
-  directoryOutline.scrollerH.GetElement.styleInfo:=OVERLAY_SCROLLBAR_STYLE;
   StyleTable(locationsList);
   pinButton:=Button('PinFolder','',PinFolder);
   pinButton.drawer:=DrawPinButton;
@@ -1585,8 +1822,9 @@ implementation
   if previewPanel.flags.visible or optionsPanel.flags.visible then footer:=52+slotHeight;
   messageLabel.flags.visible:=messageLabel.caption<>'';
   bottom:=h-footer;
-  Place(pathEdit,left,8,right-left-72,28);
-  Place(upButton,right-64,8,28,28);
+  Place(pathEdit,left,8,right-left-108,28);
+  Place(upButton,right-100,8,28,28);
+  Place(newFolderButton,right-64,8,28,28);
   Place(pinButton,right-28,8,28,28);
   // a request without types has no chips and no row for them
   typeBar.flags.visible:=length(typeBar.children)>0;
@@ -1634,10 +1872,12 @@ implementation
  var
   filter:integer;
  begin
+  TDirectoryOutline(directoryOutline).EndEdit(false,false); // a new request drops a name being typed
   fRequest:=request;
   fRequest.types:=Copy(request.types);
   SetHotKey(ord(TKey.Escape));
   SetHotKey(ord(TKey.F5));
+  SetHotKey(ord(TKey.N),sscCtrl or sscShift);
   table.keyScope:=self;
   table.multiSelect:=(Mode=fdOpen) and (fdoMultiSelect in fRequest.options);
   finished:=false;
@@ -1735,6 +1975,7 @@ implementation
    end;
    if fFolder='' then upButton.flags.enabled:=false
     else upButton.flags.enabled:=not SamePath(ParentFolder(fFolder),fFolder);
+   newFolderButton.flags.enabled:=fFolder<>'';
    pathEdit.text:=fFolder;
    pathEdit.cursorPos:=length(pathEdit.realText); // a long path shows its tail
    Edited;
@@ -2236,6 +2477,53 @@ implementation
   SetFolder(parent);
  end;
 
+ procedure TUIFileDialog.NewFolder(const parent:String8);
+ begin
+  if finished then exit;
+  if parent='' then TDirectoryOutline(directoryOutline).StartEdit(fFolder)
+   else TDirectoryOutline(directoryOutline).StartEdit(Files.GetFullName(JoinPath(parent,'.')));
+ end;
+
+ procedure TUIFileDialog.NewFolderHere;
+ begin
+  NewFolder;
+ end;
+
+ // The menu of the tree at the mouse: path - the folder under it, or the current one
+ procedure TUIFileDialog.ShowFolderMenu(const path:String8);
+ var
+  root:TUIElement;
+  p:TVec2;
+ begin
+  if (path='') or finished then exit;
+  menuFolder:=path;
+  root:=GetRoot;
+  p:=root.TransformFromScreen(Vec2(curMouseX,curMouseY));
+  folderMenu.OpenAt(p.x,p.y,root);
+ end;
+
+ procedure TUIFileDialog.CreateSubfolder;
+ begin
+  NewFolder(menuFolder);
+ end;
+
+ function TUIFileDialog.FolderNameError(const name:String8):String8;
+ var
+  i:integer;
+ begin
+  result:=texts.invalidFolderName;
+  if (name='') or (name='.') or (name='..') then exit;
+  {$IFDEF MSWINDOWS}
+  for i:=1 to length(name) do
+   if (name[i]<' ') or (name[i] in ['\','/',':','*','?','"','<','>','|']) then exit;
+  if name[length(name)]='.' then exit; // Windows would drop it
+  {$ELSE}
+  for i:=1 to length(name) do
+   if (name[i]=#0) or (name[i]='/') then exit;
+  {$ENDIF}
+  result:='';
+ end;
+
  procedure TUIFileDialog.PathEntered;
  begin
   SetFolder(pathEdit.text);
@@ -2312,11 +2600,17 @@ implementation
  procedure TUIFileDialog.Confirm;
  var
   value:TFileDialogResult;
-  path,ext:String8;
+  path,ext,newFolder:String8;
   row,index:integer;
-  exists:boolean;
+  exists,folderName:boolean;
  begin
   if finished then exit;
+  // a folder name being typed is finished first, as with Enter
+  if TDirectoryOutline(directoryOutline).pendingParent<>'' then begin
+   TDirectoryOutline(directoryOutline).EndEdit(true,true);
+   exit;
+  end;
+  newFolder:='';
   try
    // A typed mask filters, it never names a file; a name the table put in is a name
    if (nameEdit.text<>pickedName) and HasWildcards(nameEdit.text) then begin
@@ -2338,12 +2632,23 @@ implementation
    end else begin
     path:=nameEdit.text;
     if path='' then begin ShowError(texts.enterName); exit; end;
+    folderName:=path[length(path)] in ['/','\']; // 'folder\' names a folder, not a file
     if Files.IsPathRelative(path) then begin
      if fFolder='' then begin ShowError(texts.chooseFolder); exit; end;
      path:=JoinPath(fFolder,path);
     end;
     path:=Files.GetFullName(path);
     if Apus.Files.Folder.Exists(path) then begin
+     SetFolder(path);
+     nameEdit.text:='';
+     exit;
+    end;
+    // Save creates a missing folder: 'folder\' opens it, 'folder\name' goes into it
+    if (Mode=fdSave) and folderName then begin
+     if not Apus.Files.Folder.Create(path) then begin
+      ShowError(Template(texts.cannotCreateFolder,path)); exit;
+     end;
+     TDirectoryOutline(directoryOutline).Reload;
      SetFolder(path);
      nameEdit.text:='';
      exit;
@@ -2362,9 +2667,7 @@ implementation
     if Apus.Files.Folder.Exists(path) then begin ShowError(texts.nameIsFolder); exit; end;
     exists:=NativeFileExists(path);
     if (Mode=fdOpen) and not exists then begin ShowError(Template(texts.fileNotFound,path)); exit; end;
-    if not Apus.Files.Folder.Exists(Files.GetDir(path)) then begin
-     ShowError(texts.destinationNotFound); exit;
-    end;
+    if not Apus.Files.Folder.Exists(Files.GetDir(path)) then newFolder:=Files.GetDir(path);
     if (Mode=fdSave) and exists and (overwritePath<>path) and
        not (fdoNoOverwritePrompt in fRequest.options) then begin
      overwritePath:=path;
@@ -2375,6 +2678,14 @@ implementation
    end;
    value.accepted:=true;
    value.path:=value.paths[0];
+   // before onValidate: the client may write the file there
+   if newFolder<>'' then begin
+    if not Apus.Files.Folder.Create(newFolder) then begin
+     ShowError(Template(texts.cannotCreateFolder,newFolder)); exit;
+    end;
+    TDirectoryOutline(directoryOutline).Reload;
+    TDirectoryOutline(directoryOutline).Build(fFolder);
+   end;
    if Assigned(onValidate) and not onValidate(self,value) then exit;
    RememberFolder(Files.GetDir(value.path));
    Finish(value);
@@ -2396,6 +2707,7 @@ implementation
  procedure TUIFileDialog.Finish(const value:TFileDialogResult);
  begin
   if finished then exit;
+  TDirectoryOutline(directoryOutline).EndEdit(false,false);
   finished:=true;
   if host<>nil then host.Close;
   Signal('UI\'+name+'\Done',ord(value.accepted));
@@ -2404,13 +2716,11 @@ implementation
 
  function TUIFileDialog.onHotKey(keycode:byte;shiftstate:byte):boolean;
  begin
-  result:=shiftstate=0;
-  if not result then exit;
-  case TKey(keycode) of
-   TKey.Escape:Cancel;
-   TKey.F5:Reload;
-   else result:=false;
-  end;
+  result:=true;
+  if (TKey(keycode)=TKey.N) and (shiftstate=sscCtrl or sscShift) then NewFolder
+  else if (shiftstate=0) and (TKey(keycode)=TKey.Escape) then Cancel
+  else if (shiftstate=0) and (TKey(keycode)=TKey.F5) then Reload
+  else result:=false;
  end;
 
  constructor TFileDialogScene.Create(const sceneName:String8;wnd:TWindow);
@@ -2419,6 +2729,8 @@ implementation
   zOrder:=100;
   UI.order:=zOrder;
   frame:=TUIWindow.Create(1004,580,true,UI,sceneName+'\Frame','Open');
+  frame.padding.Top:=TITLE_HEIGHT;
+  frame.header:=round(Dp(TITLE_HEIGHT));
   frame.minW:=680; frame.minH:=420;
   dialog:=TUIFileDialog.Create(frame.clientWidth,frame.clientHeight,frame,sceneName);
   dialog.SetAnchors(anchorAll);
@@ -2577,6 +2889,7 @@ initialization
  DefineToken('file-dialog-button-checked','&accent');
  DefineToken('file-dialog-button-border','&border-dark');
  DefineToken('file-dialog-button-shadow','0'); // 1 px under a button, 0 - none
+ DefineToken('file-dialog-button-glyph-scale','1'); // the glyphs of Up, New folder and Pin
  DefineToken('file-dialog-button-text','&text');
  DefineToken('file-dialog-default-button','&overlay');
  DefineToken('file-dialog-default-button-hover','&control');
