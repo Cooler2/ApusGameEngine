@@ -16,8 +16,7 @@
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.GpuMesh;
 interface
-uses Apus.Core, Apus.Classes, Apus.Geom2D, Apus.Geom3D,
-  Apus.Engine.GpuLayout, Apus.Engine.API, Apus.Engine.Graphics,
+uses Apus.Core, Apus.Classes, Apus.Engine.GpuLayout, Apus.Engine.Resources,
   Apus.Engine.Mesh;
 
 type
@@ -56,7 +55,7 @@ type
 function BuildAutoLayout(mesh:TMesh):TGpuLayout;
 
 implementation
-uses Apus.Engine.Resources;
+uses Apus.Geom2D, Apus.Geom3D, Apus.Engine.API, Apus.Engine.Graphics;
 
 function BuildAutoLayout(mesh:TMesh):TGpuLayout;
  begin
