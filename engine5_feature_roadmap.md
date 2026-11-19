@@ -16,7 +16,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 |----|---------|--------|-----------|-----------|
 | R-01 | Core GL Pipeline Modernization | done | 100% | — |
 | R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Window locking, cross-thread entry and hot DPI change (UI scale + text follow without lag) landed; UI style caches safe for window render threads (2026-11-01). Left: multi-monitor placement/fullscreen and live DPI acceptance; F-9 (scene/UI lifetime after window close), F-11 (SDL second `AddWindow` hang), F-14 (intermittent lock timeout), F-15 (cross-window texture lifetime), F-27 (DPI monitor move shrinks a fixed window); overlay refresh bug |
-| R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Mostly design so far. Freeze AEM v1; implement the new model/instance/animation runtime and AEM loader (the existing AEMLoader is in `legacy/` on `TModel3D`); Blender exporter MVP; validate a production-like asset and revive CharAnimation on the new runtime |
+| R-03 | Native AEM Pipeline + Blender Export | in-progress | ~15% | The experimental AEM v0 CPU decoder is in place. Validate direct Blender export and rendering with the Racing grandstand and a Blender-to-game guide. Then add skeletal models and revive CharAnimation on the new runtime. |
 | R-04 | Robot Interaction Layer | done | 100% | — |
 | R-05 | CSS-Like UI Style System | in-progress | ~70% | Token/theme foundation, selective key inheritance and skin/content keys landed; partial real-screen validation (port B-16). Drawer rework agreed 2026-11-01 (`Work/R-05_drawers_rework.md`, PaintRaw E-38/E-39); stage 1 done 2026-11-02: element states with a fixed priority and transitions (`:checked` apart from `:pressed`), blended values, a style box for any drawer (`ResolveStyleBox`/`DrawStyleBox`/`DrawElementBox`), parts (`header { }`), default tokens, `PixelWidth`. Next: underlay/overlay drawing phases, variants, text by style, style sheets in files. Left also: distinct `selected` state, resolver profiling/caching if needed, broader real-project acceptance, automated visual regression |
 | R-06 | 3D Material: Normal Mapping | done | 100% | Shipped: ComputeTangents/Normals, stock-shader TBN, demo port, CI smoke; visual handedness sign-off passed |
@@ -147,15 +147,16 @@ Two tiers, not a version ladder:
 - Plan: `Work/R-02_multiwindow_plan.md`
 
 ### [R-03] Native AEM Pipeline + Blender Export
-- Status: planned (~15%) | Priority: P1 | Area: Resources
+- Status: in-progress (~15%) | Priority: P1 | Area: Resources
 - Value: Make AEM the native high-performance path for models/animations, with a Blender export plugin.
-- Scope: finalize AEM model/animation capabilities; define compact encoding; implement Blender exporter.
+- Delivery order: prototype the static workflow using [AEM v0](aem_format.md), then add skeletal models and animation. Both stages include direct Blender export and a documented game workflow.
 - Out of scope: full DCC ecosystem beyond Blender in first iteration.
 - Acceptance Criteria:
-  - [ ] Runtime supports AEM model + animation for at least one production-like asset.
+  - [ ] Stage 1: The Blender plugin exports static AEM directly. Racing loads and renders the grandstand with material slots, baked maps and LODs.
+  - [ ] Stage 1: The engine manual explains Blender asset preparation, AEM export, and game-side loading, placement and rendering with a verified example.
+  - [ ] Stage 2: Blender export and the runtime support at least one production-like skeletal asset. CharAnimation runs through AEM, and the manual covers rig setup, clip export and playback.
   - [ ] Ultra-compact encoding mode documented and loadable.
-  - [ ] Blender plugin exports valid AEM without manual conversion.
-- Notes: pipeline direction fixed — OBJ (baseline) + AEM (native); no FBX/DAE converter. `TModel`/`TModelInstance` design lives here (carved out of R-19). This is also the home of the **3D preview vertical slice** (work-ahead Do-Next #2) — and the **`demo/CharAnimation` revival is its showcase target** (the demo is parked in `demo/legacy/CharAnimation` until then): CharAnimation currently runs on the legacy `TModel3D`+`IQMloader` path (IQM was dropped by R-19), so do NOT revive it on legacy IQM — bring it back on the new `TModel`/`TModelInstance`+animation-runtime path as the skeletal-animation showcase that closes the "Engine5 looks weaker than Engine4's skeletal/shadow demos" gap. Plan: `Work/R-03_aem_pipeline_notes.md`.
+- Notes: OBJ remains the baseline loader and AEM is the native model format. The `TModelAsset` and `TModelInstance` design comes from R-19 and provides the model layer for the 3D preview work. `demo/legacy/CharAnimation` returns on the AEM animation runtime in Stage 2. Plan: `Work/R-03_aem_pipeline_notes.md`.
 
 ### [R-04] Robot Interaction Layer
 - Status: **done**
