@@ -16,7 +16,7 @@ This file captures what remains to be done. Completed stage notes live in Work/.
 |----|---------|--------|-----------|-----------|
 | R-01 | Core GL Pipeline Modernization | done | 100% | — |
 | R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Window locking, cross-thread entry and hot DPI change (UI scale + text follow without lag) landed; UI style caches safe for window render threads (2026-11-01). Left: multi-monitor placement/fullscreen and live DPI acceptance; F-9 (scene/UI lifetime after window close), F-11 (SDL second `AddWindow` hang), F-14 (intermittent lock timeout), F-15 (cross-window texture lifetime), F-27 (DPI monitor move shrinks a fixed window); overlay refresh bug |
-| R-03 | Native AEM Pipeline + Blender Export | in-progress | ~15% | The experimental AEM v0 runtime loads and draws shared static assets and supports per-instance placement and LOD. Next, export directly from Blender and validate the grandstand in Racing with a Blender-to-game guide. Then add skeletal models and revive CharAnimation on the new runtime. |
+| R-03 | Native AEM Pipeline + Blender Export | in-progress | ~15% | Blender exports static AEM v0. The loader and OpenGL probe verified all three grandstand levels and both baked atlases. The asset workflow is documented. Next, verify the grandstand in Racing. Then add skeletal models and revive CharAnimation on the new runtime. |
 | R-04 | Robot Interaction Layer | done | 100% | — |
 | R-05 | CSS-Like UI Style System | in-progress | ~70% | Token/theme foundation, selective key inheritance and skin/content keys landed; partial real-screen validation (port B-16). Drawer rework agreed 2026-11-01 (`Work/R-05_drawers_rework.md`, PaintRaw E-38/E-39); stage 1 done 2026-11-02: element states with a fixed priority and transitions (`:checked` apart from `:pressed`), blended values, a style box for any drawer (`ResolveStyleBox`/`DrawStyleBox`/`DrawElementBox`), parts (`header { }`), default tokens, `PixelWidth`. Next: underlay/overlay drawing phases, variants, text by style, style sheets in files. Left also: distinct `selected` state, resolver profiling/caching if needed, broader real-project acceptance, automated visual regression |
 | R-06 | 3D Material: Normal Mapping | done | 100% | Shipped: ComputeTangents/Normals, stock-shader TBN, demo port, CI smoke; visual handedness sign-off passed |
@@ -152,8 +152,9 @@ Two tiers, not a version ladder:
 - Delivery order: prototype the static workflow using [AEM v0](aem_format.md), then add skeletal models and animation. Both stages include direct Blender export and a documented game workflow.
 - Out of scope: full DCC ecosystem beyond Blender in first iteration.
 - Acceptance Criteria:
-  - [ ] Stage 1: The Blender plugin exports static AEM directly. Racing loads and renders the grandstand with material slots, baked maps and LODs.
-  - [ ] Stage 1: The engine manual explains Blender asset preparation, AEM export, and game-side loading, placement and rendering with a verified example.
+  - [x] Stage 1: Blender exports static AEM directly. The engine loads all three grandstand levels and renders the baked atlases in a standalone OpenGL scene.
+  - [ ] Stage 1: Racing loads and renders the grandstand with material slots, baked maps and LODs.
+  - [x] Stage 1: The [static AEM guide](manual/aem_static_assets.md) covers Blender preparation, AEM export, and game-side loading, placement and rendering.
   - [ ] Stage 2: Blender export and the runtime support at least one production-like skeletal asset. CharAnimation runs through AEM, and the manual covers rig setup, clip export and playback.
   - [ ] Ultra-compact encoding mode documented and loadable.
 - Notes: OBJ remains the baseline loader and AEM is the native model format. The `TModelAsset` and `TModelInstance` design comes from R-19 and provides the model layer for the 3D preview work. `demo/legacy/CharAnimation` returns on the AEM animation runtime in Stage 2. Plan: `Work/R-03_aem_pipeline_notes.md`.
