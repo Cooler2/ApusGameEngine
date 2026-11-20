@@ -1,4 +1,4 @@
-﻿// Common purpose routines for engine
+// Common purpose routines for engine
 // Utility functions
 //
 // Copyright (C) 2003-2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)

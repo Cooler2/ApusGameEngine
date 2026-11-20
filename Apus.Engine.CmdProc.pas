@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // Apus.Engine.CmdProc — command processor.
 //
 // Executes text commands and command files. Supports
