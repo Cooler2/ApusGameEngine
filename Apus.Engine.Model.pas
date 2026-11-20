@@ -15,7 +15,7 @@ type
   end;
 
   // Set the shader, textures and render state for this section. Return false to skip it.
-  TModelPartBinder=function(const part:TModelDrawPart):boolean of object;
+  TModelMaterialBinder=function(const part:TModelDrawPart):boolean of object;
 
   // Owns the immutable model data and the GPU meshes shared by its placements.
   TModelAsset=class
@@ -65,7 +65,7 @@ type
     property LOD:integer read GetLOD write SetLOD;
 
     // Draw with the current view and base. A nil binder uses the caller's material.
-    procedure Draw(const bindPart:TModelPartBinder);
+    procedure Draw(const bindPart:TModelMaterialBinder);
   end;
 
 implementation
@@ -211,7 +211,7 @@ begin
   fLOD:=value;
 end;
 
-procedure TModelInstance.Draw(const bindPart:TModelPartBinder);
+procedure TModelInstance.Draw(const bindPart:TModelMaterialBinder);
 var
   part:TModelDrawPart;
   state:TTransformState;

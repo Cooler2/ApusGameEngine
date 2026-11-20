@@ -626,7 +626,7 @@ type
  TModelAsset=Apus.Engine.Model.TModelAsset;
  TModelInstance=Apus.Engine.Model.TModelInstance;
  TModelDrawPart=Apus.Engine.Model.TModelDrawPart;
- TModelPartBinder=Apus.Engine.Model.TModelPartBinder;
+ TModelMaterialBinder=Apus.Engine.Model.TModelMaterialBinder;
 
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record
