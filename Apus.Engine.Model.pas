@@ -10,8 +10,8 @@ type
     nodeIndex:integer;
     meshIndex:integer;
     sectionIndex:integer;
-    bindingIndex:integer;
-    slotIndex:integer;
+    bindingIndex:integer; // asset-local key for prepared material resources
+    slotIndex:integer; // logical slot used to choose material settings
   end;
 
   // Set the shader, textures and render state for this section. Return false to skip it.
@@ -39,8 +39,19 @@ type
     function Bounds:TBox3; // asset-space bounds for all levels
     function LODCount:integer;
     function SelectLOD(screenHeightFraction:single):integer;
+    // Game-facing name used to choose material behavior, such as alpha testing.
     function MaterialSlotName(slotIndex:integer):String8;
-    // A path relative to the logical directory of SourcePath, or an empty string.
+
+    // Number of material bindings in the asset across all LODs. Enumerate
+    // 0..MaterialBindingCount-1 after LoadAEM. This needs no graphics context.
+    // Prepare materials before Upload and cache by binding index for TModelMaterialBinder.
+    function MaterialBindingCount:integer;
+    // Returns the index for MaterialSlotName, also reported as TModelDrawPart.slotIndex.
+    // Several bindings can share one slot while using different textures.
+    function MaterialBindingSlotIndex(bindingIndex:integer):integer;
+    // Uses the same binding index as TModelDrawPart.bindingIndex. Returns the path
+    // for a role such as 'basecolor', 'normal' or 'opacity', relative to the logical
+    // directory of SourcePath. An empty string means the binding has no hint for that role.
     function TextureHint(bindingIndex:integer;const role:String8):String8;
 
     // Upload once on the graphics thread with an active context. Free the asset
@@ -132,12 +143,20 @@ begin
   result:=fData.slots[slotIndex];
 end;
 
+function TModelAsset.MaterialBindingCount:integer;
+begin
+  result:=length(fData.bindings);
+end;
+
+function TModelAsset.MaterialBindingSlotIndex(bindingIndex:integer):integer;
+begin
+  result:=fData.bindings[bindingIndex].slotIndex;
+end;
+
 function TModelAsset.TextureHint(bindingIndex:integer;const role:String8):String8;
 var
   i:integer;
 begin
-  if (bindingIndex<0) or (bindingIndex>=length(fData.bindings)) then
-    raise EError.Create('Model material binding index out of range: %d',[bindingIndex]);
   with fData.bindings[bindingIndex] do
     for i:=0 to high(hints) do
       if hints[i].role=role then exit(hints[i].path);

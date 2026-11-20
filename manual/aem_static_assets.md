@@ -37,7 +37,38 @@ These properties are paths relative to the exported AEM directory. Use forward s
 
 Prepare the color map as sRGB and normal and opacity maps as data. UV V is flipped during export. If the normal bake's green channel points along Blender's original increasing V, invert green in the game copy so the map follows the exported tangent basis. Preserve the original bake for editing. For the stock mesh shader, copy the opacity mask's red channel into the base color texture's alpha channel. A custom shader can sample the separate opacity texture.
 
-For the Racing grandstand, put the volumetric seats in LOD0. The baked LOD1 and LOD2 meshes use the same `Seat_atlas` slot with separate bindings for their own atlases. Keep the binding-specific textures with each level so the lower-detail geometry samples its matching bake.
+## How the grandstand uses material slots
+
+LOD0 of the Racing grandstand uses fully modeled seats. As the camera moves away, those seats give way to simpler geometry with baked textures. The LOD1 and LOD2 seat meshes each need the atlas baked for their own UVs. The game can use the same rendering settings for both, for example treating transparent pixels as gaps between the seats.
+
+In Blender, assign a separate material to the seats in each of those LODs. Give both materials the same `aem_slot` and set `aem_basecolor` to the corresponding bake.
+
+| Seats in Blender | `aem_slot` | `aem_basecolor` |
+| --- | --- | --- |
+| LOD1 | `Seat_atlas` | `textures/grandstand_basecolor.png` |
+| LOD2 | `Seat_atlas` | `textures/grandstand_lod2_basecolor.png` |
+
+For these seats, the exporter writes one **slot** named `Seat_atlas`. The game uses this name to look up its rendering settings. The exporter writes two **bindings**, each containing a reference to the same slot and the texture paths for one bake. Each mesh section points to the binding it uses.
+
+```mermaid
+flowchart LR
+    lod1["LOD1 seat section"] --> bind13["Binding 13"]
+    lod2["LOD2 seat section"] --> bind14["Binding 14"]
+    bind13 --> slot["Slot 13 (Seat_atlas)"]
+    bind14 --> slot
+    bind13 --> atlas1["LOD1 color atlas"]
+    bind14 --> atlas2["LOD2 color atlas"]
+```
+
+These numbers come from the Racing grandstand export. In the example below, binding `14` gives the LOD2 texture path directly. To choose the rendering settings for that binding, look up its slot index and then the slot name.
+
+```pascal
+slotIndex:=asset.MaterialBindingSlotIndex(14); // 13
+slotName:=asset.MaterialSlotName(slotIndex);   // 'Seat_atlas'
+colorPath:=asset.TextureHint(14,'basecolor');  // 'textures/grandstand_lod2_basecolor.png'
+```
+
+Binding and slot indices belong to separate tables within the asset and may change when you export it again. Read the indices from the asset and use the slot name to look up settings.
 
 ## Load and draw in a game
 
@@ -100,4 +131,35 @@ end;
 
 Call `ReleaseModel` from the game's graphics teardown before releasing the context. Assign `fInstance.LOD:=fAsset.SelectLOD(projectedHeightFraction)` if the game uses the authored thresholds, or set a level explicitly.
 
-A `TModelMaterialBinder` receives a `TModelDrawPart`. Use `part.slotIndex` to choose material behavior and cache the images by `part.bindingIndex` per asset. Get a relative path with `fAsset.TextureHint(part.bindingIndex,'basecolor')` or `'normal'` and resolve it against the logical directory of `fAsset.SourcePath`. Bind the prepared color and alpha with `shader.TexMode(0,tblModulate,tblModulate)` and `shader.UseTexture`. Enable a loaded normal map with `shader.NormalMap` when the pass uses lighting. Set or clear shader and texture state for each part. Return false to skip it for the current pass. The model retains its placement while the binder runs and restores the caller's transforms after drawing. [Images and textures](ch21_resource_system.md)
+## Prepare materials before the first draw
+
+Call `CollectMaterialHints` after `LoadAEM`, for example from scene `Load`. It walks every binding in the asset, including those used in other LODs, without a graphics context or a call to `Draw`. Each entry pairs the game-facing slot name with the texture paths for that binding.
+
+```pascal
+type
+  TMaterialHints=record
+    slotName:String8;
+    baseColorPath,normalPath,opacityPath:String8;
+  end;
+  TMaterialHintsArray=array of TMaterialHints;
+
+procedure CollectMaterialHints(asset:TModelAsset;out materials:TMaterialHintsArray);
+var
+  bindingIndex,slotIndex:integer;
+begin
+  SetLength(materials,asset.MaterialBindingCount);
+  for bindingIndex:=0 to High(materials) do begin
+    slotIndex:=asset.MaterialBindingSlotIndex(bindingIndex);
+    materials[bindingIndex].slotName:=asset.MaterialSlotName(slotIndex);
+    materials[bindingIndex].baseColorPath:=asset.TextureHint(bindingIndex,'basecolor');
+    materials[bindingIndex].normalPath:=asset.TextureHint(bindingIndex,'normal');
+    materials[bindingIndex].opacityPath:=asset.TextureHint(bindingIndex,'opacity');
+  end;
+end;
+```
+
+An empty path means the binding has no hint for that texture role. Resolve each nonempty path against the logical directory of `asset.SourcePath`. Load the textures you need and store the prepared materials in a per-asset array indexed by binding.
+
+At draw time, the engine reads the mesh section's binding and passes both indices to `TModelMaterialBinder`. For the LOD2 seats in the diagram, `part.bindingIndex` is `14`, so the binder looks up prepared material `14` to get the LOD2 atlas. If the binder needs the slot name, it can call `asset.MaterialSlotName(part.slotIndex)` directly. The engine has already looked up `part.slotIndex` from the binding.
+
+Bind prepared color and alpha with `shader.TexMode(0,tblModulate,tblModulate)` and `shader.UseTexture`. Enable a loaded normal map with `shader.NormalMap` when the pass uses lighting. Set or clear shader and texture state for each part. Return false to skip it for the current pass. The model retains its placement while the binder runs and restores the caller's transforms after drawing. [Images and textures](ch21_resource_system.md)
