@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // Standard widget classes
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)

@@ -1,4 +1,4 @@
-﻿// OpenGL-based texture classes and texture manager
+// OpenGL-based texture classes and texture manager
 //
 // Copyright (C) 2011 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)

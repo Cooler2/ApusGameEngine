@@ -20,6 +20,8 @@ The engine5 manual is being written; only these chapters are published so far:
   shared content displacement and effect caching.
 - [Color Picker](ui_color_picker.md) - first implementation for API review: color
   buttons, replaceable editors, preview/commit/cancel and shared recent colors.
+- [Clear daylight sky](Sky.md) - first implementation for API review: gradient,
+  sun halo/disk, current-camera rendering and environment-capture boundaries.
 - [Text size, DPI, and font lifetime](text_and_dpi.md) - the scaling contract,
   automatic and explicit sizing, custom drawers, handle invalidation, and how to
   distinguish client mistakes from engine defects.
