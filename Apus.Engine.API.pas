@@ -481,7 +481,8 @@ type
   // Load and build shader from file(s)
   function Load(filename:String8;extra:String8=''):TShader;
 
-  // Set custom shader (pass nil if it's already set or there is no object - because the engine should know)
+  // Use a custom program for subsequent draws until Reset or UseCustomized.
+  // GPU meshes use the attribute locations from Apus.Engine.GpuLayout.
   procedure UseCustom(shader:TShader);
   // Use customized shader: where just the pixel (fragment) color calculation is modified
   procedure UseCustomized(colorCalc:String8;numTextures:integer=1);
@@ -530,8 +531,7 @@ type
 
   // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
   procedure Apply(vertexLayout:TVertexLayout);
-  // R-19: select/build a stock shader for a GPU mesh layout (table-based attribute
-  // locations). Coexists with Apply(TVertexLayout) used by the 2D painter path.
+  // Apply shader state for a GPU mesh layout. Keeps a program selected by UseCustom.
   procedure ApplyMeshLayout(layout:TGpuLayout);
  end;
 

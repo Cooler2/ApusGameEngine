@@ -1039,6 +1039,7 @@ procedure TGLShadersAPI.UseCustom(shader:TShader);
  begin
   EnsureThreadState;
   isCustom:=true;
+  actualVertexLayout:=cardinal(-1); // force painter shader selection when leaving custom mode
   ActivateShader(shader);
  end;
 
@@ -1228,21 +1229,22 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   ApplyShaderState(shaderChanged);
  end;
 
-// R-19: select/build a stock shader for a GPU mesh layout (table-based attribute
-// locations) and upload matrices/textures/lights. The 2D painter path is untouched.
+// Apply the current program or select a stock program for the GPU mesh layout.
 procedure TGLShadersAPI.ApplyMeshLayout(layout:TGpuLayout);
  var
   shader:TGLShader;
   shaderChanged:boolean;
  begin
   EnsureThreadState;
-  shader:=GetMeshShaderFor(layout);
-  shaderChanged:=shader<>activeShader;
-  ActivateShader(shader);
-  actualTexMode:=curTexMode;
-  // The painter shader-selection state no longer matches the active program;
-  // invalidate it so the next 2D Apply rebuilds/reselects.
-  actualVertexLayout:=cardinal(-1);
+  shaderChanged:=false;
+  if not isCustom then begin
+   shader:=GetMeshShaderFor(layout);
+   shaderChanged:=shader<>activeShader;
+   ActivateShader(shader);
+   actualTexMode:=curTexMode;
+   // The next painter draw must select its own stock program.
+   actualVertexLayout:=cardinal(-1);
+  end;
   ApplyShaderState(shaderChanged);
  end;
 
