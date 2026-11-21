@@ -182,6 +182,8 @@ interface
    procedure ShowFolderMenu(const path:String8);
    procedure CreateSubfolder;
    function FolderNameError(const name:String8):String8; // '' - the name is fine
+   function TryCreateDirectory(const path:String8):boolean;
+   procedure ClearError;
    procedure PathEntered;
    procedure Edited;
    function ItemPath(index:integer):String8;
@@ -882,8 +884,9 @@ implementation
    depth:integer;
    opened:boolean; // its subfolders are the rows below it
    leaf:boolean;   // known to have no subfolders: no disclosure button
-   pending:boolean; // the row of a new folder whose name is typed: no folder yet, path is the parent
+   pending:boolean; // an editor row for a folder that does not exist yet
   end;
+  TFolderEditAction=(feaCancel,feaAccept,feaAcceptKeepOnError);
   TDirectoryListing=record
    path:String8;
    names:Strings8; // subfolders in the natural order
@@ -933,11 +936,25 @@ implementation
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure ToggleNode(index:integer);
    procedure StartEdit(const parent:String8);
-   // accept - create the folder of a good name; keepOnError - a wrong name stays to be fixed
-   procedure EndEdit(accept,keepOnError:boolean);
+   procedure EndEdit(action:TFolderEditAction);
    procedure PlaceEditor;
    function FreeName(const parent:String8):String8;
   end;
+
+ type
+  TDirectoryEditLayout=class(TLayouter)
+   procedure Layout(item:TUIElement); override;
+  end;
+
+ procedure TDirectoryEditLayout.Layout(item:TUIElement);
+ begin
+  TDirectoryOutline(item).PlaceEditor;
+ end;
+
+ function DirectoryTree(dialog:TUIFileDialog):TDirectoryOutline;
+ begin
+  result:=TDirectoryOutline(dialog.directoryOutline);
+ end;
 
  procedure DrawDirectoryOutline(element:TUIElement);
  var
@@ -950,7 +967,6 @@ implementation
   kind:TFileDialogGlyph;
  begin
   table:=TDirectoryOutline(element);
-  table.PlaceEditor; // the editor is a child, it follows the scrolled row before it is drawn
   r:=table.GetClientPosOnScreen;
   s:=table.globalScale;
   font:=table.StyleFont;
@@ -1186,7 +1202,6 @@ implementation
  begin
   index:=length(nodes);
   SetLength(nodes,index+1);
-  nodes[index].path:=pendingParent;
   nodes[index].depth:=depth;
   nodes[index].leaf:=true;
   nodes[index].pending:=true;
@@ -1231,7 +1246,9 @@ implementation
   offset:=Frac(oldPos/rowHeight)*rowHeight;
   anchor:='';
   topRow:=RowAt(trunc(oldPos/rowHeight));
-  if (topRow>=0) and (topRow<length(nodes)) then anchor:=nodes[topRow].path;
+  if (topRow>=0) and (topRow<length(nodes)) then
+   if nodes[topRow].pending then anchor:=pendingParent
+    else anchor:=nodes[topRow].path;
   building:=true;
   try
    selectedRow:=-1;
@@ -1276,22 +1293,24 @@ implementation
    if (pendingParent<>'') and (pendingRow<0) then begin
     pendingParent:='';
     editor.flags.visible:=false;
+    FreeAndNil(layout);
    end;
   end;
+ end;
+
+ function DirectoryEntryExists(const path:String8):boolean;
+ begin
+  result:=Apus.Files.Folder.Exists(path) or NativeFileExists(path);
  end;
 
  // The first name of a new folder: texts.newFolderName, then with a number, that is free in parent
  function TDirectoryOutline.FreeName(const parent:String8):String8;
  var
   n:integer;
- function Taken(const name:String8):boolean;
- begin
-  result:=Apus.Files.Folder.Exists(JoinPath(parent,name)) or NativeFileExists(JoinPath(parent,name));
- end;
  begin
   result:=dialog.texts.newFolderName;
   n:=1;
-  while Taken(result) and (n<1000) do begin
+  while DirectoryEntryExists(JoinPath(parent,result)) and (n<1000) do begin
    inc(n);
    result:=dialog.texts.newFolderName+' ('+Conv.ToStr(n)+')';
   end;
@@ -1317,34 +1336,38 @@ implementation
   ScrollToRow(pendingRow);
   editor.text:=FreeName(parent);
   editor.flags.visible:=true;
+  layout:=TDirectoryEditLayout.Create;
   PlaceEditor;
   editor.SetFocus; // selects the name: typing replaces it
  end;
 
- procedure TDirectoryOutline.EndEdit(accept,keepOnError:boolean);
+ procedure TDirectoryOutline.EndEdit(action:TFolderEditAction);
  var
   name,path,error:String8;
-  focused:boolean;
+  focused,created:boolean;
  begin
   if pendingParent='' then exit;
   name:=editor.text.Trim;
   path:='';
-  if accept and (name<>'') then begin
+  if (action<>feaCancel) and (name<>'') then begin
    path:=JoinPath(pendingParent,name);
    error:=dialog.FolderNameError(name);
-   if (error='') and (Apus.Files.Folder.Exists(path) or NativeFileExists(path)) then
+   if (error='') and DirectoryEntryExists(path) then
     error:=dialog.Template(dialog.texts.nameExists,name);
-   if (error='') and not Apus.Files.Folder.Create(path) then
-    error:=dialog.Template(dialog.texts.cannotCreateFolder,path);
    if error<>'' then begin
     dialog.ShowError(error);
-    if keepOnError then exit;
+    created:=false;
+   end else
+    created:=dialog.TryCreateDirectory(path);
+   if not created then begin
+    if action=feaAcceptKeepOnError then exit;
     path:='';
    end;
   end;
   focused:=editor.HasFocus;
   pendingParent:='';
   editor.flags.visible:=false;
+  FreeAndNil(layout);
   if focused then SetFocus; // the tree takes the focus back from the hidden editor
   if path<>'' then begin
    Reload;
@@ -1465,7 +1488,7 @@ implementation
  begin
   // the press ends the name first: the rows move after it, so it does nothing else
   if state and (pendingParent<>'') then begin
-   EndEdit(true,false);
+   EndEdit(feaAccept);
    exit;
   end;
   if (button=2) and state then begin
@@ -1518,11 +1541,11 @@ implementation
   if pressed and (shiftstate=0) then
    case TKey(keycode) of
     TKey.Enter:begin
-     outline.EndEdit(true,true);
+     outline.EndEdit(feaAcceptKeepOnError);
      exit(false);
     end;
     TKey.Escape:begin
-     outline.EndEdit(false,false);
+     outline.EndEdit(feaCancel);
      exit(false);
     end;
     // the file table takes these keys from anywhere in the dialog: not from the name
@@ -1534,13 +1557,13 @@ implementation
  procedure TFolderNameEdit.onUniChar(ch:Char32;scancode:byte);
  begin
   inherited;
-  if outline.dialog.messageLabel.caption<>'' then outline.dialog.ShowError(''); // the name is being fixed
+  outline.dialog.ClearError;
  end;
 
  procedure TFolderNameEdit.onLostFocus;
  begin
   inherited;
-  outline.EndEdit(true,false);
+  outline.EndEdit(feaAccept);
  end;
 
  procedure TDialogButton.DoClick;
@@ -1872,7 +1895,7 @@ implementation
  var
   filter:integer;
  begin
-  TDirectoryOutline(directoryOutline).EndEdit(false,false); // a new request drops a name being typed
+  DirectoryTree(self).EndEdit(feaCancel); // a new request drops a name being typed
   fRequest:=request;
   fRequest.types:=Copy(request.types);
   SetHotKey(ord(TKey.Escape));
@@ -1903,7 +1926,7 @@ implementation
   nameEdit.text:=fRequest.fileName;
   pickedName:='';
   BuildDrives;
-  TDirectoryOutline(directoryOutline).Reload;
+  DirectoryTree(self).Reload;
   listedFolder:=''; // a new request reads the folder again and selects nothing
   completionFolder:='';
   SetFolder(StartFolder(fRequest.folder));
@@ -1980,7 +2003,7 @@ implementation
    pathEdit.cursorPos:=length(pathEdit.realText); // a long path shows its tail
    Edited;
    Refresh;
-   TDirectoryOutline(directoryOutline).Build(fFolder);
+   DirectoryTree(self).Build(fFolder);
    if (locationsList.selected>=0) and
       not SamePath(LocationPath(locationsList.RowTag(locationsList.selected)),fFolder) then
     locationsList.selected:=-1;
@@ -2043,9 +2066,9 @@ implementation
  procedure TUIFileDialog.Reload;
  begin
   completionFolder:='';
-  TDirectoryOutline(directoryOutline).Reload;
+  DirectoryTree(self).Reload;
   Refresh(true);
-  TDirectoryOutline(directoryOutline).Build(fFolder);
+  DirectoryTree(self).Build(fFolder);
  end;
 
  // A typed mask filters the listing at once, a mask with a folder waits for Enter; any other
@@ -2480,8 +2503,8 @@ implementation
  procedure TUIFileDialog.NewFolder(const parent:String8);
  begin
   if finished then exit;
-  if parent='' then TDirectoryOutline(directoryOutline).StartEdit(fFolder)
-   else TDirectoryOutline(directoryOutline).StartEdit(Files.GetFullName(JoinPath(parent,'.')));
+  if parent='' then DirectoryTree(self).StartEdit(fFolder)
+   else DirectoryTree(self).StartEdit(Files.GetFullName(JoinPath(parent,'.')));
  end;
 
  procedure TUIFileDialog.NewFolderHere;
@@ -2522,6 +2545,17 @@ implementation
    if (name[i]=#0) or (name[i]='/') then exit;
   {$ENDIF}
   result:='';
+ end;
+
+ function TUIFileDialog.TryCreateDirectory(const path:String8):boolean;
+ begin
+  result:=Apus.Files.Folder.Create(path);
+  if not result then ShowError(Template(texts.cannotCreateFolder,path));
+ end;
+
+ procedure TUIFileDialog.ClearError;
+ begin
+  if messageLabel.caption<>'' then ShowError('');
  end;
 
  procedure TUIFileDialog.PathEntered;
@@ -2606,8 +2640,8 @@ implementation
  begin
   if finished then exit;
   // a folder name being typed is finished first, as with Enter
-  if TDirectoryOutline(directoryOutline).pendingParent<>'' then begin
-   TDirectoryOutline(directoryOutline).EndEdit(true,true);
+  if DirectoryTree(self).pendingParent<>'' then begin
+   DirectoryTree(self).EndEdit(feaAcceptKeepOnError);
    exit;
   end;
   newFolder:='';
@@ -2645,10 +2679,8 @@ implementation
     end;
     // Save creates a missing folder: 'folder\' opens it, 'folder\name' goes into it
     if (Mode=fdSave) and folderName then begin
-     if not Apus.Files.Folder.Create(path) then begin
-      ShowError(Template(texts.cannotCreateFolder,path)); exit;
-     end;
-     TDirectoryOutline(directoryOutline).Reload;
+     if not TryCreateDirectory(path) then exit;
+     DirectoryTree(self).Reload;
      SetFolder(path);
      nameEdit.text:='';
      exit;
@@ -2680,11 +2712,9 @@ implementation
    value.path:=value.paths[0];
    // before onValidate: the client may write the file there
    if newFolder<>'' then begin
-    if not Apus.Files.Folder.Create(newFolder) then begin
-     ShowError(Template(texts.cannotCreateFolder,newFolder)); exit;
-    end;
-    TDirectoryOutline(directoryOutline).Reload;
-    TDirectoryOutline(directoryOutline).Build(fFolder);
+    if not TryCreateDirectory(newFolder) then exit;
+    DirectoryTree(self).Reload;
+    DirectoryTree(self).Build(fFolder);
    end;
    if Assigned(onValidate) and not onValidate(self,value) then exit;
    RememberFolder(Files.GetDir(value.path));
@@ -2707,7 +2737,7 @@ implementation
  procedure TUIFileDialog.Finish(const value:TFileDialogResult);
  begin
   if finished then exit;
-  TDirectoryOutline(directoryOutline).EndEdit(false,false);
+  DirectoryTree(self).EndEdit(feaCancel);
   finished:=true;
   if host<>nil then host.Close;
   Signal('UI\'+name+'\Done',ord(value.accepted));

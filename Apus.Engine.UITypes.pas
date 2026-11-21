@@ -275,11 +275,6 @@ type
   // Key press/release for the focused element. Return false for the keys the element handled
   // (consumed: UI hotkeys and the scene don't get them), true to pass the key on.
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
-  // Ancestor key filter, before the focused element. False consumes the event. A popup
-  // may route it to focused itself and swallow unhandled keys. Default: pass through.
-  function onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
-  // A popup may consume complete mouse gestures before raw scene callbacks. Default: false.
-  function ConsumesSceneButtons:boolean; virtual;
   procedure onChar(ch:char;scancode:byte); virtual; // legacy, never called (use onUniChar); remove
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
@@ -1424,16 +1419,6 @@ function TUIElement.IsEnabled:boolean;
    if (sendSignals=ssAll) and (name<>'') then Signal('UI\'+name+'\Focus',0);
   end;
 
- function TUIElement.onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
-  begin
-   result:=true;
-  end;
-
- function TUIElement.ConsumesSceneButtons:boolean;
-  begin
-   result:=false;
-  end;
-
  procedure TUIElement.onTimer;
   begin
   end;
@@ -2166,6 +2151,7 @@ procedure TUIElement.MarkDeleted;
    c:TUIElement;
   begin
    if (wnd<>nil) and InSubtree(TUIElement(wnd.hint.element)) then wnd.hint.element:=nil;
+   if (wnd<>nil) and InSubtree(TUIElement(wnd.popup.anchorGuard)) then wnd.popup.anchorGuard:=nil;
    if wnd<>nil then
     with wnd.modal do begin
      for i:=stackSize downto 1 do

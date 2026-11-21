@@ -5,6 +5,9 @@ interface
  uses Apus.Core, Apus.Lib, Apus.Threads, Apus.Engine.Types, Apus.Engine.UITypes,
   Apus.Engine.UIWidgets;
 
+ const
+  COLOR_HISTORY_SIZE=5;
+
  type
   TUIColorValues=array of cardinal;
   IUIColorHistory=interface
@@ -28,11 +31,9 @@ interface
   TUIColorEvent=procedure(sender:TUIColorButton;oldColor,newColor:cardinal) of object;
 
   // Content contract. The popup owns the editor; SetColor is silent, ChooseColor previews.
-  // Custom editors may use child focus. The host installs these three callbacks.
+  // Custom editors may use child focus and request completion through Accept and Cancel.
   TUIColorEditor=class(TUIElement)
-   history:IUIColorHistory;
    originalColor:cardinal;
-   onPreview,onAccept,onCancel:TObjProcedure;
    constructor Create(parent:TUIElement;const name:String8); virtual;
    procedure SetColor(value:cardinal); virtual;
    procedure SetAlphaEnabled(enabled:boolean); virtual;
@@ -46,11 +47,14 @@ interface
   protected
    fColor:cardinal;
    fAlphaEnabled:boolean;
+   procedure PublishPreview;
+  private
+   host:TUIColorPopup;
   public
    property color:cardinal read fColor;
    property alphaEnabled:boolean read fAlphaEnabled write SetAlphaEnabled;
   end;
-  TColorEditorFactory=function(parent:TUIElement;const name:String8):TUIColorEditor;
+  TUIColorEditorClass=class of TUIColorEditor;
 
   TUIColorSwatch=class(TUIButton)
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
@@ -62,7 +66,7 @@ interface
   end;
 
   // Default mouse-only editor. Override BuildContent/LayoutContent to extend its composition.
-  TUIColorPicker=class(TUIColorEditor)
+  TUIHSVColorEditor=class(TUIColorEditor)
    constructor Create(parent:TUIElement;const name:String8); override;
    procedure AfterConstruction; override;
    procedure Resize(newWidth,newHeight:single); override;
@@ -74,18 +78,17 @@ interface
    svField,hueField,alphaField:TUIElement;
    colorLabel:TUILabel;
    oldSwatch,newSwatch:TUIColorSwatch;
-   recent:array[0..4] of TUIColorSwatch;
-   okButton,cancelButton:TUIButton;
    procedure BuildContent; virtual;
    procedure LayoutContent; virtual;
    procedure ChooseHSV(h,s,v:single);
    procedure ChooseAlpha(alpha:byte);
   private
-   procedure ChooseRecent;
    procedure RestoreOriginal;
   end;
 
-  // Per-control factory/history; colors are straight ARGB. All UI operations: window thread.
+  TUIColorPicker=TUIHSVColorEditor; // legacy name for the default content
+
+  // Per-control editor class and history; colors are straight ARGB. All UI operations: window thread.
   TUIColorButton=class(TUIColorSwatch)
    onPreview,onChange,onCancel:TUIColorEvent;
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
@@ -96,46 +99,53 @@ interface
    function IsOpen:boolean;
   protected
    procedure DoClick; override;
-   function CreateEditor(parent:TUIElement;const name:String8):TUIColorEditor; virtual;
   private
    fPopup:TUIColorPopup;
-   fFactory:TColorEditorFactory;
+   fEditorClass:TUIColorEditorClass;
    fHistory:IUIColorHistory;
    fPopupStyle:String8;
    fAlphaEnabled:boolean;
-   procedure SetFactory(factory:TColorEditorFactory);
+   procedure SetEditorClass(editorClass:TUIColorEditorClass);
    procedure SetHistory(const history:IUIColorHistory);
    procedure SetPopupStyle(const value:String8);
    procedure SetAlphaEnabled(enabled:boolean);
   public
-   property editorFactory:TColorEditorFactory read fFactory write SetFactory;
+   property editorClass:TUIColorEditorClass read fEditorClass write SetEditorClass;
    property history:IUIColorHistory read fHistory write SetHistory;
    property popupStyle:String8 read fPopupStyle write SetPopupStyle; // '' keeps the theme default
    property alphaEnabled:boolean read fAlphaEnabled write SetAlphaEnabled; // default true
   end;
 
   // Host is public as a type for ownership; applications normally use TUIColorButton.
-  TUIColorPopup=class(TUIElement)
+  TUIColorPopup=class(TUIPopup)
    constructor Create(owner:TUIColorButton);
    destructor Destroy; override;
    procedure Open;
    procedure onRemoved; override;
    procedure Finish(commit,restoreFocus:boolean);
    procedure onTimer; override;
-   function onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
+   function HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    function ConsumesSceneButtons:boolean; override;
+  protected
+   procedure DismissPopup; override;
+   procedure OutsidePress(target:TUIElement); override;
   private
    owner:TUIColorButton;
    editor:TUIColorEditor;
+   recent:array[0..COLOR_HISTORY_SIZE-1] of TUIColorSwatch;
+   okButton,cancelButton:TUIButton;
    opened,ownerHeld:boolean;
-   prevFocus:TUIElement;
    rootSize:TVec2;
    rootScale:single;
    heldAtOpen:array[byte] of boolean;
+   procedure PositionFooter(width,top:single);
+   procedure RefreshRecent;
+   procedure ChooseRecent;
    procedure Preview;
    procedure Accept;
    procedure Cancel;
    procedure MoveFocus(backwards:boolean);
+   procedure ForgetOwner;
   end;
 
  function DefaultColorHistory:IUIColorHistory;
@@ -147,63 +157,36 @@ implementation
  type
   TColorFieldKind=(cfSV,cfHue,cfAlpha);
   TUIColorField=class(TUIElement)
-   picker:TUIColorPicker;
+   picker:TUIHSVColorEditor;
    kind:TColorFieldKind;
-   constructor Create(picker:TUIColorPicker;kind:TColorFieldKind;const name:String8);
+   constructor Create(picker:TUIHSVColorEditor;kind:TColorFieldKind;const name:String8);
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
    procedure onLostFocus; override;
    procedure UpdateColor;
   end;
 
+ const
+  ALPHA_STRIP_WIDTH=44;
+  HSV_EDITOR_WIDTH=288;
+  HSV_EDITOR_HEIGHT=220;
+  FOOTER_HEIGHT=62;
+  FOOTER_BUTTON_WIDTH=72;
+  FOOTER_BUTTON_GAP=8;
+  RECENT_GAP=6;
+
  var
   sharedHistory:IUIColorHistory;
- threadvar
-  openPicker:TUIColorPopup;
-  reopenGuard:TUIColorButton;
+
+ function PickerText(const fallback:String8):String8;
+  begin
+   if Assigned(Translate) then result:=Translate(fallback)
+    else result:=fallback;
+  end;
 
  function Opaque(color:cardinal):cardinal; inline;
   begin
    result:=color or $FF000000;
-  end;
-
- function HSVColor(h,s,v:single):cardinal;
-  var
-   i:integer;
-   f,p,q,t,r,g,b:single;
-  begin
-   h:=h-Floor(h);
-   h:=h*6;
-   i:=Floor(h);
-   f:=h-i;
-   p:=v*(1-s); q:=v*(1-s*f); t:=v*(1-s*(1-f));
-   case i of
-    0:begin r:=v; g:=t; b:=p; end;
-    1:begin r:=q; g:=v; b:=p; end;
-    2:begin r:=p; g:=v; b:=t; end;
-    3:begin r:=p; g:=q; b:=v; end;
-    4:begin r:=t; g:=p; b:=v; end;
-    else begin r:=v; g:=p; b:=q; end;
-   end;
-   result:=Color.RGB(round(255*r),round(255*g),round(255*b));
-  end;
-
- procedure ColorHSV(color:cardinal;var h,s,v:single);
-  var
-   r,g,b,lo,d:single;
-  begin
-   r:=((color shr 16) and 255)/255;
-   g:=((color shr 8) and 255)/255;
-   b:=(color and 255)/255;
-   v:=Max(r,Max(g,b)); lo:=Min(r,Min(g,b)); d:=v-lo;
-   if v=0 then begin s:=0; exit; end;
-   s:=d/v;
-   if d=0 then exit; // preserve hue for gray and black
-   if v=r then h:=(g-b)/d
-    else if v=g then h:=2+(b-r)/d
-    else h:=4+(r-g)/d;
-   h:=h/6;
-   if h<0 then h:=h+1;
   end;
 
  function DefaultColorHistory:IUIColorHistory;
@@ -240,8 +223,8 @@ implementation
     i:=0;
     while (i<n) and (colors[i]<>color) do inc(i);
     if i=n then begin
-     if n<5 then SetLength(colors,n+1);
-     i:=Min(n,4);
+     if n<COLOR_HISTORY_SIZE then SetLength(colors,n+1);
+     i:=Min(n,COLOR_HISTORY_SIZE-1);
     end;
     for j:=i downto 1 do colors[j]:=colors[j-1];
     colors[0]:=color;
@@ -333,7 +316,7 @@ implementation
    if not fAlphaEnabled then value:=Opaque(value);
    if fColor=value then exit;
    SetColor(value);
-   if Assigned(onPreview) then onPreview;
+   PublishPreview;
   end;
 
  function TUIColorEditor.CanAccept:boolean;
@@ -344,10 +327,12 @@ implementation
   begin result:=nil; end;
  procedure TUIColorEditor.Refresh;
   begin end;
+ procedure TUIColorEditor.PublishPreview;
+  begin if host<>nil then host.Preview; end;
  procedure TUIColorEditor.Accept;
-  begin if Assigned(onAccept) then onAccept; end;
+  begin if host<>nil then host.Accept; end;
  procedure TUIColorEditor.Cancel;
-  begin if Assigned(onCancel) then onCancel; end;
+  begin if host<>nil then host.Cancel; end;
 
  procedure DrawStripPointers(left,right,y,sc:single);
   var
@@ -365,7 +350,7 @@ implementation
  procedure DrawColorField(element:TUIElement);
   var
    field:TUIColorField;
-   p:TUIColorPicker;
+   p:TUIHSVColorEditor;
    r:TRect;
    i,x,y,a,b:integer;
    sc:single;
@@ -377,7 +362,7 @@ implementation
     if field.kind=cfHue then begin
      for i:=0 to 5 do begin
       a:=r.top+round(r.Height*i/6); b:=r.top+round(r.Height*(i+1)/6)-1;
-      draw.FillGradRect(r.left,a,r.right,b,HSVColor(i/6,1,1),HSVColor((i+1)/6,1,1),true);
+      draw.FillGradRect(r.left,a,r.right,b,Apus.Colors.Color.FromHSV(i/6,1,1),Apus.Colors.Color.FromHSV((i+1)/6,1,1),true);
      end;
      y:=r.top+round(p.hue*(r.Height-1));
     end else begin
@@ -388,7 +373,7 @@ implementation
     end;
     DrawStripPointers(r.left,r.right,y,sc);
    end else begin
-    draw.FillGradRect(r.left,r.top,r.right,r.bottom,$FFFFFFFF,HSVColor(p.hue,1,1),false);
+    draw.FillGradRect(r.left,r.top,r.right,r.bottom,$FFFFFFFF,Apus.Colors.Color.FromHSV(p.hue,1,1),false);
     draw.FillGradRect(r.left,r.top,r.right,r.bottom,$00000000,$FF000000,true);
     x:=r.left+round(p.saturation*(r.Width-1)); y:=r.top+round((1-p.value)*(r.Height-1));
     draw.Rect(x-4*sc,y-4*sc,x+4*sc,y+4*sc,$FF000000);
@@ -396,7 +381,7 @@ implementation
    end;
   end;
 
- constructor TUIColorField.Create(picker:TUIColorPicker;kind:TColorFieldKind;const name:String8);
+ constructor TUIColorField.Create(picker:TUIHSVColorEditor;kind:TColorFieldKind;const name:String8);
   begin
    inherited Create(20,20,picker,name);
    self.picker:=picker; self.kind:=kind;
@@ -445,154 +430,109 @@ implementation
    inherited;
   end;
 
- constructor TUIColorPicker.Create(parent:TUIElement;const name:String8);
+ constructor TUIHSVColorEditor.Create(parent:TUIElement;const name:String8);
   begin
    inherited;
-   size:=Vec2(288,282);
+   size:=Vec2(HSV_EDITOR_WIDTH,HSV_EDITOR_HEIGHT);
   end;
 
- procedure TUIColorPicker.AfterConstruction;
+ procedure TUIHSVColorEditor.AfterConstruction;
   begin
    BuildContent;
    LayoutContent;
    inherited;
   end;
 
- procedure TUIColorPicker.BuildContent;
-  var i:integer;
+ procedure TUIHSVColorEditor.BuildContent;
   begin
    svField:=TUIColorField.Create(self,cfSV,name+'\SV');
    hueField:=TUIColorField.Create(self,cfHue,name+'\Hue');
-   hueField.hint:='Hue';
+   hueField.hint:=PickerText('Hue');
    alphaField:=TUIColorField.Create(self,cfAlpha,name+'\Alpha');
-   alphaField.hint:='Alpha: opaque at the top, transparent at the bottom';
+   alphaField.hint:=PickerText('Alpha: opaque at the top, transparent at the bottom');
    oldSwatch:=TUIColorSwatch.Create(30,24,self,name+'\Original');
-   oldSwatch.hint:='Original color'; oldSwatch.onClickMethod:=RestoreOriginal;
+   oldSwatch.hint:=PickerText('Original color'); oldSwatch.onClickMethod:=RestoreOriginal;
    newSwatch:=TUIColorSwatch.Create(30,24,self,name+'\Current');
-   newSwatch.hint:='Current color';
+   newSwatch.hint:=PickerText('Current color');
    colorLabel:=TUILabel.Create(200,14,self,name+'\ColorText');
    colorLabel.styleInfo:='color:&text; font-size:7.5';
-   for i:=0 to 4 do begin
-    recent[i]:=TUIColorSwatch.Create(30,24,self,name+'\Recent'+Conv.ToStr(i+1));
-    recent[i].onClickMethod:=ChooseRecent;
-   end;
-   okButton:=TUIButton.Create(72,26,self,name+'\Accept').Setup('OK');
-   okButton.flags.canHaveFocus:=false; okButton.onClickMethod:=Accept;
-   cancelButton:=TUIButton.Create(72,26,self,name+'\Cancel').Setup('Cancel');
-   cancelButton.flags.canHaveFocus:=false; cancelButton.onClickMethod:=Cancel;
   end;
 
- procedure TUIColorPicker.LayoutContent;
+ procedure TUIHSVColorEditor.LayoutContent;
   var
-   i:integer;
    w,h,svWidth:single;
   begin
    if svField=nil then exit;
    w:=clientWidth; h:=clientHeight;
-   svWidth:=w-44;
-   if alphaEnabled then svWidth:=svWidth-44;
-   svField.SetPos(0,8); svField.Resize(svWidth,h-132);
-   hueField.SetPos(svWidth+6,8); hueField.Resize(38,h-132);
-   alphaField.SetPos(svWidth+50,8); alphaField.Resize(38,h-132);
+   svWidth:=w-ALPHA_STRIP_WIDTH;
+   if alphaEnabled then svWidth:=svWidth-ALPHA_STRIP_WIDTH;
+   svField.SetPos(0,8); svField.Resize(svWidth,h-70);
+   hueField.SetPos(svWidth+6,8); hueField.Resize(38,h-70);
+   alphaField.SetPos(svWidth+50,8); alphaField.Resize(38,h-70);
    alphaField.flags.visible:=alphaEnabled;
-   oldSwatch.SetPos(0,h-108); oldSwatch.Resize((w-8)/2,24);
-   newSwatch.SetPos((w+8)/2,h-108); newSwatch.Resize((w-8)/2,24);
-   colorLabel.SetPos(0,h-78); colorLabel.Resize(w,14);
-   for i:=0 to 4 do begin
-    recent[i].SetPos(i*(w+6)/5,h-56); recent[i].Resize((w-24)/5,22);
-   end;
-   okButton.SetPos(w-152,h-26); cancelButton.SetPos(w-72,h-26);
+   oldSwatch.SetPos(0,h-46); oldSwatch.Resize((w-8)/2,24);
+   newSwatch.SetPos((w+8)/2,h-46); newSwatch.Resize((w-8)/2,24);
+   colorLabel.SetPos(0,h-16); colorLabel.Resize(w,14);
   end;
 
- procedure TUIColorPicker.Resize(newWidth,newHeight:single);
+ procedure TUIHSVColorEditor.Resize(newWidth,newHeight:single);
   begin
    inherited;
    LayoutContent;
   end;
 
- procedure TUIColorPicker.SetColor(value:cardinal);
+ procedure TUIHSVColorEditor.SetColor(value:cardinal);
   begin
-   ColorHSV(value,hue,saturation,self.value);
+   Apus.Colors.Color.ToHSV(value,hue,saturation,self.value);
    inherited;
   end;
 
- procedure TUIColorPicker.SetAlphaEnabled(enabled:boolean);
+ procedure TUIHSVColorEditor.SetAlphaEnabled(enabled:boolean);
   begin
    if alphaEnabled=enabled then exit;
    inherited;
-   if enabled then Resize(size.x+44,size.y) else Resize(Max(80,size.x-44),size.y);
+   if enabled then Resize(size.x+ALPHA_STRIP_WIDTH,size.y)
+    else Resize(Max(80,size.x-ALPHA_STRIP_WIDTH),size.y);
   end;
 
- procedure TUIColorPicker.ChooseHSV(h,s,v:single);
+ procedure TUIHSVColorEditor.ChooseHSV(h,s,v:single);
   var
    c:cardinal;
   begin
    hue:=h; saturation:=s; value:=v;
-   c:=(HSVColor(h,s,v) and $FFFFFF) or (fColor and $FF000000);
+   c:=(Apus.Colors.Color.FromHSV(h,s,v) and $FFFFFF) or (fColor and $FF000000);
    if c=fColor then exit; // retain float hue/SV, including at black and at the red seam
    fColor:=c;
    Refresh;
-   if Assigned(onPreview) then onPreview;
+   PublishPreview;
   end;
 
- procedure TUIColorPicker.ChooseAlpha(alpha:byte);
+ procedure TUIHSVColorEditor.ChooseAlpha(alpha:byte);
   var c:cardinal;
   begin
    if not alphaEnabled then exit;
    c:=(fColor and $FFFFFF) or (cardinal(alpha) shl 24);
    if c=fColor then exit;
    fColor:=c; Refresh;
-   if Assigned(onPreview) then onPreview;
+   PublishPreview;
   end;
 
- procedure TUIColorPicker.Refresh;
-  var
-   colors:TUIColorValues;
-   i:integer;
+ procedure TUIHSVColorEditor.Refresh;
   begin
    if oldSwatch=nil then exit;
    oldSwatch.color:=originalColor; newSwatch.color:=fColor;
    colorLabel.caption:=Conv.ToStr(fColor shr 24)+','+Conv.ToStr((fColor shr 16) and 255)+','+
     Conv.ToStr((fColor shr 8) and 255)+','+Conv.ToStr(fColor and 255)+' #'+Conv.ToHex(fColor,8);
-   if history<>nil then colors:=history.GetColors else colors:=nil;
-   for i:=0 to 4 do begin
-    recent[i].flags.visible:=i<length(colors);
-    if i<length(colors) then begin
-     recent[i].color:=colors[i];
-     if not alphaEnabled then recent[i].color:=Opaque(colors[i]);
-     recent[i].hint:='ARGB: $'+Conv.ToHex(recent[i].color,8);
-    end;
-   end;
   end;
 
- procedure TUIColorPicker.ChooseRecent;
-  begin
-   if TUIButton.sender is TUIColorSwatch then ChooseColor(TUIColorSwatch(TUIButton.sender).color);
-  end;
-
- procedure TUIColorPicker.RestoreOriginal;
+ procedure TUIHSVColorEditor.RestoreOriginal;
   begin ChooseColor(originalColor); end;
-
- procedure OutsidePress(event:TEventStr;tag:TTag);
-  var
-   p:TUIColorPopup;
-   e:TUIElement;
-  begin
-   reopenGuard:=nil;
-   p:=openPicker;
-   if (p=nil) or not p.opened or (p.GetWindow<>window) then exit;
-   if (hooked<>nil) and ((hooked=p) or hooked.HasParent(p)) then exit;
-   FindElementAt(window.mousePos.x,window.mousePos.y,e);
-   if (e<>nil) and ((e=p) or e.HasParent(p)) then exit;
-   if (e=p.owner) or ((e<>nil) and e.HasParent(p.owner)) then reopenGuard:=p.owner;
-   if p.owner.deleted or not p.owner.IsVisible or not p.owner.IsEnabled then p.Finish(false,true)
-    else p.Finish(p.editor.CanAccept,true);
-  end;
 
  constructor TUIColorButton.Create(width,height:single;parent:TUIElement;name:String8);
   begin
    inherited;
    fHistory:=DefaultColorHistory;
+   fEditorClass:=TUIHSVColorEditor;
    fAlphaEnabled:=true;
    flags.canHaveFocus:=true;
   end;
@@ -612,11 +552,13 @@ implementation
    if not enabled then fColor:=Opaque(fColor);
   end;
 
- procedure TUIColorButton.SetFactory(factory:TColorEditorFactory);
+ procedure TUIColorButton.SetEditorClass(editorClass:TUIColorEditorClass);
   begin
+   if editorClass=nil then editorClass:=TUIHSVColorEditor;
+   if fEditorClass=editorClass then exit;
    Cancel;
    if fPopup<>nil then begin fPopup.Remove; fPopup:=nil; end;
-   fFactory:=factory;
+   fEditorClass:=editorClass;
   end;
 
  procedure TUIColorButton.SetHistory(const history:IUIColorHistory);
@@ -633,14 +575,6 @@ implementation
    fPopupStyle:=value;
   end;
 
- function TUIColorButton.CreateEditor(parent:TUIElement;const name:String8):TUIColorEditor;
-  begin
-   if Assigned(fFactory) then result:=fFactory(parent,name)
-    else result:=TUIColorPicker.Create(parent,name);
-   if (result=nil) or (result.parent<>parent) then
-    raise EError.Create('Color editor factory must create content owned by its popup');
-  end;
-
  function TUIColorButton.IsOpen:boolean;
   begin result:=(fPopup<>nil) and fPopup.opened; end;
  procedure TUIColorButton.Accept;
@@ -651,7 +585,7 @@ implementation
  procedure TUIColorButton.OpenPicker;
   begin
    if deleted or not IsVisible or not IsEnabled then exit;
-   if reopenGuard=self then begin reopenGuard:=nil; exit; end;
+   if TUIPopup.TakeAnchorGuard(self) then exit;
    if IsOpen then exit;
    if fPopup=nil then fPopup:=TUIColorPopup.Create(self);
    fPopup.Open;
@@ -659,46 +593,102 @@ implementation
 
  procedure TUIColorButton.DoClick;
   begin
-   if reopenGuard=self then begin reopenGuard:=nil; exit; end;
+   if TUIPopup.TakeAnchorGuard(self) then exit;
    if IsOpen then Accept else OpenPicker;
   end;
 
  constructor TUIColorPopup.Create(owner:TUIColorButton);
+  var i:integer;
   begin
-   inherited Create(264,278,owner,owner.name+'\Picker');
+   inherited Create(0,0,owner,owner.name+'\Picker');
    self.owner:=owner;
-   flags.visible:=false; flags.canHaveFocus:=true; flags.noParentClip:=true;
-   order:=$10000; SetPadding(10);
+   flags.canHaveFocus:=true;
+   SetPadding(10);
    drawer:=@DrawPanel;
    if owner.fPopupStyle<>'' then styleInfo:=owner.fPopupStyle;
-   editor:=owner.CreateEditor(self,name+'\Editor');
-   editor.onPreview:=Preview; editor.onAccept:=Accept; editor.onCancel:=Cancel;
+   editor:=owner.fEditorClass.Create(self,name+'\Editor');
+   editor.host:=self;
+   for i:=0 to high(recent) do begin
+    recent[i]:=TUIColorSwatch.Create(30,22,self,name+'\Recent'+Conv.ToStr(i+1));
+    recent[i].onClickMethod:=ChooseRecent;
+   end;
+   okButton:=TUIButton.Create(FOOTER_BUTTON_WIDTH,26,self,name+'\Accept').Setup(PickerText('OK'));
+   okButton.flags.canHaveFocus:=false;
+   okButton.onClickMethod:=Accept;
+   cancelButton:=TUIButton.Create(FOOTER_BUTTON_WIDTH,26,self,name+'\Cancel').Setup(PickerText('Cancel'));
+   cancelButton.flags.canHaveFocus:=false;
+   cancelButton.onClickMethod:=Cancel;
+  end;
+
+ procedure TUIColorPopup.PositionFooter(width,top:single);
+  var
+   i:integer;
+   swatchWidth:single;
+  begin
+   swatchWidth:=(width-(COLOR_HISTORY_SIZE-1)*RECENT_GAP)/COLOR_HISTORY_SIZE;
+   for i:=0 to high(recent) do begin
+    recent[i].SetPos(i*(swatchWidth+RECENT_GAP),top+6);
+    recent[i].Resize(swatchWidth,22);
+   end;
+   okButton.SetPos(width-2*FOOTER_BUTTON_WIDTH-FOOTER_BUTTON_GAP,top+36);
+   cancelButton.SetPos(width-FOOTER_BUTTON_WIDTH,top+36);
+  end;
+
+ procedure TUIColorPopup.RefreshRecent;
+  var
+   colors:TUIColorValues;
+   i:integer;
+  begin
+   colors:=owner.fHistory.GetColors;
+   for i:=0 to high(recent) do begin
+    recent[i].flags.visible:=i<length(colors);
+    if i<length(colors) then begin
+     recent[i].color:=colors[i];
+     if not owner.alphaEnabled then recent[i].color:=Opaque(colors[i]);
+     recent[i].hint:='ARGB: $'+Conv.ToHex(recent[i].color,8);
+    end;
+   end;
+  end;
+
+ procedure TUIColorPopup.ChooseRecent;
+  begin
+   if TUIButton.Sender is TUIColorSwatch then editor.ChooseColor(TUIColorSwatch(TUIButton.Sender).color);
+  end;
+
+ procedure TUIColorPopup.ForgetOwner;
+  begin
+   if owner=nil then exit;
+   if owner.fPopup=self then owner.fPopup:=nil;
+   if ownerHeld then begin
+    ownerHeld:=false;
+    owner.Release;
+   end;
+   owner:=nil;
   end;
 
  destructor TUIColorPopup.Destroy;
   begin
-   if openPicker=self then openPicker:=nil;
-   if prevFocus<>nil then prevFocus.Release;
-   if owner<>nil then begin
-    if reopenGuard=owner then reopenGuard:=nil;
-    if owner.fPopup=self then owner.fPopup:=nil;
-    if ownerHeld then owner.Release;
-   end;
+   ForgetOwner;
    inherited;
   end;
 
  procedure TUIColorPopup.onRemoved;
   begin
-   // A scene root may contain both owner and reparented popup. Release holds now,
-   // otherwise its deferred destruction would wait forever for our destructor.
-   opened:=false; timer:=0;
-   if prevFocus<>nil then begin prevFocus.Release; prevFocus:=nil; end;
-   if owner<>nil then begin
-    if owner.fPopup=self then owner.fPopup:=nil;
-    if ownerHeld then begin ownerHeld:=false; owner.Release; end;
-    owner:=nil;
-   end;
+   // Owner and reparented popup can be removed together. Release holds now.
+   opened:=false;
+   timer:=0;
+   ForgetOwner;
    inherited;
+  end;
+
+ procedure TUIColorPopup.DismissPopup;
+  begin
+   Finish(false,true);
+  end;
+
+ procedure TUIColorPopup.OutsidePress(target:TUIElement);
+  begin
+   Finish(not owner.deleted and owner.IsVisible and owner.IsEnabled and editor.CanAccept,true);
   end;
 
  procedure TUIColorPopup.Open;
@@ -707,38 +697,43 @@ implementation
    r:TRect2;
    pref:TVec2;
    wnd:TWindow;
-   fit:single;
+   fit,contentWidth:single;
    i,code:integer;
   begin
    if opened then exit;
-   if openPicker<>nil then openPicker.Finish(false,true);
    root:=owner.GetRoot; wnd:=root.GetWindow;
    if (wnd=nil) or not owner.Acquire then exit;
    ownerHeld:=true;
+   if not RegisterPopup(root,owner) then begin
+    if ownerHeld then begin
+     ownerHeld:=false;
+     owner.Release;
+    end;
+    exit;
+   end;
    AttachTo(root);
-   editor.history:=owner.fHistory;
    editor.alphaEnabled:=owner.alphaEnabled;
    editor.originalColor:=owner.color;
    editor.SetColor(owner.color);
    pref:=editor.PreferredSize;
-   size:=Vec2(Max(1,pref.x)+padding.left+padding.right,Max(1,pref.y)+padding.top+padding.bottom);
+   contentWidth:=Max(2*FOOTER_BUTTON_WIDTH+FOOTER_BUTTON_GAP,pref.x);
+   size:=Vec2(contentWidth+padding.left+padding.right,
+     Max(1,pref.y)+FOOTER_HEIGHT+padding.top+padding.bottom);
+   PositionFooter(contentWidth,Max(1,pref.y));
+   RefreshRecent;
    // Scale the whole composition for tiny roots; positions and input use the same transform.
    fit:=Min(1,Min(root.clientWidth/size.x,root.clientHeight/size.y));
    scale:=Max(0.01,fit); size:=Vec2(size.x*scale,size.y*scale);
    editor.Resize(Max(1,pref.x),Max(1,pref.y));
    r:=owner.TransformTo(owner.GetRect,root);
-   position:=Vec2(r.x1,r.y2);
-   if position.y+size.y>root.clientHeight then position.y:=r.y1-size.y;
-   position.x:=Clamp(position.x,0,Max(0,root.clientWidth-size.x));
-   position.y:=Clamp(position.y,0,Max(0,root.clientHeight-size.y));
+   PlacePopup(root,r.x1,r.y2,r.y1);
    rootSize:=Vec2(root.clientWidth,root.clientHeight); rootScale:=root.globalScale;
-   f:=TUIElement(wnd.focus.element);
-   if (f<>nil) and f.Acquire then prevFocus:=f;
+   SavePopupFocus(wnd);
    for i:=0 to 255 do begin
     code:=Scan.FromKey(TKey(i));
     heldAtOpen[i]:=(code>0) and (code<=high(wnd.keyState)) and (wnd.keyState[code] and 1<>0);
    end;
-   opened:=true; openPicker:=self; flags.visible:=true; timer:=50;
+   opened:=true; flags.visible:=true; timer:=50;
    SetFocus;
    f:=editor.InitialFocus;
    if (f<>nil) and ((f=editor) or f.HasParent(editor)) then f.SetFocus;
@@ -746,8 +741,6 @@ implementation
 
  procedure TUIColorPopup.Finish(commit,restoreFocus:boolean);
   var
-   f:TUIElement;
-   wnd:TWindow;
    oldColor,newColor:cardinal;
    callback:TUIColorEvent;
    history:IUIColorHistory;
@@ -756,23 +749,14 @@ implementation
   begin
    if not opened then exit;
    opened:=false; // before focus changes and application callbacks
-   if openPicker=self then openPicker:=nil;
    timer:=0; flags.visible:=false;
    oldColor:=editor.originalColor; newColor:=editor.color;
    button:=owner;
-   history:=editor.history;
-   wnd:=GetWindow;
+   history:=button.fHistory;
    if (hooked<>nil) and ((hooked=self) or hooked.HasParent(self)) then begin
     hooked.onLostFocus; hooked:=nil; clipMouse:=cmNo;
    end;
-   f:=prevFocus; prevFocus:=nil;
-   if wnd<>nil then begin
-    if (wnd.focus.element=self) or ((wnd.focus.element<>nil) and TUIElement(wnd.focus.element).HasParent(self)) then begin
-     ClearFocus(wnd);
-     if restoreFocus and (f<>nil) and not f.deleted and f.IsVisible and f.IsEnabled then f.SetFocus;
-    end;
-   end;
-   if f<>nil then f.Release;
+   if restoreFocus then EndPopup(pfcRestore) else EndPopup(pfcClear);
    callback:=nil;
    if not button.deleted then begin
     if commit then begin
@@ -814,7 +798,7 @@ implementation
       (parent.globalScale<>rootScale) or (f=nil) or ((f<>self) and not f.HasParent(self)) then begin
     Finish(false,false); exit;
    end;
-   editor.Refresh;
+   RefreshRecent;
    timer:=50;
   end;
 
@@ -841,7 +825,7 @@ implementation
    items[index].SetFocus;
   end;
 
- function TUIColorPopup.onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+ function TUIColorPopup.HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   begin
    if not opened then exit(true);
    // Let the world end a key gesture that started before the popup opened.
@@ -860,7 +844,6 @@ implementation
 
 initialization
  sharedHistory:=TUIColorHistory.Create;
- SetEventHandler('MOUSE\BTNDOWN',OutsidePress,emInstant);
  TUIColorPopup.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:4; '+
   'color:&text; box-shadow:&shadow 2 3 4');
  TUIColorSwatch.SetDefault('styleInfo','radius:3; border-width:1; border-color:&border-dark; '+

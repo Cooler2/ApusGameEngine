@@ -82,30 +82,23 @@ data and is not tinted by the theme. `popupStyle` replaces the popup's style tex
 for this button (empty selects the default). Content can set its own style and
 preferred size, while the host scales the whole composition to fit a small root.
 
-Set `button.editorFactory` to a function of this type:
+Assign an editor subclass to `button.editorClass`. The popup creates and owns the
+editor and supplies the recent colors and OK/Cancel buttons. Changing the class
+cancels the current session and discards the previous content. Assign `nil` to
+restore the default editor.
 
-```pascal
-function CreateEditor(parent:TUIElement;const name:String8):TUIColorEditor;
-```
-
-The result must be a new editor owned by the supplied parent. The host owns its
-lifetime; do not free it independently. A factory change cancels the current
-session and discards the old popup. Override the button's `CreateEditor` instead
-when a button subclass is more convenient.
-
-Derive from `TUIColorPicker` to modify the standard composition through protected
+Derive from `TUIHSVColorEditor` to modify the standard composition through protected
 `BuildContent`/`LayoutContent`, or derive from `TUIColorEditor` to replace it.
 The content contract is:
 
 - `SetColor` initializes/updates silently; `ChooseColor` publishes user preview.
-- `originalColor`, `color` and `history` expose session state and shared MRU.
+- `originalColor` and `color` expose the current editing session.
 - `alphaEnabled` carries the host's RGB/ARGB mode. Use `SetColor`/`ChooseColor` for
   normalization; a custom editor that writes `fColor` directly must honor the mode.
 - `PreferredSize` supplies logical content dimensions; the base returns `size`.
-- `Refresh` updates displayed values and recent entries without resetting text input.
+- `Refresh` updates the editor's displayed values when its color or alpha mode changes.
 - `CanAccept` validates input; `InitialFocus` optionally returns a child to focus.
-- `Accept`/`Cancel` request completion through host-installed callbacks. Do not
-  replace `onPreview`/`onAccept`/`onCancel` on hosted content.
+- `Accept` and `Cancel` request completion from the popup.
 
 The standard content is mouse-only, with one focus on the popup. A custom editor
 can use focusable child controls: Tab wraps within the popup, Escape cancels and
