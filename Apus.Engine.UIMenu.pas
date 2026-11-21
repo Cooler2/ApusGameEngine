@@ -40,11 +40,13 @@ interface
   // Created once, lives hidden in its parent; while open it is attached to the UI root.
   // A press outside the menu closes it and goes on to its target. The focus returns to
   // where it was before the menu opened.
-  TUIPopupMenu=class(TUIElement)
+  TUIPopupMenu=class(TUIPopup)
    onOpen:TObjProcedure; // update the lines (enabled, visible, captions) before showing
    lineHeight:single;    // height of a line, 0 - by the font size
    constructor Create(parent:TUIElement;name:String8='');
-   destructor Destroy; override;
+  protected
+   procedure DismissPopup; override;
+  public
    // A line without a command (set one on the result); name '' - '<menu name>\<caption>'
    // with "&" and a trailing "..." removed, other signs -> '_'
    function Add(const caption:String8;const shortcut:String8='';const name:String8=''):TUIMenuItem;
@@ -64,8 +66,6 @@ interface
    fCurrent:TUIMenuItem;
    fOpen:boolean;
    owner:TUIElement;     // the parent to return to when closed
-   anchor:TUIElement;    // the element the menu was opened from, or nil
-   prevFocus:TUIElement; // the focus to restore (held by Acquire)
    rootSize:TVec2;       // the size of the root when opened
    procedure SetCurrent(item:TUIMenuItem);
    procedure Open(root,anchor:TUIElement;x,y,upY:single);
@@ -77,7 +77,7 @@ interface
   end;
 
 implementation
- uses Apus.EventMan, Apus.Geom2D, Apus.Engine.Window, Apus.Engine.UIShapes;
+ uses Apus.Geom2D, Apus.Engine.Window, Apus.Engine.UIShapes;
 
  const
   SEPARATOR_HEIGHT=9;
@@ -85,26 +85,6 @@ implementation
   SHORTCUT_GAP=3;      // min space between the captions and the shortcuts, in font sizes
   SHORTCUT_SCALE=0.85; // default shortcut font size relative to the caption font
   CHECK_INTERVAL=200;  // ms between the safety checks of an open menu
-
- var
-  openMenu:TUIPopupMenu;  // one popup menu is open at a time
-  reopenGuard:TUIElement; // the anchor whose press closed its menu: its click must not reopen it
-  handlerSet:boolean;
-
- // Window thread, before the press reaches the UI (TWindow.DeliverMouseButton): a press
- // outside the open menu closes it and restores the focus, then goes on to its target
- procedure MouseDownHandler(event:TEventStr;tag:TTag);
-  var
-   e:TUIElement;
-  begin
-   reopenGuard:=nil;
-   if openMenu=nil then exit;
-   e:=underMouse;
-   if (e<>nil) and ((e=openMenu) or e.HasParent(openMenu)) then exit; // a press inside the menu
-   if (e<>nil) and (openMenu.anchor<>nil) and
-      ((e=openMenu.anchor) or e.HasParent(openMenu.anchor)) then reopenGuard:=openMenu.anchor;
-   openMenu.Close;
-  end;
 
  function IsSelectable(e:TUIElement):boolean;
   begin
@@ -225,21 +205,7 @@ implementation
    inherited Create(100,10,parent,name);
    owner:=parent;
    shape:=shapeFull; // a press on the padding stays inside the menu
-   flags.visible:=false;
-   flags.noParentClip:=true;
-   order:=$10000; // above the siblings, out of the layout
    SetPaddings(4,4,4,4);
-   if not handlerSet then begin
-    handlerSet:=true;
-    SetEventHandler('MOUSE\BTNDOWN',MouseDownHandler,emInstant);
-   end;
-  end;
-
- destructor TUIPopupMenu.Destroy;
-  begin
-   if openMenu=self then openMenu:=nil; // the window thread frees elements
-   if prevFocus<>nil then prevFocus.Release;
-   inherited;
   end;
 
  function TUIPopupMenu.Add(const caption,shortcut,name:String8):TUIMenuItem;
@@ -317,32 +283,19 @@ implementation
 
  // (x,y) - the top-left corner in root; upY - the bottom edge if there is no room below
  procedure TUIPopupMenu.Open(root,anchor:TUIElement;x,y,upY:single);
-  var
-   wnd:TWindow;
-   f:TUIElement;
   begin
    if fOpen then DoClose(true);
-   if openMenu<>nil then openMenu.Close; // one popup menu at a time
    if Assigned(onOpen) then onOpen;
+   if not RegisterPopup(root,anchor) then exit;
    AttachTo(root);
    Measure;
-   if y+size.y>root.clientHeight then y:=upY-size.y;
-   x:=Clamp(x,0,Max(0,root.clientWidth-size.x));
-   y:=Clamp(y,0,Max(0,root.clientHeight-size.y));
-   pivot:=Vec2(0,0);
-   position:=Vec2(x,y);
+   PlacePopup(root,x,y,upY);
    rootSize:=Vec2(root.clientWidth,root.clientHeight);
    fCurrent:=nil;
-   self.anchor:=anchor;
    flags.visible:=true;
    fOpen:=true;
-   openMenu:=self;
    timer:=CHECK_INTERVAL;
-   // keep the focus while open, give it back on close
-   wnd:=root.GetWindow;
-   if wnd=nil then exit;
-   f:=TUIElement(wnd.focus.element);
-   if (f<>nil) and (f<>self) and f.Acquire then prevFocus:=f;
+   SavePopupFocus(root.GetWindow);
    SetFocus;
   end;
 
@@ -357,10 +310,7 @@ implementation
    root:TUIElement;
    r:TRect2;
   begin
-   if reopenGuard=anchor then begin // the click of the press that has just closed this menu
-    reopenGuard:=nil;
-    exit;
-   end;
+   if TakeAnchorGuard(anchor) then exit;
    root:=anchor.GetRoot;
    r:=anchor.TransformTo(anchor.GetRect,root);
    Open(root,anchor,r.x1,r.y2,r.y1);
@@ -371,28 +321,19 @@ implementation
    DoClose(true);
   end;
 
+ procedure TUIPopupMenu.DismissPopup;
+  begin
+   Close;
+  end;
+
  procedure TUIPopupMenu.DoClose(restoreFocus:boolean);
-  var
-   wnd:TWindow;
-   f:TUIElement;
   begin
    if not fOpen then exit;
    fOpen:=false; // first: the focus change below calls onLostFocus
-   if openMenu=self then openMenu:=nil;
    timer:=0;
    fCurrent:=nil;
-   anchor:=nil;
    flags.visible:=false;
-   f:=prevFocus;
-   prevFocus:=nil;
-   wnd:=GetWindow;
-   if restoreFocus and (wnd<>nil) and (wnd.focus.element=self) then begin
-    // drop the focus first: SetFocus would record the hidden menu as the focused child
-    // of its window, and a later focus of that window would land on it
-    ClearFocus(wnd);
-    if (f<>nil) and not f.deleted and f.IsVisible and f.IsEnabled then f.SetFocus;
-   end;
-   if f<>nil then f.Release;
+   if restoreFocus then EndPopup(pfcRestore) else EndPopup(pfcLeave);
    AttachTo(owner);
   end;
 

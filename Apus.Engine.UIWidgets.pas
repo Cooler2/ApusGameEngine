@@ -9,12 +9,15 @@
 unit Apus.Engine.UIWidgets;
 interface
  uses Apus.Core, Apus.Lib, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes,
-  Apus.Engine.UIShapes;
+  Apus.Engine.UIShapes, Apus.Engine.Window;
 
  {$WRITEABLECONST ON}
  {$IFDEF CPUARM} {$R-} {$ENDIF}
 
  const
+  UI_POPUP_ORDER=$10000;
+  UI_HINT_ORDER=High(integer);
+
   // Window defaults (writable constants, can be changed)
   wcFrameBorder:integer=5;   // window frame border width
   wcTitleHeight:integer=24;  // window title bar height
@@ -192,10 +195,38 @@ interface
 
   // Decorative frame / panel border
   TUIFrame=class(TUIElement)
-   constructor Create(width,height:single;parent_:TUIElement;depth:integer=1;style_:integer=0);
+   constructor Create(width,height:single;parent_:TUIElement;depth:integer=1;style_:integer=0;
+    const name:String8='_UIFrame');
    procedure SetBorderWidth(w:integer); virtual;
   protected
    borderWidth:integer; // frame border width in pixels
+  end;
+
+  TPopupFocusOnClose=(pfcLeave,pfcClear,pfcRestore);
+
+  // One popup per window. Subclasses choose how to dismiss their contents.
+  TUIPopup=class(TUIFrame)
+   constructor Create(width,height:single;parent:TUIElement;const name:String8;depth:integer=0);
+   destructor Destroy; override;
+   procedure onRemoved; override;
+   function ContainsElement(element:TUIElement):boolean;
+   function HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
+   function ConsumesSceneButtons:boolean; virtual;
+   class function Current(wnd:TWindow):TUIPopup; static;
+   class function TakeAnchorGuard(anchor:TUIElement):boolean; static;
+  protected
+   procedure DismissPopup; virtual; abstract;
+   procedure OutsidePress(target:TUIElement); virtual;
+   function IsAnchorTarget(target:TUIElement):boolean;
+   function RegisterPopup(root,anchor:TUIElement):boolean;
+   procedure UnregisterPopup;
+   procedure PlacePopup(root:TUIElement;x,y,aboveY:single);
+   procedure SavePopupFocus(wnd:TWindow);
+   procedure EndPopup(focusMode:TPopupFocusOnClose);
+  private
+   popupWindow:TWindow;
+   popupAnchor:TUIElement;
+   previousFocus:TUIElement;
   end;
 
   // Basic window: moveable and optionally resizeable.
@@ -370,6 +401,18 @@ interface
    procedure UpdateScroller;
   end;
 
+  TUIComboBox=class;
+  TUIComboPopup=class(TUIPopup)
+   destructor Destroy; override;
+   procedure onRemoved; override;
+  protected
+   procedure DismissPopup; override;
+   procedure OutsidePress(target:TUIElement); override;
+  private
+   combo:TUIComboBox;
+   procedure ForgetCombo;
+  end;
+
   // Drop-down selector: visually a button, opens a popup TUIListBox on click.
   // Tracks current item by index (curItem), tag (curTag), and text (text property).
   TUIComboBox=class(TUIButton)
@@ -378,7 +421,7 @@ interface
    defaultText:String8;
    fCurItem,fCurTag:integer;
    // pop up elements
-   frame:TUIFrame;
+   frame:TUIComboPopup;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
    constructor Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil);
@@ -423,11 +466,6 @@ implementation
    function GetStep:single;
    function GetPageSize:single;
   end;
-
- threadvar
-  // combo box with its drop-down open (one per window): mouse dispatch state of the window
-  // thread, like underMouse - clicks open and close it
-  comboPop:TUIComboBox;
 
 { TUISpacer }
 
@@ -1816,7 +1854,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
  constructor TUIHint.Create(x,y:single;text:String8;parent_:TUIElement);
   begin
    inherited Create(1,1,parent_,'_hint'); // not a unique name: every window may show a hint
-   order:=High(integer); // above popup siblings, including menus and color pickers
+   order:=UI_HINT_ORDER; // above the popup layer
    SetPos(x,y,pivotTopLeft);
    shape:=shapeEmpty;
    simpleText:=text;
@@ -2046,9 +2084,10 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
 
   { TUIFrame }
 
- constructor TUIFrame.Create(width,height:single;parent_:TUIElement;depth:integer=1;style_:integer=0);
+ constructor TUIFrame.Create(width,height:single;parent_:TUIElement;depth:integer;style_:integer;
+   const name:String8);
   begin
-   inherited Create(width,height,parent_,'_UIFrame');
+   inherited Create(width,height,parent_,name);
    shape:=shapeFull;
    borderWidth:=depth;
    if style_<>0 then drawer:=GetUIStyle(style_);
@@ -2056,7 +2095,177 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    padding.Right:=depth; padding.Bottom:=depth;
   end;
 
+ constructor TUIPopup.Create(width,height:single;parent:TUIElement;const name:String8;depth:integer);
+  begin
+   inherited Create(width,height,parent,depth,0,name);
+   flags.visible:=false;
+   flags.noParentClip:=true;
+   order:=UI_POPUP_ORDER;
+  end;
+
+ destructor TUIPopup.Destroy;
+  begin
+   EndPopup(pfcLeave);
+   inherited;
+  end;
+
+ procedure TUIPopup.onRemoved;
+  begin
+   EndPopup(pfcLeave);
+   inherited;
+  end;
+
+ function TUIPopup.ContainsElement(element:TUIElement):boolean;
+  begin
+   result:=(element<>nil) and ((element=self) or element.HasParent(self));
+  end;
+
+ function TUIPopup.HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+  begin
+   result:=true;
+  end;
+
+ function TUIPopup.ConsumesSceneButtons:boolean;
+  begin
+   result:=false;
+  end;
+
+ class function TUIPopup.Current(wnd:TWindow):TUIPopup;
+  begin
+   if wnd=nil then exit(nil);
+   result:=TUIPopup(wnd.popup.element);
+  end;
+
+ class function TUIPopup.TakeAnchorGuard(anchor:TUIElement):boolean;
+  var wnd:TWindow;
+  begin
+   wnd:=anchor.GetWindow;
+   result:=(wnd<>nil) and (wnd.popup.anchorGuard=anchor);
+   if result then wnd.popup.anchorGuard:=nil;
+  end;
+
+ function TUIPopup.IsAnchorTarget(target:TUIElement):boolean;
+  begin
+   result:=(popupAnchor<>nil) and (target<>nil) and
+     ((target=popupAnchor) or target.HasParent(popupAnchor));
+  end;
+
+ procedure TUIPopup.OutsidePress(target:TUIElement);
+  begin
+   DismissPopup;
+  end;
+
+ procedure PopupMouseDown(event:TEventStr;tag:TTag);
+  var
+   active:TUIPopup;
+   target:TUIElement;
+  begin
+   if window=nil then exit;
+   window.popup.anchorGuard:=nil;
+   active:=TUIPopup.Current(window);
+   if (active=nil) or active.deleted or active.ContainsElement(hooked) then exit;
+   FindElementAt(window.mousePos.x,window.mousePos.y,target);
+   if active.ContainsElement(target) then exit;
+   if active.IsAnchorTarget(target) then window.popup.anchorGuard:=active.popupAnchor;
+   active.OutsidePress(target);
+  end;
+
+ function TUIPopup.RegisterPopup(root,anchor:TUIElement):boolean;
+  var
+   wnd:TWindow;
+   active:TUIPopup;
+  begin
+   wnd:=root.GetWindow;
+   active:=Current(wnd);
+   if (active<>nil) and (active<>self) then active.DismissPopup;
+   // A close callback can remove the anchor or open another popup.
+   if deleted or root.deleted or ((anchor<>nil) and anchor.deleted) then exit(false);
+   active:=Current(wnd);
+   if (active<>nil) and (active<>self) then exit(false);
+   popupWindow:=wnd;
+   popupAnchor:=anchor;
+   if wnd<>nil then wnd.popup.element:=self;
+   result:=true;
+  end;
+
+ procedure TUIPopup.UnregisterPopup;
+  begin
+   if (popupWindow<>nil) and (popupWindow.popup.element=self) then popupWindow.popup.element:=nil;
+   popupWindow:=nil;
+   popupAnchor:=nil;
+  end;
+
+ procedure TUIPopup.PlacePopup(root:TUIElement;x,y,aboveY:single);
+  begin
+   if y+size.y>root.clientHeight then y:=aboveY-size.y;
+   pivot:=Vec2(0,0);
+   position:=Vec2(Clamp(x,0,Max(0,root.clientWidth-size.x)),
+     Clamp(y,0,Max(0,root.clientHeight-size.y)));
+  end;
+
+ procedure TUIPopup.SavePopupFocus(wnd:TWindow);
+  var focus:TUIElement;
+  begin
+   if wnd=nil then exit;
+   focus:=TUIElement(wnd.focus.element);
+   if (focus<>nil) and (focus<>self) and focus.Acquire then previousFocus:=focus;
+  end;
+
+ procedure TUIPopup.EndPopup(focusMode:TPopupFocusOnClose);
+  var
+   focus:TUIElement;
+   wnd:TWindow;
+  begin
+   focus:=previousFocus;
+   previousFocus:=nil;
+   wnd:=popupWindow;
+   UnregisterPopup;
+   try
+    if (focusMode<>pfcLeave) and (wnd<>nil) and ContainsElement(TUIElement(wnd.focus.element)) then begin
+     ClearFocus(wnd);
+     if (focusMode=pfcRestore) and (focus<>nil) and not focus.deleted and
+       focus.IsVisible and focus.IsEnabled then focus.SetFocus;
+    end;
+   finally
+    if focus<>nil then focus.Release;
+   end;
+  end;
+
  { TUIComboBox }
+
+ procedure TUIComboPopup.ForgetCombo;
+  begin
+   if combo=nil then exit;
+   if combo.frame=self then combo.frame:=nil;
+   combo:=nil;
+  end;
+
+ destructor TUIComboPopup.Destroy;
+  begin
+   ForgetCombo;
+   inherited;
+  end;
+
+ procedure TUIComboPopup.onRemoved;
+  begin
+   ForgetCombo;
+   inherited;
+  end;
+
+ procedure TUIComboPopup.DismissPopup;
+  begin
+   if combo<>nil then combo.ClosePopup(false);
+  end;
+
+ procedure TUIComboPopup.OutsidePress(target:TUIElement);
+  begin
+   // The combo's own mouse handler toggles the drop-down on a header press.
+   if IsAnchorTarget(target) then begin
+    window.popup.anchorGuard:=nil;
+    exit;
+   end;
+   DismissPopup;
+  end;
 
  procedure TUIComboBox.AddItem(item:String8;tag:cardinal;hint:String8);
   var
@@ -2079,23 +2288,11 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
   end;
 
  procedure ComboEventHandler(event:TEventStr;tag:TTag);
-  var
-   e:TUIElement;
-   onHeader,onFrame:boolean;
+  var active:TUIPopup;
   begin
-   if comboPop=nil then exit;
-   if event.StartsWith('UI\LISTBOX\ONSELECT\',true) then begin
-    comboPop.ClosePopup(true); // a popup line was clicked -> commit and close
-    exit;
-   end;
-   if event.StartsWith('MOUSE\BTNDOWN',true) then begin
-    e:=underMouse;
-    onHeader:=(e=comboPop) or ((e<>nil) and e.HasParent(comboPop));
-    onFrame:=(e=comboPop.frame) or ((e<>nil) and e.HasParent(comboPop.frame));
-    // header click is toggled by its own onMouseButtons; popup click selects a
-    // line; anything else (including empty space, underMouse=nil) closes w/o commit
-    if not onHeader and not onFrame then comboPop.ClosePopup(false);
-   end;
+   active:=TUIPopup.Current(window);
+   if (active is TUIComboPopup) and (TUIComboPopup(active).combo<>nil) then
+    TUIComboPopup(active).combo.ClosePopup(true);
   end;
 
  function TUIComboBox.GetText:String8;
@@ -2132,10 +2329,8 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    curItem:=-1; // after defaultText so the empty caption shows the placeholder
 
    // Default properties for child controls
-   frame:=TUIFrame.Create(size.x,2,self,1,0);
-   frame.flags.visible:=false;
-   frame.flags.noParentClip:=true;
-   frame.order:=1000;
+   frame:=TUIComboPopup.Create(size.x,2,self,'_UIFrame',1);
+   frame.combo:=self;
    popup:=TUIListBox.Create(size.x-2,0,frame,'_ComboBoxPopUp',20);
   // popup.autoSelectMode:=true;
    popup.bgColor:=$FFFFFFFF;
@@ -2145,13 +2340,12 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    popup.bgSelColor:=$FF405090;
    popUp.selTextColor:=$FFFFFFFF;
 
-   SetEventHandler('MOUSE\BTNDOWN',ComboEventHandler,emInstant);
    SetEventHandler('UI\ListBox\onSelect\_ComboBoxPopUp',ComboEventHandler,emInstant); // commit on line click
   end;
 
  destructor TUIComboBox.Destroy;
   begin
-   if comboPop=self then comboPop:=nil; // the window thread frees elements (see TUIElement.Destroy)
+   if (frame<>nil) and (frame.parent<>self) then frame.Remove;
    inherited;
   end;
 
@@ -2171,11 +2365,9 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
   begin
    if frame.flags.visible then exit;
    Signal('UI\COMBOBOX\ONDROP\'+name,TTag(self));
-   if (comboPop<>nil) and (comboPop<>self) then comboPop.ClosePopup(false); // only one combo open at a time
-   // Attach drop-down list to the root element
    root:=GetRoot;
+   if not frame.RegisterPopup(root,self) then exit;
    r:=TransformTo(GetRect,root);
-   frame.position:=Vec2(r.x1, r.y2+1);
    frame.size.x:=size.x;
    frame.AttachTo(root);
 
@@ -2187,8 +2379,7 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    popup.size.y:=lHeight*lcount;
    popup.size.x:=frame.size.x-2*frame.borderWidth;
    frame.size.y:=popup.size.y+frame.borderWidth*2;
-   if frame.GetPosOnScreen.bottom>=root.height then
-    frame.position.y:=r.y1-1-frame.height;
+   frame.PlacePopup(root,r.x1,r.y2+1,r.y1-1);
    // Content
    popUp.ClearLines;
    for i:=0 to high(items) do begin
@@ -2202,7 +2393,6 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    popup.hoverLine:=curItem;
    popup.selectedLine:=-1; // fresh: a selection only happens by an explicit click
    timer:=1;
-   comboPop:=self;
   end;
 
  procedure TUIComboBox.ClosePopup(commit:boolean);
@@ -2216,7 +2406,7 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    frame.flags.visible:=false;
    frame.AttachTo(self);
    timer:=0;
-   if comboPop=self then comboPop:=nil;
+   frame.EndPopup(pfcLeave);
    if curItem<>oldItem then NotifySelect;
   end;
 
@@ -2303,7 +2493,7 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    // Selection commits via the popup's SELECTED signal and click-outside closes
    // via the global MOUSE\BTNDOWN handler. The timer is only a safety net that
    // closes the popup once focus leaves the combo and its drop-down subtree.
-   if not frame.flags.visible then exit;
+   if (frame=nil) or not frame.flags.visible then exit;
    timer:=1;
    f:=FocusedElement;
    if (f=self) or (f=frame) or ((f<>nil) and (f.HasParent(self) or f.HasParent(frame))) then exit;
@@ -2407,4 +2597,5 @@ initialization
  //TUIButton.SetClassAttribute('defaultColor',$FFC0D0D0);
  //TUIImage.SetClassAttribute('defaultColor',$FF808080);
  TUIComboBox.SetClassAttribute('handleMouseIfDisabled',false);
+ SetEventHandler('MOUSE\BTNDOWN',PopupMouseDown,emInstant);
 end.

@@ -115,20 +115,22 @@ interface
   end;
 
   // Host is public as a type for ownership; applications normally use TUIColorButton.
-  TUIColorPopup=class(TUIElement)
+  TUIColorPopup=class(TUIPopup)
    constructor Create(owner:TUIColorButton);
    destructor Destroy; override;
    procedure Open;
    procedure onRemoved; override;
    procedure Finish(commit,restoreFocus:boolean);
    procedure onTimer; override;
-   function onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
+   function HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    function ConsumesSceneButtons:boolean; override;
+  protected
+   procedure DismissPopup; override;
+   procedure OutsidePress(target:TUIElement); override;
   private
    owner:TUIColorButton;
    editor:TUIColorEditor;
    opened,ownerHeld:boolean;
-   prevFocus:TUIElement;
    rootSize:TVec2;
    rootScale:single;
    heldAtOpen:array[byte] of boolean;
@@ -136,6 +138,7 @@ interface
    procedure Accept;
    procedure Cancel;
    procedure MoveFocus(backwards:boolean);
+   procedure ForgetOwner;
   end;
 
  function DefaultColorHistory:IUIColorHistory;
@@ -158,9 +161,6 @@ implementation
 
  var
   sharedHistory:IUIColorHistory;
- threadvar
-  openPicker:TUIColorPopup;
-  reopenGuard:TUIColorButton;
 
  function Opaque(color:cardinal):cardinal; inline;
   begin
@@ -573,22 +573,6 @@ implementation
  procedure TUIColorPicker.RestoreOriginal;
   begin ChooseColor(originalColor); end;
 
- procedure OutsidePress(event:TEventStr;tag:TTag);
-  var
-   p:TUIColorPopup;
-   e:TUIElement;
-  begin
-   reopenGuard:=nil;
-   p:=openPicker;
-   if (p=nil) or not p.opened or (p.GetWindow<>window) then exit;
-   if (hooked<>nil) and ((hooked=p) or hooked.HasParent(p)) then exit;
-   FindElementAt(window.mousePos.x,window.mousePos.y,e);
-   if (e<>nil) and ((e=p) or e.HasParent(p)) then exit;
-   if (e=p.owner) or ((e<>nil) and e.HasParent(p.owner)) then reopenGuard:=p.owner;
-   if p.owner.deleted or not p.owner.IsVisible or not p.owner.IsEnabled then p.Finish(false,true)
-    else p.Finish(p.editor.CanAccept,true);
-  end;
-
  constructor TUIColorButton.Create(width,height:single;parent:TUIElement;name:String8);
   begin
    inherited;
@@ -651,7 +635,7 @@ implementation
  procedure TUIColorButton.OpenPicker;
   begin
    if deleted or not IsVisible or not IsEnabled then exit;
-   if reopenGuard=self then begin reopenGuard:=nil; exit; end;
+   if TUIPopup.TakeAnchorGuard(self) then exit;
    if IsOpen then exit;
    if fPopup=nil then fPopup:=TUIColorPopup.Create(self);
    fPopup.Open;
@@ -659,7 +643,7 @@ implementation
 
  procedure TUIColorButton.DoClick;
   begin
-   if reopenGuard=self then begin reopenGuard:=nil; exit; end;
+   if TUIPopup.TakeAnchorGuard(self) then exit;
    if IsOpen then Accept else OpenPicker;
   end;
 
@@ -667,38 +651,48 @@ implementation
   begin
    inherited Create(264,278,owner,owner.name+'\Picker');
    self.owner:=owner;
-   flags.visible:=false; flags.canHaveFocus:=true; flags.noParentClip:=true;
-   order:=$10000; SetPadding(10);
+   flags.canHaveFocus:=true;
+   SetPadding(10);
    drawer:=@DrawPanel;
    if owner.fPopupStyle<>'' then styleInfo:=owner.fPopupStyle;
    editor:=owner.CreateEditor(self,name+'\Editor');
    editor.onPreview:=Preview; editor.onAccept:=Accept; editor.onCancel:=Cancel;
   end;
 
+ procedure TUIColorPopup.ForgetOwner;
+  begin
+   if owner=nil then exit;
+   if owner.fPopup=self then owner.fPopup:=nil;
+   if ownerHeld then begin
+    ownerHeld:=false;
+    owner.Release;
+   end;
+   owner:=nil;
+  end;
+
  destructor TUIColorPopup.Destroy;
   begin
-   if openPicker=self then openPicker:=nil;
-   if prevFocus<>nil then prevFocus.Release;
-   if owner<>nil then begin
-    if reopenGuard=owner then reopenGuard:=nil;
-    if owner.fPopup=self then owner.fPopup:=nil;
-    if ownerHeld then owner.Release;
-   end;
+   ForgetOwner;
    inherited;
   end;
 
  procedure TUIColorPopup.onRemoved;
   begin
-   // A scene root may contain both owner and reparented popup. Release holds now,
-   // otherwise its deferred destruction would wait forever for our destructor.
-   opened:=false; timer:=0;
-   if prevFocus<>nil then begin prevFocus.Release; prevFocus:=nil; end;
-   if owner<>nil then begin
-    if owner.fPopup=self then owner.fPopup:=nil;
-    if ownerHeld then begin ownerHeld:=false; owner.Release; end;
-    owner:=nil;
-   end;
+   // Owner and reparented popup can be removed together. Release holds now.
+   opened:=false;
+   timer:=0;
+   ForgetOwner;
    inherited;
+  end;
+
+ procedure TUIColorPopup.DismissPopup;
+  begin
+   Finish(false,true);
+  end;
+
+ procedure TUIColorPopup.OutsidePress(target:TUIElement);
+  begin
+   Finish(not owner.deleted and owner.IsVisible and owner.IsEnabled and editor.CanAccept,true);
   end;
 
  procedure TUIColorPopup.Open;
@@ -711,10 +705,16 @@ implementation
    i,code:integer;
   begin
    if opened then exit;
-   if openPicker<>nil then openPicker.Finish(false,true);
    root:=owner.GetRoot; wnd:=root.GetWindow;
    if (wnd=nil) or not owner.Acquire then exit;
    ownerHeld:=true;
+   if not RegisterPopup(root,owner) then begin
+    if ownerHeld then begin
+     ownerHeld:=false;
+     owner.Release;
+    end;
+    exit;
+   end;
    AttachTo(root);
    editor.history:=owner.fHistory;
    editor.alphaEnabled:=owner.alphaEnabled;
@@ -727,18 +727,14 @@ implementation
    scale:=Max(0.01,fit); size:=Vec2(size.x*scale,size.y*scale);
    editor.Resize(Max(1,pref.x),Max(1,pref.y));
    r:=owner.TransformTo(owner.GetRect,root);
-   position:=Vec2(r.x1,r.y2);
-   if position.y+size.y>root.clientHeight then position.y:=r.y1-size.y;
-   position.x:=Clamp(position.x,0,Max(0,root.clientWidth-size.x));
-   position.y:=Clamp(position.y,0,Max(0,root.clientHeight-size.y));
+   PlacePopup(root,r.x1,r.y2,r.y1);
    rootSize:=Vec2(root.clientWidth,root.clientHeight); rootScale:=root.globalScale;
-   f:=TUIElement(wnd.focus.element);
-   if (f<>nil) and f.Acquire then prevFocus:=f;
+   SavePopupFocus(wnd);
    for i:=0 to 255 do begin
     code:=Scan.FromKey(TKey(i));
     heldAtOpen[i]:=(code>0) and (code<=high(wnd.keyState)) and (wnd.keyState[code] and 1<>0);
    end;
-   opened:=true; openPicker:=self; flags.visible:=true; timer:=50;
+   opened:=true; flags.visible:=true; timer:=50;
    SetFocus;
    f:=editor.InitialFocus;
    if (f<>nil) and ((f=editor) or f.HasParent(editor)) then f.SetFocus;
@@ -746,8 +742,6 @@ implementation
 
  procedure TUIColorPopup.Finish(commit,restoreFocus:boolean);
   var
-   f:TUIElement;
-   wnd:TWindow;
    oldColor,newColor:cardinal;
    callback:TUIColorEvent;
    history:IUIColorHistory;
@@ -756,23 +750,14 @@ implementation
   begin
    if not opened then exit;
    opened:=false; // before focus changes and application callbacks
-   if openPicker=self then openPicker:=nil;
    timer:=0; flags.visible:=false;
    oldColor:=editor.originalColor; newColor:=editor.color;
    button:=owner;
    history:=editor.history;
-   wnd:=GetWindow;
    if (hooked<>nil) and ((hooked=self) or hooked.HasParent(self)) then begin
     hooked.onLostFocus; hooked:=nil; clipMouse:=cmNo;
    end;
-   f:=prevFocus; prevFocus:=nil;
-   if wnd<>nil then begin
-    if (wnd.focus.element=self) or ((wnd.focus.element<>nil) and TUIElement(wnd.focus.element).HasParent(self)) then begin
-     ClearFocus(wnd);
-     if restoreFocus and (f<>nil) and not f.deleted and f.IsVisible and f.IsEnabled then f.SetFocus;
-    end;
-   end;
-   if f<>nil then f.Release;
+   if restoreFocus then EndPopup(pfcRestore) else EndPopup(pfcClear);
    callback:=nil;
    if not button.deleted then begin
     if commit then begin
@@ -841,7 +826,7 @@ implementation
    items[index].SetFocus;
   end;
 
- function TUIColorPopup.onDescendantKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+ function TUIColorPopup.HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   begin
    if not opened then exit(true);
    // Let the world end a key gesture that started before the popup opened.
@@ -860,7 +845,6 @@ implementation
 
 initialization
  sharedHistory:=TUIColorHistory.Create;
- SetEventHandler('MOUSE\BTNDOWN',OutsidePress,emInstant);
  TUIColorPopup.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:4; '+
   'color:&text; box-shadow:&shadow 2 3 4');
  TUIColorSwatch.SetDefault('styleInfo','radius:3; border-width:1; border-color:&border-dark; '+

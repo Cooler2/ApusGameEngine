@@ -29,6 +29,7 @@ uses
   Apus.Engine.UIScene,
   Apus.Engine.SceneEffects,
   Apus.Engine.UIMenu,
+  Apus.Engine.UIColorPicker,
   Apus.Engine.TextDraw,
   Apus.Engine.MessageScene,
   Apus.Engine.Game,
@@ -1898,6 +1899,60 @@ begin
  EndTest;
 end;
 
+procedure TestSharedPopup;
+var
+  combo:TUIComboBox;
+  picker:TUIColorButton;
+  menu:TUIPopupMenu;
+  active:TUIPopup;
+  editor:TUIColorEditor;
+  oldColor,newColor:cardinal;
+begin
+  StartTest('One popup per window and widget-specific dismissal');
+  combo:=TUIComboBox.Create(100,30,sceneA.UI,'PopupCombo',['One','Two']);
+  combo.SetPos(40,220,pivotTopLeft);
+  picker:=TUIColorButton.Create(34,24,sceneA.UI,'PopupColor');
+  picker.SetPos(220,220,pivotTopLeft);
+  oldColor:=$FF112233;
+  newColor:=$FF778899;
+  picker.color:=oldColor;
+  menu:=TUIPopupMenu.Create(sceneA.UI,'PopupMenu');
+  menu.Add('Menu item');
+  combo.SetFocus;
+  combo.OpenPopup;
+  Check(TUIPopup.Current(wndA)=combo.frame,'combo registered as the active popup');
+  picker.OpenPicker;
+  Check(picker.IsOpen and not combo.frame.flags.visible,'picker replaces combo without choosing a line');
+  active:=TUIPopup.Current(wndA);
+  editor:=TUIColorEditor(active.children[0]);
+  editor.ChooseColor(newColor);
+  menu.OpenAt(380,220);
+  Check(menu.IsOpen and not picker.IsOpen and (picker.color=oldColor),'menu replaces picker and cancels preview');
+  picker.OpenPicker;
+  Check(picker.IsOpen and not menu.IsOpen,'picker replaces menu');
+  active:=TUIPopup.Current(wndA);
+  editor:=TUIColorEditor(active.children[0]);
+  editor.ChooseColor(newColor);
+  RunFrame(wndA);
+  PhysicalClickAt(Types.Point(150,115));
+  Check(not picker.IsOpen and (picker.color=newColor),'outside press accepts a valid color');
+  combo.SetFocus;
+  combo.OpenPopup;
+  RunFrame(wndA);
+  PhysicalClickAt(CenterOf(combo));
+  Check(TUIPopup.Current(wndA)=nil,'combo header press closes the combo');
+  picker.OpenPicker;
+  sceneA.DispatchKey(TKey.Escape,0,0,true);
+  Check(not picker.IsOpen and (FocusedElement=combo),'Escape closes picker and restores focus');
+  combo.Remove;
+  menu.Remove;
+  picker.Remove;
+  ClearFocus(wndA);
+  RunFrame(wndA);
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+  EndTest;
+end;
+
 procedure Setup;
  var
   dlgPanel:TUIElement;
@@ -1936,6 +1991,7 @@ begin
   TestModeErrors;
   TestPhysicalBefore;
   TestPopupMenu;
+  TestSharedPopup;
   TestInputFrame;
   TestEnable;
   TestMoveHover;

@@ -1926,7 +1926,7 @@ implementation
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    // Frame
-   if element.ClassType=TUIFrame then
+   if (element.ClassType=TUIFrame) or (element is TUIComboPopup) then
     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
    // Arbitrary image

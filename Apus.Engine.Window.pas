@@ -148,6 +148,11 @@ type
   activeWnd:TObject; // TUIWindow that holds the focus, nil if the focus is outside any
  end;
 
+ TWindowPopupState=record
+  element,anchorGuard:TObject; // live popup (TUIPopup) and the anchor closed by this press
+  consumedButtons:byte;       // UI-owned gestures may end after a popup has closed
+ end;
+
  // Surface rebuild requests: stored by any thread, taken by the window's own thread
  // (see TWindow.ApplyPendingSurface)
  TSurfacePending=record
@@ -366,7 +371,6 @@ public
   moveKind:TMoveKind; // set by the UI dispatcher before each gameplay onMouseMove call
   mouseOverUI:boolean; // true while the cursor sits over a consuming UI element (prev-frame state)
   mouseButtons:byte; // buttons held now (bit 0=left, 1=right, 2=middle), set by the button events
-  uiConsumedButtons:byte; // UI-owned gestures: swallow their scene press and release, even after popup closes
   // Virtual pointer input of this window (see TVirtualInput). Never nil; owned by the
   // window (holders elsewhere AddRef it). While it is active the physical pointer and
   // buttons are ignored in this window.
@@ -409,6 +413,7 @@ public
   modal:TModalState; // modal dialog state for this window (see TModalStateHelper)
   hint:TWindowHintState; // hint state for this window (see TUIHint.Current)
   focus:TWindowFocusState; // keyboard focus in this window (see FocusedElement)
+  popup:TWindowPopupState; // shared popup input state (see TUIPopup)
   deletedUI:array of TObject; // UI elements deleted in this window, freed at frame start (TUIElement.Remove)
   // Frame timing (per-window, read-only from outside): `*Ms` are derived from `*Us`
   property frameStartUs:int64 read frameStartUsValue;
