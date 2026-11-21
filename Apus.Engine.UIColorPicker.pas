@@ -122,7 +122,7 @@ interface
    destructor Destroy; override;
    procedure Open;
    procedure onRemoved; override;
-   procedure Finish(commit,restoreFocus:boolean);
+   procedure Finish(commit:boolean;focusMode:TPopupFocusOnClose);
    procedure onTimer; override;
    function HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    function ConsumesSceneButtons:boolean; override;
@@ -392,18 +392,19 @@ implementation
  procedure TUIColorField.UpdateColor;
   var
    p:TVec2;
-   h,s,v:single;
+   h,s,v,vertical:single;
   begin
    p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
+   vertical:=Clamp(p.y/Max(1,clientHeight-1/globalScale),0,1);
    h:=picker.hue; s:=picker.saturation; v:=picker.value;
    if kind=cfAlpha then begin
-    picker.ChooseAlpha(round(255*(1-Clamp(p.y/Max(1,clientHeight-1/globalScale),0,1))));
+    picker.ChooseAlpha(round(255*(1-vertical)));
     exit;
    end;
-   if kind=cfHue then h:=Clamp(p.y/Max(1,clientHeight-1/globalScale),0,1)
+   if kind=cfHue then h:=vertical
    else begin
     s:=Clamp(p.x/Max(1,clientWidth-1/globalScale),0,1);
-    v:=1-Clamp(p.y/Max(1,clientHeight-1/globalScale),0,1);
+    v:=1-vertical;
    end;
    picker.ChooseHSV(h,s,v);
   end;
@@ -580,7 +581,7 @@ implementation
  procedure TUIColorButton.Accept;
   begin if IsOpen then fPopup.Accept; end;
  procedure TUIColorButton.Cancel;
-  begin if IsOpen then fPopup.Finish(false,true); end;
+  begin if IsOpen then fPopup.Cancel; end;
 
  procedure TUIColorButton.OpenPicker;
   begin
@@ -683,12 +684,12 @@ implementation
 
  procedure TUIColorPopup.DismissPopup;
   begin
-   Finish(false,true);
+   Finish(false,pfcRestore);
   end;
 
  procedure TUIColorPopup.OutsidePress(target:TUIElement);
   begin
-   Finish(not owner.deleted and owner.IsVisible and owner.IsEnabled and editor.CanAccept,true);
+   Finish(not owner.deleted and owner.IsVisible and owner.IsEnabled and editor.CanAccept,pfcRestore);
   end;
 
  procedure TUIColorPopup.Open;
@@ -739,7 +740,7 @@ implementation
    if (f<>nil) and ((f=editor) or f.HasParent(editor)) then f.SetFocus;
   end;
 
- procedure TUIColorPopup.Finish(commit,restoreFocus:boolean);
+ procedure TUIColorPopup.Finish(commit:boolean;focusMode:TPopupFocusOnClose);
   var
    oldColor,newColor:cardinal;
    callback:TUIColorEvent;
@@ -756,7 +757,7 @@ implementation
    if (hooked<>nil) and ((hooked=self) or hooked.HasParent(self)) then begin
     hooked.onLostFocus; hooked:=nil; clipMouse:=cmNo;
    end;
-   if restoreFocus then EndPopup(pfcRestore) else EndPopup(pfcClear);
+   EndPopup(focusMode);
    callback:=nil;
    if not button.deleted then begin
     if commit then begin
@@ -775,9 +776,9 @@ implementation
   end;
 
  procedure TUIColorPopup.Accept;
-  begin if opened and editor.CanAccept then Finish(true,true); end;
+  begin if opened and editor.CanAccept then Finish(true,pfcRestore); end;
  procedure TUIColorPopup.Cancel;
-  begin Finish(false,true); end;
+  begin Finish(false,pfcRestore); end;
  procedure TUIColorPopup.Preview;
   begin
    if opened and not owner.deleted and Assigned(owner.onPreview) then
@@ -791,12 +792,12 @@ implementation
   begin
    if not opened then exit;
    wnd:=GetWindow;
-   if (wnd=nil) or (parent=nil) then begin Finish(false,false); exit; end;
+   if (wnd=nil) or (parent=nil) then begin Finish(false,pfcClear); exit; end;
    f:=TUIElement(wnd.focus.element);
    if owner.deleted or not owner.IsVisible or not owner.IsEnabled or
       not IsVisible or (parent.clientWidth<>rootSize.x) or (parent.clientHeight<>rootSize.y) or
       (parent.globalScale<>rootScale) or (f=nil) or ((f<>self) and not f.HasParent(self)) then begin
-    Finish(false,false); exit;
+    Finish(false,pfcClear); exit;
    end;
    RefreshRecent;
    timer:=50;
