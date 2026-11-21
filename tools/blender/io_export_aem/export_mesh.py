@@ -5,7 +5,7 @@ from math import isfinite
 from struct import pack, unpack
 import re
 
-from .writer import Mesh, write_aem
+from .writer import MAX_POSITION, Mesh, write_aem
 
 TEXTURE_ROLES = ("basecolor", "normal", "opacity")
 
@@ -79,7 +79,7 @@ def unit_normal(value, label):
     return normalized
 
 
-def linear_rgba(value):
+def quantize_rgba(value):
     return tuple(round(255 * min(1.0, max(0.0, component))) for component in finite(value, "color"))
 
 
@@ -137,7 +137,7 @@ def gather_geometry(obj, mesh, scale, add_binding):
     uv0, uv1, has_tangents, color = mesh_attributes(mesh, material_by_face)
     binding_indices = {index: add_binding(*value) for index, value in material_by_face.items()}
 
-    result = Mesh(obj.name_full, [], [], [], [], [], [], [], [])
+    result = Mesh(obj.name_full)
     pooled = {}
     groups = defaultdict(list)
     for triangle in mesh.loop_triangles:
@@ -148,7 +148,7 @@ def gather_geometry(obj, mesh, scale, add_binding):
         for loop_index in loops:
             loop = mesh.loops[loop_index]
             position = finite((matrix @ mesh.vertices[loop.vertex_index].co) * scale, "position")
-            if any(abs(component) > 1e30 for component in position):
+            if any(abs(component) > MAX_POSITION for component in position):
                 raise ValueError("Position exceeds the AEM bounds limit")
             normal = unit_normal(normal_matrix @ mesh.corner_normals[loop_index].vector, "corner normal")
             uvs = []
@@ -170,7 +170,7 @@ def gather_geometry(obj, mesh, scale, add_binding):
             rgba = ()
             if color is not None:
                 index = loop.vertex_index if color.domain == "POINT" else loop_index
-                rgba = linear_rgba(color.data[index].color)
+                rgba = quantize_rgba(color.data[index].color)
             key = (position, tuple(normal), tuple(uvs), tangent, rgba)
             index = pooled.get(key)
             if index is None:
