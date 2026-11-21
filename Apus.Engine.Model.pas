@@ -67,13 +67,11 @@ type
     fLOD:integer;
   public
     constructor Create(aAsset:TModelAsset);
-    function GetTransform:TMat4;
     procedure SetTransform(const value:TMat4);
-    function GetLOD:integer;
     procedure SetLOD(value:integer);
 
-    property Transform:TMat4 read GetTransform write SetTransform;
-    property LOD:integer read GetLOD write SetLOD;
+    property Transform:TMat4 read fTransform write SetTransform;
+    property LOD:integer read fLOD write SetLOD;
 
     // Draw with the current view and base. A nil binder uses the caller's material.
     procedure Draw(const bindPart:TModelMaterialBinder);
@@ -198,11 +196,6 @@ begin
   fTransform:=identMat4;
 end;
 
-function TModelInstance.GetTransform:TMat4;
-begin
-  result:=fTransform;
-end;
-
 function IsValidModelTransform(const value:TMat4):boolean;
 var
   row,col:integer;
@@ -219,11 +212,6 @@ procedure TModelInstance.SetTransform(const value:TMat4);
 begin
   Assert(IsValidModelTransform(value),'Model transform must be finite, affine and orientation-preserving');
   fTransform:=value;
-end;
-
-function TModelInstance.GetLOD:integer;
-begin
-  result:=fLOD;
 end;
 
 procedure TModelInstance.SetLOD(value:integer);
