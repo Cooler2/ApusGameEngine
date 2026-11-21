@@ -481,7 +481,8 @@ type
   // Load and build shader from file(s)
   function Load(filename:String8;extra:String8=''):TShader;
 
-  // Set custom shader (pass nil if it's already set or there is no object - because the engine should know)
+  // Use a custom program for subsequent draws until Reset or UseCustomized.
+  // GPU meshes use the attribute locations from Apus.Engine.GpuLayout.
   procedure UseCustom(shader:TShader);
   // Use customized shader: where just the pixel (fragment) color calculation is modified
   procedure UseCustomized(colorCalc:String8;numTextures:integer=1);
@@ -525,13 +526,18 @@ type
   procedure NormalMapOff;
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
-  // Shadow mapping
+  // Shadow mapping. shadowMainPass uses the light camera captured in the last depth pass.
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
+  // Bind a pre-rendered depth texture for the main pass. Pass the light camera's
+  // ViewMatrix * ProjMatrix from the depth pass, which maps world to clip space.
+  // The engine maps clip space to texture space and subtracts depthBias from the
+  // comparison depth in that texture space. Shadow(shadowDisabled) ends the pass.
+  procedure UseShadowMap(shadowMap:TTexture;const lightViewProjection:TMat4d;
+    depthBias:single=0.002);
 
   // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
   procedure Apply(vertexLayout:TVertexLayout);
-  // R-19: select/build a stock shader for a GPU mesh layout (table-based attribute
-  // locations). Coexists with Apply(TVertexLayout) used by the 2D painter path.
+  // Apply shader state for a GPU mesh layout. Keeps a program selected by UseCustom.
   procedure ApplyMeshLayout(layout:TGpuLayout);
  end;
 
