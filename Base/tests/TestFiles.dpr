@@ -657,6 +657,7 @@ type
     fallback:IFileProvider;
     names:Strings8;
     contents:array of ByteArray;
+    readLimit:integer;
     constructor Create(prev:IFileProvider);
     function Key(const fname:String8):String8;
     function IsMine(const fname:String8):boolean;
@@ -834,6 +835,7 @@ begin
   if mf=nil then exit(fallback.Read(f,buf,size));
   result:=length(mf.data)-mf.pos;
   if result>size then result:=size;
+  if (readLimit>0) and (result>readLimit) then result:=readLimit;
   if result<0 then result:=0;
   if result>0 then move(mf.data[mf.pos],buf^,result);
   inc(mf.pos,result);
@@ -892,6 +894,43 @@ begin
     fallback.SetSize(f,newSize); exit;
   end;
   SetLength(mf.data,newSize);
+end;
+
+procedure TestShortReads;
+var
+  prev,provider:IFileProvider;
+  memory:TMemFileProvider;
+  f:TFileHandle;
+  data:ByteArray;
+  caught:boolean;
+begin
+  StartTest('Files reads complete short VFS reads');
+  prev:=Files.GetProvider;
+  memory:=TMemFileProvider.Create(prev);
+  provider:=memory;
+  Files.SetProvider(provider);
+  try
+    memory.readLimit:=2;
+    Files.Save('vfs/sample.txt','ABCDE',false);
+    Check(Files.LoadAsString('vfs/sample.txt')='ABCDE','whole file');
+    data:=Files.LoadAsBytes('vfs/sample.txt',4,1);
+    Check((length(data)=4) and (data[0]=ord('B')) and (data[3]=ord('E')),'offset and length');
+    f:=Files.OpenRead('vfs/sample.txt');
+    try
+      caught:=false;
+      try
+        Files.ReadBytes(f,6);
+      except
+        on EError do caught:=true;
+      end;
+      Check(caught,'raise on premature EOF');
+    finally
+      f.Close;
+    end;
+  finally
+    Files.SetProvider(prev);
+  end;
+  EndTest;
 end;
 
 // Base units that read data files must go through the provider chain: these files exist only in memory
@@ -1203,6 +1242,7 @@ begin
     TestPathUtils;
     TestNameParts;
     TestFullName;
+    TestShortReads;
     TestProviderChain;
     TestControlFileErrors;
     TestControlFileTypes;
