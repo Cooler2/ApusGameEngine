@@ -1,6 +1,6 @@
 ﻿// -----------------------------------------------------
 // Popup menu: a panel of command lines opened below an anchor element or at a point;
-// a line may open a submenu
+// a line may open a submenu. Menu bar: a row of headings, each opens its menu
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -18,9 +18,11 @@ interface
  //   anchor    - the element a menu was opened from (OpenBelow); optional
  //   UI root   - the root element the open panels are attached to while shown
  //   root menu - the first panel of an open chain: the menu the application opened
+ //               or a menu of a menu bar
 
  type
   TUIPopupMenu=class;
+  TUIMenuBar=class;
 
   // Menu line: a button that draws its caption on the left and the shortcut text on the right.
   // Not focusable: the root menu keeps the focus and tracks the current line.
@@ -63,6 +65,7 @@ interface
   // menu - the whole chain), Enter/Space - run the current command.
   // Auto close: the pointer away from the whole chain (farther than autoCloseDistance,
   // longer than autoCloseDelay) closes the whole chain and restores the focus.
+  // A menu of a menu bar takes no focus (the bar holds it) and opens only from the bar.
   TUIPopupMenu=class(TUIPopup)
    // Called before each panel is shown, a submenu included: may update the lines (enabled,
    // visible, captions) or rebuild them with Clear and Add
@@ -72,7 +75,7 @@ interface
    autoCloseDelay:integer;  // ms, 0 - no auto close; both are read from the root menu
    constructor Create(owner:TUIElement;name:String8='');
    destructor Destroy; override;
-   function ContainsElement(element:TUIElement):boolean; override; // + the open submenus
+   function ContainsElement(element:TUIElement):boolean; override; // + the open submenus, the menu bar
   protected
    procedure DismissPopup; override;
   public
@@ -118,12 +121,13 @@ interface
    outsideSince:int64;   // the pointer has been out of the zone since then, 0 - inside
    procedure SetCurrent(item:TUIMenuItem);
    function GetOwnerItem:TUIButton;
+   function MenuBar:TUIMenuBar; // the bar of its heading, nil - not a menu of a bar
    function ParentMenu:TUIPopupMenu;
    function IsChainChild:boolean;
    function ChainRoot:TUIPopupMenu;
    function Deepest:TUIPopupMenu;
    function DefaultLineHeight:single;
-   procedure Open(root,anchor:TUIElement;x,y,upY:single);
+   procedure Open(root,anchor:TUIElement;x,y,upY:single;keyboard:boolean=false);
    procedure DoClose(restoreFocus:boolean);
    procedure Unlink;
    procedure ReleaseHolds;
@@ -141,7 +145,74 @@ interface
    procedure MoveCurrent(dir:integer);
   public
    property current:TUIMenuItem read fCurrent write SetCurrent; // an enabled line or nil
-   property ownerItem:TUIButton read GetOwnerItem; // the submenu line, nil for a standalone menu
+   property ownerItem:TUIButton read GetOwnerItem; // the submenu line or the bar heading, nil for a standalone menu
+  end;
+
+  // Heading of a menu bar (TUIMenuBar.AddSubmenu): opens its menu, has no command.
+  // Never takes the focus; drawn selected while its menu is open
+  TUIMenuHeading=class(TUIToolButton)
+   constructor Create(bar:TUIMenuBar;const caption,name:String8);
+   destructor Destroy; override;
+   procedure onRemoved; override;
+   function Bar:TUIMenuBar;
+   function GetStates:TElementStates; override; // + selected: its menu is open
+   procedure onMouseMove; override;      // over another heading of an open bar: switch to it
+  protected
+   procedure DoClick; override;          // open its menu, close the open one
+  private
+   fBar:TUIMenuBar;
+   fPopup:TUIPopupMenu;
+   procedure Unlink;
+  public
+   property popup:TUIPopupMenu read fPopup;
+  end;
+
+  // Menu bar: headings in a row, each opens its menu below itself. The application sets the
+  // position and the size of the bar; the headings take the width of their captions and the
+  // height of the bar. Headings that don't fit are scrolled (the wheel; the open one is
+  // always shown).
+  // Session: from the first open to the close the bar holds the focus and passes the keys to
+  // the open menus; switching the menus (hover over another heading, Left/Right at the top
+  // level, Right on a command) keeps the session. It ends with Escape at the top level, a
+  // command, a press outside the menus, auto close (the zone includes the whole bar) or a
+  // click on the open heading; the focus returns to where it was.
+  TUIMenuBar=class(TUIElement)
+   autoCloseDistance:single; // passed to the menus when opened, see TUIPopupMenu
+   autoCloseDelay:integer;
+   constructor Create(parent:TUIElement;name:String8='');
+   destructor Destroy; override;
+   // A heading and its hidden menu; returns the menu to fill. The heading gets the name
+   // (default as in TUIPopupMenu.Add, with the bar name as the prefix), the menu - '<name>_Menu'
+   function AddSubmenu(const caption:String8;const name:String8=''):TUIPopupMenu;
+   procedure Clear;        // end the session, remove the headings
+   // Open the menu of the heading: starts the session or switches it to this heading;
+   // keyboard - with the first line current
+   procedure OpenItem(item:TUIMenuHeading;keyboard:boolean=false);
+   procedure Close;        // end the session, restore the focus
+   function IsOpen:boolean; // a menu of the bar is open
+   procedure Arrange;      // place the headings in a row (also before each draw)
+   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
+   procedure onMouseButtons(button:byte;state:boolean); override; // a press between the headings ends the session
+   procedure onMouseScroll(value:integer); override;
+   procedure onLostFocus; override; // the focus is taken away - end the session, the taker keeps it
+   procedure onRemoved; override;
+   procedure onTimer; override;
+  private
+   fCurrent:TUIMenuHeading;
+   fMenu:TUIPopupMenu;     // the open menu: the root of the open chain
+   session:boolean;        // the bar holds the focus
+   switching:boolean;      // one menu closes for another: the session goes on
+   previousFocus:TUIElement;
+   contentWidth:single;    // of the headings row
+   procedure SetCurrent(item:TUIMenuHeading);
+   function Expects(menu:TUIPopupMenu):boolean;
+   procedure MenuClosed(menu:TUIPopupMenu;restoreFocus:boolean);
+   procedure EndSession(restoreFocus:boolean);
+   procedure MoveHeading(dir:integer);
+   procedure ScrollIntoView(item:TUIMenuHeading);
+   procedure Unlink;
+  public
+   property current:TUIMenuHeading read fCurrent write SetCurrent; // the open heading; set - open it, nil - close
   end;
 
 implementation
@@ -157,38 +228,52 @@ implementation
   SUBMENU_DELAY=200;   // ms of hover before a submenu opens or switches
   AUTO_CLOSE_DELAY=1000;
 
+ type
+  // Places the headings of a menu bar before each draw
+  TMenuBarLayout=class(TLayouter)
+   procedure Layout(item:TUIElement); override;
+  end;
+
  function IsSelectable(e:TUIElement):boolean;
   begin
    result:=(e is TUIMenuItem) and e.flags.visible and e.flags.enabled;
   end;
 
- // Width of the caption or the shortcut in the units of the line
- function TextWidth(item:TUIMenuItem;shortcut:boolean):single;
+ function IsHeadingSelectable(e:TUIElement):boolean;
+  begin
+   result:=(e is TUIMenuHeading) and not e.deleted and e.flags.visible and e.flags.enabled and
+     (TUIMenuHeading(e).fPopup<>nil) and not TUIMenuHeading(e).fPopup.deleted;
+  end;
+
+ // Width of the caption (or the shortcut of a menu line) in the units of the element
+ function CaptionWidth(e:TUIElement;const text:String8;shortcut:boolean=false):single;
   var
-   text:String8;
-   size:single;
    font:TFontHandle;
   begin
-   if shortcut then text:=item.shortcut else text:=item.caption;
    if text='' then exit(0);
    if txt=nil then begin // no text drawer (headless): an estimate by the font size
-    if shortcut then size:=item.ShortcutFontSize
-     else size:=item.GetStyleNumber('font-size',9);
-    exit(length(text)*size*0.6);
+    if shortcut then exit(length(text)*TUIMenuItem(e).ShortcutFontSize*0.6)
+     else exit(length(text)*e.GetStyleNumber('font-size',9)*0.6);
    end;
-   if shortcut then font:=item.ShortcutFont else font:=item.StyleFont;
-   result:=txt.Width(font,text)/item.globalScale;
+   if shortcut then font:=TUIMenuItem(e).ShortcutFont
+    else font:=e.StyleFont;
+   result:=txt.Width(font,text)/e.globalScale;
+  end;
+
+ // Width of the caption or the shortcut in the units of the line
+ function TextWidth(item:TUIMenuItem;shortcut:boolean):single;
+  begin
+   if shortcut then result:=CaptionWidth(item,item.shortcut,true)
+    else result:=CaptionWidth(item,item.caption);
   end;
 
  // The name must be a valid identifier (elements are published by name): spaces and other
  // ASCII signs become '_', non-ASCII letters are dropped, an empty result becomes 'ItemN'
- function DefaultItemName(menu:TUIPopupMenu;const caption:String8):String8;
+ // (index - the position of the new element)
+ function DefaultItemName(const prefix,caption:String8;index:integer):String8;
   var
    i,n,last:integer;
-   prefix:String8;
   begin
-   if menu.ownerItem<>nil then prefix:=menu.ownerItem.name
-    else prefix:=menu.name;
    if prefix='' then exit('');
    last:=length(caption);
    if (last>=3) and (copy(caption,last-2,3)='...') then dec(last,3);
@@ -201,8 +286,20 @@ implementation
       else result[n]:='_';
     end;
    SetLength(result,n);
-   if result='' then result:='Item'+Conv.ToStr(length(menu.children)+1);
+   if result='' then result:='Item'+Conv.ToStr(index);
    result:=prefix+'\'+result;
+  end;
+
+ // Lines are named after the submenu line or the bar heading, else after the menu
+ function MenuItemName(menu:TUIPopupMenu;const caption:String8):String8;
+  begin
+   if menu.ownerItem<>nil then result:=DefaultItemName(menu.ownerItem.name,caption,length(menu.children)+1)
+    else result:=DefaultItemName(menu.name,caption,length(menu.children)+1);
+  end;
+
+ procedure TMenuBarLayout.Layout(item:TUIElement);
+  begin
+   if item is TUIMenuBar then TUIMenuBar(item).Arrange;
   end;
 
 { TUIMenuItem }
@@ -325,10 +422,17 @@ implementation
    inherited;
   end;
 
+ // A press on the bar of the open menu is not outside: the bar decides (switch or close);
+ // the focus at the bar is the menu's own
  function TUIPopupMenu.ContainsElement(element:TUIElement):boolean;
+  var
+   bar:TUIMenuBar;
   begin
    result:=inherited ContainsElement(element) or
      ((fChild<>nil) and fChild.ContainsElement(element));
+   if result or (element=nil) then exit;
+   bar:=MenuBar;
+   result:=(bar<>nil) and ((element=bar) or element.HasParent(bar));
   end;
 
  function TUIPopupMenu.Add(const caption,shortcut,name:String8):TUIMenuItem;
@@ -336,7 +440,7 @@ implementation
    n:String8;
   begin
    n:=name;
-   if n='' then n:=DefaultItemName(self,caption);
+   if n='' then n:=MenuItemName(self,caption);
    result:=TUIMenuItem.Create(self,caption,shortcut,n);
   end;
 
@@ -378,7 +482,14 @@ implementation
 
  function TUIPopupMenu.GetOwnerItem:TUIButton;
   begin
-   if (owner is TUIMenuItem) and (TUIMenuItem(owner).fSubmenu=self) then result:=TUIButton(owner)
+   if ((owner is TUIMenuItem) and (TUIMenuItem(owner).fSubmenu=self)) or
+      ((owner is TUIMenuHeading) and (TUIMenuHeading(owner).fPopup=self)) then result:=TUIButton(owner)
+    else result:=nil;
+  end;
+
+ function TUIPopupMenu.MenuBar:TUIMenuBar;
+  begin
+   if (owner is TUIMenuHeading) and (TUIMenuHeading(owner).fPopup=self) then result:=TUIMenuHeading(owner).fBar
     else result:=nil;
   end;
 
@@ -462,16 +573,25 @@ implementation
   end;
 
  // Open as the root menu. (x,y) - the top-left corner in the UI root; upY - the bottom
- // edge if there is no room below
- procedure TUIPopupMenu.Open(root,anchor:TUIElement;x,y,upY:single);
+ // edge if there is no room below. A menu of a bar opens only when the bar asks for it
+ procedure TUIPopupMenu.Open(root,anchor:TUIElement;x,y,upY:single;keyboard:boolean);
   var
    wnd:TWindow;
+   bar:TUIMenuBar;
   begin
    if fOpen then DoClose(true);
    if deleted or (owner=nil) then exit; // the close may remove a menu whose owner is gone
+   bar:=MenuBar;
+   if (bar<>nil) and not bar.Expects(self) then exit;
    if Assigned(onOpen) then onOpen;
    if deleted or (owner=nil) or owner.deleted or root.deleted then exit;
+   bar:=MenuBar;
+   if (bar<>nil) and not bar.Expects(self) then exit; // the callback changed the bar session
    if not RegisterPopup(root,anchor) then exit;
+   if (bar<>nil) and not bar.Expects(self) then begin // closing another popup ended the session
+    EndPopup(pfcLeave);
+    exit;
+   end;
    AttachTo(root);
    Measure;
    PlacePopup(root,x,y,upY);
@@ -490,8 +610,11 @@ implementation
    flags.visible:=true;
    fOpen:=true;
    timer:=CHECK_INTERVAL;
-   SavePopupFocus(wnd);
-   SetFocus;
+   if bar=nil then begin // a bar keeps the focus itself
+    SavePopupFocus(wnd);
+    SetFocus;
+   end;
+   if keyboard then MoveCurrent(1);
   end;
 
  procedure TUIPopupMenu.OpenAt(x,y:single;root:TUIElement);
@@ -535,19 +658,23 @@ implementation
   end;
 
  procedure TUIPopupMenu.DoClose(restoreFocus:boolean);
+  var
+   bar:TUIMenuBar;
   begin
    if not fOpen then exit;
    if IsChainChild then begin
     ParentMenu.CloseChild;
     exit;
    end;
+   bar:=MenuBar;
    CloseChild;
    fOpen:=false; // first: the focus change below calls onLostFocus
    timer:=0;
    fCurrent:=nil;
    CancelSwitch;
    flags.visible:=false;
-   if restoreFocus then EndPopup(pfcRestore) else EndPopup(pfcLeave);
+   if restoreFocus and (bar=nil) then EndPopup(pfcRestore) // a bar restores the focus itself
+    else EndPopup(pfcLeave);
    if deleted then
     ReleaseHolds
    else
@@ -558,6 +685,7 @@ implementation
     ReleaseHolds;
     Remove; // the owner is gone: the menu can't return to it and goes too
    end;
+   if bar<>nil then bar.MenuClosed(self,restoreFocus);
   end;
 
  // The menu drops its links to the other panels and to its owner: from onRemoved (no tree
@@ -565,10 +693,15 @@ implementation
  // left at the UI root when destroyed) and from Destroy (a direct Free). The second call
  // is a no-op: the owner may already be freed then
  procedure TUIPopupMenu.Unlink;
+  var
+   bar:TUIMenuBar;
   begin
    CloseChild(false);
    if IsChainChild then ParentMenu.fChild:=nil;
+   bar:=MenuBar;
+   if (bar<>nil) and (bar.fMenu=self) then bar.fMenu:=nil; // the bar ends its session on the next check
    if (owner is TUIMenuItem) and (TUIMenuItem(owner).fSubmenu=self) then TUIMenuItem(owner).fSubmenu:=nil;
+   if (owner is TUIMenuHeading) and (TUIMenuHeading(owner).fPopup=self) then TUIMenuHeading(owner).fPopup:=nil;
    if fOpen then begin
     fOpen:=false;
     flags.visible:=false;
@@ -902,6 +1035,366 @@ implementation
     if (next=0) or (d<next) then next:=d;
    end;
    timer:=integer(next);
+  end;
+
+{ TUIMenuHeading }
+
+ constructor TUIMenuHeading.Create(bar:TUIMenuBar;const caption,name:String8);
+  begin
+   inherited Create(10,10,bar,name);
+   fBar:=bar;
+   self.caption:=caption;
+   SetPaddings(8,0,8,0);
+  end;
+
+ // An open menu lives at the UI root, out of the heading's subtree: it goes with the heading
+ destructor TUIMenuHeading.Destroy;
+  begin
+   Unlink; // a direct Free skips onRemoved
+   if (fPopup<>nil) and (fPopup.parent<>self) and not fPopup.deleted then fPopup.Remove;
+   inherited;
+  end;
+
+ procedure TUIMenuHeading.onRemoved;
+  begin
+   Unlink;
+   inherited;
+  end;
+
+ // The bar forgets the heading (no tree changes - this runs in onRemoved too). Its open
+ // menu closes by its own check (the owner is gone), the bar ends the session by its own
+ procedure TUIMenuHeading.Unlink;
+  var
+   b:TUIMenuBar;
+  begin
+   b:=fBar;
+   if b=nil then exit;
+   fBar:=nil;
+   if b.fCurrent=self then b.fCurrent:=nil;
+   if (fPopup<>nil) and (b.fMenu=fPopup) then b.fMenu:=nil;
+  end;
+
+ function TUIMenuHeading.Bar:TUIMenuBar;
+  begin
+   result:=fBar;
+  end;
+
+ function TUIMenuHeading.GetStates:TElementStates;
+  begin
+   result:=inherited;
+   if (fBar<>nil) and fBar.session and (fBar.fCurrent=self) then include(result,TElementState.Selected);
+  end;
+
+ procedure TUIMenuHeading.onMouseMove;
+  var
+   b:TUIMenuBar;
+  begin
+   inherited;
+   b:=fBar;
+   if (b<>nil) and b.session and (underMouse=self) and (b.fCurrent<>self) then b.OpenItem(self,false);
+  end;
+
+ procedure TUIMenuHeading.DoClick;
+  var
+   b:TUIMenuBar;
+  begin
+   b:=fBar;
+   if b=nil then exit;
+   if b.session and (b.fCurrent=self) then b.Close
+    else b.OpenItem(self,false);
+  end;
+
+{ TUIMenuBar }
+
+ constructor TUIMenuBar.Create(parent:TUIElement;name:String8);
+  var
+   w:single;
+  begin
+   if parent<>nil then w:=parent.clientWidth else w:=100;
+   inherited Create(w,10,parent,name);
+   size:=Vec2(w,round(GetStyleNumber('font-size',9)*LINE_HEIGHT));
+   shape:=shapeFull; // a press between the headings is the bar's
+   flags.canHaveFocus:=false; // the bar takes the focus only for a session
+   layout:=TMenuBarLayout.Create;
+   autoCloseDistance:=-1;
+   autoCloseDelay:=AUTO_CLOSE_DELAY;
+  end;
+
+ destructor TUIMenuBar.Destroy;
+  begin
+   Unlink; // a direct Free skips onRemoved; before inherited: it clears the focus (onLostFocus)
+   layout.Free;
+   layout:=nil;
+   inherited;
+  end;
+
+ function TUIMenuBar.AddSubmenu(const caption,name:String8):TUIPopupMenu;
+  var
+   h:TUIMenuHeading;
+   n:String8;
+  begin
+   n:=name;
+   if n='' then n:=DefaultItemName(self.name,caption,length(children)+1);
+   h:=TUIMenuHeading.Create(self,caption,n);
+   n:=h.name;
+   if n<>'' then n:=n+'_Menu';
+   result:=TUIPopupMenu.Create(h,n);
+   h.fPopup:=result;
+   Arrange;
+  end;
+
+ procedure TUIMenuBar.Clear;
+  begin
+   EndSession(true);
+   DeleteChildren;
+   contentWidth:=0;
+   scroll.X:=0;
+  end;
+
+ function TUIMenuBar.IsOpen:boolean;
+  begin
+   result:=session and (fMenu<>nil) and fMenu.fOpen;
+  end;
+
+ procedure TUIMenuBar.Close;
+  begin
+   EndSession(true);
+  end;
+
+ procedure TUIMenuBar.SetCurrent(item:TUIMenuHeading);
+  begin
+   if item=nil then Close
+    else OpenItem(item,false);
+  end;
+
+ function TUIMenuBar.Expects(menu:TUIPopupMenu):boolean;
+  begin
+   result:=session and (fMenu=menu);
+  end;
+
+ procedure TUIMenuBar.Arrange;
+  var
+   c:TUIElement;
+   h:TUIMenuHeading;
+   x,w,ht:single;
+  begin
+   x:=0;
+   ht:=clientHeight;
+   for c in children do begin
+    if not (c is TUIMenuHeading) or c.deleted or not c.flags.visible then continue;
+    h:=TUIMenuHeading(c);
+    w:=round(h.padding.Left+h.padding.Right+CaptionWidth(h,h.caption));
+    h.pivot:=Vec2(0,0);
+    h.position:=Vec2(x,0);
+    h.size:=Vec2(w,ht);
+    x:=x+w;
+   end;
+   contentWidth:=x;
+   scroll.X:=Clamp(scroll.X,0,Max(0,contentWidth-clientWidth));
+  end;
+
+ procedure TUIMenuBar.ScrollIntoView(item:TUIMenuHeading);
+  var
+   x1,x2:single;
+  begin
+   x1:=item.position.x;
+   x2:=x1+item.size.x;
+   if x1<scroll.X then scroll.X:=x1
+   else
+   if x2>scroll.X+clientWidth then scroll.X:=x2-clientWidth;
+   scroll.X:=Clamp(scroll.X,0,Max(0,contentWidth-clientWidth));
+  end;
+
+ // The session starts with the first open: the bar remembers the focus and takes it (an
+ // open popup that holds the focus closes). Another open menu closes, the session goes on
+ procedure TUIMenuBar.OpenItem(item:TUIMenuHeading;keyboard:boolean);
+  var
+   m:TUIPopupMenu;
+   wnd:TWindow;
+   focus,root:TUIElement;
+   r:TRect2;
+  begin
+   if not IsHeadingSelectable(item) or (item.fBar<>self) or deleted or not IsVisible or not IsEnabled then exit;
+   m:=item.fPopup;
+   if session and (fMenu=m) and m.fOpen then begin
+    if keyboard and (m.fCurrent=nil) then m.MoveCurrent(1);
+    exit;
+   end;
+   wnd:=GetWindow;
+   if wnd=nil then exit;
+   if not session then begin
+    focus:=TUIElement(wnd.focus.element);
+    if (focus<>nil) and (focus<>self) and focus.Acquire then previousFocus:=focus;
+    session:=true;
+    SetFocus;
+    if not session or (TUIElement(wnd.focus.element)<>self) then begin
+     EndSession(false);
+     exit;
+    end;
+    timer:=CHECK_INTERVAL;
+   end;
+   if fMenu<>nil then begin
+    switching:=true;
+    try
+     fMenu.DoClose(false);
+    finally
+     switching:=false;
+    end;
+    fMenu:=nil;
+   end;
+   fCurrent:=item;
+   Arrange;
+   ScrollIntoView(item);
+   root:=GetRoot;
+   r:=item.TransformTo(item.GetRect,root);
+   m.autoCloseDistance:=autoCloseDistance;
+   m.autoCloseDelay:=autoCloseDelay;
+   fMenu:=m;
+   m.Open(root,self,r.x1,r.y2,r.y1,keyboard); // the bar is the anchor: the auto close zone, presses on the headings
+   if session and ((fMenu<>m) or not m.fOpen) then EndSession(true); // not opened (onOpen, another popup)
+  end;
+
+ // An open menu of the bar has closed: by itself (Escape, a command, a press outside, auto
+ // close) - the session ends; for another menu - it goes on
+ procedure TUIMenuBar.MenuClosed(menu:TUIPopupMenu;restoreFocus:boolean);
+  begin
+   if fMenu=menu then fMenu:=nil;
+   if session and not switching and (fMenu=nil) then EndSession(restoreFocus);
+  end;
+
+ procedure TUIMenuBar.EndSession(restoreFocus:boolean);
+  var
+   m:TUIPopupMenu;
+   focus:TUIElement;
+   wnd:TWindow;
+   was:boolean;
+  begin
+   was:=session;
+   session:=false; // first: the menu close and the focus change below call back
+   timer:=0;
+   fCurrent:=nil;
+   m:=fMenu;
+   fMenu:=nil;
+   if (m<>nil) and m.fOpen then m.DoClose(false);
+   focus:=previousFocus;
+   previousFocus:=nil;
+   wnd:=GetWindow;
+   try
+    if was and (wnd<>nil) and (TUIElement(wnd.focus.element)=self) then begin
+     ClearFocus(wnd);
+     if restoreFocus and (focus<>nil) and not focus.deleted and focus.IsVisible and focus.IsEnabled then
+      focus.SetFocus;
+    end;
+   finally
+    if focus<>nil then focus.Release;
+   end;
+  end;
+
+ // The neighbour enabled heading, round the row; its menu opens with the first line
+ procedure TUIMenuBar.MoveHeading(dir:integer);
+  var
+   i,n,start:integer;
+  begin
+   n:=length(children);
+   if n=0 then exit;
+   start:=-1;
+   for i:=0 to n-1 do
+    if children[i]=fCurrent then start:=i;
+   if start<0 then
+    if dir>0 then start:=n-1 else start:=0;
+   i:=start;
+   repeat
+    i:=(i+dir+n) mod n;
+    if IsHeadingSelectable(children[i]) then begin
+     if children[i]<>fCurrent then OpenItem(TUIMenuHeading(children[i]),true);
+     exit;
+    end;
+   until i=start;
+  end;
+
+ // The bar holds the focus during a session: Left at the top level and Right on a line
+ // without a submenu move to the neighbour heading, other keys go to the open menus
+ function TUIMenuBar.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
+  var
+   d:TUIPopupMenu;
+  begin
+   if not pressed or not session then exit(true); // releases go on: the scene may track held keys
+   if not IsVisible then begin // the bar's scene is gone: let the keys through
+    EndSession(false);
+    exit(true);
+   end;
+   if (fMenu=nil) or not fMenu.fOpen then begin // its heading is gone
+    EndSession(true);
+    exit(true);
+   end;
+   result:=false; // while open the menus take every key: the hotkeys keep silent
+   d:=fMenu.Deepest;
+   case TKey(keycode) of
+    TKey.Left:
+     if not d.IsChainChild then begin
+      MoveHeading(-1);
+      exit;
+     end;
+    TKey.Right:
+     if (d.fCurrent=nil) or (d.fCurrent.fSubmenu=nil) then begin
+      MoveHeading(1);
+      exit;
+     end;
+   end;
+   result:=fMenu.onKey(keycode,pressed,shiftstate);
+  end;
+
+ procedure TUIMenuBar.onMouseButtons(button:byte;state:boolean);
+  begin
+   inherited;
+   if state and session then Close;
+  end;
+
+ // Headings that don't fit scroll; an open menu stays at its heading: no scroll then
+ procedure TUIMenuBar.onMouseScroll(value:integer);
+  begin
+   if session then exit;
+   if contentWidth<=clientWidth then begin
+    inherited;
+    exit;
+   end;
+   scroll.X:=Clamp(scroll.X-value/100*GetStyleNumber('font-size',9)*3,0,contentWidth-clientWidth);
+  end;
+
+ procedure TUIMenuBar.onLostFocus;
+  begin
+   inherited;
+   EndSession(false);
+  end;
+
+ procedure TUIMenuBar.onRemoved;
+  begin
+   Unlink;
+   inherited;
+  end;
+
+ // The removed bar ends its session without tree or focus changes (the open menu closes by
+ // its own check: its anchor is gone). The second call is a no-op
+ procedure TUIMenuBar.Unlink;
+  begin
+   session:=false;
+   switching:=false;
+   timer:=0;
+   fMenu:=nil;
+   fCurrent:=nil;
+   if previousFocus<>nil then previousFocus.Release;
+   previousFocus:=nil;
+  end;
+
+ // Safety check: the open menu has gone without telling (its heading removed)
+ procedure TUIMenuBar.onTimer;
+  begin
+   if not session then exit;
+   if (fMenu=nil) or not fMenu.fOpen then begin
+    EndSession(true);
+    exit;
+   end;
+   timer:=CHECK_INTERVAL;
   end;
 
 end.

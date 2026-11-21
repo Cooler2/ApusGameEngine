@@ -842,6 +842,22 @@ implementation
    gfx.clip.Restore;
   end;
 
+ // Menu bar heading: the caption in the middle; the box (hover; selected - its menu is open)
+ // is drawn by the common path
+ procedure DrawUIMenuHeading(item:TUIMenuHeading;context:TContext);
+  var
+   r:TRect;
+   ts:TTextStyle;
+   y:integer;
+  begin
+   ts:=ResolveTextStyle(item,context,clBlack,taCenter);
+   r:=item.GetClientPosOnScreen;
+   y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
+   gfx.clip.Rect(item.GetPosOnScreen);
+   WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
+   gfx.clip.Restore;
+  end;
+
  procedure DrawUIMenuSeparator(sep:TUIMenuSeparator;x1,y1,x2,y2:integer);
   var
    d,y:integer;
@@ -1598,7 +1614,7 @@ implementation
    box.moveBlend:=element.shape<>TUIShape.shapeEmpty;
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
    isButton:=widgetDefaults and (element is TUIButton) and not (element is TUICheckbox) and
-     not (element is TUIComboBox) and not (element is TUIMenuItem);
+     not (element is TUIComboBox) and not (element is TUIMenuItem) and not (element is TUIMenuHeading);
 
    // Base values
    if isButton then fillDef:=TFill.Solid(defaultBtnColor)
@@ -1895,7 +1911,7 @@ implementation
   begin
    context:=PrepareContext(element);
    if (element is TUIButton) and not (element is TUICheckbox) and
-     not (element is TUIComboBox) and not (element is TUIMenuItem) then begin
+     not (element is TUIComboBox) and not (element is TUIMenuItem) and not (element is TUIMenuHeading) then begin
     // Buttons use scroll to move all children as a group. Assign absolutely.
     element.scroll.X:=0;
     element.scroll.Y:=-Max(element.StateWeight(TElementState.Pressed),element.StateWeight(TElementState.Checked))*
@@ -1918,7 +1934,7 @@ implementation
    else
    // Button
    if (element is TUIButton) and not (element is TUIToggleButton) and
-     not (element is TUIComboBox) and not (element is TUIMenuItem) then
+     not (element is TUIComboBox) and not (element is TUIMenuItem) and not (element is TUIMenuHeading) then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    if element is TUICheckbox then
@@ -1967,6 +1983,10 @@ implementation
    // Popup menu: the panel is drawn by the common box path
    if element is TUIMenuItem then
     DrawUIMenuItem(element as TUIMenuItem,context)
+   else
+   // Menu bar: the bar itself is just the box
+   if element is TUIMenuHeading then
+    DrawUIMenuHeading(element as TUIMenuHeading,context)
    else
    if element is TUIMenuSeparator then
     DrawUIMenuSeparator(element as TUIMenuSeparator,x1,y1,x2,y2);
@@ -2042,6 +2062,10 @@ initialization
  TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+
    ':hover { fill:&accent; color:&accent-text; }');
  TUIMenuSeparator.SetDefault('styleInfo','line-color:&border-dark');
+ TUIMenuHeading.SetDefault('proceduralButtonChrome',false);
+ TUIMenuBar.SetDefault('styleInfo','fill:&surface-alt; color:&text');
+ TUIMenuHeading.SetDefault('styleInfo','radius:2; hover-time:0; '+
+   ':hover { fill:&overlay; } :selected { fill:&accent; color:&accent-text; }');
  TUITable.SetDefault('styleInfo','fill:&surface; border-color:&border-dark; border-width:1; '+
    'color:&text; header-fill:&surface-alt; header-hover-fill:&overlay; line-color:&border-dark; '+
    'row-alt-fill:$0C808080; row-hover-fill:$20808080; selection-fill:&accent; selection-color:&accent-text');

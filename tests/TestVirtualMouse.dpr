@@ -1025,6 +1025,307 @@ procedure TestSubmenuRemoval;
   EndTest;
  end;
 
+// Menu bar fixture: MainBar = File (New, Recent > File1, Quit), Edit (Undo, Copy), View (disabled),
+// Help (About); 500x24 at (20,200); an edit box holds the focus, the pointer is off the canvas
+var
+  mb:record
+   probe:TMenuProbe;
+   edit:TUIEditBox;
+   bar:TUIMenuBar;
+   fileM,recent,editM,viewM,helpM:TUIPopupMenu;
+   hFile,hEdit,hView,hHelp:TUIMenuHeading;
+   itemNew,itemRecent,itemFile1,itemUndo,itemAbout:TUIMenuItem;
+  end;
+
+procedure BuildMenuBar;
+ begin
+  with mb do begin
+   probe:=TMenuProbe.Create;
+   edit:=TUIEditBox.Create(100,20,sceneA.UI,'BarEdit');
+   edit.SetPos(600,450,pivotTopLeft);
+   bar:=TUIMenuBar.Create(sceneA.UI,'MainBar');
+   bar.SetPos(20,200,pivotTopLeft);
+   bar.size:=Vec2(500,24);
+   fileM:=bar.AddSubmenu('File');
+   hFile:=TUIMenuHeading(fileM.ownerItem);
+   itemNew:=fileM.Add('New');
+   itemNew.onClickMethod:=probe.DoNew;
+   recent:=fileM.AddSubmenu('Recent');
+   itemRecent:=TUIMenuItem(recent.ownerItem);
+   itemFile1:=recent.Add('File1');
+   itemFile1.onClickMethod:=probe.DoSave;
+   fileM.Add('Quit').onClickMethod:=probe.DoQuit;
+   editM:=bar.AddSubmenu('Edit');
+   hEdit:=TUIMenuHeading(editM.ownerItem);
+   itemUndo:=editM.Add('Undo');
+   editM.Add('Copy');
+   viewM:=bar.AddSubmenu('View');
+   hView:=TUIMenuHeading(viewM.ownerItem);
+   viewM.Add('Zoom');
+   hView.Disable;
+   helpM:=bar.AddSubmenu('Help');
+   hHelp:=TUIMenuHeading(helpM.ownerItem);
+   itemAbout:=helpM.Add('About');
+   edit.SetFocus;
+  end;
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+  Sleep(60); // past the double-click guard of TUIButton.DoClick
+ end;
+
+procedure FreeMenuBar;
+ begin
+  with mb do begin
+   if not bar.deleted then bar.Remove;
+   edit.Remove;
+   wndA.physPos:=Types.Point(-1,-1);
+   ClearFocus(wndA);
+   RunFrame(wndA);
+   probe.Free;
+  end;
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+ end;
+
+// Names, the row of headings, links
+procedure TestMenuBarLayout;
+ begin
+  StartTest('Menu bar layout');
+  BuildMenuBar;
+  with mb do begin
+   Check((hFile.name='MainBar\File') and (fileM.name='MainBar\File_Menu') and (itemNew.name='MainBar\File\New') and
+     (itemRecent.name='MainBar\File\Recent') and (itemFile1.name='MainBar\File\Recent\File1'),
+     'names follow the headings: '+hFile.name+', '+fileM.name+', '+itemFile1.name);
+   Check((hFile.popup=fileM) and (fileM.ownerItem=hFile) and (hFile.Bar=bar) and (fileM.parent=hFile),
+     'heading <-> menu links, a closed menu lives in its heading');
+   Check((hFile.GetPosOnScreen.Left=20) and (hEdit.GetPosOnScreen.Left=hFile.GetPosOnScreen.Right) and
+     (hHelp.GetPosOnScreen.Left=hView.GetPosOnScreen.Right),'the headings are in a row');
+   Check((hFile.size.y=24) and (hFile.size.x>16) and (hFile.size.x=hEdit.size.x),'a heading takes the bar height and its caption width');
+   Check(not hFile.flags.canHaveFocus and not bar.flags.canHaveFocus,'neither the bar nor the headings take the focus by a click');
+   Check(not bar.IsOpen and (bar.current=nil),'closed');
+  end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
+// The mouse: a click opens, hover switches the open bar, a click on the open heading closes
+procedure TestMenuBarMouse;
+ var
+  r:TRect;
+  ctx:TUIPopupMenu;
+ begin
+  StartTest('Menu bar mouse');
+  BuildMenuBar;
+  with mb do begin
+   wndA.physPos:=CenterOf(hEdit);
+   RunFrame(wndA);
+   Check(not bar.IsOpen,'hover over a closed bar opens nothing');
+   PhysicalClickAt(CenterOf(hFile));
+   Check(bar.IsOpen and fileM.IsOpen and (bar.current=hFile),'a click opens the menu of the heading');
+   Check((FocusedElement=bar) and (fileM.current=nil),'the bar holds the focus, opened by the mouse - no current line');
+   r:=hFile.GetPosOnScreen;
+   Check((fileM.GetPosOnScreen.Top>=r.Bottom-1) and (System.Abs(fileM.GetPosOnScreen.Left-r.Left)<=1),
+     'the menu is below its heading, left aligned');
+   Check(TElementState.Selected in hFile.GetStates,'the open heading is selected');
+   Check(TUIPopup.Current(wndA)=fileM,'the menu is the popup of the window');
+   wndA.physPos:=CenterOf(hEdit);
+   RunFrame(wndA);
+   Check(editM.IsOpen and not fileM.IsOpen and (bar.current=hEdit) and (FocusedElement=bar),
+     'hover over another heading switches at once, the bar keeps the focus');
+   Check(fileM.parent=hFile,'the closed menu is back in its heading');
+   wndA.physPos:=CenterOf(hView);
+   RunFrame(wndA);
+   Check(editM.IsOpen and (bar.current=hEdit),'a disabled heading does not switch');
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hEdit));
+   Check(not bar.IsOpen and not editM.IsOpen and (FocusedElement=edit),'a click on the open heading closes, the focus is back');
+   // a line of the menu: the command finds the focus restored
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hFile));
+   PhysicalClickAt(CenterOf(itemNew));
+   Check((probe.news=1) and not bar.IsOpen and (probe.focusAtCall=edit),'a click on a line runs it after the session ends');
+   // a submenu by hover from the bar menu
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hFile));
+   wndA.physPos:=CenterOf(itemRecent);
+   RunFrame(wndA);
+   WaitFrames(260);
+   Check(recent.IsOpen,'a submenu opens by hover');
+   PhysicalClickAt(CenterOf(itemFile1));
+   Check((probe.saves=1) and not bar.IsOpen and not recent.IsOpen and (FocusedElement=edit),'its line runs, all closes');
+   // a press outside closes and reaches its target
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hFile));
+   btn.clicks:=0;
+   PhysicalClickAt(Types.Point(150,115));
+   Check(not bar.IsOpen and (btn.clicks=1),'a click outside closes the session and reaches the button');
+   edit.SetFocus;
+   // a press on the bar between the headings
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hFile));
+   PhysicalClickAt(Types.Point(510,212));
+   Check(not bar.IsOpen and (FocusedElement=edit),'a press on the empty bar closes');
+   // the focus taken away
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hFile));
+   edit.SetFocus;
+   Check(not bar.IsOpen and not fileM.IsOpen and (FocusedElement=edit),'a focus change ends the session');
+   // an open context menu closes when the bar opens, the focus returns to the edit box
+   wndA.physPos:=Types.Point(-1,-1);
+   RunFrame(wndA);
+   ctx:=TUIPopupMenu.Create(sceneA.UI,'BarContext');
+   ctx.Add('X');
+   ctx.OpenAt(600,250);
+   Check(FocusedElement=ctx,'context menu open');
+   Sleep(60);
+   PhysicalClickAt(CenterOf(hFile));
+   Check(not ctx.IsOpen and bar.IsOpen and (FocusedElement=bar),'a click on the bar closes the context menu and opens the bar');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not bar.IsOpen and (FocusedElement=edit),'the focus returns to where it was before both');
+   ctx.Remove;
+  end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
+// Left/Right go round the headings, skip the disabled one; other keys go to the menus
+procedure TestMenuBarKeys;
+ begin
+  StartTest('Menu bar keys');
+  BuildMenuBar;
+  with mb do begin
+   bar.autoCloseDelay:=0; // no frames run between the keys, still: the pointer is off the canvas
+   PhysicalClickAt(CenterOf(hFile));
+   wndA.physPos:=Types.Point(-1,-1);
+   RunFrame(wndA);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(editM.IsOpen and (editM.current=itemUndo) and (FocusedElement=bar),'Right without a current line: the next heading, its first line');
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(helpM.IsOpen and (bar.current=hHelp),'Right skips the disabled heading');
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(fileM.IsOpen and (fileM.current=itemNew),'Right wraps around');
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   Check(helpM.IsOpen and (helpM.current=itemAbout),'Left wraps back');
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   Check(fileM.IsOpen,'Left: Help -> Edit -> File');
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   Check(fileM.current=itemRecent,'Down goes to the menu');
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(recent.IsOpen and (recent.current=itemFile1) and fileM.IsOpen,'Right on a submenu line opens it');
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   Check(not recent.IsOpen and fileM.IsOpen,'Left in a submenu closes it');
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(editM.IsOpen and not recent.IsOpen and not fileM.IsOpen,'Right on a command of a submenu: the next heading');
+   Check(sceneA.DispatchKey(TKey.B,0,0,true) and bar.IsOpen,'other keys stop at the bar');
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(fileM.IsOpen and not recent.IsOpen,'Escape in a submenu closes one level');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not bar.IsOpen and (FocusedElement=edit),'Escape at the top level ends the session, the focus is back');
+   // Enter runs a command after the session ends
+   bar.OpenItem(hFile,true);
+   Check(fileM.IsOpen and (fileM.current=itemNew) and (FocusedElement=bar),'OpenItem from the keyboard: the first line');
+   sceneA.DispatchKey(TKey.Enter,0,0,true);
+   Check((probe.news=1) and not bar.IsOpen and (probe.focusAtCall=edit),'Enter runs the line, the focus is restored before');
+   // current
+   bar.current:=hEdit;
+   Check(editM.IsOpen and (bar.current=hEdit),'current:= opens the heading');
+   bar.current:=hView;
+   Check(editM.IsOpen and (bar.current=hEdit),'a disabled heading can not be current');
+   bar.current:=nil;
+   Check(not bar.IsOpen and (FocusedElement=edit),'current:=nil closes');
+  end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
+// Auto close: the zone is the menus and the whole bar
+procedure TestMenuBarAutoClose;
+ var
+  t:int64;
+ begin
+  StartTest('Menu bar auto close');
+  BuildMenuBar;
+  with mb do begin
+   bar.autoCloseDelay:=300;
+   PhysicalClickAt(CenterOf(hFile));
+   wndA.physPos:=Types.Point(505,212); // the empty end of the bar
+   RunFrame(wndA);
+   WaitFrames(500);
+   Check(bar.IsOpen,'the pointer over the bar keeps the menu open');
+   wndA.physPos:=Types.Point(750,550);
+   RunFrame(wndA);
+   t:=CoreTime.Ticks+1500;
+   while bar.IsOpen and (CoreTime.Ticks<t) do WaitFrames(20);
+   Check(not bar.IsOpen and (FocusedElement=edit),'the pointer away closes the session, the focus is restored');
+  end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
+// Headings that don't fit scroll: the open one is shown
+procedure TestMenuBarScroll;
+ var
+  r,rb:TRect;
+ begin
+  StartTest('Menu bar scroll');
+  BuildMenuBar;
+  with mb do begin
+   bar.size:=Vec2(100,24); // narrower than the headings: 4 captions of 4 letters
+   bar.Arrange;
+   bar.OpenItem(hFile,true);
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   Check(helpM.IsOpen and (bar.scroll.X>0),'the open heading scrolls into view');
+   r:=hHelp.GetPosOnScreen;
+   rb:=bar.GetPosOnScreen;
+   Check((r.Left>=rb.Left) and (r.Right<=rb.Right),'it is inside the bar');
+   Check(System.Abs(helpM.GetPosOnScreen.Left-r.Left)<=1,'its menu is below it');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   bar.onMouseScroll(10000);
+   Check(bar.scroll.X=0,'the wheel scrolls back to the start');
+   bar.onMouseScroll(-10000);
+   Check(System.Abs(bar.scroll.X-(hHelp.position.x+hHelp.size.x-100))<0.01,'and to the end, not past it');
+  end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
+// Removed headings and bars
+procedure TestMenuBarRemoval;
+ begin
+  StartTest('Menu bar removal');
+  BuildMenuBar;
+  with mb do begin
+   // the heading of the open menu is removed: the menu goes, the session ends
+   bar.OpenItem(hEdit);
+   hEdit.Remove;
+   WaitFrames(300);
+   Check(not bar.IsOpen and (TUIElement.FindByName('MainBar\Edit_Menu')=nil) and (TUIPopup.Current(wndA)=nil),
+     'the open heading removed: its menu goes');
+   Check(FocusedElement=edit,'the session ends, the focus is back');
+   // Clear while open
+   bar.OpenItem(hFile);
+   bar.Clear;
+   Check(not bar.IsOpen and (FocusedElement=edit) and (length(bar.children)=0),'Clear ends the session and removes the headings');
+   RunFrame(wndA);
+   Check(TUIElement.FindByName('MainBar\File_Menu')=nil,'the menus go with the headings');
+   // the bar removed while open
+   helpM:=bar.AddSubmenu('Help');
+   helpM.Add('About');
+   bar.OpenItem(TUIMenuHeading(helpM.ownerItem));
+   Check(helpM.IsOpen,'a new heading opens');
+   bar.Remove;
+   WaitFrames(300);
+   Check((TUIElement.FindByName('MainBar\Help_Menu')=nil) and (TUIPopup.Current(wndA)=nil),'a removed bar takes its open menu');
+   bar:=TUIMenuBar.Create(sceneA.UI,'MainBar'); // for FreeMenuBar
+  end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
 procedure PhysicalButton(pressed:boolean);
  var
   n:integer;
@@ -2364,6 +2665,12 @@ begin
   TestSubmenuMouse;
   TestMenuAutoClose;
   TestSubmenuRemoval;
+  TestMenuBarLayout;
+  TestMenuBarMouse;
+  TestMenuBarKeys;
+  TestMenuBarAutoClose;
+  TestMenuBarScroll;
+  TestMenuBarRemoval;
   TestSharedPopup;
   TestInputFrame;
   TestEnable;
