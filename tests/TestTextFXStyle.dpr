@@ -413,12 +413,12 @@ begin
     ts:=ResolveUITextStyle(labelElement,$FF000000);
     Check(lightSurfaceAlpha>ts.shadowColor shr 24,'the same dark text gets more highlight on a light surface');
     e:=ResolveEmboss($FF303030);
-    Check(ts.shadowColor=e.shadowColor,'a medium surface preserves the weak highlight');
+    Check(ts.shadowColor=e.highlightColor,'a medium surface preserves the weak highlight');
     root.style.SetAttr('fill','linear(90deg,#000,#FFF)');
     ts:=ResolveUITextStyle(labelElement,$FF000000);
-    Check(ts.shadowColor=e.shadowColor,'an unknown gradient surface keeps the content-color fallback');
+    Check(ts.shadowColor=e.highlightColor,'an unknown gradient surface keeps the content-color fallback');
     e:=ResolveEmboss($00303030);
-    Check((e.color shr 24=0) and (e.shadowColor shr 24=0),'transparent content produces no visible emboss');
+    Check((e.color shr 24=0) and (e.highlightColor shr 24=0),'transparent content produces no visible emboss');
   finally
     root.style.Assign(savedStyle);
     root.scale:=savedScale;
@@ -457,7 +457,7 @@ begin
       full:=Capture(item,false);
       ts:=ResolveUITextStyle(item,$FF000000);
       Check(ts.disabledEmboss and (ts.color=ts.emboss.color) and
-        (ts.shadowColor=ts.emboss.shadowColor),'default menu style keeps generated emboss colors');
+        (ts.shadowColor=ts.emboss.highlightColor),'default menu style keeps generated emboss colors');
       Check((ts.shadowX=1) and (ts.shadowY=1),'menu emboss uses one screen pixel');
       item.shortcut:='';
       captionOnly:=Capture(item,false);

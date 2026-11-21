@@ -37,11 +37,7 @@ implementation
 uses Apus.Core, Apus.VertexLayout, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.Graphics;
 
 const
-  {$IFDEF GLES}
-  SHADER_HEADER:String8='#version 300 es'#10+'precision highp float;'#10;
-  {$ELSE}
-  SHADER_HEADER:String8='#version 330'#10;
-  {$ENDIF}
+  {$I glsl_preamble.inc}
 
   SKY_VERTEX:String8=
     'layout(location=0) in vec2 position;'#10+
@@ -122,7 +118,7 @@ procedure TSky.Draw;
     view.Invert;
     up:=parameters.upDirection; up.Normalize;
     sun:=parameters.sunDirection; sun.Normalize;
-    if skyShader=nil then skyShader:=shader.Build(SHADER_HEADER+SKY_VERTEX,SHADER_HEADER+SKY_FRAGMENT);
+    if skyShader=nil then skyShader:=shader.Build(GLSL_VERTEX_HEADER+SKY_VERTEX,GLSL_FRAGMENT_HEADER+SKY_FRAGMENT);
     depth:=gfx.target.DepthMode;
     blend:=renderTargetAPI.CurrentBlendMode;
     try

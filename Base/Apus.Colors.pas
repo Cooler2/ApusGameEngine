@@ -25,6 +25,10 @@ type
   class function RGB(r,g,b:cardinal):cardinal; overload; static; inline;
   class function ARGB(a,r,g,b:cardinal):cardinal; overload; static; inline;
   class function ARGBf(a,r,g,b:single):cardinal; static;
+  // Hue is measured in turns; saturation and value are in 0..1.
+  class function FromHSV(h,s,v:single):cardinal; static;
+  // The alpha channel is ignored. For achromatic colors, keep the caller's hue.
+  class procedure ToHSV(color:cardinal;var h,s,v:single); static;
   class function Gray(gray:integer):cardinal; static;
   class function GrayAlpha(alpha:single):cardinal; static; inline;
   // channel access
@@ -63,7 +67,7 @@ type
  function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
 
 implementation
- uses Apus.Core;
+ uses Math, Apus.Core;
  {$R-,Q-}
  {$EXCESSPRECISION OFF}
  {$IF DEFINED(FPC) AND (DEFINED(CPUX86) OR DEFINED(CPUX86_64))}
@@ -358,6 +362,45 @@ implementation
  class function Color.BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal;
   begin
    result:=Color.BilinearMix(c0,c1,c2,c3,v1,v2); // temp stub
+  end;
+
+ class function Color.FromHSV(h,s,v:single):cardinal;
+  var
+   i:integer;
+   f,p,q,t,r,g,b:single;
+  begin
+   h:=h-Math.Floor(h);
+   h:=h*6;
+   i:=Math.Floor(h);
+   f:=h-i;
+   p:=v*(1-s); q:=v*(1-s*f); t:=v*(1-s*(1-f));
+   case i of
+    0:begin r:=v; g:=t; b:=p; end;
+    1:begin r:=q; g:=v; b:=p; end;
+    2:begin r:=p; g:=v; b:=t; end;
+    3:begin r:=p; g:=q; b:=v; end;
+    4:begin r:=t; g:=p; b:=v; end;
+    else begin r:=v; g:=p; b:=q; end;
+   end;
+   result:=Color.RGB(round(255*r),round(255*g),round(255*b));
+  end;
+
+ class procedure Color.ToHSV(color:cardinal;var h,s,v:single);
+  var
+   r,g,b,lo,d:single;
+  begin
+   r:=((color shr 16) and 255)/255;
+   g:=((color shr 8) and 255)/255;
+   b:=(color and 255)/255;
+   v:=Max(r,Max(g,b)); lo:=Min(r,Min(g,b)); d:=v-lo;
+   if v=0 then begin s:=0; exit; end;
+   s:=d/v;
+   if d=0 then exit; // preserve hue for gray and black
+   if v=r then h:=(g-b)/d
+    else if v=g then h:=2+(b-r)/d
+    else h:=4+(r-g)/d;
+   h:=h/6;
+   if h<0 then h:=h+1;
   end;
 
  class function Color.Lightness(color:cardinal):byte;

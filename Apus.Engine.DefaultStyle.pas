@@ -45,7 +45,6 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
   // use DrawElementBox when resolving, drawing and obtaining those bounds is enough.
   // Colors/fills reflect current state weights; geometry is already in screen
   // pixels. Texture references are borrowed and must stay valid through drawing.
-  // Re-resolve when the element's style, state, geometry or UI scale changes.
   TStyleBox=record
    rect:TRect;              // screen bounds; Right and Bottom are exclusive
    scale:single;            // globalScale of the element
@@ -88,8 +87,8 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
   // highlight first, then the main content. The caller handles state transitions
   // and explicit style overrides. Highlight offsets are screen pixels.
   TUIEmbossStyle=record
-   color,shadowColor:cardinal;
-   shadowX,shadowY:single;
+   color,highlightColor:cardinal;
+   highlightX,highlightY:single;
    dimRGB:boolean; // light content keeps its coverage when darkened
   end;
 
@@ -226,27 +225,27 @@ implementation
 
  function ResolveEmboss(baseColor:cardinal;surfaceColor:cardinal):TUIEmbossStyle;
   var brightness,strength,alpha:single;
-  function SmoothStrength(value,lowValue,highValue:single):single;
+  function SmoothStep(value,lowValue,highValue:single):single;
    begin
     result:=Clamp((value-lowValue)/(highValue-lowValue),0,1);
     result:=result*result*(3-2*result);
    end;
   begin
    brightness:=Color.Lightness(baseColor)/255;
-   alpha:=0.18+0.17*SmoothStrength(brightness,0.25,0.75);
+   alpha:=0.18+0.17*SmoothStep(brightness,0.25,0.75);
    // On a light surface the white rim needs more contrast, even for dark text.
    if surfaceColor shr 24=$FF then begin
-    strength:=SmoothStrength(Color.Lightness(surfaceColor)/255,0.65,0.85);
+    strength:=SmoothStep(Color.Lightness(surfaceColor)/255,0.65,0.85);
     alpha:=Lerp(alpha,0.95,strength);
    end;
    result.dimRGB:=brightness>=0.5;
    result.color:=DimEmbossColor(baseColor,result.dimRGB);
    if result.dimRGB then
     // Keep the rim visibly lighter than the gray strokes without a near-white highlight.
-    result.shadowColor:=Color.Brighten(result.color,48)
+    result.highlightColor:=Color.Brighten(result.color,48)
    else
-    result.shadowColor:=Color.Scale($FFFFFFFF,alpha*(baseColor shr 24)/255);
-   result.shadowX:=1; result.shadowY:=1;
+    result.highlightColor:=Color.Scale($FFFFFFFF,alpha*(baseColor shr 24)/255);
+   result.highlightX:=1; result.highlightY:=1;
   end;
 
  // Resolve only a known solid surface. Images, gradients, shades and translucent
@@ -261,8 +260,7 @@ implementation
    while element<>nil do begin
     image:=element.GetStyleValue('background-image');
     if (image<>'') and not SameText(image,'none') then exit;
-    plainButton:=(element is TUIButton) and not (element is TUICheckBox) and
-      not (element is TUIComboBox) and not (element is TUIMenuItem);
+    plainButton:=element.GetClassAttribute('defaultProceduralButtonChrome',false);
     // The procedural button skin includes a default fill and gradient shade.
     if plainButton and ((element.GetStyleValue('fill')='') or
       (element.GetStyleValue('fill-shade')='')) then exit;
@@ -322,7 +320,7 @@ implementation
    cv:=element.StateWeight(TElementState.Checked);
    result.options:=defOptions;
    result.shadowColor:=0;
-   result.shadowX:=1; result.shadowY:=1;
+   result.shadowX:=scale; result.shadowY:=scale;
    // Base values (states are blended in, so the base must ignore them)
    result.color:=element.GetBaseStyleColor('color',defColor);
    result.ofsX:=element.GetBaseStyleNumber('text-offset-x');
@@ -332,18 +330,19 @@ implementation
    BlendColor('checked',cv,0);
    BlendColor('pressed',result.pressed,0);
    st:=element.GetStyleValue('disabled-effect');
-   if (st='') and (element is TUIButton) then st:='emboss';
+   if st='' then st:=element.GetClassAttribute('defaultDisabledEffect','');
    result.disabledEmboss:=SameText(st,'emboss');
    surfaceColor:=0;
    if result.disabledEmboss and (result.disabled>0) then surfaceColor:=EmbossSurfaceColor(element);
    result.emboss:=ResolveEmboss(result.color,surfaceColor);
    if result.disabledEmboss then begin
+    result.shadowX:=1; result.shadowY:=1; // screen pixels for the generated relief
     defDisabledColor:=result.emboss.color;
     if result.disabled>0 then begin
      result.options:=result.options and not toWithShadow;
-     result.shadowColor:=Color.Scale(result.emboss.shadowColor,result.disabled);
-     result.shadowX:=result.emboss.shadowX;
-     result.shadowY:=result.emboss.shadowY;
+     result.shadowColor:=Color.Scale(result.emboss.highlightColor,result.disabled);
+     result.shadowX:=result.emboss.highlightX;
+     result.shadowY:=result.emboss.highlightY;
     end;
    end;
    BlendColor('disabled',result.disabled,defDisabledColor);
@@ -368,6 +367,7 @@ implementation
    if st<>'' then begin
     result.options:=result.options and not toWithShadow;
     result.shadowColor:=0; // explicit 'none' also suppresses automatic emboss
+    result.shadowX:=scale; result.shadowY:=scale;
     if not SameText(st,'none') then begin
      parts:=st.Split(' ');
      n:=0;
@@ -377,19 +377,13 @@ implementation
       end;
      if n>0 then result.shadowColor:=ParseStyleColor(ExpandToken(parts[0]));
      if n>=3 then begin
-      result.shadowX:=ParseStyleNumber(parts[1]);
-      result.shadowY:=ParseStyleNumber(parts[2]);
+      result.shadowX:=ParseStyleNumber(parts[1])*scale;
+      result.shadowY:=ParseStyleNumber(parts[2])*scale;
      end;
     end;
    end;
    result.ofsX:=result.ofsX*scale;
    result.ofsY:=result.ofsY*scale;
-   // Automatic emboss is a one-screen-pixel relief at every DPI. Explicit text-shadow
-   // offsets retain their documented logical units.
-   if (st<>'') or not result.disabledEmboss then begin
-    result.shadowX:=result.shadowX*scale;
-    result.shadowY:=result.shadowY*scale;
-   end;
   end;
 
  // Anchor point matching ts.align inside a horizontal span (x2 = inclusive right edge)
@@ -683,11 +677,11 @@ implementation
    // The indicator shares the caption's derived highlight, unless explicitly overridden.
    lightColor:=0;
    if ts.disabled>0 then begin
-    if ts.disabledEmboss then lightColor:=ts.emboss.shadowColor;
+    if ts.disabledEmboss then lightColor:=ts.emboss.highlightColor;
     lightColor:=Color.Scale(element.GetStyleColor('border-light',lightColor),ts.disabled);
    end;
-   lightX:=ts.emboss.shadowX;
-   lightY:=ts.emboss.shadowY;
+   lightX:=ts.emboss.highlightX;
+   lightY:=ts.emboss.highlightY;
    font:=ts.font;
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
@@ -1926,7 +1920,7 @@ implementation
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    // Frame
-   if element.ClassType=TUIFrame then
+   if (element.ClassType=TUIFrame) or (element is TUIComboPopup) then
     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
    // Arbitrary image
@@ -2027,6 +2021,11 @@ initialization
  imageLock.Init('StyleImages',820);
  RegisterUIStyle(0,DefaultDrawer,'Default');
  StyleImageResolver:=ResolveFillImage;
+ TUIButton.SetDefault('disabledEffect','emboss');
+ TUIButton.SetDefault('proceduralButtonChrome',true);
+ TUICheckBox.SetDefault('proceduralButtonChrome',false);
+ TUIComboBox.SetDefault('proceduralButtonChrome',false);
+ TUIMenuItem.SetDefault('proceduralButtonChrome',false);
  TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
    'color:&text; box-shadow:&shadow 2 3 4');

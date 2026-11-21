@@ -24,6 +24,24 @@ begin
   EndTest;
 end;
 
+procedure TestHSV;
+var
+  h,s,v:single;
+begin
+  StartTest('Color.FromHSV and ToHSV');
+  Check(Color.FromHSV(0,1,1)=$FFFF0000,'red');
+  Check(Color.FromHSV(-0.5,1,1)=$FF00FFFF,'hue wraps');
+  h:=0;
+  Color.ToHSV($0000FF00,h,s,v);
+  Check((abs(h-1/3)<0.00001) and (s=1) and (v=1),'green, ignore alpha');
+  h:=0.5;
+  Color.ToHSV($FF999999,h,s,v);
+  Check((h=0.5) and (s=0) and (abs(v-0.6)<0.00001),'gray keeps hue');
+  Color.ToHSV($FF000000,h,s,v);
+  Check((h=0.5) and (s=0) and (v=0),'black keeps hue');
+  EndTest;
+end;
+
 procedure TestBilinearMixColor;
 var
   buf:array[0..7] of cardinal;
@@ -72,6 +90,7 @@ begin
 
     TestBilinearMixF;
     TestBilinearMixColor;
+    TestHSV;
     TestAdjustments;
 
     writeln;

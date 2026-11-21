@@ -258,7 +258,8 @@ function UIScene(name:String8):TUIScene;
  // each toggle the same element), then forward the raw event to gameplay scenes.
  procedure DispatchMouseButton(wnd:TWindow;btn:byte;pressed:boolean);
   var
-   c,c2,scope:TUIElement;
+   c,c2:TUIElement;
+   activePopup:TUIPopup;
    e,consumeScene:boolean;
    bit:byte;
    st:String8;
@@ -285,15 +286,13 @@ function UIScene(name:String8):TUIScene;
     if btn in [1..5] then bit:=1 shl (btn-1);
     consumeScene:=false;
     if pressed then begin
-     scope:=c;
-     while scope<>nil do begin
-      if scope.ConsumesSceneButtons then begin consumeScene:=true; break; end;
-      scope:=scope.parent;
-     end;
-     if consumeScene then wnd.uiConsumedButtons:=wnd.uiConsumedButtons or bit;
+     activePopup:=TUIPopup.Current(wnd);
+     consumeScene:=(activePopup<>nil) and activePopup.ContainsElement(c)
+       and activePopup.ConsumesSceneButtons;
+     if consumeScene then wnd.popup.consumedButtons:=wnd.popup.consumedButtons or bit;
     end else begin
-     consumeScene:=(wnd.uiConsumedButtons and bit)<>0;
-     wnd.uiConsumedButtons:=wnd.uiConsumedButtons and not bit;
+     consumeScene:=(wnd.popup.consumedButtons and bit)<>0;
+     wnd.popup.consumedButtons:=wnd.popup.consumedButtons and not bit;
     end;
     if pressed then begin
      if e and (c<>nil) then
@@ -766,7 +765,8 @@ function UIScene(name:String8):TUIScene;
  // with the focus anywhere. A release the focus did not consume reaches the scene as well.
  function TUIScene.DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean;
   var
-   c,scope:TUIElement;
+   c:TUIElement;
+   activePopup:TUIPopup;
    keyc:integer;
    uiConsumed:boolean;
   begin
@@ -778,11 +778,9 @@ function UIScene(name:String8):TUIScene;
      if pressed and (keyc=ord('S')) and (shift=8+2) then PrintUILog; // Win+Ctrl+S
      c:=FocusedElement;
      if (c<>nil) and c.IsEnabled then begin
-      scope:=c;
-      while scope<>nil do begin
-       if not scope.onDescendantKey(c,keyc,pressed,shift) then exit(true);
-       scope:=scope.parent;
-      end;
+      activePopup:=TUIPopup.Current(window);
+      if (activePopup<>nil) and activePopup.ContainsElement(c) and
+        not activePopup.HandleFocusedKey(c,keyc,pressed,shift) then exit(true);
       if pressed then begin
        if c.onKey(keyc,true,shift) then
         uiConsumed:=ProcessHotKey(window,keyc,shift) // focus passed the key on: UI hotkeys may claim it

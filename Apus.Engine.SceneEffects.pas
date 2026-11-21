@@ -748,13 +748,10 @@ end;
 
 {$IFDEF OPENGL}
 const
+ {$I glsl_preamble.inc}
  // version for GLPainter2
  vBlurShader2=
-  {$IFDEF GLES}
-  '#version 300 es '#13#10+
-  {$ELSE}
-  '#version 330 '#13#10+
-  {$ENDIF}
+  GLSL_VERTEX_HEADER+
   'layout (location=0) in vec3 aPosition;    '#13#10+
   'layout (location=1) in vec4 color;      '#13#10+
   'layout (location=2) in vec2 texCoord; '#13#10+
@@ -768,12 +765,7 @@ const
   '}';
 
  fBlurShader2=
-  {$IFDEF GLES}
-  '#version 300 es '#13#10+
-  'precision highp float; '#13#10+
-  {$ELSE}
-  '#version 330 '#13#10+
-  {$ENDIF}
+  GLSL_FRAGMENT_HEADER+
   // texN is bound to texture stage N by the engine
   'uniform sampler2D tex0; '#13#10+
   'uniform sampler2D tex1; '#13#10+
