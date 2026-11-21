@@ -1803,8 +1803,8 @@ begin
       // 3-byte sequence
       if (i+2>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) or ((byte(s[i+2]) and $C0)<>$80) then exit(false);
       cp:=(b and $0F) shl 12 or ((byte(s[i+1]) and $3F) shl 6) or (byte(s[i+2]) and $3F);
-      // Check for overlong encoding (should be >= $800)
-      if cp<$800 then exit(false);
+      // Reject overlong encodings and UTF-16 surrogates.
+      if (cp<$800) or ((cp>=$D800) and (cp<=$DFFF)) then exit(false);
       inc(i,3);
     end
     else if (b and $F8)=$F0 then begin
