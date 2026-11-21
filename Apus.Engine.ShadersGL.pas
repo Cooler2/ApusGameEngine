@@ -208,6 +208,7 @@ uses
   {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
 const
+ {$I glsl_preamble.inc}
  // Flags for the lighting mode
  LIGHT_AMBIENT_ON = 1;
  LIGHT_DIRECT_ON  = 2;
@@ -428,17 +429,10 @@ procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
   if condition then st:=st+line+#13#10;
  end;
 
-// GLSL version/precision preamble: #version 330 on desktop, #version 300 es
-// + precision qualifiers under GLES (fragment shaders need precision, vertex
-// shaders don't strictly but declaring it there too is harmless and uniform).
 procedure AddShaderPreamble(var st:String8;fragment:boolean);
  begin
-  {$IFDEF GLES}
-  AddLine(st,'#version 300 es');
-  AddLine(st,'precision highp float;',fragment);
-  {$ELSE}
-  AddLine(st,'#version 330');
-  {$ENDIF}
+  if fragment then st:=st+GLSL_FRAGMENT_HEADER
+   else st:=st+GLSL_VERTEX_HEADER;
  end;
 
 // useTable=false (2D painter / legacy mesh): attribute locations are assigned

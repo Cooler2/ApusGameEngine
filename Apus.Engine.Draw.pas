@@ -151,6 +151,7 @@ uses Apus.Core, Apus.Lib,
   Apus.Engine.Graphics, Apus.VertexLayout;
 
  const
+  {$I glsl_preamble.inc}
   // Blending modes
   MODE_TEXTURED2X = 1;  // single textured: use TexMode[0] (default: color=texture*diffuse*2, alpha=texture*diffuse)
   MODE_COLORED    = 2;  // no texture: color=diffuse, alpha=diffuse
@@ -160,11 +161,7 @@ uses Apus.Core, Apus.Lib,
  // Particles Shader 3D
 
   PART_SHADER_3D_VERT =
-   {$IFDEF GLES}
-   '#version 300 es // 3D particles '#13#10+
-   {$ELSE}
-   '#version 330 // 3D particles '#13#10+
-   {$ENDIF}
+   GLSL_VERTEX_HEADER+
    'uniform mat4 MVP; '#13#10+
    'uniform vec3 vecDown; '#13#10+
    'uniform vec3 vecRight; '#13#10+
@@ -193,12 +190,7 @@ uses Apus.Core, Apus.Lib,
    '}';
 
   PART_SHADER_3D_FRAG =
-   {$IFDEF GLES}
-   '#version 300 es // 3D particles '#13#10+
-   'precision highp float; '#13#10+
-   {$ELSE}
-   '#version 330 // 3D particles '#13#10+
-   {$ENDIF}
+   GLSL_FRAGMENT_HEADER+
    'uniform sampler2D tex0; '#13#10+
    'uniform sampler2D depthTex; '#13#10+
    'uniform float softRange; '#13#10+
@@ -226,11 +218,7 @@ uses Apus.Core, Apus.Lib,
  //   +1: stop positions, or the ramp u1,u2,v
  //   +2..+5: stop colors, premultiplied
   SHAPE_SHADER_VERT =
-   {$IFDEF GLES}
-   '#version 300 es // UI shapes'#13#10+
-   {$ELSE}
-   '#version 330 // UI shapes'#13#10+
-   {$ENDIF}
+   GLSL_VERTEX_HEADER+
    'uniform mat4 MVP;'#13#10+
    'layout (location=0) in vec3 position;'#13#10+
    'layout (location=2) in vec2 texCoord;'#13#10+
@@ -241,12 +229,7 @@ uses Apus.Core, Apus.Lib,
    '}';
 
   SHAPE_SHADER_FRAG =
-   {$IFDEF GLES}
-   '#version 300 es // UI shapes'#13#10+
-   'precision highp float;'#13#10+
-   {$ELSE}
-   '#version 330 // UI shapes'#13#10+
-   {$ENDIF}
+   GLSL_FRAGMENT_HEADER+
    'uniform vec4 p[14];'#13#10+
    'uniform sampler2D tex0;'#13#10+ // fill ramp
    'uniform sampler2D tex1;'#13#10+ // border ramp
