@@ -336,6 +336,7 @@ implementation
    // priority order (TElementState); 'checked' looks pressed by default
    BlendColor('hover',result.hover,defHoverColor);
    BlendColor('checked',cv,0);
+   BlendColor('selected',element.StateWeight(TElementState.Selected),0);
    BlendColor('pressed',result.pressed,0);
    st:=element.GetStyleValue('disabled-effect');
    if st='' then st:=element.GetClassAttribute('defaultDisabledEffect','');
@@ -843,13 +844,13 @@ implementation
  // Menu line: the box (hover = the current line) is drawn by the common path. Caption on the
  // left, shortcut on the right in 'shortcut-color' (the text color by default; the text color
  // anyway while highlighted or disabled). A menu with submenu lines keeps a column on the
- // right: the arrow of a submenu line, in the text color
+ // right; the arrow of a submenu line, in the text color, is in the right padding
  procedure DrawUIMenuItem(item:TUIMenuItem;context:TContext);
   var
    r:TRect;
    ts:TTextStyle;
    y,right:integer;
-   arrowW,cx,cy,h:single;
+   arrowW,x2,cy,h:single;
   begin
    ts:=ResolveTextStyle(item,context,clBlack,taLeft);
    r:=item.GetClientPosOnScreen;
@@ -859,10 +860,10 @@ implementation
    gfx.clip.Rect(item.GetPosOnScreen);
    WriteMenuCaption(ts,r.Left,r.Right-1,y,item.caption,item.ShowsMnemonic);
    if item.submenu<>nil then begin
-    h:=txt.Height(ts.font)*0.32; // half height of the arrow
-    cx:=r.Right-1-arrowW*0.5;
+    h:=txt.Height(ts.font)*0.4; // half height of the arrow
+    x2:=item.GetPosOnScreen.Right-1-item.padding.Right*0.5*item.globalScale; // the tip: in the middle of the right padding
     cy:=(r.Top+r.Bottom-1)*0.5;
-    draw.FillTriangle(cx-h*0.5,cy-h,cx+h*0.5,cy,cx-h*0.5,cy+h,ts.color,ts.color,ts.color);
+    draw.FillTriangle(x2-h,cy-h,x2,cy,x2-h,cy+h,ts.color,ts.color,ts.color);
    end;
    if item.shortcut<>'' then begin
     ts.align:=taRight;

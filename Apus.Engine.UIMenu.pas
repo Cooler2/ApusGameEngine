@@ -262,10 +262,12 @@ implementation
   LINE_HEIGHT=2.6;     // default line height, in font sizes
   SHORTCUT_GAP=3;      // min space between the captions and the shortcuts, in font sizes
   SHORTCUT_SCALE=0.85; // default shortcut font size relative to the caption font
-  ARROW_COLUMN=1.6;    // width of the submenu arrow column, in font sizes
+  ARROW_COLUMN=0.8;    // extra width for the submenu arrows, in font sizes (the arrow sits in the right padding)
+  SUBMENU_OVERLAP=4;   // a submenu covers the edge of its parent panel by this much
+  SUBMENU_SHIFT=2;     // and is lower than the owner line by this much
   CHECK_INTERVAL=100;  // ms between the checks of an open menu (auto close, safety)
   SUBMENU_DELAY=200;   // ms of hover before a submenu opens or switches
-  AUTO_CLOSE_DELAY=1000;
+  AUTO_CLOSE_DELAY=500;
 
  type
   // Places the headings of a menu bar before each draw
@@ -925,7 +927,8 @@ implementation
   end;
 
  // To the right of this panel, to the left if there is no room (a deeper level tries the
- // side of its parent first); the first line at the owner line; clamped to the UI root
+ // side of its parent first), over its edge a little; the first line a bit lower than the
+ // owner line; clamped to the UI root
  procedure TUIPopupMenu.PlaceSubmenu(sub:TUIPopupMenu;item:TUIMenuItem);
   var
    root:TUIElement;
@@ -939,13 +942,13 @@ implementation
    w:=sub.size.x;
    cw:=root.clientWidth;
    ch:=root.clientHeight;
-   rightFits:=pr.x2+w<=cw;
-   leftFits:=pr.x1-w>=0;
+   rightFits:=pr.x2-SUBMENU_OVERLAP+w<=cw;
+   leftFits:=pr.x1+SUBMENU_OVERLAP-w>=0;
    moreLeft:=pr.x1>cw-pr.x2;
    if openLeft then left:=leftFits or (not rightFits and moreLeft)
     else left:=not rightFits and (leftFits or moreLeft);
-   if left then x:=pr.x1-w else x:=pr.x2;
-   y:=r.y1-sub.padding.Top;
+   if left then x:=pr.x1+SUBMENU_OVERLAP-w else x:=pr.x2-SUBMENU_OVERLAP;
+   y:=r.y1-sub.padding.Top+SUBMENU_SHIFT;
    sub.pivot:=Vec2(0,0);
    sub.position:=Vec2(Clamp(x,0,Max(0,cw-w)),Clamp(y,0,Max(0,ch-sub.size.y)));
    sub.openLeft:=left;
@@ -1280,7 +1283,7 @@ implementation
    inherited Create(10,10,bar,name);
    fBar:=bar;
    self.caption:=caption;
-   SetPaddings(8,0,8,0);
+   SetPaddings(14,0,14,0);
   end;
 
  // An open menu lives at the UI root, out of the heading's subtree: it goes with the heading
