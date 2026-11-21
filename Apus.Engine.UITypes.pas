@@ -464,6 +464,12 @@ procedure DropRemovedMouseState;
  // Called by the window's thread at frame start and when the window is destroyed.
  procedure DestroyQueuedElements(wnd:TWindow);
 
+ var
+  // Keyboard preview of a UI scene: each key event (press and release) of the scene with its
+  // root element, before the focused element; true - the key is taken. Set once by a unit that
+  // needs keys regardless of the focus (the menu bar: F10, Alt, Alt+letter)
+  UIKeyPreview:function(wnd:TWindow;root:TUIElement;keycode:integer;shift:byte;pressed:boolean):boolean;
+
 implementation
  uses Classes, SysUtils, Apus.EventMan, Apus.Engine.API,
   Apus.Geom2D,

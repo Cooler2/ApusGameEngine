@@ -19,6 +19,19 @@ interface
  //   UI root   - the root element the open panels are attached to while shown
  //   root menu - the first panel of an open chain: the menu the application opened
  //               or a menu of a menu bar
+ // Mnemonics: '&' in a caption marks the next character ('&&' - the sign itself): '&File',
+ // 'Save &As'. In an open menu the character selects the line: one match opens its submenu or
+ // runs it, several matches take turns as the current line (Enter runs it). The marks are
+ // underlined while the menu is used from the keyboard.
+
+ // The caption to draw: the marks removed; pos/len - the bytes of the marked character in the
+ // result (len=0 - no mnemonic)
+ function MenuCaptionText(const caption:String8;out pos,len:integer):String8; overload;
+ function MenuCaptionText(const caption:String8):String8; overload;
+ // The marked character in lower case, '' - none
+ function MenuMnemonic(const caption:String8):String8;
+ // A text shown as is (a file name, a title from the data): each '&' doubled
+ function MenuEscapeCaption(const text:String8):String8;
 
  type
   TUIPopupMenu=class;
@@ -41,6 +54,7 @@ interface
    function ShortcutFontSize:single;     // 'shortcut-font-size', smaller than the caption by default
    function ShortcutFont:TFontHandle;
    function ArrowWidth:single;           // the submenu arrow column of the menu, 0 - none
+   function ShowsMnemonic:boolean;       // underline the mnemonic: the menu is used from the keyboard
   protected
    procedure DoClick; override;          // a command: close the menus, then call the handlers
   private
@@ -65,6 +79,7 @@ interface
   // menu - the whole chain), Enter/Space - run the current command.
   // Auto close: the pointer away from the whole chain (farther than autoCloseDistance,
   // longer than autoCloseDelay) closes the whole chain and restores the focus.
+  // Mnemonics (see above): the typed character, or Alt+letter for a Latin letter or a digit.
   // A menu of a menu bar takes no focus (the bar holds it) and opens only from the bar.
   TUIPopupMenu=class(TUIPopup)
    // Called before each panel is shown, a submenu included: may update the lines (enabled,
@@ -97,6 +112,7 @@ interface
    procedure Close;
    function IsOpen:boolean; // this panel is shown
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
+   procedure onUniChar(ch:Char32;scancode:byte); override; // mnemonics
    procedure onMouseMove; override;
    procedure onLostFocus; override; // the focus is taken away - close, the taker keeps it
    procedure onRemoved; override;
@@ -119,6 +135,7 @@ interface
    pointerArmed:boolean; // the pointer has moved since the menu opened
    armPos:TPoint;
    outsideSince:int64;   // the pointer has been out of the zone since then, 0 - inside
+   cues:boolean;         // the root menu was used from the keyboard: underline the mnemonics
    procedure SetCurrent(item:TUIMenuItem);
    function GetOwnerItem:TUIButton;
    function MenuBar:TUIMenuBar; // the bar of its heading, nil - not a menu of a bar
@@ -143,6 +160,8 @@ interface
    function AutoClosed(now:int64):boolean;
    procedure Measure;
    procedure MoveCurrent(dir:integer);
+   function SelectMnemonic(const ch:String8):boolean;
+   function KeyboardCues:boolean;
   public
    property current:TUIMenuItem read fCurrent write SetCurrent; // an enabled line or nil
    property ownerItem:TUIButton read GetOwnerItem; // the submenu line or the bar heading, nil for a standalone menu
@@ -155,7 +174,8 @@ interface
    destructor Destroy; override;
    procedure onRemoved; override;
    function Bar:TUIMenuBar;
-   function GetStates:TElementStates; override; // + selected: its menu is open
+   function ShowsMnemonic:boolean;       // underline the mnemonic: the bar is used from the keyboard
+   function GetStates:TElementStates; override; // + selected: the current heading of a session
    procedure onMouseMove; override;      // over another heading of an open bar: switch to it
   protected
    procedure DoClick; override;          // open its menu, close the open one
@@ -179,9 +199,17 @@ interface
   // level, Right on a command) keeps the session. It ends with Escape at the top level, a
   // command, a press outside the menus, auto close (the zone includes the whole bar) or a
   // click on the open heading; the focus returns to where it was.
+  // Keyboard (keyboardActivation, one bar per scene root, allowed by the modal element):
+  //   F10 or a single Alt (pressed and released alone; not AltGr, not Alt+click) - a session
+  //     with the first heading selected and no menu open; again - the session ends;
+  //   there: Left/Right/Home/End - select a heading, Down/Enter/Space - open its menu at the
+  //     first line, Up - at the last one, a mnemonic character - its heading, Escape - end;
+  //   Alt+letter - the heading with this mnemonic (Latin letters and digits: the key itself
+  //     gives no character with Alt; any mnemonic works once the session is on).
   TUIMenuBar=class(TUIElement)
    autoCloseDistance:single; // passed to the menus when opened, see TUIPopupMenu
    autoCloseDelay:integer;
+   keyboardActivation:boolean; // F10, a single Alt and Alt+letter; default: on desktop systems
    constructor Create(parent:TUIElement;name:String8='');
    destructor Destroy; override;
    // A heading and its hidden menu; returns the menu to fill. The heading gets the name
@@ -192,9 +220,11 @@ interface
    // keyboard - with the first line current
    procedure OpenItem(item:TUIMenuHeading;keyboard:boolean=false);
    procedure Close;        // end the session, restore the focus
+   procedure Activate;     // a keyboard session: the first heading selected, no menu open (F10)
    function IsOpen:boolean; // a menu of the bar is open
    procedure Arrange;      // place the headings in a row (also before each draw)
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
+   procedure onUniChar(ch:Char32;scancode:byte); override; // mnemonics
    procedure onMouseButtons(button:byte;state:boolean); override; // a press between the headings ends the session
    procedure onMouseScroll(value:integer); override;
    procedure onLostFocus; override; // the focus is taken away - end the session, the taker keeps it
@@ -208,7 +238,12 @@ interface
    switching:boolean;      // one menu closes for another: the session goes on
    previousFocus:TUIElement;
    contentWidth:single;    // of the headings row
+   cues:boolean;           // the session is used from the keyboard: underline the mnemonics
    procedure SetCurrent(item:TUIMenuHeading);
+   function BeginSession:boolean;
+   procedure Toggle;
+   procedure SelectHeading(item:TUIMenuHeading);
+   function HeadingMnemonic(const ch:String8):boolean;
    function Expects(menu:TUIPopupMenu):boolean;
    procedure MenuClosed(menu:TUIPopupMenu;restoreFocus:boolean);
    procedure EndSession(restoreFocus:boolean);
@@ -216,11 +251,11 @@ interface
    procedure ScrollIntoView(item:TUIMenuHeading);
    procedure Unlink;
   public
-   property current:TUIMenuHeading read fCurrent write SetCurrent; // the open heading; set - open it, nil - close
+   property current:TUIMenuHeading read fCurrent write SetCurrent; // the selected (open) heading; set - open it, nil - end the session
   end;
 
 implementation
- uses Apus.Geom2D, Apus.Engine.Window, Apus.Engine.UIShapes;
+ uses Apus.Geom2D, Apus.Strings, Apus.Threads, Apus.EventMan, Apus.Engine.Window, Apus.Engine.UIShapes;
 
  const
   SEPARATOR_HEIGHT=9;
@@ -236,6 +271,134 @@ implementation
   // Places the headings of a menu bar before each draw
   TMenuBarLayout=class(TLayouter)
    procedure Layout(item:TUIElement); override;
+  end;
+
+ var
+  // All live bars: the key preview and the mouse handler look up the bar of a window and root
+  bars:array of TUIMenuBar;
+  barLock:TLock; // a leaf lock
+  // Keyboard activation state (one keyboard): the window where a single Alt is pressed (nil -
+  // none or used in a combination); Alt and F10 are held (their auto-repeat changes nothing)
+  altWnd:TWindow;
+  altHeld,f10Held:boolean;
+  // Counts the other key events of the platform (KBD\KEYDOWN/KEYUP, not Alt), the internal
+  // engine hotkeys included (they don't reach the scenes); altSeq - its value at the Alt press
+  keySeq,altSeq:cardinal;
+
+ function Utf8CharLen(c:AnsiChar):integer;
+  begin
+   case byte(c) of
+    $C0..$DF:result:=2;
+    $E0..$EF:result:=3;
+    $F0..$F7:result:=4;
+   else
+    result:=1;
+   end;
+  end;
+
+ function MenuCaptionText(const caption:String8;out pos,len:integer):String8;
+  var
+   i,n,l:integer;
+  begin
+   pos:=0; len:=0;
+   SetLength(result,length(caption));
+   n:=0; i:=1;
+   while i<=length(caption) do begin
+    if caption[i]='&' then begin
+     inc(i);
+     if i>length(caption) then break; // a trailing mark is dropped
+     if (caption[i]<>'&') and (len=0) then begin // the first mark is the mnemonic
+      l:=Min(Utf8CharLen(caption[i]),length(caption)-i+1);
+      pos:=n+1; len:=l;
+      move(caption[i],result[n+1],l);
+      inc(n,l); inc(i,l);
+      continue;
+     end;
+     // '&&' - the sign itself; a further mark - just its character
+    end;
+    inc(n);
+    result[n]:=caption[i];
+    inc(i);
+   end;
+   SetLength(result,n);
+  end;
+
+ function MenuCaptionText(const caption:String8):String8;
+  var
+   pos,len:integer;
+  begin
+   result:=MenuCaptionText(caption,pos,len);
+  end;
+
+ function MenuMnemonic(const caption:String8):String8;
+  var
+   text:String8;
+   pos,len:integer;
+  begin
+   text:=MenuCaptionText(caption,pos,len);
+   if len=0 then exit('');
+   result:=UTF8.ToLower(copy(text,pos,len));
+  end;
+
+ function MenuEscapeCaption(const text:String8):String8;
+  var
+   i,n:integer;
+  begin
+   n:=length(text);
+   for i:=1 to length(text) do
+    if text[i]='&' then inc(n);
+   if n=length(text) then exit(text);
+   SetLength(result,n);
+   n:=0;
+   for i:=1 to length(text) do begin
+    inc(n);
+    result[n]:=text[i];
+    if text[i]='&' then begin
+     inc(n);
+     result[n]:='&';
+    end;
+   end;
+  end;
+
+ function CharToUtf8(ch:Char32):String8;
+  begin
+   case ch of
+    0..$7F:result:=AnsiChar(ch);
+    $80..$7FF:result:=AnsiChar($C0 or (ch shr 6))+AnsiChar($80 or (ch and $3F));
+    $800..$FFFF:result:=AnsiChar($E0 or (ch shr 12))+AnsiChar($80 or ((ch shr 6) and $3F))+
+      AnsiChar($80 or (ch and $3F));
+   else
+    result:=AnsiChar($F0 or (ch shr 18))+AnsiChar($80 or ((ch shr 12) and $3F))+
+      AnsiChar($80 or ((ch shr 6) and $3F))+AnsiChar($80 or (ch and $3F));
+   end;
+  end;
+
+ // The mnemonic of Alt+key: a Latin letter or a digit (with Alt the key gives no character)
+ function KeyMnemonic(keycode:integer;out ch:String8):boolean;
+  begin
+   result:=true;
+   case keycode of
+    ord('A')..ord('Z'):ch:=AnsiChar(keycode+32);
+    ord('0')..ord('9'):ch:=AnsiChar(keycode);
+   else
+    result:=false;
+   end;
+  end;
+
+ // Alt+key: Alt without Ctrl and Win (AltGr comes with Ctrl); Shift doesn't matter
+ function AltCombination(shift:byte):boolean;
+  begin
+   result:=(shift and (sscCtrl or sscAlt or sscWin))=sscAlt;
+  end;
+
+ // A character typed with Alt held (without Ctrl: AltGr characters are text) is not a mnemonic:
+ // Alt+letter acts by the key
+ function TypedWithAlt(e:TUIElement):boolean;
+  var
+   wnd:TWindow;
+  begin
+   wnd:=e.GetWindow;
+   result:=(wnd<>nil) and (wnd.shiftState and (sscAlt or sscCtrl)=sscAlt);
   end;
 
  function IsSelectable(e:TUIElement):boolean;
@@ -269,7 +432,7 @@ implementation
     result:=MeasureText(item,item.shortcut,font,item.ShortcutFontSize);
    end else begin
     if txt<>nil then font:=item.StyleFont;
-    result:=MeasureText(item,item.caption,font,item.GetStyleNumber('font-size',9));
+    result:=MeasureText(item,MenuCaptionText(item.caption),font,item.GetStyleNumber('font-size',9));
    end;
   end;
 
@@ -364,6 +527,14 @@ implementation
    m:=Menu;
    if m<>nil then result:=m.arrowW
     else result:=0;
+  end;
+
+ function TUIMenuItem.ShowsMnemonic:boolean;
+  var
+   m:TUIPopupMenu;
+  begin
+   m:=Menu;
+   result:=(m<>nil) and m.KeyboardCues;
   end;
 
  function TUIMenuItem.Menu:TUIPopupMenu;
@@ -608,6 +779,7 @@ implementation
    self.anchor:=anchor;
    fCurrent:=nil;
    openLeft:=false;
+   cues:=false;
    CancelSwitch;
    wnd:=root.GetWindow;
    pointerArmed:=false;
@@ -963,6 +1135,7 @@ implementation
  function TUIPopupMenu.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   var
    d,p:TUIPopupMenu;
+   ch:String8;
   begin
    if not pressed or not fOpen then exit(true); // releases go on: the scene may track held keys
    if not IsVisible then begin // the menu's scene is gone: let the keys through
@@ -970,7 +1143,12 @@ implementation
     exit(true);
    end;
    result:=false; // while open the menu takes every key: the hotkeys keep silent
+   cues:=true;
    d:=Deepest;
+   if AltCombination(shiftstate) and KeyMnemonic(keycode,ch) then begin
+    d.SelectMnemonic(ch);
+    exit;
+   end;
    if d.IsChainChild then p:=d.ParentMenu else p:=nil;
    case TKey(keycode) of
     TKey.Up:d.MoveCurrent(-1);
@@ -995,6 +1173,58 @@ implementation
      if p<>nil then p.CloseChild
       else Close;
    end;
+  end;
+
+ // The focus holder gets the typed characters: a mnemonic of the deepest panel
+ procedure TUIPopupMenu.onUniChar(ch:Char32;scancode:byte);
+  begin
+   if not fOpen or IsChainChild or (ch<32) or TypedWithAlt(self) then exit;
+   cues:=true;
+   Deepest.SelectMnemonic(CharToUtf8(ch));
+  end;
+
+ // The lines with this mnemonic (any case): one - open its submenu or run it (the chain
+ // closes first); several - the next one after the current line becomes current. False - none
+ function TUIPopupMenu.SelectMnemonic(const ch:String8):boolean;
+  var
+   i,start,count:integer;
+   first,next:TUIMenuItem;
+   c:String8;
+  begin
+   c:=UTF8.ToLower(ch);
+   count:=0; first:=nil; next:=nil;
+   start:=-1;
+   for i:=0 to high(children) do
+    if children[i]=fCurrent then start:=i;
+   for i:=0 to high(children) do
+    if IsSelectable(children[i]) and (MenuMnemonic(children[i].caption)=c) then begin
+     inc(count);
+     if first=nil then first:=TUIMenuItem(children[i]);
+     if (next=nil) and (i>start) then next:=TUIMenuItem(children[i]);
+    end;
+   result:=count>0;
+   if count=0 then exit;
+   if count>1 then begin
+    if next=nil then next:=first;
+    CancelSwitch;
+    if (fChild<>nil) and (fChild<>next.fSubmenu) then CloseChild;
+    fCurrent:=next;
+    exit;
+   end;
+   if first.fSubmenu<>nil then OpenChild(first,true)
+    else first.DoClick;
+  end;
+
+ // Underline the mnemonics: the session of the root menu (or its bar) is used from the keyboard
+ function TUIPopupMenu.KeyboardCues:boolean;
+  var
+   r:TUIPopupMenu;
+   bar:TUIMenuBar;
+  begin
+   r:=ChainRoot;
+   bar:=r.MenuBar;
+   if bar<>nil then result:=bar.session and bar.cues
+    else result:=r.fOpen and r.cues;
   end;
 
  // The pointer over the padding of a submenu keeps the way to it
@@ -1085,19 +1315,25 @@ implementation
    result:=fBar;
   end;
 
+ function TUIMenuHeading.ShowsMnemonic:boolean;
+  begin
+   result:=(fBar<>nil) and fBar.session and fBar.cues;
+  end;
+
  function TUIMenuHeading.GetStates:TElementStates;
   begin
    result:=inherited;
    if (fBar<>nil) and fBar.session and (fBar.fCurrent=self) then include(result,TElementState.Selected);
   end;
 
+ // Hover switches the open menus; a selected heading without a menu (F10) stays as it is
  procedure TUIMenuHeading.onMouseMove;
   var
    b:TUIMenuBar;
   begin
    inherited;
    b:=fBar;
-   if (b<>nil) and b.session and (underMouse=self) and (b.fCurrent<>self) then b.OpenItem(self,false);
+   if (b<>nil) and b.IsOpen and (underMouse=self) and (b.fCurrent<>self) then b.OpenItem(self,false);
   end;
 
  procedure TUIMenuHeading.DoClick;
@@ -1106,7 +1342,7 @@ implementation
   begin
    b:=fBar;
    if b=nil then exit;
-   if b.session and (b.fCurrent=self) then b.Close
+   if b.IsOpen and (b.fCurrent=self) then b.Close
     else b.OpenItem(self,false);
   end;
 
@@ -1124,6 +1360,14 @@ implementation
    layout:=TMenuBarLayout.Create;
    autoCloseDistance:=-1;
    autoCloseDelay:=AUTO_CLOSE_DELAY;
+   keyboardActivation:={$IF Defined(ANDROID) or Defined(IOS)}false{$ELSE}true{$ENDIF};
+   barLock.Enter;
+   try
+    SetLength(bars,length(bars)+1);
+    bars[high(bars)]:=self;
+   finally
+    barLock.Leave;
+   end;
   end;
 
  destructor TUIMenuBar.Destroy;
@@ -1192,7 +1436,8 @@ implementation
     h:=TUIMenuHeading(c);
     font:=0;
     if txt<>nil then font:=h.StyleFont;
-    w:=round(h.padding.Left+h.padding.Right+MeasureText(h,h.caption,font,h.GetStyleNumber('font-size',9)));
+    w:=round(h.padding.Left+h.padding.Right+
+      MeasureText(h,MenuCaptionText(h.caption),font,h.GetStyleNumber('font-size',9)));
     h.pivot:=Vec2(0,0);
     h.position:=Vec2(x,0);
     h.size:=Vec2(w,ht);
@@ -1214,16 +1459,40 @@ implementation
    scroll.X:=Clamp(scroll.X,0,Max(0,contentWidth-clientWidth));
   end;
 
- // The session starts with the first open: the bar remembers the focus and takes it (an
- // open popup that holds the focus closes). Another open menu closes, the session goes on.
+ // The session starts: the bar remembers the focus and takes it (an open popup that holds
+ // the focus closes). False - the focus can't be taken, no session
+ function TUIMenuBar.BeginSession:boolean;
+  var
+   wnd:TWindow;
+   focus:TUIElement;
+  begin
+   if session then exit(true);
+   result:=false;
+   if deleted or not IsVisible or not IsEnabled then exit;
+   wnd:=GetWindow;
+   if wnd=nil then exit;
+   focus:=TUIElement(wnd.focus.element);
+   if (focus<>nil) and (focus<>self) and focus.Acquire then previousFocus:=focus;
+   session:=true;
+   cues:=false;
+   SetFocus;
+   if not session or (TUIElement(wnd.focus.element)<>self) then begin
+    EndSession(false);
+    exit;
+   end;
+   timer:=CHECK_INTERVAL;
+   result:=true;
+  end;
+
+ // Open the menu of the heading: starts the session or switches it to this heading. Another
+ // open menu closes, the session goes on.
  // The menu callbacks (onOpen) may open another heading or close the bar: the bar decides
  // the outcome - the request replaced by a newer one is left to it; a request still current
  // that failed to open (the callback removed the menu, a popup refused) ends the session
  procedure TUIMenuBar.OpenItem(item:TUIMenuHeading;keyboard:boolean);
   var
    m:TUIPopupMenu;
-   wnd:TWindow;
-   focus,root:TUIElement;
+   root:TUIElement;
    r:TRect2;
    my:cardinal;
   begin
@@ -1233,19 +1502,8 @@ implementation
     if keyboard and (m.fCurrent=nil) then m.MoveCurrent(1);
     exit;
    end;
-   wnd:=GetWindow;
-   if wnd=nil then exit;
-   if not session then begin
-    focus:=TUIElement(wnd.focus.element);
-    if (focus<>nil) and (focus<>self) and focus.Acquire then previousFocus:=focus;
-    session:=true;
-    SetFocus;
-    if not session or (TUIElement(wnd.focus.element)<>self) then begin
-     EndSession(false);
-     exit;
-    end;
-    timer:=CHECK_INTERVAL;
-   end;
+   if not BeginSession then exit;
+   if keyboard then cues:=true;
    if fMenu<>nil then begin
     switching:=true;
     try
@@ -1257,9 +1515,7 @@ implementation
    end;
    inc(request);
    my:=request;
-   fCurrent:=item;
-   Arrange;
-   ScrollIntoView(item);
+   SelectHeading(item);
    root:=GetRoot;
    r:=item.TransformTo(item.GetRect,root);
    m.autoCloseDistance:=autoCloseDistance;
@@ -1272,6 +1528,74 @@ implementation
    if session and not m.fOpen then begin
     fMenu:=nil;
     EndSession(true);
+   end;
+  end;
+
+ // A keyboard session without an open menu: the first heading selected
+ procedure TUIMenuBar.Activate;
+  begin
+   if not BeginSession then exit;
+   cues:=true;
+   if fMenu<>nil then begin // a menu is open: close it, its heading stays selected
+    switching:=true;
+    try
+     fMenu.DoClose(false);
+    finally
+     switching:=false;
+    end;
+    fMenu:=nil;
+    exit;
+   end;
+   fCurrent:=nil;
+   MoveHeading(1);
+   if fCurrent=nil then EndSession(true); // nothing to select
+  end;
+
+ // F10, a single Alt: start a keyboard session or end the running one
+ procedure TUIMenuBar.Toggle;
+  begin
+   if session then EndSession(true)
+    else Activate;
+  end;
+
+ procedure TUIMenuBar.SelectHeading(item:TUIMenuHeading);
+  begin
+   fCurrent:=item;
+   Arrange;
+   ScrollIntoView(item);
+  end;
+
+ // The headings with this mnemonic (any case): one - open its menu at the first line;
+ // several - the next one after the current heading (its menu opens if a menu is open, the
+ // heading is just selected otherwise). False - none
+ function TUIMenuBar.HeadingMnemonic(const ch:String8):boolean;
+  var
+   i,start,count:integer;
+   first,next:TUIMenuHeading;
+   c:String8;
+  begin
+   c:=UTF8.ToLower(ch);
+   count:=0; first:=nil; next:=nil;
+   start:=-1;
+   for i:=0 to high(children) do
+    if children[i]=fCurrent then start:=i;
+   for i:=0 to high(children) do
+    if IsHeadingSelectable(children[i]) and (MenuMnemonic(children[i].caption)=c) then begin
+     inc(count);
+     if first=nil then first:=TUIMenuHeading(children[i]);
+     if (next=nil) and (i>start) then next:=TUIMenuHeading(children[i]);
+    end;
+   result:=count>0;
+   if count=0 then exit;
+   if count=1 then begin
+    OpenItem(first,true);
+    exit;
+   end;
+   if next=nil then next:=first;
+   if IsOpen then OpenItem(next,true)
+   else if BeginSession then begin
+    cues:=true;
+    SelectHeading(next);
    end;
   end;
 
@@ -1292,6 +1616,7 @@ implementation
   begin
    was:=session;
    session:=false; // first: the menu close and the focus change below call back
+   cues:=false;
    timer:=0;
    fCurrent:=nil;
    m:=fMenu;
@@ -1311,10 +1636,12 @@ implementation
    end;
   end;
 
- // The neighbour enabled heading, round the row; its menu opens with the first line
+ // The neighbour enabled heading, round the row: with an open menu its menu opens at the
+ // first line, without - it is just selected
  procedure TUIMenuBar.MoveHeading(dir:integer);
   var
    i,n,start:integer;
+   h:TUIMenuHeading;
   begin
    n:=length(children);
    if n=0 then exit;
@@ -1327,28 +1654,73 @@ implementation
    repeat
     i:=(i+dir+n) mod n;
     if IsHeadingSelectable(children[i]) then begin
-     if children[i]<>fCurrent then OpenItem(TUIMenuHeading(children[i]),true);
+     h:=TUIMenuHeading(children[i]);
+     if h<>fCurrent then
+      if fMenu<>nil then OpenItem(h,true)
+       else SelectHeading(h);
      exit;
     end;
    until i=start;
   end;
 
- // The bar holds the focus during a session: Left at the top level and Right on a line
+ // The bar holds the focus during a session. Without an open menu (F10) it moves the
+ // selection and opens the menus; with one - Left at the top level and Right on a line
  // without a submenu move to the neighbour heading, other keys go to the open menus
  function TUIMenuBar.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   var
    d:TUIPopupMenu;
+   h:TUIMenuHeading;
+   ch:String8;
   begin
    if not pressed or not session then exit(true); // releases go on: the scene may track held keys
    if not IsVisible then begin // the bar's scene is gone: let the keys through
     EndSession(false);
     exit(true);
    end;
-   if (fMenu=nil) or not fMenu.fOpen then begin // its heading is gone
+   if fMenu=nil then begin // no menu open: a heading is selected
+    h:=fCurrent;
+    if not IsHeadingSelectable(h) then begin // its heading is gone
+     EndSession(true);
+     exit(true);
+    end;
+    result:=false;
+    cues:=true;
+    if AltCombination(shiftstate) and KeyMnemonic(keycode,ch) then begin
+     HeadingMnemonic(ch);
+     exit;
+    end;
+    case TKey(keycode) of
+     TKey.Left:MoveHeading(-1);
+     TKey.Right:MoveHeading(1);
+     TKey.Home:begin
+      fCurrent:=nil;
+      MoveHeading(1);
+      if fCurrent=nil then SelectHeading(h);
+     end;
+     TKey.EndKey:begin
+      fCurrent:=nil;
+      MoveHeading(-1);
+      if fCurrent=nil then SelectHeading(h);
+     end;
+     TKey.Down,TKey.Enter,TKey.Space:OpenItem(h,true);
+     TKey.Up:begin
+      OpenItem(h,false);
+      if IsOpen and (fCurrent=h) then begin
+       cues:=true;
+       fMenu.fCurrent:=nil;
+       fMenu.MoveCurrent(-1);
+      end;
+     end;
+     TKey.Escape:EndSession(true);
+    end;
+    exit;
+   end;
+   if not fMenu.fOpen then begin // its heading is gone
     EndSession(true);
     exit(true);
    end;
    result:=false; // while open the menus take every key: the hotkeys keep silent
+   cues:=true;
    d:=fMenu.Deepest;
    case TKey(keycode) of
     TKey.Left:
@@ -1363,6 +1735,18 @@ implementation
      end;
    end;
    result:=fMenu.onKey(keycode,pressed,shiftstate);
+  end;
+
+ // The focus holder gets the typed characters: a mnemonic of the open menu or of a heading
+ procedure TUIMenuBar.onUniChar(ch:Char32;scancode:byte);
+  var
+   s:String8;
+  begin
+   if not session or (ch<32) or TypedWithAlt(self) then exit;
+   cues:=true;
+   s:=CharToUtf8(ch);
+   if IsOpen then fMenu.Deepest.SelectMnemonic(s)
+    else HeadingMnemonic(s);
   end;
 
  procedure TUIMenuBar.onMouseButtons(button:byte;state:boolean);
@@ -1395,27 +1779,186 @@ implementation
   end;
 
  // The removed bar ends its session without tree or focus changes (the open menu closes by
- // its own check: its anchor is gone). The second call is a no-op
+ // its own check: its anchor is gone) and leaves the list of bars. The second call is a no-op
  procedure TUIMenuBar.Unlink;
+  var
+   i:integer;
   begin
    session:=false;
    switching:=false;
+   cues:=false;
    timer:=0;
    fMenu:=nil;
    fCurrent:=nil;
    if previousFocus<>nil then previousFocus.Release;
    previousFocus:=nil;
+   barLock.Enter;
+   try
+    for i:=high(bars) downto 0 do
+     if bars[i]=self then begin
+      bars[i]:=bars[high(bars)];
+      SetLength(bars,length(bars)-1);
+     end;
+   finally
+    barLock.Leave;
+   end;
   end;
 
- // Safety check: the open menu has gone without telling (its heading removed)
+ // Safety check: the open menu (or the selected heading) has gone without telling
  procedure TUIMenuBar.onTimer;
   begin
    if not session then exit;
-   if (fMenu=nil) or not fMenu.fOpen then begin
+   if (fMenu=nil) and not IsHeadingSelectable(fCurrent) or (fMenu<>nil) and not fMenu.fOpen then begin
     EndSession(true);
     exit;
    end;
    timer:=CHECK_INTERVAL;
   end;
 
+{ Keyboard activation }
+
+ // The bar of the window and the UI root that takes the keyboard activation: visible, enabled,
+ // allowed by the modal element. None while a standalone popup holds the focus (it takes the keys)
+ function FindBar(wnd:TWindow;root:TUIElement):TUIMenuBar;
+  var
+   i:integer;
+   b:TUIMenuBar;
+   modal,focus:TUIElement;
+  begin
+   result:=nil;
+   if (wnd=nil) or (root=nil) then exit;
+   focus:=TUIElement(wnd.focus.element);
+   if focus is TUIPopup then exit;
+   modal:=wnd.modal.Root;
+   barLock.Enter;
+   try
+    for i:=0 to high(bars) do begin
+     b:=bars[i];
+     if not b.keyboardActivation or b.deleted then continue;
+     if (b.GetRoot<>root) or (b.GetWindow<>wnd) then continue;
+     if not b.IsVisible or not b.IsEnabled then continue;
+     if (modal<>nil) and (b<>modal) and not b.HasParent(modal) then continue;
+     exit(b);
+    end;
+   finally
+    barLock.Leave;
+   end;
+  end;
+
+ // UIKeyPreview: F10 (no modifiers) - toggle the session; a single Alt - toggle on its
+ // release; Alt+letter - the heading with this mnemonic (outside a session: inside it the bar
+ // takes the key itself). Other keys and unmatched letters go on
+ function MenuKeyPreview(wnd:TWindow;root:TUIElement;keycode:integer;shift:byte;pressed:boolean):boolean;
+  var
+   key:TKey;
+   b:TUIMenuBar;
+   ch:String8;
+  begin
+   result:=false;
+   key:=TKey(keycode and $FF);
+   if not pressed then begin
+    if key=TKey.F10 then f10Held:=false;
+    if key in [TKey.LAlt,TKey.RAlt] then begin
+     altHeld:=false;
+     if (altWnd<>wnd) or (keySeq<>altSeq) then begin // another key in between
+      altWnd:=nil;
+      exit;
+     end;
+     altWnd:=nil;
+     b:=FindBar(wnd,root);
+     if b<>nil then begin
+      b.Toggle;
+      result:=true;
+     end;
+    end;
+    exit;
+   end;
+   if key in [TKey.LAlt,TKey.RAlt] then begin // pressed alone - a candidate (auto-repeat changes nothing)
+    if altHeld then exit;
+    altHeld:=true;
+    altSeq:=keySeq;
+    if (shift and (sscShift or sscCtrl or sscWin))=0 then altWnd:=wnd
+     else altWnd:=nil;
+    exit;
+   end;
+   altWnd:=nil; // any other key spoils the single Alt
+   if key=TKey.F10 then begin
+    if (shift and sscBaseMask)<>0 then begin
+     f10Held:=false;
+     exit;
+    end;
+    b:=FindBar(wnd,root);
+    if b=nil then exit;
+    result:=true;
+    if not f10Held then b.Toggle;
+    f10Held:=true;
+    exit;
+   end;
+   if AltCombination(shift) and KeyMnemonic(keycode and $FF,ch) then begin
+    b:=FindBar(wnd,root);
+    if (b=nil) or b.session then exit;
+    result:=b.HeadingMnemonic(ch);
+   end;
+  end;
+
+ // A mouse press spoils the single Alt (Alt+click) and ends a session without an open menu
+ // when it lands outside the area of the bar
+ procedure MenuMouseDown(event:TEventStr;tag:TTag);
+  var
+   i:integer;
+   b:TUIMenuBar;
+   r:TRect;
+   x,y:integer;
+   list:array of TUIMenuBar;
+  begin
+   altWnd:=nil;
+   if window=nil then exit;
+   barLock.Enter;
+   try
+    list:=nil;
+    for i:=0 to high(bars) do
+     if bars[i].session and (bars[i].fMenu=nil) then begin
+      SetLength(list,length(list)+1);
+      list[high(list)]:=bars[i];
+     end;
+   finally
+    barLock.Leave;
+   end;
+   if list=nil then exit;
+   x:=window.mousePos.x;
+   y:=window.mousePos.y;
+   for b in list do begin
+    if not b.session or (b.fMenu<>nil) or (b.GetWindow<>window) then continue;
+    r:=b.GetPosOnScreen;
+    if (x<r.Left) or (x>=r.Right) or (y<r.Top) or (y>=r.Bottom) then b.Close;
+   end;
+  end;
+
+ // The window lost the activation: the keys pressed there are forgotten
+ procedure MenuActivateWnd(event:TEventStr;tag:TTag);
+  begin
+   if tag=0 then begin
+    altWnd:=nil;
+    altHeld:=false;
+    f10Held:=false;
+   end;
+  end;
+
+ // Any key but Alt spoils the single Alt, also a key taken before the scenes (an internal
+ // hotkey: Alt+Enter, Alt+F11) or a release only (PrintScreen on Windows)
+ procedure MenuKbdSignal(event:TEventStr;tag:TTag);
+  var
+   key:TKey;
+  begin
+   key:=TKey(tag and $FF);
+   if not (key in [TKey.LAlt,TKey.RAlt]) then inc(keySeq);
+  end;
+
+initialization
+ barLock.Init('UIMenuBars',810);
+ UIKeyPreview:=MenuKeyPreview;
+ SetEventHandler('MOUSE\BTNDOWN',MenuMouseDown,emInstant);
+ SetEventHandler('Engine\ActivateWnd',MenuActivateWnd,emInstant);
+ SetEventHandler('KBD\KEYDOWN',MenuKbdSignal,emInstant);
+ SetEventHandler('KBD\KEYUP',MenuKbdSignal,emInstant);
 end.

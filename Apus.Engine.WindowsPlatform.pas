@@ -461,11 +461,9 @@ begin
     if message=WM_SYSKEYUP then exit(0);
   end;
 
-{  WM_SYSCHAR:begin
-    result:=0; exit;
-    scancode:=(lParam shr 16) and $FF;
-//    Signal('KBD\KeyDown',wParam and $FFFF+game.shiftState shl 16+scancode shl 24);
-  end;}
+  // Alt+key: the keys go as KEYDOWN; no beep for a character without a system menu
+  // command (Alt+Space - the window menu - stays with Windows)
+  WM_SYSCHAR:if wParam<>32 then exit(0);
 
   WM_LBUTTONDOWN,WM_RBUTTONDOWN,WM_MBUTTONDOWN:begin
     SetCapture(window);

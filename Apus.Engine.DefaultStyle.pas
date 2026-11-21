@@ -816,6 +816,30 @@ implementation
     end;
   end;
 
+ // Menu caption: without the '&' marks (MenuCaptionText); with the keyboard cues its mnemonic
+ // character is underlined below the baseline y
+ procedure WriteMenuCaption(const ts:TTextStyle;x1,x2,y:integer;const caption:String8;cues:boolean);
+  var
+   text:String8;
+   pos,len,uy,thick:integer;
+   x,u1,u2:single;
+  begin
+   text:=MenuCaptionText(caption,pos,len);
+   x:=AlignAnchor(ts,x1,x2);
+   WriteStyled(ts,x,y,text);
+   if not cues or (len=0) then exit;
+   case ts.align of
+    taCenter:x:=x-txt.Width(ts.font,text)/2;
+    taRight:x:=x-txt.Width(ts.font,text);
+   end;
+   x:=x+ts.ofsX;
+   u1:=x+txt.Width(ts.font,copy(text,1,pos-1));
+   u2:=x+txt.Width(ts.font,copy(text,1,pos+len-1));
+   thick:=Max(1,round(txt.Height(ts.font)*0.09));
+   uy:=round(y+ts.ofsY)+Max(1,round(txt.Height(ts.font)*0.18));
+   draw.FillRect(round(u1),uy,round(u2)-1,uy+thick-1,ts.color);
+  end;
+
  // Menu line: the box (hover = the current line) is drawn by the common path. Caption on the
  // left, shortcut on the right in 'shortcut-color' (the text color by default; the text color
  // anyway while highlighted or disabled). A menu with submenu lines keeps a column on the
@@ -833,7 +857,7 @@ implementation
    arrowW:=item.ArrowWidth*item.globalScale;
    right:=round(r.Right-1-arrowW);
    gfx.clip.Rect(item.GetPosOnScreen);
-   WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
+   WriteMenuCaption(ts,r.Left,r.Right-1,y,item.caption,item.ShowsMnemonic);
    if item.submenu<>nil then begin
     h:=txt.Height(ts.font)*0.32; // half height of the arrow
     cx:=r.Right-1-arrowW*0.5;
@@ -862,7 +886,7 @@ implementation
    r:=item.GetClientPosOnScreen;
    y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
    gfx.clip.Rect(item.GetPosOnScreen);
-   WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
+   WriteMenuCaption(ts,r.Left,r.Right-1,y,item.caption,item.ShowsMnemonic);
    gfx.clip.Restore;
   end;
 

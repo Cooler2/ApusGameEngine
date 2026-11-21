@@ -1361,6 +1361,381 @@ procedure TestMenuBarRemoval;
   EndTest;
  end;
 
+// UTF-8 bytes as a String8 without a codepage conversion of the literal
+function U8(const s:RawByteString):String8;
+ begin
+  SetLength(result,length(s));
+  if s<>'' then System.Move(s[1],result[1],length(s));
+ end;
+
+// The '&' marks of the captions: the first one is the mnemonic, '&&' is the sign itself
+procedure TestMenuCaptions;
+ var
+  pos,len:integer;
+  s:String8;
+ begin
+  StartTest('Menu captions');
+  s:=MenuCaptionText('&File',pos,len);
+  Check((s='File') and (pos=1) and (len=1),'&File: '+s);
+  s:=MenuCaptionText('Save &As',pos,len);
+  Check((s='Save As') and (pos=6) and (len=1),'Save &As: '+s);
+  s:=MenuCaptionText('A&&B',pos,len);
+  Check((s='A&B') and (len=0),'&& is the sign: '+s);
+  s:=MenuCaptionText('Tom && &Jerry',pos,len);
+  Check((s='Tom & Jerry') and (pos=7),'&& before the mark: '+s);
+  s:=MenuCaptionText('End&',pos,len);
+  Check((s='End') and (len=0),'a trailing mark is dropped: '+s);
+  s:=MenuCaptionText('&a&b',pos,len);
+  Check((s='ab') and (pos=1),'a further mark - just its character: '+s);
+  s:=MenuCaptionText(U8(#$D0#$A1#$D0#$BF'&'#$D1#$80#$D0#$B0),pos,len);
+  Check((s=U8(#$D0#$A1#$D0#$BF#$D1#$80#$D0#$B0)) and (pos=5) and (len=2),'a Cyrillic mnemonic takes its bytes');
+  Check(MenuMnemonic(U8('&'#$D0#$A4#$D0#$B0))=U8(#$D1#$84),'the mnemonic is in lower case (Unicode)');
+  Check((MenuMnemonic('&Quit')='q') and (MenuMnemonic('Plain')='') and (MenuMnemonic('A&&B')=''),'MenuMnemonic');
+  Check((MenuEscapeCaption('Tom & Jerry')='Tom && Jerry') and (MenuCaptionText(MenuEscapeCaption('a&&b&'))='a&&b&') and
+    (MenuEscapeCaption('plain')='plain'),'MenuEscapeCaption: the text is shown as is');
+  EndTest;
+ end;
+
+// Keyboard fixture: KeyBar = &File (&New, &Recent > File&1, File&2, &Quit), &Edit (&Undo, &Copy, &Cut),
+// &View (disabled), &Tools (&Options), &Table (Sort), Сп&равка (&О программе); the edit box
+// holds the focus
+var
+  kb:record
+   probe:TMenuProbe;
+   edit:TUIEditBox;
+   bar:TUIMenuBar;
+   fileM,recent,editM,toolsM,tableM,helpM:TUIPopupMenu;
+   hFile,hEdit,hView,hTools,hTable,hHelp:TUIMenuHeading;
+   itemNew,itemRecent,itemFile1,itemFile2,itemQuit,itemUndo,itemCopy,itemCut,itemAbout:TUIMenuItem;
+  end;
+
+const
+  CYR_ER=$0440; // 'р' - the mnemonic of Справка
+  CYR_O=$043E;  // 'о' - of О программе
+
+procedure BuildKeyBar;
+ var
+  m:TUIPopupMenu;
+ begin
+  with kb do begin
+   probe:=TMenuProbe.Create;
+   edit:=TUIEditBox.Create(100,20,sceneA.UI,'KeyEdit');
+   edit.SetPos(600,450,pivotTopLeft);
+   bar:=TUIMenuBar.Create(sceneA.UI,'KeyBar');
+   bar.SetPos(20,200,pivotTopLeft);
+   bar.size:=Vec2(500,24);
+   bar.autoCloseDelay:=0;
+   fileM:=bar.AddSubmenu('&File');
+   hFile:=TUIMenuHeading(fileM.ownerItem);
+   itemNew:=fileM.Add('&New');
+   itemNew.onClickMethod:=probe.DoNew;
+   recent:=fileM.AddSubmenu('&Recent');
+   itemRecent:=TUIMenuItem(recent.ownerItem);
+   itemFile1:=recent.Add('File&1');
+   itemFile1.onClickMethod:=probe.DoSave;
+   itemFile2:=recent.Add('File&2');
+   itemFile2.onClickMethod:=probe.DoSave;
+   itemQuit:=fileM.Add('&Quit');
+   editM:=bar.AddSubmenu('&Edit');
+   hEdit:=TUIMenuHeading(editM.ownerItem);
+   itemUndo:=editM.Add('&Undo');
+   itemCopy:=editM.Add('&Copy');
+   itemCut:=editM.Add('&Cut');
+   m:=bar.AddSubmenu('&View');
+   hView:=TUIMenuHeading(m.ownerItem);
+   m.Add('Zoom');
+   hView.Disable;
+   toolsM:=bar.AddSubmenu('&Tools');
+   hTools:=TUIMenuHeading(toolsM.ownerItem);
+   toolsM.Add('&Options');
+   tableM:=bar.AddSubmenu('&Table');
+   hTable:=TUIMenuHeading(tableM.ownerItem);
+   tableM.Add('Sort');
+   helpM:=bar.AddSubmenu(U8(#$D0#$A1#$D0#$BF'&'#$D1#$80#$D0#$B0#$D0#$B2#$D0#$BA#$D0#$B0),'KeyBar\Help');
+   hHelp:=TUIMenuHeading(helpM.ownerItem);
+   itemAbout:=helpM.Add(U8('&'#$D0#$9E' '#$D0#$BF#$D1#$80#$D0#$BE#$D0#$B3#$D1#$80#$D0#$B0#$D0#$BC#$D0#$BC#$D0#$B5));
+   itemAbout.onClickMethod:=probe.DoQuit;
+   edit.SetFocus;
+  end;
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+ end;
+
+procedure FreeKeyBar;
+ begin
+  with kb do begin
+   if not bar.deleted then bar.Remove;
+   edit.Remove;
+   wndA.physPos:=Types.Point(-1,-1);
+   ClearFocus(wndA);
+   RunFrame(wndA);
+   probe.Free;
+  end;
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+ end;
+
+procedure TypeChar(code:cardinal);
+ begin
+  sceneA.WriteChar(code shl 16);
+ end;
+
+// A key pressed and released
+procedure TapKey(key:TKey;shift:byte=0);
+ begin
+  sceneA.DispatchKey(key,0,shift,true);
+  sceneA.DispatchKey(key,0,shift,false);
+ end;
+
+// A single Alt: pressed and released alone
+procedure TapAlt(key:TKey=TKey.LAlt);
+ begin
+  sceneA.DispatchKey(key,0,sscAlt,true);
+  sceneA.DispatchKey(key,0,0,false);
+ end;
+
+// F10: a session with the first heading selected and no menu; keys move and open
+procedure TestMenuBarF10;
+ var
+  frame:TUIElement;
+ begin
+  StartTest('Menu bar F10');
+  BuildKeyBar;
+  with kb do begin
+   Check(not hFile.ShowsMnemonic and not itemNew.ShowsMnemonic,'no underlines without the keyboard');
+   Check(sceneA.DispatchKey(TKey.F10,0,0,true),'F10 is taken');
+   Check((bar.current=hFile) and not bar.IsOpen and (FocusedElement=bar),'F10: the first heading selected, no menu, the bar holds the focus');
+   Check((TElementState.Selected in hFile.GetStates) and hFile.ShowsMnemonic,'selected, the mnemonics underlined');
+   sceneA.DispatchKey(TKey.F10,0,0,true); // auto-repeat
+   Check(bar.current=hFile,'the auto-repeat of F10 changes nothing');
+   sceneA.DispatchKey(TKey.F10,0,0,false);
+   TapKey(TKey.Right);
+   Check((bar.current=hEdit) and not bar.IsOpen,'Right selects the next heading, opens nothing');
+   TapKey(TKey.Right);
+   Check(bar.current=hTools,'Right skips the disabled heading');
+   TapKey(TKey.EndKey);
+   Check(bar.current=hHelp,'End - the last heading');
+   TapKey(TKey.Right);
+   Check(bar.current=hFile,'Right wraps around');
+   TapKey(TKey.Left);
+   Check(bar.current=hHelp,'Left wraps back');
+   TapKey(TKey.Home);
+   Check(bar.current=hFile,'Home - the first heading');
+   TapKey(TKey.Down);
+   Check(fileM.IsOpen and (fileM.current=itemNew) and (FocusedElement=bar),'Down opens the menu at the first line');
+   Check(itemNew.ShowsMnemonic,'the lines show the mnemonics too');
+   TapKey(TKey.Escape);
+   Check(not bar.IsOpen and (bar.current=nil) and (FocusedElement=edit),'Escape in the open menu ends the session');
+   TapKey(TKey.F10);
+   TapKey(TKey.Up);
+   Check(fileM.IsOpen and (fileM.current=itemQuit),'Up opens the menu at the last line');
+   TapKey(TKey.F10);
+   Check((bar.current=nil) and not fileM.IsOpen and (FocusedElement=edit),'F10 with an open menu ends the session');
+   TapKey(TKey.F10);
+   TapKey(TKey.Right);
+   TapKey(TKey.Enter);
+   Check(editM.IsOpen and (editM.current=itemUndo),'Enter opens the selected heading');
+   TapKey(TKey.Escape);
+   TapKey(TKey.F10);
+   TapKey(TKey.Space);
+   Check(fileM.IsOpen and (fileM.current=itemNew),'Space opens too');
+   TapKey(TKey.Escape);
+   TapKey(TKey.F10);
+   TapKey(TKey.F10);
+   Check((bar.current=nil) and (FocusedElement=edit),'F10 again ends the session, the focus is back');
+   TapKey(TKey.F10);
+   TapKey(TKey.Escape);
+   Check((bar.current=nil) and (FocusedElement=edit),'Escape ends the session');
+   TapKey(TKey.F10,sscShift);
+   Check((bar.current=nil) and (FocusedElement=edit),'Shift+F10 is not the bar''s');
+   // the mouse in the bare mode
+   TapKey(TKey.F10);
+   wndA.physPos:=CenterOf(hEdit);
+   RunFrame(wndA);
+   Check((bar.current=hFile) and not bar.IsOpen,'hover does not move the selection without a menu');
+   PhysicalClickAt(CenterOf(hEdit));
+   Check(editM.IsOpen and (bar.current=hEdit),'a click on a heading opens it');
+   TapKey(TKey.Escape);
+   wndA.physPos:=Types.Point(-1,-1);
+   RunFrame(wndA);
+   TapKey(TKey.F10);
+   btn.clicks:=0;
+   PhysicalClickAt(Types.Point(150,115));
+   Check((bar.current=nil) and (btn.clicks=1),'a press outside ends the session and reaches its target');
+   edit.SetFocus;
+   // characters: the mnemonics of the headings
+   TapKey(TKey.F10);
+   TypeChar(ord('e'));
+   Check(editM.IsOpen and (editM.current=itemUndo),'a character opens its heading at the first line');
+   TapKey(TKey.Escape);
+   TapKey(TKey.F10);
+   TypeChar(ord('T'));
+   Check((bar.current=hTools) and not bar.IsOpen,'two headings with the mnemonic: the first one is selected');
+   TypeChar(ord('t'));
+   Check((bar.current=hTable) and not bar.IsOpen,'again - the next one');
+   TypeChar(ord('t'));
+   Check(bar.current=hTools,'round');
+   TypeChar(CYR_ER);
+   Check(helpM.IsOpen,'a Cyrillic mnemonic');
+   TapKey(TKey.Escape);
+   TapKey(TKey.F10);
+   TypeChar(ord('v'));
+   Check((bar.current=hFile) and not bar.IsOpen,'the mnemonic of a disabled heading does nothing');
+   TapKey(TKey.E,sscAlt);
+   Check(editM.IsOpen,'Alt+letter in the session opens its heading');
+   TapKey(TKey.Escape);
+   // no keyboard activation
+   bar.keyboardActivation:=false;
+   sceneA.DispatchKey(TKey.F10,0,0,true);
+   sceneA.DispatchKey(TKey.F10,0,0,false);
+   TapAlt;
+   TapKey(TKey.F,sscAlt);
+   Check((bar.current=nil) and (FocusedElement=edit),'keyboardActivation=false: F10, Alt, Alt+letter do nothing');
+   bar.keyboardActivation:=true;
+   // a modal element outside the bar
+   frame:=TUIElement.Create(50,50,sceneA.UI,'KeyModal');
+   wndA.modal.Push(frame);
+   TapKey(TKey.F10);
+   Check(bar.current=nil,'a modal element outside the bar blocks the activation');
+   wndA.modal.Pop(frame);
+   frame.Remove;
+   TapKey(TKey.F10);
+   Check(bar.current=hFile,'without it - works');
+   TapKey(TKey.Escape);
+  end;
+  FreeKeyBar;
+  EndTest;
+ end;
+
+// A single Alt toggles the session on its release; Alt+letter opens the heading
+procedure TestMenuBarAlt;
+ begin
+  StartTest('Menu bar Alt');
+  BuildKeyBar;
+  with kb do begin
+   TapAlt;
+   Check((bar.current=hFile) and not bar.IsOpen and (FocusedElement=bar),'a single Alt: the first heading selected');
+   TapAlt;
+   Check((bar.current=nil) and (FocusedElement=edit),'again - the session ends');
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true);
+   Check(bar.current=nil,'acts on the release');
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true); // auto-repeat
+   sceneA.DispatchKey(TKey.LAlt,0,0,false);
+   Check(bar.current=hFile,'the auto-repeat keeps the single Alt');
+   TapAlt;
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true);
+   TapKey(TKey.B,sscAlt);
+   sceneA.DispatchKey(TKey.LAlt,0,0,false);
+   Check(bar.current=nil,'Alt+key is not a single Alt');
+   sceneA.DispatchKey(TKey.LCtrl,0,sscCtrl,true);
+   sceneA.DispatchKey(TKey.RAlt,0,sscCtrl or sscAlt,true);
+   sceneA.DispatchKey(TKey.RAlt,0,sscCtrl,false);
+   sceneA.DispatchKey(TKey.LCtrl,0,0,false);
+   Check(bar.current=nil,'AltGr (Ctrl+RAlt) does not activate');
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true);
+   PhysicalClickAt(Types.Point(150,115));
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true); // auto-repeat goes on after the click
+   sceneA.DispatchKey(TKey.LAlt,0,0,false);
+   Check(bar.current=nil,'Alt+click is not a single Alt');
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true);
+   Signal('KBD\KEYUP',ord(TKey.Pause)); // a key the scene never got (an internal hotkey, a release only)
+   sceneA.DispatchKey(TKey.LAlt,0,0,false);
+   Check(bar.current=nil,'a key event of the platform between is not a single Alt');
+   edit.SetFocus;
+   TapAlt(TKey.RAlt);
+   Check(bar.current=hFile,'a single right Alt activates too');
+   TapAlt;
+   // Alt+letter
+   sceneA.DispatchKey(TKey.LAlt,0,sscAlt,true);
+   Check(sceneA.DispatchKey(TKey.F,0,sscAlt,true),'Alt+F is taken');
+   Check(fileM.IsOpen and (fileM.current=itemNew) and (FocusedElement=bar),'Alt+F opens File at the first line');
+   Check(itemNew.ShowsMnemonic and hFile.ShowsMnemonic,'underlined');
+   sceneA.DispatchKey(TKey.F,0,sscAlt,false);
+   sceneA.DispatchKey(TKey.LAlt,0,0,false);
+   Check(fileM.IsOpen,'the release of Alt after Alt+F keeps the menu');
+   TapAlt;
+   Check((bar.current=nil) and not fileM.IsOpen and (FocusedElement=edit),'a single Alt with an open menu ends the session');
+   TapKey(TKey.F,sscAlt or sscCtrl);
+   Check(bar.current=nil,'Ctrl+Alt+F is not a mnemonic');
+   TapKey(TKey.F,sscAlt or sscWin);
+   Check(bar.current=nil,'Win+Alt+F neither');
+   TapKey(TKey.Q,sscAlt);
+   Check(bar.current=nil,'no heading with the mnemonic - nothing');
+   TapKey(TKey.T,sscAlt);
+   Check((bar.current=hTools) and not bar.IsOpen,'Alt+letter of two headings selects the first one');
+   TapKey(TKey.T,sscAlt);
+   Check((bar.current=hTable) and not bar.IsOpen,'again - the next one');
+   TapKey(TKey.Escape);
+   Check(bar.current=nil,'Escape');
+  end;
+  FreeKeyBar;
+  EndTest;
+ end;
+
+// Mnemonics of the lines: one runs (or opens its submenu), several cycle
+procedure TestMenuMnemonics;
+ var
+  ctx:TUIPopupMenu;
+  a,b:TUIMenuItem;
+ begin
+  StartTest('Menu mnemonics');
+  BuildKeyBar;
+  with kb do begin
+   TapKey(TKey.F,sscAlt);
+   TypeChar(ord('n'));
+   Check((probe.news=1) and not bar.IsOpen and (probe.focusAtCall=edit),'a mnemonic runs its line, the focus restored before');
+   Check(edit.text='','the character is not typed into the edit box');
+   TapKey(TKey.E,sscAlt);
+   TypeChar(ord('c'));
+   Check(editM.IsOpen and (editM.current=itemCopy),'two lines with the mnemonic: the first one becomes current');
+   TypeChar(ord('C'));
+   Check(editM.current=itemCut,'again - the next one');
+   TypeChar(ord('c'));
+   Check(editM.current=itemCopy,'round');
+   TapKey(TKey.Escape);
+   TapKey(TKey.F,sscAlt);
+   TypeChar(ord('r'));
+   Check(recent.IsOpen and (recent.current=itemFile1),'a submenu line opens its submenu at the first line');
+   TypeChar(ord('1'));
+   Check((probe.saves=1) and not bar.IsOpen and not recent.IsOpen and (FocusedElement=edit),'a digit mnemonic in the submenu');
+   // (the same line again within 50 ms would be taken for a bounce: other lines here)
+   TapKey(TKey.F,sscAlt);
+   TapKey(TKey.R,sscAlt);
+   Check(recent.IsOpen and (recent.current=itemFile1),'Alt+letter in an open menu - its line');
+   TapKey(TKey.D2,sscAlt);
+   Check((probe.saves=2) and not bar.IsOpen,'Alt+digit in a submenu');
+   TapKey(TKey.F10);
+   TypeChar(CYR_ER);
+   TypeChar(CYR_O);
+   Check((probe.quits=1) and not bar.IsOpen,'Cyrillic mnemonics of a heading and a line');
+   // the mouse shows no underlines until a key
+   PhysicalClickAt(CenterOf(hFile));
+   Check(fileM.IsOpen and not itemNew.ShowsMnemonic and not hFile.ShowsMnemonic,'opened by the mouse - no underlines');
+   wndA.physPos:=Types.Point(-1,-1);
+   RunFrame(wndA);
+   TapKey(TKey.Down);
+   Check(itemNew.ShowsMnemonic and hFile.ShowsMnemonic,'a key shows them');
+   TapKey(TKey.Escape);
+   // a standalone menu
+   ctx:=TUIPopupMenu.Create(sceneA.UI,'KeyContext');
+   a:=ctx.Add('&Alpha');
+   b:=ctx.Add('&Beta');
+   b.onClickMethod:=probe.DoNew;
+   ctx.OpenAt(600,250);
+   Check(not a.ShowsMnemonic,'a context menu opened by the mouse - no underlines');
+   TapKey(TKey.F10);
+   Check(ctx.IsOpen and (bar.current=nil),'F10 is not taken while a context menu holds the focus');
+   TypeChar(ord('B'));
+   Check((probe.news=2) and not ctx.IsOpen and (FocusedElement=edit),'a mnemonic of a context menu (upper case)');
+   ctx.OpenAt(600,250);
+   TapKey(TKey.Down);
+   Check(a.ShowsMnemonic,'a key shows the underlines of a context menu');
+   TapKey(TKey.Escape);
+   ctx.Remove;
+  end;
+  FreeKeyBar;
+  EndTest;
+ end;
+
 procedure PhysicalButton(pressed:boolean);
  var
   n:integer;
@@ -2707,6 +3082,10 @@ begin
   TestMenuBarAutoClose;
   TestMenuBarScroll;
   TestMenuBarRemoval;
+  TestMenuCaptions;
+  TestMenuBarF10;
+  TestMenuBarAlt;
+  TestMenuMnemonics;
   TestSharedPopup;
   TestInputFrame;
   TestEnable;

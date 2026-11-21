@@ -776,6 +776,7 @@ function UIScene(name:String8):TUIScene;
    try
     if (UI<>nil) and UI.flags.enabled then begin
      if pressed and (keyc=ord('S')) and (shift=8+2) then PrintUILog; // Win+Ctrl+S
+     if Assigned(UIKeyPreview) and UIKeyPreview(window,UI,keyc,shift,pressed) then exit(true);
      c:=FocusedElement;
      if (c<>nil) and c.IsEnabled then begin
       activePopup:=TUIPopup.Current(window);

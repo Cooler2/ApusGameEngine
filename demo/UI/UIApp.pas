@@ -299,13 +299,15 @@ procedure CreateDemoMenu;
 
 // Menu bar page: File/Edit/View/Help over the page. A click opens a heading, then hover
 // switches the headings; Left/Right move between them, the other keys work in the menus.
+// The keyboard: F10 or a single Alt selects the first heading, Alt+letter opens a heading,
+// a letter in a menu runs its line ('&' marks the mnemonics, underlined in the keyboard mode).
 // The edit box shows that the focus returns where it was when the menu closes
 var
   barResult:TUILabel;
 
 procedure CmdBar;
  begin
-  barResult.caption:='Menu bar: '+TUIButton.Sender.caption;
+  barResult.caption:='Menu bar: '+MenuCaptionText(TUIButton.Sender.caption);
  end;
 
 procedure TestMenuBar;
@@ -316,28 +318,28 @@ procedure TestMenuBar;
   InitTestLayer;
   bar:=TUIMenuBar.Create(root,'MenuBar');
   bar.SetPos(0,0).SetAnchors(0,0,1,0);
-  m:=bar.AddSubmenu('File');
-  m.Add('New','Ctrl+N').onClick:=@CmdBar;
-  m.Add('Open...','Ctrl+O').onClick:=@CmdBar;
-  s:=m.AddSubmenu('Recent files');
-  s.Add('notes.txt').onClick:=@CmdBar;
-  s.Add('picture.png').onClick:=@CmdBar;
-  m.Add('Save','Ctrl+S').onClick:=@CmdBar;
+  m:=bar.AddSubmenu('&File');
+  m.Add('&New','Ctrl+N').onClick:=@CmdBar;
+  m.Add('&Open...','Ctrl+O').onClick:=@CmdBar;
+  s:=m.AddSubmenu('&Recent files');
+  s.Add('&notes.txt').onClick:=@CmdBar;
+  s.Add('&picture.png').onClick:=@CmdBar;
+  m.Add('&Save','Ctrl+S').onClick:=@CmdBar;
   m.AddSeparator;
-  m.Add('Close page').onClickAsync:=@RootCloseClick;
-  m:=bar.AddSubmenu('Edit');
-  m.Add('Undo','Ctrl+Z').Disable;
-  m.Add('Cut','Ctrl+X').onClick:=@CmdBar;
-  m.Add('Copy','Ctrl+C').onClick:=@CmdBar;
-  m.Add('Paste','Ctrl+V').onClick:=@CmdBar;
-  m:=bar.AddSubmenu('View');
-  s:=m.AddSubmenu('Panels');
-  s.Add('Layers').onClick:=@CmdBar;
-  s.Add('Colors').onClick:=@CmdBar;
-  m.Add('Zoom in','Ctrl++').onClick:=@CmdBar;
-  m.Add('Zoom out','Ctrl+-').onClick:=@CmdBar;
-  bar.AddSubmenu('Tools').ownerItem.Disable; // a disabled heading is skipped
-  bar.AddSubmenu('Help').Add('About').onClick:=@CmdBar;
+  m.Add('&Close page').onClickAsync:=@RootCloseClick;
+  m:=bar.AddSubmenu('&Edit');
+  m.Add('&Undo','Ctrl+Z').Disable;
+  m.Add('Cu&t','Ctrl+X').onClick:=@CmdBar;
+  m.Add('&Copy','Ctrl+C').onClick:=@CmdBar;
+  m.Add('&Paste','Ctrl+V').onClick:=@CmdBar;
+  m:=bar.AddSubmenu('&View');
+  s:=m.AddSubmenu('&Panels');
+  s.Add('&Layers').onClick:=@CmdBar;
+  s.Add('&Colors').onClick:=@CmdBar;
+  m.Add('Zoom &in','Ctrl++').onClick:=@CmdBar;
+  m.Add('Zoom &out','Ctrl+-').onClick:=@CmdBar;
+  bar.AddSubmenu('&Tools').ownerItem.Disable; // a disabled heading is skipped
+  bar.AddSubmenu('&Help').Add('&About').onClick:=@CmdBar;
   TUIEditBox.Create(200,24,root,'MenuBarEdit').SetPos(20,60);
   barResult:=TUILabel.Create(300,22,root,'MenuBarResult');
   barResult.SetPos(20,100);

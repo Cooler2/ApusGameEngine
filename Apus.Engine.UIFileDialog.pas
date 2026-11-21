@@ -2293,7 +2293,7 @@ implementation
   formatMenu.Clear;
   if Mode<>fdSave then exit;
   for i:=0 to high(fRequest.types) do begin
-   item:=TFormatItem.Create(formatMenu,fRequest.types[i].title,'',formatMenu.name+'\'+Conv.ToStr(i));
+   item:=TFormatItem.Create(formatMenu,MenuEscapeCaption(fRequest.types[i].title),'',formatMenu.name+'\'+Conv.ToStr(i));
    item.dialog:=self;
    item.index:=i;
   end;
