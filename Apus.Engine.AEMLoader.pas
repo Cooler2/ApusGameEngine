@@ -44,7 +44,7 @@ type
   function LoadStaticAEM(const fileName:String8):TAemStaticData;
 
 implementation
-uses SysUtils, Math, Apus.Files, Apus.Strings, Apus.Geom2D;
+uses SysUtils, Math, Apus.Types, Apus.Files, Apus.Strings, Apus.Geom2D;
 
 const
   HEADER_SIZE=20;
@@ -66,13 +66,11 @@ type
   PChunk=^TChunk;
 
   TChunkReader=record
-    data:PByte;
-    position,limit:integer;
+    buffer:TBuffer;
+    fileOffset:integer;
     section:string;
-    procedure Invalid(const reason:string);
-    procedure Need(size:uint64);
+    procedure Invalid(const reason:string; fieldSize:integer=0);
     procedure Finish;
-    function U8:byte;
     function U16:word;
     function U32:cardinal;
     function F32:single;
@@ -81,41 +79,25 @@ type
     function Text:String8;
   end;
 
-procedure TChunkReader.Invalid(const reason:string);
+procedure TChunkReader.Invalid(const reason:string; fieldSize:integer);
 begin
-  raise EError.Create('%s: %s at byte %d',[section,reason,position]);
-end;
-
-procedure TChunkReader.Need(size:uint64);
-begin
-  if size>uint64(limit-position) then Invalid('truncated payload');
+  raise EError.Create('%s: %s at byte %d',[section,reason,fileOffset+buffer.CurrentPos-fieldSize]);
 end;
 
 procedure TChunkReader.Finish;
 begin
-  if position<>limit then Invalid('trailing bytes in chunk');
-end;
-
-function TChunkReader.U8:byte;
-begin
-  Need(1);
-  result:=data[position];
-  inc(position);
+  if buffer.BytesLeft<>0 then Invalid('trailing bytes in chunk');
 end;
 
 function TChunkReader.U16:word;
 begin
-  Need(2);
-  result:=word(data[position]) or (word(data[position+1]) shl 8);
-  inc(position,2);
+  // Chunk fields are packed. Copy them without a typed pointer dereference.
+  buffer.Read(result,SizeOf(result));
 end;
 
 function TChunkReader.U32:cardinal;
 begin
-  Need(4);
-  result:=cardinal(data[position]) or (cardinal(data[position+1]) shl 8) or
-    (cardinal(data[position+2]) shl 16) or (cardinal(data[position+3]) shl 24);
-  inc(position,4);
+  buffer.Read(result,SizeOf(result));
 end;
 
 function TChunkReader.F32:single;
@@ -137,7 +119,7 @@ function TChunkReader.Count(minBytes:integer):integer;
 var n:cardinal;
 begin
   n:=U32;
-  Need(uint64(n)*cardinal(minBytes));
+  buffer.Need(int64(n)*minBytes);
   result:=integer(n);
 end;
 
@@ -147,11 +129,10 @@ begin
   len:=Count(1);
   SetLength(result,len);
   if len=0 then exit;
-  Move(data[position],result[1],len);
-  if UTF8.HasBOM(result) or not UTF8.IsValid(result) then Invalid('invalid UTF-8 string');
+  buffer.Read(result[1],len);
+  if UTF8.HasBOM(result) or not UTF8.IsValid(result) then Invalid('invalid UTF-8 string',len);
   for i:=1 to len do
-    if result[i]=#0 then Invalid('NUL in string');
-  inc(position,len);
+    if result[i]=#0 then Invalid('NUL in string',len);
 end;
 
 function RelativeTexturePath(const path:String8):boolean;
@@ -223,8 +204,8 @@ begin
   indexCount:=r.Count(2);
   partCount:=r.Count(12);
   mask:=r.U16;
-  indexWidth:=r.U8;
-  if r.U8<>0 then r.Invalid('reserved mesh byte must be zero');
+  indexWidth:=r.buffer.ReadByte;
+  if r.buffer.ReadByte<>0 then r.Invalid('reserved mesh byte must be zero');
   customCount:=r.Count(8);
   if (vertexCount=0) or (indexCount=0) or (partCount=0) or (indexCount mod 3<>0) then
     r.Invalid('expected indexed triangle mesh');
@@ -242,8 +223,8 @@ begin
     inc(stride,16);
   end;
   if mask and MASK_COLOR<>0 then begin Include(attrs,TMeshAttribute.Color); inc(stride,4); end;
-  r.Need(uint64(vertexCount)*cardinal(stride)+uint64(indexCount)*cardinal(indexWidth)+
-    uint64(partCount)*12+uint64(customCount)*8);
+  r.buffer.Need(int64(vertexCount)*stride+int64(indexCount)*indexWidth+
+    int64(partCount)*12+int64(customCount)*8);
   if indexCount>MaxInt div SizeOf(integer) then r.Invalid('expanded index buffer too large');
 
   mesh.SetVertexCount(vertexCount,attrs);
@@ -297,7 +278,7 @@ begin
     if (names[i]='') or (components<1) or (components>4) then r.Invalid('invalid custom stream');
     for j:=0 to i-1 do
       if names[j]=names[i] then r.Invalid('duplicate custom stream');
-    r.Need(uint64(vertexCount)*cardinal(components)*4);
+    r.buffer.Need(int64(vertexCount)*components*4);
     for j:=1 to vertexCount*components do r.F32;
   end;
   mesh.Finish;
@@ -444,6 +425,7 @@ end;
 procedure Decode(const data:ByteArray; model:TAemStaticData);
 var
   directory:array of TChunk;
+  fileBuffer:TBuffer;
   r:TChunkReader;
   features:word;
   dirOffset,dirCount:cardinal;
@@ -466,76 +448,80 @@ var
     r.section:=name;
     entry:=FindChunk(id);
     if entry<0 then r.Invalid('missing mandatory chunk');
-    r.position:=directory[entry].offset;
-    r.limit:=r.position+integer(directory[entry].size);
+    r.fileOffset:=integer(directory[entry].offset);
+    r.buffer:=fileBuffer.Slice(r.fileOffset,integer(directory[entry].size));
   end;
 
 begin
-  if length(data)<HEADER_SIZE then raise EError.Create('truncated AEM header');
-  r.data:=@data[0];
-  r.position:=0;
-  r.limit:=length(data);
+  fileBuffer:=TBuffer.CreateFrom(data);
+  r.buffer:=fileBuffer;
+  r.fileOffset:=0;
   r.section:='header';
-  if r.U32<>AEM_MAGIC then r.Invalid('unexpected AEM signature');
-  if r.U16<>0 then r.Invalid('unsupported major version (expected AEM 0.0)');
-  if r.U16<>0 then r.Invalid('unsupported minor version (expected AEM 0.0)');
-  features:=r.U16;
-  if features and not HAS_LOD<>0 then r.Invalid('unsupported AEM feature flags');
-  if r.U16<>0 then r.Invalid('reserved file flags must be zero');
-  dirOffset:=r.U32;
-  dirCount:=r.U32;
-  dirEnd:=uint64(dirOffset)+uint64(dirCount)*DIRECTORY_ENTRY_SIZE;
-  if (dirOffset<HEADER_SIZE) or (dirEnd>uint64(r.limit)) or (dirCount<4) then
-    r.Invalid('invalid chunk directory range');
+  try
+    if r.U32<>AEM_MAGIC then r.Invalid('unexpected AEM signature');
+    if r.U16<>0 then r.Invalid('unsupported major version (expected AEM 0.0)');
+    if r.U16<>0 then r.Invalid('unsupported minor version (expected AEM 0.0)');
+    features:=r.U16;
+    if features and not HAS_LOD<>0 then r.Invalid('unsupported AEM feature flags');
+    if r.U16<>0 then r.Invalid('reserved file flags must be zero');
+    dirOffset:=r.U32;
+    dirCount:=r.U32;
+    dirEnd:=uint64(dirOffset)+uint64(dirCount)*DIRECTORY_ENTRY_SIZE;
+    if (dirOffset<HEADER_SIZE) or (dirEnd>uint64(fileBuffer.size)) or (dirCount<4) then
+      r.Invalid('invalid chunk directory range');
 
-  r.position:=dirOffset;
-  r.section:='directory';
-  SetLength(directory,dirCount);
-  for i:=0 to high(directory) do begin
-    c:=@directory[i];
-    c^.id:=r.U32;
-    for j:=0 to 3 do begin
-      ch:=byte(c^.id shr (j*8) and $FF);
-      if not (((ch>=ord('A')) and (ch<=ord('Z'))) or ((ch>=ord('0')) and (ch<=ord('9')))) then
-        r.Invalid('invalid chunk ID');
+    r.section:='directory';
+    r.fileOffset:=integer(dirOffset);
+    r.buffer:=fileBuffer.Slice(r.fileOffset,integer(dirEnd-dirOffset));
+    SetLength(directory,dirCount);
+    for i:=0 to high(directory) do begin
+      c:=@directory[i];
+      c^.id:=r.U32;
+      for j:=0 to 3 do begin
+        ch:=byte(c^.id shr (j*8) and $FF);
+        if not (((ch>=ord('A')) and (ch<=ord('Z'))) or ((ch>=ord('0')) and (ch<=ord('9')))) then
+          r.Invalid('invalid chunk ID');
+      end;
+      c^.offset:=r.U32;
+      c^.size:=r.U32;
+      c^.flags:=r.U32;
+      entryEnd:=uint64(c^.offset)+c^.size;
+      if (c^.offset<HEADER_SIZE) or (c^.size=0) or (entryEnd>uint64(fileBuffer.size)) or
+         ((uint64(c^.offset)<dirEnd) and (entryEnd>dirOffset)) then r.Invalid('invalid chunk range');
+      if KnownChunk(c^.id) then begin
+        if c^.flags<>REQUIRED_CHUNK then r.Invalid('unsupported flags on static chunk');
+      end else
+        if c^.flags and REQUIRED_CHUNK<>0 then r.Invalid('unknown mandatory chunk');
     end;
-    c^.offset:=r.U32;
-    c^.size:=r.U32;
-    c^.flags:=r.U32;
-    entryEnd:=uint64(c^.offset)+c^.size;
-    if (c^.offset<HEADER_SIZE) or (c^.size=0) or (entryEnd>uint64(r.limit)) or
-       ((uint64(c^.offset)<dirEnd) and (entryEnd>dirOffset)) then r.Invalid('invalid chunk range');
-    if KnownChunk(c^.id) then begin
-      if c^.flags<>REQUIRED_CHUNK then r.Invalid('unsupported flags on static chunk');
-    end else
-      if c^.flags and REQUIRED_CHUNK<>0 then r.Invalid('unknown mandatory chunk');
-  end;
-  // Known and optional chunks are subject to the same directory checks.
-  Sort.ByInt(directory[0],SizeOf(TChunk),length(directory),0);
-  for i:=1 to high(directory) do
-    if directory[i-1].id=directory[i].id then r.Invalid('duplicate chunk');
-  Sort.ByInt(directory[0],SizeOf(TChunk),length(directory),SizeOf(cardinal));
-  prevEnd:=HEADER_SIZE;
-  for i:=0 to high(directory) do begin
-    c:=@directory[i];
-    if c^.offset<prevEnd then r.Invalid('overlapping chunks');
-    prevEnd:=uint64(c^.offset)+c^.size;
-  end;
+    // Known and optional chunks are subject to the same directory checks.
+    Sort.ByInt(directory[0],SizeOf(TChunk),length(directory),0);
+    for i:=1 to high(directory) do
+      if directory[i-1].id=directory[i].id then r.Invalid('duplicate chunk');
+    Sort.ByInt(directory[0],SizeOf(TChunk),length(directory),SizeOf(cardinal));
+    prevEnd:=HEADER_SIZE;
+    for i:=0 to high(directory) do begin
+      c:=@directory[i];
+      if c^.offset<prevEnd then r.Invalid('overlapping chunks');
+      prevEnd:=uint64(c^.offset)+c^.size;
+    end;
 
-  EnterChunk(AEM_MTRL,'MTRL');
-  ReadMaterials(r,model);
-  EnterChunk(AEM_MESH,'MESH');
-  ReadMeshes(r,model);
-  EnterChunk(AEM_NODE,'NODE');
-  ReadNodes(r,model);
-  EnterChunk(AEM_BBOX,'BBOX');
-  ReadBounds(r,model);
-  if (FindChunk(AEM_LOD0)>=0)<>(features and HAS_LOD<>0) then r.Invalid('inconsistent LOD flag or chunk');
-  if features and HAS_LOD<>0 then begin
-    EnterChunk(AEM_LOD0,'LOD0');
-    ReadLevels(r,model);
-  end else
-    ImplicitLevel(model);
+    EnterChunk(AEM_MTRL,'MTRL');
+    ReadMaterials(r,model);
+    EnterChunk(AEM_MESH,'MESH');
+    ReadMeshes(r,model);
+    EnterChunk(AEM_NODE,'NODE');
+    ReadNodes(r,model);
+    EnterChunk(AEM_BBOX,'BBOX');
+    ReadBounds(r,model);
+    if (FindChunk(AEM_LOD0)>=0)<>(features and HAS_LOD<>0) then r.Invalid('inconsistent LOD flag or chunk');
+    if features and HAS_LOD<>0 then begin
+      EnterChunk(AEM_LOD0,'LOD0');
+      ReadLevels(r,model);
+    end else
+      ImplicitLevel(model);
+  except
+    on EBufferOverrun do r.Invalid('truncated payload');
+  end;
 end;
 
 function ReadFileBytes(const fileName:String8):ByteArray;
