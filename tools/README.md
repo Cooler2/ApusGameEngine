@@ -7,6 +7,9 @@ too). Platform-specific build/packaging scripts do **not** — those live in
 
 Current tools:
 
+- [Blender AEM exporter](../manual/aem_static_assets.md) - exports static meshes,
+  material bindings and LOD collections to experimental AEM 0.0.
+
 - `upgrade5` - engine4 -> engine5 source upgrader (rules in `engine5.upgrade`,
   notes in `upgrade5.txt`). Build: `./build.sh tools/upgrade5.dpr` / `build.cmd tools\upgrade5.dpr`.
 - `gen_case_tables.py` - generates `Base/caseTables.inc`, the Unicode case tables of

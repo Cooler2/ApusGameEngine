@@ -93,7 +93,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller, Clipboard
-**3D**: Mesh, GpuMesh, MeshShapes, OBJLoader (skeletal Model3D/IQMloader/AEMLoader are in `legacy/`)
+**3D**: Mesh, GpuMesh, MeshShapes, OBJLoader, Model and AEMLoader (experimental static AEM v0). The old Model3D, IQMloader and legacy AEM implementation live in `legacy/`.
 **Audio**: Sound, SoundSDL (SoundBass/SoundImx are in `legacy/`)
 **Networking**: HttpGameClient, HttpGameServer, UdpTransport
 **Tools**: Tools, CmdProc, RobotAPI

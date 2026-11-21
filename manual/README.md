@@ -9,6 +9,8 @@ The engine5 manual is being written; only these chapters are published so far:
   state lives (application / window / thread) and which phases the engine calls on your code.
 - [Chapter 21. Resource System: Images and Textures](ch21_resource_system.md) - how
   images are loaded, found, shared and released.
+- [Static AEM assets](aem_static_assets.md) - Blender preparation, LOD collections,
+  texture maps, and loading and drawing a model in a game.
 - [Configuration files (CTL3)](config_files.md) - draft for review: the CTL3 syntax,
   typing rules, layers and the `Apus.Config` interface that replaces `Apus.ControlFiles`.
 - [Gradient fills](gradient_fills.md) - draft for review: `TFill`, the drawing calls that

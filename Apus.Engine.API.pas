@@ -9,7 +9,7 @@ interface
  uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Window, Apus.Engine.Keys,
    Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.EventMan, Apus.VertexLayout,
    Apus.Engine.GpuLayout,
-   Apus.Engine.Mesh, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
+   Apus.Engine.Mesh, Apus.Engine.Model, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -629,6 +629,10 @@ type
  TTexCoords=array of TVec2;
 
  TMesh=Apus.Engine.Mesh.TMesh;
+ TModelAsset=Apus.Engine.Model.TModelAsset;
+ TModelInstance=Apus.Engine.Model.TModelInstance;
+ TModelDrawPart=Apus.Engine.Model.TModelDrawPart;
+ TModelMaterialBinder=Apus.Engine.Model.TModelMaterialBinder;
 
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record
