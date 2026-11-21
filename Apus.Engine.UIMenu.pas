@@ -22,7 +22,7 @@ interface
  // Mnemonics: '&' in a caption marks the next character ('&&' - the sign itself): '&File',
  // 'Save &As'. In an open menu the character selects the line: one match opens its submenu or
  // runs it, several matches take turns as the current line (Enter runs it). The marks are
- // underlined while the menu is used from the keyboard.
+ // underlined while the menu is used from the keyboard; the bar headings - also while Alt is held.
 
  // The caption to draw: the marks removed; pos/len - the bytes of the marked character in the
  // result (len=0 - no mnemonic)
@@ -174,7 +174,7 @@ interface
    destructor Destroy; override;
    procedure onRemoved; override;
    function Bar:TUIMenuBar;
-   function ShowsMnemonic:boolean;       // underline the mnemonic: the bar is used from the keyboard
+   function ShowsMnemonic:boolean;       // underline the mnemonic: the bar is used from the keyboard or Alt is held
    function GetStates:TElementStates; override; // + selected: the current heading of a session
    procedure onMouseMove; override;      // over another heading of an open bar: switch to it
   protected
@@ -262,10 +262,12 @@ implementation
   LINE_HEIGHT=2.6;     // default line height, in font sizes
   SHORTCUT_GAP=3;      // min space between the captions and the shortcuts, in font sizes
   SHORTCUT_SCALE=0.85; // default shortcut font size relative to the caption font
-  ARROW_COLUMN=1.6;    // width of the submenu arrow column, in font sizes
+  ARROW_COLUMN=0.8;    // extra width for the submenu arrows, in font sizes (the arrow sits in the right padding)
+  SUBMENU_OVERLAP=4;   // a submenu covers the edge of its parent panel by this much
+  SUBMENU_SHIFT=2;     // and is lower than the owner line by this much
   CHECK_INTERVAL=100;  // ms between the checks of an open menu (auto close, safety)
   SUBMENU_DELAY=200;   // ms of hover before a submenu opens or switches
-  AUTO_CLOSE_DELAY=1000;
+  AUTO_CLOSE_DELAY=500;
 
  type
   // Places the headings of a menu bar before each draw
@@ -284,6 +286,10 @@ implementation
   // Counts the other key events of the platform (KBD\KEYDOWN/KEYUP, not Alt), the internal
   // engine hotkeys included (they don't reach the scenes); altSeq - its value at the Alt press
   keySeq,altSeq:cardinal;
+  // The window where Alt is held (not with Ctrl or Win: AltGr): its bar shows the mnemonics
+  altCueWnd:TWindow;
+
+ function FindBar(wnd:TWindow;root:TUIElement):TUIMenuBar; forward;
 
  function Utf8CharLen(c:AnsiChar):integer;
   begin
@@ -925,7 +931,8 @@ implementation
   end;
 
  // To the right of this panel, to the left if there is no room (a deeper level tries the
- // side of its parent first); the first line at the owner line; clamped to the UI root
+ // side of its parent first), over its edge a little; the first line a bit lower than the
+ // owner line; clamped to the UI root
  procedure TUIPopupMenu.PlaceSubmenu(sub:TUIPopupMenu;item:TUIMenuItem);
   var
    root:TUIElement;
@@ -939,13 +946,13 @@ implementation
    w:=sub.size.x;
    cw:=root.clientWidth;
    ch:=root.clientHeight;
-   rightFits:=pr.x2+w<=cw;
-   leftFits:=pr.x1-w>=0;
+   rightFits:=pr.x2-SUBMENU_OVERLAP+w<=cw;
+   leftFits:=pr.x1+SUBMENU_OVERLAP-w>=0;
    moreLeft:=pr.x1>cw-pr.x2;
    if openLeft then left:=leftFits or (not rightFits and moreLeft)
     else left:=not rightFits and (leftFits or moreLeft);
-   if left then x:=pr.x1-w else x:=pr.x2;
-   y:=r.y1-sub.padding.Top;
+   if left then x:=pr.x1+SUBMENU_OVERLAP-w else x:=pr.x2-SUBMENU_OVERLAP;
+   y:=r.y1-sub.padding.Top+SUBMENU_SHIFT;
    sub.pivot:=Vec2(0,0);
    sub.position:=Vec2(Clamp(x,0,Max(0,cw-w)),Clamp(y,0,Max(0,ch-sub.size.y)));
    sub.openLeft:=left;
@@ -1280,7 +1287,7 @@ implementation
    inherited Create(10,10,bar,name);
    fBar:=bar;
    self.caption:=caption;
-   SetPaddings(8,0,8,0);
+   SetPaddings(14,0,14,0);
   end;
 
  // An open menu lives at the UI root, out of the heading's subtree: it goes with the heading
@@ -1315,9 +1322,16 @@ implementation
    result:=fBar;
   end;
 
+ // In a session used from the keyboard, or while Alt is held over a bar that takes it
  function TUIMenuHeading.ShowsMnemonic:boolean;
+  var
+   b:TUIMenuBar;
   begin
-   result:=(fBar<>nil) and fBar.session and fBar.cues;
+   b:=fBar;
+   if b=nil then exit(false);
+   if b.session then exit(b.cues);
+   result:=(altCueWnd<>nil) and b.keyboardActivation and (altCueWnd=b.GetWindow) and
+     (FindBar(altCueWnd,b.GetRoot)=b);
   end;
 
  function TUIMenuHeading.GetStates:TElementStates;
@@ -1860,6 +1874,7 @@ implementation
     if key=TKey.F10 then f10Held:=false;
     if key in [TKey.LAlt,TKey.RAlt] then begin
      altHeld:=false;
+     altCueWnd:=nil;
      if (altWnd<>wnd) or (keySeq<>altSeq) then begin // another key in between
       altWnd:=nil;
       exit;
@@ -1879,6 +1894,8 @@ implementation
     altSeq:=keySeq;
     if (shift and (sscShift or sscCtrl or sscWin))=0 then altWnd:=wnd
      else altWnd:=nil;
+    if (shift and (sscCtrl or sscWin))=0 then altCueWnd:=wnd
+     else altCueWnd:=nil;
     exit;
    end;
    altWnd:=nil; // any other key spoils the single Alt
@@ -1939,6 +1956,7 @@ implementation
   begin
    if tag=0 then begin
     altWnd:=nil;
+    altCueWnd:=nil;
     altHeld:=false;
     f10Held:=false;
    end;
