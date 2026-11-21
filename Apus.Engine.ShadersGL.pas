@@ -1213,7 +1213,6 @@ function TGLShadersAPI.SamplerLocation(texUnit:integer):integer;
 procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
  var
   shader:TGLShader;
-  mat:TMat4d;
   shaderChanged:boolean;
  begin
   EnsureThreadState;
@@ -1225,12 +1224,6 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if shader<>activeShader then shaderChanged:=true;
     ActivateShader(shader);
     actualTexMode:=curtexMode;
-    if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) and
-     Mem.IsZero(viewProjMatrix,sizeof(viewProjMatrix)) then begin
-      // Save view-projection matrix used during depth rendering phase for later use
-      mat:=transformationAPI.GetViewMatrix*transformationAPI.GetProjMatrix;
-      viewProjMatrix.Init(mat);
-    end;
    end;
   ApplyShaderState(shaderChanged);
  end;
@@ -1260,7 +1253,10 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
   tex:TTexture;
   cut:single;
  begin
-  // Transformations
+  // The first apply in a depth pass captures the light camera for both draw paths.
+  if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) and
+    Mem.IsZero(viewProjMatrix,sizeof(viewProjMatrix)) then
+   viewProjMatrix.Init(transformationAPI.GetViewMatrix*transformationAPI.GetProjMatrix);
   if transformationAPI.Update then
    inc(matrixRevision);
   ASSERT(activeShader<>nil,'Apply called before any shader was activated');
