@@ -1724,10 +1724,30 @@ function WindowBThread(ctx:TThreadContext):UIntPtr;
   stateB:=3;
  end;
 
+procedure OpenSecondWindowMenu(param:pointer);
+var menu:TUIPopupMenu;
+begin
+  menu:=TUIPopupMenu.Create(btnB.parent,'MenuB');
+  menu.Add('Other window');
+  menu.OpenAt(320,240);
+  Atomic.Inc(PInteger(param)^);
+end;
+
+procedure CloseSecondWindowMenu(param:pointer);
+var popup:TUIPopup;
+begin
+  popup:=TUIPopup.Current(wndB);
+  if popup is TUIPopupMenu then TUIPopupMenu(popup).Close;
+  if popup<>nil then popup.Remove;
+  Atomic.Inc(PInteger(param)^);
+end;
+
 procedure TestSecondWindow;
  var
   a:String8;
-  i:integer;
+  i,completed:integer;
+  picker:TUIColorButton;
+  secondPopup:TUIPopup;
  begin
   StartTest('Input of one window does not reach another');
   stateB:=0;
@@ -1749,6 +1769,22 @@ procedure TestSecondWindow;
   Check(btnB.clicks=1,'window B button clicked by its own thread');
   Check(btn.clicks=1,'window A untouched');
   Check(wndA.mousePos=Types.Point(150,115),'window A pointer untouched');
+
+  picker:=TUIColorButton.Create(34,24,sceneA.UI,'WindowAColor');
+  picker.SetPos(220,220,pivotTopLeft);
+  picker.OpenPicker;
+  completed:=0;
+  Check(wndB.QueueCall(OpenSecondWindowMenu,@completed),'queue popup in window B');
+  i:=0;
+  while (Atomic.CmpExchange(completed,0,0)<1) and (i<5000) do begin CoreTime.Sleep(1); inc(i); end;
+  secondPopup:=TUIPopup.Current(wndB);
+  Check((secondPopup is TUIPopupMenu) and picker.IsOpen,'both windows can own a popup');
+  picker.Cancel;
+  picker.Remove;
+  Check(TUIPopup.Current(wndB)=secondPopup,'closing a popup in window A leaves window B alone');
+  Check(wndB.QueueCall(CloseSecondWindowMenu,@completed),'queue popup cleanup in window B');
+  while (Atomic.CmpExchange(completed,0,0)<2) and (i<5000) do begin CoreTime.Sleep(1); inc(i); end;
+  Check(Atomic.CmpExchange(completed,0,0)=2,'window B disposed its popup');
   EndTest;
  end;
 
