@@ -810,24 +810,34 @@ implementation
 
  // Menu line: the box (hover = the current line) is drawn by the common path. Caption on the
  // left, shortcut on the right in 'shortcut-color' (the text color by default; the text color
- // anyway while highlighted or disabled)
+ // anyway while highlighted or disabled). A menu with submenu lines keeps a column on the
+ // right: the arrow of a submenu line, in the text color
  procedure DrawUIMenuItem(item:TUIMenuItem;context:TContext);
   var
    r:TRect;
    ts:TTextStyle;
-   y:integer;
+   y,right:integer;
+   arrowW,cx,cy,h:single;
   begin
    ts:=ResolveTextStyle(item,context,clBlack,taLeft);
    r:=item.GetClientPosOnScreen;
    y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
+   arrowW:=item.ArrowWidth*item.globalScale;
+   right:=round(r.Right-1-arrowW);
    gfx.clip.Rect(item.GetPosOnScreen);
    WriteStyled(ts,AlignAnchor(ts,r.Left,r.Right-1),y,item.caption);
+   if item.submenu<>nil then begin
+    h:=txt.Height(ts.font)*0.32; // half height of the arrow
+    cx:=r.Right-1-arrowW*0.5;
+    cy:=(r.Top+r.Bottom-1)*0.5;
+    draw.FillTriangle(cx-h*0.5,cy-h,cx+h*0.5,cy,cx-h*0.5,cy+h,ts.color,ts.color,ts.color);
+   end;
    if item.shortcut<>'' then begin
     ts.align:=taRight;
     ts.font:=item.ShortcutFont; // smaller by default, on the same baseline
     ts.color:=Color.Mix(item.GetStyleColor('shortcut-color',ts.color),ts.color,
       Max(item.StateWeight(TElementState.Hover),item.StateWeight(TElementState.Disabled)));
-    WriteStyled(ts,r.Right-1,y,item.shortcut);
+    WriteStyled(ts,right,y,item.shortcut);
    end;
    gfx.clip.Restore;
   end;

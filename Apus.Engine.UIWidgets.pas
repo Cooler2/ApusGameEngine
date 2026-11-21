@@ -209,7 +209,7 @@ interface
    constructor Create(width,height:single;parent:TUIElement;const name:String8;depth:integer=0);
    destructor Destroy; override;
    procedure onRemoved; override;
-   function ContainsElement(element:TUIElement):boolean;
+   function ContainsElement(element:TUIElement):boolean; virtual; // the popup and what it shows (a menu: its open submenus)
    function HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
    function ConsumesSceneButtons:boolean; virtual;
    class function Current(wnd:TWindow):TUIPopup; static;

@@ -261,6 +261,11 @@ procedure CmdSave;
   menuResult.caption:='Menu: Save';
  end;
 
+procedure CmdRecent;
+ begin
+  menuResult.caption:='Menu: '+TUIButton.Sender.caption;
+ end;
+
 // The Menu button owns the menu: the menu opens below it, the next press closes it.
 // A tool button takes no focus, so closing the menu returns the focus where it was
 procedure ShowDemoMenu;
@@ -268,13 +273,22 @@ procedure ShowDemoMenu;
   demoMenu.OpenBelow(UIButton('MenuBtn'));
  end;
 
-// Popup menu: lines with shortcut texts (display only), separators, disabled lines.
-// A line is a button: its command is onClick, onClickAsync, onClickEvent or a method in 'handler'
+// Popup menu: lines with shortcut texts (display only), separators, disabled lines, submenus.
+// A line is a button: its command is onClick, onClickAsync, onClickEvent or a method in 'handler'.
+// A submenu opens on hover (after a delay), a click or Right/Enter; Left/Esc close one level
 procedure CreateDemoMenu;
+ var
+  recent,older:TUIPopupMenu;
  begin
   demoMenu:=TUIPopupMenu.Create(root,'DemoMenu');
   demoMenu.Add('New','Ctrl+N').onClick:=@CmdNew;
   demoMenu.Add('Open...','Ctrl+O').onClick:=@CmdOpen;
+  recent:=demoMenu.AddSubmenu('Recent files');
+  recent.Add('notes.txt').onClick:=@CmdRecent;
+  recent.Add('picture.png').onClick:=@CmdRecent;
+  older:=recent.AddSubmenu('Older');
+  older.Add('draft.txt').onClick:=@CmdRecent;
+  older.Add('old.png').onClick:=@CmdRecent;
   demoMenu.Add('Save','Ctrl+S').onClick:=@CmdSave;
   demoMenu.AddSeparator;
   demoMenu.Add('Undo','Ctrl+Z').Disable;

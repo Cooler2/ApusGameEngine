@@ -706,6 +706,325 @@ procedure TestPopupMenu;
   EndTest;
  end;
 
+// Wait for an element timer: real time passes, the frames run the timers
+procedure WaitFrames(ms:integer);
+ var
+  t:int64;
+ begin
+  t:=CoreTime.Ticks+ms;
+  repeat
+   Sleep(10);
+   RunFrame(wndA);
+  until CoreTime.Ticks>=t;
+ end;
+
+// Submenu fixture: SubTest = New, Recent files > (File1, More > (Deep)), Quit;
+// an edit box holds the focus, the pointer is off the canvas
+var
+  sub:record
+   probe:TMenuProbe;
+   edit:TUIEditBox;
+   menu,recent,deep:TUIPopupMenu;
+   itemNew,itemRecent,itemFile1,itemDeep,itemDeepCmd,itemQuit:TUIMenuItem;
+  end;
+
+procedure BuildSubmenus;
+ begin
+  with sub do begin
+   probe:=TMenuProbe.Create;
+   edit:=TUIEditBox.Create(100,20,sceneA.UI,'SubEdit');
+   edit.SetPos(500,400,pivotTopLeft);
+   menu:=TUIPopupMenu.Create(sceneA.UI,'SubTest');
+   itemNew:=menu.Add('New');
+   itemNew.onClickMethod:=probe.DoNew;
+   recent:=menu.AddSubmenu('Recent files');
+   itemRecent:=TUIMenuItem(recent.ownerItem);
+   itemFile1:=recent.Add('File1');
+   itemFile1.onClickMethod:=probe.DoSave;
+   deep:=recent.AddSubmenu('More');
+   itemDeep:=TUIMenuItem(deep.ownerItem);
+   itemDeepCmd:=deep.Add('Deep');
+   itemDeepCmd.onClickMethod:=probe.DoQuit;
+   itemQuit:=menu.Add('Quit');
+   edit.SetFocus;
+  end;
+  wndA.physPos:=Types.Point(-1,-1);
+  RunFrame(wndA);
+  Sleep(60); // past the double-click guard of TUIButton.DoClick (lines of a previous test)
+ end;
+
+procedure FreeSubmenus;
+ begin
+  with sub do begin
+   if not menu.deleted then menu.Remove;
+   edit.Remove;
+   wndA.physPos:=Types.Point(-1,-1);
+   ClearFocus(wndA);
+   RunFrame(wndA);
+   probe.Free;
+  end;
+  btn.clicks:=0; btn.downs:=0; btn.ups:=0;
+ end;
+
+// Names follow the clickable line; a closed submenu lives in its line
+procedure TestSubmenuNames;
+ begin
+  StartTest('Submenu names and links');
+  BuildSubmenus;
+  with sub do begin
+   Check((itemRecent.name='SubTest\Recent_files') and (recent.name='SubTest\Recent_files_Menu'),
+     'submenu names: '+itemRecent.name+', '+recent.name);
+   Check((itemFile1.name='SubTest\Recent_files\File1') and (itemDeep.name='SubTest\Recent_files\More') and
+     (itemDeepCmd.name='SubTest\Recent_files\More\Deep'),'line names follow the submenu line: '+itemFile1.name);
+   Check((itemRecent.submenu=recent) and (recent.ownerItem=itemRecent) and (menu.ownerItem=nil) and
+     (itemNew.submenu=nil),'line <-> submenu links');
+   Check(not recent.IsOpen and (recent.parent=itemRecent),'a closed submenu lives in its line');
+  end;
+  FreeSubmenus;
+  EndTest;
+ end;
+
+// Right/Enter open with the first line, Left/Escape close one level, one focus for the chain
+procedure TestSubmenuKeys;
+ var
+  r,rr:TRect;
+ begin
+  StartTest('Submenu keys');
+  BuildSubmenus;
+  with sub do begin
+   menu.OpenAt(250,150);
+   Check(menu.IsOpen and (FocusedElement=menu),'the root menu takes the focus');
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   Check(menu.current=itemRecent,'Down reaches the submenu line');
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(recent.IsOpen and (recent.current=itemFile1),'Right opens the submenu at its first line');
+   Check((FocusedElement=menu) and (menu.current=itemRecent),'the focus stays at the root menu, the parent line stays current');
+   r:=menu.GetPosOnScreen;
+   rr:=recent.GetPosOnScreen;
+   Check(rr.Left>=r.Right-1,'the submenu is to the right of its parent');
+   Check(System.Abs(itemFile1.GetPosOnScreen.Top-itemRecent.GetPosOnScreen.Top)<=1,'its first line is at the owner line');
+   Check(recent.order>menu.order,'a deeper panel is above');
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Enter,0,0,true);
+   Check(deep.IsOpen and (deep.current=itemDeepCmd),'Enter on a submenu line opens it');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not deep.IsOpen and recent.IsOpen and (recent.current=itemDeep),'Escape closes the deepest level only');
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   Check(not recent.IsOpen and menu.IsOpen and (menu.current=itemRecent),'Left closes a level, the parent line stays current');
+   sceneA.DispatchKey(TKey.Left,0,0,true);
+   Check(menu.IsOpen,'Left at the root menu does nothing');
+   sceneA.DispatchKey(TKey.Up,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(menu.IsOpen and (menu.current=itemNew),'Right on a command does nothing');
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   sceneA.DispatchKey(TKey.Enter,0,0,true);
+   Check((probe.quits=1) and not menu.IsOpen and not recent.IsOpen and not deep.IsOpen,
+     'a command of the third level runs and closes the whole chain');
+   Check(FocusedElement=edit,'the focus is restored');
+   Check((recent.parent=itemRecent) and (deep.parent=itemDeep),'closed submenus return to their lines');
+   menu.OpenAt(250,150);
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not menu.IsOpen and (FocusedElement=edit),'Escape at the root menu ends the session');
+  end;
+  FreeSubmenus;
+  EndTest;
+ end;
+
+// The hover delay opens and switches submenus; clicks inside the chain and outside it
+procedure TestSubmenuMouse;
+ begin
+  StartTest('Submenu mouse');
+  BuildSubmenus;
+  with sub do begin
+   menu.OpenAt(250,150);
+   wndA.physPos:=CenterOf(itemRecent);
+   RunFrame(wndA);
+   Check((menu.current=itemRecent) and not recent.IsOpen,'hover does not open a submenu at once');
+   WaitFrames(260);
+   Check(recent.IsOpen and (recent.current=nil),'it opens after the delay, without a current line');
+   wndA.physPos:=CenterOf(itemFile1);
+   RunFrame(wndA);
+   Check((recent.current=itemFile1) and (menu.current=itemRecent),'in the submenu the parent line stays current');
+   PhysicalClickAt(CenterOf(itemFile1));
+   Check((probe.saves=1) and not menu.IsOpen and not recent.IsOpen,'a click in a submenu runs the line, the chain closes');
+   Check(probe.focusAtCall=edit,'the command finds the focus restored');
+   // a click on a submenu line opens it at once; a command line closes it after the delay
+   menu.OpenAt(250,150);
+   PhysicalClickAt(CenterOf(itemRecent));
+   Check(menu.IsOpen and recent.IsOpen,'a click on a submenu line opens it at once');
+   wndA.physPos:=CenterOf(itemQuit);
+   RunFrame(wndA);
+   Check(recent.IsOpen,'a command line under the pointer: the submenu stays for the delay');
+   WaitFrames(260);
+   Check(not recent.IsOpen and menu.IsOpen,'then it closes');
+   // back to the line before the delay: the switch is cancelled
+   PhysicalClickAt(CenterOf(itemRecent));
+   wndA.physPos:=CenterOf(itemNew);
+   RunFrame(wndA);
+   wndA.physPos:=CenterOf(itemRecent);
+   RunFrame(wndA);
+   WaitFrames(260);
+   Check(recent.IsOpen and (menu.current=itemRecent),'back on the line in time: the submenu stays');
+   // a press outside closes the whole chain and reaches its target
+   btn.clicks:=0;
+   PhysicalClickAt(Types.Point(150,115));
+   Check(not menu.IsOpen and not recent.IsOpen and (btn.clicks=1),'a click outside closes the chain and reaches the button');
+   Check(FocusedElement=btn,'the target of the click takes the focus as usual');
+  end;
+  FreeSubmenus;
+  EndTest;
+ end;
+
+// The pointer away from the menu for a while closes it
+procedure TestMenuAutoClose;
+ var
+  r:TRect;
+  t:int64;
+ begin
+  StartTest('Menu auto close');
+  BuildSubmenus;
+  with sub do begin
+   menu.autoCloseDelay:=300;
+   menu.OpenAt(250,150);
+   wndA.physPos:=CenterOf(itemNew);
+   RunFrame(wndA);
+   r:=menu.GetPosOnScreen;
+   wndA.physPos:=Types.Point(r.Right+10,r.Top+5); // inside the margin
+   WaitFrames(500);
+   Check(menu.IsOpen,'the pointer near the menu keeps it open');
+   wndA.physPos:=Types.Point(750,550);
+   RunFrame(wndA);
+   WaitFrames(150);
+   Check(menu.IsOpen,'not at once');
+   t:=CoreTime.Ticks+1500;
+   while menu.IsOpen and (CoreTime.Ticks<t) do WaitFrames(20);
+   Check(not menu.IsOpen and (FocusedElement=edit),'the pointer away from the menu closes it, the focus is restored');
+   // opened with the pointer far away (from the keyboard): it waits for the pointer to move
+   menu.OpenAt(250,150);
+   WaitFrames(500);
+   Check(menu.IsOpen,'a still pointer far away does not close a menu opened from the keyboard');
+   wndA.physPos:=Types.Point(740,540);
+   RunFrame(wndA);
+   t:=CoreTime.Ticks+1500;
+   while menu.IsOpen and (CoreTime.Ticks<t) do WaitFrames(20);
+   Check(not menu.IsOpen,'its count starts when the pointer moves');
+  end;
+  FreeSubmenus;
+  EndTest;
+ end;
+
+// Removed and freed lines, panels, anchors and owners
+procedure TestSubmenuRemoval;
+ var
+  tmp1,tmp2:TUIMenuItem;
+  anchorBtn:TProbeButton;
+  ownerPanel:TUIElement;
+  owned:TUIPopupMenu;
+ begin
+  StartTest('Submenu removal');
+  BuildSubmenus;
+  with sub do begin
+   // lines removed while current or scheduled: the menu forgets them
+   tmp1:=menu.Add('Temp1');
+   tmp2:=TUIMenuItem(menu.AddSubmenu('Temp2').ownerItem);
+   tmp2.submenu.Add('Inner');
+   menu.OpenAt(250,150);
+   menu.current:=tmp1;
+   tmp1.Remove;
+   RunFrame(wndA);
+   sceneA.DispatchKey(TKey.Enter,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(menu.IsOpen and (menu.current=nil),'the removed current line is forgotten');
+   wndA.physPos:=CenterOf(tmp2);
+   RunFrame(wndA);
+   Check(menu.current=tmp2,'hover on a submenu line schedules its submenu');
+   tmp2.Remove;
+   RunFrame(wndA);
+   WaitFrames(260);
+   Check(menu.IsOpen and (menu.current=nil) and (TUIElement.FindByName('SubTest\Temp2_Menu')=nil),
+     'a scheduled line removed: nothing opens');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   wndA.physPos:=Types.Point(-1,-1);
+   RunFrame(wndA);
+   // a line freed directly while current
+   tmp1:=menu.Add('Temp3');
+   menu.OpenAt(250,150);
+   menu.current:=tmp1;
+   tmp1.Free;
+   sceneA.DispatchKey(TKey.Enter,0,0,true);
+   Check(menu.IsOpen and (menu.current=nil),'a freed current line is forgotten');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   // the anchor removed while the menu is open: the menu closes
+   anchorBtn:=NewButton(sceneA.UI,'SubAnchor',600,100);
+   menu.OpenBelow(anchorBtn);
+   Check(menu.IsOpen,'opened below an anchor');
+   anchorBtn.Remove;
+   WaitFrames(150);
+   Check(not menu.IsOpen,'its anchor removed: the menu closes');
+   // the owner removed, the menu closed at once (before its timer): the menu goes too
+   ownerPanel:=TUIElement.Create(100,100,sceneA.UI,'SubOwner');
+   owned:=TUIPopupMenu.Create(ownerPanel,'OwnedMenu');
+   owned.Add('A');
+   owned.OpenAt(250,150);
+   ownerPanel.Remove;
+   owned.Close;
+   RunFrame(wndA);
+   Check(TUIElement.FindByName('OwnedMenu')=nil,'a menu closed after its owner was removed is removed');
+   owned:=TUIPopupMenu.Create(sceneA.UI,'OwnedMenu'); // the name is free again
+   Check(owned.name='OwnedMenu','a new menu takes the name');
+   owned.Remove;
+   // an open submenu freed directly
+   edit.SetFocus;
+   menu.OpenAt(250,150);
+   menu.current:=itemRecent;
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(recent.IsOpen,'submenu open');
+   recent.Free;
+   Check(itemRecent.submenu=nil,'a freed submenu leaves its line');
+   sceneA.DispatchKey(TKey.Down,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(menu.IsOpen and (FocusedElement=menu),'keys go on in the root menu');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not menu.IsOpen and (FocusedElement=edit),'and it closes');
+   // the line of an open submenu is removed: the branch closes, the panel goes with the line
+   recent:=menu.AddSubmenu('Again');
+   deep:=recent.AddSubmenu('Inner');
+   deep.Add('X');
+   menu.OpenAt(250,150);
+   menu.current:=TUIMenuItem(recent.ownerItem);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(recent.IsOpen and deep.IsOpen,'two levels open');
+   recent.ownerItem.Remove;
+   Check(not recent.IsOpen and not recent.flags.visible and menu.IsOpen,'its line removed: the submenu is hidden');
+   RunFrame(wndA);
+   Check((TUIElement.FindByName('SubTest\Again_Menu')=nil) and (TUIElement.FindByName('SubTest\Again\Inner_Menu')=nil),
+     'the submenus are removed with the line');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not menu.IsOpen and (FocusedElement=edit),'the root menu still closes');
+   // a removed root menu takes its open chain along
+   recent:=menu.AddSubmenu('Last');
+   recent.Add('X');
+   menu.OpenAt(250,150);
+   menu.current:=TUIMenuItem(recent.ownerItem);
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(recent.IsOpen,'another submenu open');
+   menu.Remove;
+   RunFrame(wndA);
+   Check((TUIElement.FindByName('SubTest\Last_Menu')=nil) and (TUIPopup.Current(wndA)=nil),'a removed root menu takes its submenus');
+  end;
+  FreeSubmenus;
+  EndTest;
+ end;
+
 procedure PhysicalButton(pressed:boolean);
  var
   n:integer;
@@ -2040,6 +2359,11 @@ begin
   TestModeErrors;
   TestPhysicalBefore;
   TestPopupMenu;
+  TestSubmenuNames;
+  TestSubmenuKeys;
+  TestSubmenuMouse;
+  TestMenuAutoClose;
+  TestSubmenuRemoval;
   TestSharedPopup;
   TestInputFrame;
   TestEnable;
