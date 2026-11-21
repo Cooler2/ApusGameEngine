@@ -311,6 +311,150 @@ begin
   EndTest;
 end;
 
+type
+  TBufferOp=(boByte,boWord,boInt,boUInt,boFloat,boDouble,boFlex,boString,boRead,
+    boSkip,boSeek,boSlice,boSliceHere,boNeed);
+
+// Run op on b, return true if it raised EBufferOverrun and left the position unchanged
+function Overruns(var b:TBuffer;op:TBufferOp;arg:int64=0;arg2:integer=0):boolean;
+var
+  pos:integer;
+  tmp:array[0..15] of byte;
+begin
+  pos:=b.CurrentPos;
+  try
+    case op of
+      boByte:b.ReadByte;
+      boWord:b.ReadWord;
+      boInt:b.ReadInt;
+      boUInt:b.ReadUInt;
+      boFloat:b.ReadFloat;
+      boDouble:b.ReadDouble;
+      boFlex:b.ReadFlex;
+      boString:b.ReadString;
+      boRead:b.Read(tmp,integer(arg));
+      boSkip:b.Skip(integer(arg));
+      boSeek:b.Seek(integer(arg));
+      boSlice:b.Slice(integer(arg),arg2);
+      boSliceHere:b.Slice(integer(arg),true);
+      boNeed:b.Need(arg);
+    end;
+    result:=false;
+  except
+    on EBufferOverrun do begin
+      // ReadFlex/ReadString consume the prefix they could parse, other ops must not move
+      result:=(op in [boFlex,boString]) or (b.CurrentPos=pos);
+    end;
+  end;
+end;
+
+procedure TestBufferBounds;
+const
+  sizes:array[boByte..boDouble] of integer=(1,2,4,4,4,8);
+var
+  data:array[0..15] of byte;
+  b,s:TBuffer;
+  op:TBufferOp;
+  ba:ByteArray;
+  s8:String8;
+  i:integer;
+begin
+  StartTest('Types.BufferBounds');
+  FillChar(data,sizeof(data),0);
+  // every fixed-size read on one byte less than needed
+  for op:=boByte to boDouble do begin
+    b.CreateFrom(data,sizes[op]-1);
+    Check(Overruns(b,op),'short read raises, op '+Conv.ToStr(ord(op)));
+    b.CreateFrom(data,sizes[op]);
+    Check(not Overruns(b,op) and (b.BytesLeft=0),'exact read passes, op '+Conv.ToStr(ord(op)));
+  end;
+  b.CreateFrom(data,3);
+  b.Skip(1);
+  Check(Overruns(b,boRead,3),'read block past the end');
+  Check(Overruns(b,boRead,-1),'read negative size');
+  Check(not Overruns(b,boRead,2) and (b.BytesLeft=0),'read block up to the end');
+
+  // ReadFlex
+  data[0]:=$80; data[1]:=$80;
+  b.CreateFrom(data,2);
+  Check(Overruns(b,boFlex),'flex truncated after continuation byte');
+  for i:=0 to 5 do data[i]:=$80;
+  b.CreateFrom(data,6);
+  Check(Overruns(b,boFlex),'flex longer than 5 bytes');
+  data[0]:=$FF; data[1]:=$FF; data[2]:=$FF; data[3]:=$FF; data[4]:=$10;
+  b.CreateFrom(data,5);
+  Check(Overruns(b,boFlex),'flex above 32 bits');
+  data[4]:=$0F;
+  b.CreateFrom(data,5);
+  Check(b.ReadFlex=$FFFFFFFF,'flex max value');
+  Check(b.BytesLeft=0,'flex max value consumed 5 bytes');
+  b.CreateFrom(data,0);
+  Check(Overruns(b,boFlex),'flex on empty buffer');
+
+  // ReadString
+  data[0]:=5; data[1]:=ord('a'); data[2]:=ord('b');
+  b.CreateFrom(data,3);
+  Check(Overruns(b,boString),'string longer than the data');
+  data[0]:=$FF; data[1]:=$FF; data[2]:=$FF; data[3]:=$FF; data[4]:=$07;
+  b.CreateFrom(data,5);
+  Check(Overruns(b,boString),'huge string length rejected before allocation');
+  data[0]:=0;
+  b.CreateFrom(data,1);
+  Check(b.ReadString='','empty string');
+  Check(b.BytesLeft=0,'empty string consumed its length');
+
+  // Seek and Skip
+  b.CreateFrom(data,8);
+  b.Seek(8);
+  Check((b.CurrentPos=8) and (b.BytesLeft=0),'seek to the end');
+  Check(Overruns(b,boByte),'read at the end');
+  Check(Overruns(b,boSeek,9),'seek past the end');
+  Check(Overruns(b,boSeek,-1),'seek before the start');
+  b.Seek(3);
+  b.Skip(-3);
+  Check(b.CurrentPos=0,'skip back to the start');
+  Check(Overruns(b,boSkip,-1),'skip before the start');
+  Check(Overruns(b,boSkip,9),'skip past the end');
+  b.Skip(8);
+  Check(b.BytesLeft=0,'skip to the end');
+
+  // Slice
+  b.CreateFrom(data,8);
+  Check(Overruns(b,boSlice,-1,2),'slice negative start');
+  Check(Overruns(b,boSlice,9,0),'slice start past the end');
+  Check(Overruns(b,boSlice,2,-1),'slice negative length');
+  Check(Overruns(b,boSlice,6,3),'slice past the end');
+  Check(Overruns(b,boSlice,1,MaxInt),'slice end overflow');
+  s:=b.Slice(8,0);
+  Check(s.size=0,'empty slice at the end');
+  Check(Overruns(s,boByte),'read from empty slice');
+  s:=b.Slice(2,4);
+  Check(Overruns(s,boDouble),'slice limits reads');
+  b.Seek(5);
+  Check(Overruns(b,boSliceHere,4),'slice from position past the end');
+  s:=b.Slice(3,true);
+  Check((s.size=3) and (b.BytesLeft=0),'slice from position to the end');
+
+  // Need
+  b.CreateFrom(data,8);
+  Check(not Overruns(b,boNeed,8),'need all bytes');
+  Check(not Overruns(b,boNeed,0),'need zero bytes');
+  Check(Overruns(b,boNeed,9),'need too many');
+  Check(Overruns(b,boNeed,-1),'need negative');
+  Check(Overruns(b,boNeed,int64(MaxInt)*16),'need count*size above 32 bits');
+
+  // CreateFrom with empty data
+  SetLength(ba,0);
+  b.CreateFrom(ba);
+  Check((b.size=0) and (b.BytesLeft=0),'createfrom(empty array)');
+  Check(Overruns(b,boByte),'read from empty array');
+  s8:='';
+  b.CreateFrom(s8);
+  Check((b.size=0) and (b.BytesLeft=0),'createfrom(empty string)');
+  Check(Overruns(b,boByte),'read from empty string');
+  EndTest;
+end;
+
 procedure TestBitStream;
 var
   bs:TBitStream;
@@ -365,6 +509,7 @@ begin
     TestNameValueList;
     TestBufferReadWrite;
     TestBufferSlicing;
+    TestBufferBounds;
     TestBitStream;
 
     writeln;

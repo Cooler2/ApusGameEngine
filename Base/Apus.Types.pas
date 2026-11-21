@@ -71,8 +71,15 @@ type
     property Item[name:string8]:string8 read GetItem write SetItem;
   end;
 
+  // Raised by TBuffer when data ends before a read or a position is out of range
+  // (truncated or malformed input, not a programmer error)
+  EBufferOverrun=class(EError);
+
   // Helper object represents in-memory binary buffer, doesn't own data
   // Useful to pass arbitrary data instead of pointer:size pair
+  // Suitable for untrusted input: every read, skip, seek and slice checks the range
+  // and raises EBufferOverrun, also in release builds.
+  // Multibyte values are little-endian (the byte order of all supported platforms)
   TBuffer=record
     data:PByte;   // pointer to the whole buffer data
     readPos:PByte; // current reading position
@@ -82,7 +89,7 @@ type
     constructor CreateFrom(var sour;sizeInBytes:integer); overload;
     constructor CreateFrom(bytes:ByteArray); overload;
     constructor CreateFrom(st:String8); overload;
-    function Slice(length:integer;advance:boolean=false):TBuffer; overload;
+    function Slice(length:integer;advance:boolean=false):TBuffer; overload; // from the current position
     function Slice(from,length:integer):TBuffer; overload;
     function ReadByte:byte;
     function ReadBool:boolean;
@@ -91,13 +98,18 @@ type
     function ReadUInt:cardinal;
     function ReadFloat:single;
     function ReadDouble:double;
-    function ReadString:String8;
-    function ReadFlex:cardinal; // read flexible (multibyte) unsigned integer
-    procedure Skip(numBytes:integer); // advance read pos by
-    procedure Seek(pos:integer);
+    function ReadString:String8; // flex length + bytes
+    function ReadFlex:cardinal; // read flexible (multibyte) unsigned integer, up to 5 bytes
+    procedure Skip(numBytes:integer); // advance read pos by (negative - move back)
+    procedure Seek(pos:integer); // 0..size
     procedure Read(var dest;numBytes:integer);
+    // Raise EBufferOverrun unless numBytes (0..BytesLeft) can be read.
+    // Takes int64 so that count*itemSize can be checked before allocating arrays
+    procedure Need(numBytes:int64); inline;
     function BytesLeft:integer; inline;
     function CurrentPos:integer; inline;
+  private
+    procedure Overrun(const what:string;value:int64);
   end;
 
   // Bit array
@@ -154,6 +166,30 @@ implementation
 
 { TBuffer }
 
+{$IFDEF ENDIAN_BIG}
+  {$MESSAGE FATAL 'TBuffer reads little-endian data natively: big-endian platforms are not supported'}
+{$ENDIF}
+
+function TBuffer.CurrentPos:integer;
+begin
+  result:=UIntPtr(readPos)-UIntPtr(data);
+end;
+
+function TBuffer.BytesLeft:integer;
+begin
+  result:=(UIntPtr(data)+size-UIntPtr(readPos));
+end;
+
+procedure TBuffer.Need(numBytes:int64);
+begin
+  if (numBytes<0) or (numBytes>BytesLeft) then Overrun('truncated data, bytes needed:',numBytes);
+end;
+
+procedure TBuffer.Overrun(const what:string;value:int64);
+begin
+  raise EBufferOverrun.Create('TBuffer: %s %d, position %d of %d',[what,value,CurrentPos,size]);
+end;
+
 constructor TBuffer.Create(sour:pointer;sizeInBytes:integer);
 begin
   data:=sour;
@@ -173,27 +209,19 @@ end;
 
 constructor TBuffer.CreateFrom(bytes:ByteArray);
 begin
-  Create(@bytes[0],length(bytes));
+  if length(bytes)=0 then Create(nil,0)
+    else Create(@bytes[0],length(bytes));
 end;
 
 constructor TBuffer.CreateFrom(st:String8);
 begin
-  Create(@st[low(st)],length(st));
-end;
-
-function TBuffer.CurrentPos:integer;
-begin
-  result:=UIntPtr(readPos)-UIntPtr(data);
-end;
-
-function TBuffer.BytesLeft:integer;
-begin
-  result:=(UIntPtr(data)+size-UIntPtr(readPos));
+  if st='' then Create(nil,0)
+    else Create(@st[low(st)],length(st));
 end;
 
 procedure TBuffer.Read(var dest;numBytes:integer);
 begin
-  ASSERT(BytesLeft>=numBytes);
+  Need(numBytes);
   move(readPos^,dest,numBytes);
   inc(readPos,numBytes);
 end;
@@ -205,94 +233,99 @@ end;
 
 function TBuffer.ReadByte:byte;
 begin
-  ASSERT(BytesLeft>0);
+  Need(1);
   result:=readPos^;
   inc(readPos);
 end;
 
 function TBuffer.ReadDouble:double;
 begin
-  ASSERT(BytesLeft>=8);
+  Need(8);
   result:=PDouble(readPos)^;
   inc(readPos,8);
 end;
 
 function TBuffer.ReadFlex:cardinal;
 var
-  b,shift:byte;
+  b:byte;
+  shift:integer;
 begin
   result:=0; shift:=0;
-  while BytesLeft>0 do begin
+  repeat
+    Need(1);
     b:=readPos^;
     inc(readPos);
-    inc(result,(b and $7F) shl shift);
-    if b and $80=0 then break;
+    // the 5th byte carries the top 4 bits and must be the last one
+    if (shift=28) and (b and $F0<>0) then Overrun('flex integer overflow, 5th byte:',b);
+    result:=result or (cardinal(b and $7F) shl shift);
     inc(shift,7);
-  end;
+  until b and $80=0;
 end;
 
 function TBuffer.ReadFloat:single;
 begin
-  ASSERT(BytesLeft>=4);
+  Need(4);
   result:=PSingle(readPos)^;
   inc(readPos,4);
 end;
 
 function TBuffer.ReadInt:integer;
 begin
-  ASSERT(BytesLeft>=4);
+  Need(4);
   result:=PInteger(readPos)^;
   inc(readPos,4);
 end;
 
 function TBuffer.ReadString:String8;
 var
-  size:integer;
+  len:cardinal;
 begin
-  size:=ReadFlex;
-  SetLength(result,size);
-  if size>0 then
-    Read(result[1],size);
+  len:=ReadFlex;
+  Need(len); // before the allocation
+  SetLength(result,len);
+  if len>0 then begin
+    move(readPos^,result[1],len);
+    inc(readPos,len);
+  end;
 end;
 
 function TBuffer.ReadUInt:cardinal;
 begin
-  ASSERT(BytesLeft>=4);
+  Need(4);
   result:=PCardinal(readPos)^;
   inc(readPos,4);
 end;
 
 function TBuffer.ReadWord:word;
 begin
-  ASSERT(BytesLeft>=2);
+  Need(2);
   result:=PWord(readPos)^;
   inc(readPos,2);
 end;
 
 procedure TBuffer.Seek(pos:integer);
 begin
-  ASSERT((pos>=0) and (pos<size));
-  readPos:=PByte(UIntPtr(data)+pos);
+  if (pos<0) or (pos>size) then Overrun('seek out of range:',pos);
+  readPos:=PByte(UIntPtr(data)+UIntPtr(pos));
 end;
 
 procedure TBuffer.Skip(numBytes:integer);
 begin
-  ASSERT(BytesLeft>=numBytes);
+  if (int64(CurrentPos)+numBytes<0) or (numBytes>BytesLeft) then Overrun('skip out of range:',numBytes);
   inc(readPos,numBytes);
-  ASSERT(UIntPtr(readPos)>=UIntPtr(data));
 end;
 
 function TBuffer.Slice(from,length:integer):TBuffer;
 begin
-  ASSERT((from>=0) and (length>=0));
-  ASSERT(from+length<=size);
-  result.Create(pointer(UIntPtr(data)+from),length);
+  if (from<0) or (from>size) then Overrun('slice start out of range:',from);
+  if (length<0) or (int64(from)+length>size) then Overrun('slice length out of range:',length);
+  result.Create(pointer(UIntPtr(data)+UIntPtr(from)),length);
 end;
 
 function TBuffer.Slice(length:integer;advance:boolean=false):TBuffer;
 begin
   result:=Slice(CurrentPos,length);
-  if advance then Skip(length);
+  if advance then inc(readPos,length); // range checked by the slice
 end;
 
 // -------------------------------------------------------
