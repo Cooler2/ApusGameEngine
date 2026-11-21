@@ -167,45 +167,6 @@ implementation
    result:=color or $FF000000;
   end;
 
- function HSVColor(h,s,v:single):cardinal;
-  var
-   i:integer;
-   f,p,q,t,r,g,b:single;
-  begin
-   h:=h-Floor(h);
-   h:=h*6;
-   i:=Floor(h);
-   f:=h-i;
-   p:=v*(1-s); q:=v*(1-s*f); t:=v*(1-s*(1-f));
-   case i of
-    0:begin r:=v; g:=t; b:=p; end;
-    1:begin r:=q; g:=v; b:=p; end;
-    2:begin r:=p; g:=v; b:=t; end;
-    3:begin r:=p; g:=q; b:=v; end;
-    4:begin r:=t; g:=p; b:=v; end;
-    else begin r:=v; g:=p; b:=q; end;
-   end;
-   result:=Color.RGB(round(255*r),round(255*g),round(255*b));
-  end;
-
- procedure ColorHSV(color:cardinal;var h,s,v:single);
-  var
-   r,g,b,lo,d:single;
-  begin
-   r:=((color shr 16) and 255)/255;
-   g:=((color shr 8) and 255)/255;
-   b:=(color and 255)/255;
-   v:=Max(r,Max(g,b)); lo:=Min(r,Min(g,b)); d:=v-lo;
-   if v=0 then begin s:=0; exit; end;
-   s:=d/v;
-   if d=0 then exit; // preserve hue for gray and black
-   if v=r then h:=(g-b)/d
-    else if v=g then h:=2+(b-r)/d
-    else h:=4+(r-g)/d;
-   h:=h/6;
-   if h<0 then h:=h+1;
-  end;
-
  function DefaultColorHistory:IUIColorHistory;
   begin
    result:=sharedHistory;
@@ -377,7 +338,7 @@ implementation
     if field.kind=cfHue then begin
      for i:=0 to 5 do begin
       a:=r.top+round(r.Height*i/6); b:=r.top+round(r.Height*(i+1)/6)-1;
-      draw.FillGradRect(r.left,a,r.right,b,HSVColor(i/6,1,1),HSVColor((i+1)/6,1,1),true);
+      draw.FillGradRect(r.left,a,r.right,b,Apus.Colors.Color.FromHSV(i/6,1,1),Apus.Colors.Color.FromHSV((i+1)/6,1,1),true);
      end;
      y:=r.top+round(p.hue*(r.Height-1));
     end else begin
@@ -388,7 +349,7 @@ implementation
     end;
     DrawStripPointers(r.left,r.right,y,sc);
    end else begin
-    draw.FillGradRect(r.left,r.top,r.right,r.bottom,$FFFFFFFF,HSVColor(p.hue,1,1),false);
+    draw.FillGradRect(r.left,r.top,r.right,r.bottom,$FFFFFFFF,Apus.Colors.Color.FromHSV(p.hue,1,1),false);
     draw.FillGradRect(r.left,r.top,r.right,r.bottom,$00000000,$FF000000,true);
     x:=r.left+round(p.saturation*(r.Width-1)); y:=r.top+round((1-p.value)*(r.Height-1));
     draw.Rect(x-4*sc,y-4*sc,x+4*sc,y+4*sc,$FF000000);
@@ -512,7 +473,7 @@ implementation
 
  procedure TUIColorPicker.SetColor(value:cardinal);
   begin
-   ColorHSV(value,hue,saturation,self.value);
+   Apus.Colors.Color.ToHSV(value,hue,saturation,self.value);
    inherited;
   end;
 
@@ -528,7 +489,7 @@ implementation
    c:cardinal;
   begin
    hue:=h; saturation:=s; value:=v;
-   c:=(HSVColor(h,s,v) and $FFFFFF) or (fColor and $FF000000);
+   c:=(Apus.Colors.Color.FromHSV(h,s,v) and $FFFFFF) or (fColor and $FF000000);
    if c=fColor then exit; // retain float hue/SV, including at black and at the red seam
    fColor:=c;
    Refresh;
