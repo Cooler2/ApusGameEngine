@@ -101,7 +101,8 @@ begin
   result:=TModelAsset.Create(fileName);
 end;
 
-// Keep the overload declared in the interface if an FPC dependency changes Unicode mode.
+// FPC can clear UNICODE in the implementation uses clause (including -MDelphiUnicode).
+// Match the overload declared in the interface to avoid an unsolved forward declaration.
 {$IFDEF APUS_MODEL_UNICODE_OVERLOAD}
 class function TModelAsset.LoadAEM(const fileName:UnicodeString):TModelAsset;
 begin
@@ -128,8 +129,8 @@ function TModelAsset.SelectLOD(screenHeightFraction:single):integer;
 var
   i:integer;
 begin
-  if Math.IsNan(screenHeightFraction) or Math.IsInfinite(screenHeightFraction) then
-    raise EError.Create('Model LOD screen height must be finite');
+  Assert(not (Math.IsNan(screenHeightFraction) or Math.IsInfinite(screenHeightFraction)),
+    'Model LOD screen height must be finite');
   // The thresholds already cover the clamped range, including a final zero.
   for i:=0 to high(fData.levels)-1 do
     if screenHeightFraction>=fData.levels[i].minScreenHeight then exit(i);
@@ -138,8 +139,7 @@ end;
 
 function TModelAsset.MaterialSlotName(slotIndex:integer):String8;
 begin
-  if (slotIndex<0) or (slotIndex>=length(fData.slots)) then
-    raise EError.Create('Model material slot index out of range: %d',[slotIndex]);
+  Assert((slotIndex>=0) and (slotIndex<length(fData.slots)),'Invalid model material slot index');
   result:=fData.slots[slotIndex];
 end;
 
@@ -177,8 +177,7 @@ var
   i:integer;
 begin
   if length(fGpuMeshes)>0 then exit;
-  if (gfx=nil) or (renderDevice=nil) then
-    raise EError.Create('Model upload requires initialized graphics');
+  Assert((gfx<>nil) and (renderDevice<>nil),'Model upload requires initialized graphics');
   SetLength(fGpuMeshes,length(fData.meshes));
   try
     for i:=0 to high(fGpuMeshes) do begin
@@ -194,7 +193,7 @@ end;
 constructor TModelInstance.Create(aAsset:TModelAsset);
 begin
   inherited Create;
-  if aAsset=nil then raise EError.Create('Model instance requires an asset');
+  Assert(aAsset<>nil,'Model instance requires an asset');
   fAsset:=aAsset;
   fTransform:=identMat4;
 end;
@@ -204,17 +203,21 @@ begin
   result:=fTransform;
 end;
 
-procedure TModelInstance.SetTransform(const value:TMat4);
+function IsValidModelTransform(const value:TMat4):boolean;
 var
   row,col:integer;
 begin
+  if (value.v[0,3]<>0) or (value.v[1,3]<>0) or (value.v[2,3]<>0) or (value.v[3,3]<>1) then
+    exit(false);
   for row:=0 to 3 do
     for col:=0 to 3 do
-      if Math.IsNan(value.v[row,col]) or Math.IsInfinite(value.v[row,col]) then
-        raise EError.Create('Model transform must be finite');
-  if (value.v[0,3]<>0) or (value.v[1,3]<>0) or (value.v[2,3]<>0) or
-     (value.v[3,3]<>1) or (value.ToMat4d.ToMat3.Determinant<=0) then
-    raise EError.Create('Model transform must be affine with positive determinant');
+      if Math.IsNan(value.v[row,col]) or Math.IsInfinite(value.v[row,col]) then exit(false);
+  result:=value.ToMat4d.ToMat3.Determinant>0;
+end;
+
+procedure TModelInstance.SetTransform(const value:TMat4);
+begin
+  Assert(IsValidModelTransform(value),'Model transform must be finite, affine and orientation-preserving');
   fTransform:=value;
 end;
 
@@ -225,8 +228,7 @@ end;
 
 procedure TModelInstance.SetLOD(value:integer);
 begin
-  if (value<0) or (value>=fAsset.LODCount) then
-    raise EError.Create('Model LOD index out of range: %d',[value]);
+  Assert((value>=0) and (value<fAsset.LODCount),'Invalid model LOD index');
   fLOD:=value;
 end;
 
@@ -239,9 +241,9 @@ var
   data:TAemStaticData;
   gpuMesh:TGpuMesh;
 begin
-  if length(fAsset.fGpuMeshes)=0 then raise EError.Create('Upload the model asset before drawing');
-  if (gfx=nil) or (renderDevice=nil) or (transformationAPI=nil) then
-    raise EError.Create('Model draw requires initialized graphics');
+  Assert(length(fAsset.fGpuMeshes)>0,'Upload the model asset before drawing');
+  Assert((gfx<>nil) and (renderDevice<>nil) and (transformationAPI<>nil),
+    'Model draw requires initialized graphics');
 
   data:=fAsset.fData;
   placement:=fTransform.ToMat4d;
