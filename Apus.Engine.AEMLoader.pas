@@ -44,7 +44,7 @@ type
   function LoadStaticAEM(const fileName:String8):TAemStaticData;
 
 implementation
-uses Classes, SysUtils, Math, Apus.Files, Apus.Strings, Apus.Geom2D, Apus.HashMaps;
+uses SysUtils, Math, Apus.Files, Apus.Strings, Apus.Geom2D;
 
 const
   HEADER_SIZE=20;
@@ -149,11 +149,8 @@ begin
   if len=0 then exit;
   Move(data[position],result[1],len);
   if UTF8.HasBOM(result) or not UTF8.IsValid(result) then Invalid('invalid UTF-8 string');
-  for i:=1 to len do begin
+  for i:=1 to len do
     if result[i]=#0 then Invalid('NUL in string');
-    if (byte(result[i])=$ED) and (byte(result[i+1])>=$A0) then
-      Invalid('surrogate in UTF-8 string');
-  end;
   inc(position,len);
 end;
 
@@ -394,7 +391,7 @@ begin
   SetLength(model.levels[0].nodes,count);
 end;
 
-procedure CheckBounds(var r:TChunkReader; const actual:TBox3);
+procedure ReadAndCheckBounds(var r:TChunkReader; const actual:TBox3);
 var
   claimed:TBox3;
   function Fails(claimedMin,claimedMax,realMin,realMax:double):boolean;
@@ -434,16 +431,9 @@ begin
         model.bounds.Include(Vec3(p.x,p.y,p.z));
       end;
     end;
-  CheckBounds(r,model.bounds);
-  for i:=0 to high(model.meshes) do CheckBounds(r,model.meshes[i].geometry.bounds);
+  ReadAndCheckBounds(r,model.bounds);
+  for i:=0 to high(model.meshes) do ReadAndCheckBounds(r,model.meshes[i].geometry.bounds);
   r.Finish;
-end;
-
-function CompareOffsets(a,b:pointer):integer;
-begin
-  if PChunk(a)^.offset<PChunk(b)^.offset then exit(-1);
-  if PChunk(a)^.offset>PChunk(b)^.offset then exit(1);
-  result:=0;
 end;
 
 function KnownChunk(id:cardinal):boolean;
@@ -453,9 +443,7 @@ end;
 
 procedure Decode(const data:ByteArray; model:TAemStaticData);
 var
-  index:THashMapNum<integer>;
   directory:array of TChunk;
-  ranges:TList;
   r:TChunkReader;
   features:word;
   dirOffset,dirCount:cardinal;
@@ -464,11 +452,19 @@ var
   c:PChunk;
   ch:byte;
 
+  function FindChunk(id:cardinal):integer;
+  var entry:integer;
+  begin
+    for entry:=0 to high(directory) do
+      if directory[entry].id=id then exit(entry);
+    result:=-1;
+  end;
+
   procedure EnterChunk(id:cardinal;const name:string);
   var entry:integer;
   begin
     r.section:=name;
-    entry:=index.GetDef(id,-1);
+    entry:=FindChunk(id);
     if entry<0 then r.Invalid('missing mandatory chunk');
     r.position:=directory[entry].offset;
     r.limit:=r.position+integer(directory[entry].size);
@@ -495,40 +491,35 @@ begin
   r.position:=dirOffset;
   r.section:='directory';
   SetLength(directory,dirCount);
-  index.Init;
-  ranges:=TList.Create;
-  try
-    for i:=0 to high(directory) do begin
-      c:=@directory[i];
-      c^.id:=r.U32;
-      for j:=0 to 3 do begin
-        ch:=byte(c^.id shr (j*8) and $FF);
-        if not (((ch>=ord('A')) and (ch<=ord('Z'))) or ((ch>=ord('0')) and (ch<=ord('9')))) then
-          r.Invalid('invalid chunk ID');
-      end;
-      if index.HasKey(c^.id) then r.Invalid('duplicate chunk');
-      index.Put(c^.id,i);
-      c^.offset:=r.U32;
-      c^.size:=r.U32;
-      c^.flags:=r.U32;
-      entryEnd:=uint64(c^.offset)+c^.size;
-      if (c^.offset<HEADER_SIZE) or (c^.size=0) or (entryEnd>uint64(r.limit)) or
-         ((uint64(c^.offset)<dirEnd) and (entryEnd>dirOffset)) then r.Invalid('invalid chunk range');
-      if KnownChunk(c^.id) then begin
-        if c^.flags<>REQUIRED_CHUNK then r.Invalid('unsupported flags on static chunk');
-      end else
-        if c^.flags and REQUIRED_CHUNK<>0 then r.Invalid('unknown mandatory chunk');
-      ranges.Add(c);
+  for i:=0 to high(directory) do begin
+    c:=@directory[i];
+    c^.id:=r.U32;
+    for j:=0 to 3 do begin
+      ch:=byte(c^.id shr (j*8) and $FF);
+      if not (((ch>=ord('A')) and (ch<=ord('Z'))) or ((ch>=ord('0')) and (ch<=ord('9')))) then
+        r.Invalid('invalid chunk ID');
     end;
-    ranges.Sort(CompareOffsets);
-    prevEnd:=HEADER_SIZE;
-    for i:=0 to ranges.Count-1 do begin
-      c:=PChunk(ranges[i]);
-      if c^.offset<prevEnd then r.Invalid('overlapping chunks');
-      prevEnd:=uint64(c^.offset)+c^.size;
-    end;
-  finally
-    ranges.Free;
+    c^.offset:=r.U32;
+    c^.size:=r.U32;
+    c^.flags:=r.U32;
+    entryEnd:=uint64(c^.offset)+c^.size;
+    if (c^.offset<HEADER_SIZE) or (c^.size=0) or (entryEnd>uint64(r.limit)) or
+       ((uint64(c^.offset)<dirEnd) and (entryEnd>dirOffset)) then r.Invalid('invalid chunk range');
+    if KnownChunk(c^.id) then begin
+      if c^.flags<>REQUIRED_CHUNK then r.Invalid('unsupported flags on static chunk');
+    end else
+      if c^.flags and REQUIRED_CHUNK<>0 then r.Invalid('unknown mandatory chunk');
+  end;
+  // Known and optional chunks are subject to the same directory checks.
+  Sort.ByInt(directory[0],SizeOf(TChunk),length(directory),0);
+  for i:=1 to high(directory) do
+    if directory[i-1].id=directory[i].id then r.Invalid('duplicate chunk');
+  Sort.ByInt(directory[0],SizeOf(TChunk),length(directory),SizeOf(cardinal));
+  prevEnd:=HEADER_SIZE;
+  for i:=0 to high(directory) do begin
+    c:=@directory[i];
+    if c^.offset<prevEnd then r.Invalid('overlapping chunks');
+    prevEnd:=uint64(c^.offset)+c^.size;
   end;
 
   EnterChunk(AEM_MTRL,'MTRL');
@@ -539,7 +530,7 @@ begin
   ReadNodes(r,model);
   EnterChunk(AEM_BBOX,'BBOX');
   ReadBounds(r,model);
-  if index.HasKey(AEM_LOD0)<>(features and HAS_LOD<>0) then r.Invalid('inconsistent LOD flag or chunk');
+  if (FindChunk(AEM_LOD0)>=0)<>(features and HAS_LOD<>0) then r.Invalid('inconsistent LOD flag or chunk');
   if features and HAS_LOD<>0 then begin
     EnterChunk(AEM_LOD0,'LOD0');
     ReadLevels(r,model);
@@ -551,20 +542,12 @@ function ReadFileBytes(const fileName:String8):ByteArray;
 var
   f:TFileHandle;
   size:int64;
-  offset,readCount:integer;
 begin
-  result:=nil;
   f:=Files.OpenRead(fileName);
   try
     size:=Files.FileSize(f);
     if (size<HEADER_SIZE) or (size>MaxInt) then raise EError.Create('unsupported AEM file size');
-    SetLength(result,integer(size));
-    offset:=0;
-    while offset<length(result) do begin
-      readCount:=f.ReadMem(@result[offset],length(result)-offset);
-      if readCount<=0 then raise EError.Create('short AEM read');
-      inc(offset,readCount);
-    end;
+    result:=Files.ReadBytes(f,integer(size));
   finally
     f.Close;
   end;
