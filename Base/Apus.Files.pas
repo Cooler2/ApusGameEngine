@@ -80,6 +80,8 @@ type
     class function OpenNew(const fname:String8):TFileHandle; static;    // read+write, previous content discarded
     class function OpenAppend(const fname:String8):TFileHandle; static; // read+write at the end, created if missing
     class function Read(f:TFileHandle; buf:pointer; size:integer):integer; static;
+    // Read exactly size bytes from the current position. Raise on premature EOF or error.
+    class function ReadBytes(f:TFileHandle; size:NativeInt):ByteArray; static;
     class procedure Close(f:TFileHandle); static;
     class function Write(f:TFileHandle; buf:pointer; size:integer):integer; static;
     class function Seek(f:TFileHandle; offset:int64; origin:integer):int64; static;
@@ -568,6 +570,23 @@ end;
 
 { Files record — whole-file I/O }
 
+class function Files.ReadBytes(f:TFileHandle; size:NativeInt):ByteArray;
+var
+  offset:NativeInt;
+  request,count:integer;
+begin
+  Assert(size>=0);
+  SetLength(result,size);
+  offset:=0;
+  while offset<size do begin
+    if size-offset>MaxInt then request:=MaxInt
+      else request:=size-offset;
+    count:=fileSystem.Read(f,@result[offset],request);
+    if count<=0 then raise EError.Create('Short file read');
+    inc(offset,count);
+  end;
+end;
+
 class function Files.LoadAsBytes(const fname:String8; numBytes:int64; startFrom:int64):ByteArray;
 var
   f:TFileHandle;
@@ -576,20 +595,14 @@ begin
   f:=fileSystem.OpenRead(fname);
   try
     size:=fileSystem.FileSize(f);
-    if startFrom>size then startFrom:=size;
-    if numBytes=0 then
-      toRead:=size-startFrom // read whole file
-    else begin
-      toRead:=numBytes;
-      if startFrom+toRead>size then toRead:=size-startFrom;
-    end;
-    if toRead<0 then toRead:=0;
-    SetLength(result,toRead);
-    if toRead>0 then begin
-      if startFrom>0 then
-        fileSystem.Seek(f,startFrom,0);
-      fileSystem.Read(f,@result[0],toRead);
-    end;
+    if startFrom<0 then startFrom:=0;
+    if startFrom>=size then exit(nil);
+    toRead:=size-startFrom;
+    if (numBytes<>0) and (numBytes<toRead) then toRead:=numBytes;
+    if toRead<=0 then exit(nil);
+    if uint64(toRead)>uint64(High(NativeInt)) then raise EError.Create('File read too large');
+    if startFrom>0 then fileSystem.Seek(f,startFrom,0);
+    result:=ReadBytes(f,NativeInt(toRead));
   finally
     fileSystem.Close(f);
   end;

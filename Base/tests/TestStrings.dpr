@@ -1016,6 +1016,10 @@ begin
   Check(UTF8.IsValid('日本語'),'Japanese');
   Check(UTF8.IsValid(RawByteString(#$C0#$80))=false,'overlong');
   Check(UTF8.IsValid(#$FF)=false,'invalid byte');
+  Check(UTF8.IsValid(RawByteString(#$ED#$9F#$BF)),'U+D7FF before surrogates');
+  Check(not UTF8.IsValid(RawByteString(#$ED#$A0#$80)),'U+D800 high surrogate');
+  Check(not UTF8.IsValid(RawByteString(#$ED#$BF#$BF)),'U+DFFF low surrogate');
+  Check(UTF8.IsValid(RawByteString(#$EE#$80#$80)),'U+E000 after surrogates');
   EndTest;
 end;
 
