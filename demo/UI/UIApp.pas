@@ -181,7 +181,7 @@ procedure TestButtons;
    end;
    panel.style.SetAttr('disabled-effect','emboss'); // inherited by all controls below
    emboss:=ResolveEmboss(panel.GetStyleColor('color'));
-   shadowOffset:=Conv.ToStr(emboss.shadowX/panel.globalScale)+' '+Conv.ToStr(emboss.shadowY/panel.globalScale);
+   shadowOffset:=Conv.ToStr(emboss.highlightX/panel.globalScale)+' '+Conv.ToStr(emboss.highlightY/panel.globalScale);
    TUILabel.Create(230,24,panel,id+'Title').Setup('Enabled / disabled').SetPos(10,8);
    TUICheckBox.Create(230,26,panel,id+'EnabledOn').Setup('Enabled checked',true).SetPos(10,40);
    TUICheckBox.Create(230,26,panel,id+'EnabledOff').Setup('Enabled unchecked').SetPos(10,70);
