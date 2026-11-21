@@ -169,8 +169,11 @@ interface
 
   // Menu bar: headings in a row, each opens its menu below itself. The application sets the
   // position and the size of the bar; the headings take the width of their captions and the
-  // height of the bar. Headings that don't fit are scrolled (the wheel; the open one is
-  // always shown).
+  // height of the bar. Headings that don't fit are scrolled: the wheel, and opening a heading
+  // scrolls it into view (its left part if it is wider than the bar).
+  // A menu opens at its heading, but its anchor is the whole bar: a press anywhere on the bar
+  // is not outside the menu (the bar decides: switch or close), and the auto close zone
+  // includes the whole bar.
   // Session: from the first open to the close the bar holds the focus and passes the keys to
   // the open menus; switching the menus (hover over another heading, Left/Right at the top
   // level, Right on a command) keeps the session. It ends with Escape at the top level, a
@@ -199,8 +202,9 @@ interface
    procedure onTimer; override;
   private
    fCurrent:TUIMenuHeading;
-   fMenu:TUIPopupMenu;     // the open menu: the root of the open chain
+   fMenu:TUIPopupMenu;     // the open menu or the one being opened: the root of the open chain
    session:boolean;        // the bar holds the focus
+   request:cardinal;       // counts the open requests: a newer one replaces the running one
    switching:boolean;      // one menu closes for another: the session goes on
    previousFocus:TUIElement;
    contentWidth:single;    // of the headings row
@@ -245,26 +249,28 @@ implementation
      (TUIMenuHeading(e).fPopup<>nil) and not TUIMenuHeading(e).fPopup.deleted;
   end;
 
- // Width of the caption (or the shortcut of a menu line) in the units of the element
- function CaptionWidth(e:TUIElement;const text:String8;shortcut:boolean=false):single;
-  var
-   font:TFontHandle;
+ // Width of a text of the element in its units: measured with the font, or estimated by the
+ // font size without a text drawer (headless; the font is not used then and may be 0)
+ function MeasureText(e:TUIElement;const text:String8;font:TFontHandle;size:single):single;
   begin
    if text='' then exit(0);
-   if txt=nil then begin // no text drawer (headless): an estimate by the font size
-    if shortcut then exit(length(text)*TUIMenuItem(e).ShortcutFontSize*0.6)
-     else exit(length(text)*e.GetStyleNumber('font-size',9)*0.6);
-   end;
-   if shortcut then font:=TUIMenuItem(e).ShortcutFont
-    else font:=e.StyleFont;
+   if txt=nil then exit(length(text)*size*0.6);
    result:=txt.Width(font,text)/e.globalScale;
   end;
 
  // Width of the caption or the shortcut in the units of the line
  function TextWidth(item:TUIMenuItem;shortcut:boolean):single;
+  var
+   font:TFontHandle;
   begin
-   if shortcut then result:=CaptionWidth(item,item.shortcut,true)
-    else result:=CaptionWidth(item,item.caption);
+   font:=0;
+   if shortcut then begin
+    if txt<>nil then font:=item.ShortcutFont;
+    result:=MeasureText(item,item.shortcut,font,item.ShortcutFontSize);
+   end else begin
+    if txt<>nil then font:=item.StyleFont;
+    result:=MeasureText(item,item.caption,font,item.GetStyleNumber('font-size',9));
+   end;
   end;
 
  // The name must be a valid identifier (elements are published by name): spaces and other
@@ -1177,13 +1183,16 @@ implementation
    c:TUIElement;
    h:TUIMenuHeading;
    x,w,ht:single;
+   font:TFontHandle;
   begin
    x:=0;
    ht:=clientHeight;
    for c in children do begin
     if not (c is TUIMenuHeading) or c.deleted or not c.flags.visible then continue;
     h:=TUIMenuHeading(c);
-    w:=round(h.padding.Left+h.padding.Right+CaptionWidth(h,h.caption));
+    font:=0;
+    if txt<>nil then font:=h.StyleFont;
+    w:=round(h.padding.Left+h.padding.Right+MeasureText(h,h.caption,font,h.GetStyleNumber('font-size',9)));
     h.pivot:=Vec2(0,0);
     h.position:=Vec2(x,0);
     h.size:=Vec2(w,ht);
@@ -1193,26 +1202,30 @@ implementation
    scroll.X:=Clamp(scroll.X,0,Max(0,contentWidth-clientWidth));
   end;
 
+ // Scroll the heading into view; a heading wider than the bar shows its left part
  procedure TUIMenuBar.ScrollIntoView(item:TUIMenuHeading);
   var
    x1,x2:single;
   begin
    x1:=item.position.x;
    x2:=x1+item.size.x;
-   if x1<scroll.X then scroll.X:=x1
-   else
    if x2>scroll.X+clientWidth then scroll.X:=x2-clientWidth;
+   if x1<scroll.X then scroll.X:=x1;
    scroll.X:=Clamp(scroll.X,0,Max(0,contentWidth-clientWidth));
   end;
 
  // The session starts with the first open: the bar remembers the focus and takes it (an
- // open popup that holds the focus closes). Another open menu closes, the session goes on
+ // open popup that holds the focus closes). Another open menu closes, the session goes on.
+ // The menu callbacks (onOpen) may open another heading or close the bar: the bar decides
+ // the outcome - the request replaced by a newer one is left to it; a request still current
+ // that failed to open (the callback removed the menu, a popup refused) ends the session
  procedure TUIMenuBar.OpenItem(item:TUIMenuHeading;keyboard:boolean);
   var
    m:TUIPopupMenu;
    wnd:TWindow;
    focus,root:TUIElement;
    r:TRect2;
+   my:cardinal;
   begin
    if not IsHeadingSelectable(item) or (item.fBar<>self) or deleted or not IsVisible or not IsEnabled then exit;
    m:=item.fPopup;
@@ -1242,6 +1255,8 @@ implementation
     end;
     fMenu:=nil;
    end;
+   inc(request);
+   my:=request;
    fCurrent:=item;
    Arrange;
    ScrollIntoView(item);
@@ -1250,8 +1265,14 @@ implementation
    m.autoCloseDistance:=autoCloseDistance;
    m.autoCloseDelay:=autoCloseDelay;
    fMenu:=m;
-   m.Open(root,self,r.x1,r.y2,r.y1,keyboard); // the bar is the anchor: the auto close zone, presses on the headings
-   if session and ((fMenu<>m) or not m.fOpen) then EndSession(true); // not opened (onOpen, another popup)
+   // placed at the heading; the anchor is the whole bar (see the class comment). The menu
+   // asks Expects before each step: it stops if the request is no longer current
+   m.Open(root,self,r.x1,r.y2,r.y1,keyboard);
+   if request<>my then exit; // replaced by another request (from onOpen): that one decides
+   if session and not m.fOpen then begin
+    fMenu:=nil;
+    EndSession(true);
+   end;
   end;
 
  // An open menu of the bar has closed: by itself (Escape, a command, a press outside, auto

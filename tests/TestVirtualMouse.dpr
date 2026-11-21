@@ -1070,7 +1070,6 @@ procedure BuildMenuBar;
   end;
   wndA.physPos:=Types.Point(-1,-1);
   RunFrame(wndA);
-  Sleep(60); // past the double-click guard of TUIButton.DoClick
  end;
 
 procedure FreeMenuBar;
@@ -1135,16 +1134,13 @@ procedure TestMenuBarMouse;
    wndA.physPos:=CenterOf(hView);
    RunFrame(wndA);
    Check(editM.IsOpen and (bar.current=hEdit),'a disabled heading does not switch');
-   Sleep(60);
    PhysicalClickAt(CenterOf(hEdit));
    Check(not bar.IsOpen and not editM.IsOpen and (FocusedElement=edit),'a click on the open heading closes, the focus is back');
    // a line of the menu: the command finds the focus restored
-   Sleep(60);
    PhysicalClickAt(CenterOf(hFile));
    PhysicalClickAt(CenterOf(itemNew));
    Check((probe.news=1) and not bar.IsOpen and (probe.focusAtCall=edit),'a click on a line runs it after the session ends');
    // a submenu by hover from the bar menu
-   Sleep(60);
    PhysicalClickAt(CenterOf(hFile));
    wndA.physPos:=CenterOf(itemRecent);
    RunFrame(wndA);
@@ -1153,19 +1149,16 @@ procedure TestMenuBarMouse;
    PhysicalClickAt(CenterOf(itemFile1));
    Check((probe.saves=1) and not bar.IsOpen and not recent.IsOpen and (FocusedElement=edit),'its line runs, all closes');
    // a press outside closes and reaches its target
-   Sleep(60);
    PhysicalClickAt(CenterOf(hFile));
    btn.clicks:=0;
    PhysicalClickAt(Types.Point(150,115));
    Check(not bar.IsOpen and (btn.clicks=1),'a click outside closes the session and reaches the button');
    edit.SetFocus;
    // a press on the bar between the headings
-   Sleep(60);
    PhysicalClickAt(CenterOf(hFile));
    PhysicalClickAt(Types.Point(510,212));
    Check(not bar.IsOpen and (FocusedElement=edit),'a press on the empty bar closes');
    // the focus taken away
-   Sleep(60);
    PhysicalClickAt(CenterOf(hFile));
    edit.SetFocus;
    Check(not bar.IsOpen and not fileM.IsOpen and (FocusedElement=edit),'a focus change ends the session');
@@ -1176,7 +1169,6 @@ procedure TestMenuBarMouse;
    ctx.Add('X');
    ctx.OpenAt(600,250);
    Check(FocusedElement=ctx,'context menu open');
-   Sleep(60);
    PhysicalClickAt(CenterOf(hFile));
    Check(not ctx.IsOpen and bar.IsOpen and (FocusedElement=bar),'a click on the bar closes the context menu and opens the bar');
    sceneA.DispatchKey(TKey.Escape,0,0,true);
@@ -1238,6 +1230,49 @@ procedure TestMenuBarKeys;
    bar.current:=nil;
    Check(not bar.IsOpen and (FocusedElement=edit),'current:=nil closes');
   end;
+  FreeMenuBar;
+  EndTest;
+ end;
+
+// The onOpen of a menu opens another heading or closes the bar: the newer request wins
+type
+  TBarCallbacks=class
+   procedure OpenEdit;
+   procedure CloseBar;
+  end;
+
+procedure TBarCallbacks.OpenEdit;
+ begin
+  mb.bar.OpenItem(mb.hEdit);
+ end;
+
+procedure TBarCallbacks.CloseBar;
+ begin
+  mb.bar.Close;
+ end;
+
+procedure TestMenuBarCallbacks;
+ var
+  cb:TBarCallbacks;
+ begin
+  StartTest('Menu bar onOpen');
+  BuildMenuBar;
+  cb:=TBarCallbacks.Create;
+  with mb do begin
+   fileM.onOpen:=cb.OpenEdit;
+   bar.OpenItem(hFile);
+   Check(editM.IsOpen and not fileM.IsOpen and (bar.current=hEdit) and bar.IsOpen,
+     'onOpen of File opens Edit: Edit stays open');
+   Check((FocusedElement=bar) and (TUIPopup.Current(wndA)=editM),'the session goes on with Edit');
+   sceneA.DispatchKey(TKey.Escape,0,0,true);
+   Check(not bar.IsOpen and (FocusedElement=edit),'and ends as usual');
+   fileM.onOpen:=cb.CloseBar;
+   bar.OpenItem(hFile);
+   Check(not bar.IsOpen and not fileM.IsOpen and (FocusedElement=edit) and (TUIPopup.Current(wndA)=nil),
+     'onOpen closes the bar: nothing opens, the focus is back');
+   fileM.onOpen:=nil;
+  end;
+  cb.Free;
   FreeMenuBar;
   EndTest;
  end;
@@ -2668,6 +2703,7 @@ begin
   TestMenuBarLayout;
   TestMenuBarMouse;
   TestMenuBarKeys;
+  TestMenuBarCallbacks;
   TestMenuBarAutoClose;
   TestMenuBarScroll;
   TestMenuBarRemoval;

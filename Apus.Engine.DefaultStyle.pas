@@ -248,6 +248,14 @@ implementation
    result.highlightX:=1; result.highlightY:=1;
   end;
 
+ // A button with the standard look: the default box, the procedural chrome, the pressed content
+ // offset. Button classes with their own look (checkbox, combo, menu lines and headings) set
+ // the class default 'proceduralButtonChrome' to false and are drawn by their own branch
+ function IsStandardButton(element:TUIElement):boolean;
+  begin
+   result:=(element is TUIButton) and element.GetClassAttribute('defaultProceduralButtonChrome',false);
+  end;
+
  // Resolve only a known solid surface. Images, gradients, shades and translucent
  // layers keep the content-color fallback rather than guessing their displayed color.
  function EmbossSurfaceColor(element:TUIElement):cardinal;
@@ -1613,8 +1621,7 @@ implementation
    box.scale:=scale;
    box.moveBlend:=element.shape<>TUIShape.shapeEmpty;
    // Plain/toggle buttons (not checkbox/radio/combo) have a default box and derived state colors
-   isButton:=widgetDefaults and (element is TUIButton) and not (element is TUICheckbox) and
-     not (element is TUIComboBox) and not (element is TUIMenuItem) and not (element is TUIMenuHeading);
+   isButton:=widgetDefaults and IsStandardButton(element);
 
    // Base values
    if isButton then fillDef:=TFill.Solid(defaultBtnColor)
@@ -1910,8 +1917,7 @@ implementation
    context:TContext;
   begin
    context:=PrepareContext(element);
-   if (element is TUIButton) and not (element is TUICheckbox) and
-     not (element is TUIComboBox) and not (element is TUIMenuItem) and not (element is TUIMenuHeading) then begin
+   if IsStandardButton(element) then begin
     // Buttons use scroll to move all children as a group. Assign absolutely.
     element.scroll.X:=0;
     element.scroll.Y:=-Max(element.StateWeight(TElementState.Pressed),element.StateWeight(TElementState.Checked))*
@@ -1932,18 +1938,12 @@ implementation
    if element is TUILabel then
     DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
    else
-   // Button
-   if (element is TUIButton) and not (element is TUIToggleButton) and
-     not (element is TUIComboBox) and not (element is TUIMenuItem) and not (element is TUIMenuHeading) then
+   // Button, toggle button (tabs, segmented controls: toggled=pressed)
+   if IsStandardButton(element) then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    if element is TUICheckbox then
     DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
-   else
-   // Toggle button (tabs, segmented controls): drawn as a button, toggled=pressed.
-   // Checkbox/radio are caught above; combo descends from TUIButton, not from toggle.
-   if element is TUIToggleButton then
-    DrawUIButton(element as TUIButton,x1,y1,x2,y2,context,drawButtonCaption)
    else
    // Frame
    if (element.ClassType=TUIFrame) or (element is TUIComboPopup) then
