@@ -87,7 +87,7 @@ editor and supplies the recent colors and OK/Cancel buttons. Changing the class
 cancels the current session and discards the previous content. Assign `nil` to
 restore the default editor.
 
-Derive from `TUIColorPicker` to modify the standard composition through protected
+Derive from `TUIHSVColorEditor` to modify the standard composition through protected
 `BuildContent`/`LayoutContent`, or derive from `TUIColorEditor` to replace it.
 The content contract is:
 

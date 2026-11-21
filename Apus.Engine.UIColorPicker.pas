@@ -66,7 +66,7 @@ interface
   end;
 
   // Default mouse-only editor. Override BuildContent/LayoutContent to extend its composition.
-  TUIColorPicker=class(TUIColorEditor)
+  TUIHSVColorEditor=class(TUIColorEditor)
    constructor Create(parent:TUIElement;const name:String8); override;
    procedure AfterConstruction; override;
    procedure Resize(newWidth,newHeight:single); override;
@@ -85,6 +85,8 @@ interface
   private
    procedure RestoreOriginal;
   end;
+
+  TUIColorPicker=TUIHSVColorEditor; // legacy name for the default content
 
   // Per-control editor class and history; colors are straight ARGB. All UI operations: window thread.
   TUIColorButton=class(TUIColorSwatch)
@@ -155,9 +157,9 @@ implementation
  type
   TColorFieldKind=(cfSV,cfHue,cfAlpha);
   TUIColorField=class(TUIElement)
-   picker:TUIColorPicker;
+   picker:TUIHSVColorEditor;
    kind:TColorFieldKind;
-   constructor Create(picker:TUIColorPicker;kind:TColorFieldKind;const name:String8);
+   constructor Create(picker:TUIHSVColorEditor;kind:TColorFieldKind;const name:String8);
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
    procedure onLostFocus; override;
@@ -166,6 +168,7 @@ implementation
 
  const
   ALPHA_STRIP_WIDTH=44;
+  HSV_EDITOR_WIDTH=288;
   HSV_EDITOR_HEIGHT=220;
   FOOTER_HEIGHT=62;
   FOOTER_BUTTON_WIDTH=72;
@@ -347,7 +350,7 @@ implementation
  procedure DrawColorField(element:TUIElement);
   var
    field:TUIColorField;
-   p:TUIColorPicker;
+   p:TUIHSVColorEditor;
    r:TRect;
    i,x,y,a,b:integer;
    sc:single;
@@ -378,7 +381,7 @@ implementation
    end;
   end;
 
- constructor TUIColorField.Create(picker:TUIColorPicker;kind:TColorFieldKind;const name:String8);
+ constructor TUIColorField.Create(picker:TUIHSVColorEditor;kind:TColorFieldKind;const name:String8);
   begin
    inherited Create(20,20,picker,name);
    self.picker:=picker; self.kind:=kind;
@@ -427,20 +430,20 @@ implementation
    inherited;
   end;
 
- constructor TUIColorPicker.Create(parent:TUIElement;const name:String8);
+ constructor TUIHSVColorEditor.Create(parent:TUIElement;const name:String8);
   begin
    inherited;
-   size:=Vec2(288,HSV_EDITOR_HEIGHT);
+   size:=Vec2(HSV_EDITOR_WIDTH,HSV_EDITOR_HEIGHT);
   end;
 
- procedure TUIColorPicker.AfterConstruction;
+ procedure TUIHSVColorEditor.AfterConstruction;
   begin
    BuildContent;
    LayoutContent;
    inherited;
   end;
 
- procedure TUIColorPicker.BuildContent;
+ procedure TUIHSVColorEditor.BuildContent;
   begin
    svField:=TUIColorField.Create(self,cfSV,name+'\SV');
    hueField:=TUIColorField.Create(self,cfHue,name+'\Hue');
@@ -455,7 +458,7 @@ implementation
    colorLabel.styleInfo:='color:&text; font-size:7.5';
   end;
 
- procedure TUIColorPicker.LayoutContent;
+ procedure TUIHSVColorEditor.LayoutContent;
   var
    w,h,svWidth:single;
   begin
@@ -472,19 +475,19 @@ implementation
    colorLabel.SetPos(0,h-16); colorLabel.Resize(w,14);
   end;
 
- procedure TUIColorPicker.Resize(newWidth,newHeight:single);
+ procedure TUIHSVColorEditor.Resize(newWidth,newHeight:single);
   begin
    inherited;
    LayoutContent;
   end;
 
- procedure TUIColorPicker.SetColor(value:cardinal);
+ procedure TUIHSVColorEditor.SetColor(value:cardinal);
   begin
    Apus.Colors.Color.ToHSV(value,hue,saturation,self.value);
    inherited;
   end;
 
- procedure TUIColorPicker.SetAlphaEnabled(enabled:boolean);
+ procedure TUIHSVColorEditor.SetAlphaEnabled(enabled:boolean);
   begin
    if alphaEnabled=enabled then exit;
    inherited;
@@ -492,7 +495,7 @@ implementation
     else Resize(Max(80,size.x-ALPHA_STRIP_WIDTH),size.y);
   end;
 
- procedure TUIColorPicker.ChooseHSV(h,s,v:single);
+ procedure TUIHSVColorEditor.ChooseHSV(h,s,v:single);
   var
    c:cardinal;
   begin
@@ -504,7 +507,7 @@ implementation
    PublishPreview;
   end;
 
- procedure TUIColorPicker.ChooseAlpha(alpha:byte);
+ procedure TUIHSVColorEditor.ChooseAlpha(alpha:byte);
   var c:cardinal;
   begin
    if not alphaEnabled then exit;
@@ -514,7 +517,7 @@ implementation
    PublishPreview;
   end;
 
- procedure TUIColorPicker.Refresh;
+ procedure TUIHSVColorEditor.Refresh;
   begin
    if oldSwatch=nil then exit;
    oldSwatch.color:=originalColor; newSwatch.color:=fColor;
@@ -522,14 +525,14 @@ implementation
     Conv.ToStr((fColor shr 8) and 255)+','+Conv.ToStr(fColor and 255)+' #'+Conv.ToHex(fColor,8);
   end;
 
- procedure TUIColorPicker.RestoreOriginal;
+ procedure TUIHSVColorEditor.RestoreOriginal;
   begin ChooseColor(originalColor); end;
 
  constructor TUIColorButton.Create(width,height:single;parent:TUIElement;name:String8);
   begin
    inherited;
    fHistory:=DefaultColorHistory;
-   fEditorClass:=TUIColorPicker;
+   fEditorClass:=TUIHSVColorEditor;
    fAlphaEnabled:=true;
    flags.canHaveFocus:=true;
   end;
@@ -551,7 +554,7 @@ implementation
 
  procedure TUIColorButton.SetEditorClass(editorClass:TUIColorEditorClass);
   begin
-   if editorClass=nil then editorClass:=TUIColorPicker;
+   if editorClass=nil then editorClass:=TUIHSVColorEditor;
    if fEditorClass=editorClass then exit;
    Cancel;
    if fPopup<>nil then begin fPopup.Remove; fPopup:=nil; end;
