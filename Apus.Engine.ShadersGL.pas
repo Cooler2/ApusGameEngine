@@ -120,6 +120,8 @@ type
   procedure Material(color:cardinal;shininess:single);
 
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
+  procedure UseShadowMap(shadowMap:TTexture;const lightViewProjection:TMat4d;
+    depthBias:single=0.002);
 
  procedure Apply(vertexLayout:TVertexLayout);
   procedure ApplyMeshLayout(layout:TGpuLayout);
@@ -159,9 +161,9 @@ type
    activeShader:TGLShader; // current OpenGL shader
    isCustom:boolean;
 
-   matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
-   viewProjMatrix:TMat4; // lightspace matrix used for shadowmap
-   shadowMapMatrix:TMat4; // frustrum->viewport transformation matrix for the main shadow rendering phase
+   matrixRevision:integer; // increments when shader matrices change
+   capturedLightViewProjection:TMat4d;
+   shadowMapMatrix:TMat4; // world to shadow texture space
    shadowMap:TTexture;
 
    // Pending uniforms (for customized shader)
@@ -1147,29 +1149,36 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:TQuat);
  end;
 
 procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:single);
- procedure CalcShadowMapMatrix;
-  var
-   frustum:TMat4;
-  begin
-    Mem.Clear(frustum,sizeof(frustum));
-    frustum[0,0]:=0.5; frustum[3,0]:=0.5;
-    frustum[1,1]:=0.5; frustum[3,1]:=0.5;
-    frustum[2,2]:=0.5; frustum[3,2]:=0.5-depthBias;
-    frustum[3,3]:=1;
-    shadowMapMatrix:=viewProjMatrix*frustum;
-  end;
  begin
+  if mode=shadowMainPass then begin
+   UseShadowMap(shadowMap,capturedLightViewProjection,depthBias);
+   exit;
+  end;
   EnsureThreadState;
-  Bits.Modify(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
+  Bits.Clear(curTexMode.lighting,LIGHT_SHADOWMAP);
   Bits.Modify(curTexMode.lighting,LIGHT_DEPTHPASS,mode=shadowDepthPass);
   case mode of
    shadowDisabled:self.shadowMap:=nil;
-   shadowDepthPass:Mem.Clear(viewProjMatrix,sizeof(viewProjMatrix)); // Invalidate viewProjMatrix
-   shadowMainPass:begin
-    CalcShadowMapMatrix;
-    self.shadowMap:=shadowMap;
-   end;
+   shadowDepthPass:Mem.Clear(capturedLightViewProjection,sizeof(capturedLightViewProjection));
   end;
+ end;
+
+procedure TGLShadersAPI.UseShadowMap(shadowMap:TTexture;const lightViewProjection:TMat4d;
+  depthBias:single);
+ var
+  clipToTexture:TMat4d;
+ begin
+  EnsureThreadState;
+  Bits.SetFlag(curTexMode.lighting,LIGHT_SHADOWMAP);
+  Bits.Clear(curTexMode.lighting,LIGHT_DEPTHPASS);
+  Mem.Clear(clipToTexture,sizeof(clipToTexture));
+  clipToTexture[0,0]:=0.5; clipToTexture[3,0]:=0.5;
+  clipToTexture[1,1]:=0.5; clipToTexture[3,1]:=0.5;
+  clipToTexture[2,2]:=0.5; clipToTexture[3,2]:=0.5-depthBias;
+  clipToTexture[3,3]:=1;
+  shadowMapMatrix.Init(lightViewProjection*clipToTexture);
+  self.shadowMap:=shadowMap;
+  inc(matrixRevision);
  end;
 
 procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
@@ -1257,8 +1266,8 @@ procedure TGLShadersAPI.ApplyShaderState(shaderChanged:boolean);
  begin
   // The first apply in a depth pass captures the light camera for both draw paths.
   if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) and
-    Mem.IsZero(viewProjMatrix,sizeof(viewProjMatrix)) then
-   viewProjMatrix.Init(transformationAPI.GetViewMatrix*transformationAPI.GetProjMatrix);
+    Mem.IsZero(capturedLightViewProjection,sizeof(capturedLightViewProjection)) then
+   capturedLightViewProjection:=transformationAPI.GetViewMatrix*transformationAPI.GetProjMatrix;
   if transformationAPI.Update then
    inc(matrixRevision);
   ASSERT(activeShader<>nil,'Apply called before any shader was activated');

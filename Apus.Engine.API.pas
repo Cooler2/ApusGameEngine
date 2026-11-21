@@ -526,8 +526,14 @@ type
   procedure NormalMapOff;
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
-  // Shadow mapping
+  // Shadow mapping. shadowMainPass uses the light camera captured in the last depth pass.
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
+  // Bind a pre-rendered depth texture for the main pass. Pass the light camera's
+  // ViewMatrix * ProjMatrix from the depth pass, which maps world to clip space.
+  // The engine maps clip space to texture space and subtracts depthBias from the
+  // comparison depth in that texture space. Shadow(shadowDisabled) ends the pass.
+  procedure UseShadowMap(shadowMap:TTexture;const lightViewProjection:TMat4d;
+    depthBias:single=0.002);
 
   // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
   procedure Apply(vertexLayout:TVertexLayout);
