@@ -72,6 +72,9 @@ type
   TNoFocusButton=class(TUIButton)
   end;
 
+  TTestColorEditor=class(TUIColorEditor)
+  end;
+
   // records what the Mouse queries give in Process
   TProbeScene=class(TGameScene)
     rect:TRect; // for InRect/WasInRect
@@ -1944,6 +1947,16 @@ begin
   picker.OpenPicker;
   sceneA.DispatchKey(TKey.Escape,0,0,true);
   Check(not picker.IsOpen and (FocusedElement=combo),'Escape closes picker and restores focus');
+  picker.editorClass:=TTestColorEditor;
+  picker.OpenPicker;
+  active:=TUIPopup.Current(wndA);
+  Check(active.children[0] is TTestColorEditor,'custom class supplies popup content');
+  Check(active.FindChildByName(active.name+'\Accept')<>nil,'popup supplies its accept button');
+  Check(active.FindChildByName(active.name+'\Cancel')<>nil,'popup supplies its cancel button');
+  editor:=TUIColorEditor(active.children[0]);
+  editor.ChooseColor(oldColor);
+  editor.Accept;
+  Check(not picker.IsOpen and (picker.color=oldColor),'custom editor can accept through its host');
   combo.Remove;
   menu.Remove;
   picker.Remove;

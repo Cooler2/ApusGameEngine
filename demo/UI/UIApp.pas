@@ -46,9 +46,7 @@ implementation
    procedure Refresh; override;
   private
    input:TUIEditBox;
-   recent:array[0..4] of TUIColorSwatch;
    procedure EditChanged;
-   procedure RecentClick;
   end;
 
  var
@@ -61,22 +59,11 @@ implementation
   colorCommits,colorSaves:integer;
 
 constructor THexColorEditor.Create(parent:TUIElement;const name:String8);
- var
-  i:integer;
-  btn:TUIButton;
  begin
   inherited;
   TUILabel.Create(240,22,self,name+'\Title').Setup('Application HEX editor');
   input:=TUIEditBox.Create(240,26,self,name+'\Hex'); input.SetPos(0,26);
   input.maxLength:=8; input.onChange:=EditChanged;
-  for i:=0 to 4 do begin
-   recent[i]:=TUIColorSwatch.Create(42,24,self,name+'\Recent'+Conv.ToStr(i+1));
-   recent[i].SetPos(i*49,62); recent[i].onClickMethod:=RecentClick;
-  end;
-  btn:=TUIButton.Create(72,26,self,name+'\Accept').Setup('OK');
-  btn.SetPos(84,104); btn.flags.canHaveFocus:=false; btn.onClickMethod:=Accept;
-  btn:=TUIButton.Create(72,26,self,name+'\Cancel').Setup('Cancel');
-  btn.SetPos(168,104); btn.flags.canHaveFocus:=false; btn.onClickMethod:=Cancel;
  end;
 
 procedure THexColorEditor.SetColor(value:cardinal);
@@ -95,7 +82,7 @@ function THexColorEditor.CanAccept:boolean;
   result:=(length(input.text)=digits) and TryStrToInt64('$'+string(input.text),n) and (n>=0) and (n<=High(cardinal));
  end;
 function THexColorEditor.PreferredSize:TVec2;
- begin result:=Vec2(240,130); end;
+ begin result:=Vec2(240,58); end;
 function THexColorEditor.InitialFocus:TUIElement;
  begin result:=input; end;
 procedure THexColorEditor.EditChanged;
@@ -103,23 +90,10 @@ procedure THexColorEditor.EditChanged;
  begin
   if CanAccept and TryStrToInt64('$'+string(input.text),n) then ChooseColor(cardinal(n));
  end;
-procedure THexColorEditor.RecentClick;
- begin ChooseColor(TUIColorSwatch(TUIButton.Sender).color); end;
 procedure THexColorEditor.Refresh;
- var
-  colors:TUIColorValues;
-  i:integer;
  begin
   if alphaEnabled then input.maxLength:=8 else input.maxLength:=6;
-  if history<>nil then colors:=history.GetColors else colors:=nil;
-  for i:=0 to 4 do begin
-   recent[i].flags.visible:=i<length(colors);
-   if i<length(colors) then recent[i].color:=colors[i];
-  end;
  end;
-
-function CreateHexColorEditor(parent:TUIElement;const name:String8):TUIColorEditor;
- begin result:=THexColorEditor.Create(parent,name); end;
 
 procedure TMainScene.ColorPreview(sender:TUIColorButton;oldColor,newColor:cardinal);
  begin colorResult.caption:='Preview ARGB $'+Conv.ToHex(newColor,8); end;
@@ -255,7 +229,7 @@ procedure TestColors;
   colorB.alphaEnabled:=false;
   colorB.onPreview:=sceneMain.ColorPreview; colorB.onChange:=sceneMain.ColorChanged; colorB.onCancel:=sceneMain.ColorCancelled;
   custom:=TUIColorButton.Create(100,36,root,'Colors\Custom');
-  custom.SetPos(260,64); custom.color:=$FF406040; custom.editorFactory:=@CreateHexColorEditor;
+  custom.SetPos(260,64); custom.color:=$FF406040; custom.editorClass:=THexColorEditor;
   custom.onPreview:=sceneMain.ColorPreview; custom.onChange:=sceneMain.ColorChanged; custom.onCancel:=sceneMain.ColorCancelled;
   TUILabel.Create(240,22,root,'Colors\CustomLabel').Setup('Custom ARGB HEX editor').SetPos(260,104);
   TUICheckBox.Create(230,24,root,'Colors\AlphaEnabled').Setup('Alpha for first picker',true).SetPos(20,112);
