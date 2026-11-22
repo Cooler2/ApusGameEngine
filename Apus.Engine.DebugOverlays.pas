@@ -327,9 +327,9 @@ var
 
  procedure ListRenderStats;
   const
-   labels:array[0..4] of String8=('Draw calls','Shader changes','Tex changes','Clip changes','Vertices drawn');
+   labels:array[0..5] of String8=('Draw calls','Shader changes','Tex changes','Clip changes','Vertices drawn','Triangles drawn');
   var
-   values:array[0..4] of integer;
+   values:array[0..5] of int64;
    k,ly:integer;
   begin
    values[0]:=window.stats.drawCalls;
@@ -337,6 +337,7 @@ var
    values[2]:=window.stats.texChanges;
    values[3]:=window.stats.clipChanges;
    values[4]:=window.stats.verticesDrawn;
+   values[5]:=window.stats.trianglesDrawn;
    draw.FillRect(0,0,SRound(220*game.screenScale),SRound((length(labels)+0.4)*18*game.screenScale),$80000000);
    txt.BeginBlock(toDontTranslate);
    ly:=0;

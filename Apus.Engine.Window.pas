@@ -79,6 +79,7 @@ type
   texChanges:integer;
   clipChanges:integer;
   verticesDrawn:integer;
+  trianglesDrawn:int64; // submitted triangles, including instancing and offscreen passes
   procedure Reset;
  end;
 
@@ -1329,6 +1330,7 @@ begin
  texChanges:=0;
  clipChanges:=0;
  verticesDrawn:=0;
+ trianglesDrawn:=0;
 end;
 
 procedure TFrameCapture.Reset;

@@ -991,6 +991,8 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
   if window<>nil then begin
    inc(window.stats.drawCalls);
    inc(window.stats.verticesDrawn,vertexCount);
+   if primType in [TRG_LIST,TRG_FAN,TRG_STRIP] then
+    inc(window.stats.trianglesDrawn,primCount);
   end;
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -1033,6 +1035,8 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
   if window<>nil then begin
    inc(window.stats.drawCalls);
    inc(window.stats.verticesDrawn,indexCount);
+   if primType in [TRG_LIST,TRG_FAN,TRG_STRIP] then
+    inc(window.stats.trianglesDrawn,primCount);
   end;
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
@@ -1076,6 +1080,8 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
   if window<>nil then begin
    inc(window.stats.drawCalls);
    inc(window.stats.verticesDrawn,vrtCount);
+   if primType in [TRG_LIST,TRG_FAN,TRG_STRIP] then
+    inc(window.stats.trianglesDrawn,primCount);
   end;
   case primtype of
    LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
@@ -1101,6 +1107,8 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
   if window<>nil then begin
    inc(window.stats.drawCalls);
    inc(window.stats.verticesDrawn,indexCount*instances);
+   if primType in [TRG_LIST,TRG_FAN,TRG_STRIP] then
+    inc(window.stats.trianglesDrawn,int64(primCount)*instances);
   end;
   case primtype of
    LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
@@ -1134,6 +1142,8 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
   if window<>nil then begin
    inc(window.stats.drawCalls);
    inc(window.stats.verticesDrawn,vertexCount*instances);
+   if primType in [TRG_LIST,TRG_FAN,TRG_STRIP] then
+    inc(window.stats.trianglesDrawn,int64(primCount)*instances);
   end;
   case primtype of
    LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);
@@ -1327,6 +1337,7 @@ procedure TRenderDevice.DrawMesh(layout:TGpuLayout;first,count,indexBytes:intege
   if window<>nil then begin
    inc(window.stats.drawCalls);
    inc(window.stats.verticesDrawn,count);
+   inc(window.stats.trianglesDrawn,count div 3);
   end;
   if indexBytes=0 then
    glDrawArrays(GL_TRIANGLES,first,count)
