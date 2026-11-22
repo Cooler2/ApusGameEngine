@@ -151,7 +151,7 @@ interface
  function DefaultColorHistory:IUIColorHistory;
 
 implementation
- uses SysUtils, Math, Apus.Colors, Apus.EventMan, Apus.Geom2D, Apus.Engine.API,
+ uses SysUtils, Apus.Colors, Apus.EventMan, Apus.Geom2D, Apus.Engine.API,
   Apus.Engine.Keys, Apus.Engine.Window, Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.DefaultStyle;
 
  type
@@ -253,6 +253,7 @@ implementation
    box,bg:TStyleBox;
    r:TRect;
    inset:integer;
+   edge:single;
   begin
    ResolveStyleBox(element,box);
    DrawStyleBox(box,[TStyleBoxLayer.Shadow]);
@@ -260,7 +261,9 @@ implementation
     bg:=box; bg.fill.Init(TFill.Solid($FFD0D0D0)); bg.shade.Init(TFill.None);
     DrawStyleBox(bg,[TStyleBoxLayer.Background]);
     // Leave the rounded edge on the base fill: the checker never escapes its corners.
-    r:=box.rect; inset:=Ceil(Max(box.radii.MaxRadius,box.borderWidth));
+    r:=box.rect; edge:=Max(box.radii.MaxRadius,box.borderWidth);
+    inset:=trunc(edge); // ceil without Math: its Max/Min make the Apus.Core ones ambiguous in Delphi
+    if inset<edge then inc(inset);
     inc(r.left,inset); inc(r.top,inset); dec(r.right,inset); dec(r.bottom,inset);
     DrawCheckerboard(r,round(6*element.globalScale));
    end;

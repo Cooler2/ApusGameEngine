@@ -30,7 +30,6 @@ implementation
 uses
   SysUtils,
   Types,
-  Math,
   Apus.Core,
   Apus.Images,
   Apus.Colors,
@@ -365,7 +364,7 @@ begin
   currentScreen:=0;
   for i:=1 to ParamCount do // -screen=N opens screen N (1-based) at start
     if SameText(copy(ParamStr(i),1,8),'-screen=') then
-      currentScreen:=EnsureRange(StrToIntDef(copy(ParamStr(i),9,3),1)-1,0,SCREEN_COUNT-1);
+      currentScreen:=Clamp(StrToIntDef(copy(ParamStr(i),9,3),1)-1,0,SCREEN_COUNT-1);
   animTime:=0;
   animTimeFrame:=-1;
   blockClipActive:=false;
@@ -440,7 +439,7 @@ begin
   if LMBClicked and (window.mousePos.x>=0) and (window.mousePos.x<menuWidth) and
      (window.mousePos.y>=menuTop) then begin
     item:=(window.mousePos.y-menuTop) div menuItemHeight;
-    if InRange(item,0,SCREEN_COUNT-1) then
+    if (item>=0) and (item<SCREEN_COUNT) then
       currentScreen:=item;
   end;
 end;
