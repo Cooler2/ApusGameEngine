@@ -90,6 +90,7 @@ run_test tests/TestFill.dpr
 run_test tests/TestTextMetrics.dpr
 run_test tests/TestStyle.dpr
 run_test tests/TestUIHint.dpr
+run_test tests/TestUIResize.dpr
 run_test tests/TestUIScript.dpr
 run_test tests/TestUIInspector.dpr
 run_test tests/TestWindowLock.dpr

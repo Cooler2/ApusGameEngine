@@ -30,14 +30,16 @@ interface
   wcHeader      = 16; // area that can be used to drag and move the window
   wcClient      = 32; // client part of the window
 
- // TODO: size constraints (minWidth/maxWidth etc.) to be added to TUIElement directly
  type
   // Horizontal or vertical separator bar that spans the full parent width (CreateH)
   // or height (CreateV). The element has two visual zones:
   //   outer — transparent area defined by padding (marginH, marginV);
   //   inner — colored client area, color set via style key 'inner-fill'.
   // Pass color=0 to leave the inner area transparent (spacer mode).
-  // canResize: intended for drag-to-resize neighboring elements (not yet implemented).
+  // canResize: dragging the splitter resizes the neighbour before it (the nearest visible
+  // sibling in children order) within its minSize/maxSize; the parent's layouter places the
+  // rest (TRowLayout moves the next ones, TFlexboxLayout gives the difference to the weighted
+  // ones). Works under a layouter only.
   TUISplitter=class(TUIElement)
    canResize:boolean; // true - allow resizing neighbour elements
    // Horizontal bar: spans full parent width, height is the only meaningful dimension.
@@ -45,6 +47,14 @@ interface
    constructor CreateH(height:single;parent:TUIElement;color:cardinal=0;name:String8='');
    // Vertical bar: spans full parent height, width is the only meaningful dimension.
    constructor CreateV(width:single;parent:TUIElement;color:cardinal=0;name:String8='');
+   procedure onMouseMove; override;
+   procedure onMouseButtons(button:byte;state:boolean); override;
+  private
+   vertical:boolean;  // CreateV: neighbours to the left and right
+   dragStart:integer; // the mouse at the press, screen pixels
+   dragSize:single;   // the size of the neighbour at the press
+   function Neighbour:TUIElement; // the one to resize, nil - none
+   procedure Drag;
   end;
 
   // Static image or custom-rendered area. src defines what to draw:
@@ -494,8 +504,60 @@ implementation
  constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal;name:String8);
   begin
    inherited Create(width,FILL_PARENT,parent,name);
+   vertical:=true;
    if color<>0 then
     style.SetAttr('inner-fill','$'+IntToHex(color,8));
+  end;
+
+ function TUISplitter.Neighbour:TUIElement;
+  var
+   c:TUIElement;
+  begin
+   result:=nil;
+   if not canResize or (parent=nil) or (parent.layout=nil) then exit;
+   for c in parent.children do begin
+    if c=self then exit;
+    if c.flags.visible and not c.IsOutOfOrder then result:=c;
+   end;
+   result:=nil;
+  end;
+
+ procedure TUISplitter.Drag;
+  var
+   n:TUIElement;
+  begin
+   n:=Neighbour;
+   if n=nil then exit;
+   if vertical then n.Resize(Apus.Core.Max(dragSize+(curMouseX-dragStart)/n.globalScale,0.0),-1)
+    else n.Resize(-1,Apus.Core.Max(dragSize+(curMouseY-dragStart)/n.globalScale,0.0));
+   if n.name<>'' then Signal('UI\'+n.name+'\Resize');
+  end;
+
+ procedure TUISplitter.onMouseMove;
+  begin
+   inherited;
+   if Neighbour<>nil then
+    if vertical then cursor:=CursorID.ResizeW else cursor:=CursorID.ResizeH;
+   if hooked=self then Drag;
+  end;
+
+ procedure TUISplitter.onMouseButtons(button:byte;state:boolean);
+  var
+   n:TUIElement;
+  begin
+   inherited;
+   if button<>1 then exit;
+   if state then begin
+    n:=Neighbour;
+    if n=nil then exit;
+    if vertical then begin dragStart:=curMouseX; dragSize:=n.size.x; end
+     else begin dragStart:=curMouseY; dragSize:=n.size.y; end;
+    hooked:=self;
+   end else
+    if hooked=self then begin
+     Drag; // the mouse may have moved since the last frame
+     hooked:=nil;
+    end;
   end;
 
  { TUIimage }

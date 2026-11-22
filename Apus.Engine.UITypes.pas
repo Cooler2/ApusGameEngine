@@ -181,6 +181,7 @@ type
   // Layout
   layout:TLayouter; // child layout manager
   layoutData:single; // custom data for layouter (e.g. weight in flow layout)
+  minSize,maxSize:TVec2; // size limits in parent space, Resize keeps the size within; 0 - no limit
 
   // Cached state (may be outdated; use GetPosOnScreen for accurate position)
   globalRect:TRect;
@@ -260,6 +261,12 @@ type
   procedure ResizeClient(newClientWidth,newClientHeight:single); virtual;
   procedure ScrollTo(newX,newY:integer); virtual;
   procedure SetupScrollers; virtual;
+  // Let the user resize the element by dragging its edge with the mouse. zone - the grab width
+  // inside the element at the edge, in parent space units; 0 - off. The edge is a side that
+  // doesn't touch the parent: on each axis the one facing more room (under a layouter - only
+  // the right/bottom one). A child covering the edge keeps the mouse. The size stays within
+  // minSize/maxSize, the parent's layouter places the element. Signal 'UI\<name>\Resize'
+  function SetResizable(zone:single=6):TUIElement;
 
   // --- Focus ---
   procedure SetFocus; virtual;
@@ -1609,7 +1616,18 @@ function TUIElement.GetClientHeight:single;
    if newHeight>-1 then size.y:=newHeight;
    if newWidth=uiInherit then size.x:=parent.clientWidth;
    if newHeight=uiInherit then size.y:=parent.clientHeight;
+   if (maxSize.x>0) and (size.x>maxSize.x) then size.x:=maxSize.x;
+   if (maxSize.y>0) and (size.y>maxSize.y) then size.y:=maxSize.y;
+   if size.x<minSize.x then size.x:=minSize.x;
+   if size.y<minSize.y then size.y:=minSize.y;
    ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
+  end;
+
+ function TUIElement.SetResizable(zone:single):TUIElement;
+  begin
+   result:=self;
+   if zone>0 then attributes.Item['resizeZone']:=Conv.ToStr(zone)
+    else attributes.Item['resizeZone']:='';
   end;
 
  procedure TUIElement.ResizeClient(newClientWidth,newClientHeight:single);

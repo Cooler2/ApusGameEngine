@@ -67,6 +67,7 @@ interface
   // Size of the frame, column widths and sort order: the application may keep it between runs
   TFileDialogLayout=record
    width,height:single;    // the frame, UI units; 0 - the default size
+   navigation:single;      // width of the navigation column (drives, tree, places), 0 - the default
    columns:array of single; // widths of the file table columns, 0 - a flexible column takes the room
    sortColumn:integer;     // -1 - by name
    sortDescending:boolean;
@@ -120,6 +121,9 @@ interface
    procedure ShowError(const message:String8);
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure Resize(newWidth,newHeight:single); override;
+   // the gap between the navigation column and the table drags the column's right edge
+   procedure onMouseMove; override;
+   procedure onMouseButtons(button:byte;state:boolean); override;
   protected
    pathEdit,nameEdit:TUIEditBox;
    typeBar:TUIElement;
@@ -130,8 +134,16 @@ interface
    nameLabel,messageLabel:TUILabel;
    navigationPanel,driveBar:TUIElement;
    directoryOutline,locationsList:TUITable;
+   navWidth:single; // the preferred width of navigationPanel, 0 - the default; the layout trims it
+   navDrag:boolean;     // the gap is being dragged
+   navDragX:integer;    // the mouse at the press, screen pixels
+   navDragWidth:single; // the width of the column at the press, maybe trimmed by a narrow dialog
+   navDragPreferred:single; // navWidth at the press
    pinButton:TUIButton;
    procedure CreateControls; virtual;
+   function NavigationLimit:single; // the widest navigation column the client width allows
+   function InNavigationGap:boolean; // the mouse is over the gap after the navigation column
+   procedure DragNavigation; // the column's edge follows the mouse
    procedure LayoutControls; virtual;
   private
    fRequest:TFileDialogRequest;
@@ -279,6 +291,9 @@ implementation
 
  const
   DRIVE_MIN_WIDTH=32;
+  NAV_GAP=16;          // between the navigation column and the table: drags the column's edge
+  NAV_MIN_WIDTH=160;   // the navigation column can't be narrower (unless the dialog is)
+  MAIN_MIN_WIDTH=300;  // the table side keeps at least this when the column widens
   LOCATION_ACTION_WIDTH=26;
   LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
   TITLE_HEIGHT=27; // the window title: a bit taller than wcTitleHeight for the bold caption
@@ -1830,7 +1845,10 @@ implementation
  begin
   if table=nil then exit;
   w:=clientWidth; h:=clientHeight;
-  navW:=Math.Min(340.0,w*0.42);
+  if navWidth>0 then navW:=navWidth
+   else navW:=Math.Min(340.0,w*0.42);
+  // trimmed for this pass only: navWidth stays, a wider dialog gets it back
+  navW:=Math.Max(Math.Min(navW,NavigationLimit),Math.Min(NAV_MIN_WIDTH,w*0.42));
   navH:=Math.Max(0.0,h-16);
   Place(navigationPanel,8,8,navW,navH);
   driveBar.SetPos(0,0);
@@ -1838,7 +1856,7 @@ implementation
   locationsH:=Math.Min(160.0,navH*0.30);
   Place(directoryOutline,0,36,navW,navH-locationsH-44);
   Place(locationsList,0,navH-locationsH,navW,locationsH);
-  left:=navW+24; right:=w-8;
+  left:=navW+8+NAV_GAP; right:=w-8;
   previewPanel.flags.visible:=HasVisibleChild(previewPanel);
   optionsPanel.flags.visible:=HasVisibleChild(optionsPanel);
   footer:=104;
@@ -1889,6 +1907,66 @@ implementation
  begin
   inherited;
   LayoutControls;
+ end;
+
+ function TUIFileDialog.NavigationLimit:single;
+ begin
+  result:=clientWidth-NAV_GAP-16-MAIN_MIN_WIDTH; // 8 - the margin at each side of the dialog
+ end;
+
+ function TUIFileDialog.InNavigationGap:boolean;
+ var
+  p:TVec2;
+  r:TRect2;
+ begin
+  result:=false;
+  if (navigationPanel=nil) or not navigationPanel.flags.visible then exit;
+  p:=TransformFromScreen(Vec2(curMouseX,curMouseY));
+  r:=navigationPanel.GetRectInParentSpace;
+  result:=(p.x>=r.x2) and (p.x<r.x2+NAV_GAP) and (p.y>=r.y1) and (p.y<r.y2);
+ end;
+
+ procedure TUIFileDialog.DragNavigation;
+ begin
+  // what the user drags is what fits now; the layout keeps it as the preferred width.
+  // The mouse at the press keeps the preferred width: a click doesn't store a trimmed one
+  if curMouseX=navDragX then navWidth:=navDragPreferred
+  else begin
+   navWidth:=navDragWidth+(curMouseX-navDragX)/navigationPanel.globalScale;
+   navWidth:=Math.Max(Math.Min(navWidth,NavigationLimit),NAV_MIN_WIDTH);
+  end;
+  LayoutControls;
+ end;
+
+ procedure TUIFileDialog.onMouseMove;
+ begin
+  inherited;
+  if navDrag then
+   if hooked=self then DragNavigation
+    else navDrag:=false; // the capture is lost
+  if navDrag or (underMouse=self) and InNavigationGap then cursor:=CursorID.ResizeW
+   else cursor:=CursorID.Default;
+ end;
+
+ procedure TUIFileDialog.onMouseButtons(button:byte;state:boolean);
+ begin
+  inherited;
+  if button<>1 then exit;
+  if state then begin
+   if (hooked<>nil) or not InNavigationGap then exit;
+   navDrag:=true;
+   navDragX:=curMouseX;
+   navDragWidth:=navigationPanel.size.x;
+   navDragPreferred:=navWidth;
+   hooked:=self;
+  end else
+   if navDrag then begin
+    if hooked=self then begin
+     DragNavigation; // the mouse may have moved since the last frame
+     hooked:=nil;
+    end;
+    navDrag:=false;
+   end;
  end;
 
  procedure TUIFileDialog.Setup(const request:TFileDialogRequest);
@@ -2846,6 +2924,7 @@ implementation
   i:integer;
  begin
   result:=(round(a.width)=round(b.width)) and (round(a.height)=round(b.height)) and
+    (round(a.navigation)=round(b.navigation)) and
     (a.sortColumn=b.sortColumn) and (a.sortDescending=b.sortDescending) and
     (length(a.columns)=length(b.columns));
   if result then
@@ -2862,6 +2941,7 @@ implementation
   table:=dialog.table;
   result.width:=preferredW;
   result.height:=preferredH;
+  result.navigation:=dialog.navWidth;
   if IsActive then begin
    result.width:=frame.size.x;
    result.height:=frame.size.y;
@@ -2882,6 +2962,7 @@ implementation
   table:=dialog.table;
   if value.width>0 then preferredW:=Math.Max(value.width,frame.minW);
   if value.height>0 then preferredH:=Math.Max(value.height,frame.minH);
+  dialog.navWidth:=Math.Max(value.navigation,0.0);
   for i:=0 to Math.Min(high(value.columns),high(table.columns)) do
    if table.columns[i].flexible then table.SetColumnWidth(i,0)
     else if value.columns[i]>0 then table.SetColumnWidth(i,value.columns[i]);

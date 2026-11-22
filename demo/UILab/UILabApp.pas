@@ -23,8 +23,8 @@ interface
   application:TUILabApp;
 
 implementation
- uses SysUtils, Apus.Core, Apus.EventMan, Apus.Colors, Apus.Strings, Apus.Files,
-   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UITable, Apus.Engine.UIFileDialog, Apus.Engine.SceneEffects;
+ uses SysUtils, Apus.Core, Apus.Geom2D, Apus.EventMan, Apus.Colors, Apus.Strings, Apus.Files,
+   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.UITable, Apus.Engine.UIFileDialog, Apus.Engine.SceneEffects;
 
  type
   TUILabScene=class(TUIScene)
@@ -127,22 +127,38 @@ implementation
  procedure PageLayouts;
   var
    row,flex,grid:TUIElement;
+   tile:TUILabel;
+   splitter:TUISplitter;
    i:integer;
   begin
    AddTitle('Layouters react every frame — drag the window edges to see reflow.',8);
 
    // TRowLayout: simple horizontal arrangement, fixed-size children.
-   AddTitle('TRowLayout (horizontal):',36);
+   // The splitter after Item 1 resizes it (canResize), the layouter moves the rest.
+   AddTitle('TRowLayout (horizontal; drag the bar after Item 1):',36);
    row:=CreateHorizontalContainer(32,content,0,8,'');
    row.SetPos(16,56);
-   for i:=1 to 4 do
-    AddTile(row,90,30,'Item '+IntToStr(i));
+   for i:=1 to 4 do begin
+    tile:=AddTile(row,90,30,'Item '+IntToStr(i));
+    if i=1 then begin
+     tile.minSize:=Vec2(50,0);
+     tile.maxSize:=Vec2(240,0);
+     splitter:=TUISplitter.CreateV(6,row,$90D8E6F2);
+     splitter.SetPaddings(2,2,2,2);
+     splitter.canResize:=true;
+    end;
+   end;
 
    // TFlexboxLayout: middle child has weight=1, so it absorbs free space.
-   AddTitle('TFlexboxLayout (middle item has weight=1, grows with width):',100);
+   // The first tile has a resizable edge: the stretching one gives it the room.
+   AddTitle('TFlexboxLayout (middle item has weight=1; drag the right edge of the first one):',100);
    flex:=AddRow(120,32);
    flex.layout:=TFlexboxLayout.Create(8);
-   AddTile(flex,110,30,'Fixed');
+   tile:=AddTile(flex,110,32,'Resizable'); // the row's height: only the right edge is free
+   tile.shape:=shapeFull; // a label lets the mouse through: the edge needs the element itself
+   tile.minSize:=Vec2(60,0);
+   tile.maxSize:=Vec2(400,0);
+   tile.SetResizable;
    AddTile(flex,110,30,'Stretch').layoutData:=1;
    AddTile(flex,110,30,'Fixed');
 

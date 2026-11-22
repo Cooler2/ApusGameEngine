@@ -87,6 +87,9 @@ implementation
 const
  statuses:array[TSceneStatus] of string=('frozen','background','active');
 
+type
+ TResizeEdge=(reNone,reLeft,reTop,reRight,reBottom);
+
 var
  curCursor:integer;
  initialized:boolean=false;
@@ -96,6 +99,12 @@ threadvar
 
  designMode:boolean; // "design" mode in which elements can be dragged around the screen with the right mouse button
  hookedItem:TUIElement; // element to drag with mouse
+ // Mouse resize gesture (TUIElement.SetResizable): its target holds the mouse capture (hooked),
+ // so whatever drops the capture ends the gesture
+ resizeTarget:TUIElement; // nil - no gesture
+ resizeEdge:TResizeEdge;
+ resizeStartX,resizeStartY:integer; // the mouse at the press, screen pixels
+ resizeSize,resizeSide:single;      // the size on the axis and the side that stays, in parent space
 
 
 function UIScene(name:String8):TUIScene;
@@ -253,6 +262,84 @@ function UIScene(name:String8):TUIScene;
    // Root and children are already in screen coordinates.
   end;
 
+ // The edge of a resizable element (TUIElement.SetResizable) under the screen point: a side
+ // that doesn't touch the parent, on each axis the one facing more room; under a layouter
+ // only the right/bottom one, since the layouter places the element by its left/top side
+ function ResizeEdgeAt(c:TUIElement;x,y:integer):TResizeEdge;
+  const
+   TOUCH=0.5; // a side this close to the parent's client edge touches it
+  var
+   st:String8;
+   r:TRect;
+   p:TRect2;
+   z:integer;
+   gapLow,gapHigh:single;
+   horz,vert:TResizeEdge;
+  begin
+   result:=reNone;
+   if (c=nil) or (c.parent=nil) or (length(c.attributes.items)=0) then exit; // the common case
+   st:=c.attributes.Item['resizeZone'];
+   if st='' then exit;
+   r:=c.GetPosOnScreen;
+   if (x<r.Left) or (y<r.Top) or (x>=r.Right) or (y>=r.Bottom) then exit;
+   p:=c.GetRectInParentSpace;
+   horz:=reNone; vert:=reNone;
+   if c.parent.layout<>nil then gapLow:=0 else gapLow:=p.x1;
+   gapHigh:=c.parent.clientWidth-p.x2;
+   if (gapHigh>gapLow) and (gapHigh>TOUCH) then horz:=reRight
+    else if (gapLow>gapHigh) and (gapLow>TOUCH) then horz:=reLeft;
+   if c.parent.layout<>nil then gapLow:=0 else gapLow:=p.y1;
+   gapHigh:=c.parent.clientHeight-p.y2;
+   if (gapHigh>gapLow) and (gapHigh>TOUCH) then vert:=reBottom
+    else if (gapLow>gapHigh) and (gapLow>TOUCH) then vert:=reTop;
+   z:=Apus.Core.Max(1,round(Conv.ToFloat(st)*c.globalScale));
+   if (horz=reRight) and (x>=r.Right-z) or (horz=reLeft) and (x<r.Left+z) then result:=horz
+    else if (vert=reBottom) and (y>=r.Bottom-z) or (vert=reTop) and (y<r.Top+z) then result:=vert;
+  end;
+
+ // true while the target of the resize gesture keeps the mouse capture
+ function Resizing:boolean;
+  begin
+   if (resizeTarget<>nil) and (hooked<>resizeTarget) then resizeTarget:=nil;
+   result:=resizeTarget<>nil;
+  end;
+
+ procedure StartResize(t:TUIElement;edge:TResizeEdge);
+  begin
+   resizeTarget:=t;
+   resizeEdge:=edge;
+   resizeStartX:=curMouseX;
+   resizeStartY:=curMouseY;
+   case edge of
+    reRight:begin resizeSize:=t.size.x; resizeSide:=t.position.x-t.size.x*t.pivot.x; end;
+    reLeft:begin resizeSize:=t.size.x; resizeSide:=t.position.x+t.size.x*(1-t.pivot.x); end;
+    reBottom:begin resizeSize:=t.size.y; resizeSide:=t.position.y-t.size.y*t.pivot.y; end;
+    reTop:begin resizeSize:=t.size.y; resizeSide:=t.position.y+t.size.y*(1-t.pivot.y); end;
+   end;
+   hooked:=t;
+  end;
+
+ // the dragged edge follows the mouse, the opposite side stays
+ procedure UpdateResize;
+  var
+   t:TUIElement;
+   d:single;
+  begin
+   t:=resizeTarget;
+   if resizeEdge in [reLeft,reRight] then d:=curMouseX-resizeStartX
+    else d:=curMouseY-resizeStartY;
+   d:=d/t.globalScale;
+   if resizeEdge in [reLeft,reTop] then d:=-d;
+   d:=Apus.Core.Max(resizeSize+d,0.0);
+   case resizeEdge of
+    reRight:begin t.Resize(d,-1); t.position.x:=resizeSide+t.size.x*t.pivot.x; end;
+    reLeft:begin t.Resize(d,-1); t.position.x:=resizeSide-t.size.x*(1-t.pivot.x); end;
+    reBottom:begin t.Resize(-1,d); t.position.y:=resizeSide+t.size.y*t.pivot.y; end;
+    reTop:begin t.Resize(-1,d); t.position.y:=resizeSide-t.size.y*(1-t.pivot.y); end;
+   end;
+   if t.name<>'' then Signal('UI\'+t.name+'\Resize');
+  end;
+
  // Window-level UI button dispatch: run the global hit-test once, deliver the
  // button to the topmost UI element exactly once (so several active UIScene can't
  // each toggle the same element), then forward the raw event to gameplay scenes.
@@ -264,6 +351,7 @@ function UIScene(name:String8):TUIScene;
    bit:byte;
    st:String8;
    i:integer;
+   edge:TResizeEdge;
   begin
    wnd.LockState;
    try
@@ -281,6 +369,23 @@ function UIScene(name:String8):TUIScene;
     if hooked<>nil then begin
      c:=hooked;
      e:=true;
+    end;
+    // A resize gesture takes the buttons until the release of the left one ends it.
+    // Neither the elements nor the gameplay scenes see the buttons of the gesture.
+    if Resizing then begin
+     if (btn=1) and not pressed then begin
+      UpdateResize; // the mouse may have moved since the last frame
+      resizeTarget:=nil;
+      hooked:=nil;
+     end;
+     exit;
+    end;
+    if pressed and (btn=1) and (hooked=nil) and e then begin
+     edge:=ResizeEdgeAt(c,curMouseX,curMouseY);
+     if edge<>reNone then begin
+      StartResize(c,edge);
+      exit;
+     end;
     end;
     bit:=0;
     if btn in [1..5] then bit:=1 shl (btn-1);
@@ -359,6 +464,7 @@ function UIScene(name:String8):TUIScene;
    time:int64;
    st:String8;
    i:integer;
+   cur:NativeInt;
   begin
    deliver:=false;
    wnd.LockState;
@@ -382,6 +488,11 @@ function UIScene(name:String8):TUIScene;
     oldMouseX:=curMouseX; oldMouseY:=curMouseY;
     curMouseX:=x; curMouseY:=y;
     moved:=(curMouseX<>oldMouseX) or (curMouseY<>oldMouseY);
+    // a resize gesture takes the moves: the hover, the cursor and the world stay as they are
+    if Resizing then begin
+     if moved then UpdateResize;
+     exit;
+    end;
 
     // hide hint if mouse left hint rect
     {$IFNDEF IOS}
@@ -405,14 +516,22 @@ function UIScene(name:String8):TUIScene;
     end else
      if moved and (curUnder<>nil) then curUnder.onMouseMove; // move within the same one
 
-    // update cursor
-    if (curUnder<>nil) and (curUnder.cursor<>curCursor) then begin
+    // update cursor: a resizable edge under the mouse shows the resize cursor
+    cur:=CursorID.Default;
+    if curUnder<>nil then begin
+     cur:=curUnder.cursor;
+     case ResizeEdgeAt(curUnder,curMouseX,curMouseY) of
+      reLeft,reRight:cur:=CursorID.ResizeW;
+      reTop,reBottom:cur:=CursorID.ResizeH;
+     end;
+    end;
+    if (curUnder<>nil) and (cur<>curCursor) then begin
      if curCursor<>CursorID.Default then begin
-      game.ToggleCursor(curCursor,false);
+      if game<>nil then game.ToggleCursor(curCursor,false);
       Signal('UI\Cursor\OFF',curCursor);
      end;
-     curCursor:=curUnder.cursor;
-     game.ToggleCursor(curCursor,true);
+     curCursor:=cur;
+     if game<>nil then game.ToggleCursor(curCursor,true);
      Signal('UI\Cursor\ON',curCursor);
     end;
     if (curUnder=nil) and (curCursor<>CursorID.Default) then begin
