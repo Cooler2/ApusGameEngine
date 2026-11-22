@@ -38,6 +38,11 @@ type
     procedure onMouseButtons(button:byte;state:boolean); override;
   end;
 
+  // an absolute layouter of its own: every child at the right side
+  TPinRight=class(TLayouter)
+    procedure Layout(item:TUIElement); override;
+  end;
+
   // the navigation column of the file dialog is protected
   TTestDialog=class(TUIFileDialog)
     function NavRect:TRect2;
@@ -287,7 +292,7 @@ procedure TestRowLayout;
   row.layout.Layout(row);
   Check(Near(a.size.x,140) and Near(b.position.x,140) and Near(b.size.x,100),'B moved, same width');
   Down(242,50); // C touches the right side: a left edge would grow it to the right
-  Check((hooked=nil) and (TProbe(c).downs=1),'no left edge under a layouter');
+  Check((hooked=nil) and (TProbe(c).downs=1),'no left edge under TRowLayout');
   Up;
   row.layout.Free;
   FreeArea(area);
@@ -310,6 +315,49 @@ procedure TestFlexLayout;
   flex.layout.Layout(flex);
   Check(Near(a.size.x,150) and Near(b.position.x,150) and Near(b.size.x,250),'B took the rest');
   flex.layout.Free;
+  FreeArea(area);
+  EndTest;
+
+  StartTest('TFlexboxLayout: a fixed strip on the right');
+  area:=NewArea;
+  flex:=NewPanel(area,'Flex',0,0,400,100);
+  flex.layout:=TFlexboxLayout.Create;
+  a:=NewPanel(flex,'A',0,0,300,100);
+  a.layoutData:=1;
+  b:=NewPanel(flex,'B',300,0,100,100);
+  b.SetResizable;
+  Drag(302,50,252,50);
+  flex.layout.Layout(flex);
+  Check(Near(b.size.x,150) and Near(b.position.x,250) and Near(a.size.x,250),'the left edge: A gave the room');
+  flex.layout.Free;
+  FreeArea(area);
+  EndTest;
+ end;
+
+procedure TPinRight.Layout(item:TUIElement);
+ var
+  i:integer;
+  list:TUIElements;
+ begin
+  list:=GetItems(item);
+  for i:=0 to high(list) do
+   list[i].SetPos(item.clientWidth-list[i].size.x,list[i].position.y,pivotTopLeft);
+ end;
+
+procedure TestCustomLayout;
+ var
+  area,box,p:TUIElement;
+ begin
+  StartTest('A custom layouter pins a strip to the right');
+  area:=NewArea;
+  box:=NewPanel(area,'Box',0,0,800,600);
+  box.layout:=TPinRight.Create;
+  p:=NewPanel(box,'Strip',600,0,200,600);
+  p.SetResizable;
+  Drag(602,300,552,300);
+  box.layout.Layout(box);
+  Check(Near(p.size.x,250) and Near(p.position.x,550),'the left edge works');
+  box.layout.Free;
   FreeArea(area);
   EndTest;
  end;
@@ -438,6 +486,7 @@ begin
   TestCaptureLoss;
   TestRowLayout;
   TestFlexLayout;
+  TestCustomLayout;
   TestSplitter;
   TestFileDialog;
   writeln;

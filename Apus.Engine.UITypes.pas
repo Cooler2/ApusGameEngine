@@ -263,9 +263,9 @@ type
   procedure SetupScrollers; virtual;
   // Let the user resize the element by dragging its edge with the mouse. zone - the grab width
   // inside the element at the edge, in parent space units; 0 - off. The edge is a side that
-  // doesn't touch the parent: on each axis the one facing more room (under a layouter - only
-  // the right/bottom one). A child covering the edge keeps the mouse. The size stays within
-  // minSize/maxSize, the parent's layouter places the element.
+  // doesn't touch the parent: on each axis the one facing more room (under TRowLayout and
+  // TGridLayout - only the right/bottom one). A child covering the edge keeps the mouse. The size
+  // stays within minSize/maxSize, the parent's layouter places the element.
   // Signal 'UI\<name>\Resize': tag 0 - the size changed, 1 - the button is released
   function SetResizable(zone:single=6):TUIElement;
 

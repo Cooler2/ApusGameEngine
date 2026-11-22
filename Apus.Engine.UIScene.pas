@@ -275,6 +275,7 @@ function UIScene(name:String8):TUIScene;
    z:integer;
    gapLow,gapHigh:single;
    horz,vert:TResizeEdge;
+   flow:boolean;
   begin
    result:=reNone;
    if (c=nil) or (c.parent=nil) or (length(c.attributes.items)=0) then exit; // the common case
@@ -284,11 +285,13 @@ function UIScene(name:String8):TUIScene;
    if (x<r.Left) or (y<r.Top) or (x>=r.Right) or (y>=r.Bottom) then exit;
    p:=c.GetRectInParentSpace;
    horz:=reNone; vert:=reNone;
-   if c.parent.layout<>nil then gapLow:=0 else gapLow:=p.x1;
+   // Row and Grid put the element by its left/top side: a moved left/top side would come back
+   flow:=(c.parent.layout is TRowLayout) or (c.parent.layout is TGridLayout);
+   if flow then gapLow:=0 else gapLow:=p.x1;
    gapHigh:=c.parent.clientWidth-p.x2;
    if (gapHigh>gapLow) and (gapHigh>TOUCH) then horz:=reRight
     else if (gapLow>gapHigh) and (gapLow>TOUCH) then horz:=reLeft;
-   if c.parent.layout<>nil then gapLow:=0 else gapLow:=p.y1;
+   if flow then gapLow:=0 else gapLow:=p.y1;
    gapHigh:=c.parent.clientHeight-p.y2;
    if (gapHigh>gapLow) and (gapHigh>TOUCH) then vert:=reBottom
     else if (gapLow>gapHigh) and (gapLow>TOUCH) then vert:=reTop;
