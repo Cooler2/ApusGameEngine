@@ -67,7 +67,7 @@ type
  function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
 
 implementation
- uses Math, Apus.Core;
+ uses Apus.Core;
  {$R-,Q-}
  {$EXCESSPRECISION OFF}
  {$IF DEFINED(FPC) AND (DEFINED(CPUX86) OR DEFINED(CPUX86_64))}
@@ -369,9 +369,11 @@ implementation
    i:integer;
    f,p,q,t,r,g,b:single;
   begin
-   h:=h-Math.Floor(h);
+   i:=trunc(h); // floor without Math: its Max/Min make the Apus.Core ones ambiguous in Delphi
+   if h<i then dec(i);
+   h:=h-i;
    h:=h*6;
-   i:=Math.Floor(h);
+   i:=trunc(h); // h is in [0,6)
    f:=h-i;
    p:=v*(1-s); q:=v*(1-s*f); t:=v*(1-s*(1-f));
    case i of
