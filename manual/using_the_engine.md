@@ -37,6 +37,7 @@ written anywhere, that is a defect of the engine: report it, do not just work ar
 | Global drawing objects | `Apus.Engine.API`: `game`, `gfx`, `draw`, `txt`, `shader`, `transform` | ch18 |
 | UI elements and widgets | `Apus.Engine.UITypes` (`TUIElement`), `Apus.Engine.UIWidgets` (button, combo, scrollbar, edit box...), `Apus.Engine.UILayout` | `demo/UILab`, `demo/UIScaleDPI`, `demo/StyleDemo` |
 | A custom-drawn UI element in the stock look | `Apus.Engine.DefaultStyle`: `DrawElementBox`, `ResolveUITextStyle`, `WriteUIText`; text alignment `TTextAlignment` is in `Apus.Engine.Types` | `text_and_dpi.md` (custom drawers) |
+| Commands shared by menus, toolbar buttons and shortcuts (Undo, Save...) | `Apus.Engine.Actions` (`TUIAction`), `TGameScene.AddAction`/`UpdateActions`, `TUIPopupMenu.Add(action)`, `TUIButton.action` | `manual/ui_actions.md`, `demo/UI` (Menu bar) |
 | Messages to the user (result, refusal, error) | `Apus.Engine.Notifications`: `ShowToast(text, kind)` | |
 | Text and fonts | `Apus.Engine.TextDraw` (`txt`) | `demo/TextDemo`, `text_and_dpi.md` |
 | 2D primitives, gradients | `Apus.Engine.Draw` (`draw`) | `demo/Draw2D`, `gradient_fills.md` |

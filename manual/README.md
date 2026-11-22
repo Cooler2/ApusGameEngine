@@ -18,6 +18,8 @@ The engine5 manual is being written; only these chapters are published so far:
   and the limitations.
 - [Optional TextFX captions](ui_textfx_style.md) - button wrappers, caption children,
   shared content displacement and effect caching.
+- [UI actions](ui_actions.md) - first implementation for API review: scene commands
+  shared by menu lines, buttons and shortcuts, one `UpdateActions` hook for their state.
 - [Color Picker](ui_color_picker.md) - first implementation for API review: color
   buttons, replaceable editors, preview/commit/cancel and shared recent colors.
 - [Clear daylight sky](Sky.md) - first implementation for API review: gradient,
