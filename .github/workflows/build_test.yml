@@ -34,6 +34,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # CI has no Delphi: catch the Math vs Apus.Core Min/Max ambiguity that only Delphi reports
+      - name: Check Min/Max with Math (Delphi compatibility)
+        if: runner.os == 'Linux'
+        run: bash tools/check_minmax.sh
+
       - name: Install FPC (Linux)
         if: runner.os == 'Linux'
         run: |

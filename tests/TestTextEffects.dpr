@@ -167,7 +167,7 @@ begin
       for j:=-r to r do
         for i:=-r to r do begin
           wt:=EnsureRange(l.spread+0.5-Sqrt(i*i+j*j),0,1);
-          if wt>0 then s:=Max(s,wt*Sample(shifted,x+i,y+j));
+          if wt>0 then s:=Apus.Core.Max(s,wt*Sample(shifted,x+i,y+j));
         end;
       grown[x+y*W]:=s;
     end;

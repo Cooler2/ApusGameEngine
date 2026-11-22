@@ -102,7 +102,7 @@ begin
   end;
   qx:=abs(lx)-hw+rr;
   qy:=abs(ly)-hh+rr;
-  result:=sqrt(sqr(Max(qx,0))+sqr(Max(qy,0)))+Min(Max(qx,qy),0)-rr;
+  result:=sqrt(sqr(Apus.Core.Max(qx,0))+sqr(Apus.Core.Max(qy,0)))+Apus.Core.Min(Apus.Core.Max(qx,qy),0)-rr;
 end;
 
 function SpreadT(const f:TFill;t:single):single;

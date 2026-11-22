@@ -44,7 +44,7 @@ type
   function LoadStaticAEM(const fileName:String8):TAemStaticData;
 
 implementation
-uses SysUtils, Math, Apus.Types, Apus.Files, Apus.Strings, Apus.Geom2D;
+uses SysUtils, Apus.Types, Apus.Files, Apus.Strings, Apus.Geom2D;
 
 const
   HEADER_SIZE=20;
@@ -58,6 +58,7 @@ const
   HAS_LOD=$0008;
   REQUIRED_CHUNK=$00000001;
   MAX_POSITION:single=1e30; // TBox3 uses this magnitude for empty bounds
+  MAX_SINGLE=3.4028234663852886e38; // largest finite single (Math.MaxSingle)
 
 type
   TChunk=record
@@ -316,7 +317,7 @@ begin
       if parent>=0 then m:=m*model.nodes[parent].meshToAsset;
       for j:=0 to 3 do
         for k:=0 to 2 do
-          if not (abs(m.v[j,k])<=MaxSingle) then r.Invalid('invalid composed node transform');
+          if not (abs(m.v[j,k])<=MAX_SINGLE) then r.Invalid('invalid composed node transform');
       det:=m.ToMat3.Determinant;
       if not (det>0) then r.Invalid('invalid composed node orientation or scale');
       meshToAsset:=m;
