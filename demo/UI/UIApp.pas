@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.EventMan, Apus.Colors,
-   SysUtils, Apus.Core, Apus.Conv, Apus.Geom2D, Apus.Engine.UI, Apus.Engine.UIMenu,
+   SysUtils, Apus.Core, Apus.Conv, Apus.Geom2D, Apus.Engine.UI, Apus.Engine.UIMenu, Apus.Engine.Actions,
    Apus.Engine.UIColorPicker, Apus.Engine.TextFXStyle, Apus.Engine.DefaultStyle;
 
  type
@@ -33,6 +33,13 @@ implementation
    procedure ColorCancelled(sender:TUIColorButton;oldColor,newColor:cardinal);
    procedure SaveColors;
    procedure ToggleColorAlpha;
+   // the actions of the menu bar page (see TestMenuBar)
+   procedure CreateActions;
+   procedure UpdateActions; override;
+   procedure BarCommand;
+   procedure BarUndo;
+   procedure TogglePanel;
+   procedure SelectSize;
   end;
 
   // An application-owned editor, supplied through the color button's factory.
@@ -305,45 +312,152 @@ procedure CreateDemoMenu;
 var
   barResult:TUILabel;
 
-procedure CmdBar;
+// The commands of the page are actions of the scene (CreateActions): the menu lines, the
+// toolbar below and the shortcuts share them. Undo is enabled after a command; Panels are
+// check lines, Size - radio lines; the toolbar shows the same state.
+var
+  acts:record
+   new,open,save,recent1,recent2,undo,cut,copy,paste,layers,colors,small,medium,large,
+   zoomIn,zoomOut,about:TUIAction;
+  end;
+  barActions:array of TUIAction; // enabled while the page is shown
+  barCommands:integer;           // commands to undo
+  showLayers,showColors:boolean;
+  iconSize:integer;
+
+procedure TMainScene.CreateActions;
+ function Act(const id,caption:String8;handler:TObjProcedure;const shortcuts:String8=''):TUIAction;
+  begin
+   result:=AddAction(id,caption,handler,shortcuts);
+   barActions:=barActions+[result];
+  end;
  begin
-  barResult.caption:='Menu bar: '+MenuCaptionText(TUIButton.Sender.caption);
+  acts.new:=Act('file.new','&New',BarCommand,'Ctrl+N');
+  acts.open:=Act('file.open','&Open...',BarCommand,'Ctrl+O');
+  acts.recent1:=Act('file.recent1','&notes.txt',BarCommand);
+  acts.recent2:=Act('file.recent2','&picture.png',BarCommand);
+  acts.save:=Act('file.save','&Save',BarCommand,'Ctrl+S');
+  acts.undo:=Act('edit.undo','&Undo',BarUndo,'Ctrl+Z');
+  acts.cut:=Act('edit.cut','Cu&t',BarCommand,'Ctrl+X');
+  acts.copy:=Act('edit.copy','&Copy',BarCommand,'Ctrl+C');
+  acts.paste:=Act('edit.paste','&Paste',BarCommand,'Ctrl+V');
+  acts.layers:=Act('view.layers','&Layers',TogglePanel,'F7');
+  acts.layers.mark:=TActionMark.Check;
+  acts.colors:=Act('view.colors','&Colors',TogglePanel,'F8');
+  acts.colors.mark:=TActionMark.Check;
+  acts.small:=Act('view.small','&Small',SelectSize);
+  acts.medium:=Act('view.medium','&Medium',SelectSize);
+  acts.large:=Act('view.large','&Large',SelectSize);
+  acts.small.tag:=1; acts.medium.tag:=2; acts.large.tag:=3;
+  acts.small.mark:=TActionMark.Radio;
+  acts.medium.mark:=TActionMark.Radio;
+  acts.large.mark:=TActionMark.Radio;
+  iconSize:=2;
+  acts.zoomIn:=Act('view.zoomIn','Zoom &in',BarCommand,'Ctrl+=, Ctrl+NumAdd');
+  acts.zoomOut:=Act('view.zoomOut','Zoom &out',BarCommand,'Ctrl+-, Ctrl+NumSub');
+  acts.about:=Act('help.about','&About',BarCommand);
+  acts.undo.hint:='Undo the last command';
+ end;
+
+// One place for the state of all the actions: the engine calls it each frame
+procedure TMainScene.UpdateActions;
+ var
+  a:TUIAction;
+  onPage:boolean;
+ begin
+  onPage:=FindElement('MenuBarResult',false)<>nil;
+  for a in barActions do a.enabled:=onPage;
+  acts.undo.enabled:=onPage and (barCommands>0);
+  acts.layers.checked:=showLayers;
+  acts.colors.checked:=showColors;
+  acts.small.checked:=iconSize=1;
+  acts.medium.checked:=iconSize=2;
+  acts.large.checked:=iconSize=3;
+ end;
+
+procedure ShowBarResult(const text:String8);
+ var
+  e:TUIElement;
+ begin
+  e:=FindElement('MenuBarResult',false);
+  if e is TUILabel then TUILabel(e).caption:='Menu bar: '+text;
+ end;
+
+// A handler of several actions: TUIAction.executing tells which one runs
+procedure TMainScene.BarCommand;
+ begin
+  inc(barCommands);
+  ShowBarResult(MenuCaptionText(TUIAction.executing.caption));
+ end;
+
+procedure TMainScene.BarUndo;
+ begin
+  dec(barCommands);
+  ShowBarResult('Undo ('+Conv.ToStr(barCommands)+' left)');
+ end;
+
+procedure TMainScene.TogglePanel;
+ begin
+  if TUIAction.executing=acts.layers then showLayers:=not showLayers
+   else showColors:=not showColors;
+  ShowBarResult(MenuCaptionText(TUIAction.executing.caption));
+ end;
+
+procedure TMainScene.SelectSize;
+ begin
+  iconSize:=TUIAction.executing.tag;
+  ShowBarResult('Size '+MenuCaptionText(TUIAction.executing.caption));
  end;
 
 procedure TestMenuBar;
  var
   bar:TUIMenuBar;
   m,s:TUIPopupMenu;
+  tools:TUIElement;
  begin
   InitTestLayer;
   bar:=TUIMenuBar.Create(root,'MenuBar');
   bar.SetPos(0,0).SetAnchors(0,0,1,0);
   m:=bar.AddSubmenu('&File');
-  m.Add('&New','Ctrl+N').onClick:=@CmdBar;
-  m.Add('&Open...','Ctrl+O').onClick:=@CmdBar;
+  m.Add(acts.new);
+  m.Add(acts.open);
   s:=m.AddSubmenu('&Recent files');
-  s.Add('&notes.txt').onClick:=@CmdBar;
-  s.Add('&picture.png').onClick:=@CmdBar;
-  m.Add('&Save','Ctrl+S').onClick:=@CmdBar;
+  s.Add(acts.recent1);
+  s.Add(acts.recent2);
+  m.Add(acts.save);
   m.AddSeparator;
   m.Add('&Close page').onClickAsync:=@RootCloseClick;
   m:=bar.AddSubmenu('&Edit');
-  m.Add('&Undo','Ctrl+Z').Disable;
-  m.Add('Cu&t','Ctrl+X').onClick:=@CmdBar;
-  m.Add('&Copy','Ctrl+C').onClick:=@CmdBar;
-  m.Add('&Paste','Ctrl+V').onClick:=@CmdBar;
+  m.Add(acts.undo);
+  m.AddSeparator;
+  m.Add(acts.cut);
+  m.Add(acts.copy);
+  m.Add(acts.paste);
   m:=bar.AddSubmenu('&View');
   s:=m.AddSubmenu('&Panels');
-  s.Add('&Layers').onClick:=@CmdBar;
-  s.Add('&Colors').onClick:=@CmdBar;
-  m.Add('Zoom &in','Ctrl++').onClick:=@CmdBar;
-  m.Add('Zoom &out','Ctrl+-').onClick:=@CmdBar;
+  s.Add(acts.layers);
+  s.Add(acts.colors);
+  s:=m.AddSubmenu('&Size');
+  s.Add(acts.small);
+  s.Add(acts.medium);
+  s.Add(acts.large);
+  m.AddSeparator;
+  m.Add(acts.zoomIn);
+  m.Add(acts.zoomOut);
   bar.AddSubmenu('&Tools').ownerItem.Disable; // a disabled heading is skipped
-  bar.AddSubmenu('&Help').Add('&About').onClick:=@CmdBar;
+  bar.AddSubmenu('&Help').Add(acts.about);
   TUIEditBox.Create(200,24,root,'MenuBarEdit').SetPos(20,60);
   barResult:=TUILabel.Create(300,22,root,'MenuBarResult');
   barResult.SetPos(20,100);
   barResult.caption:='Menu bar: -';
+  // the toolbar: the same actions, the hints show their shortcuts
+  tools:=TUIElement.Create(400,30,root,'MenuBarTools');
+  tools.SetPos(20,140);
+  tools.layout:=TRowLayout.CreateHorizontal(6);
+  TUIToolButton.Create(70,28,tools,'MenuBarTools\Undo').Setup('Undo').action:=acts.undo;
+  TUIToolButton.Create(70,28,tools,'MenuBarTools\Save').Setup('Save').action:=acts.save;
+  TUIToggleButton.Create(70,28,tools,'MenuBarTools\Layers').Setup('Layers').action:=acts.layers;
+  TUIToggleButton.Create(70,28,tools,'MenuBarTools\Colors').Setup('Colors').action:=acts.colors;
  end;
 
 procedure TestWidgets;
@@ -517,6 +631,7 @@ procedure TMainScene.InitGfx;
   root.styleInfo:='fill:FFB0C0C4; border-color:80000000';
   root.shape:=TUIShape.shapeFull;
   root.Hide;
+  CreateActions;
  end;
 
 procedure TMainScene.Render;
