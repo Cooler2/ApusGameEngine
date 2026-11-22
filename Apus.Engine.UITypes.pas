@@ -181,7 +181,7 @@ type
   // Layout
   layout:TLayouter; // child layout manager
   layoutData:single; // custom data for layouter (e.g. weight in flow layout)
-  minSize,maxSize:TVec2; // size limits in parent space, Resize keeps the size within; 0 - no limit
+  minSize,maxSize:TVec2; // limits of a mouse resize (SetResizable, TUISplitter), parent space; 0 - no limit
 
   // Cached state (may be outdated; use GetPosOnScreen for accurate position)
   globalRect:TRect;
@@ -265,7 +265,8 @@ type
   // inside the element at the edge, in parent space units; 0 - off. The edge is a side that
   // doesn't touch the parent: on each axis the one facing more room (under a layouter - only
   // the right/bottom one). A child covering the edge keeps the mouse. The size stays within
-  // minSize/maxSize, the parent's layouter places the element. Signal 'UI\<name>\Resize'
+  // minSize/maxSize, the parent's layouter places the element.
+  // Signal 'UI\<name>\Resize': tag 0 - the size changed, 1 - the button is released
   function SetResizable(zone:single=6):TUIElement;
 
   // --- Focus ---
@@ -1616,10 +1617,6 @@ function TUIElement.GetClientHeight:single;
    if newHeight>-1 then size.y:=newHeight;
    if newWidth=uiInherit then size.x:=parent.clientWidth;
    if newHeight=uiInherit then size.y:=parent.clientHeight;
-   if (maxSize.x>0) and (size.x>maxSize.x) then size.x:=maxSize.x;
-   if (maxSize.y>0) and (size.y>maxSize.y) then size.y:=maxSize.y;
-   if size.x<minSize.x then size.x:=minSize.x;
-   if size.y<minSize.y then size.y:=minSize.y;
    ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
   end;
 

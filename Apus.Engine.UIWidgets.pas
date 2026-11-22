@@ -54,7 +54,7 @@ interface
    dragStart:integer; // the mouse at the press, screen pixels
    dragSize:single;   // the size of the neighbour at the press
    function Neighbour:TUIElement; // the one to resize, nil - none
-   procedure Drag;
+   procedure Drag(final:boolean); // final - the button is released
   end;
 
   // Static image or custom-rendered area. src defines what to draw:
@@ -522,15 +522,23 @@ implementation
    result:=nil;
   end;
 
- procedure TUISplitter.Drag;
+ procedure TUISplitter.Drag(final:boolean);
   var
    n:TUIElement;
+   v,lo,hi:single;
   begin
    n:=Neighbour;
    if n=nil then exit;
-   if vertical then n.Resize(Apus.Core.Max(dragSize+(curMouseX-dragStart)/n.globalScale,0.0),-1)
-    else n.Resize(-1,Apus.Core.Max(dragSize+(curMouseY-dragStart)/n.globalScale,0.0));
-   if n.name<>'' then Signal('UI\'+n.name+'\Resize');
+   if vertical then begin
+    v:=curMouseX-dragStart; lo:=n.minSize.x; hi:=n.maxSize.x;
+   end else begin
+    v:=curMouseY-dragStart; lo:=n.minSize.y; hi:=n.maxSize.y;
+   end;
+   v:=dragSize+v/n.globalScale;
+   if (hi>0) and (v>hi) then v:=hi;
+   v:=Apus.Core.Max(v,Apus.Core.Max(lo,0.0));
+   if vertical then n.Resize(v,-1) else n.Resize(-1,v);
+   if n.name<>'' then Signal('UI\'+n.name+'\Resize',ord(final));
   end;
 
  procedure TUISplitter.onMouseMove;
@@ -538,7 +546,7 @@ implementation
    inherited;
    if Neighbour<>nil then
     if vertical then cursor:=CursorID.ResizeW else cursor:=CursorID.ResizeH;
-   if hooked=self then Drag;
+   if hooked=self then Drag(false);
   end;
 
  procedure TUISplitter.onMouseButtons(button:byte;state:boolean);
@@ -555,7 +563,7 @@ implementation
     hooked:=self;
    end else
     if hooked=self then begin
-     Drag; // the mouse may have moved since the last frame
+     Drag(true); // the mouse may have moved since the last frame
      hooked:=nil;
     end;
   end;

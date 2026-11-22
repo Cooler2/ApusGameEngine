@@ -319,25 +319,31 @@ function UIScene(name:String8):TUIScene;
    hooked:=t;
   end;
 
- // the dragged edge follows the mouse, the opposite side stays
- procedure UpdateResize;
+ // The dragged edge follows the mouse within minSize/maxSize, the opposite side stays.
+ // final - the button is released
+ procedure UpdateResize(final:boolean);
   var
    t:TUIElement;
-   d:single;
+   d,lo,hi:single;
   begin
    t:=resizeTarget;
-   if resizeEdge in [reLeft,reRight] then d:=curMouseX-resizeStartX
-    else d:=curMouseY-resizeStartY;
+   if resizeEdge in [reLeft,reRight] then begin
+    d:=curMouseX-resizeStartX; lo:=t.minSize.x; hi:=t.maxSize.x;
+   end else begin
+    d:=curMouseY-resizeStartY; lo:=t.minSize.y; hi:=t.maxSize.y;
+   end;
    d:=d/t.globalScale;
    if resizeEdge in [reLeft,reTop] then d:=-d;
-   d:=Apus.Core.Max(resizeSize+d,0.0);
+   d:=resizeSize+d;
+   if (hi>0) and (d>hi) then d:=hi;
+   d:=Apus.Core.Max(d,Apus.Core.Max(lo,0.0));
    case resizeEdge of
     reRight:begin t.Resize(d,-1); t.position.x:=resizeSide+t.size.x*t.pivot.x; end;
     reLeft:begin t.Resize(d,-1); t.position.x:=resizeSide-t.size.x*(1-t.pivot.x); end;
     reBottom:begin t.Resize(-1,d); t.position.y:=resizeSide+t.size.y*t.pivot.y; end;
     reTop:begin t.Resize(-1,d); t.position.y:=resizeSide-t.size.y*(1-t.pivot.y); end;
    end;
-   if t.name<>'' then Signal('UI\'+t.name+'\Resize');
+   if t.name<>'' then Signal('UI\'+t.name+'\Resize',ord(final));
   end;
 
  // Window-level UI button dispatch: run the global hit-test once, deliver the
@@ -374,7 +380,7 @@ function UIScene(name:String8):TUIScene;
     // Neither the elements nor the gameplay scenes see the buttons of the gesture.
     if Resizing then begin
      if (btn=1) and not pressed then begin
-      UpdateResize; // the mouse may have moved since the last frame
+      UpdateResize(true); // the mouse may have moved since the last frame
       resizeTarget:=nil;
       hooked:=nil;
      end;
@@ -490,7 +496,7 @@ function UIScene(name:String8):TUIScene;
     moved:=(curMouseX<>oldMouseX) or (curMouseY<>oldMouseY);
     // a resize gesture takes the moves: the hover, the cursor and the world stay as they are
     if Resizing then begin
-     if moved then UpdateResize;
+     if moved then UpdateResize(false);
      exit;
     end;
 

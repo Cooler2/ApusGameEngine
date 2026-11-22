@@ -46,7 +46,7 @@ type
 var
   wnd:TTestWindow;
   scene:TUIScene;
-  signals:integer; // count of 'UI\Panel\Resize'
+  signals:String8; // tags of 'UI\Panel\Resize': 0 - changed, 1 - released
 
 procedure TTestWindow.SampleOSPointer;
  begin
@@ -80,7 +80,7 @@ function TTestDialog.NavRect:TRect2;
 
 procedure ResizeSignal(event:TEventStr;tag:TTag);
  begin
-  inc(signals);
+  signals:=signals+IntToStr(tag);
  end;
 
 // --- mouse ---
@@ -179,7 +179,7 @@ procedure TestNoLayout;
   p.SetResizable;
   p.minSize:=Vec2(80,0);
   p.maxSize:=Vec2(400,0);
-  signals:=0;
+  signals:='';
   Down(297,150);
   Check(hooked=p,'press in the zone starts the gesture');
   Check(p.downs=0,'the element doesn''t get the press');
@@ -193,7 +193,7 @@ procedure TestNoLayout;
   Up;
   Check(hooked=nil,'release ends the gesture');
   Check(Near(p.size.x,230) and Near(p.position.x,100),'left side stays');
-  Check(signals>=4,'signals: '+IntToStr(signals));
+  Check(signals='00001','signal tags: '+signals);
   Down(150,150);
   Check(p.downs=1,'a press off the zone reaches the element');
   Up;
@@ -202,6 +202,8 @@ procedure TestNoLayout;
   wnd.mousePos:=Point(357,150);
   Up;
   Check(Near(p.size.x,260),'the release applies the last position');
+  p.Resize(50,-1);
+  Check(Near(p.size.x,50),'the limits are for the mouse only: a layout may go below');
   FreeArea(area);
   EndTest;
  end;
