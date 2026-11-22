@@ -38,6 +38,24 @@ $flags=@(
   '-Se1'
 )
 
+function Invoke-LoggedNative {
+  param([string]$Command,[string[]]$Arguments)
+
+  # Keep a failure code if the command cannot be started.
+  $global:LASTEXITCODE=1
+  & {
+    # Windows PowerShell turns redirected stderr into non-terminating errors.
+    $ErrorActionPreference='Continue'
+    & $Command @Arguments
+  } 2>&1 | ForEach-Object {
+    if($_ -is [System.Management.Automation.ErrorRecord]){
+      $_.Exception.Message
+    } else {
+      $_
+    }
+  }
+}
+
 function Invoke-FpcTarget {
   param(
     [string]$Target,
@@ -49,6 +67,7 @@ function Invoke-FpcTarget {
   $name=[IO.Path]::GetFileNameWithoutExtension($Target)
   $targetOut=Join-Path $outFull $name
   $log=Join-Path $outFull "$name.log"
+  $exeName='engine-smoke.exe'
   New-Item -ItemType Directory -Path $targetOut | Out-Null
 
   $args=@()
@@ -60,25 +79,31 @@ function Invoke-FpcTarget {
   # exe output folder, which is otherwise the current one (the repository root)
   if($CompileOnly -or $NoRun){
     $args+='-Cn'
+  } else {
+    $args+='-gl'
+    # A name such as TestNinePatch.exe can trigger Win32 installer detection.
+    $args+="-o$exeName"
   }
   $args+="-FE$targetOut"
   $args+="-FU$targetOut"
   $args+=$targetPath
 
-  & $Fpc @args > $log 2>&1
+  Invoke-LoggedNative -Command $Fpc -Arguments $args > $log
   if($LASTEXITCODE -ne 0){
+    $exitCode=$LASTEXITCODE
     Write-Host "[ FAIL ] $Target"
     Get-Content -LiteralPath $log -Tail 80
-    exit $LASTEXITCODE
+    exit $exitCode
   }
 
   if((-not $CompileOnly) -and (-not $NoRun)){
-    $exe=Join-Path $targetOut "$name.exe"
-    & $exe >> $log 2>&1
+    $exe=Join-Path $targetOut $exeName
+    Invoke-LoggedNative -Command $exe >> $log
     if($LASTEXITCODE -ne 0){
+      $exitCode=$LASTEXITCODE
       Write-Host "[ FAIL ] $Target"
       Get-Content -LiteralPath $log -Tail 80
-      exit $LASTEXITCODE
+      exit $exitCode
     }
   }
 

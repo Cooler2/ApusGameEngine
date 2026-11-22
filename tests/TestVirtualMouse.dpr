@@ -2852,6 +2852,7 @@ procedure TestActions;
   tb.Remove;
   form.SetStatus(ssFrozen);
   RunFrame(wndA);
+  wndA.RemoveScene(form);
   form.Free;
   EndTest;
  end;
