@@ -9,7 +9,7 @@
 unit Apus.Engine.UIWidgets;
 interface
  uses Apus.Core, Apus.Lib, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes,
-  Apus.Engine.UIShapes, Apus.Engine.Window;
+  Apus.Engine.UIShapes, Apus.Engine.Window, Apus.Engine.Actions;
 
  {$WRITEABLECONST ON}
  {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -140,12 +140,25 @@ interface
    procedure SetPressed(pr:boolean); virtual;
    procedure Click; virtual; // simulate click
    function GetStates:TElementStates; override; // + pressed
+   procedure onRemoved; override;
    class function Sender:TUIButton;
+   // The action changed (or was assigned): copy its state. Button: enabled and the hint -
+   // its own hint (set before the action), else the action hint, else the action caption,
+   // plus ' (shortcut)'. The caption of the button stays its own
+   procedure ActionChanged; virtual;
   protected
    procedure DoClick; virtual;
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
+   fActionLink:TActionLink;
+   ownHint:String8; // the hint before the action was assigned
+   function GetAction:TUIAction;
+   procedure SetAction(value:TUIAction);
+  public
+   // A click runs the action (Execute) instead of the onClick handlers, which must not be set.
+   // nil - no action
+   property action:TUIAction read GetAction write SetAction;
   end;
 
   // Button of a toolbar or a menu owner: never takes the focus, so a click leaves the keys
@@ -154,7 +167,8 @@ interface
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
   end;
 
-  // Toggle button: latches in toggled state on click.
+  // Toggle button: latches in toggled state on click. With an action it doesn't latch:
+  // toggled follows action.checked.
   // Radio-group behavior: if parent is TUIGroupBox, clicking untoggles
   // all sibling TUIToggleButtons (only one active at a time).
   // If parent is not TUIGroupBox, toggles independently.
@@ -171,6 +185,7 @@ interface
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure SetPressed(pr:boolean); override;
    function GetStates:TElementStates; override; // + checked
+   procedure ActionChanged; override; // + toggled = action.checked
   protected
    procedure DoClick; override;
   end;
@@ -586,18 +601,88 @@ implementation
    result:=self;
   end;
 
+type
+ // The link of a button to its action
+ TButtonActionLink=class(TActionLink)
+  button:TUIButton;
+  procedure Changed; override;
+ end;
+
+ procedure TButtonActionLink.Changed;
+  begin
+   if button<>nil then button.ActionChanged;
+  end;
+
  destructor TUIButton.Destroy;
   begin
+   FreeAndNil(fActionLink); // a direct Free skips onRemoved
    inherited;
+  end;
+
+ // The scene frees its actions before the elements leave the window queue: release the link now
+ procedure TUIButton.onRemoved;
+  begin
+   FreeAndNil(fActionLink);
+   inherited;
+  end;
+
+ function TUIButton.GetAction:TUIAction;
+  begin
+   if fActionLink<>nil then result:=fActionLink.action
+    else result:=nil;
+  end;
+
+ procedure TUIButton.SetAction(value:TUIAction);
+  var
+   link:TButtonActionLink;
+  begin
+   if value=GetAction then exit;
+   if fActionLink<>nil then begin
+    FreeAndNil(fActionLink);
+    hint:=ownHint;
+   end;
+   if value=nil then exit;
+   ASSERT(not Assigned(onClick) and not Assigned(onClickMethod) and not Assigned(onClickAsync) and
+     (onClickEvent=''),'Button '+name+': an action and a click handler at once');
+   ownHint:=hint;
+   link:=TButtonActionLink.Create(value);
+   link.button:=self;
+   fActionLink:=link;
+   ActionChanged;
+  end;
+
+ procedure TUIButton.ActionChanged;
+  var
+   a:TUIAction;
+   st,cut:String8;
+  begin
+   a:=GetAction;
+   if a=nil then exit;
+   flags.enabled:=a.enabled;
+   st:=ownHint;
+   if st='' then st:=a.hint;
+   if st='' then st:=MenuCaptionText(a.caption);
+   cut:=a.ShortcutText;
+   if (st<>'') and (cut<>'') then st:=st+' ('+cut+')';
+   hint:=st;
   end;
 
  procedure TUIButton.DoClick;
   var
    async:PAsyncClick;
+   a:TUIAction;
   begin
    TUIElement.sender:=self;
    if pending then exit;
    if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin
+    a:=GetAction;
+    if a<>nil then begin
+     Signal('UI\'+name+'\OnClick',byte(pressed));
+     Signal('UI\Button\Click\'+name,TTag(self));
+     lastPressed:=CoreTime.Ticks;
+     a.Execute; // it may delete the button
+     exit;
+    end;
     async:=PrepareAsyncClick(self,onClickAsync); // before the handlers: they may delete the button
     Signal('UI\'+name+'\OnClick',byte(pressed));
     Signal('UI\Button\Click\'+name,TTag(self));
@@ -723,6 +808,15 @@ implementation
    if toggled then include(result,TElementState.Checked);
   end;
 
+ procedure TUIToggleButton.ActionChanged;
+  var
+   a:TUIAction;
+  begin
+   inherited;
+   a:=GetAction;
+   if (a<>nil) and (toggled<>a.checked) then SetToggled(a.checked);
+  end;
+
  procedure TUIToggleButton.SetPressed(pr:boolean);
   begin
    SetToggled(pr);
@@ -733,8 +827,18 @@ implementation
    list:TUIElements;
    c:TUIElement;
    async:PAsyncClick;
+   a:TUIAction;
   begin
    TUIElement.sender:=self;
+   a:=GetAction;
+   if a<>nil then begin // no latch: toggled follows action.checked
+    if sendSignals<>ssNone then begin
+     Signal('UI\'+name+'\OnClick',byte(toggled));
+     Signal('UI\Button\Down\'+name,TTag(self));
+    end;
+    a.Execute; // it may delete the button
+    exit;
+   end;
    if parent is TUIGroupBox then begin
     // radio group: untoggle all siblings, activate self (a snapshot: toggle signals run handlers)
     list:=parent.children;

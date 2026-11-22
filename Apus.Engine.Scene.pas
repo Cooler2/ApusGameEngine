@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.Scene;
 interface
-uses Apus.Core, Apus.Classes, Apus.Containers, Apus.Engine.Keys;
+uses Apus.Core, Apus.Classes, Apus.Containers, Apus.Engine.Keys, Apus.Engine.Actions;
 
 type
  TGameScene=class;
@@ -149,9 +149,30 @@ TGameScene=class(TNamedObject)
   // table (on press) then the onKeyDown/onKeyUp receivers. UI scenes override it to run
   // focus/hotkey logic first and fall through to inherited for gameplay.
   function DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean; virtual;
-  // Declarative scene-level hotkeys, matched by the default DispatchKey before onKeyDown.
+  // Declarative scene-level hotkeys, matched by the default DispatchKey before onKeyDown
+  // (after the actions), the modifiers exactly
   procedure RegisterHotKey(key:TKey;shift:byte;handler:TKeyHandler);
   procedure UnregisterHotKeys;
+
+  // --- Actions (see Apus.Engine.Actions) ---
+  // Create an action owned by the scene: its shortcuts work while the scene gets the keys,
+  // menu lines and buttons may show and run it. The scene frees its actions after its UI.
+  // Add them while the scene is built (Create, onCreate, Load); id is unique in the scene.
+  // The window starts calling UpdateActions once loaded is true, and TGameScene.Load sets it
+  // at its start: in an overridden Load add the actions before inherited, or let
+  // UpdateActions skip the ones not created yet.
+  // handler: a procedure, a method or nil
+  function AddAction(const id,caption:String8;handler:TProcedure;const shortcuts:String8=''):TUIAction; overload;
+  function AddAction(const id,caption:String8;handler:TObjProcedure;const shortcuts:String8=''):TUIAction; overload;
+  function AddAction(const id,caption:String8;handler:pointer;const shortcuts:String8=''):TUIAction; overload;
+  function FindAction(const id:String8):TUIAction;
+  // Refresh the state of the actions: override it as the one place that sets enabled, checked
+  // and captions of all the actions. Called by the engine (RefreshActions, TUIAction.Execute),
+  // not by the app
+  procedure UpdateActions; virtual;
+  // Called by the window each frame for an active scene, and by a menu before it shows
+  // a panel: UpdateActions, then onUpdate of each action. Nothing if there are no actions
+  procedure RefreshActions;
   // Drain the key buffer and dispatch each event. Called by the engine before Process.
   procedure PumpInput(shift:byte);
 
@@ -196,6 +217,8 @@ TGameScene=class(TNamedObject)
    keyBuffer:TQueue;  // key down/up events (dispatched via PumpInput → DispatchKey)
    charBuffer:TQueue; // text chars (polling channel via ReadKey)
    sceneHotKeys:array of TSceneHotKey;
+   actions:array of TUIAction;
+   function NewAction(const id,caption,shortcuts:String8):TUIAction;
  end;
 
 implementation
@@ -280,11 +303,16 @@ constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
  end;
 
  destructor TGameScene.Destroy;
+  var
+   i:integer;
   begin
    if status<>ssFrozen then
      raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
    ASSERT(inputLocks=0,'Scene is freed with its input locked (by an effect?): '+name);
    scenesToLoad.Remove(self);
+   // after the UI (a UI scene removes it before inherited): its elements only borrow them
+   for i:=0 to high(actions) do actions[i].Free;
+   actions:=nil;
    inherited; // the name leaves the scene name hash
   end;
 
@@ -426,17 +454,19 @@ class procedure TGameScene.LoadAllScenes;
  function TGameScene.DispatchKey(key:TKey;scancode:integer;shift:byte;pressed:boolean):boolean;
   var
    i:integer;
-   reg:byte;
   begin
    if pressed then begin
-    // declarative scene hotkeys take priority over the onKeyDown receiver
+    // the actions, then the declarative hotkeys take priority over the onKeyDown receiver;
+    // a disabled action takes its key too (Execute does nothing): no other command fires
+    for i:=0 to high(actions) do
+     if actions[i].Matches(key,shift) then begin
+      actions[i].Execute;
+      exit(true);
+     end;
     for i:=0 to high(sceneHotKeys) do
-     if sceneHotKeys[i].vKey=key then begin
-      reg:=sceneHotKeys[i].shiftState;
-      if (reg=shift) or ((reg>0) and (reg and shift=reg)) then begin
-       sceneHotKeys[i].handler;
-       exit(true);
-      end;
+     if (sceneHotKeys[i].vKey=key) and ShiftMatches(sceneHotKeys[i].shiftState,shift) then begin
+      sceneHotKeys[i].handler;
+      exit(true);
      end;
     result:=onKeyDown(key,scancode,shift);
    end else
@@ -457,6 +487,76 @@ class procedure TGameScene.LoadAllScenes;
  procedure TGameScene.UnregisterHotKeys;
   begin
    SetLength(sceneHotKeys,0);
+  end;
+
+ function TGameScene.NewAction(const id,caption,shortcuts:String8):TUIAction;
+  var
+   i,j,k,n:integer;
+   wnd:TWindow;
+  begin
+   ASSERT(FindAction(id)=nil,'Scene '+name+': action '+id+' already exists');
+   result:=TUIAction.Create(id,caption,shortcuts);
+   result.updater:=UpdateActions;
+   // a shortcut taken twice: the first one wins, the second never fires
+   for k:=0 to high(result.keys) do begin
+    for i:=0 to high(actions) do
+     if actions[i].Matches(result.keys[k].key,result.keys[k].shift) then
+      Log.Warn('Scene %s: action %s has the shortcut of %s',[name,id,actions[i].id]);
+    for j:=0 to high(sceneHotKeys) do
+     if (sceneHotKeys[j].vKey=result.keys[k].key) and (sceneHotKeys[j].shiftState=result.keys[k].shift) then
+      Log.Warn('Scene %s: action %s has the shortcut of a hotkey',[name,id]);
+   end;
+   // the window thread reads the list (keys, frames): add under its lock
+   wnd:=TWindow(ownerWindow);
+   if wnd<>nil then wnd.LockState;
+   try
+    n:=length(actions);
+    SetLength(actions,n+1);
+    actions[n]:=result;
+   finally
+    if wnd<>nil then wnd.UnlockState;
+   end;
+  end;
+
+ function TGameScene.AddAction(const id,caption:String8;handler:TProcedure;const shortcuts:String8):TUIAction;
+  begin
+   result:=NewAction(id,caption,shortcuts);
+   result.SetHandler(handler);
+  end;
+
+ function TGameScene.AddAction(const id,caption:String8;handler:TObjProcedure;const shortcuts:String8):TUIAction;
+  begin
+   result:=NewAction(id,caption,shortcuts);
+   result.SetHandler(handler);
+  end;
+
+ function TGameScene.AddAction(const id,caption:String8;handler:pointer;const shortcuts:String8):TUIAction;
+  begin
+   result:=NewAction(id,caption,shortcuts);
+   result.SetHandler(handler);
+  end;
+
+ function TGameScene.FindAction(const id:String8):TUIAction;
+  var
+   i:integer;
+  begin
+   for i:=0 to high(actions) do
+    if actions[i].id=id then exit(actions[i]);
+   result:=nil;
+  end;
+
+ procedure TGameScene.UpdateActions;
+  begin
+  end;
+
+ procedure TGameScene.RefreshActions;
+  var
+   i:integer;
+  begin
+   if actions=nil then exit;
+   UpdateActions;
+   for i:=0 to high(actions) do
+    if Assigned(actions[i].onUpdate) then actions[i].onUpdate;
   end;
 
  procedure TGameScene.PumpInput(shift:byte);

@@ -10,7 +10,7 @@
 unit Apus.Engine.UIMenu;
 interface
  uses Apus.Core, Apus.Lib, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes,
-  Apus.Engine.UIWidgets;
+  Apus.Engine.UIWidgets, Apus.Engine.Actions;
 
  // Terms used below:
  //   owner     - the element a menu belongs to: its parent at creation (for a submenu - its
@@ -24,10 +24,7 @@ interface
  // runs it, several matches take turns as the current line (Enter runs it). The marks are
  // underlined while the menu is used from the keyboard; the bar headings - also while Alt is held.
 
- // The caption to draw: the marks removed; pos/len - the bytes of the marked character in the
- // result (len=0 - no mnemonic)
- function MenuCaptionText(const caption:String8;out pos,len:integer):String8; overload;
- function MenuCaptionText(const caption:String8):String8; overload;
+ // The caption to draw: MenuCaptionText in Apus.Engine.Actions
  // The marked character in lower case, '' - none
  function MenuMnemonic(const caption:String8):String8;
  // A text shown as is (a file name, a title from the data): each '&' doubled
@@ -43,8 +40,12 @@ interface
   // The command is any of the button handlers - onClick, onClickMethod, onClickAsync,
   // onClickEvent; all run after the menu is closed: Add('Save','Ctrl+S').onClickMethod:=Save
   // A submenu line (TUIPopupMenu.AddSubmenu) has no command: it opens its submenu.
+  // A line of an action (Add(action)) shows its caption, shortcut, enabled and checked state
+  // and runs it (TUIAction.Execute).
   TUIMenuItem=class(TUIButton)
    shortcut:String8;      // display only (the key itself is registered elsewhere)
+   mark:TActionMark;      // the mark column: a check or a radio dot while checked
+   checked:boolean;
    constructor Create(menu:TUIPopupMenu;const caption,shortcut,name:String8);
    destructor Destroy; override;
    procedure onRemoved; override;
@@ -54,7 +55,10 @@ interface
    function ShortcutFontSize:single;     // 'shortcut-font-size', smaller than the caption by default
    function ShortcutFont:TFontHandle;
    function ArrowWidth:single;           // the submenu arrow column of the menu, 0 - none
+   function MarkWidth:single;            // the mark column of the menu (left), 0 - none
    function ShowsMnemonic:boolean;       // underline the mnemonic: the menu is used from the keyboard
+   function GetStates:TElementStates; override; // + checked
+   procedure ActionChanged; override;    // caption, shortcut, enabled, mark, checked
   protected
    procedure DoClick; override;          // a command: close the menus, then call the handlers
   private
@@ -97,7 +101,10 @@ interface
    // A line without a command (set one on the result); name '' - '<prefix>\<caption>'
    // with "&" and a trailing "..." removed, other signs -> '_'; the prefix is the name of
    // the submenu line (ownerItem) or of a standalone menu
-   function Add(const caption:String8;const shortcut:String8='';const name:String8=''):TUIMenuItem;
+   function Add(const caption:String8;const shortcut:String8='';const name:String8=''):TUIMenuItem; overload;
+   // A line of an action: follows its state, a click runs it. Before a panel is shown, the
+   // scenes of its actions refresh their state (TGameScene.UpdateActions)
+   function Add(action:TUIAction;const name:String8=''):TUIMenuItem; overload;
    // A submenu line and its hidden submenu; returns the submenu to fill. The line gets the
    // name (default as in Add), the submenu - '<name>_Menu'
    function AddSubmenu(const caption:String8;const name:String8=''):TUIPopupMenu;
@@ -127,6 +134,7 @@ interface
    fChild:TUIPopupMenu;  // the open submenu
    openLeft:boolean;     // opened to the left of the parent panel: further levels try it first
    arrowW:single;        // width of the submenu arrow column, 0 - no submenu lines
+   markW:single;         // width of the mark column, 0 - no line with a mark
    // Submenu switch after the hover delay: open switchTo's submenu, or close the open
    // submenu (switchTo=nil or a command line)
    switchPending:boolean;
@@ -159,6 +167,7 @@ interface
    procedure PointerInside;
    function AutoClosed(now:int64):boolean;
    procedure Measure;
+   procedure UpdateActions;
    procedure MoveCurrent(dir:integer);
    function SelectMnemonic(const ch:String8):boolean;
    function KeyboardCues:boolean;
@@ -262,6 +271,7 @@ implementation
   LINE_HEIGHT=2.6;     // default line height, in font sizes
   SHORTCUT_GAP=3;      // min space between the captions and the shortcuts, in font sizes
   SHORTCUT_SCALE=0.85; // default shortcut font size relative to the caption font
+  MARK_COLUMN=2.0;     // the mark column before the captions, in font sizes
   ARROW_COLUMN=0.8;    // extra width for the submenu arrows, in font sizes (the arrow sits in the right padding)
   SUBMENU_OVERLAP=4;   // a submenu covers the edge of its parent panel by this much
   SUBMENU_SHIFT=2;     // and is lower than the owner line by this much
@@ -290,51 +300,6 @@ implementation
   altCueWnd:TWindow;
 
  function FindBar(wnd:TWindow;root:TUIElement):TUIMenuBar; forward;
-
- function Utf8CharLen(c:AnsiChar):integer;
-  begin
-   case byte(c) of
-    $C0..$DF:result:=2;
-    $E0..$EF:result:=3;
-    $F0..$F7:result:=4;
-   else
-    result:=1;
-   end;
-  end;
-
- function MenuCaptionText(const caption:String8;out pos,len:integer):String8;
-  var
-   i,n,l:integer;
-  begin
-   pos:=0; len:=0;
-   SetLength(result,length(caption));
-   n:=0; i:=1;
-   while i<=length(caption) do begin
-    if caption[i]='&' then begin
-     inc(i);
-     if i>length(caption) then break; // a trailing mark is dropped
-     if (caption[i]<>'&') and (len=0) then begin // the first mark is the mnemonic
-      l:=Min(Utf8CharLen(caption[i]),length(caption)-i+1);
-      pos:=n+1; len:=l;
-      move(caption[i],result[n+1],l);
-      inc(n,l); inc(i,l);
-      continue;
-     end;
-     // '&&' - the sign itself; a further mark - just its character
-    end;
-    inc(n);
-    result[n]:=caption[i];
-    inc(i);
-   end;
-   SetLength(result,n);
-  end;
-
- function MenuCaptionText(const caption:String8):String8;
-  var
-   pos,len:integer;
-  begin
-   result:=MenuCaptionText(caption,pos,len);
-  end;
 
  function MenuMnemonic(const caption:String8):String8;
   var
@@ -535,6 +500,41 @@ implementation
     else result:=0;
   end;
 
+ function TUIMenuItem.MarkWidth:single;
+  var
+   m:TUIPopupMenu;
+  begin
+   m:=Menu;
+   if m<>nil then result:=m.markW
+    else result:=0;
+  end;
+
+ function TUIMenuItem.GetStates:TElementStates;
+  begin
+   result:=inherited;
+   if checked then include(result,TElementState.Checked);
+  end;
+
+ procedure TUIMenuItem.ActionChanged;
+  var
+   a:TUIAction;
+   m:TUIPopupMenu;
+   cut:String8;
+   relayout:boolean;
+  begin
+   a:=action;
+   if a=nil then exit;
+   cut:=a.ShortcutText;
+   relayout:=(caption<>a.caption) or (shortcut<>cut) or (mark<>a.mark);
+   caption:=a.caption;
+   shortcut:=cut;
+   mark:=a.mark;
+   checked:=a.checked;
+   flags.enabled:=a.enabled;
+   m:=Menu;
+   if relayout and (m<>nil) and m.fOpen then m.Measure;
+  end;
+
  function TUIMenuItem.ShowsMnemonic:boolean;
   var
    m:TUIPopupMenu;
@@ -627,6 +627,36 @@ implementation
    result:=TUIMenuItem.Create(self,caption,shortcut,n);
   end;
 
+ function TUIPopupMenu.Add(action:TUIAction;const name:String8):TUIMenuItem;
+  begin
+   ASSERT(action<>nil);
+   result:=Add(action.caption,action.ShortcutText,name);
+   result.action:=action;
+  end;
+
+ // The lines of actions follow the app: each scene of them refreshes its actions once
+ procedure TUIPopupMenu.UpdateActions;
+  var
+   c:TUIElement;
+   a:TUIAction;
+   last,m:TMethod;
+  begin
+   last.Code:=nil; last.Data:=nil;
+   for c in children do
+    if c is TUIMenuItem then begin
+     a:=TUIMenuItem(c).action;
+     if a=nil then continue;
+     if Assigned(a.updater) then begin
+      m:=TMethod(a.updater);
+      if (m.Code<>last.Code) or (m.Data<>last.Data) then begin
+       a.updater;
+       last:=m;
+      end;
+     end;
+     if Assigned(a.onUpdate) then a.onUpdate;
+    end;
+  end;
+
  function TUIPopupMenu.AddSubmenu(const caption,name:String8):TUIPopupMenu;
   var
    item:TUIMenuItem;
@@ -716,13 +746,14 @@ implementation
    c:TUIElement;
    item:TUIMenuItem;
    capW,cutW,padR,w,h,y,fontSize:single;
-   hasCuts,hasArrows:boolean;
+   hasCuts,hasArrows,hasMarks:boolean;
   begin
    capW:=0; cutW:=0; padR:=0;
-   hasCuts:=false; hasArrows:=false;
+   hasCuts:=false; hasArrows:=false; hasMarks:=false;
    for c in children do
     if (c is TUIMenuItem) and c.flags.visible then begin
      item:=TUIMenuItem(c);
+     if item.mark<>TActionMark.None then hasMarks:=true;
      capW:=Max(capW,item.padding.Left+TextWidth(item,false));
      if item.shortcut<>'' then begin
       hasCuts:=true;
@@ -734,6 +765,11 @@ implementation
    w:=capW+cutW+padR;
    fontSize:=GetStyleNumber('font-size',9);
    if hasCuts then w:=w+fontSize*SHORTCUT_GAP;
+   markW:=0;
+   if hasMarks then begin
+    markW:=fontSize*MARK_COLUMN;
+    w:=w+markW;
+   end;
    arrowW:=0;
    if hasArrows then begin
     arrowW:=fontSize*ARROW_COLUMN;
@@ -766,6 +802,7 @@ implementation
    if deleted or (owner=nil) then exit; // the close may remove a menu whose owner is gone
    bar:=MenuBar;
    if (bar<>nil) and not bar.Expects(self) then exit;
+   UpdateActions;
    if Assigned(onOpen) then onOpen;
    if deleted or (owner=nil) or owner.deleted or root.deleted then exit;
    bar:=MenuBar;
@@ -912,6 +949,7 @@ implementation
     exit;
    end;
    CloseChild;
+   sub.UpdateActions;
    if Assigned(sub.onOpen) then begin
     sub.onOpen;
     // the callback may change the menus: open only if the request still stands

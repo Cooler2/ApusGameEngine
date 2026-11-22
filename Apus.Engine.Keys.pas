@@ -143,6 +143,12 @@ type
 // Check if numeric key code matches any key in the array
 function KeyIn(code:byte; const keys:array of TKey):boolean;
 
+// Modifiers of a shortcut against the shift state, both in the sscXxx format: the aggregate
+// bits (Shift, Ctrl, Alt, Win) must be exactly the needed ones - Ctrl+Z is not Ctrl+Shift+Z.
+// The right-side bits of the state (sscRCtrl...) matter only if need has them: Ctrl+Z takes
+// either Ctrl key, a need with sscRCtrl - only the right one
+function ShiftMatches(need,shift:byte):boolean;
+
 implementation
 uses SysUtils;
 
@@ -241,14 +247,15 @@ end;
 class function TKeyHelper.FromName(const name:string):TKey;
 const
   // identifiers of the keys whose Name differs
-  IDENTS:array[0..20] of record key:TKey; id:string; end=(
+  IDENTS:array[0..25] of record key:TKey; id:string; end=(
     (key:TKey.D0;id:'D0'),(key:TKey.D1;id:'D1'),(key:TKey.D2;id:'D2'),(key:TKey.D3;id:'D3'),
     (key:TKey.D4;id:'D4'),(key:TKey.D5;id:'D5'),(key:TKey.D6;id:'D6'),(key:TKey.D7;id:'D7'),
     (key:TKey.D8;id:'D8'),(key:TKey.D9;id:'D9'),(key:TKey.EndKey;id:'EndKey'),
     (key:TKey.Semicolon;id:'Semicolon'),(key:TKey.Equal;id:'Equal'),(key:TKey.Comma;id:'Comma'),
     (key:TKey.Minus;id:'Minus'),(key:TKey.Period;id:'Period'),(key:TKey.Slash;id:'Slash'),
     (key:TKey.Tilde;id:'Tilde'),(key:TKey.BracketL;id:'BracketL'),(key:TKey.Backslash;id:'Backslash'),
-    (key:TKey.BracketR;id:'BracketR'));
+    (key:TKey.BracketR;id:'BracketR'),(key:TKey.NumMul;id:'NumMul'),(key:TKey.NumAdd;id:'NumAdd'),
+    (key:TKey.NumSub;id:'NumSub'),(key:TKey.NumDot;id:'NumDot'),(key:TKey.NumDiv;id:'NumDiv'));
 var
   i:integer;
   key:TKey;
@@ -389,6 +396,14 @@ begin
 end;
 
 { Standalone }
+
+function ShiftMatches(need,shift:byte):boolean;
+var
+  base:byte;
+begin
+  base:=(need and $0F) or (need shr 4); // a right-side bit implies its aggregate bit
+  result:=((shift and $0F)=base) and ((shift and need and $F0)=(need and $F0));
+end;
 
 function KeyIn(code:byte; const keys:array of TKey):boolean;
 var

@@ -29,6 +29,7 @@ uses
   Apus.Engine.UIScene,
   Apus.Engine.SceneEffects,
   Apus.Engine.UIMenu,
+  Apus.Engine.Actions,
   Apus.Engine.UIColorPicker,
   Apus.Engine.TextDraw,
   Apus.Engine.MessageScene,
@@ -102,6 +103,20 @@ type
     procedure SaveHotKey;
   end;
 
+  // a UI scene with actions: counts the commands and the state refreshes
+  TActionForm=class(TUIScene)
+    log:String8;      // keys that reach onKeyDown: 'D:Z ...'
+    canUndo,toolOn:boolean;
+    undos,tools,shared,updates,saves:integer;
+    sharedTag:integer; // TUIAction.executing.tag in the shared handler
+    undo,redo,none,tool,recent1,recent2:TUIAction;
+    function onKeyDown(key:TKey;scancode:integer;shift:byte):boolean; override;
+    procedure UpdateActions; override;
+    procedure DoUndo;
+    procedure DoTool;
+    procedure DoShared;
+    procedure DoSave;
+  end;
   // records the menu commands and the focus they find
   TMenuProbe=class
     news,saves,quits:integer;
@@ -253,6 +268,51 @@ function TKeyForm.onKeyUp(key:TKey;scancode:integer;shift:byte):boolean;
  end;
 
 procedure TKeyForm.SaveHotKey;
+ begin
+  inc(saves);
+ end;
+
+{ TActionForm }
+
+var
+  redos:integer; // the plain procedure handler of TActionForm.redo
+
+procedure DoRedo;
+ begin
+  inc(redos);
+ end;
+
+function TActionForm.onKeyDown(key:TKey;scancode:integer;shift:byte):boolean;
+ begin
+  log:=log+'D:'+key.Name+' ';
+  result:=true;
+ end;
+
+procedure TActionForm.UpdateActions;
+ begin
+  inc(updates);
+  undo.enabled:=canUndo;
+  tool.checked:=toolOn;
+ end;
+
+procedure TActionForm.DoUndo;
+ begin
+  inc(undos);
+ end;
+
+procedure TActionForm.DoTool;
+ begin
+  inc(tools);
+  toolOn:=not toolOn;
+ end;
+
+procedure TActionForm.DoShared;
+ begin
+  inc(shared);
+  sharedTag:=TUIAction.executing.tag;
+ end;
+
+procedure TActionForm.DoSave;
  begin
   inc(saves);
  end;
@@ -2594,6 +2654,209 @@ procedure TestFocusKeys;
   EndTest;
  end;
 
+// Shortcut texts: modifiers, key names, several shortcuts
+procedure TestShortcuts;
+ var
+  key:TKey;
+  shift:byte;
+  list:TActionShortcuts;
+  a:TUIAction;
+ begin
+  StartTest('Action shortcuts');
+  Check(ParseShortcut('Ctrl+Shift+Z',key,shift) and (key=TKey.Z) and (shift=sscCtrl+sscShift),'Ctrl+Shift+Z');
+  Check(ParseShortcut(' f1 ',key,shift) and (key=TKey.F1) and (shift=0),'F1, spaces and case');
+  Check(ParseShortcut('ctrl+=',key,shift) and (key=TKey.Equal) and (shift=sscCtrl),'Ctrl+=');
+  Check(ParseShortcut('Alt+Win+NumAdd',key,shift) and (key=TKey.NumAdd) and (shift=sscAlt+sscWin),'Alt+Win+NumAdd');
+  Check(ParseShortcut('Ctrl+Comma',key,shift) and (key=TKey.Comma),'the comma key by its name');
+  Check(not ParseShortcut('',key,shift),'empty');
+  Check(not ParseShortcut('Ctrl+',key,shift),'no key');
+  Check(not ParseShortcut('Super+Z',key,shift),'unknown modifier');
+  Check(not ParseShortcut('Ctrl+Foo',key,shift),'unknown key');
+  Check(ParseShortcuts('Ctrl+Y, Ctrl+Shift+Z',list) and (length(list)=2) and (list[1].key=TKey.Z) and
+    (list[1].shift=sscCtrl+sscShift),'a list');
+  Check(not ParseShortcuts('Ctrl+Y, Foo',list) and (length(list)=1),'a wrong one in the list: the right ones stay');
+  a:=TUIAction.Create('test','&Test','Ctrl+Y, Ctrl+Shift+Z');
+  Check(a.ShortcutText='Ctrl+Y','the first shortcut is shown: '+a.ShortcutText);
+  Check(a.Matches(TKey.Z,sscCtrl+sscShift) and not a.Matches(TKey.Z,sscCtrl) and
+    not a.Matches(TKey.Y,sscCtrl+sscShift),'modifiers match exactly');
+  Check(a.Matches(TKey.Z,sscCtrl+sscShift+sscRCtrl) and a.Matches(TKey.Y,sscCtrl+sscRCtrl+sscRShift) and
+    not a.Matches(TKey.Y,sscCtrl+sscShift+sscRShift),'the right-side keys: the same modifiers');
+  Check(ShiftMatches(sscRCtrl,sscCtrl+sscRCtrl) and not ShiftMatches(sscRCtrl,sscCtrl) and
+    not ShiftMatches(sscRCtrl,sscCtrl+sscShift+sscRCtrl) and ShiftMatches(0,0) and
+    not ShiftMatches(0,sscAlt),'ShiftMatches: a needed right-side key');
+  Check(a.enabled and not a.checked and (a.mark=TActionMark.None),'defaults');
+  a.Free;
+  EndTest;
+ end;
+
+// Scene actions: keys, the state refresh, menu lines and buttons that follow an action
+procedure TestActions;
+ var
+  form:TActionForm;
+  e:TUIEditBox;
+  m:TUIPopupMenu;
+  lineUndo,lineTool,lineNone:TUIMenuItem;
+  b,b2:TUIButton;
+  tb:TUIToggleButton;
+  bar:TUIMenuBar;
+  loose:TUIAction;
+  n:integer;
+ begin
+  StartTest('Actions');
+  form:=TActionForm.Create('ActionForm',false,wndA);
+  form.SetStatus(ssActive);
+  form.canUndo:=true;
+  redos:=0;
+  // the action that takes Ctrl+Z is added first: Ctrl+Shift+Z still goes to redo
+  form.undo:=form.AddAction('edit.undo','&Undo',form.DoUndo,'Ctrl+Z');
+  form.redo:=form.AddAction('edit.redo','&Redo',DoRedo,'Ctrl+Y, Ctrl+Shift+Z');
+  form.none:=form.AddAction('view.none','&Nothing',nil,'F2');
+  form.tool:=form.AddAction('tool.brush','&Brush',form.DoTool,'B');
+  form.tool.mark:=TActionMark.Radio;
+  form.recent1:=form.AddAction('file.recent1','File &1',form.DoShared);
+  form.recent1.tag:=1;
+  form.recent2:=form.AddAction('file.recent2','File &2',form.DoShared);
+  form.recent2.tag:=2;
+  form.RegisterHotKey(TKey.S,sscCtrl,form.DoSave);
+  Check(form.FindAction('edit.redo')=form.redo,'FindAction');
+  Check(form.FindAction('edit.none')=nil,'FindAction: no such action');
+  // keys
+  form.DispatchKey(TKey.Z,0,sscCtrl+sscRCtrl,true);
+  Check((form.undos=1) and (redos=0),'right Ctrl+Z runs undo');
+  form.DispatchKey(TKey.Z,0,sscCtrl+sscShift,true);
+  form.DispatchKey(TKey.Y,0,sscCtrl,true);
+  Check((form.undos=1) and (redos=2),'Ctrl+Shift+Z and Ctrl+Y run redo (a plain procedure)');
+  form.DispatchKey(TKey.S,0,sscCtrl+sscShift,true);
+  Check((form.saves=0) and (form.log='D:S '),'a scene hotkey matches the modifiers exactly: '+form.log);
+  form.DispatchKey(TKey.S,0,sscCtrl+sscRCtrl,true);
+  Check(form.saves=1,'right Ctrl+S: the scene hotkey');
+  form.log:='';
+  form.DispatchKey(TKey.F2,0,0,true);
+  Check(form.log='','an action without a handler takes its key');
+  Check(form.none.Execute,'an enabled action without a handler executes');
+  // the state is refreshed before and after the command
+  form.updates:=0;
+  form.canUndo:=false;
+  form.DispatchKey(TKey.Z,0,sscCtrl,true);
+  Check((form.undos=1) and (form.log='') and not form.undo.enabled,
+    'a disabled action takes its key and runs nothing: '+form.log);
+  Check(form.updates=1,'the state is refreshed before the command: '+IntToStr(form.updates));
+  Check(not form.undo.Execute,'Execute of a disabled action: false');
+  form.canUndo:=true;
+  form.updates:=0;
+  form.DispatchKey(TKey.Z,0,sscCtrl,true);
+  Check((form.undos=2) and (form.updates=2),'and again after it: '+IntToStr(form.updates));
+  // one handler of several actions
+  form.recent2.Execute;
+  Check((form.shared=1) and (form.sharedTag=2) and (TUIAction.executing=nil),'executing in a shared handler, nil after it');
+  // a focused edit box keeps its keys
+  e:=TUIEditBox.Create(100,20,form.UI,'ActionEdit');
+  e.SetFocus;
+  form.DispatchKey(TKey.Z,0,sscCtrl,true);
+  form.DispatchKey(TKey.B,0,0,true);
+  Check((form.undos=2) and (form.tools=0),'the edit box takes Ctrl+Z and B');
+  form.DispatchKey(TKey.Y,0,sscCtrl,true);
+  Check(redos=3,'Ctrl+Y goes on from the edit box');
+  ClearFocus(wndA);
+  e.Remove;
+  // the window refreshes the actions of an active loaded scene each frame
+  form.updates:=0;
+  form.loaded:=false;
+  RunFrame(wndA);
+  Check(form.updates=0,'no refresh while the scene is loading');
+  form.loaded:=true;
+  RunFrame(wndA);
+  Check(form.updates=1,'a refresh each frame: '+IntToStr(form.updates));
+  // menu lines
+  m:=TUIPopupMenu.Create(form.UI,'ActionMenu');
+  lineUndo:=m.Add(form.undo);
+  lineTool:=m.Add(form.tool);
+  lineNone:=m.Add('Plain');
+  Check((lineUndo.caption='&Undo') and (lineUndo.shortcut='Ctrl+Z') and (lineUndo.action=form.undo),
+    'a line shows the caption and the shortcut of its action');
+  Check(lineNone.action=nil,'an ordinary line');
+  form.canUndo:=false;
+  form.toolOn:=true;
+  form.updates:=0;
+  m.OpenAt(10,10);
+  Check(m.IsOpen and (form.updates=1),'one refresh before the panel is shown: '+IntToStr(form.updates));
+  Check(not lineUndo.flags.enabled and lineTool.checked and (lineTool.mark=TActionMark.Radio) and
+    (TElementState.Checked in lineTool.GetStates),'the lines follow the state');
+  Check(lineTool.MarkWidth>0,'a mark column');
+  n:=round(m.size.x);
+  form.tool.caption:='&Brush tool (soft)';
+  Check((lineTool.caption='&Brush tool (soft)') and (round(m.size.x)>n),'a new caption: the open menu is measured again');
+  form.canUndo:=true;
+  RunFrame(wndA);
+  Check(lineUndo.flags.enabled,'the line enabled by the frame refresh');
+  lineUndo.Click;
+  Check(not m.IsOpen and (form.undos=3),'a click on the line closes the menu and runs the action');
+  // no shortcuts while a menu is open or a bar session runs: the menus take the keys
+  m.OpenAt(10,10);
+  form.DispatchKey(TKey.Z,0,sscCtrl,true);
+  Check(m.IsOpen and (form.undos=3),'Ctrl+Z while the menu is open: nothing');
+  m.Close;
+  bar:=TUIMenuBar.Create(form.UI,'ActionBar');
+  bar.SetPos(0,300,pivotTopLeft);
+  bar.size:=Vec2(300,24);
+  bar.AddSubmenu('&File').Add(form.redo);
+  form.DispatchKey(TKey.F10,0,0,true);
+  form.DispatchKey(TKey.F10,0,0,false);
+  Check(bar.current<>nil,'F10 starts a bar session');
+  form.DispatchKey(TKey.Z,0,sscCtrl,true);
+  Check(form.undos=3,'Ctrl+Z in a bar session: nothing');
+  form.DispatchKey(TKey.Escape,0,0,true);
+  form.DispatchKey(TKey.Escape,0,0,false);
+  form.DispatchKey(TKey.Z,0,sscCtrl,true);
+  Check((bar.current=nil) and (form.undos=4),'after Esc the shortcut works');
+  bar.Remove;
+  // buttons
+  b:=TUIButton.Create(60,20,form.UI,'UndoBtn');
+  b.action:=form.undo;
+  Check(b.hint='Undo (Ctrl+Z)','the hint from the caption and the shortcut: '+b.hint);
+  b2:=TUIButton.Create(60,20,form.UI,'UndoBtn2');
+  b2.hint:='Step back';
+  b2.action:=form.undo;
+  Check(b2.hint='Step back (Ctrl+Z)','its own hint and the shortcut: '+b2.hint);
+  form.undo.hint:='Undo the last change';
+  Check((b.hint='Undo the last change (Ctrl+Z)') and (b2.hint='Step back (Ctrl+Z)'),'the action hint: '+b.hint);
+  form.canUndo:=false;
+  RunFrame(wndA);
+  Check(not b.flags.enabled and not b2.flags.enabled,'the buttons follow enabled');
+  form.canUndo:=true;
+  RunFrame(wndA);
+  b.Click;
+  Check(form.undos=5,'a click runs the action');
+  b2.action:=nil;
+  Check(b2.hint='Step back','no action: its own hint back: '+b2.hint);
+  tb:=TUIToggleButton.Create(60,20,form.UI,'ToolBtn');
+  form.toolOn:=false;
+  RunFrame(wndA);
+  tb.action:=form.tool;
+  Check(not tb.toggled,'a toggle follows checked');
+  tb.Click;
+  Check((form.tools=1) and tb.toggled,'a click runs the action, checked comes from the refresh');
+  tb.Click;
+  Check((form.tools=2) and not tb.toggled,'and back');
+  // links: a removed button leaves the action, a freed action leaves its buttons
+  b.Remove;
+  form.undo.caption:='&Undo it';
+  Check(b2.action=nil,'still no action');
+  loose:=TUIAction.Create('loose','&Loose');
+  b2.action:=loose;
+  loose.Free;
+  Check(b2.action=nil,'a freed action: the button has none');
+  b2.Remove;
+  RunFrame(wndA);
+  m.Remove;
+  tb.Remove;
+  form.SetStatus(ssFrozen);
+  RunFrame(wndA);
+  form.Free;
+  EndTest;
+ end;
+
+
 procedure TestTabOrder;
  var
   form:TKeyForm;
@@ -3124,6 +3387,8 @@ begin
   TestCompletion;
   TestMessageQueue;
   TestFocusKeys;
+  TestShortcuts;
+  TestActions;
   TestTabOrder;
   TestDrag;
   TestEditMouse;

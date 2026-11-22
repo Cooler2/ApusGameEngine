@@ -6,6 +6,31 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## UI: actions; hotkeys match the modifiers exactly (2026-11-22)
+
+- New `Apus.Engine.Actions`: `TUIAction` - a command with its caption, shortcuts, enabled and
+  checked state, shared by menu lines, buttons and keys. A scene owns its actions:
+  `AddAction(id,caption,handler,'Ctrl+Z')` (a procedure, a method or nil), `FindAction`, and the
+  virtual `UpdateActions` - one place that sets the state of all the actions; the engine calls
+  it each frame for an active scene, before a menu panel is shown and around `Execute`.
+  `TUIPopupMenu.Add(action)` and `TUIButton.action` follow the action and run it; a disabled
+  action takes its key and runs nothing. `TUIAction.executing` tells a shared handler which
+  action runs. Guide: `manual/ui_actions.md`.
+- **Behaviour change:** `TGameScene.RegisterHotKey` and `TUIElement.SetHotKey` match the
+  modifiers exactly. A Ctrl+Z binding no longer fires on Ctrl+Shift+Z, the order of the
+  registrations does not matter. A binding that relied on extra modifiers needs its own entry
+  (`UITable` Shift+Up/Down no longer catches Ctrl+Shift+Up/Down). Exact means the aggregate
+  Shift/Ctrl/Alt/Win bits: either Ctrl key is Ctrl, a binding with `sscRCtrl`... demands that
+  side (`ShiftMatches` in `Apus.Engine.Keys`).
+- Action state is UI state: change it in the window thread or under `LockState` (the engine
+  calls - `UpdateActions`, handlers run by keys, menu lines and clicks - already are).
+- `MenuCaptionText` moved from `Apus.Engine.UIMenu` to `Apus.Engine.Actions`: add the unit to
+  `uses` (Delphi finds two declarations ambiguous, so `UIMenu` has none).
+- `TUIMenuItem`: `mark` and `checked` - a check or a radio dot in a column before the captions,
+  also for lines without an action.
+- `TKey.FromName` knows `NumMul`, `NumAdd`, `NumSub`, `NumDot`, `NumDiv` (their `Name` is
+  `Num*`, `Num+`...).
+
 ## UI: a translucent border lies over the fill (2026-11-08)
 
 - A style box with a rounded corner and a translucent `border-color` was drawn by one

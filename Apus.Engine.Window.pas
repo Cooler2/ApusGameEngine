@@ -2150,6 +2150,11 @@ begin
     scenes[i].PumpInput(shiftState);
 
   result:=ProcessScenes(frameDeltaUs);
+  // the state of the actions follows the app (buttons and menu lines bound to them);
+  // a scene that is still loading may be building its actions
+  for i:=low(scenes) to high(scenes) do
+   if scenes[i].IsActive and scenes[i].loaded then
+    scenes[i].RefreshActions;
  finally
   UnlockState;
   inFrame:=false;

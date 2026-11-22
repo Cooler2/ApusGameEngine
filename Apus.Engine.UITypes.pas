@@ -515,9 +515,7 @@ implementation
     SetLength(keys,length(hotKeys));
     n:=0;
     for i:=0 to high(hotKeys) do
-     if (hotKeys[i].vKey=keycode) and
-        ((hotKeys[i].shiftstate=shiftstate) or
-         ((hotKeys[i].shiftstate>0) and (hotKeys[i].shiftstate and shiftstate=hotKeys[i].shiftstate))) and
+     if (hotKeys[i].vKey=keycode) and ShiftMatches(hotKeys[i].shiftstate,shiftstate) and // the modifiers exactly
         (hotKeys[i].element.GetWindow=wnd) then begin
       keys[n]:=hotKeys[i].element;
       inc(n);

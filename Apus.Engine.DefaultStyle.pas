@@ -135,7 +135,7 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
 implementation
  uses Apus.Images, SysUtils, Types, Apus.Tweenings,
     Apus.Colors, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UITable,
+    Apus.Engine.UIWidgets, Apus.Engine.UIMenu, Apus.Engine.UITable, Apus.Engine.Actions,
     Apus.Engine.UIRender,
     Apus.Engine.Style, // ParseStyleColor/Number for compound values (text-shadow)
     Apus.Lib, Apus.Utils, Apus.Strings, Apus.Threads;
@@ -845,20 +845,55 @@ implementation
  // left, shortcut on the right in 'shortcut-color' (the text color by default; the text color
  // anyway while highlighted or disabled). A menu with submenu lines keeps a column on the
  // right; the arrow of a submenu line, in the text color, is in the right padding
+ // A thick segment as a quad
+ procedure DrawThickSegment(x1,y1,x2,y2,width:single;color:cardinal);
+  var
+   pts:array[0..3] of TVec2;
+   dx,dy,l:single;
+  begin
+   dx:=x2-x1; dy:=y2-y1;
+   l:=sqrt(dx*dx+dy*dy);
+   if l<0.01 then exit;
+   dx:=-dy/l*width*0.5; dy:=(x2-x1)/l*width*0.5; // half of the normal
+   pts[0]:=Vec2(x1+dx,y1+dy); pts[1]:=Vec2(x2+dx,y2+dy);
+   pts[2]:=Vec2(x2-dx,y2-dy); pts[3]:=Vec2(x1-dx,y1-dy);
+   draw.Polygon(@pts[0],4,color);
+  end;
+
+ // The mark of a checked menu line: a check or a radio dot, centered at (cx,cy); size - the font height
+ procedure DrawMenuMark(mark:TActionMark;cx,cy,size:single;color:cardinal);
+  var
+   s,w,r:single;
+  begin
+   s:=size*0.75;
+   if mark=TActionMark.Radio then begin
+    r:=Max(2,s*0.2);
+    draw.RoundRect(cx-r,cy-r,cx+r,cy+r,r,0,0,color);
+   end else begin
+    w:=Max(1.5,s*0.13);
+    DrawThickSegment(cx-s*0.45,cy+s*0.02,cx-s*0.12,cy+s*0.36,w,color);
+    DrawThickSegment(cx-s*0.12,cy+s*0.36,cx+s*0.5,cy-s*0.38,w,color);
+   end;
+  end;
+
  procedure DrawUIMenuItem(item:TUIMenuItem;context:TContext);
   var
    r:TRect;
    ts:TTextStyle;
-   y,right:integer;
-   arrowW,x2,cy,h:single;
+   y,right,left:integer;
+   arrowW,markW,x2,cy,h:single;
   begin
    ts:=ResolveTextStyle(item,context,clBlack,taLeft);
    r:=item.GetClientPosOnScreen;
    y:=round((r.Top+r.Bottom-1)*0.5+txt.Height(ts.font)*0.45);
    arrowW:=item.ArrowWidth*item.globalScale;
+   markW:=item.MarkWidth*item.globalScale;
    right:=round(r.Right-1-arrowW);
+   left:=round(r.Left+markW);
    gfx.clip.Rect(item.GetPosOnScreen);
-   WriteMenuCaption(ts,r.Left,r.Right-1,y,item.caption,item.ShowsMnemonic);
+   if item.checked and (item.mark<>TActionMark.None) and (markW>0) then
+    DrawMenuMark(item.mark,r.Left+markW*0.35,(r.Top+r.Bottom-1)*0.5,txt.Height(ts.font),ts.color);
+   WriteMenuCaption(ts,left,r.Right-1,y,item.caption,item.ShowsMnemonic);
    if item.submenu<>nil then begin
     h:=txt.Height(ts.font)*0.4; // half height of the arrow
     x2:=item.GetPosOnScreen.Right-1-item.padding.Right*0.5*item.globalScale; // the tip: in the middle of the right padding
