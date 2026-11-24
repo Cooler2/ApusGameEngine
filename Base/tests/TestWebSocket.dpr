@@ -237,8 +237,9 @@ end;
 
 // --- protocol errors ---
 
+// textPart - a fragment of errorText, to tell apart errors with the same code
 procedure ExpectError(role:TWsRole;const stream:ByteArray;code:word;const name:string;
-  maxSize:integer=1 shl 20);
+  maxSize:integer=1 shl 20;const textPart:String8='');
 var
   run:TParseRun;
   p:TWsParser;
@@ -246,8 +247,9 @@ var
   msg:TWsMessage;
 begin
   p:=ParseAll(role,stream,1000,run,maxSize);
-  Check((run.lastResult=TWsParseResult.Error) and (p.errorCode=code),
-    name+': expected '+IntToStr(code)+', got '+IntToStr(p.errorCode));
+  Check((run.lastResult=TWsParseResult.Error) and (p.errorCode=code) and
+    ((textPart='') or p.errorText.Contains(textPart)),
+    name+': expected '+IntToStr(code)+', got '+IntToStr(p.errorCode)+' '+string(p.errorText));
   // the parser stays failed
   buf.Create(@stream[0],length(stream));
   Check(p.Next(buf,msg)=TWsParseResult.Error,name+': stays failed');
@@ -256,6 +258,8 @@ end;
 procedure TestErrors;
 var
   big:ByteArray;
+  run:TParseRun;
+  p:TWsParser;
 begin
   StartTest('Protocol errors');
   ExpectError(TWsRole.Client,Bytes([$C1,$00]),WS_CLOSE_PROTOCOL_ERROR,'RSV1 set');
@@ -284,6 +288,17 @@ begin
   big:=JoinBytes(WsEncodeFrame(TWsOpcode.Binary,StringOfChar(AnsiChar('x'),600),false,false),
               WsEncodeFrame(TWsOpcode.Continuation,StringOfChar(AnsiChar('x'),600),false));
   ExpectError(TWsRole.Client,big,WS_CLOSE_TOO_BIG,'fragments over the limit',1000);
+  // the length must take the shortest form: fails on the header; the smallest valid values pass
+  ExpectError(TWsRole.Client,Bytes([$82,$7E,$00,$7D]),WS_CLOSE_PROTOCOL_ERROR,
+    '16-bit length 125',1 shl 20,'Non-minimal');
+  ExpectError(TWsRole.Client,Bytes([$82,$7F,0,0,0,0,0,0,$FF,$FF]),WS_CLOSE_PROTOCOL_ERROR,
+    '64-bit length 65535',1 shl 20,'Non-minimal');
+  SetLength(big,126);
+  p:=ParseAll(TWsRole.Client,JoinBytes(Bytes([$82,$7E,$00,$7E]),big),1000,run);
+  Check((length(run.msgs)=1) and (length(run.msgs[0].data)=126),'16-bit length 126');
+  SetLength(big,65536);
+  p:=ParseAll(TWsRole.Client,JoinBytes(Bytes([$82,$7F,0,0,0,0,0,1,0,0]),big),100000,run);
+  Check((length(run.msgs)=1) and (length(run.msgs[0].data)=65536),'64-bit length 65536');
   EndTest;
 end;
 
@@ -320,6 +335,18 @@ end;
 
 // --- handshake ---
 
+// WsCheckResponse on a complete response
+function CheckResponse(const response,key,protocols:String8;out protocol:String8):TWsHandshakeResult;
+var
+  stream:ByteArray;
+  buf:TBuffer;
+  error:String8;
+begin
+  stream:=BytesOf(response);
+  buf.Create(@stream[0],length(stream));
+  result:=WsCheckResponse(buf,key,protocols,protocol,error);
+end;
+
 procedure TestHandshake;
 var
   key,request,response,protocol,error:String8;
@@ -327,6 +354,8 @@ var
   buf:TBuffer;
   run:TParseRun;
   p:TWsParser;
+  n:integer;
+  res:TWsHandshakeResult;
 begin
   StartTest('Handshake');
   Check(WsAcceptKey('dGhlIHNhbXBsZSBub25jZQ==')='s3pPLMBiTxaQ9kYGzzhZRbK+xOo=','RFC 1.3 accept key');
@@ -354,10 +383,10 @@ begin
   frame:=WsEncodeFrame(TWsOpcode.Text,String8('hi'),false);
   stream:=JoinBytes(BytesOf(response),frame);
   buf.Create(@stream[0],length(response)-3);
-  Check(WsCheckResponse(buf,key,protocol,error)=TWsHandshakeResult.NeedMore,'partial response');
+  Check(WsCheckResponse(buf,key,'game.v1',protocol,error)=TWsHandshakeResult.NeedMore,'partial response');
   Check(buf.CurrentPos=0,'nothing consumed while partial');
   buf.Create(@stream[0],length(stream));
-  Check(WsCheckResponse(buf,key,protocol,error)=TWsHandshakeResult.Accepted,'accepted: '+error);
+  Check(WsCheckResponse(buf,key,'game.v1',protocol,error)=TWsHandshakeResult.Accepted,'accepted: '+error);
   Check(protocol='game.v1','selected protocol');
   Check(buf.CurrentPos=length(response),'only the header consumed');
   p.Init(TWsRole.Client);
@@ -366,11 +395,49 @@ begin
   // rejections
   stream:=BytesOf(WsServerResponse(WsNewClientKey));
   buf.Create(@stream[0],length(stream));
-  Check(WsCheckResponse(buf,key,protocol,error)=TWsHandshakeResult.Rejected,'wrong accept key');
+  Check(WsCheckResponse(buf,key,'',protocol,error)=TWsHandshakeResult.Rejected,'wrong accept key');
   stream:=BytesOf('HTTP/1.1 403 Forbidden'#13#10'Content-Length: 0'#13#10#13#10);
   buf.Create(@stream[0],length(stream));
-  Check((WsCheckResponse(buf,key,protocol,error)=TWsHandshakeResult.Rejected) and
+  Check((WsCheckResponse(buf,key,'',protocol,error)=TWsHandshakeResult.Rejected) and
     error.Contains('403'),'refused upgrade');
+  EndTest;
+
+  StartTest('Handshake: subprotocol');
+  Check((CheckResponse(WsServerResponse(key,'game.v2'),key,'game.v1, game.v2',protocol)=
+    TWsHandshakeResult.Accepted) and (protocol='game.v2'),'one of the offered');
+  Check((CheckResponse(WsServerResponse(key),key,'game.v1',protocol)=TWsHandshakeResult.Accepted) and
+    (protocol=''),'none selected');
+  Check(CheckResponse(WsServerResponse(key,'chat'),key,'game.v1',protocol)=TWsHandshakeResult.Rejected,
+    'not offered');
+  Check(CheckResponse(WsServerResponse(key,'game.v1'),key,'',protocol)=TWsHandshakeResult.Rejected,
+    'none offered');
+  Check(CheckResponse(WsServerResponse(key,'Game.V1'),key,'game.v1',protocol)=TWsHandshakeResult.Rejected,
+    'case differs');
+  Check(CheckResponse(WsServerResponse(key,'game.v1, game.v2'),key,'game.v1, game.v2',protocol)=
+    TWsHandshakeResult.Rejected,'a list instead of one');
+  response:=WsServerResponse(key,'game.v1');
+  response:=copy(response,1,length(response)-2)+'Sec-WebSocket-Protocol: game.v1'#13#10#13#10;
+  Check(CheckResponse(response,key,'game.v1',protocol)=TWsHandshakeResult.Rejected,'two headers');
+  EndTest;
+
+  StartTest('Handshake: header size limit');
+  response:=WsServerResponse(key);
+  response:=copy(response,1,length(response)-2)+'X-Pad: '+String8(StringOfChar(AnsiChar('a'),15000))+
+    #13#10#13#10;
+  Check(CheckResponse(response,key,'',protocol)=TWsHandshakeResult.Accepted,'under the limit');
+  response:=WsServerResponse(key);
+  response:=copy(response,1,length(response)-2)+'X-Pad: '+String8(StringOfChar(AnsiChar('a'),17000))+
+    #13#10#13#10;
+  Check(CheckResponse(response,key,'',protocol)=TWsHandshakeResult.Rejected,'over the limit, whole');
+  // the same response arriving in parts: the same verdict
+  stream:=BytesOf(response);
+  n:=0;
+  repeat
+    n:=Min(n+1000,length(stream));
+    buf.Create(@stream[0],n);
+    res:=WsCheckResponse(buf,key,'',protocol,error);
+  until (res<>TWsHandshakeResult.NeedMore) or (n=length(stream));
+  Check(res=TWsHandshakeResult.Rejected,'over the limit, in parts');
   EndTest;
 end;
 
@@ -458,6 +525,28 @@ begin
     Check(not server.Receive(msg),'nothing sent after Close');
     Pump(server,client);
     Check((client.state=TWsState.Closed) and (client.closeCode=WS_CLOSE_NORMAL),'client closed by the echo');
+  finally
+    client.Free;
+    server.Free;
+  end;
+  EndTest;
+
+  StartTest('Session: ping while closing');
+  client:=TWsSession.Create(TWsRole.Client);
+  server:=TWsSession.Create(TWsRole.Server);
+  try
+    server.Close;
+    server.TakeOutput(data); // the Close frame, not delivered: the client keeps talking
+    client.Ping;
+    Pump(client,server);
+    Check(server.state=TWsState.Closing,'still closing');
+    Check(server.TakeOutput(data),'pong while closing');
+    p:=ParseAll(TWsRole.Client,data,100,run);
+    Check((length(run.msgs)=1) and (run.msgs[0].opcode=TWsOpcode.Pong),'pong frame');
+    client.Close(WS_CLOSE_GOING_AWAY);
+    Pump(client,server);
+    Check((server.state=TWsState.Closed) and (server.closeCode=WS_CLOSE_GOING_AWAY),'closed by the peer''s Close');
+    Check(not server.TakeOutput(data),'no second Close');
   finally
     client.Free;
     server.Free;

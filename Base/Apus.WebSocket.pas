@@ -156,10 +156,13 @@ function WsClientRequest(const host,path,key:String8;const protocols:String8='';
 function WsCheckRequest(const method,upgrade,connection,version,key:String8;out error:String8):boolean;
 // Server: 101 Switching Protocols response; protocol - the selected subprotocol or ''
 function WsServerResponse(const clientKey:String8;const protocol:String8=''):String8;
-// Client: check the server response at the current position of buf. Accepted - the header is
-// consumed (frames may follow in the same buffer) and protocol gets the selected subprotocol;
-// NeedMore - the header is incomplete, nothing consumed; Rejected - error tells why
-function WsCheckResponse(var buf:TBuffer;const clientKey:String8;out protocol,error:String8):TWsHandshakeResult;
+// Client: check the server response at the current position of buf. protocols - the list
+// offered in WsClientRequest ('' if none): a subprotocol outside it (exact match) is rejected.
+// Accepted - the header is consumed (frames may follow in the same buffer) and protocol gets
+// the selected subprotocol or ''; NeedMore - the header is incomplete, nothing consumed;
+// Rejected - error tells why
+function WsCheckResponse(var buf:TBuffer;const clientKey,protocols:String8;
+  out protocol,error:String8):TWsHandshakeResult;
 
 implementation
 uses Apus.Strings, Apus.Conv, Apus.Crypto;
@@ -173,9 +176,10 @@ threadvar
   rng:TRandom;
   rngReady:boolean;
 
-// Masking keys and client keys. RFC 6455 wants them unpredictable to protect proxies from
-// script-crafted payloads; only our own native client masks (browsers mask by themselves),
-// so PCG32 mixed with the microsecond clock is enough here.
+// Masking keys and client keys. RFC 6455 5.3 asks for a strong entropy source: masking protects
+// proxies from script-crafted payloads. Only our own native client masks (browsers mask by
+// themselves), so PCG32 mixed with the microsecond clock is a deliberate simplification;
+// an OS CSPRNG may replace it later.
 function RandomDWord:cardinal;
 begin
   if not rngReady then begin
@@ -194,6 +198,18 @@ begin
   parts:=list.Split(',');
   for i:=0 to high(parts) do
     if parts[i].Trim.Same(token) then exit(true);
+  result:=false;
+end;
+
+// Same, but case-sensitive: subprotocol names
+function HasExactToken(const list,token:String8):boolean;
+var
+  parts:Strings8;
+  i:integer;
+begin
+  parts:=list.Split(',');
+  for i:=0 to high(parts) do
+    if parts[i].Trim=token then exit(true);
   result:=false;
 end;
 
@@ -299,6 +315,7 @@ begin
     if len=126 then begin
       if avail<4 then exit(TWsParseResult.NeedMore);
       len:=(cardinal(p[2]) shl 8) or p[3];
+      if len<126 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Non-minimal 16-bit payload length'));
       hdrSize:=4;
     end else
     if len=127 then begin
@@ -306,6 +323,7 @@ begin
       len:=0;
       for i:=2 to 9 do len:=(len shl 8) or p[i];
       if (len shr 63)<>0 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Invalid payload length'));
+      if len<=65535 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Non-minimal 64-bit payload length'));
       hdrSize:=10;
     end;
     if (op<8) and (uint64(fragSize)+len>uint64(maxMessageSize)) then
@@ -524,27 +542,28 @@ begin
   result:=result+CRLF;
 end;
 
-function WsCheckResponse(var buf:TBuffer;const clientKey:String8;out protocol,error:String8):TWsHandshakeResult;
+function WsCheckResponse(var buf:TBuffer;const clientKey,protocols:String8;
+  out protocol,error:String8):TWsHandshakeResult;
 var
   p:PByte;
   avail,hdrSize,i,colon:integer;
   header,name,value:String8;
   lines,parts:Strings8;
-  gotUpgrade,gotConnection,gotAccept:boolean;
+  gotUpgrade,gotConnection,gotAccept,gotProtocol:boolean;
 begin
   protocol:='';
   error:='';
   p:=buf.readPos;
   avail:=buf.BytesLeft;
-  // find the end of the header
+  // find the end of the header within the limit, so the verdict doesn't depend on how it arrived
   hdrSize:=0;
-  for i:=0 to avail-4 do
+  for i:=0 to Min(avail,MAX_RESPONSE_HEADER)-4 do
     if (p[i]=13) and (p[i+1]=10) and (p[i+2]=13) and (p[i+3]=10) then begin
       hdrSize:=i+4;
       break;
     end;
   if hdrSize=0 then begin
-    if avail>MAX_RESPONSE_HEADER then begin
+    if avail>=MAX_RESPONSE_HEADER then begin
       error:='Handshake response header is too long';
       exit(TWsHandshakeResult.Rejected);
     end;
@@ -559,7 +578,7 @@ begin
     error:='Server refused the upgrade: '+lines[0].Trim;
     exit(TWsHandshakeResult.Rejected);
   end;
-  gotUpgrade:=false; gotConnection:=false; gotAccept:=false;
+  gotUpgrade:=false; gotConnection:=false; gotAccept:=false; gotProtocol:=false;
   for i:=1 to high(lines) do begin
     colon:=lines[i].IndexOf(':');
     if colon=0 then continue;
@@ -568,15 +587,23 @@ begin
     if name.Same('Upgrade') then gotUpgrade:=HasToken(value,'websocket')
     else if name.Same('Connection') then gotConnection:=HasToken(value,'upgrade')
     else if name.Same('Sec-WebSocket-Accept') then gotAccept:=value=WsAcceptKey(clientKey)
-    else if name.Same('Sec-WebSocket-Protocol') then protocol:=value
-    else if name.Same('Sec-WebSocket-Extensions') and (value<>'') then begin
+    else if name.Same('Sec-WebSocket-Protocol') then begin
+      if gotProtocol then begin
+        error:='Several Sec-WebSocket-Protocol headers in the response';
+        exit(TWsHandshakeResult.Rejected);
+      end;
+      gotProtocol:=true;
+      protocol:=value;
+    end else if name.Same('Sec-WebSocket-Extensions') and (value<>'') then begin
       error:='Server selected an extension that was not requested: '+value;
       exit(TWsHandshakeResult.Rejected);
     end;
   end;
   if not gotUpgrade then error:='No "Upgrade: websocket" in the response'
   else if not gotConnection then error:='No "Connection: Upgrade" in the response'
-  else if not gotAccept then error:='Wrong or missing Sec-WebSocket-Accept';
+  else if not gotAccept then error:='Wrong or missing Sec-WebSocket-Accept'
+  else if gotProtocol and not HasExactToken(protocols,protocol) then
+    error:='Server selected a subprotocol that was not offered: '+protocol;
   if error<>'' then exit(TWsHandshakeResult.Rejected);
   buf.Skip(hdrSize);
   result:=TWsHandshakeResult.Accepted;
@@ -644,8 +671,8 @@ begin
       TWsParseResult.Message:
         case msg.opcode of
           TWsOpcode.Text,TWsOpcode.Binary:Enqueue(msg);
-          TWsOpcode.Ping:
-            if fState=TWsState.Open then AddOutput(WsEncodeFrame(TWsOpcode.Pong,msg.data,masked));
+          TWsOpcode.Ping: // answered also while Closing: the peer's Close hasn't come yet
+            AddOutput(WsEncodeFrame(TWsOpcode.Pong,msg.data,masked));
           TWsOpcode.Close:begin
             // peer-initiated: echo its code; our own Close was already sent otherwise
             if fState=TWsState.Open then AddOutput(WsEncodeClose(msg.closeCode,'',masked));
