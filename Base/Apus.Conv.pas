@@ -103,9 +103,12 @@ type
     class function DecDump(buf:pointer;size:integer):String8; static;
 
     // === Base64 ===
-    // Note: this is NOT standard Base64!
-    class function ToBase64(data:pointer;size:integer):String8; static; // old name: EncodeB64
-    class procedure FromBase64(const st:String8;buf:pointer;var size:integer); static; // old name: DecodeB64
+    // Standard Base64 (RFC 4648): '+' '/' alphabet, output padded with '='.
+    // Not compatible with the retired EncodeB64/DecodeB64 (a different, non-standard format).
+    class function ToBase64(data:pointer;size:integer):String8; static;
+    // Decode Base64, padded or not; size returns the number of bytes written.
+    // buf must hold length(st)*3 div 4 bytes. Characters outside the alphabet decode as 0
+    class procedure FromBase64(const st:String8;buf:pointer;var size:integer); static;
 
   private
     class function HexCharToInt(ch:AnsiChar):integer; static; inline;
@@ -690,7 +693,7 @@ var
   pb:PByte;
   i,v:integer;
 begin
-  SetLength(result,(size*4+2) div 3);
+  SetLength(result,(size+2) div 3*4);
   pb:=data;
   i:=1;
   while size>=3 do begin
@@ -711,17 +714,20 @@ begin
     result[i]:=Base64Chars[1+v shr 12];
     result[i+1]:=Base64Chars[1+(v shr 6) and $3F];
     result[i+2]:=Base64Chars[1+v and $3F];
+    result[i+3]:='=';
   end else
   if size=1 then begin
     v:=pb^ shl 4;
     result[i]:=Base64Chars[1+v shr 6];
     result[i+1]:=Base64Chars[1+v and $3F];
+    result[i+2]:='=';
+    result[i+3]:='=';
   end;
 end;
 
 class procedure Conv.FromBase64(const st:String8;buf:pointer;var size:integer);
 var
-  i,v,cnt:integer;
+  i,v,cnt,n:integer;
   pb:PByte;
   function CharValue(ch:AnsiChar):integer;
   begin
@@ -733,10 +739,13 @@ var
     else result:=0;
   end;
 begin
+  // padding only tells where the data ends: decode the characters before it
+  n:=length(st);
+  while (n>0) and (st[n]='=') do dec(n);
   pb:=buf;
   cnt:=0;
   i:=1;
-  while i<=length(st)-3 do begin
+  while i<=n-3 do begin
     v:=CharValue(st[i]) shl 18 + CharValue(st[i+1]) shl 12 +
        CharValue(st[i+2]) shl 6 + CharValue(st[i+3]);
     pb^:=v shr 16; inc(pb); inc(cnt);
@@ -744,13 +753,13 @@ begin
     pb^:=v and $FF; inc(pb); inc(cnt);
     inc(i,4);
   end;
-  if i<=length(st)-2 then begin
+  if i<=n-2 then begin
     v:=CharValue(st[i]) shl 12 + CharValue(st[i+1]) shl 6 + CharValue(st[i+2]);
     v:=v shr 2;
     pb^:=v shr 8; inc(pb); inc(cnt);
     pb^:=v and $FF; inc(cnt);
   end else
-  if i<=length(st)-1 then begin
+  if i<=n-1 then begin
     v:=CharValue(st[i]) shl 6 + CharValue(st[i+1]);
     v:=v shr 4;
     pb^:=v; inc(cnt);

@@ -273,6 +273,64 @@ begin
   EndTest;
 end;
 
+// RFC 4648 section 10 vectors, padding, and no writes past the decoded data
+procedure TestBase64Standard;
+const
+  PLAIN:array[0..6] of String8=('','f','fo','foo','foob','fooba','foobar');
+  CODED:array[0..6] of String8=('','Zg==','Zm8=','Zm9v','Zm9vYg==','Zm9vYmE=','Zm9vYmFy');
+var
+  buf:array[0..31] of byte;
+  src:array[0..19] of byte;
+  i,j,size:integer;
+  s:String8;
+  ok:boolean;
+
+  // decode st into buf filled with a guard value; check the result and the guard after it
+  function DecodeIs(const st:String8;const expected:String8):boolean;
+  var
+    k:integer;
+  begin
+    fillchar(buf,sizeof(buf),$EE);
+    size:=-1;
+    Conv.FromBase64(st,@buf,size);
+    result:=size=length(expected);
+    if result then
+      for k:=1 to size do
+        if buf[k-1]<>byte(expected[k]) then result:=false;
+    for k:=Max(size,0) to high(buf) do
+      if buf[k]<>$EE then result:=false;
+  end;
+
+begin
+  StartTest('Base64 RFC 4648');
+  for i:=0 to high(PLAIN) do begin
+    Check(Conv.ToBase64(pointer(PLAIN[i]),length(PLAIN[i]))=CODED[i],'encode "'+PLAIN[i]+'"');
+    Check(DecodeIs(CODED[i],PLAIN[i]),'decode '+CODED[i]);
+  end;
+  // unpadded input is still accepted
+  Check(DecodeIs('Zg','f'),'decode unpadded Zg');
+  Check(DecodeIs('Zm8','fo'),'decode unpadded Zm8');
+  Check(DecodeIs('Zm9vYg','foob'),'decode unpadded Zm9vYg');
+  // the WebSocket key: 16 bytes, 24 chars with '=='
+  Check(DecodeIs('dGhlIHNhbXBsZSBub25jZQ==','the sample nonce'),'decode 16-byte key');
+  // round trip of every length 0..20 with all byte values
+  ok:=true;
+  for i:=0 to 20 do begin
+    for j:=0 to i-1 do src[j]:=byte(j*37+i*11+200);
+    s:=Conv.ToBase64(@src,i);
+    if length(s)<>(i+2) div 3*4 then ok:=false;
+    fillchar(buf,sizeof(buf),$EE);
+    Conv.FromBase64(s,@buf,size);
+    if size<>i then ok:=false
+    else
+      for j:=0 to i-1 do
+        if buf[j]<>src[j] then ok:=false;
+    if buf[i]<>$EE then ok:=false;
+  end;
+  Check(ok,'round trip of lengths 0..20');
+  EndTest;
+end;
+
 procedure TestToStrDouble;
 begin
   StartTest('Conv.ToStr(double)');
@@ -327,6 +385,7 @@ begin
     TestHexEncoding;
     TestDump;
     TestBase64;
+    TestBase64Standard;
 
     writeln;
     if testsFailed=0 then
