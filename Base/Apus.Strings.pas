@@ -236,8 +236,9 @@ type
 
   // UTF-8 specific utilities
   UTF8 = record
-    // Validate UTF-8 string
-    class function IsValid(const s:String8):boolean; static;
+    // Validate UTF-8: no overlong forms, surrogates or code points above U+10FFFF
+    class function IsValid(const s:String8):boolean; overload; static;
+    class function IsValid(data:pointer;size:integer):boolean; overload; static;
     // Check if string starts with UTF-8 BOM
     class function HasBOM(const s:RawByteString):boolean; static; inline;
     // Get character count (not byte count)
@@ -1784,41 +1785,46 @@ begin
 end;
 
 class function UTF8.IsValid(const s:String8):boolean;
-var i:integer; b:byte; cp:cardinal;
 begin
-  result:=true;
-  i:=1;
-  while i<=System.Length(s) do begin
-    b:=byte(s[i]);
-    if b<$80 then inc(i)
+  result:=IsValid(pointer(s),System.Length(s));
+end;
+
+class function UTF8.IsValid(data:pointer;size:integer):boolean;
+var
+  p,pEnd:PByte;
+  b:byte;
+  cp:cardinal;
+begin
+  result:=false;
+  p:=data;
+  pEnd:=p+size;
+  while p<pEnd do begin
+    b:=p^;
+    if b<$80 then inc(p)
     else if (b and $E0)=$C0 then begin
       // 2-byte sequence
-      if (i+1>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) then exit(false);
-      cp:=(b and $1F) shl 6 or (byte(s[i+1]) and $3F);
-      // Check for overlong encoding (should be >= $80)
-      if cp<$80 then exit(false);
-      inc(i,2);
+      if (pEnd-p<2) or ((p[1] and $C0)<>$80) then exit;
+      cp:=(b and $1F) shl 6 or (p[1] and $3F);
+      if cp<$80 then exit; // overlong
+      inc(p,2);
     end
     else if (b and $F0)=$E0 then begin
       // 3-byte sequence
-      if (i+2>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) or ((byte(s[i+2]) and $C0)<>$80) then exit(false);
-      cp:=(b and $0F) shl 12 or ((byte(s[i+1]) and $3F) shl 6) or (byte(s[i+2]) and $3F);
-      // Reject overlong encodings and UTF-16 surrogates.
-      if (cp<$800) or ((cp>=$D800) and (cp<=$DFFF)) then exit(false);
-      inc(i,3);
+      if (pEnd-p<3) or ((p[1] and $C0)<>$80) or ((p[2] and $C0)<>$80) then exit;
+      cp:=(b and $0F) shl 12 or ((p[1] and $3F) shl 6) or (p[2] and $3F);
+      if (cp<$800) or ((cp>=$D800) and (cp<=$DFFF)) then exit; // overlong or UTF-16 surrogate
+      inc(p,3);
     end
     else if (b and $F8)=$F0 then begin
       // 4-byte sequence
-      if (i+3>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) or ((byte(s[i+2]) and $C0)<>$80) or ((byte(s[i+3]) and $C0)<>$80) then exit(false);
-      cp:=(b and $07) shl 18 or ((byte(s[i+1]) and $3F) shl 12) or ((byte(s[i+2]) and $3F) shl 6) or (byte(s[i+3]) and $3F);
-      // Check for overlong encoding (should be >= $10000)
-      if cp<$10000 then exit(false);
-      // Check for codepoints beyond Unicode maximum (U+10FFFF)
-      if cp>$10FFFF then exit(false);
-      inc(i,4);
+      if (pEnd-p<4) or ((p[1] and $C0)<>$80) or ((p[2] and $C0)<>$80) or ((p[3] and $C0)<>$80) then exit;
+      cp:=(b and $07) shl 18 or ((p[1] and $3F) shl 12) or ((p[2] and $3F) shl 6) or (p[3] and $3F);
+      if (cp<$10000) or (cp>$10FFFF) then exit; // overlong or beyond Unicode
+      inc(p,4);
     end
-    else exit(false);
+    else exit;
   end;
+  result:=true;
 end;
 
 class function UTF8.CharCount(const s:String8):integer;
