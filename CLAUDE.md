@@ -185,6 +185,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 - **FPC quirk**: a float literal not exact in single (`0.999999`, unlike `0.5`) is a double constant, so `a*0.999999` with `a:single` runs in double with conversions (measured 2x slower than the same code in double); in hot single-precision code use typed constants (`k:single=0.999999`)
 - **Delphi quirk**: `Math` and `Apus.Core` both declare `Min`/`Max`; with both in uses Delphi rejects unqualified calls as ambiguous (FPC compiles them). Prefer dropping `Math` (`Clamp` replaces `EnsureRange`), otherwise qualify: `Apus.Core.Max`. CI enforces it with `tools/check_minmax.sh`
 - **FPC quirk**: a non-ASCII string default parameter value (`const s:String8=#$E2#$80#$A6` or `='…'`) is converted in the caller's source codepage: a caller unit without a UTF-8 BOM gets mangled bytes. Never use one - add an overload without the parameter instead
+- **Delphi quirk**: a one-character non-ASCII literal (`'я'`) is a char constant, converted through the ANSI code page even where a string is expected: `s+'я'`, `s:='я'`, `String8('я')`, `const c:String8='я'` all give one byte (`$FF` under cp1251), BOM or not. Literals of 2+ characters (`'яя'`) convert correctly. Build such a string from bytes or a longer literal
 
 ## License
 
