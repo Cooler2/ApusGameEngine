@@ -13,7 +13,7 @@ All modules are written in Pascal (compatible with Delphi 12+ and FPC 3.2+).
 | **Graphics** | Colors, FastGFX, Images, GfxFormats, GfxFilters, Regions | Image processing, pixel formats |
 | **Text** | UnicodeFont, FreeTypeFont, GlyphCache | Font rendering and glyph caching |
 | **Animation** | AnimatedValues, Tweenings | Value interpolation and easing |
-| **Networking** | Socket, TCP, HttpRequests, HttpServer, GeoIP | Network communication |
+| **Networking** | Socket, TCP, HttpRequests, HttpServer, WebSocket, GeoIP | Network communication (`WebSocket`: RFC 6455 protocol without sockets) |
 | **Platform** | Android | Android integration |
 | **Utilities** | Utils, Files, Log, Logging, Threads, Profiling, StackTrace, CPU, MemoryLeakUtils | General-purpose tools |
 | **Specialized** | Crypto, RSA, Database, Translation, HtmlTree, Config, ControlFiles, Publics | Domain-specific modules (`Config`: configuration documents, see `manual/config_files.md`; `ControlFiles`: the CTL2 predecessor; `Publics`: named variables and expression evaluation) |

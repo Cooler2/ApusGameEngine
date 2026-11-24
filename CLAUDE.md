@@ -65,7 +65,7 @@ function Foo(const st:UnicodeString):...;
 ```
 This replaces the old `ADDANSI` pattern. Use `{$IFDEF UNICODE}` directly.
 
-### Base Library (`Base/Apus.*.pas`) - 56 modules
+### Base Library (`Base/Apus.*.pas`) - 57 modules
 
 Full table with descriptions: `Base/README.md`; per-module build/test status: `Base/engine5_status.md`.
 
@@ -76,7 +76,7 @@ Full table with descriptions: `Base/README.md`; per-module build/test status: `B
 - **Graphics**: Colors, FastGFX, Images, GfxFormats, GfxFilters, Regions
 - **Text**: UnicodeFont, FreeTypeFont, GlyphCache
 - **Animation**: AnimatedValues, Tweenings
-- **Network**: Socket, TCP, HttpRequests, HttpServer, GeoIP (Network - deprecated)
+- **Network**: Socket, TCP, HttpRequests, HttpServer, WebSocket, GeoIP (Network - deprecated)
 - **Platform**: Android
 - **Utilities**: Utils, Files, Log, Logging, Threads, Profiling, StackTrace, CPU, MemoryLeakUtils
 - **Specialized**: Crypto, RSA, Database, Translation, HtmlTree, Config, ControlFiles, Publics
@@ -120,7 +120,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 **Existing tests:**
 - `Base/tests/Test*.dpr` - one per Base module area (Core, Conv, Strings, Types, Containers, HashMaps,
   Files, Config, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, Colors, GfxFilters, GfxFormats, GlyphCache,
-  Compress, TCP, HttpServer); `Bench*.dpr` - benchmarks
+  Compress, TCP, HttpServer, WebSocket); `Bench*.dpr` - benchmarks
 - `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestUIResize`, `TestUIScript`, `TestUIInspector`, `TestWindowLock`, `TestVirtualMouse`, `TestNinePatch`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
   `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestTextMetrics`, `TestBlendModes`, `TestFill`, `TestFillShapes`, `TestStyleFill`, `TestPixelGrid`, `TestBlitScaled`, `TestCulling`, `TestSceneEffectBuffers`, `TestWindowSceneShow`, `TestImageReload`, `TestTextureUnits`, `TestTextureNPOT`
   (needs a GL window), `TestCursorHandles` (needs an SDL window); `OpenGL`, `PlatformTest` - compile-only smoke; run by `tests/linux_smoke.sh`,

@@ -152,6 +152,7 @@ tests or the engine.
 | `Apus.UnicodeFont` | Win/Linux/macOS | - |  |
 | `Apus.Utils` | Win/Linux/macOS | - |  |
 | `Apus.VertexLayout` | Win/Linux/macOS | - |  |
+| `Apus.WebSocket` | not in sweep | TestWebSocket | RFC 6455 codec and connection state without sockets (handshake, frames, `TWsSession`); not wired to a transport yet. |
 
 ## Historical summary — created in engine5 refactoring
 
