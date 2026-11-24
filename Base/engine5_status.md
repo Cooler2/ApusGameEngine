@@ -178,7 +178,7 @@ are not intended to enumerate every live `Base/Apus.*.pas` unit.
 |--------|-------|-------|
 | **Apus.Types** | 760 | Foundation types, `TBuffer`, `TBitStream`. Covered by `TestTypes` (x64/x86). Level 0. |
 | **Apus.CPU** | 157 | CPU detection, CPUID. Level 0. |
-| **Apus.Crypto** | 430 | MD5, SHA, CRC32. Level 0. |
+| **Apus.Crypto** | 520 | Weak data protection helpers (`TProtContainer`, matrix ciphers), SHA-1. Level 0. |
 | **Apus.ADPCM** | 123 | Audio compression. Level 0. |
 | **Apus.LongMath** | 1160 | Big integer math. Level 0. |
 | **Apus.RegExpr** | 69 | Thin wrapper for RegExpr. Level 0. |

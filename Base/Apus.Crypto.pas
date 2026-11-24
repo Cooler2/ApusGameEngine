@@ -60,6 +60,14 @@ function CheckSumSlow(var data;size,passes:integer):cardinal;
 
 procedure GenerateKeyPair(a,b:WORD64);
 
+type
+ TSHA1Digest=array[0..19] of byte;
+
+// SHA-1 hash (FIPS 180-4). SHA-1 is broken for collision resistance: use it only where
+// a protocol requires it (e.g. the WebSocket handshake), not in new security designs
+function SHA1(data:pointer;size:integer):TSHA1Digest; overload;
+function SHA1(const data:RawByteString):TSHA1Digest; overload;
+
 implementation
 type
  PByte=^byte;
@@ -422,6 +430,87 @@ function CheckSumSlow;
    until false;
    writeln(d,divcnt,dividers[1]);
   end;
+
+// --- SHA-1 ---
+type
+ TSHA1State=array[0..4] of cardinal;
+ TSHA1Block=array[0..63] of byte;
+ PSHA1Block=^TSHA1Block;
+
+function Rol32(x:cardinal;n:integer):cardinal; inline;
+ begin
+  result:=(x shl n) or (x shr (32-n));
+ end;
+
+procedure SHA1Transform(var h:TSHA1State;block:PSHA1Block);
+ var
+  w:array[0..79] of cardinal;
+  a,b,c,d,e,f,k,t:cardinal;
+  i:integer;
+ begin
+  for i:=0 to 15 do
+   w[i]:=(cardinal(block[i*4]) shl 24) or (cardinal(block[i*4+1]) shl 16) or
+         (cardinal(block[i*4+2]) shl 8) or cardinal(block[i*4+3]);
+  for i:=16 to 79 do
+   w[i]:=Rol32(w[i-3] xor w[i-8] xor w[i-14] xor w[i-16],1);
+  a:=h[0]; b:=h[1]; c:=h[2]; d:=h[3]; e:=h[4];
+  for i:=0 to 79 do begin
+   if i<20 then begin
+    f:=(b and c) or ((not b) and d); k:=$5A827999;
+   end else
+   if i<40 then begin
+    f:=b xor c xor d; k:=$6ED9EBA1;
+   end else
+   if i<60 then begin
+    f:=(b and c) or (b and d) or (c and d); k:=$8F1BBCDC;
+   end else begin
+    f:=b xor c xor d; k:=$CA62C1D6;
+   end;
+   t:=Rol32(a,5)+f+e+k+w[i];
+   e:=d; d:=c; c:=Rol32(b,30); b:=a; a:=t;
+  end;
+  inc(h[0],a); inc(h[1],b); inc(h[2],c); inc(h[3],d); inc(h[4],e);
+ end;
+
+function SHA1(data:pointer;size:integer):TSHA1Digest;
+ var
+  h:TSHA1State;
+  p:PSHA1Block;
+  tail:array[0..127] of byte;
+  rest,tailSize,i:integer;
+  bits:uint64;
+ begin
+  ASSERT(size>=0);
+  h[0]:=$67452301; h[1]:=$EFCDAB89; h[2]:=$98BADCFE; h[3]:=$10325476; h[4]:=$C3D2E1F0;
+  p:=data;
+  rest:=size;
+  while rest>=64 do begin
+   SHA1Transform(h,p);
+   p:=PSHA1Block(UIntPtr(p)+64);
+   dec(rest,64);
+  end;
+  // padding: $80, zeros, 64-bit big-endian length in bits
+  fillchar(tail,sizeof(tail),0);
+  if rest>0 then move(p^,tail,rest);
+  tail[rest]:=$80;
+  if rest<56 then tailSize:=64 else tailSize:=128;
+  bits:=uint64(size)*8;
+  for i:=0 to 7 do
+   tail[tailSize-1-i]:=byte(bits shr (i*8));
+  SHA1Transform(h,PSHA1Block(@tail[0]));
+  if tailSize=128 then SHA1Transform(h,PSHA1Block(@tail[64]));
+  for i:=0 to 4 do begin
+   result[i*4]:=byte(h[i] shr 24);
+   result[i*4+1]:=byte(h[i] shr 16);
+   result[i*4+2]:=byte(h[i] shr 8);
+   result[i*4+3]:=byte(h[i]);
+  end;
+ end;
+
+function SHA1(const data:RawByteString):TSHA1Digest;
+ begin
+  result:=SHA1(pointer(data),length(data));
+ end;
 
 var
  i:integer;
