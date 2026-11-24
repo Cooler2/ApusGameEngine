@@ -59,12 +59,28 @@ type
     // failed: the connection must be closed.
     function Next(var buf:TBuffer;out msg:TWsMessage):TWsParseResult;
   private
+    type
+      TFrameHeader=record
+        fin,masked:boolean;
+        op:byte;
+        size:integer;    // payload size
+        hdrSize:integer; // header size including the masking key
+        key:array[0..3] of byte;
+      end;
+    var
     fragActive:boolean;   // a fragmented data message is being assembled
     fragOpcode:TWsOpcode; // its opcode (Text or Binary)
     fragData:ByteArray;   // its payload so far (capacity may exceed fragSize)
     fragSize:integer;
     failed:boolean;
     function Fail(code:word;const text:String8):TWsParseResult;
+    // Read and check the header of the frame at buf's position, nothing is consumed.
+    // Message - the whole frame is in buf; NeedMore - it isn't yet; Error - protocol error
+    function PeekFrame(const buf:TBuffer;out hdr:TFrameHeader):TWsParseResult;
+    // A complete control frame (Close, Ping, Pong) as a message
+    function ControlMessage(const hdr:TFrameHeader;payload:PByte;out msg:TWsMessage):TWsParseResult;
+    // Append a data frame to the fragmented message; Message when it is complete
+    function AddFragment(const hdr:TFrameHeader;payload:PByte;out msg:TWsMessage):TWsParseResult;
   end;
 
   {$SCOPEDENUMS ON}
@@ -248,6 +264,15 @@ begin
     p[i]:=p[i] xor key[i and 3];
 end;
 
+// Unmasked copy of a payload
+function CopyPayload(src:PByte;size:integer;masked:boolean;const key:array of byte):ByteArray;
+begin
+  SetLength(result,size);
+  if size=0 then exit;
+  move(src^,result[0],size);
+  if masked then Unmask(@result[0],size,key);
+end;
+
 { TWsMessage }
 
 function TWsMessage.Text:String8;
@@ -279,140 +304,148 @@ begin
   result:=TWsParseResult.Error;
 end;
 
+function TWsParser.PeekFrame(const buf:TBuffer;out hdr:TFrameHeader):TWsParseResult;
+var
+  p:PByte;
+  avail,i:integer;
+  len:uint64;
+begin
+  avail:=buf.BytesLeft;
+  if avail<2 then exit(TWsParseResult.NeedMore);
+  p:=buf.readPos;
+  hdr.fin:=(p[0] and $80)<>0;
+  hdr.op:=p[0] and $0F;
+  hdr.masked:=(p[1] and $80)<>0;
+  // checks that don't need the rest of the header
+  if (p[0] and $70)<>0 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'RSV bits set without an extension'));
+  if not (hdr.op in [0,1,2,8,9,10]) then
+    exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Unknown opcode '+Conv.ToStr(hdr.op)));
+  if hdr.masked<>(role=TWsRole.Server) then begin
+    if hdr.masked then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Masked frame from the server'))
+      else exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Unmasked frame from the client'));
+  end;
+  if hdr.op>=8 then begin
+    if not hdr.fin then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Fragmented control frame'));
+    if (p[1] and $7F)>WS_MAX_CONTROL_PAYLOAD then
+      exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Control frame payload over 125 bytes'));
+  end else
+  if hdr.op=0 then begin
+    if not fragActive then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Continuation without a message'));
+  end else
+    if fragActive then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'New message inside a fragmented one'));
+  // payload length: the shortest form is required
+  len:=p[1] and $7F;
+  hdr.hdrSize:=2;
+  if len=126 then begin
+    if avail<4 then exit(TWsParseResult.NeedMore);
+    len:=(cardinal(p[2]) shl 8) or p[3];
+    if len<126 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Non-minimal 16-bit payload length'));
+    hdr.hdrSize:=4;
+  end else
+  if len=127 then begin
+    if avail<10 then exit(TWsParseResult.NeedMore);
+    len:=0;
+    for i:=2 to 9 do len:=(len shl 8) or p[i];
+    if (len shr 63)<>0 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Invalid payload length'));
+    if len<=65535 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Non-minimal 64-bit payload length'));
+    hdr.hdrSize:=10;
+  end;
+  if (hdr.op<8) and (uint64(fragSize)+len>uint64(maxMessageSize)) then
+    exit(Fail(WS_CLOSE_TOO_BIG,'Message exceeds '+Conv.ToStr(maxMessageSize)+' bytes'));
+  if hdr.masked then begin
+    if avail<hdr.hdrSize+4 then exit(TWsParseResult.NeedMore);
+    move(p[hdr.hdrSize],hdr.key,4);
+    inc(hdr.hdrSize,4);
+  end;
+  hdr.size:=integer(len); // fits: limited by maxMessageSize or 125
+  if avail-hdr.hdrSize<hdr.size then exit(TWsParseResult.NeedMore);
+  result:=TWsParseResult.Message;
+end;
+
+function TWsParser.ControlMessage(const hdr:TFrameHeader;payload:PByte;out msg:TWsMessage):TWsParseResult;
+var
+  data:ByteArray;
+begin
+  msg.opcode:=TWsOpcode(hdr.op);
+  msg.closeCode:=0;
+  data:=CopyPayload(payload,hdr.size,hdr.masked,hdr.key);
+  if hdr.op=8 then begin
+    if hdr.size=1 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Close frame with a 1-byte payload'));
+    if hdr.size=0 then msg.closeCode:=WS_CLOSE_NO_STATUS
+    else begin
+      msg.closeCode:=(word(data[0]) shl 8) or data[1];
+      if not IsValidCloseCode(msg.closeCode) then
+        exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Invalid close code '+Conv.ToStr(msg.closeCode)));
+      if (hdr.size>2) and not UTF8.IsValid(@data[2],hdr.size-2) then
+        exit(Fail(WS_CLOSE_INVALID_DATA,'Close reason is not valid UTF-8'));
+      data:=copy(data,2,hdr.size-2);
+    end;
+  end;
+  msg.data:=data;
+  result:=TWsParseResult.Message;
+end;
+
+function TWsParser.AddFragment(const hdr:TFrameHeader;payload:PByte;out msg:TWsMessage):TWsParseResult;
+var
+  newCap:integer;
+begin
+  result:=TWsParseResult.NeedMore;
+  if hdr.op<>0 then begin
+    fragActive:=true;
+    fragOpcode:=TWsOpcode(hdr.op);
+    fragSize:=0;
+  end;
+  if fragSize+hdr.size>length(fragData) then begin
+    newCap:=Max(fragSize+hdr.size,length(fragData)*2);
+    if newCap>maxMessageSize then newCap:=maxMessageSize;
+    SetLength(fragData,newCap);
+  end;
+  if hdr.size>0 then begin
+    move(payload^,fragData[fragSize],hdr.size);
+    if hdr.masked then Unmask(@fragData[fragSize],hdr.size,hdr.key);
+    inc(fragSize,hdr.size);
+  end;
+  if not hdr.fin then exit;
+  SetLength(fragData,fragSize);
+  if (fragOpcode=TWsOpcode.Text) and not UTF8.IsValid(pointer(fragData),fragSize) then
+    exit(Fail(WS_CLOSE_INVALID_DATA,'Text message is not valid UTF-8'));
+  msg.opcode:=fragOpcode;
+  msg.closeCode:=0;
+  msg.data:=fragData;
+  fragData:=nil;
+  fragSize:=0;
+  fragActive:=false;
+  result:=TWsParseResult.Message;
+end;
+
 function TWsParser.Next(var buf:TBuffer;out msg:TWsMessage):TWsParseResult;
 var
-  p,payload:PByte;
-  avail,hdrSize,i,size,newCap:integer;
-  len:uint64;
-  op:byte;
-  fin,isMasked:boolean;
-  key:array[0..3] of byte;
+  hdr:TFrameHeader;
+  payload:PByte;
   data:ByteArray;
 begin
   msg.opcode:=TWsOpcode.Binary;
   msg.data:=nil;
   msg.closeCode:=0;
   if failed then exit(TWsParseResult.Error);
-  while true do begin
-    avail:=buf.BytesLeft;
-    if avail<2 then exit(TWsParseResult.NeedMore);
-    p:=buf.readPos;
-    fin:=(p[0] and $80)<>0;
-    op:=p[0] and $0F;
-    isMasked:=(p[1] and $80)<>0;
-    // header checks that don't need the rest of the frame
-    if (p[0] and $70)<>0 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'RSV bits set without an extension'));
-    if not (op in [0,1,2,8,9,10]) then
-      exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Unknown opcode '+Conv.ToStr(op)));
-    if isMasked<>(role=TWsRole.Server) then begin
-      if isMasked then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Masked frame from the server'))
-        else exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Unmasked frame from the client'));
-    end;
-    if op>=8 then begin
-      if not fin then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Fragmented control frame'));
-      if (p[1] and $7F)>WS_MAX_CONTROL_PAYLOAD then
-        exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Control frame payload over 125 bytes'));
-    end else
-    if op=0 then begin
-      if not fragActive then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Continuation without a message'));
-    end else
-      if fragActive then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'New message inside a fragmented one'));
-    // payload length
-    len:=p[1] and $7F;
-    hdrSize:=2;
-    if len=126 then begin
-      if avail<4 then exit(TWsParseResult.NeedMore);
-      len:=(cardinal(p[2]) shl 8) or p[3];
-      if len<126 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Non-minimal 16-bit payload length'));
-      hdrSize:=4;
-    end else
-    if len=127 then begin
-      if avail<10 then exit(TWsParseResult.NeedMore);
-      len:=0;
-      for i:=2 to 9 do len:=(len shl 8) or p[i];
-      if (len shr 63)<>0 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Invalid payload length'));
-      if len<=65535 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Non-minimal 64-bit payload length'));
-      hdrSize:=10;
-    end;
-    if (op<8) and (uint64(fragSize)+len>uint64(maxMessageSize)) then
-      exit(Fail(WS_CLOSE_TOO_BIG,'Message exceeds '+Conv.ToStr(maxMessageSize)+' bytes'));
-    if isMasked then begin
-      if avail<hdrSize+4 then exit(TWsParseResult.NeedMore);
-      move(p[hdrSize],key,4);
-      inc(hdrSize,4);
-    end;
-    size:=integer(len); // fits: limited by maxMessageSize or 125
-    if avail-hdrSize<size then exit(TWsParseResult.NeedMore);
+  repeat
+    result:=PeekFrame(buf,hdr);
+    if result<>TWsParseResult.Message then exit;
     // the whole frame is here: consume it
-    payload:=p+hdrSize;
-    buf.Skip(hdrSize+size);
-
-    if op>=8 then begin
-      // control frame
-      SetLength(data,size);
-      if size>0 then begin
-        move(payload^,data[0],size);
-        if isMasked then Unmask(@data[0],size,key);
-      end;
-      msg.opcode:=TWsOpcode(op);
-      if op=8 then begin
-        if size=1 then exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Close frame with a 1-byte payload'));
-        if size=0 then msg.closeCode:=WS_CLOSE_NO_STATUS
-        else begin
-          msg.closeCode:=(word(data[0]) shl 8) or data[1];
-          if not IsValidCloseCode(msg.closeCode) then
-            exit(Fail(WS_CLOSE_PROTOCOL_ERROR,'Invalid close code '+Conv.ToStr(msg.closeCode)));
-          if (size>2) and not UTF8.IsValid(@data[2],size-2) then
-            exit(Fail(WS_CLOSE_INVALID_DATA,'Close reason is not valid UTF-8'));
-          data:=copy(data,2,size-2);
-        end;
-      end;
-      msg.data:=data;
-      exit(TWsParseResult.Message);
-    end;
-
-    // data frame
-    if (op<>0) and fin then begin
+    payload:=buf.readPos+hdr.hdrSize;
+    buf.Skip(hdr.hdrSize+hdr.size);
+    if hdr.op>=8 then exit(ControlMessage(hdr,payload,msg));
+    if (hdr.op<>0) and hdr.fin then begin
       // the common case: a whole message in one frame, no reassembly
-      SetLength(data,size);
-      if size>0 then begin
-        move(payload^,data[0],size);
-        if isMasked then Unmask(@data[0],size,key);
-      end;
-      if (op=1) and not UTF8.IsValid(pointer(data),size) then
+      data:=CopyPayload(payload,hdr.size,hdr.masked,hdr.key);
+      if (hdr.op=1) and not UTF8.IsValid(pointer(data),hdr.size) then
         exit(Fail(WS_CLOSE_INVALID_DATA,'Text message is not valid UTF-8'));
-      msg.opcode:=TWsOpcode(op);
+      msg.opcode:=TWsOpcode(hdr.op);
       msg.data:=data;
       exit(TWsParseResult.Message);
     end;
-    if op<>0 then begin
-      fragActive:=true;
-      fragOpcode:=TWsOpcode(op);
-      fragSize:=0;
-    end;
-    if fragSize+size>length(fragData) then begin
-      newCap:=Max(fragSize+size,length(fragData)*2);
-      if newCap>maxMessageSize then newCap:=maxMessageSize;
-      SetLength(fragData,newCap);
-    end;
-    if size>0 then begin
-      move(payload^,fragData[fragSize],size);
-      if isMasked then Unmask(@fragData[fragSize],size,key);
-      inc(fragSize,size);
-    end;
-    if fin then begin
-      SetLength(fragData,fragSize);
-      if (fragOpcode=TWsOpcode.Text) and not UTF8.IsValid(pointer(fragData),fragSize) then
-        exit(Fail(WS_CLOSE_INVALID_DATA,'Text message is not valid UTF-8'));
-      msg.opcode:=fragOpcode;
-      msg.data:=fragData;
-      fragData:=nil;
-      fragSize:=0;
-      fragActive:=false;
-      exit(TWsParseResult.Message);
-    end;
-    // a middle fragment: go on with the next frame
-  end;
+    result:=AddFragment(hdr,payload,msg);
+  until result<>TWsParseResult.NeedMore; // NeedMore: a middle fragment, go on with the next frame
 end;
 
 { Frames }
