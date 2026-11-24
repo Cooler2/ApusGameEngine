@@ -473,9 +473,11 @@ begin
     client.SendText('hello');
     client.Send(Bytes([1,2,3]));
     Pump(client,server);
+    Check(server.queuedBytes=8,'queued bytes');
     Check(server.Receive(msg) and (msg.opcode=TWsOpcode.Text) and (msg.Text='hello'),'text to server');
+    Check(server.queuedBytes=3,'queued bytes after Receive');
     Check(server.Receive(msg) and (msg.opcode=TWsOpcode.Binary) and SameBytes(msg.data,[1,2,3]),'binary to server');
-    Check(not server.Receive(msg),'queue empty');
+    Check(not server.Receive(msg) and (server.queuedBytes=0),'queue empty');
     server.SendText('welcome');
     Pump(server,client);
     Check(client.Receive(msg) and (msg.Text='welcome'),'text to client');

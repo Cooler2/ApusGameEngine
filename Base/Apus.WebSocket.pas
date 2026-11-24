@@ -76,6 +76,9 @@ type
   // handled here: Ping is answered with Pong, the close handshake is completed, a protocol
   // error closes the connection with the proper code. Optional keepalive pings a silent peer.
   // When state becomes Closed the transport flushes the output and closes the connection.
+  // Feed parses all it gets, and received messages wait in a queue until Receive: to bound
+  // memory the transport stops reading the socket while queuedBytes exceeds its budget
+  // (TCP then slows the peer down).
   // Not thread-safe: use from the thread that polls the transport.
   TWsSession=class
   private
@@ -87,6 +90,7 @@ type
     masked:boolean;          // role=Client
     inbox:array of TWsMessage;
     inboxHead,inboxCount:integer;
+    fQueuedBytes:int64;
     output:ByteArray;
     outputSize:integer;
     dataSeen:boolean;        // something arrived since the last Tick
@@ -122,8 +126,12 @@ type
     // (Close argument, parser error code, WS_CLOSE_ABNORMAL for a timeout or a lost connection)
     property closeCode:word read fCloseCode;
     property closeReason:String8 read fCloseReason;
-    property pingInterval:integer read fPingInterval write fPingInterval; // ms of silence before Ping, 0 - off
-    property pongTimeout:integer read fPongTimeout write fPongTimeout;    // ms to wait for any data after Ping
+    property queuedBytes:int64 read fQueuedBytes; // payload of the messages waiting for Receive
+    // Keepalive: after pingInterval ms of silence Tick sends a Ping, then waits pongTimeout ms
+    // for any incoming data (not necessarily the Pong) before closing with 1006.
+    // A manual Ping doesn't start this timer.
+    property pingInterval:integer read fPingInterval write fPingInterval; // 0 - off
+    property pongTimeout:integer read fPongTimeout write fPongTimeout;
     property closeTimeout:integer read fCloseTimeout write fCloseTimeout; // ms to wait for the peer's Close
   end;
 
@@ -647,6 +655,7 @@ begin
   end;
   inbox[inboxHead+inboxCount]:=msg;
   inc(inboxCount);
+  inc(fQueuedBytes,length(msg.data));
 end;
 
 procedure TWsSession.SetClosed(code:word;const reason:String8);
@@ -687,6 +696,7 @@ begin
   result:=inboxCount>0;
   if not result then exit;
   msg:=inbox[inboxHead];
+  dec(fQueuedBytes,length(msg.data));
   inbox[inboxHead].data:=nil;
   inc(inboxHead);
   dec(inboxCount);
