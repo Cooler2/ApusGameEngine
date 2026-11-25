@@ -7,6 +7,7 @@
 {$I defines.inc}
 unit Apus.Colors;
 interface
+uses Apus.Geom3D;
 
 const
  InvalidColor = $0000007F;
@@ -58,6 +59,14 @@ type
   class function Brighten(c:cardinal;value:integer):cardinal; static;  // add value (-255..255) to each RGB channel
   class function ScaleRGB(c:cardinal;factor:single):cardinal; static;  // multiply RGB by factor (0.8 = 20% darker), rounded
   class function Contrast(c:cardinal;value:integer):cardinal; static;  // scale RGB around 128: value=256 - no change, 0 - flat gray, 512 - double
+  // sRGB <-> linear (IEC 61966-2-1 transfer function). Colors in cardinal form are sRGB-encoded.
+  // Linear colors are TVec4/TVec3 with x=r, y=g, z=b, w=a. Alpha is linear in both forms.
+  class function SRGBToLinear(value:single):single; static; // sRGB-encoded component -> linear
+  class function LinearToSRGB(value:single):single; static; // linear component -> sRGB-encoded
+  class function ToLinear(color:cardinal):TVec4; static;
+  // Components are clamped to 0..1 and rounded
+  class function FromLinear(const color:TVec4):cardinal; overload; static;
+  class function FromLinear(const color:TVec3;alpha:single=1.0):cardinal; overload; static;
  end;
 
  // Bilinear interpolation of scalar values — not a color operation
@@ -88,6 +97,7 @@ implementation
 
  var
   SSE_CONST:^TSSEConst;
+  linearByByte:array[0..255] of single; // sRGB-encoded byte -> linear value
 
  // --- internal helpers (not in interface) ---
 
@@ -405,6 +415,52 @@ implementation
    if h<0 then h:=h+1;
   end;
 
+ class function Color.SRGBToLinear(value:single):single;
+  begin
+   if value<=0.04045 then result:=value/12.92
+    else result:=exp(2.4*ln((value+0.055)/1.055));
+  end;
+
+ class function Color.LinearToSRGB(value:single):single;
+  begin
+   if value<=0.0031308 then result:=value*12.92
+    else result:=1.055*exp(ln(value)/2.4)-0.055;
+  end;
+
+ class function Color.ToLinear(color:cardinal):TVec4;
+  begin
+   result.x:=linearByByte[(color shr 16) and $FF];
+   result.y:=linearByByte[(color shr 8) and $FF];
+   result.z:=linearByByte[color and $FF];
+   result.w:=(color shr 24)/255;
+  end;
+
+ function EncodeByte(value:single):cardinal;
+  begin
+   result:=SRound(Color.LinearToSRGB(Clamp(value,0,1))*255);
+  end;
+
+ class function Color.FromLinear(const color:TVec4):cardinal;
+  begin
+   result:=SRound(Clamp(color.w,0,1)*255) shl 24+
+     EncodeByte(color.x) shl 16+
+     EncodeByte(color.y) shl 8+
+     EncodeByte(color.z);
+  end;
+
+ class function Color.FromLinear(const color:TVec3;alpha:single):cardinal;
+  begin
+   result:=FromLinear(TVec4.Init(color.x,color.y,color.z,alpha));
+  end;
+
+ procedure InitLinearTable;
+  var
+   i:integer;
+  begin
+   for i:=0 to 255 do
+    linearByByte[i]:=Color.SRGBToLinear(i/255);
+  end;
+
  class function Color.Lightness(color:cardinal):byte;
   begin
    result:=round(
@@ -618,6 +674,7 @@ implementation
  {$ENDIF}
 
 initialization
+ InitLinearTable;
  new(SSE_CONST);
  SSE_CONST.ONE:=ONE_PACKED;
  SSE_CONST.MINUS_ONE:=MINUS_ONE_PACKED;

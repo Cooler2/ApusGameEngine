@@ -1,10 +1,10 @@
 {$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestColors;
-// Tests for Apus.Colors — currently the pointer-based bilinear mix (SSE on x64, Pascal elsewhere).
+// Tests for Apus.Colors: bilinear mix (SSE on x64, Pascal elsewhere), HSV, adjustments, sRGB/linear.
 uses
   SysUtils,
-  Apus.Core, Apus.Colors;
+  Apus.Core, Apus.Geom3D, Apus.Colors;
 
 {$INCLUDE Test.inc}
 
@@ -83,6 +83,43 @@ begin
   EndTest;
 end;
 
+procedure TestLinear;
+var
+  i:integer;
+  c:cardinal;
+  v:TVec4;
+  roundTrip:boolean;
+begin
+  StartTest('Color.SRGBToLinear and LinearToSRGB');
+  Check(Color.SRGBToLinear(0)=0,'0 -> 0');
+  Check(abs(Color.SRGBToLinear(1)-1)<1E-6,'1 -> 1');
+  Check(abs(Color.SRGBToLinear(0.5)-0.214041)<1E-5,'0.5 -> 0.214');
+  Check(abs(Color.SRGBToLinear(0.02)-0.02/12.92)<1E-7,'linear segment');
+  Check(abs(Color.LinearToSRGB(0.214041)-0.5)<1E-5,'0.214 -> 0.5');
+  Check(abs(Color.LinearToSRGB(0.001)-0.01292)<1E-7,'linear segment back');
+  roundTrip:=true;
+  for i:=0 to 100 do
+    if abs(Color.LinearToSRGB(Color.SRGBToLinear(i/100))-i/100)>2E-6 then roundTrip:=false;
+  Check(roundTrip,'component round trip');
+  EndTest;
+
+  StartTest('Color.ToLinear and FromLinear (cardinal)');
+  v:=Color.ToLinear($808CE678); // Blender shows sRGB 140,230,120 as linear 0.262,0.791,0.188
+  Check((abs(v.x-0.2623)<1E-4) and (abs(v.y-0.7913)<1E-4) and (abs(v.z-0.1878)<1E-4),'RGB decoded');
+  Check(abs(v.w-128/255)<1E-6,'alpha stays linear');
+  roundTrip:=true;
+  for i:=0 to 255 do begin
+    c:=cardinal(i) shl 24+cardinal(i) shl 16+cardinal(255-i) shl 8+cardinal((i*7) and 255);
+    if Color.FromLinear(Color.ToLinear(c))<>c then roundTrip:=false;
+    if Color.ToLinear(c).x<>Color.SRGBToLinear(i/255) then roundTrip:=false;
+  end;
+  Check(roundTrip,'every byte value round-trips');
+  Check(Color.FromLinear(TVec4.Init(-1,2,0.5,1.5))=$FF00FFBC,'clamped and rounded');
+  Check(Color.FromLinear(TVec3.Init(1,0,0))=$FFFF0000,'TVec3 with default alpha');
+  Check(Color.FromLinear(TVec3.Init(0,0,1),0)=$000000FF,'TVec3 with alpha');
+  EndTest;
+end;
+
 begin
   try
     writeln('Testing [Colors] module');
@@ -92,6 +129,7 @@ begin
     TestBilinearMixColor;
     TestHSV;
     TestAdjustments;
+    TestLinear;
 
     writeln;
     if testsFailed=0 then
