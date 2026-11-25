@@ -167,6 +167,15 @@ function UIScene(name:String8):TUIScene;
    end;
   end;
 
+ // An open popup lets only its own content show hints
+ function HintAllowed(wnd:TWindow;element:TUIElement):boolean;
+  var
+   popup:TUIPopup;
+  begin
+   popup:=TUIPopup.Current(wnd);
+   result:=(popup=nil) or popup.deleted or popup.AllowsHint(element);
+  end;
+
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
   begin
    window.LockState;
@@ -558,7 +567,8 @@ function UIScene(name:String8):TUIScene;
 
     // hint timing
     if (curUnder<>nil) and (curUnder.flags.enabled and (curUnder.hint<>'') or
-       not curUnder.flags.enabled and (curUnder.attributes.Item['hintIfDisabled']<>'')) then begin
+       not curUnder.flags.enabled and (curUnder.attributes.Item['hintIfDisabled']<>'')) and
+       HintAllowed(wnd,curUnder) then begin
      if curUnder.flags.enabled then st:=curUnder.hint
       else st:=curUnder.attributes.Item['hintIfDisabled'];
      with wnd.hint do begin
@@ -723,7 +733,7 @@ function UIScene(name:String8):TUIScene;
     // hint handling
     if (window.hint.showTime>lastHandleTime) and (window.hint.showTime<=Time) then begin
      FindElementAt(window.mousePos.x,window.mousePos.y,c);
-     if (c<>nil) then begin
+     if (c<>nil) and HintAllowed(window,c) then begin
       if c.flags.enabled then st:=c.hint
        else st:=c.attributes.Item['hintIfDisabled'];
       if st<>'' then begin

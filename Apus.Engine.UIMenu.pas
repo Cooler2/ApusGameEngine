@@ -95,6 +95,7 @@ interface
    constructor Create(owner:TUIElement;name:String8='');
    destructor Destroy; override;
    function ContainsElement(element:TUIElement):boolean; override; // + the open submenus, the menu bar
+   function AllowsHint(element:TUIElement):boolean; override; // + the open submenus
   protected
    procedure DismissPopup; override;
   public
@@ -618,6 +619,12 @@ implementation
    result:=(bar<>nil) and ((element=bar) or element.HasParent(bar));
   end;
 
+ function TUIPopupMenu.AllowsHint(element:TUIElement):boolean;
+  begin
+   result:=inherited AllowsHint(element) or
+     ((fChild<>nil) and fChild.AllowsHint(element));
+  end;
+
  function TUIPopupMenu.Add(const caption,shortcut,name:String8):TUIMenuItem;
   var
    n:String8;
@@ -965,6 +972,7 @@ implementation
    sub.flags.visible:=true;
    sub.fOpen:=true;
    fChild:=sub;
+   TUIHint.Drop(GetWindow); // the hint of the line must not cover the submenu
    if keyboard then sub.MoveCurrent(1);
   end;
 

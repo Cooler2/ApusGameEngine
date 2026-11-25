@@ -2059,6 +2059,66 @@ procedure TestHintHiddenScene;
   EndTest;
  end;
 
+// An open popup removes the hint at once; while it is open only its lines and the lines of
+// its open submenus show hints (PaintRaw E-51). Runs with the physical pointer, after the
+// submenu tests
+procedure TestPopupHints;
+ var
+  anchor,other:TProbeButton;
+ procedure SetHint(e:TUIElement;const text:String8);
+  begin
+   e.hint:=text;
+   e.attributes.Item['hintDelay']:='50';
+  end;
+ begin
+  StartTest('Hints with an open popup');
+  BuildSubmenus;
+  anchor:=NewButton(sceneA.UI,'HintAnchor',100,300); // 100..200 x 300..330
+  other:=NewButton(sceneA.UI,'HintOther',650,300);
+  with sub do try
+   menu.autoCloseDelay:=0; // the pointer leaves the menu on purpose
+   SetHint(anchor,'AnchorHint');
+   SetHint(other,'OtherHint');
+   SetHint(itemNew,'NewHint');
+   SetHint(itemFile1,'File1Hint');
+   // a shown hint goes away when the menu opens, the anchor plans none
+   wndA.physPos:=CenterOf(anchor);
+   Check(HintAfter(400)='AnchorHint','the anchor shows its hint');
+   menu.OpenBelow(anchor);
+   Check(TUIHint.Current(wndA)=nil,'opening the menu removes the hint at once');
+   Check(HintAfter(400)='','no hint of the anchor while the menu is open');
+   wndA.physPos:=CenterOf(other);
+   Check(HintAfter(400)='','no hint of an element outside the menu');
+   // the lines of the menu and of its open submenu show hints
+   wndA.physPos:=CenterOf(itemNew);
+   Check(HintAfter(400)='NewHint','a menu line shows its hint');
+   menu.current:=itemRecent;
+   sceneA.DispatchKey(TKey.Right,0,0,true);
+   Check(recent.IsOpen and (TUIHint.Current(wndA)=nil),'opening a submenu removes the hint at once');
+   wndA.physPos:=CenterOf(itemFile1);
+   Check(HintAfter(400)='File1Hint','a line of the open submenu shows its hint');
+   menu.Close;
+   wndA.physPos:=CenterOf(anchor);
+   Check(HintAfter(400)='AnchorHint','after the menu closes the anchor shows its hint again');
+   // a pending hint does not show once the menu opens
+   DropHint;
+   wndA.physPos:=Types.Point(-1,-1);
+   HintAfter(20);
+   wndA.physPos:=CenterOf(anchor);
+   RunFrame(wndA);
+   menu.OpenBelow(anchor);
+   Check(HintAfter(400)='','a pending hint of the anchor does not show after the menu opens');
+   menu.Close;
+  finally
+   DropHint;
+   wndA.hint.fastUntil:=0; // later tests expect the normal hint delay
+   anchor.Remove;
+   other.Remove;
+  end;
+  FreeSubmenus;
+  EndTest;
+ end;
+
 procedure TestClick;
  var
   a:String8;
@@ -3359,6 +3419,7 @@ begin
   TestSubmenuNames;
   TestSubmenuKeys;
   TestSubmenuMouse;
+  TestPopupHints;
   TestMenuAutoClose;
   TestSubmenuRemoval;
   TestMenuBarLayout;

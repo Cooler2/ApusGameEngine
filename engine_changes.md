@@ -6,6 +6,16 @@ behaviour. Newest first. The Base library (`Base/Apus.*`) has its own list:
 [`Base/engine5_changes.md`](Base/engine5_changes.md); `tools/engine5.upgrade` rewrites the
 mechanical renames of both.
 
+## UI: hints while a popup is open (2026-11-26)
+
+- **Behaviour change:** opening a popup (`TUIPopupMenu`, a combo box list, a color picker)
+  removes the window's hint at once and cancels the pending one; opening a submenu does the
+  same. While the popup is open only its own content shows hints - its lines and the lines of
+  its open submenus; the anchor, a menu bar and the elements outside stay silent. After the
+  popup closes the hints come back with the usual delay. A popup class decides what is its
+  content by the virtual `TUIPopup.AllowsHint`; `TUIHint.Drop(wnd)` removes the hint of a
+  window. `ShowSimpleHint` called explicitly is not affected.
+
 ## UI: actions; hotkeys match the modifiers exactly (2026-11-22)
 
 - New `Apus.Engine.Actions`: `TUIAction` - a command with its caption, shortcuts, enabled and

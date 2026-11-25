@@ -103,6 +103,8 @@ interface
    // Hint shown by ShowSimpleHint in the window, nil if none. Removing or freeing the hint
    // by any path (including with its parent) resets it, so it never dangles.
    class function Current(wnd:TWindow):TUIHint; static;
+   // Remove the window's hint at once and cancel the pending one (a popup opens)
+   class procedure Drop(wnd:TWindow); static;
    procedure MakeCurrent; // current in its window; the previous current hint is not freed
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onTimer; override;
@@ -235,6 +237,8 @@ interface
    destructor Destroy; override;
    procedure onRemoved; override;
    function ContainsElement(element:TUIElement):boolean; virtual; // the popup and what it shows (a menu: its open submenus)
+   // While the popup is open only its own content shows hints: not the anchor, not a menu bar
+   function AllowsHint(element:TUIElement):boolean; virtual;
    function HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual;
    function ConsumesSceneButtons:boolean; virtual;
    class function Current(wnd:TWindow):TUIPopup; static;
@@ -2051,6 +2055,21 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
     result:=nil;
   end;
 
+ class procedure TUIHint.Drop(wnd:TWindow);
+  var
+   h:TUIHint;
+  begin
+   if wnd=nil then exit;
+   wnd.LockState;
+   try
+    h:=Current(wnd);
+    if h<>nil then h.Remove; // resets the current hint
+    wnd.hint.showTime:=0; // lastText stays: the same element does not plan its hint again
+   finally
+    wnd.UnlockState;
+   end;
+  end;
+
  procedure TUIHint.MakeCurrent;
   var
    wnd:TWindow;
@@ -2294,6 +2313,11 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    result:=(element<>nil) and ((element=self) or element.HasParent(self));
   end;
 
+ function TUIPopup.AllowsHint(element:TUIElement):boolean;
+  begin
+   result:=(element<>nil) and ((element=self) or element.HasParent(self));
+  end;
+
  function TUIPopup.HandleFocusedKey(focused:TUIElement;keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   begin
    result:=true;
@@ -2359,6 +2383,7 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    popupWindow:=wnd;
    popupAnchor:=anchor;
    if wnd<>nil then wnd.popup.element:=self;
+   TUIHint.Drop(wnd); // a hint must not cover the popup
    result:=true;
   end;
 
