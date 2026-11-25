@@ -3,11 +3,11 @@
 from collections import defaultdict
 from math import isfinite
 from struct import pack, unpack
+import os
 import re
 
+from .materials import read_material
 from .writer import MAX_POSITION, Mesh, write_aem
-
-TEXTURE_ROLES = ("basecolor", "normal", "opacity")
 
 
 def selected_levels(context, use_lod_collections):
@@ -44,28 +44,6 @@ def mesh_objects(objects):
     return sorted({obj for obj in objects if obj.type == "MESH"}, key=lambda obj: obj.name_full)
 
 
-def material_binding(material):
-    if material is None:
-        return "Default", ()
-    # Read authored properties from the datablock, including edits made after evaluation.
-    material = material.original
-    slot = material.get("aem_slot", material.name)
-    if not isinstance(slot, str) or not slot:
-        raise ValueError(f"{material.name}: aem_slot must be a nonempty string")
-    hints = []
-    for role in TEXTURE_ROLES:
-        key = "aem_" + role
-        path = material.get(key, "")
-        if not isinstance(path, str):
-            raise ValueError(f"{material.name}: {key} must be a string")
-        if not path:
-            continue
-        if "\\" in path or ":" in path or any(part in ("", ".", "..") for part in path.split("/")):
-            raise ValueError(f"{material.name}: {key} must be relative to the exported AEM and use /")
-        hints.append((role, path))
-    return slot, tuple(hints)
-
-
 def finite(values, label):
     if not all(isfinite(value) for value in values):
         raise ValueError(f"Non-finite {label}")
@@ -83,12 +61,34 @@ def quantize_rgba(value):
     return tuple(round(255 * min(1.0, max(0.0, component))) for component in finite(value, "color"))
 
 
+def color_attribute(mesh, materials, export_colors, warn):
+    """Choose the color attribute exported as vertex colors, or None."""
+    used = {info.color_attribute for info in materials if info.color_attribute is not None}
+    if not export_colors:
+        if used:
+            warn("a material uses vertex colors, but Vertex Colors is off in the export settings")
+        return None
+    attributes = mesh.color_attributes
+    names = {name or attributes.default_color_name or attributes.active_color_name for name in used}
+    if len(names) > 1:
+        raise ValueError(f"materials use different color attributes {sorted(names)}; AEM stores one per mesh")
+    name = names.pop() if names else attributes.default_color_name or attributes.active_color_name
+    if not name:
+        return None
+    attribute = attributes.get(name)
+    if attribute is None:
+        if used:
+            raise ValueError(f"a material uses missing color attribute {name}")
+        return None
+    return attribute
+
+
 def mesh_attributes(mesh, material_by_face):
     active_uv = mesh.uv_layers.active
     uv0_name = active_uv.name if active_uv is not None else ""
     uv1_name = next((layer.name for layer in mesh.uv_layers if layer.name != uv0_name), "")
     needs_tangents = any(
-        role == "normal" for _, hints in material_by_face.values() for role, _ in hints
+        role == "normal" for info in material_by_face.values() for role, _ in info.hints
     )
     if needs_tangents and not uv0_name:
         raise ValueError("A normal map requires an active UV layer")
@@ -99,23 +99,23 @@ def mesh_attributes(mesh, material_by_face):
     if has_tangents:
         mesh.calc_tangents(uvmap=uv0_name)
     # calc_tangents can reallocate the corner attributes, invalidating previous layer handles.
-    return mesh.uv_layers.get(uv0_name), mesh.uv_layers.get(uv1_name), has_tangents, mesh.color_attributes.active_color
+    return mesh.uv_layers.get(uv0_name), mesh.uv_layers.get(uv1_name), has_tangents
 
 
-def export_geometry(obj, depsgraph, scale, add_binding):
+def export_geometry(obj, depsgraph, scale, add_binding, options):
     if depsgraph.objects.get(obj.name) is None:
         raise ValueError(f"{obj.name}: include the object in the active View Layer before exporting")
     evaluated = obj.evaluated_get(depsgraph)
     mesh = evaluated.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
     try:
-        return gather_geometry(evaluated, mesh, scale, add_binding)
+        return gather_geometry(evaluated, mesh, scale, add_binding, options)
     except (ValueError, RuntimeError, OverflowError) as exc:
         raise ValueError(f"{obj.name}: {exc}") from exc
     finally:
         evaluated.to_mesh_clear()
 
 
-def gather_geometry(obj, mesh, scale, add_binding):
+def gather_geometry(obj, mesh, scale, add_binding, options):
     matrix = obj.matrix_world
     linear = matrix.to_3x3()
     determinant = linear.determinant()
@@ -133,9 +133,13 @@ def gather_geometry(obj, mesh, scale, add_binding):
             material = obj.material_slots[mat_index].material
         else:
             material = mesh.materials[mat_index] if mat_index < len(mesh.materials) else None
-        material_by_face[mat_index] = material_binding(material)
-    uv0, uv1, has_tangents, color = mesh_attributes(mesh, material_by_face)
-    binding_indices = {index: add_binding(*value) for index, value in material_by_face.items()}
+        material_by_face[mat_index] = read_material(
+            material, options.export_dir, options.warn, options.double_sided)
+    uv0, uv1, has_tangents = mesh_attributes(mesh, material_by_face)
+    # Chosen after calc_tangents, which can reallocate the attribute handles.
+    color = color_attribute(mesh, material_by_face.values(), options.export_colors,
+                            lambda text: options.warn(f"{obj.name}: {text}"))
+    binding_indices = {index: add_binding(info) for index, info in material_by_face.items()}
 
     result = Mesh(obj.name_full)
     pooled = {}
@@ -170,7 +174,8 @@ def gather_geometry(obj, mesh, scale, add_binding):
             rgba = ()
             if color is not None:
                 index = loop.vertex_index if color.domain == "POINT" else loop_index
-                rgba = quantize_rgba(color.data[index].color)
+                # sRGB-encoded RGB with linear alpha, as Blender displays the attribute.
+                rgba = quantize_rgba(color.data[index].color_srgb)
             key = (position, tuple(normal), tuple(uvs), tangent, rgba)
             index = pooled.get(key)
             if index is None:
@@ -193,7 +198,21 @@ def gather_geometry(obj, mesh, scale, add_binding):
     return result
 
 
-def export_aem(context, filepath, use_lod_collections=False, units_per_meter=1.0):
+class ExportOptions:
+    def __init__(self, filepath, export_colors, double_sided):
+        self.export_dir = os.path.dirname(os.path.abspath(filepath))
+        self.export_colors = export_colors
+        self.double_sided = double_sided
+        self.warnings = []
+
+    def warn(self, text):
+        if text not in self.warnings:
+            self.warnings.append(text)
+
+
+def export_aem(context, filepath, use_lod_collections=False, units_per_meter=1.0, export_colors=True,
+               double_sided=False):
+    """Write the selected objects or LOD collections. Returns the list of warnings."""
     if context.mode != "OBJECT":
         raise ValueError("Switch to Object Mode before exporting")
     levels = selected_levels(context, use_lod_collections)
@@ -203,12 +222,13 @@ def export_aem(context, filepath, use_lod_collections=False, units_per_meter=1.0
     if not isfinite(scale) or scale <= 0:
         raise ValueError("Game units per metre must be finite and positive")
     depsgraph = context.evaluated_depsgraph_get()
+    options = ExportOptions(filepath, export_colors, double_sided)
     slots = {}
     bindings = {}
 
-    def add_binding(slot, hints):
-        slot_index = slots.setdefault(slot, len(slots))
-        key = (slot_index, hints)
+    def add_binding(info):
+        slot_index = slots.setdefault(info.slot, len(slots))
+        key = (slot_index, info.hints, info.params)
         return bindings.setdefault(key, len(bindings))
 
     meshes = []
@@ -220,8 +240,9 @@ def export_aem(context, filepath, use_lod_collections=False, units_per_meter=1.0
             index = object_nodes.get(obj)
             if index is None:
                 index = len(meshes)
-                meshes.append(export_geometry(obj, depsgraph, scale, add_binding))
+                meshes.append(export_geometry(obj, depsgraph, scale, add_binding, options))
                 object_nodes[obj] = index
             nodes.append(index)
         lods.append((threshold, nodes))
     write_aem(filepath, meshes, slots, bindings, lods)
+    return options.warnings

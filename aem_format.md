@@ -1,6 +1,6 @@
 # Experimental static AEM v0
 
-AEM 0.0 is the first static prototype in R-03. It gives the Blender exporter and engine loader a common wire layout for trying the workflow on the Racing grandstand. Prototype assets may need to be re-exported when the format changes.
+AEM 0.x is the static prototype in R-03. Version 0.0 is the first layout. Version 0.1 adds material parameters to `MTRL`; the rest of the layout is unchanged. It gives the Blender exporter and engine loader a common wire layout for trying the workflow on the Racing grandstand. Prototype assets may need to be re-exported when the format changes.
 
 ## File envelope
 
@@ -10,7 +10,7 @@ All integers and IEEE 754 binary32 floats are little-endian. Layouts below are b
 | --- | --- | --- |
 | 0 | byte[4] | ASCII `AEM` followed by NUL |
 | 4 | uint16 | Major version, 0 |
-| 6 | uint16 | Minor version, 0 |
+| 6 | uint16 | Minor version, 0 or 1 |
 | 8 | uint16 | Feature bits, listed below |
 | 10 | uint16 | Reserved, zero |
 | 12 | uint32 | Directory offset |
@@ -27,7 +27,7 @@ Each directory entry is 16 bytes.
 | 8 | uint32 | Chunk size in bytes |
 | 12 | uint32 | Flags. Bit 0 marks a chunk required for interpretation. Other bits are reserved. |
 
-`MESH`, `MTRL`, `NODE` and `BBOX` are required. `LOD0` is required when bit 3 is set. Each of these chunks occurs at most once and is marked required when present. An older reader can skip unknown optional chunks, including ones with unknown encoding flags, after checking their ranges. Reject unknown required chunks, unsupported major versions, unsupported flags on understood chunks, and incompatible feature combinations. The decoder accepts version 0.0 only. The prototype version must change when a wire change makes existing files incompatible.
+`MESH`, `MTRL`, `NODE` and `BBOX` are required. `LOD0` is required when bit 3 is set. Each of these chunks occurs at most once and is marked required when present. An older reader can skip unknown optional chunks, including ones with unknown encoding flags, after checking their ranges. Reject unknown required chunks, unsupported major versions, unsupported flags on understood chunks, and incompatible feature combinations. The decoder accepts versions 0.0 and 0.1. Writers emit 0.1. The prototype version must change when a wire change makes existing files incompatible.
 
 The header, directory and chunk ranges must fit in the file and must be disjoint. The v0 writer places the directory after the header and emits chunks in the order below. Readers find them by ID and may accept other offsets. Reject duplicate IDs and zero-sized chunks. Perform range and multiplication checks in uint64 before converting to runtime signed counts, taking pointers or allocating arrays. Any count must fit the actual remaining payload and the runtime allocation limits, including expanded indices and later interleaved buffers. Consume each understood chunk exactly. Parse CPU data into a temporary asset and publish it only after validating all references and bounds.
 
@@ -49,7 +49,7 @@ meshes[meshCount]:
     uv0: f32[vertexCount][2]        # if present
     uv1: f32[vertexCount][2]        # if present
     tangents: f32[vertexCount][4]   # if present
-    colors: u8[vertexCount][4]      # if present, R G B A
+    colors: u8[vertexCount][4]      # if present, R G B A: sRGB-encoded RGB, linear A
     indices: u16[indexCount] or u32[indexCount]
     parts[partCount]:
         firstIndex: u32
@@ -61,7 +61,7 @@ meshes[meshCount]:
         values: f32[vertexCount][components]
 ```
 
-The mesh, vertex, index and part counts are positive. Triangles are indexed and counterclockwise from the outward side. Indices are less than vertexCount. Parts are nonempty consecutive ranges of complete triangles, ordered by firstIndex, disjoint and covering the whole index buffer. The writer uses 16-bit indices when the largest index fits in uint16. The CPU reader expands them to `TMesh.indices`. Attribute masks contain only the bits above. Tangents require normals and UV0. Split vertices where corner UVs, normals, colors or tangent handedness differ. Map the wire color channels to the engine color value explicitly. Custom stream names are nonempty and unique within a mesh. The first exporter may emit zero custom streams. The static API has no access to custom streams, and the reader may validate and skip them until a consumer needs them.
+The mesh, vertex, index and part counts are positive. Triangles are indexed and counterclockwise from the outward side. Indices are less than vertexCount. Parts are nonempty consecutive ranges of complete triangles, ordered by firstIndex, disjoint and covering the whole index buffer. The writer uses 16-bit indices when the largest index fits in uint16. The CPU reader expands them to `TMesh.indices`. Attribute masks contain only the bits above. Tangents require normals and UV0. Split vertices where corner UVs, normals, colors or tangent handedness differ. Map the wire color channels to the engine color value explicitly. Vertex color RGB is sRGB-encoded, like the pixels of a color texture; alpha is linear. A shader that lights in linear space decodes RGB first. Custom stream names are nonempty and unique within a mesh. The first exporter may emit zero custom streams. The static API has no access to custom streams, and the reader may validate and skip them until a consumer needs them.
 
 The exporter writes finite values, nonzero unit normals, and unit tangents orthogonal to the corresponding normals. Tangent W is exactly +1 or -1. The reader rejects nonfinite data, invalid W and invalid structure. Position components, including the transformed mesh bounds, are limited to ±1e30 by the engine bounds representation. The tangent contract matches `TMesh` and the stock shader. T points along +U and B = cross(T, N) × W points along +V. UV (0,0) is top-left, with V increasing down. Apply the V conversion to Blender UVs and derive handedness for the exported UV basis. Normal hints refer to textures whose green component encodes +B in that exported basis. If an input bake encodes +Y along Blender's original increasing V, then flipping V reverses B. Re-encode its green channel when preparing the engine texture. Keep the Blender source maps intact.
 
@@ -78,11 +78,42 @@ bindings[bindingCount]:
     hints[hintCount]:
         role: str
         path: str
+    params: material parameters    # version 0.1 and later
 ```
 
-Slots have nonempty, unique, case-sensitive names. Each mesh part chooses a binding. The binding references one existing slot and can carry zero or more texture hints. Roles are nonempty, unique and case-sensitive within each binding. The first convention is `basecolor` (sRGB color), `normal` (linear, tangent-space +Y) and `opacity` (linear mask, sample red). Additional roles can be exposed as hints without becoming format features.
+Slots have nonempty, unique, case-sensitive names. Each mesh part chooses a binding. The binding references one existing slot, can carry zero or more texture hints, and from version 0.1 carries the material parameters. Roles are nonempty, unique and case-sensitive within each binding. The convention is `color` (sRGB color, alpha in the same texture), `normal` (linear, tangent-space +Y) and `opacity` (linear mask, sample red). Additional roles can be exposed as hints without becoming format features.
 
-A path is a nonempty VFS path relative to the AEM file's logical directory, using / as separator. Reject empty path components, . and .. components, absolute paths, backslashes and drive/scheme colons. Resolving hints uses the logical path passed to the loader. Missing image files are handled by the game when it binds materials. The loader only reads the model. The game owns shader selection, roughness, alpha cutoff, and texture objects. It may use a separate opacity texture or pack its mask into basecolor alpha for a shader that reads the latter. The same slot can have multiple bindings, so `Seat_atlas` can use one atlas in LOD1 and a different atlas in LOD2.
+A path is a nonempty VFS path relative to the AEM file's logical directory, using / as separator. Reject empty path components, . and .. components, absolute paths, backslashes and drive/scheme colons. Resolving hints uses the logical path passed to the loader. Missing image files are handled by the game when it binds materials. The loader only reads the model. The game owns shader selection and texture objects. The stock shader reads coverage from the alpha of the `color` texture. A separate `opacity` mask is for a custom shader, or must be packed into that alpha for the stock one. The same slot can have multiple bindings, so `Seat_atlas` can use one atlas in LOD1 and a different atlas in LOD2.
+
+### Material parameters
+
+The parameters are 52 bytes. Colors are scene-linear values as authored, not sRGB-encoded.
+
+```text
+baseColor: f32[4]          # linear R G B, then alpha
+emissionColor: f32[3]      # linear R G B
+emissionStrength: f32
+specular: f32              # specular level, 0.5 is the common dielectric value
+roughness: f32
+metallic: f32
+alphaCutoff: f32
+alphaMode: u8              # 0 opaque, 1 cutout, 2 blend
+flags: u8                  # bit 0 vertex color, bit 1 double-sided
+reserved: u16              # zero
+```
+
+All values are finite. Base color components, roughness, metallic and alpha cutoff are in [0,1]. Emission color components, emission strength and specular are nonnegative. Reject other alpha modes, other flag bits and nonzero reserved bits.
+
+The parameters describe how the stock shader shows the part. A game with its own shaders can use them as inputs or ignore them.
+
+- The surface color is `baseColor.rgb`. It is multiplied by the `color` texture and, if the vertex color flag is set, by the vertex color. The texture and vertex color are decoded from sRGB first. The coverage is the product of `baseColor.a`, the texture alpha, and the vertex color alpha when the flag is set.
+- `specular`, `roughness` and `metallic` follow the Blender Principled BSDF inputs Specular IOR Level, Roughness and Metallic.
+- Emitted light is `emissionColor × emissionStrength`, added after lighting.
+- `alphaMode` 0 ignores coverage. Mode 1 discards a fragment whose coverage is below `alphaCutoff`. Mode 2 blends the part by coverage. Cutoff is stored for every mode.
+- The vertex color flag tells whether the mesh colors tint this part. Without it, the colors are data for a custom shader. The flag has no effect on a mesh without colors.
+- The double-sided flag is a hint that the part is meant to be seen from both sides. A shader that follows it draws the part without back-face culling and lights it from the side that faces the viewer.
+
+A version 0.0 binding has no parameters. The reader uses white base color with alpha 1, black emission with strength 0, specular 0.5, roughness 0.5, metallic 0, cutoff 0.5, opaque mode, and the vertex color flag set, which preserves the 0.0 behavior.
 
 ## NODE
 

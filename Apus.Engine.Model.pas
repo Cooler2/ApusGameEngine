@@ -50,7 +50,7 @@ type
     // Several bindings can share one slot while using different textures.
     function MaterialBindingSlotIndex(bindingIndex:integer):integer;
     // Uses the same binding index as TModelDrawPart.bindingIndex. Returns the path
-    // for a role such as 'basecolor', 'normal' or 'opacity', relative to the logical
+    // for a role such as 'color', 'normal' or 'opacity', relative to the logical
     // directory of SourcePath. An empty string means the binding has no hint for that role.
     function TextureHint(bindingIndex:integer;const role:String8):String8;
 

@@ -1,4 +1,4 @@
-"""Write the experimental static AEM 0.0 layout in aem_format.md."""
+"""Write the experimental static AEM 0.1 layout in aem_format.md."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,7 +8,9 @@ import os
 
 HEADER = Struct("<4sHHHHII")
 DIRECTORY_ENTRY = Struct("<4sIII")
-# AEM 0.0 limits and flags in aem_format.md and Apus.Engine.AEMLoader.
+MATERIAL_PARAMS = Struct("<4f3f5fBBH")
+VERSION = (0, 1)
+# AEM 0.1 limits and flags in aem_format.md and Apus.Engine.AEMLoader.
 HAS_LOD = 0x0008
 REQUIRED_CHUNK = 0x00000001
 MAX_POSITION = 1e30
@@ -70,10 +72,14 @@ def material_chunk(slots, bindings):
     for slot in slots:
         data += text(slot)
     data += pack("<I", len(bindings))
-    for slot_index, hints in bindings:
+    for slot_index, hints, params in bindings:
         data += pack("<II", slot_index, len(hints))
         for role, path in hints:
             data += text(role) + text(path)
+        data += MATERIAL_PARAMS.pack(
+            *params.base_color, *params.emission_color, params.emission_strength,
+            params.specular, params.roughness, params.metallic, params.alpha_cutoff,
+            params.alpha_mode, params.flags, 0)
     return data
 
 
@@ -116,7 +122,7 @@ def write_aem(path, meshes, slots, bindings, levels):
     try:
         with NamedTemporaryFile(dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False) as stream:
             temp_path = Path(stream.name)
-            stream.write(HEADER.pack(b"AEM\0", 0, 0, HAS_LOD if has_lods else 0, 0, HEADER.size, len(chunks)))
+            stream.write(HEADER.pack(b"AEM\0", *VERSION, HAS_LOD if has_lods else 0, 0, HEADER.size, len(chunks)))
             for kind, data in chunks:
                 stream.write(DIRECTORY_ENTRY.pack(kind, offset, len(data), REQUIRED_CHUNK))
                 offset += len(data)
