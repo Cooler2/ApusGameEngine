@@ -163,13 +163,14 @@ Call `ReleaseModel` from the game's graphics teardown before releasing the conte
 
 ## Prepare materials before the first draw
 
-Call `CollectMaterialHints` after `LoadAEM`, for example from scene `Load`. It walks every binding in the asset, including those used in other LODs, without a graphics context or a call to `Draw`. Each entry pairs the game-facing slot name with the texture paths for that binding.
+Call `CollectMaterialHints` after `LoadAEM`, for example from scene `Load`. It walks every binding in the asset, including those used in other LODs, without a graphics context or a call to `Draw`. Each entry pairs the game-facing slot name with the texture paths and the material parameters for that binding.
 
 ```pascal
 type
   TMaterialHints=record
     slotName:String8;
     colorPath,normalPath,opacityPath:String8;
+    material:TModelMaterial;
   end;
   TMaterialHintsArray=array of TMaterialHints;
 
@@ -184,11 +185,12 @@ begin
     materials[bindingIndex].colorPath:=asset.TextureHint(bindingIndex,'color');
     materials[bindingIndex].normalPath:=asset.TextureHint(bindingIndex,'normal');
     materials[bindingIndex].opacityPath:=asset.TextureHint(bindingIndex,'opacity');
+    materials[bindingIndex].material:=asset.Material(bindingIndex);
   end;
 end;
 ```
 
-An empty path means the binding has no hint for that texture role. Resolve each nonempty path against the logical directory of `asset.SourcePath`. Load the textures you need and store the prepared materials in a per-asset array indexed by binding.
+An empty path means the binding has no hint for that texture role. `TModelMaterial` holds the values from [Materials](#materials): base color and alpha, emission, specular, roughness, metallic, the alpha mode with its cutoff, and the vertex color and double-sided flags. Its colors are linear. A call that takes a color as a cardinal expects sRGB, so convert with `Color.FromLinear(material.baseColor)` from `Apus.Colors`. Models exported before AEM 0.1 return the defaults listed in the [format description](../aem_format.md). Resolve each nonempty path against the logical directory of `asset.SourcePath`. Load the textures you need and store the prepared materials in a per-asset array indexed by binding.
 
 At draw time, the engine reads the mesh section's binding and passes both indices to `TModelMaterialBinder`. For the LOD2 seats in the diagram, `part.bindingIndex` is `14`, so the binder looks up prepared material `14` to get the LOD2 atlas. If the binder needs the slot name, it can call `asset.MaterialSlotName(part.slotIndex)` directly. The engine has already looked up `part.slotIndex` from the binding.
 

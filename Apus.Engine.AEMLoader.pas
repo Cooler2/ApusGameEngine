@@ -1,10 +1,33 @@
-﻿// Experimental static AEM 0.0 decoder. The wire layout is described in aem_format.md.
+﻿// Experimental static AEM 0.0 and 0.1 decoder. The wire layout is described in aem_format.md.
 // Copyright (C) 2026 Apus Software. Distributed under the BSD-3 license.
 unit Apus.Engine.AEMLoader;
 interface
 uses Apus.Core, Apus.Geom3D, Apus.Engine.Mesh;
 
 type
+  {$SCOPEDENUMS ON}
+  // How the stock shader treats coverage: base color alpha x color map alpha x vertex alpha.
+  TModelAlphaMode=(
+    Opaque, // coverage is ignored
+    Cutout, // fragments with coverage below alphaCutoff are discarded
+    Blend); // the part is blended by coverage
+  {$SCOPEDENUMS OFF}
+
+  // Material colors and parameters as authored. Colors are scene-linear, not sRGB-encoded.
+  TModelMaterial=record
+    baseColor:TVec4; // linear RGB and alpha
+    emissionColor:TVec3; // linear RGB
+    emissionStrength:single;
+    specular:single; // specular level, 0.5 for common dielectrics
+    roughness:single;
+    metallic:single;
+    alphaCutoff:single; // stored for every alpha mode
+    alphaMode:TModelAlphaMode;
+    vertexColor:boolean; // mesh colors tint this part
+    doubleSided:boolean; // hint: the part is meant to be seen from both sides
+    function Emission:TVec3; // emissionColor*emissionStrength
+  end;
+
   TAemTextureHint=record
     role,path:String8;
   end;
@@ -12,6 +35,7 @@ type
   TAemBinding=record
     slotIndex:integer;
     hints:array of TAemTextureHint;
+    material:TModelMaterial; // defaults for AEM 0.0
   end;
 
   TAemMesh=record
@@ -57,6 +81,9 @@ const
   AEM_LOD0=$30444F4C;
   HAS_LOD=$0008;
   REQUIRED_CHUNK=$00000001;
+  MATERIAL_PARAMS_SIZE=52;
+  MATERIAL_VERTEX_COLOR=1;
+  MATERIAL_DOUBLE_SIDED=2;
   MAX_POSITION:single=1e30; // TBox3 uses this magnitude for empty bounds
   MAX_SINGLE=3.4028234663852886e38; // largest finite single (Math.MaxSingle)
 
@@ -154,8 +181,75 @@ begin
   result:=(segment<>'') and (segment<>'.') and (segment<>'..');
 end;
 
-procedure ReadMaterials(var r:TChunkReader; model:TAemStaticData);
-var i,j,k,slotIndex:integer;
+function TModelMaterial.Emission:TVec3;
+begin
+  result:=emissionColor*emissionStrength;
+end;
+
+// Values a version 0.0 binding implies, as listed in aem_format.md.
+function DefaultMaterial:TModelMaterial;
+begin
+  result.baseColor:=Vec4(1,1,1,1);
+  result.emissionColor:=Vec3(0,0,0);
+  result.emissionStrength:=0;
+  result.specular:=0.5;
+  result.roughness:=0.5;
+  result.metallic:=0;
+  result.alphaCutoff:=0.5;
+  result.alphaMode:=TModelAlphaMode.Opaque;
+  result.vertexColor:=true;
+  result.doubleSided:=false;
+end;
+
+procedure ReadMaterialParams(var r:TChunkReader; bindingIndex:integer; out m:TModelMaterial);
+
+  procedure Fail(const field,reason:string; fieldSize:integer);
+  begin
+    r.Invalid(Format('%s %s in binding %d',[field,reason,bindingIndex]),fieldSize);
+  end;
+
+  function NonNegative(const field:string):single;
+  var bits:cardinal;
+  begin
+    bits:=r.U32;
+    if bits and $7F800000=$7F800000 then Fail(field,'is not finite',4);
+    Move(bits,result,SizeOf(result));
+    if result<0 then Fail(field,'is negative',4);
+  end;
+
+  function Fraction(const field:string):single;
+  begin
+    result:=NonNegative(field);
+    if result>1 then Fail(field,'is above 1',4);
+  end;
+
+var
+  mode,flags:integer;
+begin
+  m.baseColor.x:=Fraction('baseColor.r');
+  m.baseColor.y:=Fraction('baseColor.g');
+  m.baseColor.z:=Fraction('baseColor.b');
+  m.baseColor.w:=Fraction('baseColor.a');
+  m.emissionColor.x:=NonNegative('emissionColor.r');
+  m.emissionColor.y:=NonNegative('emissionColor.g');
+  m.emissionColor.z:=NonNegative('emissionColor.b');
+  m.emissionStrength:=NonNegative('emissionStrength');
+  m.specular:=NonNegative('specular');
+  m.roughness:=Fraction('roughness');
+  m.metallic:=Fraction('metallic');
+  m.alphaCutoff:=Fraction('alphaCutoff');
+  mode:=r.buffer.ReadByte;
+  if mode>ord(High(TModelAlphaMode)) then Fail('alphaMode','is unknown',1);
+  m.alphaMode:=TModelAlphaMode(mode);
+  flags:=r.buffer.ReadByte;
+  if flags and not (MATERIAL_VERTEX_COLOR or MATERIAL_DOUBLE_SIDED)<>0 then Fail('flags','has unknown bits',1);
+  m.vertexColor:=flags and MATERIAL_VERTEX_COLOR<>0;
+  m.doubleSided:=flags and MATERIAL_DOUBLE_SIDED<>0;
+  if r.U16<>0 then Fail('reserved','must be zero',2);
+end;
+
+procedure ReadMaterials(var r:TChunkReader; model:TAemStaticData; minorVersion:integer);
+var i,j,k,slotIndex,paramsSize:integer;
 begin
   SetLength(model.slots,r.Count(4));
   for i:=0 to high(model.slots) do begin
@@ -164,7 +258,8 @@ begin
     for j:=0 to i-1 do
       if model.slots[j]=model.slots[i] then r.Invalid('duplicate material slot');
   end;
-  SetLength(model.bindings,r.Count(8));
+  if minorVersion>=1 then paramsSize:=MATERIAL_PARAMS_SIZE else paramsSize:=0;
+  SetLength(model.bindings,r.Count(8+paramsSize));
   for i:=0 to high(model.bindings) do begin
     slotIndex:=integer(r.U32);
     if (slotIndex<0) or (slotIndex>=length(model.slots)) then r.Invalid('invalid material slot index');
@@ -178,6 +273,8 @@ begin
         for k:=0 to j-1 do
           if model.bindings[i].hints[k].role=role then r.Invalid('duplicate texture role');
       end;
+    if paramsSize>0 then ReadMaterialParams(r,i,model.bindings[i].material)
+      else model.bindings[i].material:=DefaultMaterial;
   end;
   r.Finish;
 end;
@@ -428,7 +525,7 @@ var
   directory:array of TChunk;
   fileBuffer:TBuffer;
   r:TChunkReader;
-  features:word;
+  features,minorVersion:word;
   dirOffset,dirCount:cardinal;
   dirEnd,entryEnd,prevEnd:uint64;
   i,j:integer;
@@ -460,8 +557,9 @@ begin
   r.section:='header';
   try
     if r.U32<>AEM_MAGIC then r.Invalid('unexpected AEM signature');
-    if r.U16<>0 then r.Invalid('unsupported major version (expected AEM 0.0)');
-    if r.U16<>0 then r.Invalid('unsupported minor version (expected AEM 0.0)');
+    if r.U16<>0 then r.Invalid('unsupported major version (expected AEM 0.x)');
+    minorVersion:=r.U16;
+    if minorVersion>1 then r.Invalid('unsupported minor version (expected AEM 0.0 or 0.1)');
     features:=r.U16;
     if features and not HAS_LOD<>0 then r.Invalid('unsupported AEM feature flags');
     if r.U16<>0 then r.Invalid('reserved file flags must be zero');
@@ -507,7 +605,7 @@ begin
     end;
 
     EnterChunk(AEM_MTRL,'MTRL');
-    ReadMaterials(r,model);
+    ReadMaterials(r,model,minorVersion);
     EnterChunk(AEM_MESH,'MESH');
     ReadMeshes(r,model);
     EnterChunk(AEM_NODE,'NODE');

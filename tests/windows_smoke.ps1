@@ -143,6 +143,7 @@ Invoke-FpcTarget 'tests/TestUdpTransport.dpr'
 Invoke-FpcTarget 'tests/TestMesh3D.dpr'
 Invoke-FpcTarget 'tests/TestMeshOps.dpr'
 Invoke-FpcTarget 'tests/TestObjMesh.dpr'
+Invoke-FpcTarget 'tests/TestAemLoader.dpr'
 Invoke-FpcTarget 'tests/TestSteam.dpr' # no steam_api library here: checks the unavailable path
 
 Write-Host ''

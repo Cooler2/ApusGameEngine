@@ -633,6 +633,8 @@ type
  TModelInstance=Apus.Engine.Model.TModelInstance;
  TModelDrawPart=Apus.Engine.Model.TModelDrawPart;
  TModelMaterialBinder=Apus.Engine.Model.TModelMaterialBinder;
+ TModelMaterial=Apus.Engine.Model.TModelMaterial;
+ TModelAlphaMode=Apus.Engine.Model.TModelAlphaMode;
 
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record

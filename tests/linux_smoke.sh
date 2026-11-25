@@ -104,6 +104,7 @@ run_test tests/TestMesh3D.dpr
 run_test tests/TestMeshOps.dpr
 run_test tests/TestMeshShapes.dpr
 run_test tests/TestObjMesh.dpr
+run_test tests/TestAemLoader.dpr
 run_test tests/TestSteam.dpr # no steam_api library here: checks the unavailable path
 
 printf '\nSUMMARY: Linux/FPC engine smoke targets passed\n'

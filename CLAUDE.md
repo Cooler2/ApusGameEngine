@@ -93,7 +93,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
 **Graphics**: Graphics, OpenGL, ResManGL, ShadersGL, GpuLayout, Draw, TextDraw, TextEffects, DebugDraw, DebugOverlays
 **Resources**: Resources, ImageTools, ImgLoadQueue, NinePatch
 **Platform**: Window, WindowsPlatform, SDLplatform, Keys, Controller, Clipboard
-**3D**: Mesh, GpuMesh, MeshShapes, OBJLoader, Model and AEMLoader (experimental static AEM v0). The old Model3D, IQMloader and legacy AEM implementation live in `legacy/`.
+**3D**: Mesh, GpuMesh, MeshShapes, OBJLoader, Model and AEMLoader (experimental static AEM 0.x). The old Model3D, IQMloader and legacy AEM implementation live in `legacy/`.
 **Audio**: Sound, SoundSDL (SoundBass/SoundImx are in `legacy/`)
 **Networking**: HttpGameClient, HttpGameServer, UdpTransport
 **Tools**: Tools, CmdProc, RobotAPI
@@ -122,7 +122,7 @@ higher-level ones; `Apus.Common`/`Apus.CrossPlatform` are retired - never reintr
   Files, Config, EventMan, Threads, Tweenings, Geom2D, Geom3D, Spatial, Colors, GfxFilters, GfxFormats, GlyphCache,
   Compress, TCP, HttpServer, WebSocket); `Bench*.dpr` - benchmarks
 - `tests/` - engine tests: `TestStyle`, `TestUIHint`, `TestUIResize`, `TestUIScript`, `TestUIInspector`, `TestWindowLock`, `TestVirtualMouse`, `TestNinePatch`, `TestSurface`, `TestGpuLayout`, `TestMesh3D`, `TestMeshOps`,
-  `TestMeshShapes`, `TestObjMesh`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestTextMetrics`, `TestBlendModes`, `TestFill`, `TestFillShapes`, `TestStyleFill`, `TestPixelGrid`, `TestBlitScaled`, `TestCulling`, `TestSceneEffectBuffers`, `TestWindowSceneShow`, `TestImageReload`, `TestTextureUnits`, `TestTextureNPOT`
+  `TestMeshShapes`, `TestObjMesh`, `TestAemLoader`, `TestHttpGameClient`, `TestUdpTransport`, `TestTextEffects`, `TestTextFXStyle`, `TestTextMetrics`, `TestBlendModes`, `TestFill`, `TestFillShapes`, `TestStyleFill`, `TestPixelGrid`, `TestBlitScaled`, `TestCulling`, `TestSceneEffectBuffers`, `TestWindowSceneShow`, `TestImageReload`, `TestTextureUnits`, `TestTextureNPOT`
   (needs a GL window), `TestCursorHandles` (needs an SDL window); `OpenGL`, `PlatformTest` - compile-only smoke; run by `tests/linux_smoke.sh`,
   `tests/windows_smoke.ps1`, `tests/macos_smoke.sh`. `tests/robot_mouse_smoke.sh` - local end-to-end
   run of the Robot API virtual mouse on demo/UI (needs a GL display, e.g. Xvfb)

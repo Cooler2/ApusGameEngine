@@ -5,6 +5,10 @@ interface
 uses Apus.Core, Apus.Geom3D, Apus.Engine.AEMLoader, Apus.Engine.GpuMesh;
 
 type
+  // Material colors and parameters of a binding, declared in Apus.Engine.AEMLoader.
+  TModelAlphaMode=Apus.Engine.AEMLoader.TModelAlphaMode;
+  TModelMaterial=Apus.Engine.AEMLoader.TModelMaterial;
+
   // Indices identify a section, its texture hints and its logical material slot.
   TModelDrawPart=record
     nodeIndex:integer;
@@ -53,6 +57,9 @@ type
     // for a role such as 'color', 'normal' or 'opacity', relative to the logical
     // directory of SourcePath. An empty string means the binding has no hint for that role.
     function TextureHint(bindingIndex:integer;const role:String8):String8;
+    // Colors and parameters of a binding, indexed as TextureHint. AEM 0.0 assets
+    // return the defaults listed in aem_format.md. This needs no graphics context.
+    function Material(bindingIndex:integer):TModelMaterial;
 
     // Upload once on the graphics thread with an active context. Free the asset
     // on that thread before the graphics resources are torn down.
@@ -159,6 +166,12 @@ begin
     for i:=0 to high(hints) do
       if hints[i].role=role then exit(hints[i].path);
   result:='';
+end;
+
+function TModelAsset.Material(bindingIndex:integer):TModelMaterial;
+begin
+  Assert((bindingIndex>=0) and (bindingIndex<length(fData.bindings)),'Invalid model material binding index');
+  result:=fData.bindings[bindingIndex].material;
 end;
 
 procedure TModelAsset.FreeGpuMeshes;
