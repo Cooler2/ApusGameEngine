@@ -68,6 +68,7 @@ interface
   TFileDialogLayout=record
    width,height:single;    // the frame, UI units; 0 - the default size
    navigation:single;      // width of the navigation column (drives, tree, places), 0 - the default
+   locationsHeight:single; // height of the favorites and recent list, 0 - a share of the column
    columns:array of single; // widths of the file table columns, 0 - a flexible column takes the room
    sortColumn:integer;     // -1 - by name
    sortDescending:boolean;
@@ -139,11 +140,20 @@ interface
    navDragX:integer;    // the mouse at the press, screen pixels
    navDragWidth:single; // the width of the column at the press, maybe trimmed by a narrow dialog
    navDragPreferred:single; // navWidth at the press
+   locationsSplitter:TUIElement;
+   locationsHeight:single; // the preferred height of the places list, 0 - a share of the column
+   locationsDrag:boolean;       // the list's top edge is being dragged
+   locationsDragY:integer;      // the mouse at the press, screen pixels
+   locationsDragHeight:single;  // the height of the list at the press, maybe trimmed
+   locationsDragPreferred:single; // locationsHeight at the press
    pinButton:TUIButton;
    procedure CreateControls; virtual;
    function NavigationLimit:single; // the widest navigation column the client width allows
    function InNavigationGap:boolean; // the mouse is over the gap after the navigation column
    procedure DragNavigation; // the column's edge follows the mouse
+   function LocationsLimit:single; // the tallest places list the column height allows
+   procedure DragLocations; // the list's top edge follows the mouse
+   procedure ShowLocation(const path:String8); // scroll the places list to the entry
    procedure LayoutControls; virtual;
   private
    fRequest:TFileDialogRequest;
@@ -288,12 +298,23 @@ implementation
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onLostFocus; override;
   end;
+  // The gap between the folder tree and the places list: drags the list's top edge
+  TLocationsSplitter=class(TUIElement)
+   dialog:TUIFileDialog;
+   procedure onMouseMove; override;
+   procedure onMouseButtons(button:byte;state:boolean); override;
+  end;
 
  const
   DRIVE_MIN_WIDTH=32;
   NAV_GAP=16;          // between the navigation column and the table: drags the column's edge
   NAV_MIN_WIDTH=160;   // the navigation column can't be narrower (unless the dialog is)
   MAIN_MIN_WIDTH=300;  // the table side keeps at least this when the column widens
+  LOCATIONS_GAP=8;     // between the folder tree and the places list: drags the list's edge
+  LOCATIONS_GRAB=12;   // the grab band, two units into each neighbour
+  LOCATIONS_MIN_HEIGHT=40; // the places list can't be shorter
+  TREE_MIN_HEIGHT=100; // the folder tree keeps at least this when the list grows
+  LOCATIONS_DEFAULT_HEIGHT=160; // the default tallest places list, a share of the column below that
   LOCATION_ACTION_WIDTH=26;
   LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
   TITLE_HEIGHT=27; // the window title: a bit taller than wcTitleHeight for the bold caption
@@ -1075,6 +1096,15 @@ implementation
   SetLength(paths,length(paths)-1);
  end;
 
+ procedure PrependPath(var paths:Strings8;const path:String8);
+ var
+  i:integer;
+ begin
+  SetLength(paths,length(paths)+1);
+  for i:=high(paths) downto 1 do paths[i]:=paths[i-1];
+  paths[0]:=path;
+ end;
+
  function ParentFolder(const path:String8):String8;
  begin
   result:=Files.GetFullName(JoinPath(path,'..'));
@@ -1818,6 +1848,11 @@ implementation
   // Selection alone never navigates: rebuilding or moving the keyboard cursor
   // must not rebuild the outline. A completed click or Enter activates the path.
   locationsList.onActivate:=LocationSelected;
+  locationsSplitter:=TLocationsSplitter.Create(340,LOCATIONS_GAP,navigationPanel,name+'\LocationsSplitter');
+  TLocationsSplitter(locationsSplitter).dialog:=self;
+  // above the tree and the list, which it touches for a wider grab band
+  locationsSplitter.order:=1;
+  locationsSplitter.cursor:=CursorID.ResizeH;
   StyleTable(table);
   StyleTable(directoryOutline);
   StyleTable(locationsList);
@@ -1853,9 +1888,15 @@ implementation
   Place(navigationPanel,8,8,navW,navH);
   driveBar.SetPos(0,0);
   TDriveBar(driveBar).Arrange(navW);
-  locationsH:=Math.Min(160.0,navH*0.30);
+  locationsH:=Math.Min(LOCATIONS_DEFAULT_HEIGHT,navH*0.30);
+  if locationsHeight>0 then locationsH:=locationsHeight;
+  // trimmed for this pass only: locationsHeight stays, a taller dialog gets it back
+  locationsH:=Math.Max(Math.Min(locationsH,LocationsLimit),
+    Math.Min(LOCATIONS_MIN_HEIGHT,LocationsLimit));
   Place(directoryOutline,0,36,navW,navH-locationsH-44);
   Place(locationsList,0,navH-locationsH,navW,locationsH);
+  Place(locationsSplitter,0,navH-locationsH-LOCATIONS_GAP-(LOCATIONS_GRAB-LOCATIONS_GAP)/2,
+    navW,LOCATIONS_GRAB);
   left:=navW+8+NAV_GAP; right:=w-8;
   previewPanel.flags.visible:=HasVisibleChild(previewPanel);
   optionsPanel.flags.visible:=HasVisibleChild(optionsPanel);
@@ -1926,6 +1967,11 @@ implementation
   result:=(p.x>=r.x2) and (p.x<r.x2+NAV_GAP) and (p.y>=r.y1) and (p.y<r.y2);
  end;
 
+ function TUIFileDialog.LocationsLimit:single;
+ begin
+  result:=Math.Max(0.0,navigationPanel.size.y-44-TREE_MIN_HEIGHT);
+ end;
+
  procedure TUIFileDialog.DragNavigation;
  begin
   // what the user drags is what fits now; the layout keeps it as the preferred width.
@@ -1936,6 +1982,49 @@ implementation
    navWidth:=Math.Max(Math.Min(navWidth,NavigationLimit),NAV_MIN_WIDTH);
   end;
   LayoutControls;
+ end;
+
+ procedure TUIFileDialog.DragLocations;
+ var
+  h:single;
+ begin
+  // the list's top edge follows the mouse: dragging down makes the list shorter
+  if curMouseY=locationsDragY then locationsHeight:=locationsDragPreferred
+  else begin
+   h:=locationsDragHeight-(curMouseY-locationsDragY)/navigationPanel.globalScale;
+   h:=Math.Max(Math.Min(h,LocationsLimit),Math.Min(LOCATIONS_MIN_HEIGHT,LocationsLimit));
+   locationsHeight:=h;
+  end;
+  LayoutControls;
+ end;
+
+ procedure TLocationsSplitter.onMouseMove;
+ begin
+  inherited;
+  if dialog.locationsDrag then
+   if hooked=self then dialog.DragLocations
+    else dialog.locationsDrag:=false; // the capture is lost
+ end;
+
+ procedure TLocationsSplitter.onMouseButtons(button:byte;state:boolean);
+ begin
+  inherited;
+  if button<>1 then exit;
+  if state then begin
+   if hooked<>nil then exit;
+   dialog.locationsDrag:=true;
+   dialog.locationsDragY:=curMouseY;
+   dialog.locationsDragHeight:=dialog.locationsList.size.y;
+   dialog.locationsDragPreferred:=dialog.locationsHeight;
+   hooked:=self;
+  end else
+   if dialog.locationsDrag then begin
+    if hooked=self then begin
+     dialog.DragLocations; // the mouse may have moved since the last frame
+     hooked:=nil;
+    end;
+    dialog.locationsDrag:=false;
+   end;
  end;
 
  procedure TUIFileDialog.onMouseMove;
@@ -2451,7 +2540,7 @@ implementation
 
  procedure TUIFileDialog.RememberFolder(const path:String8);
  var
-  index,i:integer;
+  index:integer;
  begin
   // Only a successful file operation records a directory. Walking the tree, clicking
   // a drive or entering a path leaves both lists untouched; drive roots stay on the drive buttons.
@@ -2459,9 +2548,8 @@ implementation
   index:=PathIndex(recentFolders,path);
   if index=0 then exit;
   if index>0 then RemovePath(recentFolders,index);
-  SetLength(recentFolders,Math.Min(12,length(recentFolders)+1));
-  for i:=high(recentFolders) downto 1 do recentFolders[i]:=recentFolders[i-1];
-  recentFolders[0]:=path;
+  PrependPath(recentFolders,path);
+  SetLength(recentFolders,Math.Min(12,length(recentFolders)));
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
@@ -2480,11 +2568,9 @@ implementation
    selectedPath:='';
    oldScroll:=0;
   end;
-  // Explicit edits may remove or append a row, but changing a star never moves
-  // existing paths. Favorites-first ordering is applied only for a new request.
-  for i:=high(list.paths) downto 0 do
-   if (PathIndex(favoriteFolders,list.paths[i])<0) and (PathIndex(recentFolders,list.paths[i])<0) then
-    RemovePath(list.paths,i);
+  // Favorites lead, the newest first; then the recent ones. A new favorite moves to its
+  // place at once, so the star always shows where the entry went.
+  list.paths:=nil;
   for i:=0 to high(favoriteFolders) do
    if PathIndex(list.paths,favoriteFolders[i])<0 then list.paths:=list.paths+[favoriteFolders[i]];
   for i:=0 to high(recentFolders) do
@@ -2523,15 +2609,28 @@ implementation
   if (tag>=0) and (tag<length(list.paths)) then result:=list.paths[tag];
  end;
 
+ procedure TUIFileDialog.ShowLocation(const path:String8);
+ var
+  i:integer;
+  list:TLocationsList;
+ begin
+  list:=TLocationsList(locationsList);
+  for i:=0 to list.RowCount-1 do
+   if SamePath(LocationPath(list.RowTag(i)),path) then begin
+    list.ScrollToRow(i);
+    exit;
+   end;
+ end;
+
  procedure TUIFileDialog.LocationAction(tag:NativeInt;remove:boolean);
  var
   path:String8;
   index:integer;
-  oldScroll:single;
+  added:boolean;
  begin
-  oldScroll:=locationsList.ScrollPos;
   path:=LocationPath(tag);
   if path='' then exit;
+  added:=false;
   if remove then begin
    index:=PathIndex(favoriteFolders,path);
    if index>=0 then RemovePath(favoriteFolders,index);
@@ -2539,11 +2638,13 @@ implementation
    if index>=0 then RemovePath(recentFolders,index);
   end else begin
    index:=PathIndex(favoriteFolders,path);
-   if index<0 then favoriteFolders:=favoriteFolders+[path]
-    else RemovePath(favoriteFolders,index);
+   if index<0 then begin
+    PrependPath(favoriteFolders,path); // the newest favorite leads the list
+    added:=true;
+   end else RemovePath(favoriteFolders,index);
   end;
   BuildLocations;
-  locationsList.scrollerV.SetValue(oldScroll);
+  if added then ShowLocation(path);
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
@@ -2559,12 +2660,15 @@ implementation
  procedure TUIFileDialog.PinFolder;
  var
   index:integer;
+  added:boolean;
  begin
   if fFolder='' then exit;
   index:=PathIndex(favoriteFolders,fFolder);
-  if index<0 then favoriteFolders:=favoriteFolders+[fFolder]
+  added:=index<0;
+  if added then PrependPath(favoriteFolders,fFolder) // the newest favorite leads the list
    else RemovePath(favoriteFolders,index);
   BuildLocations;
+  if added then ShowLocation(fFolder);
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
@@ -2925,6 +3029,7 @@ implementation
  begin
   result:=(round(a.width)=round(b.width)) and (round(a.height)=round(b.height)) and
     (round(a.navigation)=round(b.navigation)) and
+    (round(a.locationsHeight)=round(b.locationsHeight)) and
     (a.sortColumn=b.sortColumn) and (a.sortDescending=b.sortDescending) and
     (length(a.columns)=length(b.columns));
   if result then
@@ -2942,6 +3047,7 @@ implementation
   result.width:=preferredW;
   result.height:=preferredH;
   result.navigation:=dialog.navWidth;
+  result.locationsHeight:=dialog.locationsHeight;
   if IsActive then begin
    result.width:=frame.size.x;
    result.height:=frame.size.y;
@@ -2963,6 +3069,7 @@ implementation
   if value.width>0 then preferredW:=Math.Max(value.width,frame.minW);
   if value.height>0 then preferredH:=Math.Max(value.height,frame.minH);
   dialog.navWidth:=Math.Max(value.navigation,0.0);
+  dialog.locationsHeight:=Math.Max(value.locationsHeight,0.0);
   for i:=0 to Math.Min(high(value.columns),high(table.columns)) do
    if table.columns[i].flexible then table.SetColumnWidth(i,0)
     else if value.columns[i]>0 then table.SetColumnWidth(i,value.columns[i]);
