@@ -528,6 +528,43 @@ procedure TestFileDialogPlaces;
   EndTest;
  end;
 
+procedure TestWindowCorners;
+ var
+  area:TUIElement;
+  frame:TUIWindow;
+  r:TRect;
+  cur:NativeInt;
+  x,y:integer;
+  w,h:single;
+ begin
+  StartTest('Window frame: corner resize zones');
+  area:=NewArea;
+  frame:=TUIWindow.Create(160,100,true,area,'CornerFrame');
+  frame.SetPos(45,55,pivotTopLeft);
+  r:=frame.GetPosOnScreen;
+  Check((frame.GetAreaType(r.Left+12,r.Top+2,cur)=wcLeftFrame+wcTopFrame) and
+    (cur=CursorID.ResizeNWSE),'top-left along the top edge');
+  Check((frame.GetAreaType(r.Right-2,r.Top+12,cur)=wcRightFrame+wcTopFrame) and
+    (cur=CursorID.ResizeNESW),'top-right along the right edge');
+  Check((frame.GetAreaType(r.Left+2,r.Bottom-12,cur)=wcLeftFrame+wcBottomFrame) and
+    (cur=CursorID.ResizeNESW),'bottom-left along the left edge');
+  Check((frame.GetAreaType(r.Right-12,r.Bottom-2,cur)=wcRightFrame+wcBottomFrame) and
+    (cur=CursorID.ResizeNWSE),'bottom-right along the bottom edge');
+  Check(frame.GetAreaType(r.Left+40,r.Top+2,cur)=wcTopFrame,'the middle of the top edge stays one-axis');
+  Check(frame.GetAreaType(r.Left+12,r.Top+12,cur)=wcHeader,'the nearby caption still moves the window');
+  Check(frame.GetAreaType(r.Right-12,r.Bottom-12,cur)=wcClient,'the nearby client stays available');
+
+  area.SetScale(2);
+  r:=frame.GetPosOnScreen;
+  x:=r.Right-26; y:=r.Bottom-8;
+  Check(frame.GetAreaType(x,y,cur)=wcRightFrame+wcBottomFrame,'the frame and corner scale together');
+  w:=frame.size.x; h:=frame.size.y;
+  Drag(x,y,x+48,y+32);
+  Check(Near(frame.size.x,w+24) and Near(frame.size.y,h+16),'a diagonal drag changes both dimensions');
+  FreeArea(area);
+  EndTest;
+ end;
+
 procedure Setup;
  begin
   {$IFDEF FPC}{$WARN 4046 OFF}{$ELSE}{$WARN CONSTRUCTING_ABSTRACT OFF}{$ENDIF} // constructing a class with abstract methods: they are never called here
@@ -556,6 +593,7 @@ begin
   TestSplitter;
   TestFileDialog;
   TestFileDialogPlaces;
+  TestWindowCorners;
   writeln;
   writeln(Format('Tests: %d, failed: %d',[testsTotal,testsFailed]));
   if testsFailed>0 then ExitCode:=1;

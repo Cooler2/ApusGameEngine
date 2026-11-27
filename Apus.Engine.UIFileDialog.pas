@@ -308,6 +308,7 @@ implementation
   LOCATION_ACTION_WIDTH=26;
   LIST_FRAME=2; // the padding of a list under its frame: the widest one, with the focus
   TITLE_HEIGHT=27; // the window title: a bit taller than wcTitleHeight for the bold caption
+  CLOSE_BUTTON_HEIGHT=18;
   SHOW_MS=150; // the window fades in
   HIDE_MS=120; // and out
 
@@ -2904,7 +2905,7 @@ implementation
   dialog.host:=self;
   frame.drawer:=DrawDialogFrame;
   frame.styleInfo:=FRAME_STYLE;
-  closeButton:=TDialogButton.Create(30,22,frame,sceneName+'\Close');
+  closeButton:=TDialogButton.Create(30,CLOSE_BUTTON_HEIGHT,frame,sceneName+'\Close');
   TDialogButton(closeButton).handler:=dialog.Cancel;
   closeButton.drawer:=DrawCloseButton;
   closeButton.styleInfo:=CLOSE_STYLE;
@@ -2929,7 +2930,9 @@ implementation
   // makes both edges move when only the width changes.
   frame.SetPos((UI.clientWidth-frame.size.x)/2,(UI.clientHeight-frame.size.y)/2,pivotTopLeft);
   frame.SetAnchors(0.5,0.5,0.5,0.5);
-  closeButton.SetPos(frame.clientWidth+frame.padding.Right-2,-frame.padding.Top+(frame.padding.Top-22)/2,pivotTopRight);
+  // Keep the close button inside the caption, clear of the top and right resize edges.
+  closeButton.SetPos(frame.clientWidth,-frame.padding.Top+
+    Math.Max(frame.padding.Right,(frame.padding.Top-CLOSE_BUTTON_HEIGHT)/2),pivotTopRight);
   closeButton.SetAnchors(1,0,1,0);
   dialog.LayoutControls;
  end;
@@ -3072,10 +3075,10 @@ initialization
  DefineToken('file-dialog-chip','&overlay');
  DefineToken('file-dialog-chip-hover','&control');
  DefineToken('file-dialog-chip-font-size','8');
- DefineToken('file-dialog-close','0');
- DefineToken('file-dialog-close-hover','&control');
- DefineToken('file-dialog-close-glyph','&text-muted');
- DefineToken('file-dialog-close-glyph-hover','&text');
+ DefineToken('file-dialog-close','linear(180deg, #A2463D, #84342D)');
+ DefineToken('file-dialog-close-hover','linear(180deg, #B8524A, #973D35)');
+ DefineToken('file-dialog-close-glyph','#FBEEEE');
+ DefineToken('file-dialog-close-glyph-hover','#FFFFFF');
  // the window
  DefineToken('file-dialog-title','&overlay');
  DefineToken('file-dialog-title-line','&border-dark');
