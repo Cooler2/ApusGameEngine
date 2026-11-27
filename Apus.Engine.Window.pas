@@ -699,7 +699,8 @@ implementation
  uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.GfxFormats, Apus.Files, Apus.Strings,
    {$IFDEF MSWINDOWS}Apus.Engine.Clipboard,{$ENDIF}
    Apus.Engine.API, Apus.Engine.UIScene,
-   Apus.Engine.UITypes, Apus.Engine.TextDraw;
+   Apus.Engine.UITypes, Apus.Engine.TextDraw
+   {$IFDEF DEBUG},Apus.Engine.UIInspector{$ENDIF};
 
 const
  // TSurfacePending.mask bits
@@ -1843,6 +1844,10 @@ procedure TWindow.DeliverMouseButton(btn:byte;pressed:boolean);
    LockState;
    try
     Bits.Modify(mouseButtons,bit,pressed);
+    {$IFDEF DEBUG}
+    // Keep the physical state for pointer capture, but don't publish a pick as a click.
+    if (btn=1) and InspectorMousePick(self,pressed) then exit;
+    {$ENDIF}
     input.AddTransition(bit,pressed);
    finally
     UnlockState;
@@ -2152,6 +2157,9 @@ begin
     scenes[i].PumpInput(shiftState);
 
   result:=ProcessScenes(frameDeltaUs);
+  {$IFDEF DEBUG}
+  if InspectorNeedsRedraw(self) then result:=true;
+  {$ENDIF}
   // the state of the actions follows the app (buttons and menu lines bound to them);
   // a scene that is still loading may be building its actions
   for i:=low(scenes) to high(scenes) do

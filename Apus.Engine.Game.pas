@@ -188,6 +188,7 @@ implementation
   Apus.Lib,
   Apus.Utils,
   Apus.Strings
+  {$IFDEF DEBUG},Apus.Engine.UIInspector{$ENDIF}
   {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
 type
@@ -1686,6 +1687,9 @@ begin
    with activeCustomPoints[i] do
     draw.FillRect(x-10,y-10,x+10,y+10,$70E00000);
  end;
+ {$IFDEF DEBUG}
+ DrawInspectorHighlight(window);
+ {$ENDIF}
 end;
 
 

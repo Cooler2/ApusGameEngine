@@ -15,7 +15,7 @@
 // This file is a part of the Apus Game Engine (https://github.com/Cooler2/ApusGameEngine)
 unit Apus.Engine.UIInspector;
 interface
-uses Apus.Core, Apus.Publics, Apus.Engine.UITypes;
+uses Apus.Core, Apus.Publics, Apus.Engine.UITypes, Apus.Engine.Window;
 
 type
  {$SCOPEDENUMS ON}
@@ -32,6 +32,7 @@ type
   element:TUIElement; // not held: compare only, or find in the tree under the window lock
   depth:integer;
   hasChildren,expanded:boolean;
+  visible,enabled:boolean;
   text:String8;
  end;
  TTreeRows=array of TTreeRow;
@@ -47,10 +48,16 @@ type
  // Register the hotkey, the console command and the window handlers (control thread)
  procedure InitInspector;
 
+ // Hooks on the inspected window's thread, under its lock
+ function InspectorMousePick(wnd:TWindow;pressed:boolean):boolean;
+ function InspectorNeedsRedraw(wnd:TWindow):boolean;
+ procedure DrawInspectorHighlight(wnd:TWindow);
+
  // --- Core: the caller holds the lock of the elements' window ---
  // Rows of the trees under the roots: children of an expanded element follow it
  function BuildTree(const roots:array of TUIElement):TTreeRows;
- function FindInTree(const roots:array of TUIElement;e:TUIElement):boolean;
+ // Optionally expand the path to e once found. e may be a stale pointer.
+ function FindInTree(const roots:array of TUIElement;e:TUIElement;expandPath:boolean=false):boolean;
  procedure SetExpanded(e:TUIElement;expanded:boolean);
  function IsExpanded(e:TUIElement):boolean;
  // Published fields of the element with their current values
@@ -69,13 +76,15 @@ type
 
 implementation
 uses SysUtils, Types, Apus.EventMan, Apus.Strings, Apus.Log, Apus.Threads, Apus.Engine.API,
-  Apus.Engine.Window, Apus.Engine.Scene, Apus.Engine.UIScene, Apus.Engine.UIWidgets,
+  Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UIScene, Apus.Engine.UIWidgets,
   Apus.Engine.UIScript, Apus.Engine.CmdProc;
 
 const
  OPEN_EVENT='Engine\Inspector\Open';
  INSPECTOR_NAME='Inspector'; // window name
  TREE_REFRESH_MS=500; // the tree is rebuilt this often (the fields - every frame)
+ BLINK_STEP_MS=180;
+ BLINK_DURATION_MS=5*BLINK_STEP_MS;
  // own sizes in the root's units (the root has the scale of the window's DPI): the
  // inspected app's theme and UI scale must not change the inspector
  FONT_SIZE='7.5'; // style value: a fraction gives 1 pixel steps at the scale 2
@@ -92,6 +101,7 @@ const
  COLOR_SELECTED=$FF34506C;
  COLOR_HOVER=$FF2E3540;
  COLOR_ERROR=$FFFF8080;
+ COLOR_HIGHLIGHT=$FF58DFFF;
 
 type
  TEnumClass=class of TVarTypeEnum;
@@ -132,6 +142,7 @@ type
   shownElement:TUIElement;    // the element the field rows were built for (not held)
   lastError:String8;
   nextTreeTime:int64;
+  revealSelection:boolean;
   constructor Create(wnd:TWindow);
   function OwnScale:single;
   function Process:boolean; override;
@@ -143,15 +154,22 @@ type
   procedure EndEdit;
   procedure Commit(const name,value:String8);
   procedure SelectElement(e:TUIElement); // under no lock: finds e in the inspected tree first
+  procedure SelectInTarget(const roots:TUIElements;e:TUIElement); // under the target lock
  end;
 
 var
  selLock:TLock;
  selected:TUIElement;     // held by Acquire
+ pendingPick:TUIElement;  // held by Acquire until consumed by the inspector
+ blinkStart:int64;
  expandedList:array of pointer;
  inspWindow:TWindow;      // nil once it starts closing (ENGINE\WINDOW\CLOSED)
  inspScene:TInspectorScene; // freed with the window
- target:TWindow;          // the inspected window (held by Acquire); inspector's thread only
+ target:TWindow;          // held by Acquire; other window threads read it under selLock
+
+threadvar
+ pickButtonHeld:boolean;  // swallow the release even if the inspector closed or Ctrl+Alt was released
+ highlightDrawn:boolean;  // request a clean frame when a visible highlight ends
 
 { Core }
 
@@ -209,6 +227,8 @@ function BuildTree(const roots:array of TUIElement):TTreeRows;
    rows[n].depth:=depth;
    rows[n].hasChildren:=length(e.children)>0;
    rows[n].expanded:=rows[n].hasChildren and IsExpanded(e);
+   rows[n].visible:=e.flags.visible;
+   rows[n].enabled:=e.flags.enabled;
    rows[n].text:=ElementText(e);
    inc(n);
    if rows[n-1].expanded then
@@ -224,14 +244,17 @@ function BuildTree(const roots:array of TUIElement):TTreeRows;
   result:=rows;
  end;
 
-function FindInTree(const roots:array of TUIElement;e:TUIElement):boolean;
+function FindInTree(const roots:array of TUIElement;e:TUIElement;expandPath:boolean):boolean;
  function Find(c:TUIElement):boolean;
   var
    i:integer;
   begin
-   if c=e then exit(true);
+   if c=e then exit(not c.deleted);
    for i:=0 to high(c.children) do
-    if Find(c.children[i]) then exit(true);
+    if Find(c.children[i]) then begin
+     if expandPath then SetExpanded(c,true);
+     exit(true);
+    end;
    result:=false;
   end;
  var
@@ -315,6 +338,7 @@ procedure SetSelected(e:TUIElement);
   selLock.Enter;
   old:=selected;
   selected:=e;
+  if e<>nil then blinkStart:=CoreTime.Ticks;
   selLock.Leave;
   if old<>nil then old.Release;
  end;
@@ -353,12 +377,20 @@ function TargetRoots(wnd:TWindow):TUIElements;
 // Inspector's thread: inspect another window (wnd is held; nil - none)
 procedure SetTarget(wnd:TWindow);
  var
+  oldTarget:TWindow;
+  oldPick:TUIElement;
   roots:TUIElements;
   i:integer;
  begin
   SetSelected(nil);
-  if target<>nil then target.Release;
+  selLock.Enter;
+  oldTarget:=target;
+  oldPick:=pendingPick;
   target:=wnd;
+  pendingPick:=nil;
+  selLock.Leave;
+  if oldPick<>nil then oldPick.Release;
+  if oldTarget<>nil then oldTarget.Release;
   if target<>nil then Log.Msg('UI inspector: inspecting window %s',[target.name]);
   expandedList:=nil;
   if (target<>nil) and target.Lock then
@@ -371,6 +403,75 @@ procedure SetTarget(wnd:TWindow);
   if inspScene<>nil then begin
    inspScene.EndEdit;
    inspScene.nextTreeTime:=0;
+   inspScene.revealSelection:=false;
+  end;
+ end;
+
+function InspectorMousePick(wnd:TWindow;pressed:boolean):boolean;
+ var
+  e,oldPick:TUIElement;
+ begin
+  if not pressed then begin
+   result:=pickButtonHeld;
+   pickButtonHeld:=false;
+   exit;
+  end;
+  pickButtonHeld:=false;
+  selLock.Enter;
+  result:=target=wnd;
+  selLock.Leave;
+  if not result then exit;
+  wnd.UpdateShiftState;
+  if (wnd.shiftState and sscBaseMask)<>(sscCtrl or sscAlt) then exit(false);
+  FindAnyElementAt(wnd.mousePos.x,wnd.mousePos.y,e);
+  if e=nil then exit(false);
+  selLock.Enter;
+  try
+   if (target<>wnd) or not e.Acquire then exit(false);
+   oldPick:=pendingPick;
+   pendingPick:=e;
+  finally
+   selLock.Leave;
+  end;
+  if oldPick<>nil then oldPick.Release;
+  pickButtonHeld:=true;
+  result:=true;
+ end;
+
+function InspectorNeedsRedraw(wnd:TWindow):boolean;
+ begin
+  selLock.Enter;
+  result:=highlightDrawn or ((target=wnd) and (selected<>nil) and
+    (CoreTime.Ticks-blinkStart<BLINK_DURATION_MS));
+  selLock.Leave;
+ end;
+
+procedure DrawInspectorHighlight(wnd:TWindow);
+ var
+  elapsed:int64;
+  e:TUIElement;
+  r:TRect;
+ begin
+  highlightDrawn:=false;
+  selLock.Enter;
+  try
+   if (target<>wnd) or (selected=nil) then exit;
+   elapsed:=CoreTime.Ticks-blinkStart;
+   if (elapsed>=BLINK_DURATION_MS) or ((elapsed div BLINK_STEP_MS) mod 2<>0) then exit;
+   e:=selected;
+   if not e.Acquire then exit;
+  finally
+   selLock.Leave;
+  end;
+  try
+   if e.GetWindow<>wnd then exit;
+   r:=e.GetPosOnScreen;
+   if (r.Width<=0) or (r.Height<=0) then exit;
+   draw.Rect(r.Left-1,r.Top-1,r.Right,r.Bottom,$FF16222C);
+   draw.Rect(r.Left,r.Top,r.Right-1,r.Bottom-1,COLOR_HIGHLIGHT);
+   highlightDrawn:=true;
+  finally
+   e.Release;
   end;
  end;
 
@@ -428,8 +529,8 @@ procedure DrawTree(elem:TUIElement);
      else
       draw.FillTriangle(mx-s*0.6,my-s,mx-s*0.6,my+s,mx+s*0.8,my,COLOR_DIM,COLOR_DIM,COLOR_DIM);
     end;
-    if not element.flags.visible then color:=COLOR_DIM
-    else if not element.flags.enabled then color:=COLOR_DISABLED
+    if not visible then color:=COLOR_DIM
+    else if not enabled then color:=COLOR_DISABLED
     else color:=COLOR_TEXT;
     txt.Write(font,x+indent,y+round(lineH*0.73),color,text);
    end;
@@ -453,8 +554,9 @@ procedure TInspectorTree.onMouseButtons(button:byte;state:boolean);
   x:single;
   line:integer;
  begin
+  if (button=1) and not state then exit; // select once, on press
   line:=hoverLine;
-  if (button=1) and state and (line>=0) and (line<=high(rows)) and rows[line].hasChildren then begin
+  if (button=1) and (line>=0) and (line<=high(rows)) and rows[line].hasChildren then begin
    x:=(curMouseX-globalRect.left)/globalScale-4;
    if (x>=rows[line].depth*Indent) and (x<(rows[line].depth+1)*Indent) then begin
     SetExpanded(rows[line].element,not rows[line].expanded);
@@ -560,16 +662,21 @@ procedure EditorEscape(event:TEventStr;tag:TTag);
 constructor TInspectorScene.Create(wnd:TWindow);
  var
   w,h,headerH:single;
+  help:TUILabel;
  begin
   inherited Create('_Inspector',true,wnd);
   UI.SetScale(OwnScale);
   UI.styleinfo:=UTF8.Format('%x',[COLOR_BACK]);
   UI.style.Assign('font-size:'+FONT_SIZE+';');
   w:=UI.clientWidth; h:=UI.clientHeight; // children are placed in the root's own (scaled) units
-  headerH:=HEADER_HEIGHT;
-  header:=TUILabel.Create(w-8,headerH,UI,'_InspectorHeader');
+  headerH:=2*HEADER_HEIGHT;
+  header:=TUILabel.Create(w-8,HEADER_HEIGHT,UI,'_InspectorHeader');
   header.SetPos(4,0).SetAnchors(0,0,1,0);
   header.style.Assign(UTF8.Format('color:$%x;',[COLOR_TEXT]));
+  help:=TUILabel.Create(w-8,HEADER_HEIGHT,UI,'_InspectorHelp');
+  help.SetPos(4,HEADER_HEIGHT).SetAnchors(0,0,1,0);
+  help.Setup('Ctrl+Alt+left click in the inspected window to select a widget');
+  help.style.Assign(UTF8.Format('color:$%x;',[COLOR_NAME]));
   tree:=TInspectorTree.Create(w*0.45-6,h-headerH-4,UI);
   tree.SetPos(4,headerH).SetAnchors(0,0,0.45,1);
   table:=TInspectorTable.Create(w*0.55-6,h-headerH-4,UI);
@@ -616,10 +723,11 @@ procedure TInspectorScene.Refresh;
   roots:TUIElements;
   rows:TTreeRows;
   fields:TFieldRows;
-  sel:TUIElement;
+  sel,pick:TUIElement;
   newTree,lost:boolean;
   i:integer;
   title:String8;
+  rowTop,scrollPos:single;
  begin
   if target=nil then begin
    header.caption:='No window to inspect: press Ctrl+Shift+I in it';
@@ -630,15 +738,25 @@ procedure TInspectorScene.Refresh;
    RebuildBoxes;
    exit;
   end;
-  newTree:=CoreTime.Ticks>=nextTreeTime;
-  sel:=SelectedElement;
-  lost:=false;
   if not target.Lock then begin
    SetTarget(nil);
    exit;
   end;
   try
    roots:=TargetRoots(target);
+   selLock.Enter;
+   pick:=pendingPick;
+   pendingPick:=nil;
+   selLock.Leave;
+   if pick<>nil then
+    try
+     SelectInTarget(roots,pick);
+    finally
+     pick.Release;
+    end;
+   sel:=SelectedElement;
+   lost:=(sel=nil) and (selected<>nil); // removed from the inspected UI
+   newTree:=CoreTime.Ticks>=nextTreeTime;
    if newTree then rows:=BuildTree(roots);
    if sel<>nil then begin
     // a click on a check box since the last frame: write the new state
@@ -654,10 +772,11 @@ procedure TInspectorScene.Refresh;
    end else
     fields:=nil;
    title:=target.name;
+   if sel<>nil then title:=title+'  >  '+ElementText(sel)
+    else title:=title+'  >  (click an element in the tree)';
   finally
    target.Unlock;
   end;
-  if (sel=nil) and (selected<>nil) then lost:=true; // removed from the inspected UI
   if lost then SetSelected(nil);
 
   // the tree
@@ -671,7 +790,18 @@ procedure TInspectorScene.Refresh;
   end;
   tree.selectedLine:=-1;
   for i:=0 to high(tree.rows) do
-   if tree.rows[i].element=sel then tree.selectedLine:=i;
+   if tree.rows[i].element=sel then begin
+    tree.selectedLine:=i;
+    if revealSelection then begin
+     rowTop:=i*tree.lineHeight;
+     scrollPos:=tree.scrollerV.GetValue;
+     if rowTop<scrollPos then tree.scrollerV.SetValue(rowTop)
+     else if rowTop+tree.lineHeight>scrollPos+tree.clientHeight then
+      tree.scrollerV.SetValue(rowTop+tree.lineHeight-tree.clientHeight);
+    end;
+    break;
+   end;
+  revealSelection:=false;
 
   // the edit box lost the focus: keep what was typed
   if (editField<>'') and editor.flags.visible and (FocusedElement<>editor) then begin
@@ -700,8 +830,6 @@ procedure TInspectorScene.Refresh;
    end;
   PlaceEditors;
 
-  if sel<>nil then title:=title+'  >  '+ElementText(sel)
-   else title:=title+'  >  (click an element in the tree)';
   if lastError<>'' then title:=title+'   ! '+lastError;
   header.caption:=title;
  end;
@@ -811,10 +939,22 @@ procedure TInspectorScene.SelectElement(e:TUIElement);
   if not target.Lock then exit;
   try
    roots:=TargetRoots(target);
-   if FindInTree(roots,e) then SetSelected(e); // alive: still in the inspected tree
+   SelectInTarget(roots,e);
   finally
    target.Unlock;
   end;
+ end;
+
+procedure TInspectorScene.SelectInTarget(const roots:TUIElements;e:TUIElement);
+ begin
+  if not FindInTree(roots,e,true) then exit;
+  if e<>SelectedElement then begin
+   if (editField<>'') and editor.flags.visible then Commit(editField,editor.text);
+   EndEdit;
+  end;
+  SetSelected(e);
+  nextTreeTime:=0;
+  revealSelection:=true;
  end;
 
 { Opening and closing }

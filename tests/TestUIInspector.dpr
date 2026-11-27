@@ -57,6 +57,12 @@ procedure TestTree;
   SetExpanded(panel,false);
   Check(length(BuildTree([root]))=3,'collapsed again');
   Check(FindInTree([root],btn) and not FindInTree([panel],lbl),'element is found in its tree only');
+  SetExpanded(root,false);
+  Check(not FindInTree([panel],lbl,true) and not IsExpanded(panel),'an unrelated pick leaves the tree collapsed');
+  Check(FindInTree([root],btn,true),'pick finds an element under collapsed ancestors');
+  rows:=BuildTree([root]);
+  Check((length(rows)=4) and (rows[2].element=btn) and (rows[2].depth=2),
+    'pick reveals the full path to the element');
   EndTest;
  end;
 
