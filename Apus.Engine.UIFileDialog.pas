@@ -109,6 +109,7 @@ interface
    onValidate:TFileDialogValidate;
    onDone:TFileDialogDone;
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   destructor Destroy; override;
    procedure Setup(const request:TFileDialogRequest);
    procedure SetFolder(const path:String8); // '' clears the listing; drive buttons select a root
    function Folder:String8;
@@ -140,20 +141,14 @@ interface
    navDragX:integer;    // the mouse at the press, screen pixels
    navDragWidth:single; // the width of the column at the press, maybe trimmed by a narrow dialog
    navDragPreferred:single; // navWidth at the press
-   locationsSplitter:TUIElement;
+   navigationLists,locationsPane:TUIElement;
    locationsHeight:single; // the preferred height of the places list, 0 - a share of the column
-   locationsDrag:boolean;       // the list's top edge is being dragged
-   locationsDragY:integer;      // the mouse at the press, screen pixels
-   locationsDragHeight:single;  // the height of the list at the press, maybe trimmed
-   locationsDragPreferred:single; // locationsHeight at the press
    pinButton:TUIButton;
    procedure CreateControls; virtual;
    function NavigationLimit:single; // the widest navigation column the client width allows
    function InNavigationGap:boolean; // the mouse is over the gap after the navigation column
    procedure DragNavigation; // the column's edge follows the mouse
-   function LocationsLimit:single; // the tallest places list the column height allows
-   procedure DragLocations; // the list's top edge follows the mouse
-   procedure ShowLocation(const path:String8); // scroll the places list to the entry
+   function EffectiveLocationsHeight:single;
    procedure LayoutControls; virtual;
   private
    fRequest:TFileDialogRequest;
@@ -249,7 +244,7 @@ interface
 implementation
  uses SysUtils, Math, Types, Apus.Conv, Apus.Strings, Apus.Geom2D, Apus.EventMan, Apus.Engine.Keys,
   Apus.Colors, Apus.Engine.API, Apus.Engine.DefaultStyle, Apus.Engine.Style,
-  Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.SceneEffects{$IFDEF MSWINDOWS}, Windows{$ENDIF};
+  Apus.Engine.UI, Apus.Engine.UILayout, Apus.Engine.UIShapes, Apus.Engine.SceneEffects{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
  type
   TDialogButton=class(TUIButton)
@@ -298,20 +293,15 @@ implementation
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onLostFocus; override;
   end;
-  // The gap between the folder tree and the places list: drags the list's top edge
-  TLocationsSplitter=class(TUIElement)
-   dialog:TUIFileDialog;
-   procedure onMouseMove; override;
-   procedure onMouseButtons(button:byte;state:boolean); override;
-  end;
 
  const
   DRIVE_MIN_WIDTH=32;
   NAV_GAP=16;          // between the navigation column and the table: drags the column's edge
   NAV_MIN_WIDTH=160;   // the navigation column can't be narrower (unless the dialog is)
   MAIN_MIN_WIDTH=300;  // the table side keeps at least this when the column widens
-  LOCATIONS_GAP=8;     // between the folder tree and the places list: drags the list's edge
-  LOCATIONS_GRAB=12;   // the grab band, two units into each neighbour
+  DRIVE_AREA_HEIGHT=36;
+  LOCATIONS_GAP=8;     // the top padding of the places pane is its resize grip
+  LOCATIONS_PANE_NAME='FileDialogLocations';
   LOCATIONS_MIN_HEIGHT=40; // the places list can't be shorter
   TREE_MIN_HEIGHT=100; // the folder tree keeps at least this when the list grows
   LOCATIONS_DEFAULT_HEIGHT=160; // the default tallest places list, a share of the column below that
@@ -1096,15 +1086,6 @@ implementation
   SetLength(paths,length(paths)-1);
  end;
 
- procedure PrependPath(var paths:Strings8;const path:String8);
- var
-  i:integer;
- begin
-  SetLength(paths,length(paths)+1);
-  for i:=high(paths) downto 1 do paths[i]:=paths[i-1];
-  paths[0]:=path;
- end;
-
  function ParentFolder(const path:String8):String8;
  begin
   result:=Files.GetFullName(JoinPath(path,'..'));
@@ -1733,6 +1714,12 @@ implementation
   LayoutControls;
  end;
 
+ destructor TUIFileDialog.Destroy;
+ begin
+  if navigationLists<>nil then FreeAndNil(navigationLists.layout);
+  inherited;
+ end;
+
  function TUIFileDialog.Mode:TFileDialogMode;
  begin
   result:=fRequest.mode;
@@ -1839,8 +1826,13 @@ implementation
   driveBar.order:=$10000;
   driveBar.drawer:=DrawDriveBar;
   driveBar.styleInfo:=DRIVEBAR_STYLE;
-  directoryOutline:=TDirectoryOutline.Create(navigationPanel,self,name+'\Directories');
-  locationsList:=TLocationsList.Create(340,120,navigationPanel,name+'\Locations');
+  navigationLists:=TUIElement.Create(0,0,navigationPanel,name+'\NavigationLists');
+  navigationLists.layout:=TFlexboxLayout.CreateVertical;
+  directoryOutline:=TDirectoryOutline.Create(navigationLists,self,name+'\Directories');
+  directoryOutline.layoutData:=1; // the tree takes the space left by the places pane
+  locationsPane:=TUIElement.Create(0,0,navigationLists,LOCATIONS_PANE_NAME+'\'+name);
+  locationsList:=TLocationsList.Create(0,0,locationsPane,name+'\Locations');
+  locationsList.SetAnchors(anchorAll);
   TLocationsList(locationsList).dialog:=self;
   locationsList.drawer:=DrawLocations;
   locationsList.AddColumn('',0,taLeft,tsNone);
@@ -1848,11 +1840,6 @@ implementation
   // Selection alone never navigates: rebuilding or moving the keyboard cursor
   // must not rebuild the outline. A completed click or Enter activates the path.
   locationsList.onActivate:=LocationSelected;
-  locationsSplitter:=TLocationsSplitter.Create(340,LOCATIONS_GAP,navigationPanel,name+'\LocationsSplitter');
-  TLocationsSplitter(locationsSplitter).dialog:=self;
-  // above the tree and the list, which it touches for a wider grab band
-  locationsSplitter.order:=1;
-  locationsSplitter.cursor:=CursorID.ResizeH;
   StyleTable(table);
   StyleTable(directoryOutline);
   StyleTable(locationsList);
@@ -1862,7 +1849,8 @@ implementation
 
  procedure TUIFileDialog.LayoutControls;
  var
-  w,h,left,right,bottom,navH,navW,locationsH,chipWidth,tableTop,footer,nameY,slotW:single;
+  w,h,left,right,bottom,navH,navW,gripHeight,maxLocationsH,locationsH:single;
+  chipWidth,tableTop,footer,nameY,slotW:single;
   i:integer;
  procedure Place(e:TUIElement;x,y,w,h:single);
  begin
@@ -1888,15 +1876,19 @@ implementation
   Place(navigationPanel,8,8,navW,navH);
   driveBar.SetPos(0,0);
   TDriveBar(driveBar).Arrange(navW);
-  locationsH:=Math.Min(LOCATIONS_DEFAULT_HEIGHT,navH*0.30);
-  if locationsHeight>0 then locationsH:=locationsHeight;
-  // trimmed for this pass only: locationsHeight stays, a taller dialog gets it back
-  locationsH:=Math.Max(Math.Min(locationsH,LocationsLimit),
-    Math.Min(LOCATIONS_MIN_HEIGHT,LocationsLimit));
-  Place(directoryOutline,0,36,navW,navH-locationsH-44);
-  Place(locationsList,0,navH-locationsH,navW,locationsH);
-  Place(locationsSplitter,0,navH-locationsH-LOCATIONS_GAP-(LOCATIONS_GRAB-LOCATIONS_GAP)/2,
-    navW,LOCATIONS_GRAB);
+  Place(navigationLists,0,DRIVE_AREA_HEIGHT,navW,navH-DRIVE_AREA_HEIGHT);
+  gripHeight:=Math.Min(LOCATIONS_GAP,navigationLists.clientHeight);
+  locationsPane.SetPaddings(0,gripHeight,0,0);
+  maxLocationsH:=Math.Max(0.0,navigationLists.clientHeight-gripHeight-TREE_MIN_HEIGHT);
+  locationsPane.minSize.y:=gripHeight+Math.Min(LOCATIONS_MIN_HEIGHT,maxLocationsH);
+  locationsPane.maxSize.y:=gripHeight+maxLocationsH;
+  if locationsPane.maxSize.y>locationsPane.minSize.y then locationsPane.SetResizable(gripHeight)
+   else locationsPane.SetResizable(0);
+  locationsH:=EffectiveLocationsHeight;
+  directoryOutline.Resize(navW,-1);
+  locationsPane.Resize(navW,locationsH+gripHeight);
+  locationsList.Resize(navW,locationsH);
+  navigationLists.layout.Layout(navigationLists);
   left:=navW+8+NAV_GAP; right:=w-8;
   previewPanel.flags.visible:=HasVisibleChild(previewPanel);
   optionsPanel.flags.visible:=HasVisibleChild(optionsPanel);
@@ -1967,9 +1959,12 @@ implementation
   result:=(p.x>=r.x2) and (p.x<r.x2+NAV_GAP) and (p.y>=r.y1) and (p.y<r.y2);
  end;
 
- function TUIFileDialog.LocationsLimit:single;
+ function TUIFileDialog.EffectiveLocationsHeight:single;
  begin
-  result:=Math.Max(0.0,navigationPanel.size.y-44-TREE_MIN_HEIGHT);
+  result:=locationsHeight;
+  if result=0 then result:=Math.Min(LOCATIONS_DEFAULT_HEIGHT,navigationPanel.clientHeight*0.30);
+  result:=Clamp(result,locationsPane.minSize.y-locationsPane.padding.Top,
+    locationsPane.maxSize.y-locationsPane.padding.Top);
  end;
 
  procedure TUIFileDialog.DragNavigation;
@@ -1984,47 +1979,20 @@ implementation
   LayoutControls;
  end;
 
- procedure TUIFileDialog.DragLocations;
+ procedure LocationsResized(event:TEventStr;tag:TTag);
  var
-  h:single;
+  dialog:TUIFileDialog;
+  pane:TUIElement;
+  height:single;
  begin
-  // the list's top edge follows the mouse: dragging down makes the list shorter
-  if curMouseY=locationsDragY then locationsHeight:=locationsDragPreferred
-  else begin
-   h:=locationsDragHeight-(curMouseY-locationsDragY)/navigationPanel.globalScale;
-   h:=Math.Max(Math.Min(h,LocationsLimit),Math.Min(LOCATIONS_MIN_HEIGHT,LocationsLimit));
-   locationsHeight:=h;
-  end;
-  LayoutControls;
- end;
-
- procedure TLocationsSplitter.onMouseMove;
- begin
-  inherited;
-  if dialog.locationsDrag then
-   if hooked=self then dialog.DragLocations
-    else dialog.locationsDrag:=false; // the capture is lost
- end;
-
- procedure TLocationsSplitter.onMouseButtons(button:byte;state:boolean);
- begin
-  inherited;
-  if button<>1 then exit;
-  if state then begin
-   if hooked<>nil then exit;
-   dialog.locationsDrag:=true;
-   dialog.locationsDragY:=curMouseY;
-   dialog.locationsDragHeight:=dialog.locationsList.size.y;
-   dialog.locationsDragPreferred:=dialog.locationsHeight;
-   hooked:=self;
-  end else
-   if dialog.locationsDrag then begin
-    if hooked=self then begin
-     dialog.DragLocations; // the mouse may have moved since the last frame
-     hooked:=nil;
-    end;
-    dialog.locationsDrag:=false;
-   end;
+  // The resize signal is synchronous and the pane still holds the window thread's capture.
+  pane:=hooked;
+  if (tag<>1) or (pane=nil) or (event<>'UI\'+pane.name+'\Resize') then exit;
+  dialog:=DialogOf(pane);
+  if (dialog=nil) or (dialog.locationsPane<>pane) then exit;
+  height:=pane.clientHeight;
+  // A click or a drag back to the effective height keeps the original preference.
+  if Abs(height-dialog.EffectiveLocationsHeight)>0.001 then dialog.locationsHeight:=height;
  end;
 
  procedure TUIFileDialog.onMouseMove;
@@ -2548,7 +2516,7 @@ implementation
   index:=PathIndex(recentFolders,path);
   if index=0 then exit;
   if index>0 then RemovePath(recentFolders,index);
-  PrependPath(recentFolders,path);
+  recentFolders.Insert(0,path);
   SetLength(recentFolders,Math.Min(12,length(recentFolders)));
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
@@ -2561,12 +2529,12 @@ implementation
   selectedPath:String8;
  begin
   list:=TLocationsList(locationsList);
-  selectedPath:=LocationPath(list.RowTag(list.selected));
-  oldScroll:=list.ScrollPos;
   if reset then begin
-   list.paths:=nil;
    selectedPath:='';
    oldScroll:=0;
+  end else begin
+   selectedPath:=LocationPath(list.RowTag(list.selected));
+   oldScroll:=list.ScrollPos;
   end;
   // Favorites lead, the newest first; then the recent ones. A new favorite moves to its
   // place at once, so the star always shows where the entry went.
@@ -2609,19 +2577,6 @@ implementation
   if (tag>=0) and (tag<length(list.paths)) then result:=list.paths[tag];
  end;
 
- procedure TUIFileDialog.ShowLocation(const path:String8);
- var
-  i:integer;
-  list:TLocationsList;
- begin
-  list:=TLocationsList(locationsList);
-  for i:=0 to list.RowCount-1 do
-   if SamePath(LocationPath(list.RowTag(i)),path) then begin
-    list.ScrollToRow(i);
-    exit;
-   end;
- end;
-
  procedure TUIFileDialog.LocationAction(tag:NativeInt;remove:boolean);
  var
   path:String8;
@@ -2639,12 +2594,12 @@ implementation
   end else begin
    index:=PathIndex(favoriteFolders,path);
    if index<0 then begin
-    PrependPath(favoriteFolders,path); // the newest favorite leads the list
+    favoriteFolders.Insert(0,path); // the newest favorite leads the list
     added:=true;
    end else RemovePath(favoriteFolders,index);
   end;
   BuildLocations;
-  if added then ShowLocation(path);
+  if added then locationsList.selected:=0;
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
@@ -2665,10 +2620,10 @@ implementation
   if fFolder='' then exit;
   index:=PathIndex(favoriteFolders,fFolder);
   added:=index<0;
-  if added then PrependPath(favoriteFolders,fFolder) // the newest favorite leads the list
+  if added then favoriteFolders.Insert(0,fFolder) // the newest favorite leads the list
    else RemovePath(favoriteFolders,index);
   BuildLocations;
-  if added then ShowLocation(fFolder);
+  if added then locationsList.selected:=0;
   if Assigned(onLocationsChanged) then onLocationsChanged;
  end;
 
@@ -3087,6 +3042,7 @@ implementation
  end;
 
 initialization
+ SetEventHandler('UI\'+LOCATIONS_PANE_NAME,LocationsResized,emInstant);
  DefineToken('file-dialog-fill','&surface');
  DefineToken('file-dialog-panel','&surface-alt');
  DefineToken('file-dialog-header','&overlay');
