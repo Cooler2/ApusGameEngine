@@ -1154,9 +1154,18 @@ function TUILabel.Right(text:String8):TUILabel;
   end;
 
  function TUIWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
+  const
+   CORNER_LENGTH=18; // units along each frame edge that resize both axes
   var
    c:byte;
    r:TRect;
+   border,corner,xSide,ySide:integer;
+  function Edge(pos,extent,band,lowSide,highSide:integer):integer;
+   begin
+    if pos<band then exit(lowSide);
+    if pos>=extent-band then exit(highSide);
+    result:=0;
+   end;
   begin
    result:=0; cur:=CursorID.Default;
    r:=GetPosOnScreen;
@@ -1171,14 +1180,18 @@ function TUILabel.Right(text:String8):TUILabel;
     exit;
    end;
    if resizeable then begin
-    if x<wcFrameBorder then inc(result,wcLeftFrame);
-    if y<wcFrameBorder then inc(result,wcTopFrame);
-    if x+wcFrameBorder>=r.Width then inc(result,wcRightFrame);
-    if y+wcFrameBorder>=r.Height then inc(result,wcBottomFrame);
-    if (result=0) and (y<header) then inc(result,wcHeader);
-   end else begin
-    if y<header then inc(result,wcHeader);
+    border:=round(wcFrameBorder*globalScale);
+    corner:=round(CORNER_LENGTH*globalScale);
+    xSide:=Edge(x,r.Width,border,wcLeftFrame,wcRightFrame);
+    ySide:=Edge(y,r.Height,border,wcTopFrame,wcBottomFrame);
+    // A corner extends along either frame edge, leaving the client and caption usable.
+    if (xSide=0) and (ySide<>0) then
+     xSide:=Edge(x,r.Width,Apus.Core.Min(corner,r.Width div 2),wcLeftFrame,wcRightFrame)
+    else if (ySide=0) and (xSide<>0) then
+     ySide:=Edge(y,r.Height,Apus.Core.Min(corner,r.Height div 2),wcTopFrame,wcBottomFrame);
+    result:=xSide or ySide;
    end;
+   if (result=0) and (y<header) then result:=wcHeader;
    if result=0 then inc(result,wcClient);
 
    c:=0;

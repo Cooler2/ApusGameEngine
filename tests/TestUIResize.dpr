@@ -1,7 +1,6 @@
 // Mouse resize of UI elements: a resizable edge of an element (TUIElement.SetResizable), a
-// splitter (TUISplitter.canResize) and the navigation column of the file dialog. The mouse goes
-// straight into the window's dispatch (DispatchMouseMove/DispatchMouseButton), no rendering:
-// layouters run by hand.
+// splitter (TUISplitter.canResize), and the navigation column and places list of the file dialog.
+// Mouse events go straight into DispatchMouseMove/DispatchMouseButton. Layouters run without rendering.
 {$APPTYPE CONSOLE}
 program TestUIResize;
 uses
@@ -43,9 +42,10 @@ type
     procedure Layout(item:TUIElement); override;
   end;
 
-  // the navigation column of the file dialog is protected
+  // expose the protected navigation state
   TTestDialog=class(TUIFileDialog)
     function NavRect:TRect2;
+    function PreferredPlacesHeight:single;
   end;
 
 var
@@ -81,6 +81,11 @@ procedure TProbe.onMouseButtons(button:byte;state:boolean);
 function TTestDialog.NavRect:TRect2;
  begin
   result:=navigationPanel.GetRectInParentSpace;
+ end;
+
+function TTestDialog.PreferredPlacesHeight:single;
+ begin
+  result:=locationsHeight;
  end;
 
 procedure ResizeSignal(event:TEventStr;tag:TTag);
@@ -462,6 +467,104 @@ procedure TestFileDialog;
   EndTest;
  end;
 
+procedure TestFileDialogPlaces;
+ var
+  area,pane,tree,list:TUIElement;
+  d:TTestDialog;
+  grip:TRect;
+  x,y,bottom:integer;
+  initialHeight,preferredHeight:single;
+ begin
+  StartTest('File dialog: the places list');
+  area:=NewArea;
+  d:=TTestDialog.Create(700,540,area,'FDPlaces');
+  d.SetPos(10,10,pivotTopLeft);
+  pane:=d.FindChildByName('FileDialogLocations\FDPlaces');
+  tree:=d.FindChildByName('FDPlaces\Directories');
+  list:=d.FindChildByName('FDPlaces\Locations');
+  grip:=pane.GetPosOnScreen;
+  x:=(grip.Left+grip.Right) div 2;
+  y:=grip.Top+4;
+  bottom:=grip.Bottom;
+  initialHeight:=list.size.y;
+  Down(x,y);
+  Check(hooked=pane,'the padding takes the resize gesture');
+  MoveTo(x,y-32);
+  pane.parent.layout.Layout(pane.parent);
+  Check(Near(list.size.y,initialHeight+32),'the list grows while dragging');
+  Check(pane.GetPosOnScreen.Bottom=bottom,'the bottom stays fixed');
+  Check(tree.GetPosOnScreen.Bottom=pane.GetPosOnScreen.Top,'the tree fills the space above');
+  wnd.mousePos:=Point(x,y-60); // final mouse position first seen on release
+  Up;
+  preferredHeight:=initialHeight+60;
+  Check(Near(d.PreferredPlacesHeight,preferredHeight),'the release saves the final height');
+
+  d.Resize(700,260);
+  Check(list.size.y<preferredHeight,'the list is trimmed in a short dialog');
+  Check(Near(tree.size.y,100),'the tree keeps its minimum height');
+  y:=pane.GetPosOnScreen.Top+4;
+  Down(x,y);
+  Up;
+  Check(Near(d.PreferredPlacesHeight,preferredHeight),'a click keeps the preferred height');
+  Down(x,y);
+  MoveTo(x,y+30);
+  MoveTo(x,y);
+  Up;
+  Check(Near(d.PreferredPlacesHeight,preferredHeight),'a drag back keeps the preferred height');
+  d.Resize(700,58);
+  Check(Near(list.size.y,0),'a very short navigation area leaves no room for the list');
+  d.Resize(700,540);
+  Check(Near(list.size.y,preferredHeight),'the preferred height is restored');
+
+  y:=pane.GetPosOnScreen.Top+4;
+  Drag(x,y,x,y-1000);
+  pane.parent.layout.Layout(pane.parent);
+  Check(Near(tree.size.y,100),'a growing list stops at the tree minimum');
+  y:=pane.GetPosOnScreen.Top+4;
+  Drag(x,y,x,y+1000);
+  pane.parent.layout.Layout(pane.parent);
+  Check(Near(list.size.y,40),'a shrinking list stops at its minimum');
+  FreeArea(area);
+  EndTest;
+ end;
+
+procedure TestWindowCorners;
+ var
+  area:TUIElement;
+  frame:TUIWindow;
+  r:TRect;
+  cur:NativeInt;
+  x,y:integer;
+  w,h:single;
+ begin
+  StartTest('Window frame: corner resize zones');
+  area:=NewArea;
+  frame:=TUIWindow.Create(160,100,true,area,'CornerFrame');
+  frame.SetPos(45,55,pivotTopLeft);
+  r:=frame.GetPosOnScreen;
+  Check((frame.GetAreaType(r.Left+12,r.Top+2,cur)=wcLeftFrame+wcTopFrame) and
+    (cur=CursorID.ResizeNWSE),'top-left along the top edge');
+  Check((frame.GetAreaType(r.Right-2,r.Top+12,cur)=wcRightFrame+wcTopFrame) and
+    (cur=CursorID.ResizeNESW),'top-right along the right edge');
+  Check((frame.GetAreaType(r.Left+2,r.Bottom-12,cur)=wcLeftFrame+wcBottomFrame) and
+    (cur=CursorID.ResizeNESW),'bottom-left along the left edge');
+  Check((frame.GetAreaType(r.Right-12,r.Bottom-2,cur)=wcRightFrame+wcBottomFrame) and
+    (cur=CursorID.ResizeNWSE),'bottom-right along the bottom edge');
+  Check(frame.GetAreaType(r.Left+40,r.Top+2,cur)=wcTopFrame,'the middle of the top edge stays one-axis');
+  Check(frame.GetAreaType(r.Left+12,r.Top+12,cur)=wcHeader,'the nearby caption still moves the window');
+  Check(frame.GetAreaType(r.Right-12,r.Bottom-12,cur)=wcClient,'the nearby client stays available');
+
+  area.SetScale(2);
+  r:=frame.GetPosOnScreen;
+  x:=r.Right-26; y:=r.Bottom-8;
+  Check(frame.GetAreaType(x,y,cur)=wcRightFrame+wcBottomFrame,'the frame and corner scale together');
+  w:=frame.size.x; h:=frame.size.y;
+  Drag(x,y,x+48,y+32);
+  Check(Near(frame.size.x,w+24) and Near(frame.size.y,h+16),'a diagonal drag changes both dimensions');
+  FreeArea(area);
+  EndTest;
+ end;
+
 procedure Setup;
  begin
   {$IFDEF FPC}{$WARN 4046 OFF}{$ELSE}{$WARN CONSTRUCTING_ABSTRACT OFF}{$ENDIF} // constructing a class with abstract methods: they are never called here
@@ -489,6 +592,8 @@ begin
   TestCustomLayout;
   TestSplitter;
   TestFileDialog;
+  TestFileDialogPlaces;
+  TestWindowCorners;
   writeln;
   writeln(Format('Tests: %d, failed: %d',[testsTotal,testsFailed]));
   if testsFailed>0 then ExitCode:=1;
