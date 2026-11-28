@@ -316,7 +316,7 @@ begin
   ApplyTheme('dark');
   Check(ResolveBlockColor(b,'color',0)=$FF303038,'dark surface');
   ApplyTheme('light');
-  Check(ResolveBlockColor(b,'color',0)=$FFB0B0C0,'light surface');
+  Check(ResolveBlockColor(b,'color',0)=$FFECEEF2,'light surface');
   b.Free;
   r0:=stylesRevision;
   SetToken('z','1');

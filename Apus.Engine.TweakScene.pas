@@ -143,6 +143,11 @@ begin
  listbox:=TUIListbox.Create(300,h*3+2,ui,'Tweaker\List',h);
  listBox.SetPos(10,10);
  listbox.bgColor:=$60303030;
+ listbox.textColor:=$E0D0D0D0;
+ listbox.bgHoverColor:=0;
+ listbox.hoverTextColor:=$FFD8D8D8;
+ listbox.bgSelColor:=$90406070;
+ listbox.selTextColor:=$FFF0F0F0;
  listBox.SetAnchors(0,0,1,0);
 end;
 

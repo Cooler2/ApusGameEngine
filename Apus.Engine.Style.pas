@@ -47,7 +47,7 @@
 //   text-align [inh]     left | center | right | justify
 //   text-shadow [inh]    '<color> [dx dy]' | none — a second text layer under the first
 //                        (dx,dy in logical units, 1 1 by default); replaces toWithShadow
-//   disabled-effect [inh]  emboss | none; buttons/checkboxes default to emboss, others to none
+//   disabled-effect [inh]  emboss | none; stock push buttons default to none
 //                        dims content and derives a highlight from its color and a known solid
 //                        surface; the highlight offset is 1 1 screen pixels at every UI scale;
 //                        explicit disabled colors, text-shadow and border-light take priority
@@ -57,6 +57,16 @@
 //   text-offset-x/y      caption shift, logical units (state-able: ':pressed { text-offset-y:1 }')
 //   tint                 TUIImage image tint (content image, not inherited)
 //   tick-color           checkbox/radio mark
+//   focus-color          focus outline (button, checkbox, table)
+//   placeholder-color    edit box placeholder and completion text
+//   selection-fill      selected text or row background (edit box, list, table)
+//   selection-color     selected text or row foreground (edit box, list, table)
+//   caret-color         edit box caret (defaults to the text color)
+//   caret-width         edit box caret width in logical units (automatic if omitted)
+//   arrow-color         combo box arrow (defaults to the caption color)
+//   row-hover-fill      list or table hovered row background
+//   row-hover-color     list hovered row text
+//   hint-fill           simple hint background color
 //  Scrollbar:
 //   color (slider), track-color, active-color, track-width, slider-width, min-size,
 //   radius, variant (flat)
@@ -1588,32 +1598,34 @@ function ResolveBlockFill(block:TStyleBlock; const key:String8; const defVal:TFi
 procedure RegisterBuiltinThemes;
  begin
   DefineTheme('light',[
-   'surface=$FFB0B0C0', 'surface-alt=$FFC8C8D0', 'overlay=$FFE0E0DC',
-   'text=$FF202020', 'text-muted=$FF808080', 'text-on-accent=$FFFFFFFF',
+   'surface=$FFECEEF2', 'surface-alt=$FFE2E5EA', 'overlay=$FFD9DDE5',
+   'text=$FF202020', 'text-muted=$FF606574', 'text-on-accent=$FFFFFFFF',
    'border=$FF000000', 'border-light=$FFE8E8E8', 'border-dark=$FF606060',
-   'control=$FFB0A0C0',
+   'control=$FFDEE1E8', 'control-border=$FF585D69', 'input=$FFF5F6F9',
    'accent=$FF3060C0', 'accent-text=$FFFFFFFF',
    'danger=$FFC04040', 'danger-text=$FFFFFFFF',
    'success=$FF40A040', 'success-text=$FFFFFFFF',
    'warning=$FFD0A030', 'warning-text=$FF202020',
-   'focus=$80FFFF80', 'shadow=$50000000']);
+   'focus=$FF2856A9', 'shadow=$50000000']);
   DefineTheme('dark',[
    'surface=$FF303038', 'surface-alt=$FF383840', 'overlay=$FF404048',
    'text=$FFE0E0E0', 'text-muted=$FF909090', 'text-on-accent=$FFFFFFFF',
    'border=$FF101010', 'border-light=$FF606068', 'border-dark=$FF101014',
-   'control=$FF505060',
-   'accent=$FF5080E0', 'accent-text=$FFFFFFFF',
+   'control=$FF505060', 'control-border=$FF787986', 'input=$FF24242C',
+   'accent=$FF4070C8', 'accent-text=$FFFFFFFF',
    'danger=$FFD05050', 'danger-text=$FFFFFFFF',
    'success=$FF50B050', 'success-text=$FFFFFFFF',
    'warning=$FFE0B040', 'warning-text=$FF202020',
-   'focus=$80FFFF80', 'shadow=$A0000000']);
+   'focus=$FF8CB2FF', 'shadow=$A0000000']);
  end;
 
 initialization
  fillLock.Init('StyleFills',820);
  Styles:=TStyleCatalog.Create;
+ SetDefaultToken('control-border','&border-light');
+ SetDefaultToken('input','&surface-alt');
  RegisterBuiltinThemes;
- ApplyTheme('light'); // sensible default; no existing UI references tokens yet
+ ApplyTheme('light');
 
 finalization
  Styles.Free;

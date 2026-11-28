@@ -26,7 +26,7 @@ interface
 implementation
  uses Types, Apus.EventMan, Apus.Lib, Apus.Strings,
    Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI,
-   Apus.Engine.UIShapes, Apus.Engine.UIScene, Apus.Engine.SceneEffects;
+   Apus.Engine.UIShapes, Apus.Engine.UIScene, Apus.Engine.SceneEffects, Apus.Engine.Style;
 
  const
   MODE_MSG = 1;
@@ -174,7 +174,7 @@ constructor TMessageScene.Create;
   wnd.SetPos(window.canvasWidth/2,window.canvasHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
   wnd.flags.manualDraw:=true;
-  wnd.styleInfo:='border-color:FFD0D8E0; radius:8; fill:FFC0C8D0';
+  wnd.styleInfo:='@message-dialog';
 
   btnOk:=TUIButton.Create(90,35,wnd,'Message\OK').Setup('Ok');
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
@@ -253,6 +253,7 @@ procedure TMessageScene.Render;
   x:integer;
   y,s:single;
   line:String8;
+  bodyColor,titleColor:cardinal;
  begin
   // Draw background
   r:=wnd.GetPosOnScreen;
@@ -262,20 +263,25 @@ procedure TMessageScene.Render;
   s:=ContentScale;
   x:=r.CenterPoint.X;
   y:=r.Top+40*s;
+  bodyColor:=wnd.GetStyleColor('color',$FF202020);
   if title<>'' then begin
-   txt.Write(msgTitleFont,x,round(y),$FF402000,title,TTextAlignment.taCenter);
+   titleColor:=wnd.GetStyleColor('title-color',bodyColor);
+   txt.Write(msgTitleFont,x,round(y),titleColor,title,TTextAlignment.taCenter);
    y:=y+40*s;
   end else
    y:=y+8*s;
 
   for line in lines do begin
-   txt.Write(msgMainFont,x,round(y),$FF202020,line,TTextAlignment.taCenter);
+   txt.Write(msgMainFont,x,round(y),bodyColor,line,TTextAlignment.taCenter);
    y:=y+30*s;
   end;
   // Buttons and child elements
   inherited;
  end;
 
+initialization
+ Styles['message-dialog']:='fill:&surface-alt; border-color:&control-border; border-width:1; '+
+   'radius:8; color:&text; box-shadow:&shadow 2 3 6';
 end.
 
 

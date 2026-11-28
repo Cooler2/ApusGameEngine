@@ -690,6 +690,10 @@ constructor TInspectorScene.Create(wnd:TWindow);
 
   enumList:=TInspectorEnumList.Create(100,100,UI,'_InspectorEnum',ROW_HEIGHT);
   enumList.bgColor:=COLOR_BACK;
+  enumList.textColor:=COLOR_TEXT;
+  enumList.bgHoverColor:=COLOR_HOVER;
+  enumList.bgSelColor:=COLOR_SELECTED;
+  enumList.selTextColor:=COLOR_TEXT;
   enumList.autoSelectMode:=false;
   enumList.order:=$10000; // stay on top
   enumList.flags.visible:=false;

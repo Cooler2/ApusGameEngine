@@ -53,6 +53,28 @@ written anywhere, that is a defect of the engine: report it, do not just work ar
 | Command-line `name=value` parameters | `Apus.Utils`: `GetParam` | |
 | Automated GUI tests | `Apus.Engine.RobotAPI` | `robot_api_protocol.md` |
 
+### Standard widget themes
+
+Call `ApplyTheme('dark')` or `ApplyTheme('light')` from `Apus.Engine.Style` to select the
+palette. Standard widgets resolve their style tokens when drawing. The theme switch in
+`demo/UILab` applies both palettes to the same controls.
+
+| Widget | Style keys |
+| --- | --- |
+| Label and button | `color`. Buttons also use `fill`, `border-color` and `focus-color`. |
+| Checkbox and radio button | `color` for the caption, `border-color` for the indicator, `tick-color` for the mark, `focus-color` for the focus outline. |
+| Edit box | `fill` and `border-color` come from `&input` and `&control-border`. Use `placeholder-color` for placeholder and completion text, `selection-fill` and `selection-color` for selected text, and `caret-color` and `caret-width` for the caret. The caret width is in logical units. |
+| Combo box | Same default box as the edit box. `arrow-color` defaults to the caption color. Use `frame.style` for the popup box and `popup.style` for the rows. |
+| List box | `fill` for the background, `color` for the rows, `row-hover-fill` and `row-hover-color` for the hovered row, `selection-fill` and `selection-color` for the selected row. Explicit color fields override the row styles or paint `bgColor` over the box. Set a field to `clDefault` to use the style. |
+| Scrollbar | `color` for the thumb, `track-color` for the track, `:hover { color: ... }` for a hovered thumb, and `active-color` while dragging. |
+| Simple hint | `hint-fill`, `border-color`, and `color`. A hint picks up the palette when shown. |
+| `MessageScene` | The `message-dialog` named style supplies the box and `color`. `title-color` can override the title separately. |
+
+Use `element.style.SetAttr` to change individual keys on a stock widget. Assigning
+`styleInfo` replaces its current style block. `DefineTheme` accepts semantic tokens for an
+application palette. `input` defaults to `&surface-alt` and `control-border` to `&border-light`
+when omitted from an application theme.
+
 ## 3. Conventions you cannot guess
 
 - **UI element names are identifiers.** Letters, digits, `_` and `\`; no spaces, no

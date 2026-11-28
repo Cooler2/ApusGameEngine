@@ -65,14 +65,8 @@ implementation
      source:=element.parent;
    text:=source.caption;
    if text='' then exit;
-   if source is TUIButton then begin
-    // No default per-caption press nudge: button.scroll already shifts content.
-    ts:=ResolveUITextStyle(source,clBlack,taCenter,0,$FF300000);
-   end else begin
-    if source is TUILabel then
-     ts:=ResolveUITextStyle(source,$FF808080,TUILabel(source).align)
+   if (source is TUIButton) or (source is TUILabel) then ts:=ResolveStockCaptionStyle(source)
     else ts:=ResolveUITextStyle(source,$FF808080,taCenter);
-   end;
    if source<>element then begin
     // Caption/state come from the parent; the child keeps its own
     // font overrides and render scale through the ordinary style cascade.

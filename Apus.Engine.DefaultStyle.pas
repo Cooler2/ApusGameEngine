@@ -124,6 +124,8 @@ uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UI, Apus.Engine.
  function ResolveUITextStyle(element:TUIElement;defColor:cardinal;
    defAlign:TTextAlignment=taLeft;defOptions:cardinal=0;
    defHoverColor:cardinal=0;defDisabledColor:cardinal=0;defPressOfsY:single=0):TUITextStyle;
+ // Resolve a button or label caption with the standard drawer's palette and alignment.
+ function ResolveStockCaptionStyle(element:TUIElement):TUITextStyle;
  // Draw a resolved TUITextStyle, including its offsets and shadow. x is the
  // alignment anchor and y the baseline in screen pixels; targetWidth controls
  // text layout, for example justification. The caller supplies any clipping.
@@ -254,6 +256,14 @@ implementation
  function IsStandardButton(element:TUIElement):boolean;
   begin
    result:=(element is TUIButton) and element.GetClassAttribute('defaultProceduralButtonChrome',false);
+  end;
+
+ function ThemeColor(const token:String8;fallback:cardinal):cardinal;
+  var value:String8;
+  begin
+   value:=ExpandToken(GetToken(token));
+   if value='' then exit(fallback);
+   result:=ParseStyleColor(value);
   end;
 
  // Resolve only a known solid surface. Images, gradients, shades and translucent
@@ -507,6 +517,7 @@ implementation
    lines:Strings8;
    i,h,iWidth,iHeight,dw,lw:integer;
    font:TFontHandle;
+   bodyColor,shadowColor:cardinal;
   begin
    font:=hnt.StyleFont;
    if font=0 then font:=defaultHintFont;
@@ -537,17 +548,20 @@ implementation
     try
      gfx.target.Mask(true,true); // may potentially break drawing of the following elements
      gfx.target.Clear(0,-1,-1);
-     draw.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
-     draw.Rect(0,0,iwidth-3,iheight-3,$FF000000);
+     draw.FillRect(0,0,iwidth-3,iheight-3,GetStyleColor('hint-fill',ThemeColor('surface-alt',$FFFFFFD0)));
+     draw.Rect(0,0,iwidth-3,iheight-3,GetStyleColor('border-color',ThemeColor('control-border',clBlack)));
      // shadow
-     draw.Line(1,iHeight-2,iwidth-2,iheight-2,$50000000);
-     draw.Line(iwidth-2,iheight-2,iwidth-2,0.5,$50000000);
-     draw.Line(2,iHeight-1,iwidth-1,iheight-1,$28000000);
-     draw.Line(iwidth-1,iheight-2,iwidth-1,1.5,$28000000);
+     shadowColor:=ThemeColor('shadow',$50000000);
+     draw.Line(1,iHeight-2,iwidth-2,iheight-2,shadowColor);
+     draw.Line(iwidth-2,iheight-2,iwidth-2,0.5,shadowColor);
+     shadowColor:=Color.Scale(shadowColor,0.5);
+     draw.Line(2,iHeight-1,iwidth-1,iheight-1,shadowColor);
+     draw.Line(iwidth-1,iheight-2,iwidth-1,1.5,shadowColor);
      gfx.target.UnMask;
-     // rich text: SML markup ({B}, {C=...}, ...) is honored; default color $D0000000 unless overridden by {C=...}
+     // SML markup can override the text color for individual runs.
+     bodyColor:=GetStyleColor('color',ThemeColor('text',$D0000000));
      for i:=0 to high(lines) do
-      txt.Write(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,lines[i],taLeft,toComplexText);
+      txt.Write(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),bodyColor,lines[i],taLeft,toComplexText);
     finally
      gfx.EndPaint;
     end;
@@ -633,15 +647,14 @@ implementation
     end;
   end;
 
- procedure DrawUILabel(control:TUILabel;x1,y1,x2,y2:integer;context:TContext);
+ procedure DrawUILabel(control:TUILabel);
   var
    mY,targetWidth:integer;
    wst:String32;
    r:TRect;
    ts:TTextStyle;
   begin
-   // control.align is the default: 'text-align' in the style overrides it
-   ts:=ResolveTextStyle(control,context,$FF808080,control.align);
+   ts:=ResolveStockCaptionStyle(control);
    with control do begin
      r:=GetClientPosOnScreen;
      gfx.clip.Rect(r);
@@ -672,7 +685,7 @@ implementation
    context:=element.styleContext as TContext;
 
    baseCol:=element.GetBaseStyleColor('border-color',$FF808080);
-   ts:=ResolveTextStyle(element,context,baseCol);
+   ts:=ResolveTextStyle(element,context,ThemeColor('text',baseCol));
    ts.align:=taLeft;
    // Explicit disabled colors take precedence over automatic emboss dimming.
    col:=element.GetBlendedStyleColor('border-color',baseCol);
@@ -759,7 +772,7 @@ implementation
    WriteStyled(ts,x1,y,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
-     draw.Rect(x1,y1,x2,y2,col xor $808080);
+     draw.Rect(x1,y1,x2,y2,element.GetStyleColor('focus-color',ThemeColor('focus',col xor $808080)));
   end;
 
  procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext;drawCaption:boolean);
@@ -783,29 +796,26 @@ implementation
        c:=control.GetBaseStyleColor('border-light',$60000000);
        c2:=control.GetBaseStyleColor('border-dark',$80FFFFFF);
        draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // outer frame
-       if av>=1 then { pressed, no inner frame }
-        else if dv<1 then begin // enabled
-          c:=Color.Mix(control.GetBaseStyleColor('border-light',$A0FFFFFF),
-                       control.GetStateStyleColor('hover','border-light',$A0FFFFFF),hv);
-          c2:=Color.Mix(control.GetBaseStyleColor('border-dark',$70000000),
-                        control.GetStateStyleColor('hover','border-dark',$70000000),hv);
-          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
-        end else begin // disabled
-          c:=control.GetStateStyleColor('disabled','border-light',$A0FFFFFF);
-          c2:=control.GetStateStyleColor('disabled','border-dark',$70000000);
-          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
-        end;
+       if av<1 then begin
+        c:=control.GetBaseStyleColor('border-light',$A0FFFFFF);
+        c2:=control.GetBaseStyleColor('border-dark',$70000000);
+        c:=Color.Mix(c,control.GetStateStyleColor('hover','border-light',c),hv);
+        c2:=Color.Mix(c2,control.GetStateStyleColor('hover','border-dark',c2),hv);
+        c:=Color.Mix(c,control.GetStateStyleColor('disabled','border-light',c),dv);
+        c2:=Color.Mix(c2,control.GetStateStyleColor('disabled','border-dark',c2),dv);
+        draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
+       end;
        // focus ring (a skin expresses focus via ':focused { background-image }')
        if (FocusedElement=control) or
           (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
-        draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
+        draw.Rect(x1-1,y1-1,x2+1,y2+1,control.GetStyleColor('focus-color',ThemeColor('focus',$80FFFF80)));
       end;
       // The caption and child widgets share the same client-content displacement.
       // Explicit text-offset values remain an additional caption-only adjustment.
       if drawCaption and (caption<>'') and
          not SameText(control.GetStyleValue('caption-display'),'none') then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       ts:=ResolveTextStyle(control,context,clBlack,taCenter,0,$FF300000);
+       ts:=ResolveStockCaptionStyle(control);
        localRect:=GetRect;
        localRect.MoveBy(-scroll.X,-scroll.Y);
        captionRect:=TransformToScreen(localRect).Rounded;
@@ -1157,7 +1167,7 @@ implementation
    capH,caretW,caretTop,caretBottom:integer;
    font:TFontHandle;
    col:cardinal;
-   step:single;
+   step,caretWidth:single;
    pos,cpos:SingleArray;
   // caret before character i, from the text start (the ink start of the first glyph)
   function CaretX(i:integer):integer;
@@ -1178,7 +1188,7 @@ implementation
    end;
   begin
    font:=control.StyleFont;
-   col:=control.GetStyleColor('color',$FF202020);
+   col:=control.GetBlendedStyleColor('color',ThemeColor('text',$FF202020));
    with control do begin
     wst:=realtext;
     if password then begin
@@ -1191,7 +1201,8 @@ implementation
     my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
     // Default text? (same left margin as the real text)
     if realtext.IsEmpty and (not defaultText.IsEmpty) and (FocusedElement<>control) then begin
-     txt.WriteW(font,x1+round((y2-y1)*0.15)+offset,mY,Color.Mix(col,$00808080,160),defaultText,taLeft,toDontTranslate);
+     txt.WriteW(font,x1+round((y2-y1)*0.15)+offset,mY,
+      GetStyleColor('placeholder-color',Color.Mix(col,$00808080,160)),defaultText,taLeft,toDontTranslate);
      gfx.clip.Restore;
      exit;
     end;
@@ -1230,7 +1241,8 @@ implementation
      rest:=copy(completion,length(wst),length(completion)-length(wst));
      txt.PenPositions(font,rest,cpos);
      j:=xStart+round(pos[txtLen]-cpos[0]); // the completion goes on from the pen
-     txt.WriteW(font,j+offset,mY,Color.Mix(col,$00808080,160),rest,taLeft,toDontTranslate);
+     txt.WriteW(font,j+offset,mY,GetStyleColor('placeholder-color',Color.Mix(col,$00808080,160)),
+      rest,taLeft,toDontTranslate);
     end;
     j:=xStart+offset;
     // the font's line (not the box): the caret and the selection span it
@@ -1245,12 +1257,12 @@ implementation
     if selX2>selX1 then begin
      // The whole string is drawn each time with the same layout, only clipped differently:
      // separately drawn parts would start at rounded positions and shift the glyphs
-     draw.FillRect(selX1,caretTop,selX2-1,caretBottom,$FF4488CC); // selection highlight
+     draw.FillRect(selX1,caretTop,selX2-1,caretBottom,GetStyleColor('selection-fill',$FF4488CC));
      gfx.clip.Rect(Rect(x1,y1,selX1,y2));
      txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
      gfx.clip.Restore;
      gfx.clip.Rect(Rect(selX1,y1,selX2,y2));
-     txt.WriteW(font,j,mY,$FFFFFFFF,wst,taLeft,toDontTranslate);
+     txt.WriteW(font,j,mY,GetStyleColor('selection-color',$FFFFFFFF),wst,taLeft,toDontTranslate);
      gfx.clip.Restore;
      gfx.clip.Rect(Rect(selX2,y1,x2,y2));
      txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
@@ -1258,9 +1270,11 @@ implementation
     end else
      txt.WriteW(font,j,mY,col,wst,taLeft,toDontTranslate);
     if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // cursor
-     caretW:=Max(1,round(capH/12)); // thicker with the font size
+     caretWidth:=GetStyleNumber('caret-width');
+     if caretWidth>0 then caretW:=Max(1,round(caretWidth*globalScale))
+      else caretW:=Max(1,round(capH/12));
      curX:=j+i-(caretW+1) div 2; // centered on the glyph boundary
-     draw.FillRect(curX,caretTop,curX+caretW-1,caretBottom,col);
+     draw.FillRect(curX,caretTop,curX+caretW-1,caretBottom,GetStyleColor('caret-color',col));
     end;
     gfx.clip.Restore;
    end;
@@ -1269,13 +1283,23 @@ implementation
  procedure DrawUIListBox(control:TUIListBox;x1,y1,x2,y2:integer);
   var
    i,lY:integer;
-   c:cardinal;
+   c,rowText,hoverText,selectionText,hoverFill,selectionFill:cardinal;
    scrollPos,lineH:single;
    font:TFontHandle;
+  function ListColor(const key:String8;legacy,fallback:cardinal):cardinal;
+   begin
+    if legacy<>clDefault then exit(legacy);
+    result:=control.GetBaseStyleColor(key,fallback);
+   end;
   begin
    font:=control.StyleFont;
    with control do begin
-     if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
+     if (bgColor<>clDefault) and (bgColor<>0) then draw.FillRect(x1,y1,x2,y2,bgColor);
+     rowText:=ListColor('color',textColor,ThemeColor('text',$E0D0D0D0));
+     hoverText:=ListColor('row-hover-color',hoverTextColor,rowText);
+     selectionText:=ListColor('selection-color',selTextColor,ThemeColor('accent-text',$FFF0F0F0));
+     hoverFill:=ListColor('row-hover-fill',bgHoverColor,ThemeColor('overlay',0));
+     selectionFill:=ListColor('selection-fill',bgSelColor,ThemeColor('accent',$90406070));
      if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
       else scrollPos:=0;
       gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
@@ -1285,14 +1309,14 @@ implementation
        if lY+lineH<y1 then continue;
        if lY>y2 then break;
        if i=selectedLine then begin
-        draw.FillRect(x1,lY,x2,round(lY+lineH),bgSelColor);
-        c:=selTextColor;
+        draw.FillRect(x1,lY,x2,round(lY+lineH)-1,selectionFill);
+        c:=selectionText;
        end else
        if i=hoverLine then begin
-        draw.FillRect(x1,lY,x2,round(lY+lineH),bgHoverColor);
-        c:=hoverTextColor;
+        draw.FillRect(x1,lY,x2,round(lY+lineH)-1,hoverFill);
+        c:=hoverText;
        end else
-        c:=textColor;
+        c:=rowText;
        txt.Write(font,x1+4,lY+round(lineH*0.73),c,lines[i],taLeft,toComplexText);
       end;
      gfx.clip.Restore;
@@ -1409,37 +1433,33 @@ implementation
  procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox;context:TContext);
   var
    st:string8;
-   i,cx,cy:integer;
+   i,cx,cy,pad,arrowW,arrowH:integer;
    c:cardinal;
    ts:TTextStyle;
   begin
-   if (undermouse=combo) or combo.frame.flags.visible then
-    draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFFFFFFF,$FFE0E0DC,true)
-   else
-    draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFE0E0DC,$FFFFFFFF,true);
-
-   draw.RRect(x1,y1,x2,y2,$80000000,1);
-   if FocusedElement=combo then
-    draw.RRect(x1,y1,x2,y2,$90A00000);
    with combo do begin
-    if (length(items)>0) and (curItem>=0) and (curItem<=high(items)) or
-       (curItem<0) and (defaultText<>'') then begin
-     gfx.clip.Rect(Rect(x1+1,y1+1,x2-21,y2-1));
-     if curItem>=0 then st:=items[curItem]
-      else st:=defaultText;
-     ts:=ResolveTextStyle(combo,context,$FF000000);
+    ts:=ResolveTextStyle(combo,context,ThemeColor('text',clBlack));
+    pad:=round(5*globalScale);
+    arrowW:=Max(1,round(4*globalScale));
+    arrowH:=Max(1,round(2*globalScale));
+    cx:=x2-pad-arrowW;
+    cy:=(y1+y2+1-Max(1,round(globalScale))) div 2;
+    c:=GetBlendedStyleColor('arrow-color',ts.color);
+    if frame.flags.visible then arrowH:=-arrowH;
+    if (curItem>=0) and (curItem<=high(items)) then st:=items[curItem]
+     else st:=defaultText;
+    if (st<>'') and (cx-arrowW-pad>x1+pad) then begin
+     gfx.clip.Rect(Rect(x1+pad,y1+1,cx-arrowW-pad,y2));
      ts.align:=taLeft;
-     WriteStyled(ts,x1+5,round(y2*0.7+y1*0.3),st);
+     WriteStyled(ts,x1+pad,round((y1+y2)*0.5+txt.Height(ts.font)*0.45),st);
      gfx.clip.Restore;
     end;
-    // Arrow
-    cx:=x2-round((y2-y1)*0.4);
-    cy:=(y1+y2) div 2-1;
-    c:=$FF000000;
-    for i:=0 to 2 do begin
-     draw.Line(cx,cy+2+i,cx-4,cy-2+i,c);
-     draw.Line(cx,cy+2+i,cx+4,cy-2+i,c);
+    gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
+    for i:=0 to Max(1,round(globalScale))-1 do begin
+     draw.Line(cx,cy+arrowH+i,cx-arrowW,cy-arrowH+i,c);
+     draw.Line(cx,cy+arrowH+i,cx+arrowW,cy-arrowH+i,c);
     end;
+    gfx.clip.Restore;
    end;
   end;
 
@@ -1671,7 +1691,7 @@ implementation
     result:=true;
     if state='hover' then f:=cur.Add($101010) else
     if (state='checked') or (state='pressed') then f:=cur.Sub($282020) else
-    if state='disabled' then f:=cur.MixWith($FFA0A0A0,0.5) else
+    if state='disabled' then f:=cur.MixWith(ThemeColor('surface-alt',$FFA0A0A0),0.5) else
      result:=false;
    end;
   begin
@@ -1996,7 +2016,7 @@ implementation
    else
    // Label
    if element is TUILabel then
-    DrawUILabel(element as TUILabel,x1,y1,x2,y2,context)
+    DrawUILabel(element as TUILabel)
    else
    // Button, toggle button (tabs, segmented controls: toggled=pressed)
    if IsStandardButton(element) then
@@ -2006,8 +2026,10 @@ implementation
     DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
    else
    // Frame
-   if (element.ClassType=TUIFrame) or (element is TUIComboPopup) then
-    DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
+   if (element.ClassType=TUIFrame) or (element is TUIComboPopup) then begin
+    if (element.ClassType=TUIFrame) or (element.GetBaseStyleNumber('border-width')=0) then
+     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2);
+   end
    else
    // Arbitrary image
    if element.ClassType=TUIImage then
@@ -2076,6 +2098,14 @@ implementation
    end;
   end;
 
+ function ResolveStockCaptionStyle(element:TUIElement):TUITextStyle;
+  begin
+   if element is TUILabel then
+    exit(ResolveUITextStyle(element,ThemeColor('text',$FF808080),TUILabel(element).align));
+   // The button's scroll already moves the caption together with its children.
+   result:=ResolveUITextStyle(element,ThemeColor('text',clBlack),taCenter,0,0,ThemeColor('text-muted',0));
+  end;
+
  procedure WriteUIText(const style:TUITextStyle;x,y:single;const text:String8;targetWidth:integer);
   begin
    WriteStyled(style,x,y,text,targetWidth);
@@ -2107,16 +2137,36 @@ function TContext.GetImage(const src:String8):TTexture;
   imgTex[n]:=result;
  end;
 
+const
+ INPUT_BOX_STYLE='border-width:1; radius:3; border-color:&control-border; fill:&input; '+
+   ':hover { border-color:&focus; } :focused { border-color:&focus; } '+
+   ':disabled { fill:&surface-alt; border-color:&control-border; color:&text-muted; }';
+
 initialization
  imageLock.Init('StyleImages',820);
  RegisterUIStyle(0,DefaultDrawer,'Default');
  StyleImageResolver:=ResolveFillImage;
- TUIButton.SetDefault('disabledEffect','emboss');
  TUIButton.SetDefault('proceduralButtonChrome',true);
+ TUIButton.SetDefault('styleInfo','fill:&control; fill-shade:none; radius:3; border-width:1; '+
+   'border-color:&control-border; border-light:0; border-dark:0; '+
+   ':checked { fill:&accent; color:&accent-text; } '+
+   ':disabled { fill:&surface-alt; color:&text-muted; }');
  TUICheckBox.SetDefault('proceduralButtonChrome',false);
+ TUICheckBox.SetDefault('disabledEffect','emboss');
+ TUICheckBox.SetDefault('styleInfo','border-color:&control-border; tick-color:&text; disabled-effect:none; '+
+   ':hover { border-color:&focus; } '+
+   ':disabled { color:&text-muted; border-color:&text-muted; tick-color:&text-muted; }');
  TUIComboBox.SetDefault('proceduralButtonChrome',false);
+ TUIComboBox.SetDefault('styleInfo',INPUT_BOX_STYLE);
+ TUIComboPopup.SetDefault('styleInfo','fill:&surface-alt; border-color:&control-border; border-width:1; '+
+   'radius:3; box-shadow:&shadow 2 3 4');
  TUIMenuItem.SetDefault('proceduralButtonChrome',false);
- TUIEditBox.SetDefault('styleInfo','border-width:1; radius:3; border-color:8000; fill:8FFF');
+ TUIMenuItem.SetDefault('disabledEffect','emboss');
+ TUIEditBox.SetDefault('styleInfo',INPUT_BOX_STYLE+
+   'placeholder-color:&text-muted; selection-fill:&accent; selection-color:&accent-text; '+
+   'caret-color:&focus; caret-width:1.5');
+ TUIScrollBar.SetDefault('styleInfo','color:&control-border; track-color:&surface-alt; active-color:&focus; '+
+   ':hover { color:&text-muted; }');
  TUIPopupMenu.SetDefault('styleInfo','fill:&surface-alt; border-color:&border-dark; border-width:1; radius:3; '+
    'color:&text; box-shadow:&shadow 2 3 4');
  TUIMenuItem.SetDefault('styleInfo','radius:2; hover-time:0; '+

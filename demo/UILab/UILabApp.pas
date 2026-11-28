@@ -1,9 +1,7 @@
 ﻿// UI Lab — interactive demo for the Apus Game Engine UI subsystem.
 //
 // Focus: behaviour of widgets and layouters (NOT visual styling).
-// Styles/themes are intentionally left at engine defaults; the only theme
-// switch here flips the scene background through a single point (ApplyTheme),
-// so a real engine-level theme can be wired in later without touching pages.
+// The theme switch applies the engine palette to the existing widgets.
 //
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -24,7 +22,8 @@ interface
 
 implementation
  uses SysUtils, Apus.Core, Apus.Geom2D, Apus.EventMan, Apus.Colors, Apus.Strings, Apus.Files,
-   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.UITable, Apus.Engine.UIFileDialog, Apus.Engine.SceneEffects;
+   Apus.Engine.Types, Apus.Engine.UI, Apus.Engine.UIShapes, Apus.Engine.Style,
+   Apus.Engine.UITable, Apus.Engine.UIFileDialog, Apus.Engine.MessageScene, Apus.Engine.SceneEffects;
 
  type
   TUILabScene=class(TUIScene)
@@ -51,9 +50,7 @@ implementation
   themeBtn:TUIButton;       // bottom sidebar button; used as a geometry anchor
   darkTheme:boolean=true;
   themeBg:cardinal;         // single source of truth for the background color
-  sideBarBgTop:cardinal;    // dedicated sidebar gradient top color
-  sideBarBgBottom:cardinal; // dedicated sidebar gradient bottom color
-  sideBarBorder:cardinal;   // separator line between sidebar and content
+  sideBarBg:cardinal;
   folderTable:TUITable;     // Table page: the listing of folderPath
   folderInfo:TUILabel;      // Table page: the folder and the selected or activated row
   folderPath:String8;       // Table page: the folder shown, '' - the drive roots
@@ -63,26 +60,18 @@ implementation
 
 // --- Theme -------------------------------------------------------------------
 
- // The ONLY place that knows theme colors. A future engine theme hooks in here.
- procedure ApplyTheme;
+ procedure ApplyLabTheme;
   begin
-   if darkTheme then begin
-    themeBg:=$FF202830;
-    sideBarBgTop:=$FF20323E;
-    sideBarBgBottom:=$FF2C4054;
-    sideBarBorder:=$A0C8D8E8;
-   end else begin
-    themeBg:=$FFC8D0D8;
-    sideBarBgTop:=$FFF3E7D2;
-    sideBarBgBottom:=$FFD7C2A7;
-    sideBarBorder:=$90A07854;
-   end;
+   if darkTheme then ApplyTheme('dark')
+    else ApplyTheme('light');
+   themeBg:=ParseStyleColor(ExpandToken('&surface'));
+   sideBarBg:=ParseStyleColor(ExpandToken('&surface-alt'));
   end;
 
  procedure ThemeToggleClick;
   begin
    darkTheme:=not darkTheme;
-   ApplyTheme;
+   ApplyLabTheme;
    if darkTheme then UIButton('Lab\Theme').Setup('Theme: Dark')
     else UIButton('Lab\Theme').Setup('Theme: Light');
   end;
@@ -397,8 +386,13 @@ implementation
  // Manual hint at the cursor; rich SML markup is honoured by BuildSimpleHint.
  procedure ShowManualHint;
   begin
-   ShowSimpleHint('{B}Manual hint{/B} via {C=8cd0ff}ShowSimpleHint{/C}.~'+
+   ShowSimpleHint('{B}Manual hint{/B} via ShowSimpleHint.~'+
      'Stays a few seconds, supports {I}markup{/I}.',nil,-1,-1,4000);
+  end;
+
+ procedure ShowQuestion;
+  begin
+   Ask('[Confirmation]~Apply these settings?','','');
   end;
 
  procedure PageHints;
@@ -432,8 +426,9 @@ implementation
    col:=CreateVerticalContainer(280,content,0,8,false,'');
    col.SetPos(320,40);
    TUILabel.Create(260,18,col).Setup('Manual hint (ShowSimpleHint):');
-   TUIButton.Create(260,30,col,'').Setup('Show hint now').onClick:=@ShowManualHint;
+   TUIButton.Create(260,30,col,'Lab\ShowHint').Setup('Show hint now').onClick:=@ShowManualHint;
    TUILabel.Create(260,36,col).Setup('Appears at the cursor, fades out.');
+   TUIButton.Create(260,30,col,'Lab\ShowQuestion').Setup('Open confirmation').onClick:=@ShowQuestion;
   end;
 
 // --- Page: Table -------------------------------------------------------------
@@ -655,7 +650,7 @@ procedure TUILabApp.CreateScenes;
 
 procedure TUILabScene.InitGfx;
  begin
-  ApplyTheme;
+  ApplyLabTheme;
 
   // Left sidebar: vertical tab stack. Scales to many tabs without crowding a top bar.
   tabsPanel:=TUIGroupBox.Create(sideBarWidth-12,UI.clientHeight-48,UI,'Lab\Tabs');
@@ -663,11 +658,11 @@ procedure TUILabScene.InitGfx;
   tabsPanel.SetAnchors(anchorLeft); // left/top fixed, bottom follows window height
   tabsPanel.layout:=TRowLayout.CreateVertical(6);
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Layouts',true).onClick:=@TabLayouts;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('States').onClick:=@TabStates;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Input').onClick:=@TabInput;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'Lab\StatesTab').Setup('States').onClick:=@TabStates;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'Lab\InputTab').Setup('Input').onClick:=@TabInput;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Scroll').onClick:=@TabScroll;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Out-of-order').onClick:=@TabOutOfOrder;
-  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Hints').onClick:=@TabHints;
+  TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'Lab\HintsTab').Setup('Hints').onClick:=@TabHints;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'').Setup('Table').onClick:=@TabTable;
   TUIToggleButton.Create(sideBarWidth-24,30,tabsPanel,'Lab\FilesTab').Setup('Files').onClick:=@TabFiles;
 
@@ -690,7 +685,7 @@ procedure TUILabScene.Render;
  begin
   gfx.target.Clear(themeBg);
   xPos:=content.globalRect.Left;
-  draw.FillGradrect(0,0,xPos-1,window.canvasHeight-1,sideBarBgTop,sideBarBgBottom,false);
+  draw.FillRect(0,0,xPos-1,window.canvasHeight-1,sideBarBg);
   if (freeSlider<>nil) and (sliderValLabel<>nil) then
    sliderValLabel.Setup('Value: '+IntToStr(round(freeSlider.value)));
   inherited;

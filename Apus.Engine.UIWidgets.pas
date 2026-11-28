@@ -416,7 +416,7 @@ interface
    selectedLine:integer; // index of selected line (or -1)
    hoverLine:integer; // index of line under mouse (or -1)
    autoSelectMode:boolean; // when true, hover line is automatically selected
-   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // rendering colors (R-05: move to style)
+   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // clDefault uses the style
    constructor Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0);
    destructor Destroy; override;
    procedure AddLine(line:String8;tag:cardinal=0;hint:String8=''); virtual;
@@ -2178,15 +2178,13 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    scrollBar.horizontal:=false;
    scrollBar.flags.noParentClip:=true;
    scrollerV:=scrollBar.GetScroller;
-   bgColor:=0;
-   textColor:=$E0D0D0D0;
-   bgHoverColor:=0;
-   hoverTextColor:=$FFD8D8D8;
-   bgSelColor:=$90406070;
-   selTextColor:=$FFF0F0F0;
+   bgColor:=clDefault;
+   textColor:=clDefault;
+   bgHoverColor:=clDefault;
+   hoverTextColor:=clDefault;
+   bgSelColor:=clDefault;
+   selTextColor:=clDefault;
    autoSelectMode:=false;
-   // R-05: expose list colors via style for theming (drawers still use the direct fields above)
-   style.Assign('color:$E0D0D0D0; :hover { color:$FFD8D8D8; } :selected { fill:$90406070; color:$FFF0F0F0; }');
    UpdateScroller;
   end;
 
@@ -2544,13 +2542,6 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    frame:=TUIComboPopup.Create(size.x,2,self,'_UIFrame',1);
    frame.combo:=self;
    popup:=TUIListBox.Create(size.x-2,0,frame,'_ComboBoxPopUp',20);
-  // popup.autoSelectMode:=true;
-   popup.bgColor:=$FFFFFFFF;
-   popup.textColor:=$FF000000;
-   popup.bgHoverColor:=$FF405090;
-   popup.hoverTextColor:=$FFFFFFFF;
-   popup.bgSelColor:=$FF405090;
-   popUp.selTextColor:=$FFFFFFFF;
 
    SetEventHandler('UI\ListBox\onSelect\_ComboBoxPopUp',ComboEventHandler,emInstant); // commit on line click
   end;

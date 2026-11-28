@@ -41,11 +41,11 @@ interface
   end;
 
  const
-  STYLEDEMO_PALETTE:array[0..19] of String8=(
+  STYLEDEMO_PALETTE:array[0..21] of String8=(
    'surface','surface-alt','overlay',
    'text','text-muted','text-on-accent',
    'border','border-light','border-dark',
-   'control',
+   'control','control-border','input',
    'accent','accent-text',
    'danger','danger-text',
    'success','success-text',
