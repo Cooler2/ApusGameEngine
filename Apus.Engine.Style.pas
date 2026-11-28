@@ -1601,7 +1601,7 @@ procedure RegisterBuiltinThemes;
    'surface=$FFECEEF2', 'surface-alt=$FFE2E5EA', 'overlay=$FFD9DDE5',
    'text=$FF202020', 'text-muted=$FF606574', 'text-on-accent=$FFFFFFFF',
    'border=$FF000000', 'border-light=$FFE8E8E8', 'border-dark=$FF606060',
-   'control=$FFDEE1E8', 'control-border=$FF585D69', 'input=$FFF5F6F9',
+   'control=$FFDEE1E8', 'control-border=$FF585D69', 'input=$FFF5F6F9', 'button-text-shadow=$90FFFFFF',
    'accent=$FF3060C0', 'accent-text=$FFFFFFFF',
    'danger=$FFC04040', 'danger-text=$FFFFFFFF',
    'success=$FF40A040', 'success-text=$FFFFFFFF',
@@ -1624,6 +1624,7 @@ initialization
  Styles:=TStyleCatalog.Create;
  SetDefaultToken('control-border','&border-light');
  SetDefaultToken('input','&surface-alt');
+ SetDefaultToken('button-text-shadow','&shadow');
  RegisterBuiltinThemes;
  ApplyTheme('light');
 

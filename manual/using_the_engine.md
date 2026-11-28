@@ -61,7 +61,7 @@ palette. Standard widgets resolve their style tokens when drawing. The theme swi
 
 | Widget | Style keys |
 | --- | --- |
-| Label and button | `color`. Buttons also use `fill`, `border-color` and `focus-color`. |
+| Label and button | `color`. Buttons also use `fill`, `fill-shade`, `border-color`, `box-shadow`, `text-shadow` and `focus-color`. `:pressed` removes the stock drop shadow, and `content-press-offset` controls how far the caption and children move down. |
 | Checkbox and radio button | `color` for the caption, `border-color` for the indicator, `tick-color` for the mark, `focus-color` for the focus outline. |
 | Edit box | `fill` and `border-color` come from `&input` and `&control-border`. Use `placeholder-color` for placeholder and completion text, `selection-fill` and `selection-color` for selected text, and `caret-color` and `caret-width` for the caret. The caret width is in logical units. |
 | Combo box | Same default box as the edit box. `arrow-color` defaults to the caption color. Use `frame.style` for the popup box and `popup.style` for the rows. |

@@ -2147,10 +2147,13 @@ initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
  StyleImageResolver:=ResolveFillImage;
  TUIButton.SetDefault('proceduralButtonChrome',true);
- TUIButton.SetDefault('styleInfo','fill:&control; fill-shade:none; radius:3; border-width:1; '+
-   'border-color:&control-border; border-light:0; border-dark:0; '+
-   ':checked { fill:&accent; color:&accent-text; } '+
-   ':disabled { fill:&surface-alt; color:&text-muted; }');
+ // Inset the hard shadow by the corner radius so only one pixel shows below the rounded plate.
+ TUIButton.SetDefault('styleInfo','fill:&control; fill-shade:linear(180deg,$16FFFFFF,$18000000); '+
+   'radius:3; border-width:1; border-color:$33000000; border-light:0; border-dark:0; '+
+   'box-shadow:&shadow 0 4 0 -3; text-shadow:&button-text-shadow 1 1; '+
+   ':checked { fill:&accent; color:&accent-text; box-shadow:none; text-shadow:&shadow 1 1; } '+
+   ':pressed { fill-shade:linear(180deg,$18000000,$0AFFFFFF); box-shadow:none; } '+
+   ':disabled { fill:&surface-alt; color:&text-muted; fill-shade:none; box-shadow:none; text-shadow:none; }');
  TUICheckBox.SetDefault('proceduralButtonChrome',false);
  TUICheckBox.SetDefault('disabledEffect','emboss');
  TUICheckBox.SetDefault('styleInfo','border-color:&control-border; tick-color:&text; disabled-effect:none; '+

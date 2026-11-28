@@ -114,6 +114,49 @@ begin
   EndTest;
 end;
 
+procedure TestStockButtonRelief;
+var
+  b:TUIButton;
+  r:TRect;
+  xc:integer;
+  textStyle:TUITextStyle;
+begin
+  StartTest('Stock button relief and press');
+  b:=TUIButton.Create(70,40,root);
+  try
+    b.SetPos(565,10,pivotTopLeft);
+    b.style.SetAttr('press-time','0');
+    b.style.SetAttr('release-time','0');
+    DrawElement(b);
+    r:=b.globalRect;
+    xc:=r.CenterPoint.X;
+    gfx.CopyFromBackbuffer(0,0,img);
+    Check(Color.Lightness(Pixel(xc,r.Top+5))>Color.Lightness(Pixel(xc,r.Bottom-6)),
+      'raised fill is lighter at the top');
+    CheckPixel(xc,r.Bottom,Color.Blend(BG,ParseStyleColor(ExpandToken('&shadow'))),'shadow below the button');
+    CheckPixel(xc,r.Bottom+round(b.globalScale),BG,'shadow is one logical pixel deep');
+    CheckPixel(r.Left,r.Bottom,BG,'shadow stays inside the rounded corners');
+    textStyle:=ResolveStockCaptionStyle(b);
+    Check((textStyle.shadowColor<>0) and (textStyle.shadowX=b.globalScale) and
+      (textStyle.shadowY=b.globalScale),'caption shadow offset is (1,1) logical pixels');
+
+    draw.FillRect(r.Left,r.Top,r.Right-1,r.Bottom+round(b.globalScale),BG);
+    b.pressed:=true;
+    DrawElement(b);
+    gfx.CopyFromBackbuffer(0,0,img);
+    Check(Color.Lightness(Pixel(xc,r.Top+5))<Color.Lightness(Pixel(xc,r.Bottom-6)),
+      'pressed fill is darker at the top');
+    CheckPixel(xc,r.Bottom,BG,'pressed button has no drop shadow');
+    Check(b.scroll.Y=-1,'pressed caption and children are one logical pixel lower');
+    b.pressed:=false;
+    DrawElement(b);
+    Check(b.scroll.Y=0,'released content returns to its resting position');
+  finally
+    b.Free;
+  end;
+  EndTest;
+end;
+
 // A gradient fill with a border and rounded corners
 procedure TestGradientBox;
 var
@@ -577,6 +620,7 @@ begin
       // the cross-fade test clears the target: it goes first
       TestCrossFade;
       TestDefaultButton;
+      TestStockButtonRelief;
       TestGradientBox;
       TestTranslucentBorder;
       TestCornerRadii;
