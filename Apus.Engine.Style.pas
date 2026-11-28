@@ -57,7 +57,7 @@
 //   text-offset-x/y      caption shift, logical units (state-able: ':pressed { text-offset-y:1 }')
 //   tint                 TUIImage image tint (content image, not inherited)
 //   tick-color           checkbox/radio mark
-//   focus-color          focus outline (button, checkbox, table)
+//   focus-color          focused button border, checkbox/radio indicator or table row outline
 //   placeholder-color    edit box placeholder and completion text
 //   selection-fill      selected text or row background (edit box, list, table)
 //   selection-color     selected text or row foreground (edit box, list, table)

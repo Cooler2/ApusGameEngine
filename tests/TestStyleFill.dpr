@@ -119,6 +119,7 @@ var
   b:TUIButton;
   r:TRect;
   xc:integer;
+  restBorder:cardinal;
   textStyle:TUITextStyle;
 begin
   StartTest('Stock button relief and press');
@@ -131,6 +132,7 @@ begin
     r:=b.globalRect;
     xc:=r.CenterPoint.X;
     gfx.CopyFromBackbuffer(0,0,img);
+    restBorder:=Pixel(xc,r.Top);
     Check(Color.Lightness(Pixel(xc,r.Top+5))>Color.Lightness(Pixel(xc,r.Bottom-6)),
       'raised fill is lighter at the top');
     CheckPixel(xc,r.Bottom,Color.Blend(BG,ParseStyleColor(ExpandToken('&shadow'))),'shadow below the button');
@@ -151,6 +153,20 @@ begin
     b.pressed:=false;
     DrawElement(b);
     Check(b.scroll.Y=0,'released content returns to its resting position');
+
+    window.focus.element:=b;
+    try
+      DrawElement(b);
+      gfx.CopyFromBackbuffer(0,0,img);
+      CheckPixel(xc,r.Top,ParseStyleColor(ExpandToken('&focus')),'focus recolors the plate border');
+      CheckPixel(xc,r.Top-1,BG,'focus stays inside the button bounds');
+      b.style.SetAttr('focus-color','0');
+      DrawElement(b);
+      gfx.CopyFromBackbuffer(0,0,img);
+      CheckPixel(xc,r.Top,restBorder,'a zero focus color keeps the regular border');
+    finally
+      window.focus.element:=nil;
+    end;
   finally
     b.Free;
   end;

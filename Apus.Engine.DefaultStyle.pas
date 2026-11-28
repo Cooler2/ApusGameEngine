@@ -674,7 +674,7 @@ implementation
     '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
-   col,vColor,baseCol,baseTick,lightColor:cardinal;
+   col,vColor,baseCol,baseTick,lightColor,focusColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size,captionLeft:integer;
    v,ss,tt,alpha,lightX,lightY:single;
@@ -691,6 +691,11 @@ implementation
    col:=element.GetBlendedStyleColor('border-color',baseCol);
    if ts.disabledEmboss and (element.GetStateStyleValue('disabled','border-color')='') then
     col:=Color.Mix(col,DimEmbossColor(col,ts.emboss.dimRGB),ts.disabled);
+   if (FocusedElement=element) and element.IsEnabled and
+     (element.GetStateStyleValue('focused','border-color')='') then begin
+    focusColor:=element.GetStyleColor('focus-color',ThemeColor('focus',col xor $808080));
+    if focusColor shr 24<>0 then col:=focusColor;
+   end;
    if element.classType=TUICheckBox then baseTick:=Color.Add(baseCol,$808080)
     else baseTick:=baseCol;
    baseTick:=element.GetBlendedStyleColor('tick-color',baseTick);
@@ -771,8 +776,6 @@ implementation
    gfx.clip.Rect(Rect(captionLeft,y1,x2,y2));
    WriteStyled(ts,x1,y,element.caption);
    gfx.clip.Restore;
-   if FocusedElement=element then
-     draw.Rect(x1,y1,x2,y2,element.GetStyleColor('focus-color',ThemeColor('focus',col xor $808080)));
   end;
 
  procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer;context:TContext;drawCaption:boolean);
@@ -805,10 +808,6 @@ implementation
         c2:=Color.Mix(c2,control.GetStateStyleColor('disabled','border-dark',c2),dv);
         draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end;
-       // focus ring (a skin expresses focus via ':focused { background-image }')
-       if (FocusedElement=control) or
-          (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
-        draw.Rect(x1-1,y1-1,x2+1,y2+1,control.GetStyleColor('focus-color',ThemeColor('focus',$80FFFF80)));
       end;
       // The caption and child widgets share the same client-content displacement.
       // Explicit text-offset values remain an additional caption-only adjustment.
@@ -1694,6 +1693,23 @@ implementation
     if state='disabled' then f:=cur.MixWith(ThemeColor('surface-alt',$FFA0A0A0),0.5) else
      result:=false;
    end;
+  procedure ResolveButtonFocus(button:TUIButton);
+   var
+    focused:boolean;
+    color:cardinal;
+   begin
+    if not button.IsEnabled then exit;
+    focused:=FocusedElement=button;
+    if focused then begin
+     if (button.GetStateStyleValue('focused','border-color')<>'') or
+        (button.GetStateStyleValue('focused','border-width')<>'') then exit;
+    end else
+     if not button.default or (FocusedElement is TUIButton) then exit;
+    color:=button.GetStyleColor('focus-color',ThemeColor('focus',$80FFFF80));
+    if color shr 24=0 then exit;
+    box.border.Init(TFill.Solid(color));
+    if box.borderWidth<=0 then box.borderWidth:=1;
+   end;
   begin
    FillChar(box,sizeof(box),0);
    box.rect:=element.globalRect;
@@ -1750,6 +1766,8 @@ implementation
     if ParseRadii(element.GetStateStyleValue(st[i].name,'radius'),r) then box.radii:=LerpRadii(box.radii,r,w);
     box.borderWidth:=Lerp(box.borderWidth,element.GetStateStyleNumber(st[i].name,'border-width',box.borderWidth),w);
    end;
+   // Recolor the same contour as the face. Image skins define their own focus appearance.
+   if isButton and (box.imageCount=0) then ResolveButtonFocus(TUIButton(element));
    // logical units -> pixels
    box.radii:=AdjustRadii(box.radii,scale,0);
    box.borderWidth:=box.borderWidth*scale;
@@ -2157,7 +2175,7 @@ initialization
  TUICheckBox.SetDefault('proceduralButtonChrome',false);
  TUICheckBox.SetDefault('disabledEffect','emboss');
  TUICheckBox.SetDefault('styleInfo','border-color:&control-border; tick-color:&text; disabled-effect:none; '+
-   ':hover { border-color:&focus; } '+
+   ':hover { border-color:&text-muted; } '+
    ':disabled { color:&text-muted; border-color:&text-muted; tick-color:&text-muted; }');
  TUIComboBox.SetDefault('proceduralButtonChrome',false);
  TUIComboBox.SetDefault('styleInfo',INPUT_BOX_STYLE);
